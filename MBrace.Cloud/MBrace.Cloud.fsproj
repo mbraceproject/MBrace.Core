@@ -42,9 +42,9 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ResourceResolver.fs" />
     <Compile Include="Cloud.fs" />
     <Compile Include="CloudBuilder.fs" />
-    <Compile Include="ResourceResolver.fs" />
     <Compile Include="Combinators.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>

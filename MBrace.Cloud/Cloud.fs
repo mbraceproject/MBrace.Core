@@ -1,16 +1,11 @@
 ﻿namespace Nessos.MBrace
 
-    /// Cloud resource runtime dependency resolver
-    type IResourceResolver =
-        /// Resolves resource of given type
-        abstract Resolve<'TResource> : unit -> 'TResource
-
     /// Execution context for continuation callbacks
     [<AutoSerializable(false)>]
     type Context<'T> =
         {
             /// Runtime cloud resource resolver
-            Resource : IResourceResolver
+            Resource : ResourceResolver
 
             /// Local cancellation token
             CancellationToken : System.Threading.CancellationToken
@@ -26,4 +21,4 @@
         }
 
     /// Cloud workflow of type T
-    type Cloud<'T> = internal Body of (Context<'T> -> unit)
+    and Cloud<'T> = internal Body of (Context<'T> -> unit)

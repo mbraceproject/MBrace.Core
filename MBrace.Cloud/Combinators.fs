@@ -20,6 +20,12 @@
                 ctx.ChoiceCont res)
 
         /// <summary>
+        ///     Try Getting resource from current execution context.
+        /// </summary>
+        static member TryGetResource<'TResource> () : Cloud<'TResource option> =
+            Body(fun ctx -> ctx.scont <| ctx.Resource.TryResolve<'TResource> ())
+
+        /// <summary>
         ///     Gets the current cancellation token.
         /// </summary>
         static member CancellationToken = Body(fun ctx -> ctx.scont ctx.CancellationToken)
@@ -61,13 +67,13 @@
         /// </summary>
         /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
         /// <param name="resources">Resource resolver to be used; defaults to no resources.</param>
-        static member RunLocalAsync(cloudWorkflow : Cloud<'T>, ?resources : IResourceResolver) : Async<'T> = async {
+        static member RunLocalAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceResolver) : Async<'T> = async {
             let! ct = Async.CancellationToken
             let tcs = new System.Threading.Tasks.TaskCompletionSource<'T>()
             let context = {
                 Resource = 
                     match resources with
-                    | None -> ResourceResolverFactory.CreateEmptyResolver ()
+                    | None -> ResourceResolver.Empty
                     | Some r -> r
 
                 CancellationToken = ct
@@ -90,6 +96,6 @@
         /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
         /// <param name="resources">Resource resolver to be used; defaults to no resources.</param>
         /// <param name="cancellationToken">Cancellation token to be used.</param>
-        static member RunLocal(cloudWorkflow : Cloud<'T>, ?resources : IResourceResolver, ?cancellationToken) : 'T =
+        static member RunLocal(cloudWorkflow : Cloud<'T>, ?resources : ResourceResolver, ?cancellationToken) : 'T =
             let wf = Cloud.RunLocalAsync(cloudWorkflow, ?resources = resources) 
             Async.RunSynchronously(wf, ?cancellationToken = cancellationToken)
