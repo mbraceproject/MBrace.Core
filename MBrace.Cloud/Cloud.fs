@@ -3,7 +3,7 @@
     open System
 
     type IResourceResolver =
-        abstract Resolve<'Eff> : unit -> 'Eff
+        abstract Resolve<'TResource> : unit -> 'TResource
 
     and Context<'T> =
         {
