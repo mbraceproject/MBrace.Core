@@ -16,12 +16,17 @@
                 | Choice1Of2 (Body f) -> f ctx
                 | Choice2Of2 e -> ctx.econt e
 
+            member inline ctx.IsCancellationRequested = ctx.CancellationToken.IsCancellationRequested
+            member inline ctx.Cancel() = ctx.ccont(new System.OperationCanceledException())
+
+
         let inline ret t = Body(fun ctx -> ctx.scont t)
         let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx -> ctx.econt e)
         let zero = ret ()
 
         let inline bind (Body f : Cloud<'T>) (g : 'T -> Cloud<'S>) : Cloud<'S> =
             Body(fun ctx ->
+                if ctx.IsCancellationRequested then ctx.Cancel() else
                 f {
                     Resource = ctx.Resource
                     CancellationToken = ctx.CancellationToken
@@ -37,6 +42,7 @@
 
         let inline tryWith (Body f : Cloud<'T>) (handler : exn -> Cloud<'T>) : Cloud<'T> =
             Body(fun ctx ->
+                if ctx.IsCancellationRequested then ctx.Cancel () else
                 f {
                     Resource = ctx.Resource
                     CancellationToken = ctx.CancellationToken
@@ -49,6 +55,8 @@
 
         let inline tryFinally (Body f : Cloud<'T>) (finalizer : unit -> unit) : Cloud<'T> =
             Body(fun ctx ->
+                if ctx.IsCancellationRequested then ctx.Cancel() else
+
                 f {
                     Resource = ctx.Resource
                     CancellationToken = ctx.CancellationToken
@@ -61,6 +69,8 @@
 
         let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
             Body(fun ctx ->
+                if ctx.IsCancellationRequested then ctx.Cancel() else
+
                 let disposer scont =
                     let wf = async { return! t.Dispose () }
                     Async.StartWithContinuations(wf, scont, ctx.econt, ctx.ccont, ctx.CancellationToken)

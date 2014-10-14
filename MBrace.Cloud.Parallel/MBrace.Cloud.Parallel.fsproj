@@ -49,8 +49,8 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="ResultAggregator.fs" />
     <Compile Include="Scheduler.fs" />
+    <Compile Include="ResultAggregator.fs" />
     <Compile Include="Combinators.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
