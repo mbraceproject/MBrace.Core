@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Cloud", "MBrace.Cloud\MBrace.Cloud.fsproj", "{80182C04-6E3C-486A-B3BF-0E617A837105}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Cloud.Parallel", "MBrace.Cloud.Parallel\MBrace.Cloud.Parallel.fsproj", "{47E57317-C820-4AD9-836C-FE131B00E504}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{80182C04-6E3C-486A-B3BF-0E617A837105}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{80182C04-6E3C-486A-B3BF-0E617A837105}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{80182C04-6E3C-486A-B3BF-0E617A837105}.Release|Any CPU.Build.0 = Release|Any CPU
+		{47E57317-C820-4AD9-836C-FE131B00E504}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{47E57317-C820-4AD9-836C-FE131B00E504}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{47E57317-C820-4AD9-836C-FE131B00E504}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47E57317-C820-4AD9-836C-FE131B00E504}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

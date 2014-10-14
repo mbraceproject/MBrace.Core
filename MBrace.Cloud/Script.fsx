@@ -1,5 +1,7 @@
 ﻿#r "../bin/MBrace.Cloud.dll"
 
+#nowarn "444"
+
 open Nessos.MBrace
 
 let test1 = cloud {
