@@ -1,13 +1,17 @@
 ﻿namespace Nessos.MBrace
 
     open System
+    open System.Threading
 
     type IResourceResolver =
         abstract Resolve<'TResource> : unit -> 'TResource
 
-    and Context<'T> =
+    [<AutoSerializable(false)>]
+    type Context<'T> =
         {
             Resource : IResourceResolver
+
+            CancellationToken : CancellationToken
 
             scont : 'T -> unit
             econt : exn -> unit

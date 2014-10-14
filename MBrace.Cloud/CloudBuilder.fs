@@ -24,6 +24,7 @@
             Body(fun ctx ->
                 f {
                     Resource = ctx.Resource
+                    CancellationToken = ctx.CancellationToken
                     
                     scont = fun t -> ctx.ChoiceCont (protect g t)
                     econt = ctx.econt
@@ -38,6 +39,7 @@
             Body(fun ctx ->
                 f {
                     Resource = ctx.Resource
+                    CancellationToken = ctx.CancellationToken
 
                     scont = ctx.scont
                     econt = fun e -> ctx.ChoiceCont (protect handler e)
@@ -49,6 +51,7 @@
             Body(fun ctx ->
                 f {
                     Resource = ctx.Resource
+                    CancellationToken = ctx.CancellationToken
 
                     scont = fun t -> match protect finalizer () with Choice1Of2 () -> ctx.scont t | Choice2Of2 e -> ctx.econt e
                     econt = fun e -> match protect finalizer () with Choice1Of2 () -> ctx.econt e | Choice2Of2 e' -> ctx.econt e'
