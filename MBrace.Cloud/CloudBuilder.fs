@@ -1,9 +1,9 @@
 ﻿namespace Nessos.MBrace
 
     [<AutoOpen>]
-    module private CloudBuilderUtils =
+    module internal CloudBuilderUtils =
 
-        let inline private protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
+        let inline protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
 
         type Context<'T> with
             member inline ctx.ChoiceCont (choice : Choice<'T,exn>) =
@@ -78,7 +78,7 @@
 
             delay loop
 
-
+    /// Cloud workflow expression builder
     type CloudBuilder () =
         member __.Return (t : 'T) = ret t
         member __.Zero () = zero
@@ -97,4 +97,5 @@
     [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module CloudBuilder =
         
+        /// cloud builder instance
         let cloud = new CloudBuilder ()
