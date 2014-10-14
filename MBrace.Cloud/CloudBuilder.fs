@@ -105,8 +105,8 @@
         member __.TryWith(f : Cloud<'T>, handler : exn -> Cloud<'T>) : Cloud<'T> = tryWith f handler
         member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = tryFinally f finalizer
 
-        member __.For(xs : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forM body xs
-        member __.For(xs : 'T list, body : 'T -> Cloud<unit>) : Cloud<unit> = forM body (List.toArray xs)
+        member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forM body ts
+        member __.For(ts : 'T list, body : 'T -> Cloud<unit>) : Cloud<unit> = forM body (List.toArray ts)
 
         [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 444)>]
         member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = whileM pred body
