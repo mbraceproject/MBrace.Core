@@ -9,11 +9,13 @@
         ///     Creates a cloud workflow that captures the current execution context.
         /// </summary>
         /// <param name="body">Execution body.</param>
+        [<CompilerMessage("'FromContinuations' only intended for runtime implementors.", 444)>]
         static member FromContinuations(body : Context<'T> -> unit) : Cloud<'T> = Body body
 
         /// <summary>
         ///     Gets resource from current execution context.
         /// </summary>
+        [<CompilerMessage("'GetResources' only intended for runtime implementors.", 444)>]
         static member GetResource<'TResource> () : Cloud<'TResource> =
             Body(fun ctx ->
                 let res = protect (fun () -> ctx.Resource.Resolve<'TResource> ()) ()
@@ -22,6 +24,7 @@
         /// <summary>
         ///     Try Getting resource from current execution context.
         /// </summary>
+        [<CompilerMessage("'GetResources' only intended for runtime implementors.", 444)>]
         static member TryGetResource<'TResource> () : Cloud<'TResource option> =
             Body(fun ctx -> ctx.scont <| ctx.Resource.TryResolve<'TResource> ())
 

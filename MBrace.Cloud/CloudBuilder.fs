@@ -59,6 +59,20 @@
                 }
             )
 
+        let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
+            Body(fun ctx ->
+                let disposer scont =
+                    let wf = async { return! t.Dispose () }
+                    Async.StartWithContinuations(wf, scont, ctx.econt, ctx.ccont, ctx.CancellationToken)
+
+                match protect g t with
+                | Choice1Of2 (Body g) ->
+                    g { ctx with 
+                            scont = fun s -> disposer (fun () -> ctx.scont s)
+                            econt = fun e -> disposer (fun () -> ctx.econt e) }
+                | Choice2Of2 e -> disposer (fun () -> ctx.econt e)
+            )
+
         let inline forM (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =
             let rec loop i () =
                 if i = ts.Length then ret ()
@@ -82,15 +96,18 @@
     type CloudBuilder () =
         member __.Return (t : 'T) = ret t
         member __.Zero () = zero
+        member __.Delay (f : unit -> Cloud<'T>) = delay f
         member __.ReturnFrom (c : Cloud<'T>) = c
         member __.Combine(f : Cloud<unit>, g : Cloud<'T>) = combine f g
         member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = bind f g
-        member __.Delay (f : unit -> Cloud<'T>) = delay f
+        member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = using value bindF
 
         member __.TryWith(f : Cloud<'T>, handler : exn -> Cloud<'T>) : Cloud<'T> = tryWith f handler
         member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = tryFinally f finalizer
 
         member __.For(xs : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forM body xs
+
+        [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 444)>]
         member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = whileM pred body
 
     [<AutoOpen>]

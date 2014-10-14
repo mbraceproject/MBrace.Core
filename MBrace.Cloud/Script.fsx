@@ -31,7 +31,26 @@ let whileLoop = cloud {
         incr cnt 
 }
 
+let disposable = 
+    { 
+        new ICloudDisposable with 
+            member __.Dispose () = async { printfn "disposed" }
+            member __.GetObjectData (_,_) = ()
+    }
+
+
+let disposableTest = cloud {
+    let! x = cloud {
+        use x = disposable
+
+//        return failwith "error"
+        return printfn "exit scope"
+    }
+    return printfn "exit"
+}
+
 Cloud.RunLocal test1
 Cloud.RunLocal (loop 0)
 Cloud.RunLocal forLoop
 Cloud.RunLocal whileLoop
+Cloud.RunLocal disposableTest
