@@ -104,7 +104,3 @@
             Async.RunSynchronously(wf, ?cancellationToken = cancellationToken)
 
 
-    type Async =
-        
-        static member StartWithCloudContext<'T> (ctx : Context<'T>) (workflow : Async<'T>) =
-            Async.StartWithContinuations
