@@ -18,19 +18,19 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\bin\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\MBrace.Cloud.Parallel.XML</DocumentationFile>
+    <DocumentationFile>..\bin\MBrace.Cloud.Parallel.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\bin\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\MBrace.Cloud.Parallel.XML</DocumentationFile>
+    <DocumentationFile>..\bin\MBrace.Cloud.Parallel.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -49,8 +49,8 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Scheduler.fs" />
-    <Compile Include="ResultAggregator.fs" />
+    <Compile Include="Runtime.fs" />
+    <Compile Include="InMemory.fs" />
     <Compile Include="Combinators.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>

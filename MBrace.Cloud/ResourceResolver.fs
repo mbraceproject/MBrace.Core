@@ -27,12 +27,14 @@
         static member Empty = new ResourceResolver(Map.empty)
 
     /// Factory type for defining resource resolution contexts
-    and ResourceResolverFactory () =
-        let index = ref Map.empty<string, obj>
+    and ResourceResolverFactory private (index : Map<string, obj>) =
 
-        /// Add a new resource of type T; this will overwrite any existing instances of similar type
-        member __.Register<'T>(resource : 'T) = index := Map.add key<'T> (box resource) !index
+        /// creates an empty resource resolver factory
+        static member Empty = new ResourceResolverFactory(Map.empty)
+
+        /// Creates a new Resolver factory with an appended resource
+        member __.Register<'T>(resource : 'T) = new ResourceResolverFactory(Map.add key<'T> (box resource) index)
         /// Generates an immutable ResourceResolver with given registrations
-        member __.GetResolver () = new ResourceResolver(!index)
+        member __.GetResolver () = new ResourceResolver(index)
         /// Gets all resources currently registered with factory.
-        member __.InstalledResources = !index |> Map.toSeq |> Seq.map fst |> Seq.toList
+        member __.InstalledResources = index |> Map.toSeq |> Seq.map fst |> Seq.toList

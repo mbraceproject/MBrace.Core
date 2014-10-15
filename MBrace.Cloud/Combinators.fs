@@ -102,3 +102,9 @@
         static member RunLocal(cloudWorkflow : Cloud<'T>, ?resources : ResourceResolver, ?cancellationToken) : 'T =
             let wf = Cloud.RunLocalAsync(cloudWorkflow, ?resources = resources) 
             Async.RunSynchronously(wf, ?cancellationToken = cancellationToken)
+
+
+    type Async =
+        
+        static member StartWithCloudContext<'T> (ctx : Context<'T>) (workflow : Async<'T>) =
+            Async.StartWithContinuations
