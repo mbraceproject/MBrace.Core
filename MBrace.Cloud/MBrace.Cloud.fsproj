@@ -42,10 +42,12 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ResourceResolver.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Resource.fs" />
     <Compile Include="Cloud.fs" />
-    <Compile Include="ICloudDisposable.fs" />
     <Compile Include="CloudBuilder.fs" />
+    <Compile Include="Storage.fs" />
+    <Compile Include="Runtime.fs" />
     <Compile Include="Combinators.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>

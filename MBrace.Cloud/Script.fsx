@@ -37,7 +37,6 @@ let disposable =
     { 
         new ICloudDisposable with 
             member __.Dispose () = async { printfn "disposed" }
-            member __.GetObjectData (_,_) = ()
     }
 
 
@@ -51,8 +50,8 @@ let disposableTest = cloud {
     return printfn "exit"
 }
 
-Cloud.RunLocal test1
-Cloud.RunLocal (loop 0)
-Cloud.RunLocal forLoop
-Cloud.RunLocal whileLoop
-Cloud.RunLocal disposableTest
+Cloud.RunSynchronously test1
+Cloud.RunSynchronously (loop 0)
+Cloud.RunSynchronously forLoop
+Cloud.RunSynchronously whileLoop
+Cloud.RunSynchronously (disposableTest)

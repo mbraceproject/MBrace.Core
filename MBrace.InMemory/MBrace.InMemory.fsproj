@@ -8,10 +8,10 @@
     <ProjectGuid>47e57317-c820-4ad9-836c-fe131b00e504</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>MBrace.Cloud.Parallel</RootNamespace>
-    <AssemblyName>MBrace.Cloud.Parallel</AssemblyName>
+    <AssemblyName>MBrace.InMemory</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>MBrace.Cloud.Parallel</Name>
+    <Name>MBrace.InMemory</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +21,7 @@
     <OutputPath>..\bin\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\bin\MBrace.Cloud.Parallel.XML</DocumentationFile>
+    <DocumentationFile>..\bin\MBrace.InMemory.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -49,9 +49,9 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Runtime.fs" />
+    <Compile Include="Scheduler.fs" />
+    <Compile Include="Storage.fs" />
     <Compile Include="InMemory.fs" />
-    <Compile Include="Combinators.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>
