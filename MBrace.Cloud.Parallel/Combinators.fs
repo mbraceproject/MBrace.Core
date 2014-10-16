@@ -18,9 +18,9 @@
             return! scheduler.Choice computations
         }
 
-        static member SendToWorker(worker : IWorkerRef, computation : Cloud<'T>) = cloud {
+        static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int ) = cloud {
             let! scheduler = Cloud.GetResource<IDistributionProvider> ()
-            return! scheduler.SendToWorker worker computation
+            return! scheduler.StartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
         }
 
         static member GetRuntimeInfo () = cloud {

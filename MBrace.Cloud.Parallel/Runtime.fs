@@ -24,7 +24,7 @@
 
         abstract Parallel : seq<Cloud<'T>> -> Cloud<'T []>
         abstract Choice : seq<Cloud<'T option>> -> Cloud<'T option>
-        abstract SendToWorker : IWorkerRef -> Cloud<'T> -> Cloud<'T> // TODO : implement an ITask<'T>
+        abstract StartChild : Cloud<'T> * ?target:IWorkerRef * ?timeoutMilliseconds:int -> Cloud<Cloud<'T>>
 
     /// Storage
 
