@@ -1,4 +1,6 @@
-﻿#r "../bin/MBrace.Cloud.dll"
+﻿#I "../../bin/"
+
+#r "MBrace.Cloud.dll"
 
 #nowarn "444"
 

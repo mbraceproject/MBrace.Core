@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Cloud", "MBrace.Cloud\MBrace.Cloud.fsproj", "{80182C04-6E3C-486A-B3BF-0E617A837105}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Core", "src\MBrace.Core\MBrace.Core.fsproj", "{80182C04-6E3C-486A-B3BF-0E617A837105}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.InMemory", "MBrace.InMemory\MBrace.InMemory.fsproj", "{47E57317-C820-4AD9-836C-FE131B00E504}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.InMemory", "tests\MBrace.InMemory\MBrace.InMemory.fsproj", "{47E57317-C820-4AD9-836C-FE131B00E504}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

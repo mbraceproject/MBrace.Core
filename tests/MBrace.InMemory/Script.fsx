@@ -1,5 +1,7 @@
-﻿#r "../bin/MBrace.Cloud.dll"
-#r "../bin/MBrace.InMemory.dll"
+﻿#I "../../bin/"
+
+#r "MBrace.Cloud.dll"
+#r "MBrace.InMemory.dll"
 
 open Nessos.MBrace
 open Nessos.MBrace.InMemory
