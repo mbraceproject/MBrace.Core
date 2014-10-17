@@ -96,6 +96,12 @@
         static member Logf fmt : Cloud<unit> = Printf.ksprintf Cloud.Log fmt
 
         /// <summary>
+        ///     Performs a cloud computations, discarding its result
+        /// </summary>
+        /// <param name="workflow"></param>
+        static member Ignore (workflow : Cloud<'T>) : Cloud<unit> = cloud { let! _ = workflow in return () }
+
+        /// <summary>
         ///     Wraps a cloud workflow into an asynchronous workflow.
         /// </summary>
         /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
