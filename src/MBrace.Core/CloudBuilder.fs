@@ -85,7 +85,7 @@
 
         let inline forM (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =
             let rec loop i () =
-                if i = ts.Length then ret ()
+                if i = ts.Length then zero
                 else
                     match protect body ts.[i] with
                     | Choice1Of2 b -> bind b (loop (i+1))
@@ -97,7 +97,7 @@
             let rec loop () =
                 match protect pred () with
                 | Choice1Of2 true -> bind body loop
-                | Choice1Of2 false -> ret ()
+                | Choice1Of2 false -> zero
                 | Choice2Of2 e -> raiseM e
 
             loop ()
