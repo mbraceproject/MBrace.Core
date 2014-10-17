@@ -414,8 +414,8 @@
                     return 1 + r
             }
 
-//            if not runsOnMono then
-            Cloud.RunProtected(diveTo 100000) |> Choice.shouldEqual 100000
+            if not runsOnMono then
+                Cloud.RunProtected(diveTo 100000) |> Choice.shouldEqual 100000
 
         [<Test>]
         let ``deep exception`` () =
@@ -426,8 +426,8 @@
                     return 1 + r
             }
 
-//            if not runsOnMono then
-            Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, InvalidOperationException>
+            if not runsOnMono then
+                Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, InvalidOperationException>
 
         [<Test>]
         let ``deep cancellation`` () =
@@ -438,8 +438,8 @@
                     return 1 + r
             }
 
-//            if not runsOnMono then
-            Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, OperationCanceledException>
+            if not runsOnMono then
+                Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, OperationCanceledException>
 
 
         [<Test>]
