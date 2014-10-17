@@ -15,7 +15,8 @@
         /// </summary>
         /// <param name="body">Execution body.</param>
         [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
-        static member FromContinuations(body : Context<'T> -> unit) : Cloud<'T> = Body body
+        static member FromContinuations(body : Context<'T> -> unit) : Cloud<'T> = 
+            Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else body ctx)
 
         /// <summary>
         ///     Gets resource from current execution context.
@@ -23,6 +24,7 @@
         [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
         static member GetResource<'TResource> () : Cloud<'TResource> =
             Body(fun ctx ->
+                if ctx.IsCancellationRequested then ctx.Cancel() else
                 let res = protect (fun () -> ctx.Resource.Resolve<'TResource> ()) ()
                 ctx.ChoiceCont res)
 
@@ -31,7 +33,9 @@
         /// </summary>
         [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
         static member TryGetResource<'TResource> () : Cloud<'TResource option> =
-            Body(fun ctx -> ctx.scont <| ctx.Resource.TryResolve<'TResource> ())
+            Body(fun ctx -> 
+                if ctx.IsCancellationRequested then ctx.Cancel() else
+                ctx.scont <| ctx.Resource.TryResolve<'TResource> ())
 
         /// <summary>
         ///     Gets the current cancellation token.
@@ -42,7 +46,7 @@
         ///     Raise an exception.
         /// </summary>
         /// <param name="e">exception to be raised.</param>
-        static member Raise<'T> (e : exn) = raise e
+        static member Raise<'T> (e : exn) : Cloud<'T> = raiseM e
 
         /// <summary>
         ///     Catch exception from given cloud workflow.
@@ -57,10 +61,16 @@
         }
 
         /// <summary>
+        ///     Creates a cloud workflow that asynchronously sleeps for a given amount of time.
+        /// </summary>
+        /// <param name="timeoutMilliseconds"></param>
+        static member Sleep(timeoutMilliseconds : int) : Cloud<unit> = Cloud.OfAsync<unit>(Async.Sleep timeoutMilliseconds)
+
+        /// <summary>
         ///     Wraps an asynchronous workflow into a cloud workflow.
         /// </summary>
         /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
-        static member OfAsync(asyncWorkflow : Async<'T>) : Cloud<'T> = 
+        static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Cloud<'T> = 
             Body(fun ctx -> Async.StartWithContinuations(asyncWorkflow, ctx.scont, ctx.econt, ctx.ccont, ctx.CancellationToken))
 
         /// <summary>
@@ -100,10 +110,21 @@
         static member StartImmediate(cloudWorkflow : Cloud<'T>, ctx : Context<'T>) = let (Body f) = cloudWorkflow in f ctx
 
         /// <summary>
+        ///     Starts provided cloud workflow in the thread pool.
+        /// </summary>
+        /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
+        /// <param name="resources">Resource registry passed to execution context.</param>
+        /// <param name="cancellationToken">Local Cancellation token.</param>
+        static member Start(cloudWorkflow : Cloud<unit>, ?resources, ?cancellationToken) =
+            let asyncWorkflow = Cloud.ToAsync(cloudWorkflow, ?resources = resources)
+            Async.Start(asyncWorkflow, ?cancellationToken = cancellationToken)
+
+        /// <summary>
         ///     Starts given workflow as a separate, locally executing task.
         /// </summary>
         /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
         /// <param name="resources">Resource registry used with workflows.</param>
+        /// <param name="taskCreationOptions">Resource registry used with workflows.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         static member StartAsTask(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry, 
                                     ?taskCreationOptions : TaskCreationOptions, ?cancellationToken : CancellationToken) : Task<'T> =

@@ -7,6 +7,10 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Core", "src\MBrace.C
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.InMemory", "tests\MBrace.InMemory\MBrace.InMemory.fsproj", "{47E57317-C820-4AD9-836C-FE131B00E504}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3BA6F0DC-9759-458C-B50D-CF31BBE68B42}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Core.Tests", "tests\MBrace.Core.Tests\MBrace.Core.Tests.fsproj", "{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,8 +25,16 @@ Global
 		{47E57317-C820-4AD9-836C-FE131B00E504}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{47E57317-C820-4AD9-836C-FE131B00E504}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{47E57317-C820-4AD9-836C-FE131B00E504}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{47E57317-C820-4AD9-836C-FE131B00E504} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
+		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 	EndGlobalSection
 EndGlobal

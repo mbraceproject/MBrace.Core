@@ -20,8 +20,8 @@
             member inline ctx.Cancel() = ctx.ccont(new System.OperationCanceledException())
 
 
-        let inline ret t = Body(fun ctx -> ctx.scont t)
-        let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx -> ctx.econt e)
+        let inline ret t = Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else ctx.scont t)
+        let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else ctx.econt e)
         let zero = ret ()
 
         let inline bind (Body f : Cloud<'T>) (g : 'T -> Cloud<'S>) : Cloud<'S> =
@@ -91,7 +91,7 @@
                     | Choice1Of2 b -> bind b (loop (i+1))
                     | Choice2Of2 e -> raiseM e
 
-            delay (loop 0)
+            loop 0 ()
 
         let inline whileM (pred : unit -> bool) (body : Cloud<unit>) : Cloud<unit> =
             let rec loop () =
@@ -100,7 +100,7 @@
                 | Choice1Of2 false -> ret ()
                 | Choice2Of2 e -> raiseM e
 
-            delay loop
+            loop ()
 
     /// Cloud workflow expression builder
     type CloudBuilder () =
@@ -116,7 +116,7 @@
         member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = tryFinally f finalizer
 
         member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forM body ts
-        member __.For(ts : 'T list, body : 'T -> Cloud<unit>) : Cloud<unit> = forM body (List.toArray ts)
+        member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = forM body (Seq.toArray ts)
 
         [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 444)>]
         member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = whileM pred body
