@@ -1,4 +1,4 @@
-MBrace.Cloud
+MBrace.Core
 ============
 
-Cloud workflows experimental
+Experimental continuation-based cloud workflows.
