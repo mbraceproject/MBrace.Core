@@ -78,6 +78,24 @@
                 Async.StartWithContinuations(asyncWorkflow, ctx.scont, ctx.econt, ctx.ccont, ctx.CancellationToken))
 
         /// <summary>
+        ///     Writes an entry to a logging provider, if it exists.
+        /// </summary>
+        /// <param name="logEntry">Added log entry.</param>
+        static member Log(logEntry : string) : Cloud<unit> = cloud {
+            let! logger = Cloud.TryGetResource<ILoggingProvider> ()
+            return 
+                match logger with
+                | None -> ()
+                | Some l -> l.Log logEntry
+        }
+
+        /// <summary>
+        ///     Writes an entry to a logging provider, if it exists.
+        /// </summary>
+        /// <param name="logEntry">Added log entry.</param>
+        static member Logf fmt : Cloud<unit> = Printf.ksprintf Cloud.Log fmt
+
+        /// <summary>
         ///     Wraps a cloud workflow into an asynchronous workflow.
         /// </summary>
         /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
@@ -270,3 +288,45 @@
 
         /// Dereference a Cloud reference.
         static member Dereference(cloudRef : ICloudRef<'T>) : Cloud<'T> = Cloud.OfAsync <| cloudRef.GetValue()
+
+
+    /// [omit]
+    /// Contains common operators for cloud computation.
+
+    [<AutoOpen>]
+    module Operators =
+        
+        /// <summary>
+        ///     Combines two cloud computations into one that executes them in parallel.
+        /// </summary>
+        /// <param name="left">The first cloud computation.</param>
+        /// <param name="right">The second cloud computation.</param>
+        let (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
+            cloud { 
+                let! result = 
+                        Cloud.Parallel<obj> [| cloud { let! value = left in return value :> obj }; 
+                                                cloud { let! value = right in return value :> obj } |]
+                return (result.[0] :?> 'a, result.[1] :?> 'b) 
+            }
+
+        /// <summary>
+        ///     Combines two cloud computations into one that executes them in parallel and returns the
+        ///     result of the first computation that completes and cancels the other.
+        /// </summary>
+        /// <param name="left">The first cloud computation.</param>
+        /// <param name="right">The second cloud computation.</param>
+        let (<|>) (left : Cloud<'a>) (right : Cloud<'a>) : Cloud<'a> =
+            cloud {
+                let! result = 
+                    Cloud.Choice [| cloud { let! value = left  in return Some (value) }
+                                    cloud { let! value = right in return Some (value) }  |]
+
+                return result.Value
+            }
+
+        /// <summary>
+        ///     Combines two cloud computations into one that executes them sequentially.
+        /// </summary>
+        /// <param name="left">The first cloud computation.</param>
+        /// <param name="right">The second cloud computation.</param>
+        let (<.>) first second = cloud { let! v1 = first in let! v2 = second in return (v1, v2) }

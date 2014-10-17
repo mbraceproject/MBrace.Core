@@ -57,3 +57,10 @@
         /// </summary>
         /// <param name="value">Cloud ref value.</param>
         abstract CreateCloudRef : value:'T -> Async<ICloudRef<'T>>
+
+
+    /// <summary>
+    ///     Abstract logger resource
+    /// </summary>
+    and ILoggingProvider =
+        abstract Log : string -> unit
