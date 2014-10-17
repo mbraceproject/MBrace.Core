@@ -1,6 +1,6 @@
 ﻿#I "../../bin/"
 
-#r "MBrace.Cloud.dll"
+#r "MBrace.Core.dll"
 #r "MBrace.InMemory.dll"
 
 open Nessos.MBrace

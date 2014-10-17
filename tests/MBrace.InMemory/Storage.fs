@@ -3,9 +3,9 @@
     open Nessos.MBrace
     open Nessos.MBrace.Runtime
 
-    type InMemoryStorageProvider private () =
+    type internal InMemoryStorageProvider private () =
 
-        static member Create () = new InMemoryStorageProvider ()
+        static member Create() = new InMemoryStorageProvider()
 
         interface IStorageProvider with
             member __.CreateCloudRef(value : 'T) = async {

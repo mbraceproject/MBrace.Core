@@ -106,35 +106,35 @@
                 | Choice1Of2 t -> ctx.scont <| Cloud.AwaitTask t)
 
 
-    type InMemoryScheduler private (context : SchedulingContext) =
+    type internal InMemoryScheduler private (context : SchedulingContext) =
 
         let taskId = System.Guid.NewGuid().ToString()
 
         static member Create () = new InMemoryScheduler(ThreadParallel)
         
-        interface ISchedulingProvider with
-            member __.Context = context
-            member __.WithContext newContext = 
+        interface IRuntimeProvider with
+            member __.ProcessId = "in memory process"
+            member __.TaskId = taskId
+            member __.GetAvailableWorkers () = async {
+                return raise <| new System.NotImplementedException("'GetAvailableWorkers not supported in InMemory runtime.")
+            }
+
+            member __.CurrentWorker =
+                {
+                    new IWorkerRef with
+                        member __.Type = "ThreadPool worker"
+                        member __.Id = sprintf "ThreadId:%d" System.Threading.Thread.CurrentThread.ManagedThreadId
+                }
+
+            member __.SchedulingContext = context
+            member __.WithSchedulingContext newContext = 
                 let newContext =
                     match newContext with
                     | Distributed -> ThreadParallel
                     | c -> c
 
-                new InMemoryScheduler(newContext) :> ISchedulingProvider
+                new InMemoryScheduler(newContext) :> IRuntimeProvider
 
-            member __.Parallel computations = Parallel context computations
-            member __.Choice computations = Choice context computations
-            member __.StartChild (workflow, ?target:IWorkerRef, ?timeoutMilliseconds:int) = StartChild workflow
-            member __.GetRuntimeInfo () = async {
-                return {
-                    ProcessId = "0"
-                    TaskId = taskId
-                    Workers = [||]
-                    CurrentWorker = 
-                        { 
-                            new IWorkerRef with 
-                                member __.Type = "threadpool"
-                                member __.Id = sprintf "ThreadId:%d" System.Threading.Thread.CurrentThread.ManagedThreadId
-                        }
-                }
-            }
+            member __.ScheduleParallel computations = Parallel context computations
+            member __.ScheduleChoice computations = Choice context computations
+            member __.ScheduleStartChild (workflow, ?target:IWorkerRef, ?timeoutMilliseconds:int) = StartChild workflow

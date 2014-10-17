@@ -7,7 +7,7 @@
     
         static let imemResource =
             resource { 
-                yield InMemoryScheduler.Create() :> ISchedulingProvider
+                yield InMemoryScheduler.Create() :> IRuntimeProvider
                 yield InMemoryStorageProvider.Create() :> IStorageProvider
             }
 

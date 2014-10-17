@@ -126,8 +126,8 @@
         /// </summary>
         /// <param name="computations">Input computations to be executed in parallel.</param>
         static member Parallel (computations : seq<Cloud<'T>>) = cloud {
-            let! scheduler = Cloud.GetResource<ISchedulingProvider> ()
-            return! scheduler.Parallel computations
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return! runtime.ScheduleParallel computations
         }
 
         /// <summary>
@@ -135,8 +135,8 @@
         /// </summary>
         /// <param name="computations">Input computations to be executed in parallel.</param>
         static member Choice (computations : seq<Cloud<'T option>>) = cloud {
-            let! scheduler = Cloud.GetResource<ISchedulingProvider> ()
-            return! scheduler.Choice computations
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return! runtime.ScheduleChoice computations
         }
 
         /// <summary>
@@ -146,32 +146,56 @@
         /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
         /// <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
         static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int) = cloud {
-            let! scheduler = Cloud.GetResource<ISchedulingProvider> ()
-            return! scheduler.StartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return! runtime.ScheduleStartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
         }
 
         /// <summary>
         ///     Gets information on the execution cluster.
         /// </summary>
-        static member GetRuntimeInfo () = cloud {
-            let! infoProvider = Cloud.GetResource<ISchedulingProvider> ()
-            return! Cloud.OfAsync <| infoProvider.GetRuntimeInfo()
+        static member CurrentWorker : Cloud<IWorkerRef> = cloud {
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return runtime.CurrentWorker
         }
 
         /// <summary>
-        ///     Gets number of workers on the cluster.
+        ///     Gets all workers in currently running cluster context.
         /// </summary>
-        static member GetWorkerCount () = cloud {
-            let! info = Cloud.GetRuntimeInfo()
-            return info.Workers.Length
+        static member GetAvailableWorkers () : Cloud<IWorkerRef []> = cloud {
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return! Cloud.OfAsync <| runtime.GetAvailableWorkers()
+        }
+
+        /// <summary>
+        ///     Gets total number of available workers in cluster context.
+        /// </summary>
+        static member GetWorkerCount () : Cloud<int> = cloud {
+            let! workers = Cloud.GetAvailableWorkers()
+            return workers.Length
+        }
+
+        /// <summary>
+        ///     Gets the assigned id of the currently running cloud process.
+        /// </summary>
+        static member GetProcessId () : Cloud<string> = cloud {
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return runtime.ProcessId
+        }
+
+        /// <summary>
+        ///     Gets the assigned id of the currently running cloud task.
+        /// </summary>
+        static member GetTaskId () : Cloud<string> = cloud {
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return runtime.TaskId
         }
 
         /// <summary>
         ///     Gets the current scheduling context.
         /// </summary>
         static member GetSchedulingContext () = cloud {
-            let! scheduler = Cloud.GetResource<ISchedulingProvider> ()
-            return scheduler.Context
+            let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+            return runtime.SchedulingContext
         }
 
         /// <summary>
@@ -184,15 +208,15 @@
             Cloud.FromContinuations(fun ctx ->
                 let result =
                     try 
-                        let scheduler = ctx.Resource.Resolve<ISchedulingProvider>()
-                        let scheduler' = scheduler.WithContext schedulingContext
-                        Choice1Of2 scheduler'
+                        let runtime = ctx.Resource.Resolve<IRuntimeProvider>()
+                        let runtime' = runtime.WithSchedulingContext schedulingContext
+                        Choice1Of2 runtime'
                     with e -> Choice2Of2 e
 
                 match result with
                 | Choice2Of2 e -> ctx.econt e
-                | Choice1Of2 scheduler' ->
-                    let ctx = { ctx with Resource = ctx.Resource.Register(scheduler') }
+                | Choice1Of2 runtime' ->
+                    let ctx = { ctx with Resource = ctx.Resource.Register(runtime') }
                     Cloud.StartImmediate(workflow, ctx))
 
         /// <summary>

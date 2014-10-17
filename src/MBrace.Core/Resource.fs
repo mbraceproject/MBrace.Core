@@ -46,4 +46,5 @@
             member __.YieldFrom (registry : ResourceRegistry) = registry
             member __.Combine(registry : ResourceRegistry, registry' : ResourceRegistry) = registry.CombineWith registry'
 
+        /// resource registry builder
         let resource = new ResourceBuilder()
