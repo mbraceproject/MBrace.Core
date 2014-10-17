@@ -40,7 +40,8 @@
         /// <summary>
         ///     Gets the current cancellation token.
         /// </summary>
-        static member CancellationToken = Body(fun ctx -> ctx.scont ctx.CancellationToken)
+        static member CancellationToken = 
+            Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else ctx.scont ctx.CancellationToken)
 
         /// <summary>
         ///     Raise an exception.
@@ -52,7 +53,7 @@
         ///     Catch exception from given cloud workflow.
         /// </summary>
         /// <param name="cloudWorkflow"></param>
-        static member Catch(cloudWorkflow : Cloud<'T>) = cloud {
+        static member Catch(cloudWorkflow : Cloud<'T>) : Cloud<Choice<'T, exn>> = cloud {
             try
                 let! res = cloudWorkflow
                 return Choice1Of2 res
@@ -64,14 +65,17 @@
         ///     Creates a cloud workflow that asynchronously sleeps for a given amount of time.
         /// </summary>
         /// <param name="timeoutMilliseconds"></param>
-        static member Sleep(timeoutMilliseconds : int) : Cloud<unit> = Cloud.OfAsync<unit>(Async.Sleep timeoutMilliseconds)
+        static member Sleep(timeoutMilliseconds : int) : Cloud<unit> = 
+            Cloud.OfAsync<unit>(Async.Sleep timeoutMilliseconds)
 
         /// <summary>
         ///     Wraps an asynchronous workflow into a cloud workflow.
         /// </summary>
         /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
         static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Cloud<'T> = 
-            Body(fun ctx -> Async.StartWithContinuations(asyncWorkflow, ctx.scont, ctx.econt, ctx.ccont, ctx.CancellationToken))
+            Body(fun ctx -> 
+                if ctx.IsCancellationRequested then ctx.Cancel() else
+                Async.StartWithContinuations(asyncWorkflow, ctx.scont, ctx.econt, ctx.ccont, ctx.CancellationToken))
 
         /// <summary>
         ///     Wraps a cloud workflow into an asynchronous workflow.
@@ -99,7 +103,8 @@
         ///     Asynchronously await task completion
         /// </summary>
         /// <param name="task">Task to be awaited</param>
-        static member AwaitTask (task : Task<'T>) = Cloud.OfAsync(Async.AwaitTask task)
+        static member AwaitTask (task : Task<'T>) : Cloud<'T> = 
+            Cloud.OfAsync(Async.AwaitTask task)
             
 
         /// <summary>
@@ -107,7 +112,8 @@
         /// </summary>
         /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
         /// <param name="ctx">Local execution context.</param>
-        static member StartImmediate(cloudWorkflow : Cloud<'T>, ctx : Context<'T>) = let (Body f) = cloudWorkflow in f ctx
+        static member StartImmediate(cloudWorkflow : Cloud<'T>, ctx : Context<'T>) : unit = 
+            let (Body f) = cloudWorkflow in f ctx
 
         /// <summary>
         ///     Starts provided cloud workflow in the thread pool.
@@ -115,7 +121,7 @@
         /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
         /// <param name="resources">Resource registry passed to execution context.</param>
         /// <param name="cancellationToken">Local Cancellation token.</param>
-        static member Start(cloudWorkflow : Cloud<unit>, ?resources, ?cancellationToken) =
+        static member Start(cloudWorkflow : Cloud<unit>, ?resources, ?cancellationToken) : unit =
             let asyncWorkflow = Cloud.ToAsync(cloudWorkflow, ?resources = resources)
             Async.Start(asyncWorkflow, ?cancellationToken = cancellationToken)
 
@@ -146,7 +152,7 @@
         ///     Cloud.Parallel combinator
         /// </summary>
         /// <param name="computations">Input computations to be executed in parallel.</param>
-        static member Parallel (computations : seq<Cloud<'T>>) = cloud {
+        static member Parallel (computations : seq<Cloud<'T>>) : Cloud<'T []> = cloud {
             let! runtime = Cloud.GetResource<IRuntimeProvider> ()
             return! runtime.ScheduleParallel computations
         }
@@ -155,7 +161,7 @@
         ///     Cloud.Choice combinator
         /// </summary>
         /// <param name="computations">Input computations to be executed in parallel.</param>
-        static member Choice (computations : seq<Cloud<'T option>>) = cloud {
+        static member Choice (computations : seq<Cloud<'T option>>) : Cloud<'T option> = cloud {
             let! runtime = Cloud.GetResource<IRuntimeProvider> ()
             return! runtime.ScheduleChoice computations
         }
@@ -166,7 +172,7 @@
         /// <param name="computation">Computation to be executed.</param>
         /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
         /// <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
-        static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int) = cloud {
+        static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int) : Cloud<Cloud<'T>> = cloud {
             let! runtime = Cloud.GetResource<IRuntimeProvider> ()
             return! runtime.ScheduleStartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
         }
@@ -257,10 +263,10 @@
     type CloudRef =
 
         /// Allocate a new Cloud reference
-        static member New(value : 'T) = cloud {
+        static member New(value : 'T) : Cloud<ICloudRef<'T>> = cloud {
             let! storageProvider = Cloud.GetResource<IStorageProvider> ()
             return! storageProvider.CreateCloudRef value |> Cloud.OfAsync
         }
 
         /// Dereference a Cloud reference.
-        static member Dereference(cloudRef : ICloudRef<'T>) = Cloud.OfAsync <| cloudRef.GetValue()
+        static member Dereference(cloudRef : ICloudRef<'T>) : Cloud<'T> = Cloud.OfAsync <| cloudRef.GetValue()
