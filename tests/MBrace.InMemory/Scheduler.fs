@@ -108,6 +108,8 @@
 
     type InMemoryScheduler private (context : SchedulingContext) =
 
+        let taskId = System.Guid.NewGuid().ToString()
+
         static member Create () = new InMemoryScheduler(ThreadParallel)
         
         interface ISchedulingProvider with
@@ -126,8 +128,13 @@
             member __.GetRuntimeInfo () = async {
                 return {
                     ProcessId = "0"
-                    TaskId = string System.Threading.Thread.CurrentThread.ManagedThreadId
+                    TaskId = taskId
                     Workers = [||]
-                    CurrentWorker = { new IWorkerRef with member __.Id = System.Net.Dns.GetHostName() }
+                    CurrentWorker = 
+                        { 
+                            new IWorkerRef with 
+                                member __.Type = "threadpool"
+                                member __.Id = sprintf "ThreadId:%d" System.Threading.Thread.CurrentThread.ManagedThreadId
+                        }
                 }
             }

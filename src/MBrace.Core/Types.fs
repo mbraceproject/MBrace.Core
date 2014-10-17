@@ -7,6 +7,8 @@
 
     /// Denotes a reference to a worker node in the cluster
     type IWorkerRef =
+        /// Worker type identifier
+        abstract Type : string
         /// Worker unique identifier
         abstract Id : string
 

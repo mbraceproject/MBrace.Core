@@ -8,7 +8,7 @@
     <ProjectGuid>80182c04-6e3c-486a-b3bf-0e617a837105</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>MBrace.Cloud</RootNamespace>
-    <AssemblyName>MBrace.Cloud</AssemblyName>
+    <AssemblyName>MBrace.Core</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <Name>MBrace.Core</Name>
