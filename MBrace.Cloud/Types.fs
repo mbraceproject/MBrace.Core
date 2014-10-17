@@ -23,7 +23,7 @@
             CurrentWorker : IWorkerRef
         }
 
-    /// Cloud worklow execution context
+    /// Cloud workflow execution context
     type SchedulingContext =
         | Sequential
         | ThreadParallel

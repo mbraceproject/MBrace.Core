@@ -14,13 +14,13 @@
         ///     Creates a cloud workflow that captures the current execution context.
         /// </summary>
         /// <param name="body">Execution body.</param>
-        [<CompilerMessage("'FromContinuations' only intended for runtime implementors.", 444)>]
+        [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
         static member FromContinuations(body : Context<'T> -> unit) : Cloud<'T> = Body body
 
         /// <summary>
         ///     Gets resource from current execution context.
         /// </summary>
-        [<CompilerMessage("'GetResources' only intended for runtime implementors.", 444)>]
+        [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
         static member GetResource<'TResource> () : Cloud<'TResource> =
             Body(fun ctx ->
                 let res = protect (fun () -> ctx.Resource.Resolve<'TResource> ()) ()
@@ -29,7 +29,7 @@
         /// <summary>
         ///     Try Getting resource from current execution context.
         /// </summary>
-        [<CompilerMessage("'GetResources' only intended for runtime implementors.", 444)>]
+        [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
         static member TryGetResource<'TResource> () : Cloud<'TResource option> =
             Body(fun ctx -> ctx.scont <| ctx.Resource.TryResolve<'TResource> ())
 
@@ -179,7 +179,7 @@
         /// </summary>
         /// <param name="workflow">Target workflow.</param>
         /// <param name="schedulingContext">Target scheduling context.</param>
-        [<CompilerMessage("'SetSchedulingContext' only intended for runtime implementors.", 444)>]
+        [<CompilerMessage("'SetSchedulingContext' only intended for runtime implementers.", 444)>]
         static member SetSchedulingContext(workflow : Cloud<'T>, schedulingContext) : Cloud<'T> =
             Cloud.FromContinuations(fun ctx ->
                 let result =
