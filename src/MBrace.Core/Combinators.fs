@@ -19,9 +19,17 @@ type Cloud =
         Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else body ctx)
 
     /// <summary>
+    ///     Returns the resource registry for current execution context.
+    /// </summary>
+    [<CompilerMessage("'GetResourceRegistry' only intended for runtime implementers.", 444)>]
+    static member GetResourceRegistry () : Cloud<ResourceRegistry> =
+        Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else ctx.scont ctx.Resource)
+
+
+    /// <summary>
     ///     Gets resource from current execution context.
     /// </summary>
-    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
+    [<CompilerMessage("'GetResource' only intended for runtime implementers.", 444)>]
     static member GetResource<'TResource> () : Cloud<'TResource> =
         Body(fun ctx ->
             if ctx.IsCancellationRequested then ctx.Cancel() else

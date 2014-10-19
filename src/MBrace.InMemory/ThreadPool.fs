@@ -30,15 +30,14 @@ module private SchedulerInternals =
 
 /// Collection of context-less combinators for 
 /// execution within local thread context.
-[<RequireQualifiedAccess>]
-module ThreadPool =
+type ThreadPool =
 
     /// <summary>
     ///     Provides a context-less Cloud.Parallel implementation
     ///     for execution within the thread pool.
     /// </summary>
     /// <param name="computations">Input computations</param>
-    let Parallel (computations : seq<Cloud<'T>>) =
+    static member Parallel (computations : seq<Cloud<'T>>) =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
@@ -73,7 +72,7 @@ module ThreadPool =
     ///     for execution within the thread pool.
     /// </summary>
     /// <param name="computations">Input computations</param>
-    let Choice (computations : seq<Cloud<'T option>>) =
+    static member Choice(computations : seq<Cloud<'T option>>) =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
@@ -111,12 +110,10 @@ module ThreadPool =
     ///     for execution within the thread pool.
     /// </summary>
     /// <param name="computation">Input computation.</param>
-    let StartChild (computation : Cloud<'T>) : Cloud<Cloud<'T>> =
-        Cloud.FromContinuations(fun ctx ->
-            let task =
-                try Cloud.StartAsTask(computation, resources = ctx.Resource, cancellationToken = ctx.CancellationToken) |> Choice1Of2
-                with e -> Choice2Of2 e
-
-            match task with
-            | Choice2Of2 e -> ctx.econt e
-            | Choice1Of2 t -> ctx.scont <| Cloud.AwaitTask t)
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
+    static member StartChild (computation : Cloud<'T>, ?timeoutMilliseconds) : Cloud<Cloud<'T>> = cloud {
+        let! resource = Cloud.GetResourceRegistry()
+        let asyncWorkflow = Cloud.ToAsync(computation, resources = resource)
+        let! chWorkflow = Cloud.OfAsync <| Async.StartChild(asyncWorkflow, ?millisecondsTimeout = timeoutMilliseconds)
+        return Cloud.OfAsync chWorkflow
+    }

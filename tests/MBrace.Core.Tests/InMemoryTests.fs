@@ -286,3 +286,61 @@ module InMemoryTests =
             let! result = Array.init 20 seqWorker |> Cloud.Choice |> Cloud.ToSequential
             return result, !counter
         } |> run |> Choice.shouldEqual (Some(), 17)
+
+    [<Test>]
+    [<Repeat(10)>]
+    let ``StartChild: task with success`` () =
+        cloud {
+            let count = ref 0
+            let task = cloud {
+                do! Cloud.Sleep 100
+                return Interlocked.Increment count
+            }
+
+            let! ch = Cloud.StartChild(task)
+            !count |> should equal 0
+            return! ch
+        } |> run |> Choice.shouldEqual 1
+
+    [<Test>]
+    [<Repeat(10)>]
+    let ``StartChild: task with exception`` () =
+        let count = ref 0
+        cloud {
+            let task = cloud {
+                do! Cloud.Sleep 100
+                let _ = Interlocked.Increment count
+                return invalidOp "failure"
+            }
+
+            let! ch = Cloud.StartChild(task)
+            !count |> should equal 0
+            do! Cloud.Sleep 100
+            // ensure no exception is raised in parent workflow
+            // before the child workflow is properly evaluated
+            let _ = Interlocked.Increment count
+            return! ch
+        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
+
+        !count |> should equal 2
+
+    [<Test>]
+    [<Repeat(10)>]
+    let ``StartChild: task with cancellation`` () =
+        let count = ref 0
+        runCts(fun cts ->
+        cloud {
+            let task = cloud {
+                do! Cloud.Sleep 100
+                let _ = Interlocked.Increment count
+                cts.Cancel()
+                return! cloud { return Interlocked.Increment count }
+            }
+
+            let! ch = Cloud.StartChild(task)
+            !count |> should equal 0
+            return! ch
+        }) |> Choice.shouldFailwith<_, OperationCanceledException>
+
+        // ensure final increment was cancelled.
+        !count |> should equal 1
