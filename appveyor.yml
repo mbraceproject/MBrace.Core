@@ -1,0 +1,7 @@
+version: 0.0.1
+
+configuration: Release
+
+test:
+  assemblies:
+    - MBrace.Core.Tests.dll
