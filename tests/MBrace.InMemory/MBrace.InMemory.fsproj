@@ -49,9 +49,9 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Scheduler.fs" />
-    <Compile Include="Storage.fs" />
-    <Compile Include="InMemory.fs" />
+    <Compile Include="Sequential.fs" />
+    <Compile Include="ThreadPool.fs" />
+    <Compile Include="Runtime.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>

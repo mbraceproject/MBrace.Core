@@ -11,7 +11,7 @@
     #nowarn "444"
 
     [<TestFixture>]
-    module SequentialTests =
+    module ContinuationTests =
 
         let runsOnMono = Type.GetType("Mono.Runtime") <> null
 

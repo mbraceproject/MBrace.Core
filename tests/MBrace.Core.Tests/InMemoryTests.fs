@@ -10,10 +10,10 @@
     open Nessos.MBrace.InMemory
 
     [<TestFixture>]
-    module ThreadPoolTests =
+    module InMemoryTests =
         
-        let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemory.Resource)
-        let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemory.Resource)
+        let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)
+        let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)
 
 
         [<Test>]
@@ -132,3 +132,19 @@
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
             !counter |> should equal 0
+
+        [<Test>]
+        [<Repeat(10)>]
+        let ``Parallel : to sequential`` () =
+            cloud {
+                let counter = ref 0
+                let seqWorker _ = cloud {
+                    let init = !counter + 1
+                    counter := init
+                    do! Cloud.Sleep 10
+                    return !counter = init
+                }
+
+                let! results = Array.init 20 seqWorker |> Cloud.Parallel |> Cloud.ToSequential
+                return Array.forall id results
+            } |> run |> Choice.shouldEqual true
