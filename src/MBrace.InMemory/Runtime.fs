@@ -48,4 +48,4 @@ type InMemoryRuntime private (context : SchedulingContext) =
         member __.ScheduleStartChild (workflow, ?target:IWorkerRef, ?timeoutMilliseconds:int) = 
             match context with
             | Sequential -> Sequential.StartChild workflow
-            | _ -> ThreadPool.StartChild workflow
+            | _ -> ThreadPool.StartChild(workflow, ?timeoutMilliseconds = timeoutMilliseconds)

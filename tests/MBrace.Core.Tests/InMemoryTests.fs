@@ -344,3 +344,22 @@ module InMemoryTests =
 
         // ensure final increment was cancelled.
         !count |> should equal 1
+
+    [<Test>]
+    [<Repeat(10)>]
+    let ``StartChild: task with timeout`` () =
+        let counter = ref 0
+        cloud {
+            let task = cloud {
+                incr counter
+                do! Cloud.Sleep 1000
+                incr counter
+            }
+
+            let! ch = Cloud.StartChild(task, timeoutMilliseconds = 100)
+            do! Cloud.Sleep 20
+            !counter |> should equal 1
+            return! ch
+        } |> run |> Choice.shouldFailwith<_, TimeoutException>
+
+        !counter |> should equal 1
