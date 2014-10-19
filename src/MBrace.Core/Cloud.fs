@@ -1,28 +1,28 @@
 ﻿namespace Nessos.MBrace
 
-    open System
+open System
 
-    open Nessos.MBrace.Runtime
+open Nessos.MBrace.Runtime
 
-    /// Execution context for continuation callbacks
-    [<AutoSerializable(false)>]
-    type Context<'T> =
-        {
-            /// Runtime cloud resource resolver
-            Resource : ResourceRegistry
+/// Execution context for continuation callbacks
+[<AutoSerializable(false)>]
+type Context<'T> =
+    {
+        /// Runtime cloud resource resolver
+        Resource : ResourceRegistry
 
-            /// Local cancellation token
-            CancellationToken : System.Threading.CancellationToken
+        /// Local cancellation token
+        CancellationToken : System.Threading.CancellationToken
 
-            /// Success continuation
-            scont : 'T -> unit
+        /// Success continuation
+        scont : 'T -> unit
 
-            /// Exception continuation
-            econt : exn -> unit
+        /// Exception continuation
+        econt : exn -> unit
 
-            /// Cancellation continuation
-            ccont : OperationCanceledException -> unit
-        }
+        /// Cancellation continuation
+        ccont : OperationCanceledException -> unit
+    }
 
-    /// Cloud workflow of type T
-    and Cloud<'T> = internal Body of (Context<'T> -> unit)
+/// Cloud workflow of type T
+and Cloud<'T> = internal Body of (Context<'T> -> unit)
