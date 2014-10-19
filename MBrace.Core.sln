@@ -1,8 +1,15 @@
-﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{6382DB39-BBF3-4137-8644-6C915F279363}"
+	ProjectSection(SolutionItems) = preProject
+		.paket\paket.bootstrapper.exe = .paket\paket.bootstrapper.exe
+		paket.dependencies = paket.dependencies
+		paket.lock = paket.lock
+		.paket\paket.targets = .paket\paket.targets
+	EndProjectSection
+EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Core", "src\MBrace.Core\MBrace.Core.fsproj", "{80182C04-6E3C-486A-B3BF-0E617A837105}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.InMemory", "tests\MBrace.InMemory\MBrace.InMemory.fsproj", "{47E57317-C820-4AD9-836C-FE131B00E504}"
@@ -10,6 +17,12 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3BA6F0DC-9759-458C-B50D-CF31BBE68B42}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Core.Tests", "tests\MBrace.Core.Tests\MBrace.Core.Tests.fsproj", "{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D05F7-4934-49C3-99E7-B935D40F7245}"
+	ProjectSection(SolutionItems) = preProject
+		paket.dependencies = paket.dependencies
+		paket.lock = paket.lock
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -34,6 +47,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{6382DB39-BBF3-4137-8644-6C915F279363} = {9E6D05F7-4934-49C3-99E7-B935D40F7245}
 		{47E57317-C820-4AD9-836C-FE131B00E504} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 	EndGlobalSection
