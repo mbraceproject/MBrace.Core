@@ -16,15 +16,11 @@ type InMemoryRuntime private (context : SchedulingContext) =
         member __.ProcessId = "in memory process"
         member __.TaskId = taskId
         member __.GetAvailableWorkers () = async {
-            return raise <| new System.NotImplementedException("'GetAvailableWorkers not supported in InMemory runtime.")
+            return raise <| new System.NotSupportedException("'GetAvailableWorkers not supported in InMemory runtime.")
         }
 
         member __.CurrentWorker =
-            {
-                new IWorkerRef with
-                    member __.Type = "ThreadPool worker"
-                    member __.Id = sprintf "ThreadId:%d" System.Threading.Thread.CurrentThread.ManagedThreadId
-            }
+            raise <| new System.NotSupportedException("'GetAvailableWorkers not supported in InMemory runtime.")
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext newContext = 
