@@ -10,7 +10,7 @@ open Nessos.MBrace
 open Nessos.MBrace.InMemory
 
 [<TestFixture>]
-module InMemoryTests =
+module ``In-Memory Tests`` =
         
     let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)
     let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)

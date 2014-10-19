@@ -32,24 +32,6 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Core.XML</DocumentationFile>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Types.fs" />
-    <Compile Include="Resource.fs" />
-    <Compile Include="Cloud.fs" />
-    <Compile Include="CloudBuilder.fs" />
-    <Compile Include="Storage.fs" />
-    <Compile Include="Runtime.fs" />
-    <Compile Include="Combinators.fs" />
-  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
@@ -74,4 +56,26 @@
   </Target>
   -->
   <Import Project="..\..\.paket\paket.targets" />
+  <ItemGroup>
+    <Compile Include="Continuation\Types.fs" />
+    <Compile Include="Continuation\Resource.fs" />
+    <Compile Include="Continuation\Cloud.fs" />
+    <Compile Include="Continuation\CloudBuilder.fs" />
+    <Compile Include="API\Storage.fs" />
+    <Compile Include="API\Runtime.fs" />
+    <Compile Include="API\Intrinsics.fs" />
+    <Compile Include="API\Combinators.fs" />
+    <Compile Include="InMemory\Sequential.fs" />
+    <Compile Include="InMemory\ThreadPool.fs" />
+    <Compile Include="InMemory\InMemoryRuntime.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
 </Project>

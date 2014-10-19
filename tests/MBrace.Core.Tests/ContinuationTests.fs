@@ -11,7 +11,7 @@ open Nessos.MBrace
 #nowarn "444"
 
 [<TestFixture>]
-module ContinuationTests =
+module ``Continuation Tests`` =
 
     let runsOnMono = Type.GetType("Mono.Runtime") <> null
 

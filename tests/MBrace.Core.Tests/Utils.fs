@@ -6,6 +6,7 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.Runtime
 
 type Cloud =
     static member RunProtected(comp, ?resources) =

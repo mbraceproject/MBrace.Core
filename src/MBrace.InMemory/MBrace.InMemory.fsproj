@@ -51,7 +51,7 @@
   <ItemGroup>
     <Compile Include="Sequential.fs" />
     <Compile Include="ThreadPool.fs" />
-    <Compile Include="Runtime.fs" />
+    <Compile Include="InMemoryRuntime.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>
