@@ -6,6 +6,63 @@ open System.IO
 
 open Nessos.MBrace.Runtime
 
+/// General purpose store methods.
+type Storage =
+    
+    /// <summary>
+    ///     Gets a unique, randomly generated container (directory) name
+    ///     that is valid in current storage implementation.
+    /// </summary>
+    static member GetRandomContainer () = cloud {
+        let! provider = Cloud.GetResource<IStorageProvider> ()
+        return provider.GetRandomUri()
+    }
+
+    /// <summary>
+    ///     Gets a unique, randomly generated file name
+    ///     that is valid in current storage implementation.
+    /// </summary>
+    /// <param name="container">Container for provided storage implementation. Defaults to auto-generated container.</param>
+    static member GetRandomUri (?container : string) = cloud {
+        let! provider = Cloud.GetResource<IStorageProvider> ()
+        return provider.GetRandomUri(?container = container)    
+    }
+
+    /// <summary>
+    ///     Returns the container name for given storage uri.
+    /// </summary>
+    /// <param name="uri">Uri to be parsed.</param>
+    static member GetContainerName (uri : string) = cloud {
+        let! provider = Cloud.GetResource<IStorageProvider> ()
+        return provider.GetContainerName uri
+    }
+
+    /// <summary>
+    ///     Checks if provided uri is valid in provided underlying storage.
+    /// </summary>
+    /// <param name="uri">Uri to be examined.</param>
+    static member IsValidUri (uri : string) = cloud {
+        let! provider = Cloud.GetResource<IStorageProvider> ()
+        return provider.IsValidUri uri    
+    }
+
+    /// <summary>
+    ///     Returns the file name for the given storage uri.
+    /// </summary>
+    /// <param name="uri">Uri to be parsed.</param>
+    static member GetFileName (uri : string) = cloud {
+        let! provider = Cloud.GetResource<IStorageProvider> ()
+        return provider.GetFileName uri
+    }
+
+    /// <summary>
+    ///     Enumerates all containers (directories) in underlying storage.
+    /// </summary>
+    static member Enumerate () = cloud {
+        let! provider = Cloud.GetResource<IStorageProvider> ()
+        return! Cloud.OfAsync <| provider.GetAllContainers()
+    }
+
 /// Cloud reference methods.
 type CloudRef =
 

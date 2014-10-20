@@ -8,10 +8,23 @@ open Nessos.MBrace
 type IStorageProvider =
 
     /// <summary>
+    ///     Returns a unique, randomized container (directory) name 
+    ///     valid in the underlying storage implementation.
+    /// </summary>
+    abstract GetRandomContainer : unit -> string
+
+    /// <summary>
     ///     Returns a unique, randomized uri (file) name 
     ///     valid in the underlying storage implementation.
     /// </summary>
-    abstract GetRandomUri : unit -> string
+    /// <param name="container">Container for the file name. Defaults to process container.</param>
+    abstract GetRandomUri : ?container:string -> string
+
+    /// <summary>
+    ///     Checks if provided uri is valid for given storage implementation.
+    /// </summary>
+    /// <param name="uri">Uri to be examined.</param>
+    abstract IsValidUri : uri:string -> bool
 
     /// <summary>
     ///     Returns container (directory) name for a valid uri in current storage implementation.

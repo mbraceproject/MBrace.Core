@@ -9,6 +9,10 @@ type IStorageEntity =
     inherit ICloudDisposable
     /// Unique store identifier.
     abstract Uri : string
+    /// Container (directory) name
+    abstract Container : string
+    /// File name
+    abstract Name : string
 
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.
