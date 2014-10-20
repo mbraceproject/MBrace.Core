@@ -153,3 +153,15 @@ type CloudFile =
             let! provider = Cloud.GetResource<IStorageProvider> ()
             return! Cloud.OfAsync <| provider.GetContainedFiles container
         }
+
+
+[<AutoOpen>]
+module StoreExtensionMethods =
+
+    type ICloudRef<'T> with
+        /// Synchronously dereferences the cloud ref
+        member inline c.Value = c.GetValue() |> Async.RunSynchronously
+
+    type IMutableCloudRef<'T> with
+        /// Synchronously retrieves the current value of the mutable cloud ref
+        member inline c.Value = c.GetValue() |> Async.RunSynchronously
