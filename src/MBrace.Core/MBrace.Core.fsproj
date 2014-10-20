@@ -69,7 +69,6 @@
     <Compile Include="API\StoreCombinators.fs" />
     <Compile Include="InMemory\Sequential.fs" />
     <Compile Include="InMemory\ThreadPool.fs" />
-    <Compile Include="InMemory\InMemoryRuntime.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
