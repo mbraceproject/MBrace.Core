@@ -11,7 +11,6 @@ type IStorageProvider =
     ///     Returns a unique, randomized uri (file) name 
     ///     valid in the underlying storage implementation.
     /// </summary>
-    /// <param name="container">Container name</param>
     abstract GetRandomUri : unit -> string
 
     /// <summary>
@@ -48,7 +47,7 @@ type IStorageProvider =
     abstract CreateCloudSeq : uri:string * values:seq<'T> -> Async<ICloudSeq<'T>>
 
     /// <summary>
-    ///     Perists a value to the underlying store and returns a typed mutable cloud reference.
+    ///     Persists a value to the underlying store and returns a typed mutable cloud reference.
     /// </summary>
     /// <param name="uri">Storage uri to be used.</param>
     /// <param name="value">Initial value.</param>
