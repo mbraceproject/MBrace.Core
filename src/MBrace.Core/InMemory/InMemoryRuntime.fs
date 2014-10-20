@@ -15,6 +15,7 @@ type InMemoryRuntime private (context : SchedulingContext) =
     interface IRuntimeProvider with
         member __.ProcessId = "in memory process"
         member __.TaskId = taskId
+        member __.Logger = { new ICloudLogger with member __.Log _ = () }
         member __.GetAvailableWorkers () = async {
             return raise <| new System.NotSupportedException("'GetAvailableWorkers not supported in InMemory runtime.")
         }

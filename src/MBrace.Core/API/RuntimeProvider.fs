@@ -3,6 +3,12 @@
 open Nessos.MBrace
 
 /// <summary>
+///     Abstract logger.
+/// </summary>
+type ICloudLogger =
+    abstract Log : entry:string -> unit
+
+/// <summary>
 ///     Executing runtime abstraction.
 /// </summary>
 type IRuntimeProvider =
@@ -15,6 +21,8 @@ type IRuntimeProvider =
     abstract GetAvailableWorkers : unit -> Async<IWorkerRef []>
     /// Gets currently running worker
     abstract CurrentWorker : IWorkerRef
+    /// Gets the current logger instance.
+    abstract Logger : ICloudLogger
 
     /// <summary>
     ///     Creates a new scheduler instance with updated scheduling context
@@ -46,21 +54,3 @@ type IRuntimeProvider =
     /// <param name="target">Explicitly specify a target worker for execution.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
     abstract ScheduleStartChild : workflow:Cloud<'T> * ?target:IWorkerRef * ?timeoutMilliseconds:int -> Cloud<Cloud<'T>>
-
-
-/// <summary>
-///     Storage abstraction provider.
-/// </summary>
-and IStorageProvider =
-    /// <summary>
-    ///     Creates a new cloud ref for given value.
-    /// </summary>
-    /// <param name="value">Cloud ref value.</param>
-    abstract CreateCloudRef : value:'T -> Async<ICloudRef<'T>>
-
-
-/// <summary>
-///     Abstract logger resource
-/// </summary>
-and ILoggingProvider =
-    abstract Log : string -> unit

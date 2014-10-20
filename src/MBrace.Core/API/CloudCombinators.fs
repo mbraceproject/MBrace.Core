@@ -53,11 +53,11 @@ type Cloud =
     /// </summary>
     /// <param name="logEntry">Added log entry.</param>
     static member Log(logEntry : string) : Cloud<unit> = cloud {
-        let! logger = Cloud.TryGetResource<ILoggingProvider> ()
+        let! runtime = Cloud.TryGetResource<IRuntimeProvider> ()
         return 
-            match logger with
+            match runtime with
             | None -> ()
-            | Some l -> l.Log logEntry
+            | Some r -> r.Logger.Log logEntry
     }
 
     /// <summary>
@@ -71,6 +71,13 @@ type Cloud =
     /// </summary>
     /// <param name="workflow"></param>
     static member Ignore (workflow : Cloud<'T>) : Cloud<unit> = cloud { let! _ = workflow in return () }
+
+    /// <summary>
+    ///     Disposes of a distributed resource.
+    /// </summary>
+    /// <param name="disposable">Resource to be disposed.</param>
+    static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : Cloud<unit> =
+        Cloud.OfAsync(disposable.Dispose())
 
     /// <summary>
     ///     Asynchronously await task completion
@@ -167,19 +174,6 @@ type Cloud =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     static member ToSequential(workflow : Cloud<'T>) = Cloud.SetSchedulingContext(workflow, Sequential)
-
-
-/// Cloud reference methods
-type CloudRef =
-
-    /// Allocate a new Cloud reference
-    static member New(value : 'T) : Cloud<ICloudRef<'T>> = cloud {
-        let! storageProvider = Cloud.GetResource<IStorageProvider> ()
-        return! storageProvider.CreateCloudRef value |> Cloud.OfAsync
-    }
-
-    /// Dereference a Cloud reference.
-    static member Dereference(cloudRef : ICloudRef<'T>) : Cloud<'T> = Cloud.OfAsync <| cloudRef.GetValue()
 
 
 /// [omit]

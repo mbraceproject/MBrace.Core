@@ -61,10 +61,12 @@
     <Compile Include="Continuation\Resource.fs" />
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\CloudBuilder.fs" />
-    <Compile Include="API\Storage.fs" />
-    <Compile Include="API\Runtime.fs" />
+    <Compile Include="API\StorageEntities.fs" />
+    <Compile Include="API\StorageProvider.fs" />
+    <Compile Include="API\RuntimeProvider.fs" />
     <Compile Include="API\Intrinsics.fs" />
-    <Compile Include="API\Combinators.fs" />
+    <Compile Include="API\CloudCombinators.fs" />
+    <Compile Include="API\StoreCombinators.fs" />
     <Compile Include="InMemory\Sequential.fs" />
     <Compile Include="InMemory\ThreadPool.fs" />
     <Compile Include="InMemory\InMemoryRuntime.fs" />
