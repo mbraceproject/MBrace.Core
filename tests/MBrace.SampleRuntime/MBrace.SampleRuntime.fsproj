@@ -188,7 +188,7 @@
     </When>
   </Choose>
   <ItemGroup>
-    <Compile Include="Vagrant.fs" />
+    <Compile Include="PortablePickle.fs" />
     <Compile Include="Actors.fs" />
     <Compile Include="Scheduler.fs" />
     <Compile Include="Client.fs" />

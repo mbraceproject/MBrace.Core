@@ -2,6 +2,7 @@
 
     open System.Diagnostics
 
+    open Nessos.MBrace.SampleRuntime.PortablePickle
     open Nessos.MBrace.SampleRuntime.Scheduler
 
     [<EntryPoint>]
@@ -10,7 +11,7 @@
         do Actors.Actor.InitClient()
 
         let parseResults = Argument.Parser.ParseCommandLine(args)
-        let runtime = parseResults.PostProcessResult(<@ Pickled_Runtime @>, fun p -> Vagrant.vagrant.Pickler.UnPickle<RuntimeState> p)
+        let runtime = parseResults.GetAllResults() |> List.head |> Argument.ToRuntime
 
         printfn "MBrace worker has been initialized, listening on task queue."
 

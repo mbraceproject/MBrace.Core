@@ -5,8 +5,10 @@
     open System.Diagnostics
     open System.Threading
 
-    open Nessos.MBrace
     open Nessos.UnionArgParser
+
+    open Nessos.MBrace
+    open Nessos.MBrace.SampleRuntime.PortablePickle
     open Nessos.MBrace.SampleRuntime.Actors
     open Nessos.MBrace.SampleRuntime.Scheduler
 
@@ -18,6 +20,12 @@
             member __.Usage = ""
 
         static member Parser = UnionArgParser.Create<Argument> ()
+        static member OfRuntime(runtime : RuntimeState) =
+            let pickle = PortablePickle.Pickle(runtime, includeAssemblies = false)
+            Pickled_Runtime pickle.Pickle
+
+        static member ToRuntime(Pickled_Runtime pickle) =
+            PortablePickle.UnPickle<RuntimeState>({ Pickle = pickle ; Dependencies = []})
 
     type MBraceRuntime private (workers : int) =
 
@@ -28,7 +36,7 @@
 
         let initProc () =
             let exe = MBraceRuntime.WorkerExecutable
-            let args = [ Pickled_Runtime (Vagrant.vagrant.Pickler.Pickle state) ] |> argParser.PrintCommandLineFlat
+            let args = argParser.PrintCommandLineFlat [ Argument.OfRuntime state ]
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true

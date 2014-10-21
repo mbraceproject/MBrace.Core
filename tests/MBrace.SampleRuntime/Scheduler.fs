@@ -6,8 +6,8 @@ open Nessos.MBrace
 open Nessos.MBrace.InMemory
 open Nessos.MBrace.Runtime
 
+open Nessos.MBrace.SampleRuntime.PortablePickle
 open Nessos.MBrace.SampleRuntime.Actors
-open Nessos.MBrace.SampleRuntime.Vagrant
 
 type Task = 
     {
@@ -44,9 +44,9 @@ with
             Cloud.StartImmediate(wf, ctx)
         
         let task = { Job = runTask ; CancellationTokenSource = cts ; TaskId = taskId ; Type = typeof<'T> }
-        PortablePickle.pickle task |> rt.TaskQueue.Enqueue
+        PortablePickle.Pickle task |> rt.TaskQueue.Enqueue
 
-    member rt.TryDequeue () = rt.TaskQueue.TryDequeue() |> Option.map PortablePickle.unpickle
+    member rt.TryDequeue () = rt.TaskQueue.TryDequeue() |> Option.map PortablePickle.UnPickle
 
     member rt.StartAsCell cts (wf : Cloud<'T>) =
         let resultCell = rt.ResourceFactory.RequestResultCell<'T>()
