@@ -61,9 +61,12 @@ and Combinators =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
-            | Choice1Of2 computations ->
-                if computations.Length = 0 then ctx.scont [||] else
+            | Choice1Of2 [||] -> ctx.scont [||]
+            | Choice1Of2 [| comp |] -> 
+                let ctx' = Context.map (fun t -> [| t |]) ctx
+                Cloud.StartImmediate(comp, ctx')
 
+            | Choice1Of2 computations ->
                 let scont = ctx.scont
                 let econt = ctx.econt
                 let ccont = ctx.ccont
@@ -92,8 +95,9 @@ and Combinators =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
+            | Choice1Of2 [||] -> ctx.scont None
+            | Choice1Of2 [| comp |] -> Cloud.StartImmediate(comp, ctx)
             | Choice1Of2 computations ->
-                if computations.Length = 0 then ctx.scont None else
 
                 let n = computations.Length
                 let scont = ctx.scont

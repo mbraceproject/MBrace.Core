@@ -41,9 +41,12 @@ type ThreadPool =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
-            | Choice1Of2 computations ->
-                if computations.Length = 0 then ctx.scont [||] else
-                    
+            | Choice1Of2 [||] -> ctx.scont [||]
+            | Choice1Of2 [| comp |] ->
+                let ctx' = Context.map (fun t -> [| t |]) ctx
+                Cloud.StartImmediate(comp, ctx')
+
+            | Choice1Of2 computations ->                    
                 let results = Array.zeroCreate<'T> computations.Length
                 let innerCts = mkLinkedCts ctx.CancellationToken
                 let exceptionLatch = new Latch(0)
@@ -76,9 +79,9 @@ type ThreadPool =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
+            | Choice1Of2 [||] -> ctx.scont None
+            | Choice1Of2 [| comp |] -> Cloud.StartImmediate(comp, ctx)
             | Choice1Of2 computations ->
-                if computations.Length = 0 then ctx.scont None else
-
                 let innerCts = mkLinkedCts ctx.CancellationToken
                 let completionLatch = new Latch(0)
                 let exceptionLatch = new Latch(0)

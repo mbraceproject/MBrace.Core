@@ -124,3 +124,21 @@ type Cloud =
             | Choice1Of2 runtime' ->
                 let ctx = { ctx with Resource = ctx.Resource.Register(runtime') }
                 Cloud.StartImmediate(workflow, ctx))
+
+
+[<RequireQualifiedAccess>]
+module Context =
+    
+    /// <summary>
+    ///     Contravariant map context map combinator.
+    /// </summary>
+    /// <param name="f">Mapper function.</param>
+    /// <param name="tcontext">Initial context.</param>
+    let inline map (f : 'S -> 'T) (tcontext : Context<'T>) =
+        {
+            Resource = tcontext.Resource
+            CancellationToken = tcontext.CancellationToken
+            scont = f >> tcontext.scont
+            econt = tcontext.econt
+            ccont = tcontext.ccont
+        }
