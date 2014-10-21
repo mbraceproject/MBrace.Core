@@ -27,6 +27,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Remote.Client", "tests\MBrace.Remote.Client\MBrace.Remote.Client.fsproj", "{F95EA755-FBE4-44FC-8945-313B46BF6920}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,10 @@ Global
 		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F95EA755-FBE4-44FC-8945-313B46BF6920}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F95EA755-FBE4-44FC-8945-313B46BF6920}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F95EA755-FBE4-44FC-8945-313B46BF6920}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F95EA755-FBE4-44FC-8945-313B46BF6920}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -48,5 +54,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{6382DB39-BBF3-4137-8644-6C915F279363} = {9E6D05F7-4934-49C3-99E7-B935D40F7245}
 		{0C3966D4-2C78-4DCF-B84B-73809F3F51BC} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
+		{F95EA755-FBE4-44FC-8945-313B46BF6920} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 	EndGlobalSection
 EndGlobal
