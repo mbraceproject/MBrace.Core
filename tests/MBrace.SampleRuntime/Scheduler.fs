@@ -64,11 +64,10 @@ and Combinators =
             | Choice1Of2 computations ->
                 if computations.Length = 0 then ctx.scont [||] else
 
-                let n = computations.Length
                 let scont = ctx.scont
                 let econt = ctx.econt
                 let ccont = ctx.ccont
-                let results = state.ResourceFactory.RequestResultAggregator<'T>(n)
+                let results = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length)
                 let innerCts = state.CancellationTokenManager.RequestCancellationTokenSource(parent = cts)
                 let exceptionLatch = state.ResourceFactory.RequestLatch(0)
 
