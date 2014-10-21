@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Remote.Vagrant
+﻿module internal Nessos.MBrace.SampleRuntime.Vagrant
 
 open System.IO
 open System.Reflection

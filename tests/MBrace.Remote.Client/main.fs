@@ -1,8 +1,8 @@
-﻿module internal Nessos.MBrace.Remote.Main
+﻿module internal Nessos.MBrace.SampleRuntime.Main
 
     open System.Diagnostics
 
-    open Nessos.MBrace.Remote.Scheduler
+    open Nessos.MBrace.SampleRuntime.Scheduler
 
     [<EntryPoint>]
     let main (args : string []) =
@@ -12,7 +12,7 @@
         let parseResults = Argument.Parser.ParseCommandLine(args)
         let runtime = parseResults.PostProcessResult(<@ Pickled_Runtime @>, fun p -> Vagrant.vagrant.Pickler.UnPickle<RuntimeState> p)
 
-        printfn "MBrace worker has been initialized, listening on queue for new tasks."
+        printfn "MBrace worker has been initialized, listening on task queue."
 
         let rec loop () : Async<int> = async {
             match runtime.TryDequeue () with

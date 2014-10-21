@@ -1,12 +1,12 @@
 ﻿#I "../../bin/"
 
 #r "MBrace.Core.dll"
-#r "MBrace.Remote.Client.exe"
+#r "MBrace.SampleRuntime.exe"
 
 open Nessos.MBrace
-open Nessos.MBrace.Remote
+open Nessos.MBrace.SampleRuntime
 
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + @"\..\..\bin\MBrace.Remote.Client.exe"
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + @"\..\..\bin\MBrace.SampleRuntime.exe"
 
 let runtime = MBraceRuntime.InitLocal(4)
 

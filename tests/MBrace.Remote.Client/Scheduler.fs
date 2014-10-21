@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Remote.Scheduler
+﻿module internal Nessos.MBrace.SampleRuntime.Scheduler
 
 #nowarn "444"
 
@@ -6,8 +6,8 @@ open Nessos.MBrace
 open Nessos.MBrace.InMemory
 open Nessos.MBrace.Runtime
 
-open Nessos.MBrace.Remote.Actors
-open Nessos.MBrace.Remote.Vagrant
+open Nessos.MBrace.SampleRuntime.Actors
+open Nessos.MBrace.SampleRuntime.Vagrant
 
 type Task = 
     {

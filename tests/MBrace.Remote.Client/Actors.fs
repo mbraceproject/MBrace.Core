@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Remote.Actors
+﻿module internal Nessos.MBrace.SampleRuntime.Actors
 
 open System
 
@@ -255,10 +255,14 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
         new Queue<'T>(ref)
 
 
-type private ResourceManagerMsg =
+//
+//  Distributed Resource factory
+//
+
+type private ResourceFactoryMsg =
     | RequestResource of ctor:(unit -> obj) * IReplyChannel<obj>
 
-type ResourceFactory private (source : ActorRef<ResourceManagerMsg>) =
+type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
     member __.RequestResource<'T>(factory : unit -> 'T) =
         let ctor () = factory () :> obj
         let res = source <!= fun ch -> RequestResource(ctor, ch)

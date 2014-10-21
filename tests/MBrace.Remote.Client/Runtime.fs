@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Remote
+﻿namespace Nessos.MBrace.SampleRuntime
 
     open System
     open System.IO
@@ -7,8 +7,8 @@
 
     open Nessos.MBrace
     open Nessos.UnionArgParser
-    open Nessos.MBrace.Remote.Actors
-    open Nessos.MBrace.Remote.Scheduler
+    open Nessos.MBrace.SampleRuntime.Actors
+    open Nessos.MBrace.SampleRuntime.Scheduler
 
     [<NoAppSettings>]
     type internal Argument =
@@ -55,4 +55,3 @@
                 let path = Path.GetFullPath path
                 if File.Exists path then exe <- Some path
                 else raise <| FileNotFoundException(path)
-                    

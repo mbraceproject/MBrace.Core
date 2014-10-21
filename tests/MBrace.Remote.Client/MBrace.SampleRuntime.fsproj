@@ -8,10 +8,10 @@
     <ProjectGuid>f95ea755-fbe4-44fc-8945-313b46bf6920</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>MBrace.Remote.Client</RootNamespace>
-    <AssemblyName>MBrace.Remote.Client</AssemblyName>
+    <AssemblyName>MBrace.SampleRuntime</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>MBrace.Remote.Client</Name>
+    <Name>MBrace.SampleRuntime</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
