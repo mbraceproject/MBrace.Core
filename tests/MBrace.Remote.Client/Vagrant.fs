@@ -1,35 +1,38 @@
-﻿module Nessos.MBrace.Remote.Vagrant
+﻿module internal Nessos.MBrace.Remote.Vagrant
 
+open System.IO
 open System.Reflection
 open System.Collections.Generic
 
 open Nessos.Vagrant
-open Nessos.FsPickler
-open Nessos.MBrace
 
-let vagrant = Vagrant.Initialize()       
+let vagrant = 
+    let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| System.Guid.NewGuid())
+    let d = Directory.CreateDirectory cachePath
+    Vagrant.Initialize(cacheDirectory = cachePath)
 
 let private ignoredAssemblies = lazy(
     let this = Assembly.GetExecutingAssembly()
     let dependencies = VagrantUtils.ComputeAssemblyDependencies(this)
     new HashSet<_>(dependencies))
 
-type PortableWorkflow =
+type PortablePickle<'T> = 
     {
         Pickle : byte []
         Dependencies : PortableAssembly list
     }
-with
-    static member Create(workflow : Cloud<unit>) =  
+
+module PortablePickle =
+    let pickle (value : 'T) : PortablePickle<'T> =
         let assemblyPackages = 
-            vagrant.ComputeObjectDependencies(workflow, permitCompilation = true)
+            vagrant.ComputeObjectDependencies(value, permitCompilation = true)
             |> List.filter (not << ignoredAssemblies.Value.Contains)
             |> List.map (fun a -> vagrant.CreatePortableAssembly(a, includeAssemblyImage = true))
-        {
-            Pickle = vagrant.Pickler.Pickle workflow
-            Dependencies = assemblyPackages
-        }
 
-    static member Load(package : PortableWorkflow) =
-        let _ = vagrant.LoadPortableAssemblies(package.Dependencies)
-        vagrant.Pickler.UnPickle<Cloud<unit>>(package.Pickle)
+        let pickle = vagrant.Pickler.Pickle value
+
+        { Pickle = pickle ; Dependencies = assemblyPackages }
+
+    let unpickle (pickle : PortablePickle<'T>) =
+        let _ = vagrant.LoadPortableAssemblies(pickle.Dependencies)
+        vagrant.Pickler.UnPickle<'T>(pickle.Pickle)

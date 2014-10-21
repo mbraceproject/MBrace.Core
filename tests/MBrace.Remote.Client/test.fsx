@@ -1,0 +1,23 @@
+﻿#I "../../bin/"
+
+#r "MBrace.Core.dll"
+#r "MBrace.Remote.Client.exe"
+
+open Nessos.MBrace
+open Nessos.MBrace.Remote
+
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + @"\..\..\bin\MBrace.Remote.Client.exe"
+
+let runtime = MBraceRuntime.InitLocal(4)
+
+runtime.Run (
+    cloud {
+        do! Cloud.Sleep 5000
+        return! Array.init 100 (fun i -> cloud { return printfn "hi" ; return i }) |> Cloud.Parallel
+    })
+
+runtime.Run (
+    cloud {
+        do! Cloud.Sleep 5000
+        return! Array.init 100 (fun i -> cloud { return if i = 78 then failwith "error" else printfn "hi" ; i }) |> Cloud.Parallel
+    })
