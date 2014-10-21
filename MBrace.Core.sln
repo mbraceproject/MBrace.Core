@@ -27,7 +27,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.SampleRuntime", "tests\MBrace.Remote.Client\MBrace.SampleRuntime.fsproj", "{F95EA755-FBE4-44FC-8945-313B46BF6920}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.SampleRuntime", "tests\MBrace.SampleRuntime\MBrace.SampleRuntime.fsproj", "{F95EA755-FBE4-44FC-8945-313B46BF6920}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
