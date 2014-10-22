@@ -7,13 +7,13 @@
 
     [<EntryPoint>]
     let main (args : string []) =
-        
-        do Actors.Actor.InitClient()
 
         let parseResults = Argument.Parser.ParseCommandLine(args)
-        let runtime = parseResults.GetAllResults() |> List.head |> Argument.ToRuntime
 
-        printfn "MBrace worker has been initialized, listening on task queue."
+        printfn "MBrace worker initialized on %O." Actors.Actor.LocalEndPoint
+        
+        let runtime = parseResults.GetAllResults() |> List.head |> Argument.ToRuntime
+        printfn "Listening to task queue at %O." runtime.IPEndPoint
 
         let rec loop () = async {
             match runtime.TryDequeue () with
@@ -22,7 +22,7 @@
                 return! loop ()
 
             | Some task ->
-                printfn "Executing task id %s of type '%O'" task.TaskId task.Type
+                printfn "Executing task %s of type '%O'." task.TaskId task.Type
 
                 let sw = new Stopwatch()
                 sw.Start()

@@ -33,6 +33,7 @@ with
 
 and RuntimeState =
     {
+        IPEndPoint : System.Net.IPEndPoint
         TaskQueue : Queue<PortablePickle<Task>>
         CancellationTokenManager : CancellationTokenManager
         ResourceFactory : ResourceFactory
@@ -40,6 +41,7 @@ and RuntimeState =
 with
     static member InitLocal () =
         {
+            IPEndPoint = Actor.LocalEndPoint
             TaskQueue = Queue<PortablePickle<Task>>.Init ()
             CancellationTokenManager = CancellationTokenManager.Init()
             ResourceFactory = ResourceFactory.Init ()

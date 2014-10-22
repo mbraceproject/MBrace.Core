@@ -3,23 +3,21 @@
 open System
 
 open Nessos.Thespian
-open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
 
 type Actor private () =
-
-    static let serverPort = 2675
-    static do ConnectionPool.TcpConnectionPool.Init()
-    static let registerListener = lazy(TcpListenerPool.RegisterListener(serverPort))
+    static do TcpListenerPool.RegisterListener(IPEndPoint.any)
+    static let endPoint = 
+        let listener = TcpListenerPool.GetListeners(IPEndPoint.any) |> Seq.head
+        listener.LocalEndPoint
 
     static member Publish(actor : Actor<'T>) =
-        registerListener.Value
         actor 
-        |> Actor.publish [ new Unidirectional.UTcp(serverPort) ] 
+        |> Actor.publish [ new Unidirectional.UTcp(endPoint.Port) ] 
         |> Actor.start
         |> Actor.ref
 
-    static member InitClient () = TcpListenerPool.RegisterListener(IPEndPoint.any)
+    static member LocalEndPoint = endPoint
 
 //
 //  Distributed latch implementation
