@@ -59,7 +59,7 @@ with
 
     member rt.StartAsCell cts (wf : Cloud<'T>) =
         let resultCell = rt.ResourceFactory.RequestResultCell<'T>()
-        let taskCompletionEvent = new EventRef<unit> ()
+        let taskCompletionEvent = new TaskCompletionEvent()
         let scont t = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Completed t) |> ignore
         let econt e = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Exception e) |> ignore
         let ccont c = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Cancelled c) |> ignore

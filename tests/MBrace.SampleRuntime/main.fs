@@ -15,7 +15,7 @@
 
         printfn "MBrace worker has been initialized, listening on task queue."
 
-        let rec loop () : Async<int> = async {
+        let rec loop () = async {
             match runtime.TryDequeue () with
             | None ->
                 do! Async.Sleep 100
