@@ -33,15 +33,15 @@
             
         let state = RuntimeState.InitLocal()
 
-        let initProc () =
+        let initProc _ =
             let exe = MBraceRuntime.WorkerExecutable
             let args = argParser.PrintCommandLineFlat [ Argument.OfRuntime state ]
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true
-            Process.Start psi |> ignore
+            Process.Start psi
 
-        do for i = 1 to workers do initProc ()
+        let procs = Array.init workers initProc
         
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
             let cts = state.CancellationTokenManager.RequestCancellationTokenSource()
@@ -53,6 +53,8 @@
 
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
+
+        member __.Kill () = for p in procs do try p.Kill() with _ -> ()
 
         static member InitLocal(workers : int) = new MBraceRuntime(workers)
 
