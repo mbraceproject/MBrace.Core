@@ -2,6 +2,8 @@
 
 #nowarn "444"
 
+open System
+
 open Nessos.MBrace
 open Nessos.MBrace.InMemory
 open Nessos.MBrace.Runtime
@@ -9,18 +11,25 @@ open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime.PortablePickle
 open Nessos.MBrace.SampleRuntime.Actors
 
+type TaskCompletionEvent = EventRef<unit>
+
 type Task = 
     {
         Type : System.Type
         TaskId : string
+        TaskCompletionEvent : TaskCompletionEvent
         Job : ResourceRegistry -> CancellationTokenSource -> unit
         CancellationTokenSource : CancellationTokenSource
     }
 with
-    static member Run(state : RuntimeState) (task : Task) =
-        let runtime = new RuntimeProvider(state, task.CancellationTokenSource, task.TaskId) :> IRuntimeProvider
+    static member RunAsync(state : RuntimeState) (task : Task) = async {
+        use uninst = task.TaskCompletionEvent.InstallLocalEvent()
+        let! awaitHandle = Async.StartChild(Async.AwaitEvent task.TaskCompletionEvent.PublishLocal)
+        let runtime = new RuntimeProvider(state, task) :> IRuntimeProvider
         let res = resource { yield runtime }
-        task.Job res task.CancellationTokenSource
+        do task.Job res task.CancellationTokenSource
+        do! awaitHandle
+    }
 
 and RuntimeState =
     {
@@ -36,28 +45,29 @@ with
             ResourceFactory = ResourceFactory.Init ()
         }
 
-    member rt.EnqueueTask sc ec cc cts (wf : Cloud<'T>) =
+    member rt.EnqueueTask sc ec cc cts tce (wf : Cloud<'T>) =
         let taskId = System.Guid.NewGuid().ToString()
         let runTask resource (cts:CancellationTokenSource) =
             let token = cts.GetLocalCancellationToken()
             let ctx = { Resource = resource ; scont = sc ; econt = ec ; ccont = cc ; CancellationToken = token }
             Cloud.StartImmediate(wf, ctx)
         
-        let task = { Job = runTask ; CancellationTokenSource = cts ; TaskId = taskId ; Type = typeof<'T> }
+        let task = { Job = runTask ; CancellationTokenSource = cts ; TaskId = taskId ; Type = typeof<'T> ; TaskCompletionEvent = tce }
         PortablePickle.Pickle task |> rt.TaskQueue.Enqueue
 
     member rt.TryDequeue () = rt.TaskQueue.TryDequeue() |> Option.map PortablePickle.UnPickle
 
     member rt.StartAsCell cts (wf : Cloud<'T>) =
         let resultCell = rt.ResourceFactory.RequestResultCell<'T>()
-        let scont t = resultCell.SetResult (Completed t) |> ignore
-        let econt e = resultCell.SetResult (Exception e) |> ignore
-        let ccont c = resultCell.SetResult (Cancelled c) |> ignore
-        rt.EnqueueTask scont econt ccont cts wf
+        let taskCompletionEvent = new EventRef<unit> ()
+        let scont t = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Completed t) |> ignore
+        let econt e = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Exception e) |> ignore
+        let ccont c = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Cancelled c) |> ignore
+        rt.EnqueueTask scont econt ccont cts taskCompletionEvent wf
         resultCell
 
 and Combinators =
-    static member Parallel (state : RuntimeState) (cts : CancellationTokenSource) (computations : seq<Cloud<'T>>) =
+    static member Parallel (state : RuntimeState) (cts : CancellationTokenSource) (tce : TaskCompletionEvent) (computations : seq<Cloud<'T>>) =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
@@ -77,21 +87,29 @@ and Combinators =
                 let onSuccess i (t : 'T) =
                     if results.SetResult(i, t) then
                         scont <| results.ToArray()
+                    else
+                        tce.TriggerLocal()
 
                 let onException e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel()
                         econt e
+                    else
+                        tce.TriggerLocal()
 
                 let onCancellation ce =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         ccont ce
+                    else 
+                        tce.TriggerLocal()
 
                 for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask (onSuccess i) onException onCancellation innerCts computations.[i])
+                    state.EnqueueTask (onSuccess i) onException onCancellation innerCts tce computations.[i]
+                    
+                tce.TriggerLocal())
 
-    static member Choice (state : RuntimeState) (cts : CancellationTokenSource) (computations : seq<Cloud<'T option>>) =
+    static member Choice (state : RuntimeState) (cts : CancellationTokenSource) (tce : TaskCompletionEvent) (computations : seq<Cloud<'T option>>) =
         Cloud.FromContinuations(fun ctx ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
@@ -111,22 +129,32 @@ and Combinators =
                     if Option.isSome topt then
                         if exceptionLatch.Increment() = 1 then
                             scont topt
+                        else
+                            tce.TriggerLocal()
                     else
                         if completionLatch.Increment () = n then
                             scont None
+                        else
+                            tce.TriggerLocal()
 
                 let onException e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         econt e
+                    else
+                        tce.TriggerLocal()
 
                 let onCancellation ce =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         ccont ce
+                    else
+                        tce.TriggerLocal()
 
                 for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask onSuccess onException onCancellation innerCts computations.[i])
+                    state.EnqueueTask onSuccess onException onCancellation innerCts tce computations.[i]
+                    
+                tce.TriggerLocal())
 
     // timeout?
     static member StartChild (state : RuntimeState) (cts : CancellationTokenSource) (computation : Cloud<'T>) = cloud {
@@ -138,13 +166,13 @@ and Combinators =
     }
 
 
-and RuntimeProvider private (state : RuntimeState, cts : CancellationTokenSource, taskId, context) =
+and RuntimeProvider private (state : RuntimeState, task : Task, context) =
 
-    new (state, cts, taskId) = new RuntimeProvider(state, cts, taskId, Distributed)
+    new (state, task) = new RuntimeProvider(state, task, Distributed)
         
     interface IRuntimeProvider with
         member __.ProcessId = "0"
-        member __.TaskId = taskId
+        member __.TaskId = task.TaskId
         member __.GetAvailableWorkers () = async {
             return raise <| System.NotImplementedException()
         }
@@ -154,22 +182,22 @@ and RuntimeProvider private (state : RuntimeState, cts : CancellationTokenSource
         member __.Logger = raise <| System.NotImplementedException()
 
         member __.SchedulingContext = context
-        member __.WithSchedulingContext context = new RuntimeProvider(state, cts, taskId, context) :> IRuntimeProvider
+        member __.WithSchedulingContext context = new RuntimeProvider(state, task, context) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.Parallel state cts computations
+            | Distributed -> Combinators.Parallel state task.CancellationTokenSource task.TaskCompletionEvent computations
             | ThreadParallel -> ThreadPool.Parallel computations
             | Sequential -> Sequential.Parallel computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.Choice state cts computations
+            | Distributed -> Combinators.Choice state task.CancellationTokenSource task.TaskCompletionEvent computations
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
         member __.ScheduleStartChild(computation,_,_) =
             match context with
-            | Distributed -> Combinators.StartChild state cts computation
+            | Distributed -> Combinators.StartChild state task.CancellationTokenSource computation
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation

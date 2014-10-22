@@ -18,18 +18,21 @@
         let rec loop () : Async<int> = async {
             match runtime.TryDequeue () with
             | None ->
-                do! Async.Sleep 20
+                do! Async.Sleep 100
                 return! loop ()
 
             | Some task ->
                 printfn "Executing task id %s of type '%O'" task.TaskId task.Type
+
                 let sw = new Stopwatch()
                 sw.Start()
-                let result = try Task.Run runtime task ; None with e -> Some e
+                let! result = Async.Catch <| Task.RunAsync runtime task
                 sw.Stop()
+
                 match result with
-                | None -> printfn "Completed in %O." sw.Elapsed
-                | Some e -> printfn "Fault %O." e
+                | Choice1Of2 () -> printfn "Completed in %O." sw.Elapsed
+                | Choice2Of2 e -> printfn "Fault %O." e
+
                 return! loop ()
         }
 

@@ -9,7 +9,6 @@
 
     open Nessos.MBrace
     open Nessos.MBrace.SampleRuntime.PortablePickle
-    open Nessos.MBrace.SampleRuntime.Actors
     open Nessos.MBrace.SampleRuntime.Scheduler
 
     [<NoAppSettings>]

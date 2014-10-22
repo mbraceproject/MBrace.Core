@@ -284,3 +284,49 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
             |> Actor.Publish
 
         new ResourceFactory(ref)
+
+
+//
+//  Event reference
+//
+
+/// Serializable event reference with local subscription
+[<AutoSerializable(true)>]
+type EventRef<'T> () =
+    let id = System.Guid.NewGuid().ToString()
+    // local event registry by id.
+    static let localEvents = ref Map.empty<string, Event<'T>>
+
+    /// <summary>
+    ///     Installs a local event instance in current process.
+    /// </summary>
+    /// <returns>Uninstallation IDisposable</returns>
+    member __.InstallLocalEvent () : IDisposable =
+        match localEvents.Value.TryFind id with
+        | Some e -> invalidOp "A local event has already been registered."
+        | None ->
+            lock localEvents (fun () -> 
+                let e = new Event<'T> ()
+                localEvents := Map.add id e localEvents.Value
+                {
+                    new IDisposable with
+                        member __.Dispose () =
+                            lock localEvents (fun () -> localEvents := Map.remove id localEvents.Value)
+                })
+
+    /// <summary>
+    ///     Triggers a local event, if installed in the current process.
+    /// </summary>
+    /// <param name="value">Trigger value.</param>
+    member __.TriggerLocal value =
+        match localEvents.Value.TryFind id with
+        | Some e -> e.Trigger value
+        | None -> invalidOp "No local event has been registered."
+
+    /// <summary>
+    ///     Publishes an observable to the local observable, if installed.
+    /// </summary>
+    member __.PublishLocal =
+        match localEvents.Value.TryFind id with
+        | Some e -> e.Publish
+        | None -> invalidOp "No local event has been registered."
