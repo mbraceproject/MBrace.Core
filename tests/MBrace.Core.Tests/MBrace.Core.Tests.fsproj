@@ -53,6 +53,7 @@
     <Compile Include="InMemoryRuntime.fs" />
     <Compile Include="ContinuationTests.fs" />
     <Compile Include="InMemoryTests.fs" />
+    <Compile Include="DistributionTests.fs" />
     <Content Include="app.config" />
     <Content Include="paket.references" />
   </ItemGroup>
@@ -69,6 +70,11 @@
     <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
       <Name>MBrace.Core</Name>
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MBrace.SampleRuntime\MBrace.SampleRuntime.fsproj">
+      <Name>MBrace.SampleRuntime</Name>
+      <Project>{f95ea755-fbe4-44fc-8945-313b46bf6920}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
@@ -135,6 +141,72 @@
           <Paket>True</Paket>
         </Reference>
       </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework'">
+      <Choose>
+        <When Condition="$(TargetFrameworkVersion) == 'v1.0'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v1.1'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v2.0'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v3.5'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v4.0' And $(TargetFrameworkProfile) == 'Client'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v4.0'">
+        </When>
+        <Otherwise>
+          <ItemGroup>
+            <Reference Include="Thespian.Cluster">
+              <HintPath>..\..\packages\Thespian\lib\net45\Thespian.Cluster.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Thespian">
+              <HintPath>..\..\packages\Thespian\lib\net45\Thespian.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </Otherwise>
+      </Choose>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework'">
+      <Choose>
+        <When Condition="$(TargetFrameworkVersion) == 'v1.0'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v1.1'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v2.0'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v3.5'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v4.0' And $(TargetFrameworkProfile) == 'Client'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v4.0'">
+          <ItemGroup>
+            <Reference Include="FsPickler">
+              <HintPath>..\..\packages\FsPickler\lib\net40\FsPickler.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <Otherwise>
+          <ItemGroup>
+            <Reference Include="FsPickler">
+              <HintPath>..\..\packages\FsPickler\lib\net45\FsPickler.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </Otherwise>
+      </Choose>
     </When>
   </Choose>
 </Project>

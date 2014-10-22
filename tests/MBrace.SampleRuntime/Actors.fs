@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.SampleRuntime.Actors
+﻿module Nessos.MBrace.SampleRuntime.Actors
 
 open System
 
@@ -282,3 +282,20 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
             |> Actor.Publish
 
         new ResourceFactory(ref)
+
+
+//
+//  Distributed event
+//
+
+type EventActor<'T> private (ref : ActorRef<'T>) =
+    member __.Trigger t = ref <-- t
+
+    static member Init() =
+        let event = new Event<'T> ()
+        let ref =
+            Behavior.stateless (fun t -> async { return try event.Trigger t with _ -> ()})
+            |> Actor.bind
+            |> Actor.Publish
+
+        event.Publish, new EventActor<'T>(ref)
