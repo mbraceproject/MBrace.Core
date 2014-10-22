@@ -60,9 +60,10 @@ with
     member rt.StartAsCell cts (wf : Cloud<'T>) =
         let resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let taskCompletionEvent = new TaskCompletionEvent()
-        let scont t = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Completed t) |> ignore
-        let econt e = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Exception e) |> ignore
-        let ccont c = taskCompletionEvent.TriggerLocal() ; resultCell.SetResult (Cancelled c) |> ignore
+        // defines root continuations for this process ; task completion event triggered by default
+        let scont t = resultCell.SetResult (Completed t) |> ignore ; taskCompletionEvent.TriggerLocal() 
+        let econt e = resultCell.SetResult (Exception e) |> ignore ; taskCompletionEvent.TriggerLocal()
+        let ccont c = resultCell.SetResult (Cancelled c) |> ignore ; taskCompletionEvent.TriggerLocal()
         rt.EnqueueTask scont econt ccont cts taskCompletionEvent wf
         resultCell
 
@@ -72,7 +73,9 @@ and Combinators =
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
             | Choice1Of2 [||] -> ctx.scont [||]
-            | Choice1Of2 [| comp |] -> 
+            // schedule single-child parallel workflows in current task
+            // note that this invalidates expected workflow semantics w.r.t. mutability.
+            | Choice1Of2 [| comp |] ->
                 let ctx' = Context.map (fun t -> [| t |]) ctx
                 Cloud.StartImmediate(comp, ctx')
 
@@ -114,6 +117,8 @@ and Combinators =
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> ctx.econt e
             | Choice1Of2 [||] -> ctx.scont None
+            // schedule single-child parallel workflows in current task
+            // note that this invalidates expected workflow semantics w.r.t. mutability.
             | Choice1Of2 [| comp |] -> Cloud.StartImmediate(comp, ctx)
             | Choice1Of2 computations ->
 
