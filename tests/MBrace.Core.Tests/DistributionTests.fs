@@ -1,6 +1,7 @@
 ﻿namespace Nessos.MBrace.Tests
 
 open System
+open System.IO
 open System.Threading
 
 open NUnit.Framework
@@ -20,7 +21,7 @@ module ``Distribution Tests`` =
 
     [<TestFixtureSetUp>]
     let init () =
-        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + @"\..\..\bin\MBrace.SampleRuntime.exe"
+        MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "bin", "MBrace.SampleRuntime.exe")
         runtime <- Some <| MBraceRuntime.InitLocal(4)
 
     [<TestFixtureTearDown>]
