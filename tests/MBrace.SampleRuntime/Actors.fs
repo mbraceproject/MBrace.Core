@@ -13,7 +13,7 @@ type Actor private () =
 
     static member Publish(actor : Actor<'T>) =
         actor 
-        |> Actor.publish [ new Unidirectional.UTcp(endPoint.Port) ] 
+        |> Actor.publish [ new Unidirectional.UTcp() ] 
         |> Actor.start
         |> Actor.ref
 
