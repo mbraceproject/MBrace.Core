@@ -24,7 +24,7 @@ type Task =
 with
     static member RunAsync(state : RuntimeState) (task : Task) = async {
         use uninst = task.TaskCompletionEvent.InstallLocalEvent()
-        let! awaitHandle = Async.StartChild(Async.AwaitEvent task.TaskCompletionEvent.PublishLocal)
+        let! awaitHandle = Async.StartChild(Async.AwaitEvent task.TaskCompletionEvent.Publish)
         let runtime = new RuntimeProvider(state, task) :> IRuntimeProvider
         let res = resource { yield runtime }
         do task.Job res task.CancellationTokenSource
@@ -61,9 +61,9 @@ with
         let resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let taskCompletionEvent = new TaskCompletionEvent()
         // defines root continuations for this process ; task completion event triggered by default
-        let scont t = resultCell.SetResult (Completed t) |> ignore ; taskCompletionEvent.TriggerLocal() 
-        let econt e = resultCell.SetResult (Exception e) |> ignore ; taskCompletionEvent.TriggerLocal()
-        let ccont c = resultCell.SetResult (Cancelled c) |> ignore ; taskCompletionEvent.TriggerLocal()
+        let scont t = resultCell.SetResult (Completed t) |> ignore ; taskCompletionEvent.Trigger() 
+        let econt e = resultCell.SetResult (Exception e) |> ignore ; taskCompletionEvent.Trigger()
+        let ccont c = resultCell.SetResult (Cancelled c) |> ignore ; taskCompletionEvent.Trigger()
         rt.EnqueueTask scont econt ccont cts taskCompletionEvent wf
         resultCell
 
@@ -91,26 +91,26 @@ and Combinators =
                     if results.SetResult(i, t) then
                         scont <| results.ToArray()
                     else
-                        tce.TriggerLocal()
+                        tce.Trigger()
 
                 let onException e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel()
                         econt e
                     else
-                        tce.TriggerLocal()
+                        tce.Trigger()
 
                 let onCancellation ce =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         ccont ce
                     else 
-                        tce.TriggerLocal()
+                        tce.Trigger()
 
                 for i = 0 to computations.Length - 1 do
                     state.EnqueueTask (onSuccess i) onException onCancellation innerCts tce computations.[i]
                     
-                tce.TriggerLocal())
+                tce.Trigger())
 
     static member Choice (state : RuntimeState) (cts : CancellationTokenSource) (tce : TaskCompletionEvent) (computations : seq<Cloud<'T option>>) =
         Cloud.FromContinuations(fun ctx ->
@@ -135,31 +135,31 @@ and Combinators =
                         if exceptionLatch.Increment() = 1 then
                             scont topt
                         else
-                            tce.TriggerLocal()
+                            tce.Trigger()
                     else
                         if completionLatch.Increment () = n then
                             scont None
                         else
-                            tce.TriggerLocal()
+                            tce.Trigger()
 
                 let onException e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         econt e
                     else
-                        tce.TriggerLocal()
+                        tce.Trigger()
 
                 let onCancellation ce =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         ccont ce
                     else
-                        tce.TriggerLocal()
+                        tce.Trigger()
 
                 for i = 0 to computations.Length - 1 do
                     state.EnqueueTask onSuccess onException onCancellation innerCts tce computations.[i]
                     
-                tce.TriggerLocal())
+                tce.Trigger())
 
     // timeout?
     static member StartChild (state : RuntimeState) (cts : CancellationTokenSource) (computation : Cloud<'T>) = cloud {

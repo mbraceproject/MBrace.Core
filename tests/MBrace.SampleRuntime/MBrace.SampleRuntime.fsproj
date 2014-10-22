@@ -189,6 +189,7 @@
   </Choose>
   <ItemGroup>
     <Compile Include="PortablePickle.fs" />
+    <Compile Include="EventRef.fs" />
     <Compile Include="Actors.fs" />
     <Compile Include="Scheduler.fs" />
     <Compile Include="Client.fs" />
