@@ -114,8 +114,8 @@ type private ResultCellMsg<'T> =
     | TryGetResult of IReplyChannel<Result<'T> option>
 
 type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
-    member c.SetResult result = source <!= fun ch -> SetResult(result, ch)
-    member c.TryGetResult () = source <!= TryGetResult
+    member c.SetResult result = try source <!= fun ch -> SetResult(result, ch) with _ -> false
+    member c.TryGetResult () = try source <!= TryGetResult with _ -> None
     member c.AwaitResult() = async {
         let! result = source <!- TryGetResult
         match result with
