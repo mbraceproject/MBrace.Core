@@ -22,7 +22,7 @@
                 return! loop ()
 
             | Some task ->
-                printfn "Executing task %s of type '%O'." task.TaskId task.Type
+                printfn "Executing task %s of type '%O'." task.Id task.Type
 
                 let sw = new Stopwatch()
                 sw.Start()

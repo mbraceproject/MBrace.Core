@@ -5,35 +5,34 @@ module internal CloudBuilderUtils =
 
     let inline protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
 
-    type Context<'T> with
-        member inline ctx.ChoiceCont (choice : Choice<'T,exn>) =
-            match choice with
-            | Choice1Of2 t -> ctx.scont t
-            | Choice2Of2 e -> ctx.econt e
+    type Continuation<'T> with
+        member inline c.Cancel ctx = c.Cancellation ctx (new System.OperationCanceledException())
 
-        member inline ctx.ChoiceCont (choice : Choice<Cloud<'T>, exn>) =
+        member inline c.Choice (ctx, choice : Choice<'T,exn>) =
             match choice with
-            | Choice1Of2 (Body f) -> f ctx
-            | Choice2Of2 e -> ctx.econt e
+            | Choice1Of2 t -> c.Success ctx t
+            | Choice2Of2 e -> c.Exception ctx e
 
+        member inline c.Choice (ctx, choice : Choice<Cloud<'T>, exn>) =
+            match choice with
+            | Choice1Of2 (Body f) -> f ctx c
+            | Choice2Of2 e -> c.Exception ctx e
+
+    type ExecutionContext with
         member inline ctx.IsCancellationRequested = ctx.CancellationToken.IsCancellationRequested
-        member inline ctx.Cancel() = ctx.ccont(new System.OperationCanceledException())
 
 
-    let inline ret t = Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else ctx.scont t)
-    let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else ctx.econt e)
+    let inline ret t = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Success ctx t)
+    let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx e)
     let zero = ret ()
 
     let inline bind (Body f : Cloud<'T>) (g : 'T -> Cloud<'S>) : Cloud<'S> =
-        Body(fun ctx ->
-            if ctx.IsCancellationRequested then ctx.Cancel() else
-            f {
-                Resource = ctx.Resource
-                CancellationToken = ctx.CancellationToken
-                    
-                scont = fun t -> ctx.ChoiceCont (protect g t)
-                econt = ctx.econt
-                ccont = ctx.ccont
+        Body(fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx else
+            f ctx {
+                Success = fun ctx t -> cont.Choice(ctx, protect g t)
+                Exception = cont.Exception
+                Cancellation = cont.Cancellation
             }
         )
 
@@ -41,46 +40,42 @@ module internal CloudBuilderUtils =
     let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
 
     let inline tryWith (Body f : Cloud<'T>) (handler : exn -> Cloud<'T>) : Cloud<'T> =
-        Body(fun ctx ->
-            if ctx.IsCancellationRequested then ctx.Cancel () else
-            f {
-                Resource = ctx.Resource
-                CancellationToken = ctx.CancellationToken
-
-                scont = ctx.scont
-                econt = fun e -> ctx.ChoiceCont (protect handler e)
-                ccont = ctx.ccont
+        Body(fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx else
+            f ctx {
+                Success = cont.Success
+                Exception = fun ctx e -> cont.Choice(ctx, protect handler e)
+                Cancellation = cont.Cancellation
             }
         )
 
     let inline tryFinally (Body f : Cloud<'T>) (finalizer : unit -> unit) : Cloud<'T> =
-        Body(fun ctx ->
-            if ctx.IsCancellationRequested then ctx.Cancel() else
-
-            f {
-                Resource = ctx.Resource
-                CancellationToken = ctx.CancellationToken
-
-                scont = fun t -> match protect finalizer () with Choice1Of2 () -> ctx.scont t | Choice2Of2 e -> ctx.econt e
-                econt = fun e -> match protect finalizer () with Choice1Of2 () -> ctx.econt e | Choice2Of2 e' -> ctx.econt e'
-                ccont = ctx.ccont
+        Body(fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx else
+            f ctx {
+                Success = fun ctx t -> match protect finalizer () with Choice1Of2 () -> cont.Success ctx t | Choice2Of2 e -> cont.Exception ctx e
+                Exception = fun ctx e -> match protect finalizer () with Choice1Of2 () -> cont.Exception ctx e | Choice2Of2 e' -> cont.Exception ctx e'
+                Cancellation = cont.Cancellation
             }
         )
 
     let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
-        Body(fun ctx ->
-            if ctx.IsCancellationRequested then ctx.Cancel() else
+        Body(fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx else
 
-            let disposer scont =
+            let inline disposer scont =
                 let wf = async { return! t.Dispose () }
-                Async.StartWithContinuations(wf, scont, ctx.econt, ctx.ccont, ctx.CancellationToken)
+                Async.StartWithContinuations(wf, scont, cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken)
 
             match protect g t with
             | Choice1Of2 (Body g) ->
-                g { ctx with 
-                        scont = fun s -> disposer (fun () -> ctx.scont s)
-                        econt = fun e -> disposer (fun () -> ctx.econt e) }
-            | Choice2Of2 e -> disposer (fun () -> ctx.econt e)
+                g ctx {
+                    Success = fun ctx s -> disposer (fun () -> cont.Success ctx s)
+                    Exception = fun ctx e -> disposer (fun () -> cont.Exception ctx e)
+                    Cancellation = cont.Cancellation
+                }
+
+            | Choice2Of2 e -> disposer (fun () -> cont.Exception ctx e)
         )
 
     let inline forM (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =

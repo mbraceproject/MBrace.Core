@@ -21,10 +21,11 @@ module private SchedulerInternals =
 
     let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
 
-    let scheduleTask resource sc ec cc ct wf =
+    let scheduleTask res ct sc ec cc wf =
         Task.Factory.StartNew(fun () -> 
-            let ctx = { Resource = resource ; scont = sc ; econt = ec ; ccont = cc ; CancellationToken = ct }
-            Cloud.StartImmediate(wf, ctx))
+            let ctx = { Resources = res ; CancellationToken = ct }
+            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
+            Cloud.StartImmediate(wf, cont, ctx))
         |> ignore
 
 
@@ -38,13 +39,13 @@ type ThreadPool =
     /// </summary>
     /// <param name="computations">Input computations</param>
     static member Parallel (computations : seq<Cloud<'T>>) =
-        Cloud.FromContinuations(fun ctx ->
+        Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-            | Choice2Of2 e -> ctx.econt e
-            | Choice1Of2 [||] -> ctx.scont [||]
+            | Choice2Of2 e -> cont.Exception ctx e
+            | Choice1Of2 [||] -> cont.Success ctx [||]
             | Choice1Of2 [| comp |] ->
-                let ctx' = Context.map (fun t -> [| t |]) ctx
-                Cloud.StartImmediate(comp, ctx')
+                let cont' = Continuation.map (fun t -> [| t |]) cont
+                Cloud.StartImmediate(comp, cont')
 
             | Choice1Of2 computations ->                    
                 let results = Array.zeroCreate<'T> computations.Length
@@ -52,23 +53,23 @@ type ThreadPool =
                 let exceptionLatch = new Latch(0)
                 let completionLatch = new Latch(0)
 
-                let onSuccess i (t : 'T) =
+                let onSuccess i ctx (t : 'T) =
                     results.[i] <- t
                     if completionLatch.Increment() = results.Length then
-                        ctx.scont results
+                        cont.Success ctx results
 
-                let onException e =
+                let onException ctx e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        ctx.econt e
+                        cont.Exception ctx e
 
-                let onCancellation ce =
+                let onCancellation ctx ce =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        ctx.ccont ce
+                        cont.Cancellation ctx ce
 
                 for i = 0 to computations.Length - 1 do
-                    scheduleTask ctx.Resource (onSuccess i) onException onCancellation innerCts.Token computations.[i])
+                    scheduleTask ctx.Resources innerCts.Token (onSuccess i) onException onCancellation computations.[i])
 
     /// <summary>
     ///     Provides a context-less Cloud.Choice implementation
@@ -76,36 +77,36 @@ type ThreadPool =
     /// </summary>
     /// <param name="computations">Input computations</param>
     static member Choice(computations : seq<Cloud<'T option>>) =
-        Cloud.FromContinuations(fun ctx ->
+        Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-            | Choice2Of2 e -> ctx.econt e
-            | Choice1Of2 [||] -> ctx.scont None
-            | Choice1Of2 [| comp |] -> Cloud.StartImmediate(comp, ctx)
+            | Choice2Of2 e -> cont.Exception ctx e
+            | Choice1Of2 [||] -> cont.Success ctx None
+            | Choice1Of2 [| comp |] -> Cloud.StartImmediate(comp, cont, ctx)
             | Choice1Of2 computations ->
                 let innerCts = mkLinkedCts ctx.CancellationToken
                 let completionLatch = new Latch(0)
                 let exceptionLatch = new Latch(0)
 
-                let onSuccess (topt : 'T option) =
+                let onSuccess ctx (topt : 'T option) =
                     if Option.isSome topt then
                         if exceptionLatch.Increment() = 1 then
-                            ctx.scont topt
+                            cont.Success ctx topt
                     else
                         if completionLatch.Increment () = computations.Length then
-                            ctx.scont None
+                            cont.Success ctx None
 
-                let onException e =
+                let onException ctx e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        ctx.econt e
+                        cont.Exception ctx e
 
-                let onCancellation ce =
+                let onCancellation ctx ce =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        ctx.ccont ce
+                        cont.Cancellation ctx ce
 
                 for i = 0 to computations.Length - 1 do
-                    scheduleTask ctx.Resource onSuccess onException onCancellation innerCts.Token computations.[i])
+                    scheduleTask ctx.Resources innerCts.Token onSuccess onException onCancellation computations.[i])
 
 
     /// <summary>

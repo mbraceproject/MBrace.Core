@@ -15,39 +15,41 @@ type Cloud =
     /// </summary>
     /// <param name="body">Execution body.</param>
     [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
-    static member FromContinuations(body : Context<'T> -> unit) : Cloud<'T> = 
-        Body(fun ctx -> if ctx.IsCancellationRequested then ctx.Cancel() else body ctx)
+    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> = 
+        Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
 
     /// <summary>
     ///     Starts a cloud workflow with given execution context in the current thread.
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
-    /// <param name="ctx">Local execution context.</param>
-    static member StartImmediate(cloudWorkflow : Cloud<'T>, ctx : Context<'T>) : unit = 
-        let (Body f) = cloudWorkflow in f ctx
+    /// <paran name"continuation">Root continuation for workflow.</param>
+    /// <param name="context">Local execution context.</param>
+    static member StartImmediate(cloudWorkflow : Cloud<'T>, continuation : Continuation<'T>, ?context : ExecutionContext) : unit =
+        let context = match context with None -> ExecutionContext.Empty() | Some ctx -> ctx
+        let (Body f) = cloudWorkflow in f context continuation
 
     /// <summary>
     ///     Returns the resource registry for current execution context.
     /// </summary>
     [<CompilerMessage("'GetResourceRegistry' only intended for runtime implementers.", 444)>]
     static member GetResourceRegistry () : Cloud<ResourceRegistry> =
-        Cloud.FromContinuations(fun ctx -> ctx.scont ctx.Resource)
+        Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx.Resources)
 
     /// <summary>
     ///     Gets resource from current execution context.
     /// </summary>
     [<CompilerMessage("'GetResource' only intended for runtime implementers.", 444)>]
     static member GetResource<'TResource> () : Cloud<'TResource> =
-        Cloud.FromContinuations(fun ctx ->
-            let res = protect (fun () -> ctx.Resource.Resolve<'TResource> ()) ()
-            ctx.ChoiceCont res)
+        Cloud.FromContinuations(fun ctx cont ->
+            let res = protect (fun () -> ctx.Resources.Resolve<'TResource> ()) ()
+            cont.Choice(ctx, res))
 
     /// <summary>
     ///     Try Getting resource from current execution context.
     /// </summary>
     [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
     static member TryGetResource<'TResource> () : Cloud<'TResource option> =
-        Cloud.FromContinuations(fun ctx -> ctx.scont <| ctx.Resource.TryResolve<'TResource> ())
+        Cloud.FromContinuations(fun ctx cont -> cont.Success ctx <| ctx.Resources.TryResolve<'TResource> ())
 
     /// <summary>
     ///     Wraps a cloud workflow into an asynchronous workflow.
@@ -60,15 +62,18 @@ type Cloud =
             Async.FromContinuations(fun (sc,ec,cc) ->
                 let context = 
                     {
-                        Resource = match resources with None -> ResourceRegistry.Empty | Some r -> r
+                        Resources = match resources with None -> ResourceRegistry.Empty | Some r -> r
                         CancellationToken = ct
-
-                        scont = sc
-                        econt = ec
-                        ccont = cc
                     }
 
-                Cloud.StartImmediate(cloudWorkflow, context))
+                let cont =
+                    {
+                        Success = fun _ t -> sc t
+                        Exception = fun _ e -> ec e
+                        Cancellation = fun _ c -> cc c
+                    }
+
+                Cloud.StartImmediate(cloudWorkflow, cont, context))
     }
 
     /// <summary>
@@ -111,34 +116,32 @@ type Cloud =
     /// <param name="schedulingContext">Target scheduling context.</param>
     [<CompilerMessage("'SetSchedulingContext' only intended for runtime implementers.", 444)>]
     static member SetSchedulingContext(workflow : Cloud<'T>, schedulingContext) : Cloud<'T> =
-        Cloud.FromContinuations(fun ctx ->
+        Cloud.FromContinuations(fun ctx cont ->
             let result =
                 try 
-                    let runtime = ctx.Resource.Resolve<IRuntimeProvider>()
+                    let runtime = ctx.Resources.Resolve<IRuntimeProvider>()
                     let runtime' = runtime.WithSchedulingContext schedulingContext
                     Choice1Of2 runtime'
                 with e -> Choice2Of2 e
 
             match result with
-            | Choice2Of2 e -> ctx.econt e
+            | Choice2Of2 e -> cont.Exception ctx e
             | Choice1Of2 runtime' ->
-                let ctx = { ctx with Resource = ctx.Resource.Register(runtime') }
-                Cloud.StartImmediate(workflow, ctx))
+                let ctx = { ctx with Resources = ctx.Resources.Register(runtime') }
+                Cloud.StartImmediate(workflow, cont, ctx))
 
 
 [<RequireQualifiedAccess>]
-module Context =
+module Continuation =
     
     /// <summary>
-    ///     Contravariant map context map combinator.
+    ///     Contravariant Continuation map combinator.
     /// </summary>
     /// <param name="f">Mapper function.</param>
     /// <param name="tcontext">Initial context.</param>
-    let inline map (f : 'S -> 'T) (tcontext : Context<'T>) =
+    let inline map (f : 'S -> 'T) (scont : Continuation<'T>) =
         {
-            Resource = tcontext.Resource
-            CancellationToken = tcontext.CancellationToken
-            scont = f >> tcontext.scont
-            econt = tcontext.econt
-            ccont = tcontext.ccont
+            Success = fun ctx t -> scont.Success ctx (f t)
+            Exception = scont.Exception
+            Cancellation = scont.Cancellation
         }

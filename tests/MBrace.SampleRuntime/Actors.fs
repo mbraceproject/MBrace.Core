@@ -147,7 +147,7 @@ type internal CancellationTokenManagerMsg =
     | IsCancellationRequested of id:CancellationTokenId * IReplyChannel<bool>
     | Cancel of id:CancellationTokenId
 
-type CancellationTokenSource = 
+type DistributedCancellationTokenSource = 
     internal {
         Id : CancellationTokenId
         Source : ActorRef<CancellationTokenManagerMsg>
@@ -173,7 +173,7 @@ with
         cts.Token
 
 type CancellationTokenManager private (source : ActorRef<CancellationTokenManagerMsg>) =
-    member __.RequestCancellationTokenSource(?parent : CancellationTokenSource) =
+    member __.RequestCancellationTokenSource(?parent : DistributedCancellationTokenSource) =
         let ids = parent |> Option.map (fun p -> p.Id)
         let newId = source <!= fun ch -> RequestCancellationTokenSource(ids, ch)
         { Id = newId ; Source = source }

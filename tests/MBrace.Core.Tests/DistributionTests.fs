@@ -40,28 +40,28 @@ module ``Distribution Tests`` =
     let ``Parallel : empty input`` () =
         run (Cloud.Parallel [||]) |> Choice.shouldEqual [||]
 
-//    [<Test>]
-//    let ``Parallel : simple inputs`` () =
-//        cloud {
-//            do! Cloud.Sleep 20000
-//            let f i = cloud { return i + 1 }
-//            let! results = Array.init 100 f |> Cloud.Parallel
-//            return Array.sum results
-//        } |> run |> Choice.shouldEqual 5050
-//
-//    [<Test>]
-//    let ``Parallel : simple nested`` () =
-//        cloud {
-//            let f i j = cloud { return i + j + 2 }
-//            let cluster i = Array.init 10 (f i) |> Cloud.Parallel
-//            let! results = Array.init 10 cluster |> Cloud.Parallel
-//            return Array.concat results |> Array.sum
-//        } |> run |> Choice.shouldEqual 1100
-//
-//    [<Test>]
-//    let ``Parallel : simple exception`` () =
-//        cloud {
-//            let f i = cloud { return if i = 55 then invalidOp "failure" else i + 1 }
-//            let! results = Array.init 100 f |> Cloud.Parallel
-//            return Array.sum results
-//        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
+    [<Test>]
+    let ``Parallel : simple inputs`` () =
+        cloud {
+            do! Cloud.Sleep 20000
+            let f i = cloud { return i + 1 }
+            let! results = Array.init 100 f |> Cloud.Parallel
+            return Array.sum results
+        } |> run |> Choice.shouldEqual 5050
+
+    [<Test>]
+    let ``Parallel : simple nested`` () =
+        cloud {
+            let f i j = cloud { return i + j + 2 }
+            let cluster i = Array.init 10 (f i) |> Cloud.Parallel
+            let! results = Array.init 10 cluster |> Cloud.Parallel
+            return Array.concat results |> Array.sum
+        } |> run |> Choice.shouldEqual 1100
+
+    [<Test>]
+    let ``Parallel : simple exception`` () =
+        cloud {
+            let f i = cloud { return if i = 55 then invalidOp "failure" else i + 1 }
+            let! results = Array.init 100 f |> Cloud.Parallel
+            return Array.sum results
+        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>

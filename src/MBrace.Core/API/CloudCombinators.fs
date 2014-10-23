@@ -14,7 +14,7 @@ type Cloud =
     ///     Gets the current cancellation token.
     /// </summary>
     static member CancellationToken = 
-        Cloud.FromContinuations(fun ctx -> ctx.scont ctx.CancellationToken)
+        Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx.CancellationToken)
 
     /// <summary>
     ///     Raise an exception.
@@ -46,7 +46,8 @@ type Cloud =
     /// </summary>
     /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
     static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Cloud<'T> = 
-        Cloud.FromContinuations(fun ctx -> Async.StartWithContinuations(asyncWorkflow, ctx.scont, ctx.econt, ctx.ccont, ctx.CancellationToken))
+        Cloud.FromContinuations(fun ctx cont -> 
+            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken))
 
     /// <summary>
     ///     Writes an entry to a logging provider, if it exists.
