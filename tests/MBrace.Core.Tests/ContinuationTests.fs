@@ -379,7 +379,10 @@ module ``Continuation Tests`` =
                     return! ackermannC (m-1) right
             }
 
-        for i in 0 .. 3 do
+        // mono does not have tail-call optimization,
+        // use a smaller upper bound.
+        let upper = if runsOnMono then 2 else 3
+        for i in 0 .. upper do
             Cloud.RunProtected(ackermannC i i) |> Choice.shouldEqual (ackermann i i)
 
 
