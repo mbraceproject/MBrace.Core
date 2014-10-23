@@ -11,7 +11,7 @@
     let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
         let currentTaskCount = ref 0
 
-        printfn "Worker listening to task queue at %O." runtime.IPEndPoint
+        printfn "Listening to task queue at %O." runtime.IPEndPoint
 
         let rec loop () = async {
             if !currentTaskCount >= maxConcurrentTasks then
@@ -21,7 +21,6 @@
                 try
                     match runtime.TryDequeue() with
                     | None -> do! Async.Sleep 50
-                    | Some task when task.CancellationTokenSource.IsCancellationRequested -> ()
                     | Some task ->
                         let _ = Interlocked.Increment currentTaskCount
                         let runTask () = async {
@@ -40,7 +39,7 @@
                             return ()
                         }
         
-                        let! _ = Async.StartChild(runTask())
+                        let! handle = Async.StartChild(runTask())
                         return ()
 
                 with e -> printfn "RUNTIME FAULT: %O" e

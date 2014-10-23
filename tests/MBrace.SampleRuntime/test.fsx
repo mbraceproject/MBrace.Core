@@ -21,12 +21,3 @@ runtime.Run (
         do! Cloud.Sleep 5000
         return! Array.init 100 (fun i -> cloud { return if i = 78 then failwith "error" else printfn "hi" ; i }) |> Cloud.Parallel
     })
-
-
-let foo =
-    cloud {
-        let! a,b = cloud { return 1 } <||> cloud { return 2 }
-        return a + b
-    }
-
-runtime.Run foo

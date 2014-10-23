@@ -17,7 +17,7 @@ type PortablePickle private () =
     static let vagrant = 
         let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| System.Guid.NewGuid())
         let d = Directory.CreateDirectory cachePath
-        Vagrant.Initialize(cacheDirectory = cachePath)
+        Vagrant.Initialize(cacheDirectory = cachePath, loadPolicy = AssemblyLoadPolicy.ResolveAll)
 
     static let ignoredAssemblies =
         let this = Assembly.GetExecutingAssembly()

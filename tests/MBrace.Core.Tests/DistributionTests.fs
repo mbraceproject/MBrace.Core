@@ -7,8 +7,6 @@ open System.Threading
 open NUnit.Framework
 open FsUnit
 
-open Nessos.Thespian
-
 open Nessos.MBrace
 open Nessos.MBrace.SampleRuntime
 open Nessos.MBrace.SampleRuntime.Actors
@@ -19,14 +17,6 @@ module ``Distribution Tests`` =
     type Canceller = Actors.EventActor<unit>
 
     let mutable runtime : MBraceRuntime option = None
-
-//    module Cloud =
-//        let Sleep (timeoutMilliseconds : int) = 
-//            async {
-//                let chunks = timeoutMilliseconds / 50
-//                for i in 1 .. chunks do
-//                    do! Async.Sleep 50
-//            } |> Cloud.OfAsync
 
     [<TestFixtureSetUp>]
     let init () =
@@ -76,7 +66,7 @@ module ``Distribution Tests`` =
 
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Parallel : exception contention`` () =
         let latch = Latch.Init(0)
         cloud {
@@ -93,7 +83,7 @@ module ``Distribution Tests`` =
 
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Parallel : exception cancellation`` () =
         cloud {
             let latch = Latch.Init 0
@@ -115,7 +105,7 @@ module ``Distribution Tests`` =
         } |> run |> Choice.shouldMatch(fun i -> i < 5)
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Parallel : nested exception cancellation`` () =
         cloud {
             let latch = Latch.Init 0
@@ -139,7 +129,7 @@ module ``Distribution Tests`` =
 
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Parallel : cancellation`` () =
         let latch = Latch.Init 0
         runCts(fun cts -> cloud {
@@ -151,12 +141,7 @@ module ``Distribution Tests`` =
                 do! Array.init 10 f |> Cloud.Parallel |> Cloud.Ignore
             }
 
-            let! _ = 
-                parallelTasks <||> 
-                    cloud { 
-                        do! Cloud.Sleep 100 
-                        cts.Trigger()
-                    }
+            let! _ =  parallelTasks <||> cloud { cts.Trigger() }
 
             return ()
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
@@ -165,7 +150,7 @@ module ``Distribution Tests`` =
 
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Parallel : to local`` () =
         // check local semantics are forced by using ref cells.
         cloud {
@@ -180,7 +165,7 @@ module ``Distribution Tests`` =
         } |> run |> Choice.shouldEqual 20
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Parallel : to sequential`` () =
         // check sequential semantics are forced by deliberately
         // making use of code that is not thread-safe.
@@ -203,7 +188,7 @@ module ``Distribution Tests`` =
         Cloud.Choice [] |> run |> Choice.shouldEqual None
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : all inputs 'None'`` () =
         cloud {
             let count = Latch.Init 0
@@ -218,7 +203,7 @@ module ``Distribution Tests`` =
 
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : one input 'Some'`` () =
         cloud {
             let count = Latch.Init 0
@@ -236,7 +221,7 @@ module ``Distribution Tests`` =
         } |> run |> Choice.shouldEqual (Some 0, 0)
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : all inputs 'Some'`` () =
         let successcounter = Latch.Init 0
         cloud {
@@ -250,7 +235,7 @@ module ``Distribution Tests`` =
         successcounter.Value |> should equal 1
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : simple nested`` () =
         let counter = Latch.Init 0
         cloud {
@@ -271,7 +256,7 @@ module ``Distribution Tests`` =
         counter.Value |> should be (lessThan 30)
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : nested exception cancellation`` () =
         let counter = Latch.Init 0
         cloud {
@@ -291,7 +276,7 @@ module ``Distribution Tests`` =
         counter.Value |> should be (lessThan 30)
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : simple cancellation`` () =
         let taskCount = Latch.Init 0
         runCts(fun cts ->
@@ -313,7 +298,7 @@ module ``Distribution Tests`` =
         taskCount.Value |> should equal 0
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : to local`` () =
         // check local semantics are forced by using ref cells.
         cloud {
@@ -332,7 +317,7 @@ module ``Distribution Tests`` =
         } |> run |> Choice.shouldEqual (Some 16, 19)
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``Choice : to sequential`` () =
         // check sequential semantics are forced by deliberately
         // making use of code that is not thread-safe.
@@ -355,7 +340,7 @@ module ``Distribution Tests`` =
 
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``StartChild: task with success`` () =
         cloud {
             let count = Latch.Init 0
@@ -370,7 +355,7 @@ module ``Distribution Tests`` =
         } |> run |> Choice.shouldEqual 1
 
     [<Test>]
-    //[<Repeat(10)>]
+    [<Repeat(4)>]
     let ``StartChild: task with exception`` () =
         let count = Latch.Init 0
         cloud {
@@ -391,23 +376,24 @@ module ``Distribution Tests`` =
 
         count.Value |> should equal 2
 
-//    [<Test>]
-//    //[<Repeat(10)>]
-//    let ``StartChild: task with cancellation`` () =
-//        let count = Latch.Init 0
-//        runCts(fun cts ->
-//        cloud {
-//            let task = cloud {
-//                do! Cloud.Sleep 100
-//                let _ = count.Increment()
-//                cts.Trigger ()
-//                return! cloud { return count.Increment() }
-//            }
-//
-//            let! ch = Cloud.StartChild(task)
-//            count.Value |> should equal 0
-//            return! ch
-//        }) |> Choice.shouldFailwith<_, OperationCanceledException>
-//
-//        // ensure final increment was cancelled.
-//        count.Value |> should equal 1
+    [<Test>]
+    [<Repeat(4)>]
+    let ``StartChild: task with cancellation`` () =
+        let count = Latch.Init 0
+        runCts(fun cts ->
+        cloud {
+            let task = cloud {
+                do! Cloud.Sleep 100
+                let _ = count.Increment()
+                cts.Trigger ()
+                do! Cloud.Sleep 500
+                return! cloud { return count.Increment() }
+            }
+
+            let! ch = Cloud.StartChild(task)
+            count.Value |> should equal 0
+            return! ch
+        }) |> Choice.shouldFailwith<_, OperationCanceledException>
+
+        // ensure final increment was cancelled.
+        count.Value |> should equal 1
