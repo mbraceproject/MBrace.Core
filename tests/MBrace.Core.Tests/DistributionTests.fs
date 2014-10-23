@@ -43,7 +43,6 @@ module ``Distribution Tests`` =
     [<Test>]
     let ``Parallel : simple inputs`` () =
         cloud {
-            do! Cloud.Sleep 20000
             let f i = cloud { return i + 1 }
             let! results = Array.init 100 f |> Cloud.Parallel
             return Array.sum results
