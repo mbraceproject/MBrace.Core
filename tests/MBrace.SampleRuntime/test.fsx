@@ -6,7 +6,7 @@
 open Nessos.MBrace
 open Nessos.MBrace.SampleRuntime
 
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + @"\..\..\bin\MBrace.SampleRuntime.exe"
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
 let runtime = MBraceRuntime.InitLocal(4)
 

@@ -20,7 +20,7 @@ module ``Distribution Tests`` =
 
     [<TestFixtureSetUp>]
     let init () =
-        MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "bin", "MBrace.SampleRuntime.exe")
+        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "../../bin/MBrace.SampleRuntime.exe"
         runtime <- Some <| MBraceRuntime.InitLocal(4)
 
     [<TestFixtureTearDown>]
