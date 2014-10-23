@@ -20,7 +20,7 @@ module ``Distribution Tests`` =
 
     [<TestFixtureSetUp>]
     let init () =
-        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "../../bin/MBrace.SampleRuntime.exe"
+        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
         runtime <- Some <| MBraceRuntime.InitLocal(4)
 
     [<TestFixtureTearDown>]
@@ -381,18 +381,19 @@ module ``Distribution Tests`` =
     let ``StartChild: task with cancellation`` () =
         let count = Latch.Init 0
         runCts(fun cts ->
-        cloud {
-            let task = cloud {
-                do! Cloud.Sleep 100
-                let _ = count.Increment()
-                cts.Trigger ()
-                do! Cloud.Sleep 500
-                return! cloud { return count.Increment() }
-            }
+            cloud {
+                let task = cloud {
+                    do! Cloud.Sleep 200
+                    let _ = count.Increment()
+                    cts.Trigger ()
+                    do! Cloud.Sleep 200
+                    do! Cloud.Sleep 200
+                    return count.Increment()
+                }
 
-            let! ch = Cloud.StartChild(task)
-            count.Value |> should equal 0
-            return! ch
+                let! ch = Cloud.StartChild(task)
+                count.Value |> should equal 0
+                return! ch
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
         // ensure final increment was cancelled.
