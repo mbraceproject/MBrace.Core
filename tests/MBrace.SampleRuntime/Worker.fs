@@ -42,7 +42,9 @@
                         let! handle = Async.StartChild(runTask())
                         return ()
 
-                with e -> printfn "RUNTIME FAULT: %O" e
+                with e -> 
+                    printfn "RUNTIME FAULT: %O" e
+                    do! Async.Sleep 1000
 
                 return! loop ()
         }
