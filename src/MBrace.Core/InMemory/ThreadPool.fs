@@ -53,20 +53,20 @@ type ThreadPool =
                 let exceptionLatch = new Latch(0)
                 let completionLatch = new Latch(0)
 
-                let onSuccess i ctx (t : 'T) =
+                let onSuccess i _ (t : 'T) =
                     results.[i] <- t
                     if completionLatch.Increment() = results.Length then
                         cont.Success ctx results
 
-                let onException ctx e =
+                let onException _ e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         cont.Exception ctx e
 
-                let onCancellation ctx ce =
+                let onCancellation _ c =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Cancellation ctx ce
+                        cont.Cancellation ctx c
 
                 for i = 0 to computations.Length - 1 do
                     scheduleTask ctx.Resources innerCts.Token (onSuccess i) onException onCancellation computations.[i])
@@ -87,7 +87,7 @@ type ThreadPool =
                 let completionLatch = new Latch(0)
                 let exceptionLatch = new Latch(0)
 
-                let onSuccess ctx (topt : 'T option) =
+                let onSuccess _ (topt : 'T option) =
                     if Option.isSome topt then
                         if exceptionLatch.Increment() = 1 then
                             cont.Success ctx topt
@@ -95,15 +95,15 @@ type ThreadPool =
                         if completionLatch.Increment () = computations.Length then
                             cont.Success ctx None
 
-                let onException ctx e =
+                let onException _ e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
                         cont.Exception ctx e
 
-                let onCancellation ctx ce =
+                let onCancellation _ c =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Cancellation ctx ce
+                        cont.Cancellation ctx c
 
                 for i = 0 to computations.Length - 1 do
                     scheduleTask ctx.Resources innerCts.Token onSuccess onException onCancellation computations.[i])

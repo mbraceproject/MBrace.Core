@@ -8,7 +8,7 @@ module internal CloudBuilderUtils =
     type Continuation<'T> with
         member inline c.Cancel ctx = c.Cancellation ctx (new System.OperationCanceledException())
 
-        member inline c.Choice (ctx, choice : Choice<'T,exn>) =
+        member inline c.Choice (ctx, choice : Choice<'T, exn>) =
             match choice with
             | Choice1Of2 t -> c.Success ctx t
             | Choice2Of2 e -> c.Exception ctx e

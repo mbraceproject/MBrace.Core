@@ -50,9 +50,8 @@ module ``In-Memory Parallelism Tests`` =
     let ``Parallel : exception contention`` () =
         let counter = ref 0
         cloud {
-            let f _ = cloud { return invalidOp "failure" }
             try
-                let! _ = Array.init 100 f |> Cloud.Parallel
+                let! _ = Array.init 100 (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
                 return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
             with :? InvalidOperationException ->
                 Interlocked.Increment counter |> ignore
