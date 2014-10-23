@@ -12,7 +12,9 @@ type Actor private () =
         listener.LocalEndPoint
 
     static member Publish(actor : Actor<'T>) =
-        actor 
+        let name = Guid.NewGuid().ToString()
+        actor
+        |> Actor.rename name
         |> Actor.publish [ new Unidirectional.UTcp() ] 
         |> Actor.start
         |> Actor.ref
@@ -25,14 +27,21 @@ type Actor private () =
 
 type private LatchMessage =
     | Increment of IReplyChannel<int>
+    | GetValue of IReplyChannel<int>
 
 type Latch private (source : ActorRef<LatchMessage>) =
     member __.Increment() = source <!= Increment
+    member __.Value = source <!= GetValue
 
     static member Init(init : int) =
-        let behaviour count (Increment rc) = async {
-            do rc.Reply <| Value (count + 1)
-            return (count + 1)
+        let behaviour count msg = async {
+            match msg with
+            | Increment rc ->
+                do rc.Reply <| Value (count + 1)
+                return (count + 1)
+            | GetValue rc ->
+                do rc.Reply <| Value count
+                return count
         }
 
         let ref =

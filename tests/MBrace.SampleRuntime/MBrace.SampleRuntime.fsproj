@@ -59,6 +59,7 @@
     <Compile Include="PortablePickle.fs" />
     <Compile Include="Actors.fs" />
     <Compile Include="Scheduler.fs" />
+    <Compile Include="Worker.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="main.fs" />
     <None Include="test.fsx" />

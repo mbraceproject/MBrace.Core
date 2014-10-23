@@ -135,8 +135,8 @@ module ``In-Memory Parallelism Tests`` =
     [<Test>]
     [<Repeat(10)>]
     let ``Parallel : to sequential`` () =
-        // check sequential semantics are forced by using
-        // deliberately not thread-safe code.
+        // check sequential semantics are forced by deliberately
+        // making use of code that is not thread-safe.
         cloud {
             let counter = ref 0
             let seqWorker _ = cloud {
@@ -267,8 +267,8 @@ module ``In-Memory Parallelism Tests`` =
     [<Test>]
     [<Repeat(10)>]
     let ``Choice : to Sequential`` () =
-        // check sequential semantics are forced by using
-        // deliberately not thread-safe code.
+        // check sequential semantics are forced by deliberately
+        // making use of code that is not thread-safe.
         cloud {
             let counter = ref 0
             let seqWorker i = cloud {

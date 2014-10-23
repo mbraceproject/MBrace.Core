@@ -53,6 +53,10 @@ type ThreadPool =
                 let exceptionLatch = new Latch(0)
                 let completionLatch = new Latch(0)
 
+                // success continuations of a completed parallel workflow
+                // are passed the original context. This is not
+                // a problem since execution takes place in-memory.
+
                 let onSuccess i _ (t : 'T) =
                     results.[i] <- t
                     if completionLatch.Increment() = results.Length then
@@ -86,6 +90,10 @@ type ThreadPool =
                 let innerCts = mkLinkedCts ctx.CancellationToken
                 let completionLatch = new Latch(0)
                 let exceptionLatch = new Latch(0)
+
+                // success continuations of a completed parallel workflow
+                // are passed the original context. This is not
+                // a problem since execution takes place in-memory.
 
                 let onSuccess _ (topt : 'T option) =
                     if Option.isSome topt then

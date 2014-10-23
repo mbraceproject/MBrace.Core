@@ -96,23 +96,27 @@ and Combinators =
                 let innerCts = state.CancellationTokenManager.RequestCancellationTokenSource(parent = cts)
                 let exceptionLatch = state.ResourceFactory.RequestLatch(0)
 
+                let toParentCancellationToken (childContext : ExecutionContext) =
+                    let parentToken = cts.GetLocalCancellationToken()
+                    { childContext with CancellationToken = parentToken }
+
                 let onSuccess i ctx (t : 'T) =
                     if results.SetResult(i, t) then
-                        cont.Success ctx <| results.ToArray()
+                        cont.Success (toParentCancellationToken ctx) <| results.ToArray()
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
                 let onException ctx e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel()
-                        cont.Exception ctx e
+                        cont.Exception (toParentCancellationToken ctx) e
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
                 let onCancellation ctx c =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Cancellation ctx c
+                        cont.Cancellation (toParentCancellationToken ctx) c
                     else 
                         TaskCompletionEvent.TriggerContext ctx
 
@@ -136,29 +140,33 @@ and Combinators =
                 let completionLatch = state.ResourceFactory.RequestLatch(0)
                 let exceptionLatch = state.ResourceFactory.RequestLatch(0)
 
+                let toParentCancellationToken (childContext : ExecutionContext) =
+                    let parentToken = cts.GetLocalCancellationToken()
+                    { childContext with CancellationToken = parentToken }
+
                 let onSuccess ctx (topt : 'T option) =
                     if Option.isSome topt then
                         if exceptionLatch.Increment() = 1 then
-                            cont.Success ctx topt
+                            cont.Success (toParentCancellationToken ctx) topt
                         else
                             TaskCompletionEvent.TriggerContext ctx
                     else
                         if completionLatch.Increment () = n then
-                            cont.Success ctx None
+                            cont.Success (toParentCancellationToken ctx) None
                         else
                             TaskCompletionEvent.TriggerContext ctx
 
                 let onException ctx e =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Exception ctx e
+                        cont.Exception (toParentCancellationToken ctx) e
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
                 let onCancellation ctx c =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Cancellation ctx c
+                        cont.Cancellation (toParentCancellationToken ctx) c
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
