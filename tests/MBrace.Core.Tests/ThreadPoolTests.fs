@@ -10,7 +10,14 @@ open Nessos.MBrace
 open Nessos.MBrace.InMemory
 
 [<TestFixture>]
-module ``In-Memory Parallelism Tests`` =
+module ``ThreadPool Parallelism Tests`` =
+
+    [<Literal>]
+#if DEBUG
+    let repeats = 10
+#else
+    let repeats = 3
+#endif
         
     let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)
     let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)
@@ -46,7 +53,7 @@ module ``In-Memory Parallelism Tests`` =
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Parallel : exception contention`` () =
         let counter = ref 0
         cloud {
@@ -62,7 +69,7 @@ module ``In-Memory Parallelism Tests`` =
         !counter |> should equal 1
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Parallel : exception cancellation`` () =
         cloud {
             let counter = ref 0
@@ -84,7 +91,7 @@ module ``In-Memory Parallelism Tests`` =
         } |> run |> Choice.shouldEqual 0
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Parallel : nested exception cancellation`` () =
         cloud {
             let counter = ref 0
@@ -108,7 +115,7 @@ module ``In-Memory Parallelism Tests`` =
             
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Parallel : cancellation`` () =
         let counter = ref 0
         runCts(fun cts -> cloud {
@@ -133,7 +140,7 @@ module ``In-Memory Parallelism Tests`` =
         !counter |> should equal 0
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Parallel : to sequential`` () =
         // check sequential semantics are forced by deliberately
         // making use of code that is not thread-safe.
@@ -156,7 +163,7 @@ module ``In-Memory Parallelism Tests`` =
         Cloud.Choice [] |> run |> Choice.shouldEqual None
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Choice : all inputs 'None'`` () =
         cloud {
             let count = ref 0
@@ -170,7 +177,7 @@ module ``In-Memory Parallelism Tests`` =
         } |> run |> Choice.shouldEqual (100, None)
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Choice : one input 'Some'`` () =
         cloud {
             let count = ref 0
@@ -188,7 +195,7 @@ module ``In-Memory Parallelism Tests`` =
         } |> run |> Choice.shouldEqual (Some 15, 0)
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Choice : all inputs 'Some'`` () =
         let successcounter = ref 0
         cloud {
@@ -202,7 +209,7 @@ module ``In-Memory Parallelism Tests`` =
         !successcounter |> should equal 1
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Choice : simple nested`` () =
         cloud {
             let counter = ref 0
@@ -222,7 +229,7 @@ module ``In-Memory Parallelism Tests`` =
         } |> run |> Choice.shouldEqual (true, Some (5,3))
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Choice : nested exception cancellation`` () =
         let counter = ref 0
         cloud {
@@ -243,7 +250,7 @@ module ``In-Memory Parallelism Tests`` =
         !counter |> should equal 0
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Choice : simple cancellation`` () =
         let taskCount = ref 0
         runCts(fun cts ->
@@ -265,7 +272,7 @@ module ``In-Memory Parallelism Tests`` =
         !taskCount |> should equal 0
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``Choice : to Sequential`` () =
         // check sequential semantics are forced by deliberately
         // making use of code that is not thread-safe.
@@ -287,7 +294,7 @@ module ``In-Memory Parallelism Tests`` =
         } |> run |> Choice.shouldEqual (Some(), 17)
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``StartChild: task with success`` () =
         cloud {
             let count = ref 0
@@ -302,7 +309,7 @@ module ``In-Memory Parallelism Tests`` =
         } |> run |> Choice.shouldEqual 1
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``StartChild: task with exception`` () =
         let count = ref 0
         cloud {
@@ -324,7 +331,7 @@ module ``In-Memory Parallelism Tests`` =
         !count |> should equal 2
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``StartChild: task with cancellation`` () =
         let count = ref 0
         runCts(fun cts ->
@@ -345,7 +352,7 @@ module ``In-Memory Parallelism Tests`` =
         !count |> should equal 1
 
     [<Test>]
-    [<Repeat(10)>]
+    [<Repeat(repeats)>]
     let ``StartChild: task with timeout`` () =
         let counter = ref 0
         cloud {

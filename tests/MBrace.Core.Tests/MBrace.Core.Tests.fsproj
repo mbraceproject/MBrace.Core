@@ -52,7 +52,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="InMemoryRuntime.fs" />
     <Compile Include="ContinuationTests.fs" />
-    <Compile Include="InMemoryTests.fs" />
+    <Compile Include="ThreadPoolTests.fs" />
     <Compile Include="DistributionTests.fs" />
     <Content Include="app.config" />
     <Content Include="paket.references" />
