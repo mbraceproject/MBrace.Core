@@ -10,8 +10,11 @@
         static let isTrampolineEnabled = runsOnMono || not isCLR40OrLater
 
         static let instance = new Threading.ThreadLocal<_>(fun () -> new Trampoline())
+        
+        [<Literal>]
         static let threshold = 200
         let mutable bindCount = 0
+
         member __.IsBindThresholdReached () = 
             bindCount <- bindCount + 1
             bindCount > threshold
