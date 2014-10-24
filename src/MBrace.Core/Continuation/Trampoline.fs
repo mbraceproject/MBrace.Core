@@ -14,8 +14,8 @@
         static let threadInstance = new Threading.ThreadLocal<_>(fun () -> new Trampoline())
         
         [<Literal>]
-        static let threshold = 300
-        let mutable bindCount = 0
+        static let threshold = 300 // schedule continuation to new thread, if threshold is reached.
+        let mutable bindCount = 0  // number of continuation bindings performed in current thread.
 
         /// Checks if continuation execution stack has reached specified threshold in the current thread.
         member private __.IsBindThresholdReached () =
@@ -43,6 +43,6 @@
 
         /// Queue a new work item to the .NET thread pool.
         static member QueueWorkItem (f : unit -> unit) : unit =
-            let cb = new WaitCallback(fun _ -> threadInstance.Value.Reset() ; f ())
+            let cb = new WaitCallback(fun _ -> Trampoline.Reset() ; f ())
             if not <| ThreadPool.QueueUserWorkItem cb then
                 invalidOp "internal error: could not queue work item to thread pool."
