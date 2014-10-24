@@ -1,42 +1,28 @@
 ﻿namespace Nessos.MBrace
 
-open System
-open System.Threading
-
 open Nessos.MBrace.Runtime
 
-[<AutoSerializable(false)>]
-type ExecutionContext =
-    {
-        /// Runtime cloud resource resolver
-        Resources : ResourceRegistry
+/// Representation of a cloud computation, which, when run 
+/// will produce a value of type 'T, or raise an exception.
+type Cloud<'T> = internal Body of (ExecutionContext -> Continuation<'T> -> unit)
 
-        /// Local cancellation token
-        CancellationToken : CancellationToken
-    }
-with
-    /// <summary>
-    ///     Initializes an empty execution context.  
-    /// </summary>
-    /// <param name="cancellationToken">Optional cancellation token.</param>
-    static member Empty(?cancellationToken : CancellationToken) =
-        {
-            Resources = ResourceRegistry.Empty
-            CancellationToken = match cancellationToken with Some ct -> ct | None -> new CancellationToken()
-        }
+/// Denotes handle to a distributable resource that can be disposed of.
+type ICloudDisposable =
+    /// Releases any storage resources used by this object.
+    abstract Dispose : unit -> Async<unit>
 
-/// Execution context for continuation callbacks
-type Continuation<'T> =
-    {
-        /// Success continuation
-        Success : ExecutionContext -> 'T -> unit
+/// Scheduling context for currently executing cloud process.
+type SchedulingContext =
+    /// Current thread scheduling context
+    | Sequential
+    /// Thread pool scheduling context
+    | ThreadParallel
+    /// Distributed scheduling context
+    | Distributed
 
-        /// Exception continuation
-        Exception : ExecutionContext -> exn -> unit
-
-        /// Cancellation continuation
-        Cancellation : ExecutionContext -> OperationCanceledException -> unit
-    }
-
-/// Cloud workflow of type T
-and Cloud<'T> = internal Body of (ExecutionContext -> Continuation<'T> -> unit)
+/// Denotes a reference to a worker node in the cluster
+type IWorkerRef =
+    /// Worker type identifier
+    abstract Type : string
+    /// Worker unique identifier
+    abstract Id : string

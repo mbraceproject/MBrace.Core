@@ -4,6 +4,7 @@ open System.Threading
 open System.Threading.Tasks
 
 open Nessos.MBrace
+open Nessos.MBrace.Runtime
 
 #nowarn "444"
 

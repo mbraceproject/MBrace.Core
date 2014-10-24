@@ -1,11 +1,13 @@
 ﻿namespace Nessos.MBrace.Runtime
-    
-open Nessos.MBrace
 
 [<AutoOpen>]
 module private ResourceUtils =
         
     let inline key<'T> = typeof<'T>.AssemblyQualifiedName
+
+/// Exception raised on missing resource resolution
+type ResourceNotFoundException internal (message : string) = 
+    inherit System.Exception(message)
 
 /// Cloud resource runtime dependency resolver
 type ResourceRegistry private (index : Map<string, obj>) =

@@ -57,9 +57,9 @@
   -->
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
-    <Compile Include="Continuation\Types.fs" />
+    <Compile Include="Continuation\ResourceRegistry.fs" />
+    <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Trampoline.fs" />
-    <Compile Include="Continuation\Resource.fs" />
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\CloudBuilder.fs" />
     <Compile Include="API\StorageEntities.fs" />
