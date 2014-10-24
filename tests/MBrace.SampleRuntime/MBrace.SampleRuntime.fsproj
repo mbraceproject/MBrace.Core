@@ -97,13 +97,8 @@
         </When>
         <Otherwise>
           <ItemGroup>
-            <Reference Include="Thespian.Cluster">
-              <HintPath>..\..\packages\Thespian\lib\net45\Thespian.Cluster.dll</HintPath>
-              <Private>True</Private>
-              <Paket>True</Paket>
-            </Reference>
             <Reference Include="Thespian">
-              <HintPath>..\..\packages\Thespian\lib\net45\Thespian.dll</HintPath>
+              <HintPath>..\..\packages\Thespian.Core\lib\net45\Thespian.dll</HintPath>
               <Private>True</Private>
               <Paket>True</Paket>
             </Reference>
@@ -170,37 +165,6 @@
             </Reference>
           </ItemGroup>
         </Otherwise>
-      </Choose>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework'">
-      <Choose>
-        <When Condition="$(TargetFrameworkVersion) == 'v1.0'">
-        </When>
-        <When Condition="$(TargetFrameworkVersion) == 'v1.1'">
-        </When>
-        <When Condition="$(TargetFrameworkVersion) == 'v2.0'">
-        </When>
-        <When Condition="$(TargetFrameworkVersion) == 'v3.5'">
-          <ItemGroup>
-            <Reference Include="UnionArgParser">
-              <HintPath>..\..\packages\UnionArgParser\lib\net35\UnionArgParser.dll</HintPath>
-              <Private>True</Private>
-              <Paket>True</Paket>
-            </Reference>
-          </ItemGroup>
-        </When>
-        <When Condition="$(TargetFrameworkVersion) == 'v4.0' And $(TargetFrameworkProfile) == 'Client'">
-          <ItemGroup>
-            <Reference Include="UnionArgParser">
-              <HintPath>..\..\packages\UnionArgParser\lib\net35\UnionArgParser.dll</HintPath>
-              <Private>True</Private>
-              <Paket>True</Paket>
-            </Reference>
-          </ItemGroup>
-        </When>
-        <Otherwise />
       </Choose>
     </When>
   </Choose>

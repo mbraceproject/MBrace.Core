@@ -4,5 +4,5 @@ nuget FAKE
 nuget FsUnit 1.3.0.1
 nuget NUnit 2.6.3
 nuget NUnit.Runners
-nuget Thespian 0.0.11-alpha
+nuget Thespian.Core 0.1.0-alpha
 nuget Vagrant

@@ -9,27 +9,27 @@ open Nessos.Vagrant
 type PortablePickle<'T> = 
     {
         Pickle : byte []
-        Dependencies : PortableAssembly list
+        Dependencies : AssemblyPackage list
     }
 
 type PortablePickle private () =
+
+    static let ignoredAssemblies =
+        let this = Assembly.GetExecutingAssembly()
+        let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
+        new HashSet<_>(dependencies)
     
     static let vagrant = 
         let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| System.Guid.NewGuid())
         let d = Directory.CreateDirectory cachePath
-        Vagrant.Initialize(cacheDirectory = cachePath, loadPolicy = AssemblyLoadPolicy.ResolveAll)
-
-    static let ignoredAssemblies =
-        let this = Assembly.GetExecutingAssembly()
-        let dependencies = VagrantUtils.ComputeAssemblyDependencies(this)
-        new HashSet<_>(dependencies)
+        Vagrant.Initialize(cacheDirectory = cachePath, loadPolicy = AssemblyLoadPolicy.ResolveAll, isIgnoredAssembly = ignoredAssemblies.Contains)
 
     static member Pickle (value : 'T, ?includeAssemblies) : PortablePickle<'T> =
         let assemblyPackages =
             if defaultArg includeAssemblies true then
                 vagrant.ComputeObjectDependencies(value, permitCompilation = true)
                 |> List.filter (not << ignoredAssemblies.Contains)
-                |> List.map (fun a -> vagrant.CreatePortableAssembly(a, includeAssemblyImage = true))
+                |> List.map (fun a -> vagrant.CreateAssemblyPackage(a, includeAssemblyImage = true))
             else
                 []
 
@@ -38,5 +38,5 @@ type PortablePickle private () =
         { Pickle = pickle ; Dependencies = assemblyPackages }
 
     static member UnPickle(pickle : PortablePickle<'T>) =
-        let _ = vagrant.LoadPortableAssemblies(pickle.Dependencies)
+        let _ = vagrant.LoadAssemblyPackages(pickle.Dependencies)
         vagrant.Pickler.UnPickle<'T>(pickle.Pickle)

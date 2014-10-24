@@ -3,6 +3,7 @@
 open System
 
 open Nessos.Thespian
+open Nessos.Thespian.Remote.Protocols
 open Nessos.Thespian.Remote.TcpProtocol
 
 type Actor private () =
@@ -16,7 +17,7 @@ type Actor private () =
         let name = Guid.NewGuid().ToString()
         actor
         |> Actor.rename name
-        |> Actor.publish [ new Unidirectional.UTcp() ] 
+        |> Actor.publish [ Protocols.utcp() ] 
         |> Actor.start
         |> Actor.ref
 
@@ -38,10 +39,10 @@ type Latch private (source : ActorRef<LatchMessage>) =
         let behaviour count msg = async {
             match msg with
             | Increment rc ->
-                do rc.Reply <| Value (count + 1)
+                do! rc.Reply (count + 1)
                 return (count + 1)
             | GetValue rc ->
-                do rc.Reply <| Value count
+                do! rc.Reply count
                 return count
         }
 
@@ -76,13 +77,13 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
             | SetResult(idx, value, ch) -> 
                 // should check if idx has been already assigned...
                 results.[idx] <- value
-                ch.Reply <| Value(count + 1 = size)
+                do! ch.Reply (count + 1 = size)
                 return (results, count + 1)
             | IsCompleted rc ->
-                rc.Reply <| Value (count = size)
+                do! rc.Reply ((count = size))
                 return state
             | ToArray rc ->
-                rc.Reply <| Value results
+                do! rc.Reply results
                 return state
         }
 
@@ -128,14 +129,14 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
         let behavior state msg = async {
             match msg with
             | SetResult (_, rc) when Option.isSome state -> 
-                rc.Reply <| Value false
+                do! rc.Reply false
                 return state
             | SetResult (result, rc) ->
-                rc.Reply <| Value true
+                do! rc.Reply true
                 return (Some result)
 
             | TryGetResult rc ->
-                rc.Reply <| Value state
+                do! rc.Reply state
                 return state
         }
 
@@ -200,12 +201,12 @@ type CancellationTokenManager private (source : ActorRef<CancellationTokenManage
                         state.Add(parent.Value, (isCancelled, newId :: children))
                              .Add(newId, (isCancelled, []))
 
-                rc.Reply <| Value newId
+                do! rc.Reply newId
                 return state
 
             | IsCancellationRequested (id, rc) ->
                 let isCancelled = state.TryFind id |> Option.exists fst
-                rc.Reply <| Value isCancelled
+                do! rc.Reply isCancelled
                 return state
 
             | Cancel id ->
@@ -249,10 +250,10 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
         let behaviour msg = async {
             match msg with
             | EnQueue t -> queue.Enqueue t
-            | TryDequeue rc when queue.Count = 0 -> rc.Reply <| Value None
+            | TryDequeue rc when queue.Count = 0 -> do! rc.Reply None
             | TryDequeue rc ->
                 let t = queue.Dequeue()
-                rc.Reply <| Value (Some t)
+                do! rc.Reply (Some t)
         }
 
         let ref =
@@ -283,7 +284,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
     static member Init () =
         let behavior (RequestResource(ctor,rc)) = async {
             let r = ctor ()
-            rc.Reply <| Value r
+            do! rc.Reply r
         }
 
         let ref =

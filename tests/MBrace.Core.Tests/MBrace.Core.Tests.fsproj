@@ -160,13 +160,8 @@
         </When>
         <Otherwise>
           <ItemGroup>
-            <Reference Include="Thespian.Cluster">
-              <HintPath>..\..\packages\Thespian\lib\net45\Thespian.Cluster.dll</HintPath>
-              <Private>True</Private>
-              <Paket>True</Paket>
-            </Reference>
             <Reference Include="Thespian">
-              <HintPath>..\..\packages\Thespian\lib\net45\Thespian.dll</HintPath>
+              <HintPath>..\..\packages\Thespian.Core\lib\net45\Thespian.dll</HintPath>
               <Private>True</Private>
               <Paket>True</Paket>
             </Reference>
