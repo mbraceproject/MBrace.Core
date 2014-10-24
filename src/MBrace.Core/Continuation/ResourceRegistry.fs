@@ -10,6 +10,7 @@ type ResourceNotFoundException internal (message : string) =
     inherit System.Exception(message)
 
 /// Cloud resource runtime dependency resolver
+[<Sealed ; AutoSerializable(false)>]
 type ResourceRegistry private (index : Map<string, obj>) =
 
     /// Try Resolving resource of given type
