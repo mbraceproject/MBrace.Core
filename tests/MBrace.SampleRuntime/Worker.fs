@@ -1,6 +1,5 @@
 ﻿module internal Nessos.MBrace.SampleRuntime.Worker
 
-    open System
     open System.Diagnostics
     open System.Threading
 

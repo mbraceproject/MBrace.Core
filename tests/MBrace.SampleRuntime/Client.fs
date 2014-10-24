@@ -45,7 +45,12 @@
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
 
-        member __.Kill () = for p in procs do try p.Kill() with _ -> ()
+        member __.Kill () = 
+            for p in procs do try p.Kill() with _ -> ()
+            (state :> System.IDisposable).Dispose()
+
+        member __.GetCancellationTokenSource(?parent) = 
+            state.CancellationTokenManager.RequestCancellationTokenSource(?parent = parent)
 
         static member InitLocal(workerCount : int) = 
             if workerCount < 1 then invalidArg "workerCount" "must be positive."
@@ -57,3 +62,5 @@
                 let path = Path.GetFullPath path
                 if File.Exists path then exe <- Some path
                 else raise <| FileNotFoundException(path)
+
+        interface IDisposable with member __.Dispose () = __.Kill()
