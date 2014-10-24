@@ -15,11 +15,10 @@ open Nessos.MBrace.SampleRuntime.Actors
 module ``Distribution Tests`` =
     
     [<Literal>]
-    let repeats =
 #if DEBUG
-        5
+    let repeats = 5
 #else
-        1
+    let repeats = 1
 #endif
 
     let mutable runtime : MBraceRuntime option = None
@@ -424,18 +423,14 @@ module ``Distribution Tests`` =
         runCts(fun cts ->
             cloud {
                 let task = cloud {
-                    do! Cloud.Sleep 200
-                    let _ = count.Increment()
-                    cts.Cancel ()
-                    do! Cloud.Sleep 200
-                    do! Cloud.Sleep 200
+                    do! Cloud.Sleep 1000
                     return count.Increment()
                 }
 
                 let! ch = Cloud.StartChild(task)
-                count.Value |> should equal 0
+                cts.Cancel ()
                 return! ch
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
         // ensure final increment was cancelled.
-        count.Value |> should equal 1
+        count.Value |> should equal 0
