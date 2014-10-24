@@ -9,9 +9,11 @@
     let printfn fmt = Printf.ksprintf System.Console.WriteLine fmt
 
     let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
-        let currentTaskCount = ref 0
 
+        printfn "MBrace worker initialized on %O." Actors.Actor.LocalEndPoint
         printfn "Listening to task queue at %O." runtime.IPEndPoint
+
+        let currentTaskCount = ref 0
 
         let rec loop () = async {
             if !currentTaskCount >= maxConcurrentTasks then

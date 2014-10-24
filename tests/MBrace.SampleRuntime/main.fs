@@ -4,11 +4,11 @@
 
     [<EntryPoint>]
     let main (args : string []) =
-        do Actors.Actor.LocalEndPoint |> ignore // force actor initializations
-
-        let parseResults = Argument.Parser.ParseCommandLine(args)
-        let runtime = parseResults.GetAllResults() |> List.head |> Argument.ToRuntime
-
-        printfn "MBrace worker initialized on %O." Actors.Actor.LocalEndPoint
-
-        Async.RunSynchronously (Worker.initWorker runtime maxConcurrentTasks)
+        try
+            do Actors.Actor.LocalEndPoint |> ignore // force actor state initialization
+            let runtime = Argument.toRuntime args
+            Async.RunSynchronously (Worker.initWorker runtime maxConcurrentTasks)
+        with e ->
+            printfn "Unhandled exception : %O" e
+            let _ = System.Console.ReadKey()
+            1

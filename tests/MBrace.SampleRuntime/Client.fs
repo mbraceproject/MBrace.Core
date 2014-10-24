@@ -5,43 +5,34 @@
     open System.Diagnostics
     open System.Threading
 
-    open Nessos.UnionArgParser
-
     open Nessos.MBrace
     open Nessos.MBrace.SampleRuntime.PortablePickle
     open Nessos.MBrace.SampleRuntime.Scheduler
 
-    [<NoAppSettings>]
-    type internal Argument =
-        | [<Mandatory>] Pickled_Runtime of byte []
-    with
-        interface IArgParserTemplate with
-            member __.Usage = ""
-
-        static member Parser = UnionArgParser.Create<Argument> ()
-        static member OfRuntime(runtime : RuntimeState) =
+    module internal Argument =
+        let ofRuntime (runtime : RuntimeState) =
             let pickle = PortablePickle.Pickle(runtime, includeAssemblies = false)
-            Pickled_Runtime pickle.Pickle
+            System.Convert.ToBase64String pickle.Pickle
 
-        static member ToRuntime(Pickled_Runtime pickle) =
-            PortablePickle.UnPickle<RuntimeState>({ Pickle = pickle ; Dependencies = []})
+        let toRuntime (args : string []) =
+            let bytes = System.Convert.FromBase64String(args.[0])
+            PortablePickle.UnPickle<RuntimeState> { Pickle = bytes ; Dependencies = [] }
 
-    type MBraceRuntime private (workers : int) =
+    type MBraceRuntime private (workerCount : int) =
 
-        static let argParser = Argument.Parser
         static let mutable exe = None
             
         let state = RuntimeState.InitLocal()
 
         let initProc _ =
             let exe = MBraceRuntime.WorkerExecutable
-            let args = argParser.PrintCommandLineFlat [ Argument.OfRuntime state ]
+            let args = Argument.ofRuntime state
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true
             Process.Start psi
 
-        let procs = Array.init workers initProc
+        let procs = Array.init workerCount initProc
         
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
             let cts = state.CancellationTokenManager.RequestCancellationTokenSource()
@@ -56,7 +47,9 @@
 
         member __.Kill () = for p in procs do try p.Kill() with _ -> ()
 
-        static member InitLocal(workers : int) = new MBraceRuntime(workers)
+        static member InitLocal(workerCount : int) = 
+            if workerCount < 1 then invalidArg "workerCount" "must be positive."
+            new MBraceRuntime(workerCount)
 
         static member WorkerExecutable
             with get () = match exe with None -> invalidOp "unset executable path." | Some e -> e

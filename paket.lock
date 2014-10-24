@@ -9,6 +9,5 @@ NUGET
     NUnit.Runners (2.6.3)
     Thespian (0.0.11-alpha)
       FsPickler (>= 0.9.11)
-    UnionArgParser (0.8.2)
     Vagrant (0.2.6)
       FsPickler (>= 0.9.11)

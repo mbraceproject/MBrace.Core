@@ -200,15 +200,7 @@
             </Reference>
           </ItemGroup>
         </When>
-        <Otherwise>
-          <ItemGroup>
-            <Reference Include="UnionArgParser">
-              <HintPath>..\..\packages\UnionArgParser\lib\net40\UnionArgParser.dll</HintPath>
-              <Private>True</Private>
-              <Paket>True</Paket>
-            </Reference>
-          </ItemGroup>
-        </Otherwise>
+        <Otherwise />
       </Choose>
     </When>
   </Choose>
