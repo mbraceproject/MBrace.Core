@@ -6,6 +6,7 @@ open Nessos.Thespian
 open Nessos.Thespian.Remote.TcpProtocol
 
 type Actor private () =
+    static do System.Threading.ThreadPool.SetMinThreads(100, 100) |> ignore
     static do TcpListenerPool.RegisterListener(IPEndPoint.any)
     static let endPoint = 
         let listener = TcpListenerPool.GetListeners(IPEndPoint.any) |> Seq.head

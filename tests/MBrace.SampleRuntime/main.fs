@@ -1,6 +1,6 @@
 ﻿module internal Nessos.MBrace.SampleRuntime.Main
 
-    let maxConcurrentTasks = 10
+    let maxConcurrentTasks = 20
 
     [<EntryPoint>]
     let main (args : string []) =
