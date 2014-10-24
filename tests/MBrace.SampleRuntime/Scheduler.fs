@@ -8,8 +8,8 @@ open Nessos.MBrace
 open Nessos.MBrace.InMemory
 open Nessos.MBrace.Runtime
 
-open Nessos.MBrace.SampleRuntime.PortablePickle
 open Nessos.MBrace.SampleRuntime.Actors
+open Nessos.MBrace.SampleRuntime.Vagrant
 
 [<AutoSerializable(false)>]
 type TaskCompletionEvent () = 
@@ -46,6 +46,7 @@ and RuntimeState =
     {
         IPEndPoint : System.Net.IPEndPoint
         TaskQueue : Queue<PortablePickle<Task>>
+        AssemblyExporter : AssemblyExporter
         CancellationTokenManager : CancellationTokenManager
         ResourceFactory : ResourceFactory
     }
@@ -54,6 +55,7 @@ with
         {
             IPEndPoint = Actor.LocalEndPoint
             TaskQueue = Queue<PortablePickle<Task>>.Init ()
+            AssemblyExporter = AssemblyExporter.Init()
             CancellationTokenManager = CancellationTokenManager.Init()
             ResourceFactory = ResourceFactory.Init ()
         }
@@ -65,9 +67,15 @@ with
             Cloud.StartImmediate(wf, cont, ctx)
         
         let task = { Job = runWith ; CancellationTokenSource = cts ; Id = taskId ; Type = typeof<'T> }
-        PortablePickle.Pickle task |> rt.TaskQueue.Enqueue
+        PortablePickle.pickle task |> rt.TaskQueue.Enqueue
 
-    member rt.TryDequeue () = rt.TaskQueue.TryDequeue() |> Option.map PortablePickle.UnPickle
+    member rt.TryDequeue () = async {
+        match rt.TaskQueue.TryDequeue()  with
+        | None -> return None
+        | Some taskP -> 
+            let! task = PortablePickle.unpickle rt.AssemblyExporter taskP
+            return Some task
+    }
 
     member rt.StartAsCell cts (wf : Cloud<'T>) =
         let resultCell = rt.ResourceFactory.RequestResultCell<'T>()

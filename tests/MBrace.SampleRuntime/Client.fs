@@ -6,17 +6,16 @@
     open System.Threading
 
     open Nessos.MBrace
-    open Nessos.MBrace.SampleRuntime.PortablePickle
     open Nessos.MBrace.SampleRuntime.Scheduler
 
     module internal Argument =
         let ofRuntime (runtime : RuntimeState) =
-            let pickle = PortablePickle.Pickle(runtime, includeAssemblies = false)
-            System.Convert.ToBase64String pickle.Pickle
+            let pickle = Vagrant.pickler.Pickle(runtime)
+            System.Convert.ToBase64String pickle
 
         let toRuntime (args : string []) =
             let bytes = System.Convert.FromBase64String(args.[0])
-            PortablePickle.UnPickle<RuntimeState> { Pickle = bytes ; Dependencies = [] }
+            Vagrant.pickler.UnPickle<RuntimeState> bytes
 
     type MBraceRuntime private (workerCount : int) =
 

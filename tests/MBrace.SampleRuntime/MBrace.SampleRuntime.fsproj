@@ -56,8 +56,8 @@
   </Target>
   -->
   <ItemGroup>
-    <Compile Include="PortablePickle.fs" />
     <Compile Include="Actors.fs" />
+    <Compile Include="Vagrant.fs" />
     <Compile Include="Scheduler.fs" />
     <Compile Include="Worker.fs" />
     <Compile Include="Client.fs" />

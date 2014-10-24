@@ -20,7 +20,8 @@
                 return! loop ()
             else
                 try
-                    match runtime.TryDequeue() with
+                    let! task = runtime.TryDequeue()
+                    match task with
                     | None -> do! Async.Sleep 50
                     | Some task ->
                         let _ = Interlocked.Increment currentTaskCount
