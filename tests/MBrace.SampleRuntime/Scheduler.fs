@@ -77,9 +77,6 @@ with
         rt.EnqueueTask cts scont econt ccont wf
         resultCell
 
-    interface IDisposable with
-        member rt.Dispose () = rt.CancellationTokenManager.Dispose() ; rt.ResourceFactory.Dispose() ; rt.TaskQueue.Dispose()
-
 and Combinators =
     static member Parallel (state : RuntimeState) (cts : DistributedCancellationTokenSource) (computations : seq<Cloud<'T>>) =
 

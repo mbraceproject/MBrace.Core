@@ -131,19 +131,3 @@ type Cloud =
             | Choice1Of2 runtime' ->
                 let ctx = { ctx with Resources = ctx.Resources.Register(runtime') }
                 Cloud.StartImmediate(workflow, cont, ctx))
-
-
-[<RequireQualifiedAccess>]
-module Continuation =
-    
-    /// <summary>
-    ///     Contravariant Continuation map combinator.
-    /// </summary>
-    /// <param name="f">Mapper function.</param>
-    /// <param name="tcontext">Initial context.</param>
-    let inline map (f : 'S -> 'T) (scont : Continuation<'T>) =
-        {
-            Success = fun ctx t -> scont.Success ctx (f t)
-            Exception = scont.Exception
-            Cancellation = scont.Cancellation
-        }

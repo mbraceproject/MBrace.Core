@@ -45,9 +45,7 @@ type Cloud =
     ///     Wraps an asynchronous workflow into a cloud workflow.
     /// </summary>
     /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
-    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Cloud<'T> = 
-        Cloud.FromContinuations(fun ctx cont -> 
-            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken))
+    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Cloud<'T> = ofAsync asyncWorkflow
 
     /// <summary>
     ///     Writes an entry to a logging provider, if it exists.

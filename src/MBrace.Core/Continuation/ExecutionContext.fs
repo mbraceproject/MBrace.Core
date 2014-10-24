@@ -37,3 +37,42 @@ type Continuation<'T> =
         /// Cancellation continuation
         Cancellation : ExecutionContext -> OperationCanceledException -> unit
     }
+
+[<RequireQualifiedAccess>]
+module Continuation =
+    
+    /// <summary>
+    ///     Contravariant Continuation map combinator.
+    /// </summary>
+    /// <param name="f">Mapper function.</param>
+    /// <param name="tcont">Initial continuation.</param>
+    let inline map (f : 'S -> 'T) (tcont : Continuation<'T>) : Continuation<'S> =
+        {
+            Success = fun ctx s -> tcont.Success ctx (f s)
+            Exception = tcont.Exception
+            Cancellation = tcont.Cancellation
+        }
+
+    /// <summary>
+    ///     Contravariant failure combinator
+    /// </summary>
+    /// <param name="f">Mapper function.</param>
+    /// <param name="tcont">Initial continuation.</param>
+    let inline failwith (f : 'S -> exn) (tcont : Continuation<'T>) : Continuation<'S> =
+        {
+            Success = fun ctx s -> tcont.Exception ctx (f s)
+            Exception = tcont.Exception
+            Cancellation = tcont.Cancellation
+        }
+
+    /// <summary>
+    ///     Contravariant Continuation choice combinator.
+    /// </summary>
+    /// <param name="f">Choice function.</param>
+    /// <param name="tcont">Initial continuation.</param>
+    let inline choice (f : 'S -> Choice<'T, exn>) (tcont : Continuation<'T>) : Continuation<'S> =
+        {
+            Success = fun ctx s -> match f s with Choice1Of2 t -> tcont.Success ctx t | Choice2Of2 e -> tcont.Exception ctx e
+            Exception = tcont.Exception
+            Cancellation = tcont.Cancellation
+        }

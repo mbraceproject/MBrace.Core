@@ -26,6 +26,11 @@ module internal CloudBuilderUtils =
 
     let inline ret t = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Success ctx t)
     let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx e)
+    let inline ofAsync (asyncWorkflow : Async<'T>) = 
+        Body(fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx else
+            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken))
+
     let zero = ret ()
 
     let inline bind (Body f : Cloud<'T>) (g : 'T -> Cloud<'S>) : Cloud<'S> =
@@ -48,9 +53,6 @@ module internal CloudBuilderUtils =
                 f ctx cont'
         )
 
-    let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
-    let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
-
     let inline tryWith (Body f : Cloud<'T>) (handler : exn -> Cloud<'T>) : Cloud<'T> =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
@@ -71,36 +73,23 @@ module internal CloudBuilderUtils =
                 f ctx cont'
         )
 
-    let inline tryFinally (Body f : Cloud<'T>) (finalizer : unit -> unit) : Cloud<'T> =
+    let inline tryFinally (Body f : Cloud<'T>) (Body finalizer : Cloud<unit>) : Cloud<'T> =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
+
             let cont' = {
-                Success = fun ctx t -> match protect finalizer () with Choice1Of2 () -> cont.Success ctx t | Choice2Of2 e -> cont.Exception ctx e
-                Exception = fun ctx e -> match protect finalizer () with Choice1Of2 () -> cont.Exception ctx e | Choice2Of2 e' -> cont.Exception ctx e'
+                Success = fun ctx t -> finalizer ctx <| Continuation.map (fun () -> t) cont
+                Exception = fun ctx e -> finalizer ctx <| Continuation.failwith (fun () -> e) cont
                 Cancellation = cont.Cancellation
             }
 
             f ctx cont'
         )
 
+    let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
+    let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
     let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
-        Body(fun ctx cont ->
-            if ctx.IsCancellationRequested then cont.Cancel ctx else
-
-            let inline disposer scont =
-                let wf = async { return! t.Dispose () }
-                Async.StartWithContinuations(wf, scont, cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken)
-
-            match protect g t with
-            | Choice1Of2 (Body g) ->
-                g ctx {
-                    Success = fun ctx s -> disposer (fun () -> cont.Success ctx s)
-                    Exception = fun ctx e -> disposer (fun () -> cont.Exception ctx e)
-                    Cancellation = cont.Cancellation
-                }
-
-            | Choice2Of2 e -> disposer (fun () -> cont.Exception ctx e)
-        )
+        tryFinally (bind (ret t) g) (delay (fun () -> ofAsync (t.Dispose())))
 
     let inline forM (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =
         let rec loop i () =
@@ -132,7 +121,7 @@ type CloudBuilder () =
     member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = using value bindF
 
     member __.TryWith(f : Cloud<'T>, handler : exn -> Cloud<'T>) : Cloud<'T> = tryWith f handler
-    member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = tryFinally f finalizer
+    member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = tryFinally f (delay (fun () -> ret (finalizer ())))
 
     member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forM body ts
     member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = forM body (Seq.toArray ts)

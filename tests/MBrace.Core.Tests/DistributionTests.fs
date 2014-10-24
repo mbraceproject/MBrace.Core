@@ -14,8 +14,6 @@ open Nessos.MBrace.SampleRuntime.Actors
 [<TestFixture>]
 module ``Distribution Tests`` =
 
-    type Canceller = Actors.EventActor<unit>
-
     let mutable runtime : MBraceRuntime option = None
 
     [<TestFixtureSetUp>]
@@ -29,11 +27,11 @@ module ``Distribution Tests`` =
         runtime <- None
 
     let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync workflow |> Async.Catch |> Async.RunSynchronously
-    let runCts (workflow : Canceller -> Cloud<'T>) =
-        let cts = new CancellationTokenSource()
-        let observable, canceller = Canceller.Init()
-        let _ = observable.Subscribe(fun () -> cts.Cancel())
-        Option.get(runtime).RunAsync(workflow canceller, cancellationToken = cts.Token) |> Async.Catch |> Async.RunSynchronously
+    let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) =
+        let runtime = Option.get runtime
+        let dcts = runtime.GetCancellationTokenSource()
+        let ct = dcts.GetLocalCancellationToken()
+        runtime.RunAsync(workflow dcts, cancellationToken = ct) |> Async.Catch |> Async.RunSynchronously
 
     [<Test>]
     let ``Parallel : empty input`` () =
@@ -46,6 +44,41 @@ module ``Distribution Tests`` =
             let! results = Array.init 20 f |> Cloud.Parallel
             return Array.sum results
         } |> run |> Choice.shouldEqual 210
+
+    [<Test>]
+    let ``Parallel : use binding`` () =
+        let latch = Latch.Init 0
+        cloud {
+            use foo = { new ICloudDisposable with member __.Dispose () = async { return latch.Increment () |> ignore } }
+            let! _ = cloud { return latch.Increment () } <||> cloud { return latch.Increment () }
+            return latch.Value
+        } |> run |> Choice.shouldEqual 2
+
+        latch.Value |> should equal 3
+
+    [<Test>]
+    let ``Parallel : exception handler`` () =
+        cloud {
+            try
+                let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
+                return x + y
+            with :? InvalidOperationException as e ->
+                let! x,y = cloud { return 1 } <||> cloud { return 2 }
+                return x + y
+        } |> run |> Choice.shouldEqual 3
+
+    [<Test>]
+    let ``Parallel : finally`` () =
+        let latch = Latch.Init 0
+        cloud {
+            try
+                let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
+                return x + y
+            finally
+                latch.Increment () |> ignore
+        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
+
+        latch.Value |> should equal 1
 
     [<Test>]
     let ``Parallel : simple nested`` () =
@@ -141,7 +174,7 @@ module ``Distribution Tests`` =
                 do! Array.init 10 f |> Cloud.Parallel |> Cloud.Ignore
             }
 
-            let! _ =  parallelTasks <||> cloud { cts.Trigger() }
+            let! _ =  parallelTasks <||> cloud { cts.Cancel() }
 
             return ()
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
@@ -283,7 +316,7 @@ module ``Distribution Tests`` =
             cloud {
                 let worker i = cloud {
                     if i = 0 then
-                        cts.Trigger()
+                        cts.Cancel()
                         do! Cloud.Sleep 1000
                         return Some 42
                     else
@@ -385,7 +418,7 @@ module ``Distribution Tests`` =
                 let task = cloud {
                     do! Cloud.Sleep 200
                     let _ = count.Increment()
-                    cts.Trigger ()
+                    cts.Cancel ()
                     do! Cloud.Sleep 200
                     do! Cloud.Sleep 200
                     return count.Increment()
