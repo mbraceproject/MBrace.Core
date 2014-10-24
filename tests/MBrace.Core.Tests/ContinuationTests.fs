@@ -13,8 +13,6 @@ open Nessos.MBrace
 [<TestFixture>]
 module ``Continuation Tests`` =
 
-    let runsOnMono = Type.GetType("Mono.Runtime") <> null
-
     //
     //  Simple expression execution
     //
@@ -379,10 +377,7 @@ module ``Continuation Tests`` =
                     return! ackermannC (m-1) right
             }
 
-        // mono does not have tail-call optimization,
-        // use a smaller upper bound.
-        let upper = if runsOnMono then 2 else 3
-        for i in 0 .. upper do
+        for i in 0 .. 3 do
             Cloud.RunProtected(ackermannC i i) |> Choice.shouldEqual (ackermann i i)
 
 
@@ -409,7 +404,7 @@ module ``Continuation Tests`` =
 
 
     [<Test>]
-    let ``tail call optimization`` () =
+    let ``stack overflow`` () =
         let rec diveTo n = cloud {
             if n = 0 then return 0
             else
@@ -417,8 +412,7 @@ module ``Continuation Tests`` =
                 return 1 + r
         }
 
-        if not runsOnMono then
-            Cloud.RunProtected(diveTo 100000) |> Choice.shouldEqual 100000
+        Cloud.RunProtected(diveTo 100000) |> Choice.shouldEqual 100000
 
     [<Test>]
     let ``deep exception`` () =
@@ -429,8 +423,7 @@ module ``Continuation Tests`` =
                 return 1 + r
         }
 
-        if not runsOnMono then
-            Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, InvalidOperationException>
+        Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
     let ``deep cancellation`` () =
@@ -441,8 +434,7 @@ module ``Continuation Tests`` =
                 return 1 + r
         }
 
-        if not runsOnMono then
-            Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, OperationCanceledException>
+        Cloud.RunProtected(diveRaise 100000) |> Choice.shouldFailwith<_, OperationCanceledException>
 
 
     [<Test>]

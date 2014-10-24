@@ -32,13 +32,18 @@ module internal CloudBuilderUtils =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             let cont' = {
-                Success = fun ctx t -> cont.Choice(ctx, protect g t)
                 Exception = cont.Exception
                 Cancellation = cont.Cancellation
+                Success = 
+                    fun ctx t -> 
+                        if Trampoline.IsBindThresholdReached() then
+                            Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect g t))
+                        else
+                            cont.Choice(ctx, protect g t)
             }
 
-            if Trampoline.IsTrampolineEnabled && Trampoline.LocalInstance.IsBindThresholdReached() then 
-                Trampoline.LocalInstance.QueueWorkItem (fun _ -> f ctx cont')
+            if Trampoline.IsBindThresholdReached() then 
+                Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
         )
@@ -51,12 +56,17 @@ module internal CloudBuilderUtils =
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             let cont' = {
                 Success = cont.Success
-                Exception = fun ctx e -> cont.Choice(ctx, protect handler e)
                 Cancellation = cont.Cancellation
+                Exception = 
+                    fun ctx e ->
+                        if Trampoline.IsBindThresholdReached() then
+                            Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect handler e))
+                        else
+                            cont.Choice(ctx, protect handler e)
             }
 
-            if Trampoline.IsTrampolineEnabled && Trampoline.LocalInstance.IsBindThresholdReached() then 
-                Trampoline.LocalInstance.QueueWorkItem (fun _ -> f ctx cont')
+            if Trampoline.IsBindThresholdReached() then 
+                Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
         )
@@ -70,10 +80,7 @@ module internal CloudBuilderUtils =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsTrampolineEnabled && Trampoline.LocalInstance.IsBindThresholdReached() then 
-                Trampoline.LocalInstance.QueueWorkItem (fun _ -> f ctx cont')
-            else
-                f ctx cont'
+            f ctx cont'
         )
 
     let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =

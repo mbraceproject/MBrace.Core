@@ -22,11 +22,10 @@ module private SchedulerInternals =
     let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
 
     let scheduleTask res ct sc ec cc wf =
-        Task.Factory.StartNew(fun () -> 
+        Trampoline.QueueWorkItem(fun () -> 
             let ctx = { Resources = res ; CancellationToken = ct }
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartImmediate(wf, cont, ctx))
-        |> ignore
 
 
 /// Collection of context-less combinators for 

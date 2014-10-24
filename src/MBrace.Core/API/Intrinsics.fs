@@ -73,6 +73,7 @@ type Cloud =
                         Cancellation = fun _ c -> cc c
                     }
 
+                do Trampoline.Reset()
                 Cloud.StartImmediate(cloudWorkflow, cont, context))
     }
 
