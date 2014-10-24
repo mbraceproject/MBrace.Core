@@ -21,7 +21,7 @@ type ICloudDisposable =
     /// Releases any storage resources used by this object.
     abstract Dispose : unit -> Async<unit>
 
+
 /// Exception raised on missing resource resolution
-exception ResourceNotFoundException of string
-    with
-    override e.Message = e.Data0
+type ResourceNotFoundException internal (message : string) = 
+    inherit System.Exception(message)

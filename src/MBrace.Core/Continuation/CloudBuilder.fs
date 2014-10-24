@@ -1,5 +1,7 @@
 ﻿namespace Nessos.MBrace
 
+open Nessos.MBrace.Runtime
+
 [<AutoOpen>]
 module internal CloudBuilderUtils =
 
@@ -29,11 +31,16 @@ module internal CloudBuilderUtils =
     let inline bind (Body f : Cloud<'T>) (g : 'T -> Cloud<'S>) : Cloud<'S> =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
-            f ctx {
+            let cont' = {
                 Success = fun ctx t -> cont.Choice(ctx, protect g t)
                 Exception = cont.Exception
                 Cancellation = cont.Cancellation
             }
+
+            if Trampoline.IsTrampolineEnabled && Trampoline.LocalInstance.IsBindThresholdReached() then 
+                Trampoline.LocalInstance.QueueWorkItem (fun _ -> f ctx cont')
+            else
+                f ctx cont'
         )
 
     let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
@@ -42,21 +49,31 @@ module internal CloudBuilderUtils =
     let inline tryWith (Body f : Cloud<'T>) (handler : exn -> Cloud<'T>) : Cloud<'T> =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
-            f ctx {
+            let cont' = {
                 Success = cont.Success
                 Exception = fun ctx e -> cont.Choice(ctx, protect handler e)
                 Cancellation = cont.Cancellation
             }
+
+            if Trampoline.IsTrampolineEnabled && Trampoline.LocalInstance.IsBindThresholdReached() then 
+                Trampoline.LocalInstance.QueueWorkItem (fun _ -> f ctx cont')
+            else
+                f ctx cont'
         )
 
     let inline tryFinally (Body f : Cloud<'T>) (finalizer : unit -> unit) : Cloud<'T> =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
-            f ctx {
+            let cont' = {
                 Success = fun ctx t -> match protect finalizer () with Choice1Of2 () -> cont.Success ctx t | Choice2Of2 e -> cont.Exception ctx e
                 Exception = fun ctx e -> match protect finalizer () with Choice1Of2 () -> cont.Exception ctx e | Choice2Of2 e' -> cont.Exception ctx e'
                 Cancellation = cont.Cancellation
             }
+
+            if Trampoline.IsTrampolineEnabled && Trampoline.LocalInstance.IsBindThresholdReached() then 
+                Trampoline.LocalInstance.QueueWorkItem (fun _ -> f ctx cont')
+            else
+                f ctx cont'
         )
 
     let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
