@@ -31,10 +31,10 @@ with
     static member RunAsync(state : RuntimeState) (task : Task) = async {
         let tce = new TaskCompletionEvent()
         let! awaitHandle = Async.StartChild(Async.AwaitEvent tce.Publish)
-        let runtime = new RuntimeProvider(state, task.Id, task.CancellationTokenSource) :> IRuntimeProvider
+        let runtime = new RuntimeProvider(state, task.Id) :> IRuntimeProvider
         let ctx =
             {
-                Resources = resource { yield runtime ; yield tce }
+                Resources = resource { yield runtime ; yield tce ; yield task.CancellationTokenSource }
                 CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
             }
 
@@ -77,9 +77,12 @@ with
         rt.EnqueueTask cts scont econt ccont wf
         resultCell
 
-and Combinators =
-    static member Parallel (state : RuntimeState) (cts : DistributedCancellationTokenSource) (computations : seq<Cloud<'T>>) =
-
+and Combinators private () =
+    static let updateCts (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
+        let token = cts.GetLocalCancellationToken()
+        { Resources = ctx.Resources.Register(cts) ; CancellationToken = token }
+        
+    static member Parallel (state : RuntimeState) (computations : seq<Cloud<'T>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx e
@@ -93,39 +96,36 @@ and Combinators =
             | Choice1Of2 computations ->
 
                 let results = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length)
-                let innerCts = state.CancellationTokenManager.RequestCancellationTokenSource(parent = cts)
+                let parentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
+                let childCts = state.CancellationTokenManager.RequestCancellationTokenSource(parent = parentCts)
                 let exceptionLatch = state.ResourceFactory.RequestLatch(0)
-
-                let toParentCancellationToken (childContext : ExecutionContext) =
-                    let parentToken = cts.GetLocalCancellationToken()
-                    { childContext with CancellationToken = parentToken }
 
                 let onSuccess i ctx (t : 'T) =
                     if results.SetResult(i, t) then
-                        cont.Success (toParentCancellationToken ctx) <| results.ToArray()
+                        cont.Success (updateCts parentCts ctx) <| results.ToArray()
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
                 let onException ctx e =
                     if exceptionLatch.Increment() = 1 then
-                        innerCts.Cancel()
-                        cont.Exception (toParentCancellationToken ctx) e
+                        childCts.Cancel()
+                        cont.Exception (updateCts parentCts ctx) e
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
                 let onCancellation ctx c =
                     if exceptionLatch.Increment() = 1 then
-                        innerCts.Cancel ()
-                        cont.Cancellation (toParentCancellationToken ctx) c
+                        childCts.Cancel ()
+                        cont.Cancellation (updateCts parentCts ctx) c
                     else 
                         TaskCompletionEvent.TriggerContext ctx
 
                 for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask innerCts (onSuccess i) onException onCancellation computations.[i]
+                    state.EnqueueTask childCts (onSuccess i) onException onCancellation computations.[i]
                     
                 TaskCompletionEvent.TriggerContext ctx)
 
-    static member Choice (state : RuntimeState) (cts : DistributedCancellationTokenSource) (computations : seq<Cloud<'T option>>) =
+    static member Choice (state : RuntimeState) (computations : seq<Cloud<'T option>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx e
@@ -136,47 +136,45 @@ and Combinators =
             | Choice1Of2 computations ->
 
                 let n = computations.Length // avoid capturing computation array in cont closures
-                let innerCts = state.CancellationTokenManager.RequestCancellationTokenSource cts
+                let parentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
+                let childCts = state.CancellationTokenManager.RequestCancellationTokenSource parentCts
                 let completionLatch = state.ResourceFactory.RequestLatch(0)
                 let exceptionLatch = state.ResourceFactory.RequestLatch(0)
-
-                let toParentCancellationToken (childContext : ExecutionContext) =
-                    let parentToken = cts.GetLocalCancellationToken()
-                    { childContext with CancellationToken = parentToken }
 
                 let onSuccess ctx (topt : 'T option) =
                     if Option.isSome topt then
                         if exceptionLatch.Increment() = 1 then
-                            cont.Success (toParentCancellationToken ctx) topt
+                            cont.Success (updateCts parentCts ctx) topt
                         else
                             TaskCompletionEvent.TriggerContext ctx
                     else
                         if completionLatch.Increment () = n then
-                            cont.Success (toParentCancellationToken ctx) None
+                            cont.Success (updateCts parentCts ctx) None
                         else
                             TaskCompletionEvent.TriggerContext ctx
 
                 let onException ctx e =
                     if exceptionLatch.Increment() = 1 then
-                        innerCts.Cancel ()
-                        cont.Exception (toParentCancellationToken ctx) e
+                        childCts.Cancel ()
+                        cont.Exception (updateCts parentCts ctx) e
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
                 let onCancellation ctx c =
                     if exceptionLatch.Increment() = 1 then
-                        innerCts.Cancel ()
-                        cont.Cancellation (toParentCancellationToken ctx) c
+                        childCts.Cancel ()
+                        cont.Cancellation (updateCts parentCts ctx) c
                     else
                         TaskCompletionEvent.TriggerContext ctx
 
                 for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask innerCts onSuccess onException onCancellation computations.[i]
+                    state.EnqueueTask childCts onSuccess onException onCancellation computations.[i]
                     
                 TaskCompletionEvent.TriggerContext ctx)
 
     // timeout?
-    static member StartChild (state : RuntimeState) (cts : DistributedCancellationTokenSource) (computation : Cloud<'T>) = cloud {
+    static member StartChild (state : RuntimeState) (computation : Cloud<'T>) = cloud {
+        let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
         let resultCell = state.StartAsCell cts computation
         return cloud { 
             let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
@@ -185,9 +183,9 @@ and Combinators =
     }
 
 
-and RuntimeProvider private (state : RuntimeState, taskId : string, cts, context) =
+and RuntimeProvider private (state : RuntimeState, taskId : string, context) =
 
-    new (state, task, cts) = new RuntimeProvider(state, task, cts, Distributed)
+    new (state, task) = new RuntimeProvider(state, task, Distributed)
         
     interface IRuntimeProvider with
         member __.ProcessId = "0"
@@ -201,22 +199,22 @@ and RuntimeProvider private (state : RuntimeState, taskId : string, cts, context
         member __.Logger = raise <| System.NotImplementedException()
 
         member __.SchedulingContext = context
-        member __.WithSchedulingContext context = new RuntimeProvider(state, taskId, cts, context) :> IRuntimeProvider
+        member __.WithSchedulingContext context = new RuntimeProvider(state, taskId, context) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.Parallel state cts computations
+            | Distributed -> Combinators.Parallel state computations
             | ThreadParallel -> ThreadPool.Parallel computations
             | Sequential -> Sequential.Parallel computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.Choice state cts computations
+            | Distributed -> Combinators.Choice state computations
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
         member __.ScheduleStartChild(computation,_,_) =
             match context with
-            | Distributed -> Combinators.StartChild state cts computation
+            | Distributed -> Combinators.StartChild state computation
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation

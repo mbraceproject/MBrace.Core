@@ -21,11 +21,3 @@ runtime.Run (
         do! Cloud.Sleep 5000
         return! Array.init 100 (fun i -> cloud { return if i = 78 then failwith "error" else printfn "hi" ; i }) |> Cloud.Parallel
     })
-
-
-let test = cloud {
-    use foo = { new ICloudDisposable with member __.Dispose () = async { return printfn "disposed" } }
-    return! cloud { return foo.GetHashCode () } <||> cloud { return foo.GetHashCode () }
-}
-
-runtime.Run test
