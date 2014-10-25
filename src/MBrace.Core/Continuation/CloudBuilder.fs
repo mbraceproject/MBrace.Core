@@ -37,14 +37,23 @@ module internal CloudBuilderUtils =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             let cont' = {
-                Exception = cont.Exception
-                Cancellation = cont.Cancellation
                 Success = 
-                    fun ctx t -> 
-                        if Trampoline.IsBindThresholdReached() then
+                    fun ctx t ->
+                        if ctx.IsCancellationRequested then cont.Cancel ctx
+                        elif Trampoline.IsBindThresholdReached() then
                             Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect g t))
                         else
                             cont.Choice(ctx, protect g t)
+
+                Exception = 
+                    fun ctx e -> 
+                        if ctx.IsCancellationRequested then cont.Cancel ctx
+                        elif Trampoline.IsBindThresholdReached() then
+                            Trampoline.QueueWorkItem(fun () -> cont.Exception ctx e)
+                        else
+                            cont.Exception ctx e
+
+                Cancellation = cont.Cancellation
             }
 
             if Trampoline.IsBindThresholdReached() then 
@@ -57,14 +66,23 @@ module internal CloudBuilderUtils =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             let cont' = {
-                Success = cont.Success
-                Cancellation = cont.Cancellation
+                Success = 
+                    fun ctx t -> 
+                        if ctx.IsCancellationRequested then cont.Cancel ctx
+                        elif Trampoline.IsBindThresholdReached() then
+                            Trampoline.QueueWorkItem(fun () -> cont.Success ctx t)
+                        else
+                            cont.Success ctx t
+                
                 Exception = 
                     fun ctx e ->
-                        if Trampoline.IsBindThresholdReached() then
+                        if ctx.IsCancellationRequested then cont.Cancel ctx
+                        elif Trampoline.IsBindThresholdReached() then
                             Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect handler e))
                         else
                             cont.Choice(ctx, protect handler e)
+
+                Cancellation = cont.Cancellation
             }
 
             if Trampoline.IsBindThresholdReached() then 
@@ -78,12 +96,31 @@ module internal CloudBuilderUtils =
             if ctx.IsCancellationRequested then cont.Cancel ctx else
 
             let cont' = {
-                Success = fun ctx t -> finalizer ctx <| Continuation.map (fun () -> t) cont
-                Exception = fun ctx e -> finalizer ctx <| Continuation.failwith (fun () -> e) cont
+                Success =
+                    fun ctx t -> 
+                        if ctx.IsCancellationRequested then cont.Cancel ctx else
+                        let cont' = Continuation.map (fun () -> t) cont
+                        if Trampoline.IsBindThresholdReached() then
+                            Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
+                        else
+                            finalizer ctx cont'
+
+                Exception = 
+                    fun ctx e -> 
+                        if ctx.IsCancellationRequested then cont.Cancel ctx else
+                        let cont' = Continuation.failwith (fun () -> e) cont
+                        if Trampoline.IsBindThresholdReached() then
+                            Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
+                        else
+                            finalizer ctx cont'
+
                 Cancellation = cont.Cancellation
             }
 
-            f ctx cont'
+            if Trampoline.IsBindThresholdReached() then 
+                Trampoline.QueueWorkItem (fun () -> f ctx cont')
+            else
+                f ctx cont'
         )
 
     let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
