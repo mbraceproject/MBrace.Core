@@ -220,6 +220,29 @@ module ``Distribution Tests`` =
             return Array.forall id results
         } |> run |> Choice.shouldEqual true
 
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``Parallel : recursive map/reduce`` () =
+
+        let rec mapReduce (mapF : 'T -> Cloud<'S>) 
+                        (reduceF : 'S -> 'S -> Cloud<'S>)
+                        (id : 'S) (inputs : 'T list) =
+            cloud {
+                match inputs with
+                | [] -> return id
+                | [t] -> return! mapF t
+                | _ ->
+                    let l,r = List.split inputs
+                    let! s,s' = (mapReduce mapF reduceF id l) <||> (mapReduce mapF reduceF id r)
+                    return! reduceF s s'
+            }
+
+        let mapF (text : string) = cloud { return text.Split(' ').Length }
+        let reduceF i i' = cloud { return i + i' }
+        let inputs = List.init 20 (fun i -> "lorem ipsum dolor sit amet")
+
+        mapReduce mapF reduceF 0 inputs |> run |> Choice.shouldEqual 100
+
 
     [<Test>]
     let ``Choice : empty input`` () =

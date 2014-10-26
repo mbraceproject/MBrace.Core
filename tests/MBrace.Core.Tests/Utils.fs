@@ -37,6 +37,28 @@ module Choice =
         | Choice1Of2 t -> should be instanceOfType<'Exn> t
         | Choice2Of2 e -> should be instanceOfType<'Exn> e
 
+[<RequireQualifiedAccess>]
+module List =
+
+    /// <summary>
+    ///     split list at given length
+    /// </summary>
+    /// <param name="n">splitting point.</param>
+    /// <param name="xs">input list.</param>
+    let splitAt n (xs : 'a list) =
+        let rec splitter n (left : 'a list) right =
+            match n, right with
+            | 0 , _ | _ , [] -> List.rev left, right
+            | n , h :: right' -> splitter (n-1) (h::left) right'
+
+        splitter n [] xs
+
+    /// <summary>
+    ///     split list in half
+    /// </summary>
+    /// <param name="xs">input list</param>
+    let split (xs : 'a list) = splitAt (xs.Length / 2) xs
+
 type DummyDisposable() =
     let isDisposed = ref false
     interface ICloudDisposable with
