@@ -17,7 +17,7 @@ type Actor private () =
         let name = Guid.NewGuid().ToString()
         actor
         |> Actor.rename name
-        |> Actor.publish [ Protocols.utcp() ] 
+        |> Actor.publish [ Protocols.btcp() ] 
         |> Actor.start
         |> Actor.ref
 
