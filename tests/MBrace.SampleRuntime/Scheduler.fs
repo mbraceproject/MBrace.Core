@@ -152,6 +152,7 @@ and Combinators private () =
                 let onSuccess ctx (topt : 'T option) =
                     if Option.isSome topt then
                         if exceptionLatch.Increment() = 1 then
+                            childCts.Cancel ()
                             cont.Success (updateCts parentCts ctx) topt
                         else
                             TaskCompletionEvent.TriggerContext ctx
