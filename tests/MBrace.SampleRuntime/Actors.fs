@@ -175,7 +175,7 @@ with
                 cts.Cancel()
                 return ()
             else
-                do! Async.Sleep 200
+                do! Async.Sleep 50
                 return! checkCancellation ()
         }
 
@@ -190,38 +190,37 @@ type CancellationTokenManager private (source : ActorRef<CancellationTokenManage
         { Id = newId ; Source = source }
 
     static member Init() =
-        let behavior (state : Map<CancellationTokenId, bool * CancellationTokenId list>) msg = async {
+        let behavior (state : Map<CancellationTokenId, CancellationTokenId list>) msg = async {
             match msg with
             | RequestCancellationTokenSource (parent, rc) ->
                 let newId = Guid.NewGuid().ToString()
                 let state =
-                    match parent |> Option.bind state.TryFind with
-                    | None -> state.Add(newId, (false, []))
-                    | Some(isCancelled, children) ->
-                        state.Add(parent.Value, (isCancelled, newId :: children))
-                             .Add(newId, (isCancelled, []))
+                    match parent with
+                    | None -> state.Add(newId, [])
+                    | Some p ->
+                        match state.TryFind p with
+                        | None -> state
+                        | Some children -> state.Add(p, newId :: children).Add(newId, [])
 
                 do! rc.Reply newId
                 return state
 
             | IsCancellationRequested (id, rc) ->
-                let isCancelled = state.TryFind id |> Option.exists fst
+                let isCancelled = not <| state.ContainsKey id
                 do! rc.Reply isCancelled
                 return state
 
             | Cancel id ->
                 let rec traverseCancellation 
-                        (state : Map<CancellationTokenId, bool * CancellationTokenId list>) 
+                        (state : Map<CancellationTokenId, CancellationTokenId list>) 
                         (remaining : CancellationTokenId list) = 
 
                     match remaining with
                     | [] -> state
                     | id :: tail ->
                         match state.TryFind id with
-                        | None 
-                        | Some(true,_) -> traverseCancellation state tail
-                        | Some(false, children) -> 
-                            traverseCancellation (Map.add id (true, children) state) (children @ tail)
+                        | None -> traverseCancellation state tail
+                        | Some children -> traverseCancellation (Map.remove id state) (children @ tail)
 
                 return traverseCancellation state [id]
         }

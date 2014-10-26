@@ -170,18 +170,16 @@ module ``Distribution Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : cancellation`` () =
+    let ``Parallel : simple cancellation`` () =
         let latch = Latch.Init 0
         runCts(fun cts -> cloud {
-            let parallelTasks = cloud {
-                let f i = cloud { 
-                    do! Cloud.Sleep 1000 
-                    return latch.Increment() }
-
-                do! Array.init 10 f |> Cloud.Parallel |> Cloud.Ignore
+            let f i = cloud {
+                if i = 0 then cts.Cancel() 
+                do! Cloud.Sleep 3000 
+                return latch.Increment() 
             }
 
-            let! _ =  parallelTasks <||> cloud { cts.Cancel() }
+            let! _ = Array.init 10 f |> Cloud.Parallel
 
             return ()
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
@@ -322,14 +320,10 @@ module ``Distribution Tests`` =
         runCts(fun cts ->
             cloud {
                 let worker i = cloud {
-                    if i = 0 then
-                        cts.Cancel()
-                        do! Cloud.Sleep 1000
-                        return Some 42
-                    else
-                        do! Cloud.Sleep 1000
-                        let _ = taskCount.Increment()
-                        return Some 42
+                    if i = 0 then cts.Cancel()
+                    do! Cloud.Sleep 3000
+                    let _ = taskCount.Increment()
+                    return Some 42
                 }
 
                 return! Array.init 10 worker |> Cloud.Choice
@@ -423,14 +417,17 @@ module ``Distribution Tests`` =
         runCts(fun cts ->
             cloud {
                 let task = cloud {
-                    do! Cloud.Sleep 1000
+                    let _ = count.Increment()
+                    do! Cloud.Sleep 3000
                     return count.Increment()
                 }
 
                 let! ch = Cloud.StartChild(task)
+                do! Cloud.Sleep 1000
+                count.Value |> should equal 1
                 cts.Cancel ()
                 return! ch
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
         // ensure final increment was cancelled.
-        count.Value |> should equal 0
+        count.Value |> should equal 1
