@@ -8,6 +8,13 @@ open Nessos.MBrace.Runtime
 
 #nowarn "444"
 
+type Async =
+    /// <summary>
+    ///     Efficiently reraise exception, without losing its existing stacktrace.
+    /// </summary>
+    /// <param name="e"></param>
+    static member Reraise(e : #exn) = Async.FromContinuations(fun (_,ec,_) -> ec e)
+
 /// Intrinsic cloud workflow methods
 type Cloud =
         
