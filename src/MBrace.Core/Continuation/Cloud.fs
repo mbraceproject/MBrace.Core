@@ -2,6 +2,14 @@
 
 open Nessos.MBrace.Runtime
 
+/// Adding this attribute to a let-binding marks that
+/// the value definition contains cloud expressions.
+type CloudAttribute = ReflectedDefinitionAttribute
+
+/// Disable static check warnings being generated for current workflow.
+[<Sealed>]
+type NoWarnAttribute() = inherit System.Attribute()
+
 /// Representation of a cloud computation, which, when run 
 /// will produce a value of type 'T, or raise an exception.
 type Cloud<'T> = internal Body of (ExecutionContext -> Continuation<'T> -> unit)
