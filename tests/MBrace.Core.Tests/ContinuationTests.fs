@@ -11,6 +11,7 @@ open Nessos.MBrace
 #nowarn "444"
 
 [<TestFixture>]
+[<Category("ContinuationTests")>]
 module ``Continuation Tests`` =
 
     //

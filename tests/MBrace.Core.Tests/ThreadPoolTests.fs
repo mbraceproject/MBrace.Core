@@ -7,9 +7,9 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
-open Nessos.MBrace.InMemory
 
 [<TestFixture>]
+[<Category("ThreadPoolTests")>]
 module ``ThreadPool Parallelism Tests`` =
 
     [<Literal>]

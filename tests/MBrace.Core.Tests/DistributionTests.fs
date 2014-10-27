@@ -12,6 +12,7 @@ open Nessos.MBrace.SampleRuntime
 open Nessos.MBrace.SampleRuntime.Actors
 
 [<TestFixture>]
+[<Category("DistributionTests")>]
 module ``Distribution Tests`` =
     
     [<Literal>]

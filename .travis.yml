@@ -9,4 +9,4 @@ install:
   - sudo installer -pkg "MonoFramework-MDK-${MONO_VERSION}.macos10.xamarin.x86.pkg" -target /
 
 script: 
-  - ./build.sh Default -ev Configuration Release
+  - ./build.sh Default -ev Configuration Release -ev IgnoreClusterTests true

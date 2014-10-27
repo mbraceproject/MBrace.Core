@@ -17,9 +17,7 @@ open System.IO
 let project = "MBrace.Core"
 let authors = [ "Eirik Tsarpalis" ]
 
-let description = """
-    MBrace cloud workflows core libraries.
-"""
+let description = """ MBrace cloud workflows core libraries. """
 
 let tags = "F# cloud mapreduce distributed"
 
@@ -63,6 +61,7 @@ Target "Clean" (fun _ ->
 
 
 let configuration = environVarOrDefault "Configuration" "Release"
+let ignoreClusterTests = environVarOrDefault "IgnoreClusterTests" "false" |> Boolean.Parse
 
 Target "Build" (fun _ ->
     // Build the rest of the project
@@ -88,6 +87,7 @@ Target "RunTests" (fun _ ->
         { p with
             DisableShadowCopy = true
             TimeOut = TimeSpan.FromMinutes 60.
+            ExcludeCategory = if ignoreClusterTests then "DistributionTests" else p.ExcludeCategory
             OutputFile = "TestResults.xml" })
 )
 
