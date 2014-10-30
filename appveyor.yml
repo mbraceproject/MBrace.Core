@@ -8,4 +8,3 @@ test:
   categories:
     - ContinuationTests
     - ThreadPoolTests
-    - DistributionTests
