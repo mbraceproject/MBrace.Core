@@ -17,7 +17,7 @@ type Actor private () =
         let name = Guid.NewGuid().ToString()
         actor
         |> Actor.rename name
-        |> Actor.publish [ Protocols.btcp() ] 
+        |> Actor.publish [ Protocols.utcp() ] 
         |> Actor.start
         |> Actor.ref
 
@@ -121,7 +121,9 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
     member c.AwaitResult() = async {
         let! result = source <!- TryGetResult
         match result with
-        | None -> return! c.AwaitResult()
+        | None -> 
+            do! Async.Sleep 100
+            return! c.AwaitResult()
         | Some r -> return r
     }
 
