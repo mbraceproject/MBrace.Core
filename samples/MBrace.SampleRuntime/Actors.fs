@@ -1,12 +1,28 @@
 ﻿module Nessos.MBrace.SampleRuntime.Actors
 
 open System
+open System.Reflection
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote.Protocols
 open Nessos.Thespian.Remote.TcpProtocol
+open Nessos.Vagrant
+
+open Nessos.MBrace.Runtime
 
 type Actor private () =
+    static do
+        let ignoredAssemblies =
+            let this = Assembly.GetExecutingAssembly()
+            let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
+            new System.Collections.Generic.HashSet<_>(dependencies)
+
+        VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll)
+
+    static do
+        let serializer = new Nessos.Thespian.Serialization.FsPicklerMessageSerializer(VagrantRegistry.Pickler)
+        Nessos.Thespian.Serialization.defaultSerializer <- serializer
+
     static do System.Threading.ThreadPool.SetMinThreads(100, 100) |> ignore
     static do TcpListenerPool.RegisterListener(IPEndPoint.any)
     static let endPoint = 
@@ -294,3 +310,38 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
             |> Actor.Publish
 
         new ResourceFactory(ref)
+
+
+// assembly exporter
+
+type private AssemblyExporterMsg =
+    | RequestAssemblies of AssemblyId list * IReplyChannel<AssemblyPackage list> 
+
+type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
+    static member Init() =
+        let behaviour (RequestAssemblies(ids, ch)) = async {
+            let packages = VagrantRegistry.Vagrant.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            do! ch.Reply packages
+        }
+
+        let ref = 
+            Behavior.stateless behaviour 
+            |> Actor.bind 
+            |> Actor.Publish
+
+        new AssemblyExporter(ref)
+
+    member __.LoadDependencies(ids : AssemblyId list) = async {
+        let publisher =
+            {
+                new IRemoteAssemblyPublisher with
+                    member __.GetRequiredAssemblyInfo () = async { return ids }
+                    member __.PullAssemblies ids = exporter <!- fun ch -> RequestAssemblies(ids, ch)
+            }
+
+        do! VagrantRegistry.Vagrant.ReceiveDependencies publisher
+    }
+
+    member __.ComputeDependencies (graph:'T) =
+        VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true)
+        |> List.map Utilities.ComputeAssemblyId

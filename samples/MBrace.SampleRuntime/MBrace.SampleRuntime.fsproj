@@ -57,8 +57,9 @@
   -->
   <ItemGroup>
     <Compile Include="Actors.fs" />
-    <Compile Include="Vagrant.fs" />
-    <Compile Include="Scheduler.fs" />
+    <Compile Include="RuntimeTypes.fs" />
+    <Compile Include="Combinators.fs" />
+    <Compile Include="RuntimeProvider.fs" />
     <Compile Include="Worker.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="main.fs" />

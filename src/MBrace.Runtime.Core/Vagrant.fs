@@ -50,9 +50,12 @@ type VagrantRegistry private () =
     /// <summary>
     ///     Initializes vagrant using default settings.
     /// </summary>
-    static member Initialize () =
+    /// <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
+    /// <param name="loadPolicy">Specify a default assembly load policy.</param>
+    static member Initialize (?ignoreAssembly : Assembly -> bool, ?loadPolicy) =
+        let ignoreAssembly (a : Assembly) = ignoredAssemblies.Contains a || ignoreAssembly |> Option.exists (fun i -> i a)
         VagrantRegistry.Initialize(fun () ->
             let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| Guid.NewGuid())
             let dir = retry (RetryPolicy.Retry(3, delay = 0.2<sec>)) (fun () -> Directory.CreateDirectory cachePath)
-            Vagrant.Initialize(cacheDirectory = cachePath, isIgnoredAssembly = ignoredAssemblies.Contains)
+            Vagrant.Initialize(cacheDirectory = cachePath, isIgnoredAssembly = ignoreAssembly, ?loadPolicy = loadPolicy)
         )

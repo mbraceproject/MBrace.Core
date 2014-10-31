@@ -6,16 +6,18 @@
     open System.Threading
 
     open Nessos.MBrace
-    open Nessos.MBrace.SampleRuntime.Scheduler
+    open Nessos.MBrace.Runtime
+    open Nessos.MBrace.Runtime.Compiler
+    open Nessos.MBrace.SampleRuntime.RuntimeTypes
 
     module internal Argument =
         let ofRuntime (runtime : RuntimeState) =
-            let pickle = Vagrant.pickler.Pickle(runtime)
+            let pickle = VagrantRegistry.Pickler.Pickle(runtime)
             System.Convert.ToBase64String pickle
 
         let toRuntime (args : string []) =
             let bytes = System.Convert.FromBase64String(args.[0])
-            Vagrant.pickler.UnPickle<RuntimeState> bytes
+            VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
 
     type MBraceRuntime private (workerCount : int) =
 
@@ -34,9 +36,10 @@
         let procs = Array.init workerCount initProc
         
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
+            let computation = CloudCompiler.Compile workflow
             let cts = state.CancellationTokenManager.RequestCancellationTokenSource()
             cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-            let resultCell = state.StartAsCell cts workflow
+            let resultCell = state.StartAsCell computation.Dependencies cts computation.Workflow
             let! result = resultCell.AwaitResult()
             return result.Value
         }
