@@ -93,38 +93,3 @@ with
             let task = Pickle.unpickle tp
             return Some (task, deps)
     }
-
-//with
-//    static member FromWorkflow cts sc ec cc (wf : Cloud<'T>) =
-//        let taskId = System.Guid.NewGuid().ToString()
-//        let startWithContinuations ctx =
-//            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-//            Cloud.StartWithContinuations(wf, cont, ctx)
-//        
-//        { 
-//            StartTask = startWithContinuations
-//            FaultContinuation = ec
-//            CancellationTokenSource = cts
-//            Type = typeof<'T>
-//            Id = taskId
-//        }
-
-//and PickledTask =
-//    {
-//        Pickle : Pickle<Task>
-//        Dependencies : AssemblyId list
-//    }
-
-
-//with
-//    static member FromWorkflow deps cts sc ec cc (wf : Cloud<'T>) =
-//        let task = Task.FromWorkflow cts sc ec cc wf
-//        {
-//            Pickle = Pickle.pickle task
-//            Dependencies = deps
-//        }
-//
-//    static member LoadTask () = async {
-//        
-//    
-//    }

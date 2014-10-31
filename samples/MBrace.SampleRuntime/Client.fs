@@ -1,6 +1,5 @@
 ﻿namespace Nessos.MBrace.SampleRuntime
 
-    open System
     open System.IO
     open System.Diagnostics
     open System.Threading
