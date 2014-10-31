@@ -32,7 +32,7 @@ type Cloud =
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
     /// <paran name"continuation">Root continuation for workflow.</param>
     /// <param name="context">Local execution context.</param>
-    static member StartImmediate(cloudWorkflow : Cloud<'T>, continuation : Continuation<'T>, ?context : ExecutionContext) : unit =
+    static member StartWithContinuations(cloudWorkflow : Cloud<'T>, continuation : Continuation<'T>, ?context : ExecutionContext) : unit =
         let context = match context with None -> ExecutionContext.Empty() | Some ctx -> ctx
         let (Body f) = cloudWorkflow in f context continuation
 
@@ -82,7 +82,7 @@ type Cloud =
                     }
 
                 do Trampoline.Reset()
-                Cloud.StartImmediate(cloudWorkflow, cont, context))
+                Cloud.StartWithContinuations(cloudWorkflow, cont, context))
     }
 
     /// <summary>
@@ -109,7 +109,7 @@ type Cloud =
         Async.StartAsTask(asyncWorkflow, ?taskCreationOptions = taskCreationOptions, ?cancellationToken = cancellationToken)
 
     /// <summary>
-    ///     Run a cloud workflow as a local computation.
+    ///     Synchronously await a locally executing workflow.
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
     /// <param name="resources">Resource resolver to be used; defaults to no resources.</param>
@@ -137,4 +137,4 @@ type Cloud =
             | Choice2Of2 e -> cont.Exception ctx e
             | Choice1Of2 runtime' ->
                 let ctx = { ctx with Resources = ctx.Resources.Register(runtime') }
-                Cloud.StartImmediate(workflow, cont, ctx))
+                Cloud.StartWithContinuations(workflow, cont, ctx))

@@ -24,7 +24,7 @@ module private SchedulerInternals =
         Trampoline.QueueWorkItem(fun () -> 
             let ctx = { Resources = res ; CancellationToken = ct }
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartImmediate(wf, cont, ctx))
+            Cloud.StartWithContinuations(wf, cont, ctx))
 
 
 /// Collection of context-less combinators for 
@@ -43,7 +43,7 @@ type ThreadPool =
             | Choice1Of2 [||] -> cont.Success ctx [||]
             | Choice1Of2 [| comp |] ->
                 let cont' = Continuation.map (fun t -> [| t |]) cont
-                Cloud.StartImmediate(comp, cont')
+                Cloud.StartWithContinuations(comp, cont')
 
             | Choice1Of2 computations ->                    
                 let results = Array.zeroCreate<'T> computations.Length
@@ -83,7 +83,7 @@ type ThreadPool =
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx e
             | Choice1Of2 [||] -> cont.Success ctx None
-            | Choice1Of2 [| comp |] -> Cloud.StartImmediate(comp, cont, ctx)
+            | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
             | Choice1Of2 computations ->
                 let innerCts = mkLinkedCts ctx.CancellationToken
                 let completionLatch = new Latch(0)

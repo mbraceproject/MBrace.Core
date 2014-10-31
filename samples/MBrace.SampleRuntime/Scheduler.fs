@@ -66,7 +66,7 @@ with
         let taskId = System.Guid.NewGuid().ToString()
         let runWith ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartImmediate(wf, cont, ctx)
+            Cloud.StartWithContinuations(wf, cont, ctx)
         
         let task = { Job = runWith ; CancellationTokenSource = cts ; Id = taskId ; Type = typeof<'T> }
         PortablePickle.pickle task |> rt.TaskQueue.Enqueue
@@ -116,7 +116,7 @@ and Combinators private () =
             // note that this invalidates expected workflow semantics w.r.t. mutability.
             | Choice1Of2 [| comp |] ->
                 let cont' = Continuation.map (fun t -> [| t |]) cont
-                Cloud.StartImmediate(comp, cont', ctx)
+                Cloud.StartWithContinuations(comp, cont', ctx)
 
             | Choice1Of2 computations ->
 
@@ -174,7 +174,7 @@ and Combinators private () =
             | Choice1Of2 [||] -> cont.Success ctx None
             // schedule single-child parallel workflows in current task
             // note that this invalidates expected workflow semantics w.r.t. mutability.
-            | Choice1Of2 [| comp |] -> Cloud.StartImmediate(comp, cont, ctx)
+            | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
             | Choice1Of2 computations ->
 
                 let n = computations.Length // avoid capturing computation array in cont closures
