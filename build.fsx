@@ -38,7 +38,7 @@ Target "AssemblyInfo" (fun _ ->
             Attribute.Product project
             Attribute.Company "Nessos Information Technologies"
             Attribute.Copyright "\169 Nessos Information Technologies."
-            Attribute.Trademark "{m}brace"
+            Attribute.Trademark "MBrace"
             Attribute.Version release.AssemblyVersion
             Attribute.FileVersion release.AssemblyVersion
         ]
@@ -78,7 +78,8 @@ Target "Build" (fun _ ->
 
 let testAssemblies = 
     [
-        "bin/MBrace.Core.Tests.dll"
+        yield "bin/MBrace.Core.Tests.dll"
+        if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
@@ -87,7 +88,6 @@ Target "RunTests" (fun _ ->
         { p with
             DisableShadowCopy = true
             TimeOut = TimeSpan.FromMinutes 60.
-            ExcludeCategory = if ignoreClusterTests then "DistributionTests" else p.ExcludeCategory
             OutputFile = "TestResults.xml" })
 )
 

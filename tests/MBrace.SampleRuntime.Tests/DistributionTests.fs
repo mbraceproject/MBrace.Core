@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Tests
+﻿namespace Nessos.MBrace.SampleRuntime.Tests
 
 open System
 open System.IO
@@ -8,12 +8,12 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.Tests
 open Nessos.MBrace.SampleRuntime
 open Nessos.MBrace.SampleRuntime.Actors
 
 [<TestFixture>]
-[<Category("DistributionTests")>]
-module ``Distribution Tests`` =
+module ``SampleRuntime Tests`` =
     
     [<Literal>]
 #if DEBUG
