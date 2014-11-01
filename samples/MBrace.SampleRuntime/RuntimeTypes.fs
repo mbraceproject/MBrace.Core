@@ -1,6 +1,7 @@
 ﻿module internal Nessos.MBrace.SampleRuntime.RuntimeTypes
 
 open System
+open System.Threading.Tasks
 
 open Nessos.Vagrant
 
@@ -10,35 +11,53 @@ open Nessos.MBrace.Runtime.Serialization
 open Nessos.MBrace.SampleRuntime.Actors
 
 [<AutoSerializable(false)>]
-type TaskCompletionEvent () = 
-    inherit Event<exn option> ()
-    static member inline OfContext (ctx : ExecutionContext) = ctx.Resources.Resolve<TaskCompletionEvent>()
-    static member inline TriggerCompletion ctx = TaskCompletionEvent.OfContext(ctx).Trigger None
-    static member inline TriggerFault ctx e = TaskCompletionEvent.OfContext(ctx).Trigger(Some e)
+type TaskExecutionMonitor () =
+    let tcs = TaskCompletionSource<unit> ()
+    static let fromContext (ctx : ExecutionContext) = ctx.Resources.Resolve<TaskExecutionMonitor> ()
+
+    member __.Task = tcs.Task
+    member __.TriggerFault (e : exn) = tcs.TrySetException e |> ignore
+    member __.TriggerCompletion () = tcs.TrySetResult () |> ignore
+
+    static member ProtectSync ctx (f : unit -> unit) : unit =
+        let tem = fromContext ctx
+        try f () with e -> tem.TriggerFault e |> ignore
+
+    static member ProtectAsync ctx (f : Async<unit>) : unit =
+        let tem = fromContext ctx
+        Async.StartWithContinuations(f, ignore, tem.TriggerFault, ignore)   
+
+    static member TriggerCompletion ctx =
+        let tem = fromContext ctx in tem.TriggerCompletion () |> ignore
+
+    static member TriggerFault (ctx, e) =
+        let tem = fromContext ctx in tem.TriggerFault e |> ignore
+
+    static member AwaitCompletion (tem : TaskExecutionMonitor) = async {
+        try
+            return! Async.AwaitTask tem.Task
+        with :? System.AggregateException as e when e.InnerException <> null ->
+            return! Async.Reraise e.InnerException
+    }
 
 type Task = 
     {
         Type : Type
         Id : string
         StartTask : ExecutionContext -> unit
-        FaultContinuation : ExecutionContext -> exn -> unit
         CancellationTokenSource : DistributedCancellationTokenSource
     }
 with
     static member RunAsync (runtimeProvider : IRuntimeProvider) (deps : AssemblyId list) (task : Task) = async {
-        let tce = new TaskCompletionEvent()
-        let! awaitHandle = Async.StartChild(Async.AwaitEvent tce.Publish)
+        let tem = new TaskExecutionMonitor()
         let ctx =
             {
-                Resources = resource { yield runtimeProvider ; yield tce ; yield task.CancellationTokenSource ; yield (deps : AssemblyId list) }
+                Resources = resource { yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; yield (deps : AssemblyId list) }
                 CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
             }
 
         do task.StartTask ctx
-        let! result = awaitHandle
-        match result with
-        | None -> ()
-        | Some e -> return raise e
+        return! TaskExecutionMonitor.AwaitCompletion tem
     }
 
 type RuntimeState =
@@ -52,7 +71,7 @@ type RuntimeState =
 with
     static member InitLocal () =
         {
-            IPEndPoint = Actor.LocalEndPoint
+            IPEndPoint = Nessos.MBrace.SampleRuntime.Config.getLocalEndpoint()
             TaskQueue = Queue<Pickle<Task> * AssemblyId list>.Init ()
             AssemblyExporter = AssemblyExporter.Init()
             CancellationTokenManager = CancellationTokenManager.Init()
@@ -64,29 +83,31 @@ with
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartWithContinuations(wf, cont, ctx)
-
-        let faultCont = ec // TODO : wrap in FaultException
         
-        let task = { Type = typeof<'T> ; Id = taskId ; StartTask = startTask ; FaultContinuation = faultCont ; CancellationTokenSource = cts ; }
+        let task = { Type = typeof<'T> ; Id = taskId ; StartTask = startTask ; CancellationTokenSource = cts ; }
         let taskp = Pickle.pickle task
         rt.TaskQueue.Enqueue(taskp, deps)
 
-    member rt.StartAsCell deps cts (wf : Cloud<'T>) =
-        let resultCell = rt.ResourceFactory.RequestResultCell<'T>()
+    member rt.StartAsCell deps cts (wf : Cloud<'T>) = async {
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let setResult ctx r = 
-            match (try resultCell.SetResult r |> Choice1Of2 with e -> Choice2Of2 e) with
-            | Choice1Of2 true -> TaskCompletionEvent.TriggerCompletion ctx
-            | Choice1Of2 false -> TaskCompletionEvent.TriggerFault ctx (new Exception("Could not set result."))
-            | Choice2Of2 e -> TaskCompletionEvent.TriggerFault ctx e
+            async {
+                let! success = resultCell.SetResult r
+                if success then TaskExecutionMonitor.TriggerCompletion ctx
+                else
+                    return failwith "FAULT : Could not commit to result cell."
+            } |> TaskExecutionMonitor.ProtectAsync ctx
 
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
         rt.EnqueueTask deps cts scont econt ccont wf
-        resultCell
+        return resultCell
+    }
 
     member rt.TryDequeue () = async {
-        match rt.TaskQueue.TryDequeue() with
+        let! item = rt.TaskQueue.TryDequeue()
+        match item with
         | None -> return None
         | Some (tp, deps) -> 
             do! rt.AssemblyExporter.LoadDependencies deps

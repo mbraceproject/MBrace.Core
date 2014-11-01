@@ -10,7 +10,8 @@
 
     let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
 
-        printfn "MBrace worker initialized on %O." Actors.Actor.LocalEndPoint
+        let localEndPoint = Nessos.MBrace.SampleRuntime.Config.getLocalEndpoint()
+        printfn "MBrace worker initialized on %O." localEndPoint
         printfn "Listening to task queue at %O." runtime.IPEndPoint
 
         let currentTaskCount = ref 0

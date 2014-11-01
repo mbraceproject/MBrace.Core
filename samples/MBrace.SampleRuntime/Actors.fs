@@ -1,33 +1,18 @@
-﻿module Nessos.MBrace.SampleRuntime.Actors
+﻿namespace Nessos.MBrace.SampleRuntime.Actors
 
 open System
-open System.Reflection
+open System.Threading
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote.Protocols
-open Nessos.Thespian.Remote.TcpProtocol
+
 open Nessos.Vagrant
 
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.SampleRuntime
 
 type Actor private () =
-    static do
-        let ignoredAssemblies =
-            let this = Assembly.GetExecutingAssembly()
-            let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-            new System.Collections.Generic.HashSet<_>(dependencies)
-
-        VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll)
-
-    static do
-        let serializer = new Nessos.Thespian.Serialization.FsPicklerMessageSerializer(VagrantRegistry.Pickler)
-        Nessos.Thespian.Serialization.defaultSerializer <- serializer
-
-    static do System.Threading.ThreadPool.SetMinThreads(100, 100) |> ignore
-    static do TcpListenerPool.RegisterListener(IPEndPoint.any)
-    static let endPoint = 
-        let listener = TcpListenerPool.GetListeners(IPEndPoint.any) |> Seq.head
-        listener.LocalEndPoint
+    static do Config.initRuntimeState()
 
     static member Publish(actor : Actor<'T>) =
         let name = Guid.NewGuid().ToString()
@@ -36,8 +21,6 @@ type Actor private () =
         |> Actor.publish [ Protocols.btcp() ] 
         |> Actor.start
         |> Actor.ref
-
-    static member LocalEndPoint = endPoint
 
 //
 //  Distributed latch implementation
@@ -48,7 +31,7 @@ type private LatchMessage =
     | GetValue of IReplyChannel<int>
 
 type Latch private (source : ActorRef<LatchMessage>) =
-    member __.Increment() = source <!= Increment
+    member __.Increment () = source <!- Increment
     member __.Value = source <!= GetValue
 
     static member Init(init : int) =
@@ -81,32 +64,38 @@ type private ResultAggregatorMsg<'T> =
 type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
     
     member __.SetResult(index : int, value : 'T) =
-        source <!= fun ch -> SetResult(index, value, ch)
+        source <!- fun ch -> SetResult(index, value, ch)
 
-    member __.IsCompleted = source <!= IsCompleted
-
-    member __.ToArray () = source <!= ToArray
+    member __.ToArray () = source <!- ToArray
 
     static member Init(size : int) =
-        let behaviour ((results : 'T [], count) as state) msg = async {
+        let results = Array.zeroCreate<'T> size
+        let isSet = Array.zeroCreate<bool> size
+
+        let behaviour count msg = async {
             match msg with
-            | SetResult(idx, value, ch) -> 
-                // should check if idx has been already assigned...
-                results.[idx] <- value
-                do! ch.Reply (count + 1 = size)
-                return (results, count + 1)
+            | SetResult(i, value, ch) -> 
+                if isSet.[i] then 
+                    let err = new InvalidOperationException(sprintf "Index %d already assigned." i)
+                    do! ch.ReplyWithException err
+                    return count
+                else
+                    results.[i] <- value
+                    isSet.[i] <- true
+                    let isCompleted = count + 1 = size
+                    do! ch.Reply isCompleted
+                    return count + 1
+
             | IsCompleted rc ->
                 do! rc.Reply ((count = size))
-                return state
+                return count
             | ToArray rc ->
                 do! rc.Reply results
-                return state
+                return count
         }
 
-        let buf = Array.zeroCreate<'T> size
-
         let ref =
-            Behavior.stateful (buf,0) behaviour
+            Behavior.stateful 0 behaviour
             |> Actor.bind
             |> Actor.Publish
 
@@ -132,8 +121,8 @@ type private ResultCellMsg<'T> =
     | TryGetResult of IReplyChannel<Result<'T> option>
 
 type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
-    member c.SetResult result = try source <!= fun ch -> SetResult(result, ch) with _ -> false
-    member c.TryGetResult () = try source <!= TryGetResult with _ -> None
+    member c.SetResult result = source <!- fun ch -> SetResult(result, ch)
+    member c.TryGetResult () = source <!- TryGetResult
     member c.AwaitResult() = async {
         let! result = source <!- TryGetResult
         match result with
@@ -176,36 +165,34 @@ type internal CancellationTokenManagerMsg =
     | IsCancellationRequested of id:CancellationTokenId * IReplyChannel<bool>
     | Cancel of id:CancellationTokenId
 
-type DistributedCancellationTokenSource = 
-    internal {
-        Id : CancellationTokenId
-        Source : ActorRef<CancellationTokenManagerMsg>
-    }
-with
-    member ct.Cancel () = ct.Source <-- Cancel ct.Id
-    member ct.IsCancellationRequested = ct.Source <!= fun ch -> IsCancellationRequested(ct.Id, ch)
+type DistributedCancellationTokenSource internal (id : CancellationTokenId, source : ActorRef<CancellationTokenManagerMsg>) =
+    member __.Id = id
+    member ct.Cancel () = source <-- Cancel id
+    member ct.IsCancellationRequested = source <!- fun ch -> IsCancellationRequested(id, ch)
     member ct.GetLocalCancellationToken() =
         let cts = new System.Threading.CancellationTokenSource()
 
         let rec checkCancellation () = async {
-            let! isCancelled = ct.Source <!- fun ch -> IsCancellationRequested(ct.Id, ch)
-            if isCancelled then
-                cts.Cancel()
-                return ()
-            else
-                do! Async.Sleep 50
+            let! isCancelled = Async.Catch(source <!- fun ch -> IsCancellationRequested(id, ch))
+            match isCancelled with
+            | Choice1Of2 true -> cts.Cancel()
+            | Choice1Of2 false ->
+                do! Async.Sleep 100
+                return! checkCancellation ()
+            | Choice2Of2 e ->
+                do! Async.Sleep 1000
                 return! checkCancellation ()
         }
 
         do Async.Start(checkCancellation())
-
         cts.Token
 
 type CancellationTokenManager private (source : ActorRef<CancellationTokenManagerMsg>) =
-    member __.RequestCancellationTokenSource(?parent : DistributedCancellationTokenSource) =
+    member __.RequestCancellationTokenSource(?parent : DistributedCancellationTokenSource) = async {
         let ids = parent |> Option.map (fun p -> p.Id)
-        let newId = source <!= fun ch -> RequestCancellationTokenSource(ids, ch)
-        { Id = newId ; Source = source }
+        let! newId = source <!- fun ch -> RequestCancellationTokenSource(ids, ch)
+        return new DistributedCancellationTokenSource(newId, source)
+    }
 
     static member Init() =
         let behavior (state : Map<CancellationTokenId, CancellationTokenId list>) msg = async {
@@ -260,7 +247,7 @@ type private QueueMsg<'T> =
 
 type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
     member __.Enqueue (t : 'T) = source <-- EnQueue t
-    member __.TryDequeue () = source <!= TryDequeue
+    member __.TryDequeue () = source <!- TryDequeue
 
     static member Init() =
         let queue = System.Collections.Generic.Queue<'T> ()
@@ -289,10 +276,11 @@ type private ResourceFactoryMsg =
     | RequestResource of ctor:(unit -> obj) * IReplyChannel<obj>
 
 type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
-    member __.RequestResource<'T>(factory : unit -> 'T) =
+    member __.RequestResource<'T>(factory : unit -> 'T) = async {
         let ctor () = factory () :> obj
-        let res = source <!= fun ch -> RequestResource(ctor, ch)
-        res :?> 'T
+        let! resource = source <!- fun ch -> RequestResource(ctor, ch)
+        return resource :?> 'T
+    }
 
     member __.RequestLatch(count) = __.RequestResource(fun () -> Latch.Init(count))
     member __.RequestResultAggregator<'T>(count : int) = __.RequestResource(fun () -> ResultAggregator<'T>.Init(count))
@@ -300,8 +288,10 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 
     static member Init () =
         let behavior (RequestResource(ctor,rc)) = async {
-            let r = ctor ()
-            do! rc.Reply r
+            let r = try ctor () |> Choice1Of2 with e -> Choice2Of2 e
+            match r with
+            | Choice1Of2 res -> do! rc.Reply res
+            | Choice2Of2 e -> do! rc.ReplyWithException e
         }
 
         let ref =

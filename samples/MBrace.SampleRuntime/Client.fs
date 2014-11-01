@@ -36,11 +36,14 @@
         
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
             let computation = CloudCompiler.Compile workflow
-            let cts = state.CancellationTokenManager.RequestCancellationTokenSource()
-            cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-            let resultCell = state.StartAsCell computation.Dependencies cts computation.Workflow
-            let! result = resultCell.AwaitResult()
-            return result.Value
+            let! cts = state.CancellationTokenManager.RequestCancellationTokenSource()
+            try
+                cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
+                let! resultCell = state.StartAsCell computation.Dependencies cts computation.Workflow
+                let! result = resultCell.AwaitResult()
+                return result.Value
+            finally
+                cts.Cancel ()
         }
 
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =

@@ -5,7 +5,7 @@
     [<EntryPoint>]
     let main (args : string []) =
         try
-            do Actors.Actor.LocalEndPoint |> ignore // force actor state initialization
+            Nessos.MBrace.SampleRuntime.Config.initRuntimeState()
             let runtime = Argument.toRuntime args
             Async.RunSynchronously (Worker.initWorker runtime maxConcurrentTasks)
         with e ->

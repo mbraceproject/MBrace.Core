@@ -34,12 +34,17 @@ module ``SampleRuntime Tests`` =
         runtime |> Option.iter (fun r -> r.Kill())
         runtime <- None
 
+    type Latch with
+        member l.Incr() = l.Increment() |> Async.RunSynchronously
+
     let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync workflow |> Async.Catch |> Async.RunSynchronously
-    let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) =
-        let runtime = Option.get runtime
-        let dcts = runtime.GetCancellationTokenSource()
-        let ct = dcts.GetLocalCancellationToken()
-        runtime.RunAsync(workflow dcts, cancellationToken = ct) |> Async.Catch |> Async.RunSynchronously
+    let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
+        async {
+            let runtime = Option.get runtime
+            let! dcts = runtime.GetCancellationTokenSource()
+            let ct = dcts.GetLocalCancellationToken()
+            return! runtime.RunAsync(workflow dcts, cancellationToken = ct) |> Async.Catch
+        } |> Async.RunSynchronously
 
     [<Test>]
     let ``Parallel : empty input`` () =
@@ -57,8 +62,8 @@ module ``SampleRuntime Tests`` =
     let ``Parallel : use binding`` () =
         let latch = Latch.Init 0
         cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = async { return latch.Increment () |> ignore } }
-            let! _ = cloud { return latch.Increment () } <||> cloud { return latch.Increment () }
+            use foo = { new ICloudDisposable with member __.Dispose () = async { return latch.Incr() |> ignore } }
+            let! _ = cloud { return latch.Incr() } <||> cloud { return latch.Incr() }
             return latch.Value
         } |> run |> Choice.shouldEqual 2
 
@@ -83,7 +88,7 @@ module ``SampleRuntime Tests`` =
                 let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
                 return x + y
             finally
-                latch.Increment () |> ignore
+                latch.Incr () |> ignore
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
         latch.Value |> should equal 1
@@ -115,7 +120,7 @@ module ``SampleRuntime Tests`` =
                 let! _ = Array.init 20 (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
                 return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
             with :? InvalidOperationException ->
-                latch.Increment() |> ignore
+                latch.Incr() |> ignore
                 return ()
         } |> run |> Choice.shouldEqual ()
 
@@ -134,7 +139,7 @@ module ``SampleRuntime Tests`` =
                     invalidOp "failure"
                 else
                     do! Cloud.Sleep 1000
-                    let _ = latch.Increment()
+                    let _ = latch.Incr()
                     return ()
             }
 
@@ -156,7 +161,7 @@ module ``SampleRuntime Tests`` =
                     invalidOp "failure"
                 else
                     do! Cloud.Sleep 1000
-                    let _ = latch.Increment()
+                    let _ = latch.Incr()
                     return ()
             }
 
@@ -177,7 +182,7 @@ module ``SampleRuntime Tests`` =
             let f i = cloud {
                 if i = 0 then cts.Cancel() 
                 do! Cloud.Sleep 3000 
-                return latch.Increment() 
+                return latch.Incr() 
             }
 
             let! _ = Array.init 10 f |> Cloud.Parallel
@@ -255,7 +260,7 @@ module ``SampleRuntime Tests`` =
         cloud {
             let count = Latch.Init 0
             let worker _ = cloud {
-                let _ = count.Increment()
+                let _ = count.Incr()
                 return None
             }
 
@@ -274,7 +279,7 @@ module ``SampleRuntime Tests`` =
                 else
                     do! Cloud.Sleep 1000
                     // check proper cancellation while we're at it.
-                    let _ = count.Increment()
+                    let _ = count.Incr()
                     return None
             }
 
@@ -289,7 +294,7 @@ module ``SampleRuntime Tests`` =
         cloud {
             let worker _ = cloud { return Some 42 }
             let! result = Array.init 20 worker |> Cloud.Choice
-            let _ = successcounter.Increment()
+            let _ = successcounter.Incr()
             return result
         } |> run |> Choice.shouldEqual (Some 42)
 
@@ -306,7 +311,7 @@ module ``SampleRuntime Tests`` =
                     return Some(i,j)
                 else
                     do! Cloud.Sleep 100
-                    let _ = counter.Increment()
+                    let _ = counter.Incr()
                     return None
             }
 
@@ -327,7 +332,7 @@ module ``SampleRuntime Tests`` =
                     return invalidOp "failure"
                 else
                     do! Cloud.Sleep 10000
-                    let _ = counter.Increment()
+                    let _ = counter.Incr()
                     return Some 42
             }
 
@@ -346,7 +351,7 @@ module ``SampleRuntime Tests`` =
                 let worker i = cloud {
                     if i = 0 then cts.Cancel()
                     do! Cloud.Sleep 3000
-                    let _ = taskCount.Increment()
+                    let _ = taskCount.Incr()
                     return Some 42
                 }
 
@@ -404,7 +409,7 @@ module ``SampleRuntime Tests`` =
             let count = Latch.Init 0
             let task = cloud {
                 do! Cloud.Sleep 100
-                return count.Increment()
+                return count.Incr()
             }
 
             let! ch = Cloud.StartChild(task)
@@ -419,7 +424,7 @@ module ``SampleRuntime Tests`` =
         cloud {
             let task = cloud {
                 do! Cloud.Sleep 100
-                let _ = count.Increment()
+                let _ = count.Incr()
                 return invalidOp "failure"
             }
 
@@ -428,7 +433,7 @@ module ``SampleRuntime Tests`` =
             do! Cloud.Sleep 100
             // ensure no exception is raised in parent workflow
             // before the child workflow is properly evaluated
-            let _ = count.Increment()
+            let _ = count.Incr()
             return! ch
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
@@ -441,9 +446,9 @@ module ``SampleRuntime Tests`` =
         runCts(fun cts ->
             cloud {
                 let task = cloud {
-                    let _ = count.Increment()
+                    let _ = count.Incr()
                     do! Cloud.Sleep 3000
-                    return count.Increment()
+                    return count.Incr()
                 }
 
                 let! ch = Cloud.StartChild(task)

@@ -29,18 +29,18 @@ type RuntimeProvider private (state : RuntimeState, taskId : string, dependencie
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.scheduleParallel state dependencies computations
+            | Distributed -> Combinators.Parallel state dependencies computations
             | ThreadParallel -> ThreadPool.Parallel computations
             | Sequential -> Sequential.Parallel computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.scheduleChoice state dependencies computations
+            | Distributed -> Combinators.Choice state dependencies computations
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
         member __.ScheduleStartChild(computation,_,_) =
             match context with
-            | Distributed -> Combinators.scheduleStartChild state dependencies computation
+            | Distributed -> Combinators.StartChild state dependencies computation
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
