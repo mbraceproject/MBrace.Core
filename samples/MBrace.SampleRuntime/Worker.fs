@@ -3,6 +3,7 @@
     open System.Diagnostics
     open System.Threading
 
+    open Nessos.MBrace.SampleRuntime.Actors
     open Nessos.MBrace.SampleRuntime.RuntimeTypes
     open Nessos.MBrace.SampleRuntime.RuntimeProvider
 
@@ -28,10 +29,12 @@
                     let! task = runtime.TryDequeue()
                     match task with
                     | None -> do! Async.Sleep 100
-                    | Some (task, dependencies) ->
+                    | Some (task, dependencies, leaseMonitor) ->
                         let _ = Interlocked.Increment currentTaskCount
                         let runTask () = async {
                             printfn "Starting task %s of type '%O'." task.Id task.Type
+
+                            let hb = leaseMonitor.InitHeartBeat()
 
                             let sw = new Stopwatch()
                             sw.Start()
@@ -39,9 +42,15 @@
                             sw.Stop()
 
                             match result with
-                            | Choice1Of2 () -> printfn "Task %s completed after %O." task.Id sw.Elapsed
-                            | Choice2Of2 e -> printfn "Task %s faulted with:\n %O." task.Id e
+                            | Choice1Of2 () -> 
+                                leaseMonitor.SetLeaseState Released
+                                printfn "Task %s completed after %O." task.Id sw.Elapsed
+                                
+                            | Choice2Of2 e -> 
+                                leaseMonitor.SetLeaseState Faulted
+                                printfn "Task %s faulted with:\n %O." task.Id e
 
+                            hb.Dispose()
                             let _ = Interlocked.Decrement currentTaskCount
                             return ()
                         }

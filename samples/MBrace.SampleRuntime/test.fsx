@@ -10,14 +10,20 @@ MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Samp
 
 let runtime = MBraceRuntime.InitLocal(4)
 
-runtime.Run (
-    cloud {
-        do! Cloud.Sleep 5000
-        return! Array.init 100 (fun i -> cloud { return printfn "hi" ; return i }) |> Cloud.Parallel
-    })
+let successful = cloud {
+    do! Cloud.Sleep 5000
+    return! Array.init 100 (fun i -> cloud { return printfn "hi" ; return i }) |> Cloud.Parallel
+}
 
-runtime.Run (
-    cloud {
-        do! Cloud.Sleep 5000
-        return! Array.init 100 (fun i -> cloud { return if i = 78 then failwith "error" else printfn "hi" ; i }) |> Cloud.Parallel
-    })
+let failed = cloud {
+    do! Cloud.Sleep 5000
+    return! Array.init 100 (fun i -> cloud { return if i = 78 then failwith "error" else printfn "hi" ; i }) |> Cloud.Parallel
+}
+
+
+let t = runtime.RunAsTask successful
+
+runtime.KillAllWorkers() 
+runtime.AppendWorkers 4
+
+t.Result

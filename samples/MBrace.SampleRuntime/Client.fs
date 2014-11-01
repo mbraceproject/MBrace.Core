@@ -43,6 +43,10 @@
                 cts.Cancel ()
         }
 
+        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
+            let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken)
+            Async.StartAsTask(asyncwf)
+
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
 

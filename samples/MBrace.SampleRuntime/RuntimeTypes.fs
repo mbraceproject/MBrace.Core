@@ -109,8 +109,8 @@ with
         let! item = rt.TaskQueue.TryDequeue()
         match item with
         | None -> return None
-        | Some (tp, deps) -> 
+        | Some ((tp, deps), leaseMonitor) -> 
             do! rt.AssemblyExporter.LoadDependencies deps
             let task = Pickle.unpickle tp
-            return Some (task, deps)
+            return Some (task, deps, leaseMonitor)
     }

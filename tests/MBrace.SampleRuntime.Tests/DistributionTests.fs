@@ -226,10 +226,7 @@ module ``SampleRuntime Tests`` =
             return Array.forall id results
         } |> run |> Choice.shouldEqual true
 
-    [<Test>]
-    [<Repeat(repeats)>]
-    let ``Parallel : recursive map/reduce`` () =
-
+    let wordCount () =
         let rec mapReduce (mapF : 'T -> Cloud<'S>) 
                         (reduceF : 'S -> 'S -> Cloud<'S>)
                         (id : 'S) (inputs : 'T list) =
@@ -246,9 +243,12 @@ module ``SampleRuntime Tests`` =
         let mapF (text : string) = cloud { return text.Split(' ').Length }
         let reduceF i i' = cloud { return i + i' }
         let inputs = List.init 20 (fun i -> "lorem ipsum dolor sit amet")
+        mapReduce mapF reduceF 0 inputs
 
-        mapReduce mapF reduceF 0 inputs |> run |> Choice.shouldEqual 100
-
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``Parallel : recursive map/reduce`` () =
+        wordCount () |> run |> Choice.shouldEqual 100
 
     [<Test>]
     let ``Choice : empty input`` () =
@@ -460,3 +460,12 @@ module ``SampleRuntime Tests`` =
 
         // ensure final increment was cancelled.
         count.Value |> should equal 1
+
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``Z Fault Tolerance : map/reduce`` () =
+        let t = runtime.Value.RunAsTask(wordCount ())
+        do Thread.Sleep 4000
+        runtime.Value.KillAllWorkers()
+        runtime.Value.AppendWorkers 4
+        t.Result |> should equal 100

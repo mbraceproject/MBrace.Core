@@ -20,7 +20,11 @@ type Actor private () =
         |> Actor.rename name
         |> Actor.publish [ Protocols.btcp() ] 
         |> Actor.start
-        |> Actor.ref
+
+
+module Behavior =
+    let stateful init f = Behavior.stateful init (fun s t -> async { try return! f s t with _ -> return s })
+    let stateless f = Behavior.stateless (fun t -> async { try return! f t with _ -> return () })
 
 //
 //  Distributed latch implementation
@@ -49,6 +53,7 @@ type Latch private (source : ActorRef<LatchMessage>) =
             Behavior.stateful init behaviour
             |> Actor.bind
             |> Actor.Publish
+            |> Actor.ref
 
         new Latch(ref)
 
@@ -69,35 +74,28 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
     member __.ToArray () = source <!- ToArray
 
     static member Init(size : int) =
-        let results = Array.zeroCreate<'T> size
-        let isSet = Array.zeroCreate<bool> size
-
-        let behaviour count msg = async {
+        let behaviour (results : Map<int, 'T>) msg = async {
             match msg with
-            | SetResult(i, value, ch) -> 
-                if isSet.[i] then 
-                    let err = new InvalidOperationException(sprintf "Index %d already assigned." i)
-                    do! ch.ReplyWithException err
-                    return count
-                else
-                    results.[i] <- value
-                    isSet.[i] <- true
-                    let isCompleted = count + 1 = size
-                    do! ch.Reply isCompleted
-                    return count + 1
+            | SetResult(i, value, ch) ->
+                let results = results.Add(i, value)
+                let isCompleted = results.Count = size
+                do! ch.Reply isCompleted
+                return results
 
             | IsCompleted rc ->
-                do! rc.Reply ((count = size))
-                return count
+                do! rc.Reply ((results.Count = size))
+                return results
             | ToArray rc ->
-                do! rc.Reply results
-                return count
+                let array = results |> Map.toSeq |> Seq.sortBy fst |> Seq.map snd |> Seq.toArray
+                do! rc.Reply array
+                return results
         }
 
         let ref =
-            Behavior.stateful 0 behaviour
+            Behavior.stateful Map.empty behaviour
             |> Actor.bind
             |> Actor.Publish
+            |> Actor.ref
 
         new ResultAggregator<'T>(ref)
 
@@ -151,6 +149,7 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
             Behavior.stateful None behavior
             |> Actor.bind
             |> Actor.Publish
+            |> Actor.ref
 
         new ResultCell<'T>(ref)
 
@@ -234,38 +233,119 @@ type CancellationTokenManager private (source : ActorRef<CancellationTokenManage
             Behavior.stateful Map.empty behavior
             |> Actor.bind
             |> Actor.Publish
+            |> Actor.ref
 
         new CancellationTokenManager(ref)
 
 //
-//  Distributed queue implementation
+//  Distributed lease manager
+//
+
+type LeaseState =
+    | Acquired
+    | Released
+    | Faulted
+
+type private LeaseMonitorMsg =
+    | SetLeaseState of LeaseState
+    | GetLeaseState of IReplyChannel<LeaseState>
+
+type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorMsg>) =
+    member __.SetLeaseState state = source <-- SetLeaseState state
+    member __.GetLeaseState () = source <!- GetLeaseState
+    member __.Threshold = threshold
+    member __.InitHeartBeat () =
+        let cts = new CancellationTokenSource()
+        let rec heartbeat () = async {
+            try source <-- SetLeaseState Acquired with _ -> ()
+            do! Async.Sleep (int threshold.Milliseconds / 2)
+            return! heartbeat ()
+        }
+
+        Async.Start(heartbeat(), cts.Token)
+        { new IDisposable with member __.Dispose () = cts.Cancel () }
+
+    static member Init (threshold : TimeSpan) =
+        let behavior ((ls, lastRenew : DateTime) as state) msg = async {
+            match msg, ls with
+            | SetLeaseState _, (Faulted | Released) -> return state
+            | SetLeaseState ls', Acquired -> return (ls', DateTime.Now)
+            | GetLeaseState rc, Acquired when DateTime.Now - lastRenew > threshold ->
+                do! rc.Reply Faulted
+                return (Faulted, lastRenew)
+            | GetLeaseState rc, ls ->
+                do! rc.Reply ls
+                return state
+        }
+
+        let actor =
+            Behavior.stateful (Acquired, DateTime.Now) behavior
+            |> Actor.bind
+            |> Actor.Publish
+
+        let faultEvent = new Event<unit> ()
+        let rec poll () = async {
+            let! state = actor.Ref <!- GetLeaseState
+            match state with
+            | Acquired -> 
+                do! Async.Sleep(2 * int threshold.TotalMilliseconds)
+                return! poll ()
+            | Released -> try actor.Stop() with _ -> ()
+            | Faulted -> try faultEvent.Trigger () ; actor.Stop() with _ -> () 
+        }
+
+        Async.Start(poll ())
+
+        faultEvent.Publish, new LeaseMonitor(threshold, actor.Ref)
+
+//
+//  Distributed, fault-tolerant queue implementation
 //
 
 type private QueueMsg<'T> =
     | EnQueue of 'T
-    | TryDequeue of IReplyChannel<'T option>
+    | TryDequeue of IReplyChannel<('T * LeaseMonitor) option>
+
+type ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
+    new () = new ImmutableQueue<'T>([],[])
+    member __.Enqueue t = new ImmutableQueue<'T>(front, t :: back)
+    member __.TryDequeue () = 
+        match front with
+        | hd :: tl -> Some(hd, new ImmutableQueue<'T>(tl, back))
+        | [] -> 
+            match List.rev back with
+            | [] -> None
+            | hd :: tl -> Some(hd, new ImmutableQueue<'T>(tl, []))
 
 type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
     member __.Enqueue (t : 'T) = source <-- EnQueue t
     member __.TryDequeue () = source <!- TryDequeue
 
     static member Init() =
-        let queue = System.Collections.Generic.Queue<'T> ()
-        let behaviour msg = async {
+        let self = ref Unchecked.defaultof<ActorRef<QueueMsg<'T>>>
+        let behaviour (queue : ImmutableQueue<'T>) msg = async {
             match msg with
-            | EnQueue t -> queue.Enqueue t
-            | TryDequeue rc when queue.Count = 0 -> do! rc.Reply None
+            | EnQueue t -> return queue.Enqueue t
             | TryDequeue rc ->
-                let t = queue.Dequeue()
-                do! rc.Reply (Some t)
+                match queue.TryDequeue() with
+                | None ->
+                    do! rc.Reply None 
+                    return queue
+
+                | Some(t, queue') ->
+                    let putBack, leaseMonitor = LeaseMonitor.Init (TimeSpan.FromSeconds 5.)
+                    do! rc.Reply (Some (t, leaseMonitor))
+                    let _ = putBack.Subscribe(fun () -> self.Value <-- EnQueue t)
+                    return queue'
         }
 
-        let ref =
-            Behavior.stateless behaviour
+        self :=
+            Behavior.stateful (new ImmutableQueue<'T>()) behaviour
             |> Actor.bind
             |> Actor.Publish
+            |> Actor.ref
 
-        new Queue<'T>(ref)
+        new Queue<'T>(self.Value)
 
 
 //
@@ -298,11 +378,13 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
             Behavior.stateless behavior
             |> Actor.bind
             |> Actor.Publish
+            |> Actor.ref
 
         new ResourceFactory(ref)
 
-
+//
 // assembly exporter
+//
 
 type private AssemblyExporterMsg =
     | RequestAssemblies of AssemblyId list * IReplyChannel<AssemblyPackage list> 
@@ -318,6 +400,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
             Behavior.stateless behaviour 
             |> Actor.bind 
             |> Actor.Publish
+            |> Actor.ref
 
         new AssemblyExporter(ref)
 
