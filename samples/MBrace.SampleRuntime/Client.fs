@@ -18,21 +18,18 @@
             let bytes = System.Convert.FromBase64String(args.[0])
             VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
 
-    type MBraceRuntime private (workerCount : int) =
-
+    type MBraceRuntime private (state : RuntimeState, procs : Process []) =
         static let mutable exe = None
-            
-        let state = RuntimeState.InitLocal()
+        let mutable procs = procs
 
-        let initProc _ =
-            let exe = MBraceRuntime.WorkerExecutable
-            let args = Argument.ofRuntime state
+        static let initWorkers (target : RuntimeState) (count : int) =
+            if count < 1 then invalidArg "workerCount" "must be positive."
+            let exe = MBraceRuntime.WorkerExecutable    
+            let args = Argument.ofRuntime target
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true
-            Process.Start psi
-
-        let procs = Array.init workerCount initProc
+            Array.init count (fun _ -> Process.Start psi)
         
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
             let computation = CloudCompiler.Compile workflow
@@ -49,14 +46,20 @@
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
 
-        member __.Kill () = for p in procs do try p.Kill() with _ -> ()
+        member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])
+        member __.Workers = procs
+
+        member __.AppendWorkers (count : int) =
+            let newProcs = initWorkers state count
+            lock procs (fun () -> procs <- Array.append procs newProcs)
 
         member __.GetCancellationTokenSource(?parent) = 
             state.CancellationTokenManager.RequestCancellationTokenSource(?parent = parent)
 
-        static member InitLocal(workerCount : int) = 
-            if workerCount < 1 then invalidArg "workerCount" "must be positive."
-            new MBraceRuntime(workerCount)
+        static member InitLocal(workerCount : int) =
+            let state = RuntimeState.InitLocal()
+            let workers = initWorkers state workerCount
+            new MBraceRuntime(state, workers)
 
         static member WorkerExecutable
             with get () = match exe with None -> invalidOp "unset executable path." | Some e -> e

@@ -31,7 +31,7 @@ module ``SampleRuntime Tests`` =
 
     [<TestFixtureTearDown>]
     let fini () =
-        runtime |> Option.iter (fun r -> r.Kill())
+        runtime |> Option.iter (fun r -> r.KillAllWorkers())
         runtime <- None
 
     type Latch with
