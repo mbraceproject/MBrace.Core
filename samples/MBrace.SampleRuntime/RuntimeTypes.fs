@@ -93,9 +93,7 @@ with
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
-                if success then TaskExecutionMonitor.TriggerCompletion ctx
-                else
-                    return failwith "FAULT : Could not commit to result cell."
+                TaskExecutionMonitor.TriggerCompletion ctx
             } |> TaskExecutionMonitor.ProtectAsync ctx
 
         let scont ctx t = setResult ctx (Completed t)

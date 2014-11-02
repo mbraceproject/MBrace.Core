@@ -34,7 +34,7 @@
                         let runTask () = async {
                             printfn "Starting task %s of type '%O'." task.Id task.Type
 
-                            let hb = leaseMonitor.InitHeartBeat()
+                            use hb = leaseMonitor.InitHeartBeat()
 
                             let sw = new Stopwatch()
                             sw.Start()
@@ -43,14 +43,13 @@
 
                             match result with
                             | Choice1Of2 () -> 
-                                leaseMonitor.SetLeaseState Released
+                                leaseMonitor.Release()
                                 printfn "Task %s completed after %O." task.Id sw.Elapsed
                                 
                             | Choice2Of2 e -> 
-                                leaseMonitor.SetLeaseState Faulted
+                                leaseMonitor.DeclareFault()
                                 printfn "Task %s faulted with:\n %O." task.Id e
 
-                            hb.Dispose()
                             let _ = Interlocked.Decrement currentTaskCount
                             return ()
                         }
@@ -59,7 +58,7 @@
                         return ()
 
                 with e -> 
-                    printfn "RUNTIME FAULT: %O" e
+                    printfn "WORKER FAULT: %O" e
                     do! Async.Sleep 1000
 
                 return! loop ()

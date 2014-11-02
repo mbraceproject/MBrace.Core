@@ -23,8 +23,8 @@ type Actor private () =
 
 
 module Behavior =
-    let stateful init f = Behavior.stateful init (fun s t -> async { try return! f s t with _ -> return s })
-    let stateless f = Behavior.stateless (fun t -> async { try return! f t with _ -> return () })
+    let stateful init f = Behavior.stateful init (fun s t -> async { try return! f s t with e -> return s })
+    let stateless f = Behavior.stateless (fun t -> async { try return! f t with e -> () })
 
 //
 //  Distributed latch implementation
@@ -251,8 +251,8 @@ type private LeaseMonitorMsg =
     | GetLeaseState of IReplyChannel<LeaseState>
 
 type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorMsg>) =
-    member __.SetLeaseState state = source <-- SetLeaseState state
-    member __.GetLeaseState () = source <!- GetLeaseState
+    member __.Release () = source <-- SetLeaseState Released
+    member __.DeclareFault () = source <-- SetLeaseState Faulted
     member __.Threshold = threshold
     member __.InitHeartBeat () =
         let cts = new CancellationTokenSource()
