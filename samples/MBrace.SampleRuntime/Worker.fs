@@ -58,7 +58,7 @@
                         return ()
 
                 with e -> 
-                    printfn "WORKER FAULT: %O" e
+                    printfn "WORKER FAULT: %A" e
                     do! Async.Sleep 1000
 
                 return! loop ()
