@@ -16,10 +16,14 @@ type Actor private () =
 
     static member Publish(actor : Actor<'T>) =
         let name = Guid.NewGuid().ToString()
-        actor
-        |> Actor.rename name
-        |> Actor.publish [ Protocols.btcp() ] 
-        |> Actor.start
+        let actor' =
+            actor
+            |> Actor.rename name
+            |> Actor.publish [ Protocols.utcp() ]
+
+        //actor'.Log |> Event.add (function (Logging.Error, _, e) -> printfn "Actor failure event: %A" e | _ -> ())
+            
+        Actor.start actor'
 
 
 module Behavior =
@@ -55,7 +59,7 @@ type Latch private (source : ActorRef<LatchMessage>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Latch(ref)
+        new Latch(ref.[UTCP])
 
 //
 //  Distributed resource aggregator
@@ -97,7 +101,7 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResultAggregator<'T>(ref)
+        new ResultAggregator<'T>(ref.[UTCP])
 
 //
 //  Distributed result cell
@@ -151,7 +155,7 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResultCell<'T>(ref)
+        new ResultCell<'T>(ref.[UTCP])
 
 //
 //  Distributed Cancellation token
@@ -235,7 +239,7 @@ type CancellationTokenManager private (source : ActorRef<CancellationTokenManage
             |> Actor.Publish
             |> Actor.ref
 
-        new CancellationTokenManager(ref)
+        new CancellationTokenManager(ref.[UTCP])
 
 //
 //  Distributed lease manager
@@ -296,7 +300,7 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
 
         Async.Start(poll ())
 
-        faultEvent.Publish, new LeaseMonitor(threshold, actor.Ref)
+        faultEvent.Publish, new LeaseMonitor(threshold, actor.Ref.[UTCP])
 
 //
 //  Distributed, fault-tolerant queue implementation
@@ -345,7 +349,7 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Queue<'T>(self.Value)
+        new Queue<'T>(self.Value.[UTCP])
 
 
 //
@@ -380,7 +384,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResourceFactory(ref)
+        new ResourceFactory(ref.[UTCP])
 
 //
 // assembly exporter
@@ -402,7 +406,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new AssemblyExporter(ref)
+        new AssemblyExporter(ref.[UTCP])
 
     member __.LoadDependencies(ids : AssemblyId list) = async {
         let publisher =
