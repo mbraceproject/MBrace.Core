@@ -258,7 +258,7 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
         let cts = new CancellationTokenSource()
         let rec heartbeat () = async {
             try source <-- SetLeaseState Acquired with _ -> ()
-            do! Async.Sleep (int threshold.Milliseconds / 2)
+            do! Async.Sleep (int threshold.TotalMilliseconds / 2)
             return! heartbeat ()
         }
 
