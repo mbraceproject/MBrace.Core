@@ -22,13 +22,13 @@
 
         let rec loop () = async {
             if !currentTaskCount >= maxConcurrentTasks then
-                do! Async.Sleep 100
+                do! Async.Sleep 500
                 return! loop ()
             else
                 try
                     let! task = runtime.TryDequeue()
                     match task with
-                    | None -> do! Async.Sleep 100
+                    | None -> do! Async.Sleep 500
                     | Some (task, dependencies, leaseMonitor) ->
                         let _ = Interlocked.Increment currentTaskCount
                         let runTask () = async {
@@ -58,7 +58,7 @@
                         return ()
 
                 with e -> 
-                    printfn "WORKER FAULT: %A" e
+                    printfn "WORKER FAULT: %O" e
                     do! Async.Sleep 1000
 
                 return! loop ()

@@ -331,7 +331,7 @@ module ``SampleRuntime Tests`` =
                 if i = 0 && j = 0 then
                     return invalidOp "failure"
                 else
-                    do! Cloud.Sleep 10000
+                    do! Cloud.Sleep 3000
                     let _ = counter.Incr()
                     return Some 42
             }

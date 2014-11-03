@@ -9,6 +9,6 @@
             let runtime = Argument.toRuntime args
             Async.RunSynchronously (Worker.initWorker runtime maxConcurrentTasks)
         with e ->
-            printfn "Unhandled exception : %A" e
+            printfn "Unhandled exception : %O" e
             let _ = System.Console.ReadKey()
             1

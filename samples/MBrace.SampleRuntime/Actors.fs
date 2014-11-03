@@ -125,7 +125,7 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
         let! result = source <!- TryGetResult
         match result with
         | None -> 
-            do! Async.Sleep 100
+            do! Async.Sleep 500
             return! c.AwaitResult()
         | Some r -> return r
     }
@@ -176,7 +176,7 @@ type DistributedCancellationTokenSource internal (id : CancellationTokenId, sour
             match isCancelled with
             | Choice1Of2 true -> cts.Cancel()
             | Choice1Of2 false ->
-                do! Async.Sleep 100
+                do! Async.Sleep 500
                 return! checkCancellation ()
             | Choice2Of2 e ->
                 do! Async.Sleep 1000
