@@ -17,7 +17,6 @@ let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
 // vagrant, fspickler and thespian state initializations
 let private _initRuntimeState () =
-    Default.ReplyReceiveTimeout <- Timeout.Infinite
     let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
     // vagrant initialization

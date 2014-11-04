@@ -16,14 +16,10 @@ type Actor private () =
 
     static member Publish(actor : Actor<'T>) =
         let name = Guid.NewGuid().ToString()
-        let actor' =
-            actor
-            |> Actor.rename name
-            |> Actor.publish [ Protocols.utcp() ]
-
-        //actor'.Log |> Event.add (function (Logging.Error, _, e) -> printfn "Actor failure event: %A" e | _ -> ())
-            
-        Actor.start actor'
+        actor
+        |> Actor.rename name
+        |> Actor.publish [ Protocols.utcp() ]
+        |> Actor.start
 
 
 module Behavior =
@@ -59,7 +55,7 @@ type Latch private (source : ActorRef<LatchMessage>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Latch(ref.[UTCP])
+        new Latch(ref)
 
 //
 //  Distributed resource aggregator
@@ -101,7 +97,7 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResultAggregator<'T>(ref.[UTCP])
+        new ResultAggregator<'T>(ref)
 
 //
 //  Distributed result cell
@@ -155,7 +151,7 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResultCell<'T>(ref.[UTCP])
+        new ResultCell<'T>(ref)
 
 //
 //  Distributed Cancellation token
@@ -215,7 +211,7 @@ type CancellationTokenManager private (source : ActorRef<CancellationTokenManage
 
             | IsCancellationRequested (id, rc) ->
                 let isCancelled = not <| state.ContainsKey id
-                do! rc.Reply isCancelled
+                let! _ = Async.StartChild(rc.Reply isCancelled)
                 return state
 
             | Cancel id ->
@@ -239,7 +235,7 @@ type CancellationTokenManager private (source : ActorRef<CancellationTokenManage
             |> Actor.Publish
             |> Actor.ref
 
-        new CancellationTokenManager(ref.[UTCP])
+        new CancellationTokenManager(ref)
 
 //
 //  Distributed lease manager
@@ -300,7 +296,7 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
 
         Async.Start(poll ())
 
-        faultEvent.Publish, new LeaseMonitor(threshold, actor.Ref.[UTCP])
+        faultEvent.Publish, new LeaseMonitor(threshold, actor.Ref)
 
 //
 //  Distributed, fault-tolerant queue implementation
@@ -349,7 +345,7 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Queue<'T>(self.Value.[UTCP])
+        new Queue<'T>(self.Value)
 
 
 //
@@ -384,7 +380,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResourceFactory(ref.[UTCP])
+        new ResourceFactory(ref)
 
 //
 // assembly exporter
@@ -406,7 +402,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new AssemblyExporter(ref.[UTCP])
+        new AssemblyExporter(ref)
 
     member __.LoadDependencies(ids : AssemblyId list) = async {
         let publisher =

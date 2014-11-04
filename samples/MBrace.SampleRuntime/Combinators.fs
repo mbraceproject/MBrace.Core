@@ -37,6 +37,7 @@ let Parallel (state : RuntimeState) deps (computations : seq<Cloud<'T>>) =
                     let! isCompleted = resultAggregator.SetResult(i, t)
                     if isCompleted then
                         let! results = resultAggregator.ToArray()
+                        childCts.Cancel()
                         cont.Success (withCancellationToken currentCts ctx) results
                     else
                         TaskExecutionMonitor.TriggerCompletion ctx
@@ -98,6 +99,7 @@ let Choice (state : RuntimeState) deps (computations : seq<Cloud<'T option>>) =
                     else
                         let! completionCount = completionLatch.Increment ()
                         if completionCount = n then
+                            childCts.Cancel()
                             cont.Success (withCancellationToken currentCts ctx) None
                         else
                             TaskExecutionMonitor.TriggerCompletion ctx
