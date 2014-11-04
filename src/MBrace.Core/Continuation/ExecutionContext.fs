@@ -38,6 +38,7 @@ type Continuation<'T> =
         Cancellation : ExecutionContext -> OperationCanceledException -> unit
     }
 
+/// Continuation utility functions
 [<RequireQualifiedAccess>]
 module Continuation =
     

@@ -62,10 +62,10 @@
     <Compile Include="Utils\RecordPrinter.fs" />
     <Compile Include="Vagrant.fs" />
     <Compile Include="Serialization.fs" />
-    <None Include="paket.references" />
     <Compile Include="Compiler\Types.fs" />
     <Compile Include="Compiler\CloudUtils.fs" />
     <Compile Include="Compiler\Compiler.fs" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

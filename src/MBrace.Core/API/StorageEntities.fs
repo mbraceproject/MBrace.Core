@@ -1,5 +1,7 @@
 ﻿namespace Nessos.MBrace
 
+// Interface implementations for cloud storage primitives
+
 open System
 open System.IO
 open System.Collections.Generic

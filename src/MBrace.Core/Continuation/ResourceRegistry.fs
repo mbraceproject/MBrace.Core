@@ -9,7 +9,8 @@ module private ResourceUtils =
 type ResourceNotFoundException internal (message : string) = 
     inherit System.Exception(message)
 
-/// Cloud resource runtime dependency resolver
+/// Immutable dependency container used for pushing
+/// runtime resources to the continuation monad.
 [<Sealed ; AutoSerializable(false)>]
 type ResourceRegistry private (index : Map<string, obj>) =
 
@@ -22,10 +23,14 @@ type ResourceRegistry private (index : Map<string, obj>) =
         | Some boxedResource -> unbox<'TResource> boxedResource
         | None -> raise <| ResourceNotFoundException (sprintf "Resource '%s' not installed in this context." typeof<'TResource>.Name)
 
-    /// Creates an empty resource resolver
+    /// Creates an empty resource container
     static member Empty = new ResourceRegistry(Map.empty)
 
-    /// Creates a new Resolver factory with an appended resource
+    /// <summary>
+    ///     Creates a new resource registry by appending provided resource.
+    ///     Any existing resources of the same type will be overwritten.
+    /// </summary>
+    /// <param name="resource">input resource.</param>
     member __.Register<'TResource>(resource : 'TResource) = new ResourceRegistry(Map.add key<'TResource> (box resource) index)
 
     member private __.Index = index
@@ -39,7 +44,7 @@ type ResourceRegistry private (index : Map<string, obj>) =
     member __.InstalledResources = index |> Map.toArray |> Array.map fst
 
 
-/// Resource builder API
+/// Resource registry builder API
 [<AutoOpen>]
 module ResourceBuilder =
 

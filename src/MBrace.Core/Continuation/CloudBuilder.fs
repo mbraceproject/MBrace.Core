@@ -1,5 +1,7 @@
 ﻿namespace Nessos.MBrace
 
+//  Cloud builder implementations
+
 open Nessos.MBrace.Runtime
 
 [<AutoOpen>]
@@ -166,6 +168,7 @@ type CloudBuilder () =
     [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 444)>]
     member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = whileM pred body
 
+/// Cloud builder module
 [<AutoOpen>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module CloudBuilder =
