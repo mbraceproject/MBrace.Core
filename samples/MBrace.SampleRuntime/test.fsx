@@ -12,7 +12,7 @@ let runtime = MBraceRuntime.InitLocal(4)
 
 let successful = cloud {
 //    do! Cloud.Sleep 5000
-    return! Array.init 1000 (fun i -> cloud { return printfn "hi" ; return i }) |> Cloud.Parallel
+    return! Array.init 200 (fun i -> cloud { return printfn "hi" ; return i }) |> Cloud.Parallel
 }
 
 let failed = cloud {

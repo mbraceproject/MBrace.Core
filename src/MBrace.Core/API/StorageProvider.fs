@@ -1,5 +1,9 @@
 ﻿namespace Nessos.MBrace.Runtime
 
+// Cloud storage provider interface definition.
+// Cloud workflows using storage primitives should be passed
+// an instance of IStorageProvider in their ExecutionContext
+
 open Nessos.MBrace
 
 /// <summary>

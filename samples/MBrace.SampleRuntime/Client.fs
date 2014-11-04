@@ -33,7 +33,7 @@
         
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
             let computation = CloudCompiler.Compile workflow
-            let! cts = state.CancellationTokenManager.RequestCancellationTokenSource()
+            let! cts = state.ResourceFactory.RequestCancellationTokenSource()
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 let! resultCell = state.StartAsCell computation.Dependencies cts computation.Workflow
@@ -58,7 +58,7 @@
             lock procs (fun () -> procs <- Array.append procs newProcs)
 
         member __.GetCancellationTokenSource(?parent) = 
-            state.CancellationTokenManager.RequestCancellationTokenSource(?parent = parent)
+            state.ResourceFactory.RequestCancellationTokenSource(?parent = parent)
 
         static member InitLocal(workerCount : int) =
             let state = RuntimeState.InitLocal()

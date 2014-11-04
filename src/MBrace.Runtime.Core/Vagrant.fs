@@ -8,9 +8,7 @@ open Nessos.Vagrant
 
 open Nessos.MBrace.Runtime.Utils.Retry
 
-/// <summary>
-///     Contains the default instance of a Vagrant instance.
-/// </summary>
+/// Vagrant state container
 type VagrantRegistry private () =
 
     static let instance : Vagrant option ref = ref None

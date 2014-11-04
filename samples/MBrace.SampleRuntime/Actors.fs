@@ -157,22 +157,22 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
 //  Distributed Cancellation token
 //
 
-type internal CancellationTokenId = string
+type private CancellationTokenId = string
 
-type internal CancellationTokenManagerMsg =
-    | RequestCancellationTokenSource of parent:CancellationTokenId option * IReplyChannel<CancellationTokenId>
-    | IsCancellationRequested of id:CancellationTokenId * IReplyChannel<bool>
-    | Cancel of id:CancellationTokenId
+type private CancellationTokenMsg =
+    | IsCancellationRequested of IReplyChannel<bool>
+    | RegisterChild of DistributedCancellationTokenSource
+    | Cancel
 
-type DistributedCancellationTokenSource internal (id : CancellationTokenId, source : ActorRef<CancellationTokenManagerMsg>) =
-    member __.Id = id
-    member ct.Cancel () = source <-- Cancel id
-    member ct.IsCancellationRequested = source <!- fun ch -> IsCancellationRequested(id, ch)
-    member ct.GetLocalCancellationToken() =
+and DistributedCancellationTokenSource private (source : ActorRef<CancellationTokenMsg>) =
+    member __.Cancel () = source <-- Cancel
+    member __.IsCancellationRequested () = source <!- IsCancellationRequested
+    member private __.RegisterChild ch = source <-- RegisterChild ch
+    member __.GetLocalCancellationToken() =
         let cts = new System.Threading.CancellationTokenSource()
 
         let rec checkCancellation () = async {
-            let! isCancelled = Async.Catch(source <!- fun ch -> IsCancellationRequested(id, ch))
+            let! isCancelled = Async.Catch(source <!- IsCancellationRequested)
             match isCancelled with
             | Choice1Of2 true -> cts.Cancel()
             | Choice1Of2 false ->
@@ -186,56 +186,35 @@ type DistributedCancellationTokenSource internal (id : CancellationTokenId, sour
         do Async.Start(checkCancellation())
         cts.Token
 
-type CancellationTokenManager private (source : ActorRef<CancellationTokenManagerMsg>) =
-    member __.RequestCancellationTokenSource(?parent : DistributedCancellationTokenSource) = async {
-        let ids = parent |> Option.map (fun p -> p.Id)
-        let! newId = source <!- fun ch -> RequestCancellationTokenSource(ids, ch)
-        return new DistributedCancellationTokenSource(newId, source)
-    }
-
-    static member Init() =
-        let behavior (state : Map<CancellationTokenId, CancellationTokenId list>) msg = async {
+    static member Init(?parent : DistributedCancellationTokenSource) =
+        let behavior ((isCancelled, children) as state) msg = async {
             match msg with
-            | RequestCancellationTokenSource (parent, rc) ->
-                let newId = Guid.NewGuid().ToString()
-                let state =
-                    match parent with
-                    | None -> state.Add(newId, [])
-                    | Some p ->
-                        match state.TryFind p with
-                        | None -> state
-                        | Some children -> state.Add(p, newId :: children).Add(newId, [])
-
-                do! rc.Reply newId
+            | IsCancellationRequested rc ->
+                do! rc.Reply isCancelled
                 return state
-
-            | IsCancellationRequested (id, rc) ->
-                let isCancelled = not <| state.ContainsKey id
-                let! _ = Async.StartChild(rc.Reply isCancelled)
+            | RegisterChild child when isCancelled ->
+                try child.Cancel() with _ -> ()
                 return state
-
-            | Cancel id ->
-                let rec traverseCancellation 
-                        (state : Map<CancellationTokenId, CancellationTokenId list>) 
-                        (remaining : CancellationTokenId list) = 
-
-                    match remaining with
-                    | [] -> state
-                    | id :: tail ->
-                        match state.TryFind id with
-                        | None -> traverseCancellation state tail
-                        | Some children -> traverseCancellation (Map.remove id state) (children @ tail)
-
-                return traverseCancellation state [id]
+            | RegisterChild child ->
+                return (isCancelled, child :: children)
+            | Cancel ->
+                for ch in children do try ch.Cancel() with _ -> ()
+                return (true, [])
         }
 
         let ref =
-            Behavior.stateful Map.empty behavior
+            Behavior.stateful (false, []) behavior
             |> Actor.bind
             |> Actor.Publish
             |> Actor.ref
 
-        new CancellationTokenManager(ref)
+        let dcts = new DistributedCancellationTokenSource(ref)
+
+        match parent with
+        | None -> ()
+        | Some p -> p.RegisterChild dcts
+
+        dcts
 
 //
 //  Distributed lease manager
@@ -364,6 +343,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 
     member __.RequestLatch(count) = __.RequestResource(fun () -> Latch.Init(count))
     member __.RequestResultAggregator<'T>(count : int) = __.RequestResource(fun () -> ResultAggregator<'T>.Init(count))
+    member __.RequestCancellationTokenSource(?parent) = __.RequestResource(fun () -> DistributedCancellationTokenSource.Init(?parent = parent))
     member __.RequestResultCell<'T>() = __.RequestResource(fun () -> ResultCell<'T>.Init())
 
     static member Init () =

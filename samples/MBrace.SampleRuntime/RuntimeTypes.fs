@@ -65,7 +65,6 @@ type RuntimeState =
         IPEndPoint : System.Net.IPEndPoint
         TaskQueue : Queue<Pickle<Task> * AssemblyId list>
         AssemblyExporter : AssemblyExporter
-        CancellationTokenManager : CancellationTokenManager
         ResourceFactory : ResourceFactory
     }
 with
@@ -74,7 +73,6 @@ with
             IPEndPoint = Nessos.MBrace.SampleRuntime.Config.getLocalEndpoint()
             TaskQueue = Queue<Pickle<Task> * AssemblyId list>.Init ()
             AssemblyExporter = AssemblyExporter.Init()
-            CancellationTokenManager = CancellationTokenManager.Init()
             ResourceFactory = ResourceFactory.Init ()
         }
 

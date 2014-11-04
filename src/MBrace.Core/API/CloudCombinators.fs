@@ -25,7 +25,7 @@ type Cloud =
     /// <summary>
     ///     Catch exception from given cloud workflow.
     /// </summary>
-    /// <param name="cloudWorkflow"></param>
+    /// <param name="cloudWorkflow">Workflow to be protected.</param>
     static member Catch(cloudWorkflow : Cloud<'T>) : Cloud<Choice<'T, exn>> = cloud {
         try
             let! res = cloudWorkflow
@@ -37,9 +37,9 @@ type Cloud =
     /// <summary>
     ///     Creates a cloud workflow that asynchronously sleeps for a given amount of time.
     /// </summary>
-    /// <param name="timeoutMilliseconds"></param>
-    static member Sleep(timeoutMilliseconds : int) : Cloud<unit> = 
-        Cloud.OfAsync<unit>(Async.Sleep timeoutMilliseconds)
+    /// <param name="millisecondsDue">Milliseconds to suspend computation.</param>
+    static member Sleep(millisecondsDue : int) : Cloud<unit> = 
+        Cloud.OfAsync<unit>(Async.Sleep millisecondsDue)
 
     /// <summary>
     ///     Wraps an asynchronous workflow into a cloud workflow.

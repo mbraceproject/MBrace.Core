@@ -13,7 +13,7 @@ type Async =
     ///     Efficiently reraise exception, without losing its existing stacktrace.
     /// </summary>
     /// <param name="e"></param>
-    static member Reraise(e : #exn) = Async.FromContinuations(fun (_,ec,_) -> ec e)
+    static member Reraise<'T> (e : exn) : Async<'T> = Async.FromContinuations(fun (_,ec,_) -> ec e)
 
 /// Intrinsic cloud workflow methods
 type Cloud =
@@ -63,7 +63,7 @@ type Cloud =
     ///     Wraps a cloud workflow into an asynchronous workflow.
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
-    /// <param name="resources">Resource resolver to be used; defaults to no resources.</param>
+    /// <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
     static member ToAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry) : Async<'T> = async {
         let! ct = Async.CancellationToken
         return! 

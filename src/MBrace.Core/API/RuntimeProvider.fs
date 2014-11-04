@@ -1,11 +1,20 @@
 ﻿namespace Nessos.MBrace.Runtime
 
+// Distributed runtime provider definition
+// Cloud workflows actuating parallelism should
+// be passed an instance of IRuntimeProvider in their
+// ExecutionContext.
+
 open Nessos.MBrace
 
 /// <summary>
 ///     Abstract logger.
 /// </summary>
 type ICloudLogger =
+    /// <summary>
+    ///     Log a new message to the execution context.
+    /// </summary>
+    /// <param name="entry">Entry to be logged.</param>
     abstract Log : entry:string -> unit
 
 /// <summary>
@@ -48,7 +57,7 @@ type IRuntimeProvider =
     abstract ScheduleChoice : computations:seq<Cloud<'T option>> -> Cloud<'T option>
 
     /// <summary>
-    ///     Start a new computation as child.
+    ///     Start a new computation as a child task.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>

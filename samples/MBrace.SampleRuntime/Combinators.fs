@@ -28,7 +28,7 @@ let Parallel (state : RuntimeState) deps (computations : seq<Cloud<'T>>) =
         | Choice1Of2 computations ->
 
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
-            let! childCts = state.CancellationTokenManager.RequestCancellationTokenSource(parent = currentCts)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parent = currentCts)
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length)
             let! cancellationLatch = state.ResourceFactory.RequestLatch(0)
 
@@ -83,7 +83,7 @@ let Choice (state : RuntimeState) deps (computations : seq<Cloud<'T option>>) =
 
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
-            let! childCts = state.CancellationTokenManager.RequestCancellationTokenSource currentCts
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource currentCts
             let! completionLatch = state.ResourceFactory.RequestLatch(0)
             let! cancellationLatch = state.ResourceFactory.RequestLatch(0)
 
