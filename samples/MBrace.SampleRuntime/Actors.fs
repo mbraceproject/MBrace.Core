@@ -69,33 +69,29 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
     member __.ToArray () = source <!- ToArray
 
     static member Init(size : int) =
-        let results = Array.zeroCreate<'T> size
-        let isSet = Array.zeroCreate<bool> size
-
-        let behaviour count msg = async {
+        let behaviour (state : Map<int, 'T>) msg = async {
             match msg with
-            | SetResult(i, value, ch) -> 
-                if isSet.[i] then 
-                    let err = new InvalidOperationException(sprintf "Index %d already assigned." i)
-                    do! ch.ReplyWithException err
-                    return count
-                else
-                    results.[i] <- value
-                    isSet.[i] <- true
-                    let isCompleted = count + 1 = size
-                    do! ch.Reply isCompleted
-                    return count + 1
+            | SetResult(i, _, rc) when state.ContainsKey i -> 
+                let err = new InvalidOperationException(sprintf "Index %d already assigned." i)
+                do! rc.ReplyWithException err
+                return state
+
+            | SetResult(i, value, rc) ->
+                let state' = state.Add(i, value)
+                do! rc.Reply ((state'.Count = size))
+                return state'
 
             | IsCompleted rc ->
-                do! rc.Reply ((count = size))
-                return count
+                do! rc.Reply ((state.Count = size))
+                return state
+
             | ToArray rc ->
-                do! rc.Reply results
-                return count
+                do! rc.Reply (state |> Map.toSeq |> Seq.sortBy fst |> Seq.map snd |> Seq.toArray)
+                return state
         }
 
         let ref =
-            Behavior.stateful 0 behaviour
+            Behavior.stateful Map.empty behaviour
             |> Actor.bind
             |> Actor.Publish
 
@@ -245,23 +241,38 @@ type private QueueMsg<'T> =
     | EnQueue of 'T
     | TryDequeue of IReplyChannel<'T option>
 
+type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
+    static member Empty = new ImmutableQueue<'T>([],[])
+    member __.Enqueue t = new ImmutableQueue<'T>(front, t :: back)
+    member __.TryDequeue () =
+        match front with
+        | t :: tl -> Some(t, new ImmutableQueue<'T>(tl, back))
+        | [] ->
+            match List.rev back with
+            | [] -> None
+            | t :: tl -> Some(t, new ImmutableQueue<'T>(tl, []))
+
 type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
     member __.Enqueue (t : 'T) = source <-- EnQueue t
     member __.TryDequeue () = source <!- TryDequeue
 
     static member Init() =
-        let queue = System.Collections.Generic.Queue<'T> ()
-        let behaviour msg = async {
+        let behaviour (queue : ImmutableQueue<'T>) msg = async {
             match msg with
-            | EnQueue t -> queue.Enqueue t
-            | TryDequeue rc when queue.Count = 0 -> do! rc.Reply None
+            | EnQueue t -> return queue.Enqueue t
             | TryDequeue rc ->
-                let t = queue.Dequeue()
-                do! rc.Reply (Some t)
+                match queue.TryDequeue () with
+                | None ->
+                    do! rc.Reply None
+                    return queue
+
+                | Some(t, queue') ->
+                    do! rc.Reply (Some t)
+                    return queue'
         }
 
         let ref =
-            Behavior.stateless behaviour
+            Behavior.stateful ImmutableQueue<'T>.Empty behaviour
             |> Actor.bind
             |> Actor.Publish
 
