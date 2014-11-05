@@ -41,7 +41,7 @@ module ``SampleRuntime Tests`` =
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime
-            let! dcts = runtime.GetCancellationTokenSource()
+            let dcts = DistributedCancellationTokenSource.Init()
             let ct = dcts.GetLocalCancellationToken()
             return! runtime.RunAsync(workflow dcts, cancellationToken = ct) |> Async.Catch
         } |> Async.RunSynchronously

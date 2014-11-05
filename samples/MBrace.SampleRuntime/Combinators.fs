@@ -1,9 +1,13 @@
 ﻿module internal Nessos.MBrace.SampleRuntime.Combinators
 
+//
+//  Provides distributed implementations for Cloud.Parallel, Cloud.Choice and Cloud.StartChild
+//
+
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime.Actors
-open Nessos.MBrace.SampleRuntime.RuntimeTypes
+open Nessos.MBrace.SampleRuntime.Tasks
 
 #nowarn "444"
 
@@ -133,7 +137,7 @@ let Choice (state : RuntimeState) deps (computations : seq<Cloud<'T option>>) =
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
-// timeout?
+
 let StartChild (state : RuntimeState) deps (computation : Cloud<'T>) = cloud {
     let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
     let! resultCell = Cloud.OfAsync <| state.StartAsCell deps cts computation
