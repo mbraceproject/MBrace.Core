@@ -57,6 +57,7 @@
   -->
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
+    <Compile Include="Utils.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Trampoline.fs" />

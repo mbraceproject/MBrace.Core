@@ -1,5 +1,12 @@
 ﻿namespace Nessos.MBrace.SampleRuntime.Actors
 
+//
+//  Implements a collection of distributed resources that provide
+//  coordination for execution in the distributed runtime.
+//  The particular implementations are done using Thespian,
+//  a distributed actor framework for F#.
+//
+
 open System
 open System.Threading
 
@@ -11,9 +18,11 @@ open Nessos.Vagrant
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime
 
+/// Actor publication utilities
 type Actor private () =
     static do Config.initRuntimeState()
 
+    /// Publishes an actor instance to the default TCP protocol
     static member Publish(actor : Actor<'T>) =
         let name = Guid.NewGuid().ToString()
         actor
@@ -21,10 +30,23 @@ type Actor private () =
         |> Actor.publish [ Protocols.utcp() ]
         |> Actor.start
 
+    /// Exception-safe stateful actor behavior combinator
+    static member Stateful (init : 'State) f = 
+        let rec aux state (self : Actor<'T>) = async {
+            let! msg = self.Receive()
+            let! state' = async { 
+                try return! f state msg 
+                with e -> printfn "Actor fault: %O" e ; return state
+            }
 
-module Behavior =
-    let stateful init f = Behavior.stateful init (fun s t -> async { try return! f s t with e -> return s })
-    let stateless f = Behavior.stateless (fun t -> async { try return! f t with e -> () })
+            return! aux state' self
+        }
+
+        Actor.bind (aux init)
+
+    /// Exception-safe stateless actor behavior combinator
+    static member Stateless (f : 'T -> Async<unit>) =
+        Actor.Stateful () (fun () t -> f t)
 
 //
 //  Distributed latch implementation
@@ -34,10 +56,13 @@ type private LatchMessage =
     | Increment of IReplyChannel<int>
     | GetValue of IReplyChannel<int>
 
+/// Distributed latch implementation
 type Latch private (source : ActorRef<LatchMessage>) =
+    /// Atomically increment the latch
     member __.Increment () = source <!- Increment
+    /// Returns the current latch value
     member __.Value = source <!= GetValue
-
+    /// Initialize a new latch instance in the current process
     static member Init(init : int) =
         let behaviour count msg = async {
             match msg with
@@ -50,15 +75,14 @@ type Latch private (source : ActorRef<LatchMessage>) =
         }
 
         let ref =
-            Behavior.stateful init behaviour
-            |> Actor.bind
+            Actor.Stateful init behaviour
             |> Actor.Publish
             |> Actor.ref
 
         new Latch(ref)
 
 //
-//  Distributed resource aggregator
+//  Distributed result aggregator
 //
 
 type private ResultAggregatorMsg<'T> =
@@ -66,34 +90,44 @@ type private ResultAggregatorMsg<'T> =
     | IsCompleted of IReplyChannel<bool>
     | ToArray of IReplyChannel<'T []>
 
+/// A distributed resource that aggregates an array of results.
 type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
-    
-    member __.SetResult(index : int, value : 'T) =
-        source <!- fun ch -> SetResult(index, value, ch)
-
+    /// Asynchronously assign a value at given index.
+    member __.SetResult(index : int, value : 'T) = source <!- fun ch -> SetResult(index, value, ch)
+    /// Results the completed
     member __.ToArray () = source <!- ToArray
-
+    /// Initializes a result aggregator of given size at the current process.
     static member Init(size : int) =
         let behaviour (results : Map<int, 'T>) msg = async {
             match msg with
-            | SetResult(i, value, ch) ->
+            | SetResult(i, value, rc) when i < 0 || i >= size ->
+                let e = new IndexOutOfRangeException()
+                do! rc.ReplyWithException e
+                return results
+
+            | SetResult(i, value, rc) ->
                 let results = results.Add(i, value)
                 let isCompleted = results.Count = size
-                do! ch.Reply isCompleted
+                do! rc.Reply isCompleted
                 return results
 
             | IsCompleted rc ->
                 do! rc.Reply ((results.Count = size))
                 return results
-            | ToArray rc ->
+
+            | ToArray rc when results.Count = size ->
                 let array = results |> Map.toSeq |> Seq.sortBy fst |> Seq.map snd |> Seq.toArray
                 do! rc.Reply array
+                return results
+
+            | ToArray rc ->
+                let e = new InvalidOperationException("Result aggregator incomplete.")
+                do! rc.ReplyWithException e
                 return results
         }
 
         let ref =
-            Behavior.stateful Map.empty behaviour
-            |> Actor.bind
+            Actor.Stateful Map.empty behaviour
             |> Actor.Publish
             |> Actor.ref
 
@@ -103,24 +137,29 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
 //  Distributed result cell
 //
 
+/// Result value
 type Result<'T> =
     | Completed of 'T
     | Exception of exn
     | Cancelled of exn
 with
-    member r.Value =
+    member inline r.Value =
         match r with
         | Completed t -> t
-        | Exception e -> raise e
-        | Cancelled e -> raise e 
+        | Exception e -> raiseWithCurrentStacktrace e
+        | Cancelled e -> raiseWithCurrentStacktrace e 
 
 type private ResultCellMsg<'T> =
     | SetResult of Result<'T> * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<Result<'T> option>
 
+/// Defines a reference to a distributed result cell instance.
 type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
+    /// Try setting the result
     member c.SetResult result = source <!- fun ch -> SetResult(result, ch)
+    /// Try getting the result
     member c.TryGetResult () = source <!- TryGetResult
+    /// Asynchronously poll for result
     member c.AwaitResult() = async {
         let! result = source <!- TryGetResult
         match result with
@@ -130,6 +169,7 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
         | Some r -> return r
     }
 
+    /// Initialize a new result cell in the local process
     static member Init() : ResultCell<'T> =
         let behavior state msg = async {
             match msg with
@@ -146,15 +186,14 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
         }
 
         let ref =
-            Behavior.stateful None behavior
-            |> Actor.bind
+            Actor.Stateful None behavior
             |> Actor.Publish
             |> Actor.ref
 
         new ResultCell<'T>(ref)
 
 //
-//  Distributed Cancellation token
+//  Distributed Cancellation token sources
 //
 
 type private CancellationTokenId = string
@@ -164,10 +203,14 @@ type private CancellationTokenMsg =
     | RegisterChild of DistributedCancellationTokenSource
     | Cancel
 
+/// Defines a distributed cancellation token source that can be cancelled
+/// in the context of a distributed runtime.
 and DistributedCancellationTokenSource private (source : ActorRef<CancellationTokenMsg>) =
     member __.Cancel () = source <-- Cancel
     member __.IsCancellationRequested () = source <!- IsCancellationRequested
     member private __.RegisterChild ch = source <-- RegisterChild ch
+    /// Creates a System.Threading.CancellationToken that is linked
+    /// to the distributed cancellation token.
     member __.GetLocalCancellationToken() =
         let cts = new System.Threading.CancellationTokenSource()
 
@@ -186,6 +229,10 @@ and DistributedCancellationTokenSource private (source : ActorRef<CancellationTo
         do Async.Start(checkCancellation())
         cts.Token
 
+    /// <summary>
+    ///     Initializes a new distributed cancellation token source in the current process
+    /// </summary>
+    /// <param name="parent">Linked parent cancellation token source</param>
     static member Init(?parent : DistributedCancellationTokenSource) =
         let behavior ((isCancelled, children) as state) msg = async {
             match msg with
@@ -203,8 +250,7 @@ and DistributedCancellationTokenSource private (source : ActorRef<CancellationTo
         }
 
         let ref =
-            Behavior.stateful (false, []) behavior
-            |> Actor.bind
+            Actor.Stateful (false, []) behavior
             |> Actor.Publish
             |> Actor.ref
 
@@ -217,10 +263,12 @@ and DistributedCancellationTokenSource private (source : ActorRef<CancellationTo
         dcts
 
 //
-//  Distributed lease manager
+//  Distributed lease monitor. Tracks progress of dequeued tasks by 
+//  requiring heartbeats from the worker node. Triggers a fault event
+//  when heartbeat threshold is exceeded. Used for the sample fault-tolerance implementation.
 //
 
-type LeaseState =
+type private LeaseState =
     | Acquired
     | Released
     | Faulted
@@ -229,10 +277,15 @@ type private LeaseMonitorMsg =
     | SetLeaseState of LeaseState
     | GetLeaseState of IReplyChannel<LeaseState>
 
+/// Distributed lease monitor instance
 type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorMsg>) =
+    /// Declare lease to be released successfuly
     member __.Release () = source <-- SetLeaseState Released
+    /// Declare fault during lease
     member __.DeclareFault () = source <-- SetLeaseState Faulted
+    /// Heartbeat fault threshold
     member __.Threshold = threshold
+    /// Initializes an asynchronous hearbeat sender workflow
     member __.InitHeartBeat () =
         let cts = new CancellationTokenSource()
         let rec heartbeat () = async {
@@ -243,7 +296,11 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
 
         Async.Start(heartbeat(), cts.Token)
         { new IDisposable with member __.Dispose () = cts.Cancel () }
-
+    
+    /// <summary>
+    ///     Initializes a new lease monitor.
+    /// </summary>
+    /// <param name="threshold">Heartbeat fault threshold.</param>
     static member Init (threshold : TimeSpan) =
         let behavior ((ls, lastRenew : DateTime) as state) msg = async {
             match msg, ls with
@@ -258,8 +315,7 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
         }
 
         let actor =
-            Behavior.stateful (Acquired, DateTime.Now) behavior
-            |> Actor.bind
+            Actor.Stateful (Acquired, DateTime.Now) behavior
             |> Actor.Publish
 
         let faultEvent = new Event<unit> ()
@@ -285,8 +341,8 @@ type private QueueMsg<'T> =
     | EnQueue of 'T
     | TryDequeue of IReplyChannel<('T * LeaseMonitor) option>
 
-type ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
-    new () = new ImmutableQueue<'T>([],[])
+type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
+    static member Empty = new ImmutableQueue<'T>([],[])
     member __.Enqueue t = new ImmutableQueue<'T>(front, t :: back)
     member __.TryDequeue () = 
         match front with
@@ -296,10 +352,12 @@ type ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
             | [] -> None
             | hd :: tl -> Some(hd, new ImmutableQueue<'T>(tl, []))
 
+/// Provides a distributed, fault-tolerant queue implementation
 type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
     member __.Enqueue (t : 'T) = source <-- EnQueue t
     member __.TryDequeue () = source <!- TryDequeue
 
+    /// Initializes a new distribued queue instance.
     static member Init() =
         let self = ref Unchecked.defaultof<ActorRef<QueueMsg<'T>>>
         let behaviour (queue : ImmutableQueue<'T>) msg = async {
@@ -319,8 +377,7 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
         }
 
         self :=
-            Behavior.stateful (new ImmutableQueue<'T>()) behaviour
-            |> Actor.bind
+            Actor.Stateful ImmutableQueue<'T>.Empty behaviour
             |> Actor.Publish
             |> Actor.ref
 
@@ -328,12 +385,14 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
 
 
 //
-//  Distributed Resource factory
+//  Distributed Resource factory.
+//  Provides facility for remotely deploying distributed resources.
 //
 
 type private ResourceFactoryMsg =
     | RequestResource of ctor:(unit -> obj) * IReplyChannel<obj>
 
+/// Provides facility for remotely deploying resources
 type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
     member __.RequestResource<'T>(factory : unit -> 'T) = async {
         let ctor () = factory () :> obj
@@ -355,20 +414,20 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
         }
 
         let ref =
-            Behavior.stateless behavior
-            |> Actor.bind
+            Actor.Stateless behavior
             |> Actor.Publish
             |> Actor.ref
 
         new ResourceFactory(ref)
 
 //
-// assembly exporter
+// Assembly exporter : provides assembly uploading facility for Vagrant
 //
 
 type private AssemblyExporterMsg =
     | RequestAssemblies of AssemblyId list * IReplyChannel<AssemblyPackage list> 
 
+/// Provides assembly uploading facility for Vagrant.
 type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     static member Init() =
         let behaviour (RequestAssemblies(ids, ch)) = async {
@@ -377,13 +436,17 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
         }
 
         let ref = 
-            Behavior.stateless behaviour 
-            |> Actor.bind 
+            Actor.Stateless behaviour
             |> Actor.Publish
             |> Actor.ref
 
         new AssemblyExporter(ref)
 
+    /// <summary>
+    ///     Request the loading of assembly dependencies from remote
+    ///     assembly exporter to the local application domain.
+    /// </summary>
+    /// <param name="ids"></param>
     member __.LoadDependencies(ids : AssemblyId list) = async {
         let publisher =
             {
@@ -395,6 +458,10 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
         do! VagrantRegistry.Vagrant.ReceiveDependencies publisher
     }
 
+    /// <summary>
+    ///     Compute assembly dependencies for provided object graph.
+    /// </summary>
+    /// <param name="graph"></param>
     member __.ComputeDependencies (graph:'T) =
         VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true)
         |> List.map Utilities.ComputeAssemblyId

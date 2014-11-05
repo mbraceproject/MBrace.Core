@@ -15,7 +15,7 @@ open Nessos.MBrace.Runtime
 
 let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
-// vagrant, fspickler and thespian state initializations
+/// vagrant, fspickler and thespian state initializations
 let private _initRuntimeState () =
     let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
@@ -32,5 +32,7 @@ let private _initRuntimeState () =
     Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
     TcpListenerPool.RegisterListener(IPEndPoint.any)
 
+/// runtime configuration initializer function
 let initRuntimeState = runOnce _initRuntimeState
+/// returns the local ip endpoint used by Thespian
 let getLocalEndpoint () = initRuntimeState () ; TcpListenerPool.GetListener().LocalEndPoint
