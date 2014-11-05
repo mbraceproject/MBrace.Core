@@ -29,6 +29,7 @@ let private _initRuntimeState () =
 
     // thespian initialization
     Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagrantRegistry.Pickler)
+    Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
     TcpListenerPool.RegisterListener(IPEndPoint.any)
 
 let initRuntimeState = runOnce _initRuntimeState
