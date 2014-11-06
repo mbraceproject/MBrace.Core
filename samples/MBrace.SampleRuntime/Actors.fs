@@ -82,6 +82,35 @@ type Latch private (source : ActorRef<LatchMessage>) =
         new Latch(ref)
 
 //
+//  Distributed readable cell
+//
+
+type Cell<'T> private (source : ActorRef<IReplyChannel<'T>>) =
+    member __.GetValue () = source <!- id
+    /// Initialize a distributed cell from a value factory ; assume exception safe
+    static member Init (f : unit -> 'T) =
+        let ref =
+            Actor.Stateless (fun (rc : IReplyChannel<'T>) -> rc.Reply (f ()))
+            |> Actor.Publish
+            |> Actor.ref
+
+        new Cell<'T>(ref)
+
+//
+//  Distributed logger
+//
+
+type Logger private (target : ActorRef<string>) =
+    interface ICloudLogger with member __.Log txt = target <-- txt
+    static member Init(logger : string -> unit) =
+        let ref =
+            Actor.Stateless (fun msg -> async { return logger msg })
+            |> Actor.Publish
+            |> Actor.ref
+
+        new Logger(ref)
+
+//
 //  Distributed result aggregator
 //
 

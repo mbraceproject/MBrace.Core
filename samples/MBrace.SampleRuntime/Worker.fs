@@ -23,8 +23,8 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
     printfn "Listening to task queue at %O." runtime.IPEndPoint
 
     let currentTaskCount = ref 0
-    let runTask deps t =
-        let provider = RuntimeProvider.FromTask runtime deps t
+    let runTask procId deps t =
+        let provider = RuntimeProvider.FromTask runtime procId deps t
         Task.RunAsync provider deps t
 
     let rec loop () = async {
@@ -36,26 +36,26 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                 let! task = runtime.TryDequeue()
                 match task with
                 | None -> do! Async.Sleep 500
-                | Some (task, dependencies, leaseMonitor) ->
+                | Some (task, procId, dependencies, leaseMonitor) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
-                        printfn "Starting task %s of type '%O'." task.Id task.Type
+                        printfn "Starting task %s of type '%O'." task.TaskId task.Type
 
                         use hb = leaseMonitor.InitHeartBeat()
 
                         let sw = new Stopwatch()
                         sw.Start()
-                        let! result = runTask dependencies task |> Async.Catch
+                        let! result = runTask procId dependencies task |> Async.Catch
                         sw.Stop()
 
                         match result with
                         | Choice1Of2 () -> 
                             leaseMonitor.Release()
-                            printfn "Task %s completed after %O." task.Id sw.Elapsed
+                            printfn "Task %s completed after %O." task.TaskId sw.Elapsed
                                 
                         | Choice2Of2 e -> 
                             leaseMonitor.DeclareFault()
-                            printfn "Task %s faulted with:\n %O." task.Id e
+                            printfn "Task %s faulted with:\n %O." task.TaskId e
 
                         let _ = Interlocked.Decrement currentTaskCount
                         return ()

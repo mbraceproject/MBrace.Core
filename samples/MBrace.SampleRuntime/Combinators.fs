@@ -18,7 +18,7 @@ let inline private withCancellationToken (cts : DistributedCancellationTokenSour
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) dependencies (computations : seq<Cloud<'T>>) =
+let Parallel (state : RuntimeState) procId dependencies (computations : seq<Cloud<'T>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx e
@@ -70,13 +70,13 @@ let Parallel (state : RuntimeState) dependencies (computations : seq<Cloud<'T>>)
 
             try
                 for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask dependencies childCts (onSuccess i) onException onCancellation computations.[i]
+                    state.EnqueueTask procId dependencies childCts (onSuccess i) onException onCancellation computations.[i]
             with e ->
                 childCts.Cancel() ; return! Async.Reraise e
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) dependencies (computations : seq<Cloud<'T option>>) =
+let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<'T option>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx e
@@ -137,16 +137,16 @@ let Choice (state : RuntimeState) dependencies (computations : seq<Cloud<'T opti
 
             try
                 for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask dependencies childCts onSuccess onException onCancellation computations.[i]
+                    state.EnqueueTask procId dependencies childCts onSuccess onException onCancellation computations.[i]
             with e ->
                 childCts.Cancel() ; return! Async.Reraise e
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartChild (state : RuntimeState) dependencies (computation : Cloud<'T>) = cloud {
+let StartChild (state : RuntimeState) procId dependencies (computation : Cloud<'T>) = cloud {
     let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell dependencies cts computation
+    let! resultCell = Cloud.OfAsync <| state.StartAsCell procId dependencies cts computation
     return cloud { 
         let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
         return result.Value

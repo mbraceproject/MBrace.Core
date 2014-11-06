@@ -8,6 +8,9 @@
     open Nessos.MBrace.Runtime
     open Nessos.MBrace.Runtime.Compiler
     open Nessos.MBrace.SampleRuntime.Tasks
+    open Nessos.MBrace.SampleRuntime.RuntimeProvider
+
+    #nowarn "40"
 
     /// BASE64 serialized argument parsing schema
     module internal Argument =
@@ -20,10 +23,8 @@
             VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
 
     /// MBrace Sample runtime client instance.
-    type MBraceRuntime private (state : RuntimeState, procs : Process []) =
+    type MBraceRuntime private (logger : string -> unit) =
         static let mutable exe = None
-        let mutable procs = procs
-
         static let initWorkers (target : RuntimeState) (count : int) =
             if count < 1 then invalidArg "workerCount" "must be positive."
             let exe = MBraceRuntime.WorkerExecutable    
@@ -32,14 +33,19 @@
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true
             Array.init count (fun _ -> Process.Start psi)
+
+        let mutable procs = [||]
+        let getWorkerRefs () = procs |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
+        let state = RuntimeState.InitLocal logger getWorkerRefs
         
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
             let computation = CloudCompiler.Compile workflow
+            let processId = System.Guid.NewGuid().ToString()
             let! cts = state.ResourceFactory.RequestCancellationTokenSource()
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-                let! resultCell = state.StartAsCell computation.Dependencies cts computation.Workflow
+                let! resultCell = state.StartAsCell processId computation.Dependencies cts computation.Workflow
                 let! result = resultCell.AwaitResult()
                 return result.Value
             finally
@@ -65,10 +71,11 @@
             lock procs (fun () -> procs <- Array.append procs newProcs)
 
         /// Initialize a new local rutime instance with supplied worker count.
-        static member InitLocal(workerCount : int) =
-            let state = RuntimeState.InitLocal()
-            let workers = initWorkers state workerCount
-            new MBraceRuntime(state, workers)
+        static member InitLocal(workerCount : int, ?logger : string -> unit) =
+            let logger = defaultArg logger ignore
+            let client = new MBraceRuntime(logger)
+            client.AppendWorkers(workerCount)
+            client
 
         /// Gets or sets the worker executable location.
         static member WorkerExecutable
