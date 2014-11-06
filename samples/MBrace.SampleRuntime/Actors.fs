@@ -36,7 +36,7 @@ type Actor private () =
             let! msg = self.Receive()
             let! state' = async { 
                 try return! f state msg 
-                with e -> printfn "Actor fault: %O" e ; return state
+                with e -> printfn "Actor fault (%O): %O" typeof<'T> e ; return state
             }
 
             return! aux state' self
