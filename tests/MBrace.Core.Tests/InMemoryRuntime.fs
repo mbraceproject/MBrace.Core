@@ -1,7 +1,7 @@
 ﻿namespace Nessos.MBrace.Tests
 
 open Nessos.MBrace
-open Nessos.MBrace.InMemory
+open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
 
 type InMemoryRuntime private (context : SchedulingContext) =

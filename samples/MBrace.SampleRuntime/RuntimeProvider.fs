@@ -9,7 +9,7 @@
 open System.Diagnostics
 
 open Nessos.MBrace
-open Nessos.MBrace.InMemory
+open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
 
 open Nessos.MBrace.SampleRuntime.Tasks
@@ -55,9 +55,6 @@ type RuntimeProvider private (state : RuntimeState, procId : string, taskId : st
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 
-        member __.GetAvailableWorkers () = async {
-            return! state.Workers.GetValue()
-        }
-
+        member __.GetAvailableWorkers () = state.Workers.GetValue()
         member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef
         member __.Logger = state.Logger :> ICloudLogger

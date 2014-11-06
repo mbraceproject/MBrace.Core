@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.InMemory
+﻿namespace Nessos.MBrace.Library
 
 #nowarn "444"
 
@@ -21,11 +21,11 @@ module private SchedulerInternals =
     let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
 
     let scheduleTask res ct sc ec cc wf =
-        Trampoline.QueueWorkItem(fun () -> 
+        ThreadPool.QueueUserWorkItem(fun _ ->
             let ctx = { Resources = res ; CancellationToken = ct }
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartWithContinuations(wf, cont, ctx))
-
+        |> ignore
 
 /// Collection of context-less combinators for 
 /// execution within local thread context.

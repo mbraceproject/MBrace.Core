@@ -62,7 +62,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                     }
         
                     let! handle = Async.StartChild(runTask())
-                    return ()
+                    do! Async.Sleep 200
 
             with e -> 
                 printfn "WORKER FAULT: %O" e

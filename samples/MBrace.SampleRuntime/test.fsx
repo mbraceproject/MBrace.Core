@@ -1,27 +1,25 @@
 ﻿#I "../../bin/"
 
 #r "MBrace.Core.dll"
+#r "MBrace.Library.dll"
 #r "MBrace.SampleRuntime.exe"
 
 open Nessos.MBrace
+open Nessos.MBrace.Library
 open Nessos.MBrace.SampleRuntime
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
 let runtime = MBraceRuntime.InitLocal(4)
 
-let successful = cloud {
-//    do! Cloud.Sleep 5000
-    return! Array.init 200 (fun i -> cloud { return printfn "hi" ; return i }) |> Cloud.Parallel
-}
-
-let failed = cloud {
-    do! Cloud.Sleep 5000
-    return! Array.init 100 (fun i -> cloud { return if i = 78 then failwith "error" else printfn "hi" ; i }) |> Cloud.Parallel
-}
+let getWordCount inputSize =
+    let map (text : string) = cloud { return text.Split(' ').Length }
+    let reduce i i' = cloud { return i + i' }
+    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
+    MapReduce.mapReduce map 0 reduce inputs
 
 
-let t = runtime.RunAsTask successful
+let t = runtime.RunAsTask(getWordCount 2000)
 do System.Threading.Thread.Sleep 3000
 runtime.KillAllWorkers() 
 runtime.AppendWorkers 4

@@ -8,6 +8,7 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.Library
 open Nessos.MBrace.Tests
 open Nessos.MBrace.SampleRuntime
 open Nessos.MBrace.SampleRuntime.Actors
@@ -47,11 +48,11 @@ module ``SampleRuntime Tests`` =
         } |> Async.RunSynchronously
 
     [<Test>]
-    let ``Parallel : empty input`` () =
+    let ``1. Parallel : empty input`` () =
         run (Cloud.Parallel [||]) |> Choice.shouldEqual [||]
 
     [<Test>]
-    let ``Parallel : simple inputs`` () =
+    let ``1. Parallel : simple inputs`` () =
         cloud {
             let f i = cloud { return i + 1 }
             let! results = Array.init 20 f |> Cloud.Parallel
@@ -59,7 +60,7 @@ module ``SampleRuntime Tests`` =
         } |> run |> Choice.shouldEqual 210
 
     [<Test>]
-    let ``Parallel : use binding`` () =
+    let ``1. Parallel : use binding`` () =
         let latch = Latch.Init 0
         cloud {
             use foo = { new ICloudDisposable with member __.Dispose () = async { return latch.Incr() |> ignore } }
@@ -70,7 +71,7 @@ module ``SampleRuntime Tests`` =
         latch.Value |> should equal 3
 
     [<Test>]
-    let ``Parallel : exception handler`` () =
+    let ``1. Parallel : exception handler`` () =
         cloud {
             try
                 let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
@@ -81,7 +82,7 @@ module ``SampleRuntime Tests`` =
         } |> run |> Choice.shouldEqual 3
 
     [<Test>]
-    let ``Parallel : finally`` () =
+    let ``1. Parallel : finally`` () =
         let latch = Latch.Init 0
         cloud {
             try
@@ -94,7 +95,7 @@ module ``SampleRuntime Tests`` =
         latch.Value |> should equal 1
 
     [<Test>]
-    let ``Parallel : simple nested`` () =
+    let ``1. Parallel : simple nested`` () =
         cloud {
             let f i j = cloud { return i + j + 2 }
             let cluster i = Array.init 10 (f i) |> Cloud.Parallel
@@ -103,7 +104,7 @@ module ``SampleRuntime Tests`` =
         } |> run |> Choice.shouldEqual 1100
 
     [<Test>]
-    let ``Parallel : simple exception`` () =
+    let ``1. Parallel : simple exception`` () =
         cloud {
             let f i = cloud { return if i = 15 then invalidOp "failure" else i + 1 }
             let! results = Array.init 20 f |> Cloud.Parallel
@@ -113,7 +114,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : exception contention`` () =
+    let ``1. Parallel : exception contention`` () =
         let latch = Latch.Init(0)
         cloud {
             try
@@ -130,7 +131,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : exception cancellation`` () =
+    let ``1. Parallel : exception cancellation`` () =
         cloud {
             let latch = Latch.Init 0
             let worker i = cloud { 
@@ -152,7 +153,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : nested exception cancellation`` () =
+    let ``1. Parallel : nested exception cancellation`` () =
         cloud {
             let latch = Latch.Init 0
             let worker i j = cloud {
@@ -176,7 +177,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : simple cancellation`` () =
+    let ``1. Parallel : simple cancellation`` () =
         let latch = Latch.Init 0
         runCts(fun cts -> cloud {
             let f i = cloud {
@@ -195,7 +196,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : to local`` () =
+    let ``1. Parallel : to local`` () =
         // check local semantics are forced by using ref cells.
         cloud {
             let counter = ref 0
@@ -210,7 +211,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : to sequential`` () =
+    let ``1. Parallel : to sequential`` () =
         // check sequential semantics are forced by deliberately
         // making use of code that is not thread-safe.
         cloud {
@@ -226,37 +227,43 @@ module ``SampleRuntime Tests`` =
             return Array.forall id results
         } |> run |> Choice.shouldEqual true
 
-    let wordCount () =
-        let rec mapReduce (mapF : 'T -> Cloud<'S>) 
-                        (reduceF : 'S -> 'S -> Cloud<'S>)
-                        (id : 'S) (inputs : 'T list) =
-            cloud {
-                match inputs with
-                | [] -> return id
-                | [t] -> return! mapF t
-                | _ ->
-                    let l,r = List.split inputs
-                    let! s,s' = (mapReduce mapF reduceF id l) <||> (mapReduce mapF reduceF id r)
-                    return! reduceF s s'
-            }
-
+    let wordCount size mapReduceAlgorithm : Cloud<int> =
         let mapF (text : string) = cloud { return text.Split(' ').Length }
         let reduceF i i' = cloud { return i + i' }
-        let inputs = List.init 20 (fun i -> "lorem ipsum dolor sit amet")
-        mapReduce mapF reduceF 0 inputs
+        let inputs = Array.init size (fun i -> "lorem ipsum dolor sit amet")
+        mapReduceAlgorithm mapF 0 reduceF inputs
+
+    let rec mapReduceRec (mapF : 'T -> Cloud<'S>) 
+                    (id : 'S) (reduceF : 'S -> 'S -> Cloud<'S>)
+                    (inputs : 'T []) =
+        cloud {
+            match inputs with
+            | [||] -> return id
+            | [|t|] -> return! mapF t
+            | _ ->
+                let left = inputs.[.. inputs.Length / 2 - 1]
+                let right = inputs.[inputs.Length / 2 ..]
+                let! s,s' = (mapReduceRec mapF id reduceF left) <||> (mapReduceRec mapF id reduceF right)
+                return! reduceF s s'
+        }
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Parallel : recursive map/reduce`` () =
-        wordCount () |> run |> Choice.shouldEqual 100
+    let ``1. Parallel : recursive map/reduce`` () =
+        wordCount 20 mapReduceRec |> run |> Choice.shouldEqual 100
 
     [<Test>]
-    let ``Choice : empty input`` () =
+    [<Repeat(repeats)>]
+    let ``1. Parallel : balanced map/reduce`` () =
+        wordCount 1000 MapReduce.mapReduce |> run |> Choice.shouldEqual 5000
+
+    [<Test>]
+    let ``2. Choice : empty input`` () =
         Cloud.Choice [] |> run |> Choice.shouldEqual None
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : all inputs 'None'`` () =
+    let ``2. Choice : all inputs 'None'`` () =
         cloud {
             let count = Latch.Init 0
             let worker _ = cloud {
@@ -271,7 +278,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : one input 'Some'`` () =
+    let ``2. Choice : one input 'Some'`` () =
         cloud {
             let count = Latch.Init 0
             let worker i = cloud {
@@ -289,7 +296,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : all inputs 'Some'`` () =
+    let ``2. Choice : all inputs 'Some'`` () =
         let successcounter = Latch.Init 0
         cloud {
             let worker _ = cloud { return Some 42 }
@@ -303,7 +310,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : simple nested`` () =
+    let ``2. Choice : simple nested`` () =
         let counter = Latch.Init 0
         cloud {
             let worker i j = cloud {
@@ -324,7 +331,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : nested exception cancellation`` () =
+    let ``2. Choice : nested exception cancellation`` () =
         let counter = Latch.Init 0
         cloud {
             let worker i j = cloud {
@@ -344,7 +351,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : simple cancellation`` () =
+    let ``2. Choice : simple cancellation`` () =
         let taskCount = Latch.Init 0
         runCts(fun cts ->
             cloud {
@@ -362,7 +369,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : to local`` () =
+    let ``2. Choice : to local`` () =
         // check local semantics are forced by using ref cells.
         cloud {
             let counter = ref 0
@@ -381,7 +388,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Choice : to sequential`` () =
+    let ``2. Choice : to sequential`` () =
         // check sequential semantics are forced by deliberately
         // making use of code that is not thread-safe.
         cloud {
@@ -404,7 +411,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``StartChild: task with success`` () =
+    let ``3. StartChild: task with success`` () =
         cloud {
             let count = Latch.Init 0
             let task = cloud {
@@ -419,7 +426,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``StartChild: task with exception`` () =
+    let ``3. StartChild: task with exception`` () =
         let count = Latch.Init 0
         cloud {
             let task = cloud {
@@ -441,7 +448,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     [<Repeat(repeats)>]
-    let ``StartChild: task with cancellation`` () =
+    let ``3. StartChild: task with cancellation`` () =
         let count = Latch.Init 0
         runCts(fun cts ->
             cloud {
@@ -461,10 +468,27 @@ module ``SampleRuntime Tests`` =
         // ensure final increment was cancelled.
         count.Value |> should equal 1
 
+
+    [<Test>]
+    let ``4. Runtime : Get worker count`` () =
+        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (runtime.Value.Workers.Length)
+
+    [<Test>]
+    let ``4. Runtime : Get current worker`` () =
+        run Cloud.CurrentWorker |> Choice.shouldMatch (fun _ -> true)
+
+    [<Test>]
+    let ``4. Runtime : Get process id`` () =
+        run (Cloud.GetProcessId()) |> Choice.shouldMatch (fun _ -> true)
+
+    [<Test>]
+    let ``4. Runtime : Get task id`` () =
+        run (Cloud.GetTaskId()) |> Choice.shouldMatch (fun _ -> true)
+
     [<Test>]
     [<Repeat(repeats)>]
-    let ``Z Fault Tolerance : map/reduce`` () =
-        let t = runtime.Value.RunAsTask(wordCount ())
+    let ``5. Fault Tolerance : map/reduce`` () =
+        let t = runtime.Value.RunAsTask(wordCount 20 mapReduceRec)
         do Thread.Sleep 4000
         runtime.Value.KillAllWorkers()
         runtime.Value.AppendWorkers 4
