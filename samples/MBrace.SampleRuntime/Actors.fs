@@ -446,7 +446,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     ///     Request the loading of assembly dependencies from remote
     ///     assembly exporter to the local application domain.
     /// </summary>
-    /// <param name="ids"></param>
+    /// <param name="ids">Assembly id's to be loaded in app domain.</param>
     member __.LoadDependencies(ids : AssemblyId list) = async {
         let publisher =
             {
@@ -461,7 +461,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     /// <summary>
     ///     Compute assembly dependencies for provided object graph.
     /// </summary>
-    /// <param name="graph"></param>
+    /// <param name="graph">Object graph to be analyzed</param>
     member __.ComputeDependencies (graph:'T) =
         VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true)
         |> List.map Utilities.ComputeAssemblyId

@@ -140,10 +140,10 @@ with
     ///     Schedules a cloud workflow as a distributed result cell.
     ///     Used for root-level workflows or child tasks.
     /// </summary>
-    /// <param name="deps"></param>
-    /// <param name="cts"></param>
-    /// <param name="wf"></param>
-    member rt.StartAsCell deps cts (wf : Cloud<'T>) = async {
+    /// <param name="dependencies">Declared workflow dependencies.</param>
+    /// <param name="cts">Cancellation token source bound to task.</param>
+    /// <param name="wf">Input workflow.</param>
+    member rt.StartAsCell dependencies cts (wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let setResult ctx r = 
             async {
@@ -154,7 +154,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        rt.EnqueueTask deps cts scont econt ccont wf
+        rt.EnqueueTask dependencies cts scont econt ccont wf
         return resultCell
     }
 

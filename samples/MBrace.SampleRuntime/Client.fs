@@ -9,6 +9,7 @@
     open Nessos.MBrace.Runtime.Compiler
     open Nessos.MBrace.SampleRuntime.Tasks
 
+    /// BASE64 serialized argument parsing schema
     module internal Argument =
         let ofRuntime (runtime : RuntimeState) =
             let pickle = VagrantRegistry.Pickler.Pickle(runtime)
