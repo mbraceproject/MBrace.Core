@@ -14,6 +14,7 @@ open Nessos.MBrace.Runtime
 
 open Nessos.MBrace.SampleRuntime.Tasks
 
+/// IWorkerRef implementation for the runtime
 type Worker(proc : Process) =
     let id = sprintf "sample runtime worker (pid %d)" proc.Id
     interface IWorkerRef with
@@ -22,8 +23,8 @@ type Worker(proc : Process) =
 
     static member LocalWorker = new Worker(Process.GetCurrentProcess())
         
-
-type RuntimeProvider private (state : RuntimeState, procId : string, taskId : string, dependencies, context) =
+/// Scheduling implementation provider
+type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =
 
     /// Creates a runtime provider instance for a provided task
     static member FromTask state procId dependencies (task : Task) =

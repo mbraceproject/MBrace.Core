@@ -2,7 +2,7 @@
 
 Experimental continuation-based cloud workflows. Extending on ideas from async, it provides a continuation/reader monad implementation that readily facilitates distributed execution.
 
-Repository includes a sample [runtime](https://github.com/nessos/MBrace.Core/tree/master/samples/MBrace.SampleRuntime) that implements fault-tolerant distributed computation in just under 900 lines of code.
+Repository includes a toy [runtime](https://github.com/nessos/MBrace.Core/tree/master/samples/MBrace.SampleRuntime) that implements fault-tolerant distributed computation in just under 900 lines of code.
 
 ### Build Status
 
