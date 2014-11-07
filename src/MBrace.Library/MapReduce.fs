@@ -22,7 +22,7 @@ module MapReduce =
             | Sequential -> return! Sequential.fold folder id inputs
             | ThreadParallel ->
                 let cores = System.Environment.ProcessorCount
-                let chunks = Array.partition cores inputs
+                let chunks = Array.splitByPartitionCount cores inputs
                 let! results = 
                     chunks 
                     |> Array.map (Cloud.ToSequential << aux)
@@ -32,7 +32,7 @@ module MapReduce =
 
             | Distributed ->
                 let! size = Cloud.GetWorkerCount()
-                let chunks = Array.partition size inputs
+                let chunks = Array.splitByPartitionCount size inputs
                 let! results =
                     chunks
                     |> Array.map (Cloud.ToLocal << aux)
