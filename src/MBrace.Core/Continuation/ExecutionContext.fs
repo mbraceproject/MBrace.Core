@@ -32,10 +32,10 @@ type Continuation<'T> =
         Success : ExecutionContext -> 'T -> unit
 
         /// Exception continuation
-        Exception : ExecutionContext -> exn -> unit
+        Exception : ExecutionContext -> ExceptionDispatchInfo -> unit
 
         /// Cancellation continuation
-        Cancellation : ExecutionContext -> OperationCanceledException -> unit
+        Cancellation : ExecutionContext -> ExceptionDispatchInfo<OperationCanceledException> -> unit
     }
 
 /// Continuation utility functions
@@ -61,7 +61,7 @@ module Continuation =
     /// <param name="tcont">Initial continuation.</param>
     let inline failwith (f : 'S -> exn) (tcont : Continuation<'T>) : Continuation<'S> =
         {
-            Success = fun ctx s -> tcont.Exception ctx (f s)
+            Success = fun ctx s -> tcont.Exception ctx (ExceptionDispatchInfo.capture (f s))
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
         }
@@ -73,7 +73,7 @@ module Continuation =
     /// <param name="tcont">Initial continuation.</param>
     let inline choice (f : 'S -> Choice<'T, exn>) (tcont : Continuation<'T>) : Continuation<'S> =
         {
-            Success = fun ctx s -> match f s with Choice1Of2 t -> tcont.Success ctx t | Choice2Of2 e -> tcont.Exception ctx e
+            Success = fun ctx s -> match f s with Choice1Of2 t -> tcont.Success ctx t | Choice2Of2 e -> tcont.Exception ctx (ExceptionDispatchInfo.capture e)
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
         }

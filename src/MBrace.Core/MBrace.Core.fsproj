@@ -57,10 +57,10 @@
   -->
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
-    <Compile Include="Utils.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
-    <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Trampoline.fs" />
+    <Compile Include="Continuation\ExceptionDispatchInfo.fs" />
+    <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\CloudBuilder.fs" />
     <Compile Include="API\StorageEntities.fs" />

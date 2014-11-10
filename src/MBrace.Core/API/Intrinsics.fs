@@ -8,13 +8,6 @@ open Nessos.MBrace.Runtime
 
 #nowarn "444"
 
-type Async =
-    /// <summary>
-    ///     Efficiently reraise exception, without losing its existing stacktrace.
-    /// </summary>
-    /// <param name="e"></param>
-    static member Reraise<'T> (e : exn) : Async<'T> = Async.FromContinuations(fun (_,ec,_) -> ec e)
-
 /// Intrinsic cloud workflow methods
 type Cloud =
         
@@ -64,7 +57,8 @@ type Cloud =
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
     /// <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
-    static member ToAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry) : Async<'T> = async {
+    static member ToAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry, ?useExceptionSeparator) : Async<'T> = async {
+        let useExceptionSeparator = defaultArg useExceptionSeparator true
         let! ct = Async.CancellationToken
         return! 
             Async.FromContinuations(fun (sc,ec,cc) ->
@@ -77,8 +71,8 @@ type Cloud =
                 let cont =
                     {
                         Success = fun _ t -> sc t
-                        Exception = fun _ e -> ec e
-                        Cancellation = fun _ c -> cc c
+                        Exception = fun _ edi -> ec (edi.Reify(useExceptionSeparator))
+                        Cancellation = fun _ edi -> cc (edi.Reify(useExceptionSeparator))
                     }
 
                 do Trampoline.Reset()
@@ -116,7 +110,7 @@ type Cloud =
     /// <param name="cancellationToken">Cancellation token to be used.</param>
     static member RunSynchronously(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry, ?cancellationToken) : 'T =
         let wf = Cloud.ToAsync(cloudWorkflow, ?resources = resources) 
-        Async.RunSynchronously(wf, ?cancellationToken = cancellationToken)
+        Async.RunSync(wf, ?cancellationToken = cancellationToken)
 
     /// <summary>
     ///     Sets a new scheduling context for target workflow.
@@ -134,7 +128,7 @@ type Cloud =
                 with e -> Choice2Of2 e
 
             match result with
-            | Choice2Of2 e -> cont.Exception ctx e
+            | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
             | Choice1Of2 runtime' ->
                 let ctx = { ctx with Resources = ctx.Resources.Register(runtime') }
                 Cloud.StartWithContinuations(workflow, cont, ctx))

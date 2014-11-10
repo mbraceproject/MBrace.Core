@@ -217,8 +217,8 @@ module StoreExtensionMethods =
 
     type ICloudRef<'T> with
         /// Synchronously dereferences the cloud ref
-        member inline c.Value = c.GetValue() |> Async.RunSynchronously
+        member inline c.Value = c.GetValue() |> Async.RunSync
 
     type IMutableCloudRef<'T> with
         /// Synchronously retrieves the current value of the mutable cloud ref
-        member inline c.Value = c.GetValue() |> Async.RunSynchronously
+        member inline c.Value = c.GetValue() |> Async.RunSync

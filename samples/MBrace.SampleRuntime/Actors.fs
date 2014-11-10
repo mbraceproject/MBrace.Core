@@ -169,14 +169,14 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
 /// Result value
 type Result<'T> =
     | Completed of 'T
-    | Exception of exn
-    | Cancelled of exn
+    | Exception of ExceptionDispatchInfo
+    | Cancelled of ExceptionDispatchInfo<OperationCanceledException>
 with
     member inline r.Value =
         match r with
         | Completed t -> t
-        | Exception e -> raiseWithCurrentStacktrace e
-        | Cancelled e -> raiseWithCurrentStacktrace e 
+        | Exception edi -> ExceptionDispatchInfo.raise true edi
+        | Cancelled edi -> ExceptionDispatchInfo.raise true edi
 
 type private ResultCellMsg<'T> =
     | SetResult of Result<'T> * IReplyChannel<bool>

@@ -59,7 +59,7 @@
 
         /// Execute a workflow on the distributed runtime synchronously
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
-            __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
+            __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSync
 
         /// Violently kills all worker nodes in the runtime
         member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])

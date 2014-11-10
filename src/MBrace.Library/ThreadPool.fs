@@ -39,7 +39,7 @@ type ThreadPool =
     static member Parallel (computations : seq<Cloud<'T>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-            | Choice2Of2 e -> cont.Exception ctx e
+            | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
             | Choice1Of2 [||] -> cont.Success ctx [||]
             | Choice1Of2 [| comp |] ->
                 let cont' = Continuation.map (fun t -> [| t |]) cont
@@ -81,7 +81,7 @@ type ThreadPool =
     static member Choice(computations : seq<Cloud<'T option>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-            | Choice2Of2 e -> cont.Exception ctx e
+            | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
             | Choice1Of2 [||] -> cont.Success ctx None
             | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
             | Choice1Of2 computations ->

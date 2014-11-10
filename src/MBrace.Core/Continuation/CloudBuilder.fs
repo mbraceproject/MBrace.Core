@@ -7,31 +7,33 @@ open Nessos.MBrace.Runtime
 [<AutoOpen>]
 module internal CloudBuilderUtils =
 
+    let inline capture (e : 'exn) = ExceptionDispatchInfo.capture e
+    let inline extract sep (edi : ExceptionDispatchInfo) = edi.Reify(sep)
     let inline protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
 
     type Continuation<'T> with
-        member inline c.Cancel ctx = c.Cancellation ctx (new System.OperationCanceledException())
+        member inline c.Cancel ctx = c.Cancellation ctx (capture (new System.OperationCanceledException()))
 
         member inline c.Choice (ctx, choice : Choice<'T, exn>) =
             match choice with
             | Choice1Of2 t -> c.Success ctx t
-            | Choice2Of2 e -> c.Exception ctx e
+            | Choice2Of2 e -> c.Exception ctx (capture e)
 
         member inline c.Choice (ctx, choice : Choice<Cloud<'T>, exn>) =
             match choice with
             | Choice1Of2 (Body f) -> f ctx c
-            | Choice2Of2 e -> c.Exception ctx e
+            | Choice2Of2 e -> c.Exception ctx (capture e)
 
     type ExecutionContext with
         member inline ctx.IsCancellationRequested = ctx.CancellationToken.IsCancellationRequested
 
 
     let inline ret t = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Success ctx t)
-    let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx e)
+    let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx (capture e))
     let inline ofAsync (asyncWorkflow : Async<'T>) = 
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
-            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken))
+            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, capture >> cont.Cancellation ctx, ctx.CancellationToken))
 
     let zero = ret ()
 
@@ -80,9 +82,9 @@ module internal CloudBuilderUtils =
                     fun ctx e ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
                         elif Trampoline.IsBindThresholdReached() then
-                            Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect handler e))
+                            Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect handler (extract false e)))
                         else
-                            cont.Choice(ctx, protect handler e)
+                            cont.Choice(ctx, protect handler (extract false e))
 
                 Cancellation = cont.Cancellation
             }
@@ -108,9 +110,9 @@ module internal CloudBuilderUtils =
                             finalizer ctx cont'
 
                 Exception = 
-                    fun ctx e -> 
+                    fun ctx edi -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx else
-                        let cont' = Continuation.failwith (fun () -> e) cont
+                        let cont' = Continuation.failwith (fun () -> extract false edi) cont
                         if Trampoline.IsBindThresholdReached() then
                             Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
                         else

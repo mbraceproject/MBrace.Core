@@ -8,6 +8,7 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.Runtime
 open Nessos.MBrace.Library
 open Nessos.MBrace.Tests
 open Nessos.MBrace.SampleRuntime
@@ -36,7 +37,7 @@ module ``SampleRuntime Tests`` =
         runtime <- None
 
     type Latch with
-        member l.Incr() = l.Increment() |> Async.RunSynchronously
+        member l.Incr() = l.Increment() |> Async.RunSync
 
     let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync workflow |> Async.Catch |> Async.RunSynchronously
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
@@ -45,7 +46,7 @@ module ``SampleRuntime Tests`` =
             let dcts = DistributedCancellationTokenSource.Init()
             let ct = dcts.GetLocalCancellationToken()
             return! runtime.RunAsync(workflow dcts, cancellationToken = ct) |> Async.Catch
-        } |> Async.RunSynchronously
+        } |> Async.RunSync
 
     [<Test>]
     let ``1. Parallel : empty input`` () =

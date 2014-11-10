@@ -21,7 +21,7 @@ let private asyncFromContinuations f =
 let Parallel (state : RuntimeState) procId dependencies (computations : seq<Cloud<'T>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-        | Choice2Of2 e -> cont.Exception ctx e
+        | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
         | Choice1Of2 [||] -> cont.Success ctx [||]
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
@@ -79,7 +79,7 @@ let Parallel (state : RuntimeState) procId dependencies (computations : seq<Clou
 let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<'T option>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-        | Choice2Of2 e -> cont.Exception ctx e
+        | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
