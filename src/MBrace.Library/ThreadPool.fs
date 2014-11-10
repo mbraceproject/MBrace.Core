@@ -23,7 +23,7 @@ module private SchedulerInternals =
     let scheduleTask res ct sc ec cc wf =
         ThreadPool.QueueUserWorkItem(fun _ ->
             let ctx = { Resources = res ; CancellationToken = ct }
-            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
+            let cont = { Success = sc ; Exception = ec ; Cancellation = cc ; Metadata = None }
             Cloud.StartWithContinuations(wf, cont, ctx))
         |> ignore
 
@@ -60,10 +60,10 @@ type ThreadPool =
                     if completionLatch.Increment() = results.Length then
                         cont.Success ctx results
 
-                let onException _ e =
+                let onException _ edi =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Exception ctx e
+                        cont.Exception ctx edi
 
                 let onCancellation _ c =
                     if exceptionLatch.Increment() = 1 then
@@ -101,15 +101,15 @@ type ThreadPool =
                         if completionLatch.Increment () = computations.Length then
                             cont.Success ctx None
 
-                let onException _ e =
+                let onException _ edi =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Exception ctx e
+                        cont.Exception ctx edi
 
-                let onCancellation _ c =
+                let onCancellation _ cdi =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Cancellation ctx c
+                        cont.Cancellation ctx cdi
 
                 for i = 0 to computations.Length - 1 do
                     scheduleTask ctx.Resources innerCts.Token onSuccess onException onCancellation computations.[i])

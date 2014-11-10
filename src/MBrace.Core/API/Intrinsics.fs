@@ -73,11 +73,20 @@ type Cloud =
                         Success = fun _ t -> sc t
                         Exception = fun _ edi -> ec (edi.Reify(useExceptionSeparator))
                         Cancellation = fun _ edi -> cc (edi.Reify(useExceptionSeparator))
+                        Metadata = None
                     }
 
                 do Trampoline.Reset()
                 Cloud.StartWithContinuations(cloudWorkflow, cont, context))
     }
+
+    /// <summary>
+    ///     Wraps a workflow with a mapped continuation.
+    /// </summary>
+    /// <param name="mapper">Continuation mapping function.</param>
+    /// <param name="workflow">Input workflow.</param>
+    static member WithMappedContinuation (mapper : Continuation<'T> -> Continuation<'S>) (workflow : Cloud<'S>) =
+        Body(fun ctx cont -> let (Body f) = workflow in f ctx (mapper cont))
 
     /// <summary>
     ///     Starts provided cloud workflow in the thread pool.

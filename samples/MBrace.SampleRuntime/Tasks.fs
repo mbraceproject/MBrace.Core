@@ -137,7 +137,7 @@ with
     member rt.EnqueueTask procId dependencies cts sc ec cc (wf : Cloud<'T>) =
         let taskId = System.Guid.NewGuid().ToString()
         let startTask ctx =
-            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
+            let cont = { Success = sc ; Exception = ec ; Cancellation = cc ; Metadata = None }
             Cloud.StartWithContinuations(wf, cont, ctx)
 
         let task = 

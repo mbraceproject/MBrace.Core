@@ -36,6 +36,9 @@ type Continuation<'T> =
 
         /// Cancellation continuation
         Cancellation : ExecutionContext -> ExceptionDispatchInfo<OperationCanceledException> -> unit
+
+        /// Continuation builder metadata
+        Metadata : string option
     }
 
 /// Continuation utility functions
@@ -52,6 +55,7 @@ module Continuation =
             Success = fun ctx s -> tcont.Success ctx (f s)
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
+            Metadata = tcont.Metadata
         }
 
     /// <summary>
@@ -64,6 +68,7 @@ module Continuation =
             Success = fun ctx s -> tcont.Exception ctx (ExceptionDispatchInfo.capture (f s))
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
+            Metadata = tcont.Metadata
         }
 
     /// <summary>
@@ -76,4 +81,5 @@ module Continuation =
             Success = fun ctx s -> match f s with Choice1Of2 t -> tcont.Success ctx t | Choice2Of2 e -> tcont.Exception ctx (ExceptionDispatchInfo.capture e)
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
+            Metadata = tcont.Metadata
         }

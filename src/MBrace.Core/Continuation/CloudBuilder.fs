@@ -10,6 +10,15 @@ module internal CloudBuilderUtils =
     let inline capture (e : 'exn) = ExceptionDispatchInfo.capture e
     let inline extract sep (edi : ExceptionDispatchInfo) = edi.Reify(sep)
     let inline protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
+    let inline getMetadata (t : 'T) = t.GetType().FullName
+    let inline appendToStacktrace functionName (context : Continuation<_>) (edi : ExceptionDispatchInfo<_>) =
+        let entry =
+            match context.Metadata with
+            | None -> sprintf "   at %s" functionName
+            | Some md -> sprintf "   at %s in %s" functionName md
+
+        edi.AppendToStackTrace entry
+        
 
     type Continuation<'T> with
         member inline c.Cancel ctx = c.Cancellation ctx (capture (new System.OperationCanceledException()))
@@ -37,7 +46,7 @@ module internal CloudBuilderUtils =
 
     let zero = ret ()
 
-    let inline bind (Body f : Cloud<'T>) (g : 'T -> Cloud<'S>) : Cloud<'S> =
+    let inline bind (Body f : Cloud<'T>) metadataToken (g : 'T -> Cloud<'S>) : Cloud<'S> =
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             let cont' = {
@@ -58,6 +67,7 @@ module internal CloudBuilderUtils =
                             cont.Exception ctx e
 
                 Cancellation = cont.Cancellation
+                Metadata = match metadataToken with None -> cont.Metadata | Some m -> Some (getMetadata m)
             }
 
             if Trampoline.IsBindThresholdReached() then 
@@ -87,6 +97,7 @@ module internal CloudBuilderUtils =
                             cont.Choice(ctx, protect handler (extract false e))
 
                 Cancellation = cont.Cancellation
+                Metadata = Some (getMetadata handler)
             }
 
             if Trampoline.IsBindThresholdReached() then 
@@ -119,6 +130,7 @@ module internal CloudBuilderUtils =
                             finalizer ctx cont'
 
                 Cancellation = cont.Cancellation
+                Metadata = cont.Metadata
             }
 
             if Trampoline.IsBindThresholdReached() then 
@@ -127,42 +139,53 @@ module internal CloudBuilderUtils =
                 f ctx cont'
         )
 
-    let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
-    let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
+    let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f None (fun () -> g)
+    let inline delay t (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero t f
     let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
-        tryFinally (bind (ret t) g) (delay (fun () -> ofAsync (t.Dispose())))
+        tryFinally (bind (ret t) (Some g) g) (delay None (fun () -> ofAsync (t.Dispose())))
 
     let inline forM (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =
-        let rec loop i () =
-            if i = ts.Length then zero
-            else
-                match protect body ts.[i] with
-                | Choice1Of2 b -> bind b (loop (i+1))
-                | Choice2Of2 e -> raiseM e
+        Body(fun ctx cont -> 
+            let rec loop i () =
+                if i = ts.Length then zero
+                else
+                    match protect body ts.[i] with
+                    | Choice1Of2 b -> bind b None (loop (i+1))
+                    | Choice2Of2 e -> raiseM e
 
-        loop 0 ()
+            let (Body f) = loop 0 ()
+            f ctx { cont with Metadata = Some(getMetadata body) })
 
     let inline whileM (pred : unit -> bool) (body : Cloud<unit>) : Cloud<unit> =
-        let rec loop () =
-            match protect pred () with
-            | Choice1Of2 true -> bind body loop
-            | Choice1Of2 false -> zero
-            | Choice2Of2 e -> raiseM e
+        Body(fun ctx cont ->
+            let rec loop () =
+                match protect pred () with
+                | Choice1Of2 true -> bind body None loop
+                | Choice1Of2 false -> zero
+                | Choice2Of2 e -> raiseM e
 
-        loop ()
+            let (Body f) = loop ()
+            f ctx { cont with Metadata = Some(getMetadata pred) })
 
 /// Cloud workflow expression builder
 type CloudBuilder () =
     member __.Return (t : 'T) = ret t
     member __.Zero () = zero
-    member __.Delay (f : unit -> Cloud<'T>) = delay f
+    member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> =
+        Body(fun ctx cont ->
+            let functionName = getMetadata f
+            let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName cont edi)}
+            let (Body f) = delay None f
+            f ctx cont')
+
     member __.ReturnFrom (c : Cloud<'T>) = c
     member __.Combine(f : Cloud<unit>, g : Cloud<'T>) = combine f g
-    member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = bind f g
+    member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = bind f (Some g) g
     member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = using value bindF
 
     member __.TryWith(f : Cloud<'T>, handler : exn -> Cloud<'T>) : Cloud<'T> = tryWith f handler
-    member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = tryFinally f (delay (fun () -> ret (finalizer ())))
+    member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = 
+        tryFinally f (delay None (fun () -> ret (finalizer ())))
 
     member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forM body ts
     member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = forM body (Seq.toArray ts)

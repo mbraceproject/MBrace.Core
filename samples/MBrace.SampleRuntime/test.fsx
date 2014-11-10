@@ -25,3 +25,10 @@ runtime.KillAllWorkers()
 runtime.AppendWorkers 4
 
 t.Result
+
+let giatompoutso = cloud {
+    let! result = Array.init 20 (fun i -> cloud { return if i = 15 then failwith "kaboom!" else i }) |> Cloud.Parallel
+    return Array.sum result
+}
+
+runtime.Run giatompoutso
