@@ -92,15 +92,6 @@ type Cloud =
     static member Parallel (computations : seq<Cloud<'T>>) : Cloud<'T []> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return! runtime.ScheduleParallel computations
-//        let mapper (c : Continuation<'T []>) =
-//            { c with 
-//                Exception = 
-//                    fun ctx edi -> 
-//                        let functionName = sprintf "MBrace.Cloud.Parallel[%O](Cloud`1 computations)" typeof<'T>
-//                        c.Exception ctx (appendToStacktrace functionName c edi)
-//            }
-//
-//        return! Cloud.WithMappedContinuation mapper (runtime.ScheduleParallel computations)
     }
 
     /// <summary>
@@ -110,15 +101,6 @@ type Cloud =
     static member Choice (computations : seq<Cloud<'T option>>) : Cloud<'T option> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return! runtime.ScheduleChoice computations
-//        let mapper (c : Continuation<'T option>) =
-//            { c with 
-//                Exception = 
-//                    fun ctx edi -> 
-//                        let functionName = sprintf "MBrace.Cloud.Choice[%O](Cloud`1 computations)" typeof<'T>
-//                        c.Exception ctx (appendToStacktrace functionName c edi)
-//            }
-
-//        return! Cloud.WithMappedContinuation mapper (runtime.ScheduleChoice computations)
     }
 
     /// <summary>

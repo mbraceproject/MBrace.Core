@@ -23,7 +23,7 @@ module private SchedulerInternals =
     let scheduleTask res ct sc ec cc wf =
         ThreadPool.QueueUserWorkItem(fun _ ->
             let ctx = { Resources = res ; CancellationToken = ct }
-            let cont = { Success = sc ; Exception = ec ; Cancellation = cc ; Metadata = None }
+            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartWithContinuations(wf, cont, ctx))
         |> ignore
 

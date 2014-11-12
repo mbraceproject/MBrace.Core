@@ -12,6 +12,8 @@ type ExecutionContext =
 
         /// Local cancellation token
         CancellationToken : CancellationToken
+
+        ScopedException : ExceptionDispatchInfo option
     }
 with
     /// <summary>
@@ -22,6 +24,7 @@ with
         {
             Resources = ResourceRegistry.Empty
             CancellationToken = match cancellationToken with Some ct -> ct | None -> new CancellationToken()
+            ScopedException = None
         }
 
 /// Distributable continuation context.
@@ -35,10 +38,7 @@ type Continuation<'T> =
         Exception : ExecutionContext -> ExceptionDispatchInfo -> unit
 
         /// Cancellation continuation
-        Cancellation : ExecutionContext -> ExceptionDispatchInfo<OperationCanceledException> -> unit
-
-        /// Continuation builder metadata
-        Metadata : string option
+        Cancellation : ExecutionContext -> OperationCanceledException -> unit
     }
 
 /// Continuation utility functions
@@ -55,7 +55,6 @@ module Continuation =
             Success = fun ctx s -> tcont.Success ctx (f s)
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
-            Metadata = tcont.Metadata
         }
 
     /// <summary>
@@ -65,10 +64,9 @@ module Continuation =
     /// <param name="tcont">Initial continuation.</param>
     let inline failwith (f : 'S -> exn) (tcont : Continuation<'T>) : Continuation<'S> =
         {
-            Success = fun ctx s -> tcont.Exception ctx (ExceptionDispatchInfo.capture (f s))
+            Success = fun ctx s -> tcont.Exception ctx (ExceptionDispatchInfo.Capture (try f s with e -> e))
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
-            Metadata = tcont.Metadata
         }
 
     /// <summary>
@@ -78,8 +76,11 @@ module Continuation =
     /// <param name="tcont">Initial continuation.</param>
     let inline choice (f : 'S -> Choice<'T, exn>) (tcont : Continuation<'T>) : Continuation<'S> =
         {
-            Success = fun ctx s -> match f s with Choice1Of2 t -> tcont.Success ctx t | Choice2Of2 e -> tcont.Exception ctx (ExceptionDispatchInfo.capture e)
+            Success = fun ctx s -> 
+                match (try f s with e -> Choice2Of2 e) with 
+                | Choice1Of2 t -> tcont.Success ctx t 
+                | Choice2Of2 e -> tcont.Exception ctx (ExceptionDispatchInfo.Capture e)
+
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
-            Metadata = tcont.Metadata
         }

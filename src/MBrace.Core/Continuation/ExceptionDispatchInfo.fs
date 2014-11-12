@@ -2,13 +2,16 @@
 
 open System
 open System.Reflection
+//open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
 
 /// Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
 /// that is serializable and permits symbolic stacktrace appending
 [<Sealed; AutoSerializable(true)>]
-type ExceptionDispatchInfo<'Exn when 'Exn :> exn> private (sourceExn : 'Exn, remoteStackTrace : string) =
+type ExceptionDispatchInfo private (sourceExn : exn, remoteStackTrace : string) =
+
+//    static let remoteTraceTable = new ConditionalWeakTable<exn, string ref>()
 
     // ExceptionDispatchInfo leaks mutable state in the form of exception instances
     // For reasons of sanity, copies of ExceptionDispatchInfo can only export state once,
@@ -43,13 +46,13 @@ type ExceptionDispatchInfo<'Exn when 'Exn :> exn> private (sourceExn : 'Exn, rem
     ///     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
     /// </summary>
     /// <param name="exn">Captured exception</param>
-    static member internal Capture(exn : 'Exn) = new ExceptionDispatchInfo<'Exn>(exn, exn.StackTrace)
+    static member Capture(exn : exn) = new ExceptionDispatchInfo(exn, exn.StackTrace)
 
     /// <summary>
     ///     Returns the source augmented with the remote stack trace.
     /// </summary>
     /// <param name="useSeparator">Add a separator after remote stacktrace. Defaults to true.</param>
-    member __.Reify (useSeparator) : 'Exn =
+    member __.Reify (useSeparator) : exn =
         acquire ()
         let newTrace =
             if useSeparator then
@@ -60,6 +63,12 @@ type ExceptionDispatchInfo<'Exn when 'Exn :> exn> private (sourceExn : 'Exn, rem
         let _ = trySetRemoteStackTraceField newTrace sourceExn
         sourceExn
 
+    member __.SourceException = sourceExn
+    member __.StackTrace = remoteStackTrace
+
+    member internal __.IsMatchingException(exn : exn) =
+        obj.ReferenceEquals(sourceExn, exn) && remoteStackTrace = exn.StackTrace
+
     /// <summary>
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
     /// </summary>
@@ -67,7 +76,7 @@ type ExceptionDispatchInfo<'Exn when 'Exn :> exn> private (sourceExn : 'Exn, rem
     member __.AppendToStackTrace(line : string) =
         acquire()
         let newTrace = sprintf "%s%s%s" remoteStackTrace Environment.NewLine line
-        new ExceptionDispatchInfo<'Exn>(sourceExn, newTrace)
+        new ExceptionDispatchInfo(sourceExn, newTrace)
 
     /// <summary>
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
@@ -77,24 +86,16 @@ type ExceptionDispatchInfo<'Exn when 'Exn :> exn> private (sourceExn : 'Exn, rem
         let line = String.concat Environment.NewLine lines
         __.AppendToStackTrace line
 
-and ExceptionDispatchInfo = ExceptionDispatchInfo<exn>
-
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ExceptionDispatchInfo =
-
-    /// <summary>
-    ///     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
-    /// </summary>
-    /// <param name="exn">Captured exception</param>
-    let capture(exn : 'Exn) = ExceptionDispatchInfo<'Exn>.Capture(exn)
 
     /// <summary>
     ///     Raise provided exception dispatch info.
     /// </summary>
     /// <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
     /// <param name="edi">Exception dispatch info to be raised.</param>
-    let inline raise useSeparator (edi : ExceptionDispatchInfo<'exn>) =
+    let inline raise useSeparator (edi : ExceptionDispatchInfo) =
         raise <| edi.Reify(useSeparator)
 
     /// <summary>
@@ -103,7 +104,7 @@ module ExceptionDispatchInfo =
     /// <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
     /// <param name="exn">Input exception.</param>
     let inline raiseWithCurrentStackTrace useSeparator (exn : 'exn) =
-        let edi = capture exn in raise useSeparator edi
+        let edi = ExceptionDispatchInfo.Capture exn in raise useSeparator edi
 
 [<AutoOpen>]
 module ExceptionDispatchInfoUtils =
@@ -114,7 +115,7 @@ module ExceptionDispatchInfoUtils =
         ///     Efficiently reraise exception, without losing its existing stacktrace.
         /// </summary>
         /// <param name="e"></param>
-        static member Reraise<'T> (e : exn) : Async<'T> = Async.FromContinuations(fun (_,ec,_) -> ec e)
+        static member Raise<'T> (e : exn) : Async<'T> = Async.FromContinuations(fun (_,ec,_) -> ec e)
 
         /// <summary>
         ///     Runs the asynchronous computation and awaits its result.
@@ -125,13 +126,11 @@ module ExceptionDispatchInfoUtils =
         static member RunSync(workflow : Async<'T>, ?cancellationToken) =
             let tcs = new TaskCompletionSource<Choice<'T,exn,OperationCanceledException>>()
             let inline commit f r = tcs.SetResult(f r)
-            let job = new WaitCallback(fun _ ->
+            Trampoline.QueueWorkItem(fun () ->
                 Async.StartWithContinuations(workflow, 
                     commit Choice1Of3, commit Choice2Of3, commit Choice3Of3, 
                     ?cancellationToken = cancellationToken))
 
-            let success = ThreadPool.QueueUserWorkItem job
-            if not success then invalidOp "could not enqueue to thread pool."
             match tcs.Task.Result with
             | Choice1Of3 t -> t
             | Choice2Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e

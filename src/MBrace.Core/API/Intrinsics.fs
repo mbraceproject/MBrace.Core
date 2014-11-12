@@ -73,7 +73,6 @@ type Cloud =
                         Success = fun _ t -> sc t
                         Exception = fun _ edi -> ec (edi.Reify(useExceptionSeparator))
                         Cancellation = fun _ edi -> cc (edi.Reify(useExceptionSeparator))
-                        Metadata = None
                     }
 
                 do Trampoline.Reset()
