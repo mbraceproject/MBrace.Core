@@ -21,7 +21,7 @@ let private asyncFromContinuations f =
 let Parallel (state : RuntimeState) procId dependencies (computations : seq<Cloud<'T>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-        | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
+        | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx [||]
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
@@ -72,14 +72,14 @@ let Parallel (state : RuntimeState) procId dependencies (computations : seq<Clou
                 for i = 0 to computations.Length - 1 do
                     state.EnqueueTask procId dependencies childCts (onSuccess i) onException onCancellation computations.[i]
             with e ->
-                childCts.Cancel() ; return! Async.Reraise e
+                childCts.Cancel() ; return! Async.Raise e
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<'T option>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
-        | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
+        | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
@@ -139,7 +139,7 @@ let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<
                 for i = 0 to computations.Length - 1 do
                     state.EnqueueTask procId dependencies childCts onSuccess onException onCancellation computations.[i]
             with e ->
-                childCts.Cancel() ; return! Async.Reraise e
+                childCts.Cancel() ; return! Async.Raise e
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 

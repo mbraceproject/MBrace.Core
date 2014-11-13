@@ -57,8 +57,7 @@ type Cloud =
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
     /// <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
-    static member ToAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry, ?useExceptionSeparator) : Async<'T> = async {
-        let useExceptionSeparator = defaultArg useExceptionSeparator true
+    static member ToAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry) : Async<'T> = async {
         let! ct = Async.CancellationToken
         return! 
             Async.FromContinuations(fun (sc,ec,cc) ->
@@ -71,8 +70,8 @@ type Cloud =
                 let cont =
                     {
                         Success = fun _ t -> sc t
-                        Exception = fun _ edi -> ec (edi.Reify(useExceptionSeparator))
-                        Cancellation = fun _ edi -> cc (edi.Reify(useExceptionSeparator))
+                        Exception = fun _ edi -> ec (extract edi)
+                        Cancellation = fun _ c -> cc c
                     }
 
                 do Trampoline.Reset()
@@ -136,7 +135,7 @@ type Cloud =
                 with e -> Choice2Of2 e
 
             match result with
-            | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.capture e)
+            | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             | Choice1Of2 runtime' ->
                 let ctx = { ctx with Resources = ctx.Resources.Register(runtime') }
                 Cloud.StartWithContinuations(workflow, cont, ctx))

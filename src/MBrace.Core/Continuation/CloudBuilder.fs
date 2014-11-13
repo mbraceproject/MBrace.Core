@@ -7,8 +7,8 @@ open Nessos.MBrace.Runtime
 [<AutoOpen>]
 module internal CloudBuilderUtils =
 
-//    let inline capture (e : 'exn) = ExceptionDispatchInfo.Capture e
-//    let inline extract sep (edi : ExceptionDispatchInfo) = edi.Reify(sep)
+    let inline capture (e : 'exn) = ExceptionDispatchInfo.Capture e
+    let inline extract (edi : ExceptionDispatchInfo) = edi.Reify(false, false)
     let protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
     let inline getMetadata (t : 'T) = t.GetType().FullName
     let inline appendToStacktrace functionName (edi : ExceptionDispatchInfo) =
@@ -38,7 +38,7 @@ module internal CloudBuilderUtils =
     let inline ofAsync (asyncWorkflow : Async<'T>) = 
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
-            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, capture >> cont.Cancellation ctx, ctx.CancellationToken))
+            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken))
 
     let zero = ret ()
 
@@ -83,13 +83,13 @@ module internal CloudBuilderUtils =
                         else
                             cont.Success ctx t
                 
-                Exception = 
+                Exception =
                     fun ctx edi ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
                         elif Trampoline.IsBindThresholdReached() then
-                            Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect handler (edi.Rei))
+                            Trampoline.QueueWorkItem(fun () -> cont.Choice(ctx, protect handler (extract edi)))
                         else
-                            cont.Choice(ctx, protect handler (edi))
+                            cont.Choice(ctx, protect handler (extract edi))
 
                 Cancellation = cont.Cancellation
             }
@@ -117,7 +117,7 @@ module internal CloudBuilderUtils =
                 Exception = 
                     fun ctx edi -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx else
-                        let cont' = Continuation.failwith (fun () -> extract false edi) cont
+                        let cont' = Continuation.failwith (fun () -> (extract edi)) cont
                         if Trampoline.IsBindThresholdReached() then
                             Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
                         else

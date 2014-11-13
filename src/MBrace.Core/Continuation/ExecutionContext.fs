@@ -12,8 +12,6 @@ type ExecutionContext =
 
         /// Local cancellation token
         CancellationToken : CancellationToken
-
-        ScopedException : ExceptionDispatchInfo option
     }
 with
     /// <summary>
@@ -24,7 +22,6 @@ with
         {
             Resources = ResourceRegistry.Empty
             CancellationToken = match cancellationToken with Some ct -> ct | None -> new CancellationToken()
-            ScopedException = None
         }
 
 /// Distributable continuation context.

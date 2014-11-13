@@ -57,7 +57,7 @@ type TaskExecutionMonitor () =
         try
             return! Async.AwaitTask tem.Task
         with :? System.AggregateException as e when e.InnerException <> null ->
-            return! Async.Reraise e.InnerException
+            return! Async.Raise e.InnerException
     }
 
 /// Defines a task to be executed in a worker node

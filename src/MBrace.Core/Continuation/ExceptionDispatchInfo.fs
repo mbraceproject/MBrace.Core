@@ -2,89 +2,87 @@
 
 open System
 open System.Reflection
-//open System.Runtime.CompilerServices
-open System.Threading
 open System.Threading.Tasks
 
 /// Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
-/// that is serializable and permits symbolic stacktrace appending
+/// that is serializable and permits symbolic appending to stacktrace
 [<Sealed; AutoSerializable(true)>]
-type ExceptionDispatchInfo private (sourceExn : exn, remoteStackTrace : string) =
-
-//    static let remoteTraceTable = new ConditionalWeakTable<exn, string ref>()
-
-    // ExceptionDispatchInfo leaks mutable state in the form of exception instances
-    // For reasons of sanity, copies of ExceptionDispatchInfo can only export state once,
-    // or deep cloned into a separate instance.
-    // This ensures correct use without the need to add serialization/deep cloning
-    // dependencies to the core library
-
-    [<NonSerialized; VolatileField>]
-    let mutable isConsumed = 0
-    let acquire () = 
-        if Interlocked.CompareExchange(&isConsumed, 1, 0) = 0 then ()
-        else
-            invalidOp "ExceptionDispatchInfo instance has already been consumed."
+type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) =
 
     [<Literal>]
     static let separator = "--- End of stack trace from previous location where exception was thrown ---"
 
     // resolve the internal stacktrace field in exception
     // this is implementation-sensitive so not guaranteed to work. 
-    static let remoteStackTraceField : FieldInfo =
-        let bfs = BindingFlags.NonPublic ||| BindingFlags.Instance
-        match typeof<System.Exception>.GetField("remote_stack_trace", bfs) with
-        | null -> typeof<System.Exception>.GetField("_remoteStackTraceString", bfs)
+    static let bindingFlags = BindingFlags.NonPublic ||| BindingFlags.Instance
+    static let stackTraceField : FieldInfo =
+        match typeof<System.Exception>.GetField("_stackTraceString", bindingFlags) with
+        | null -> typeof<System.Exception>.GetField("stack_trace", bindingFlags)
         | f -> f
 
-    static let trySetRemoteStackTraceField (trace : string) (e : exn) =
+    static let remoteStackTraceField : FieldInfo =
+        match typeof<System.Exception>.GetField("remote_stack_trace", bindingFlags) with
+        | null -> typeof<System.Exception>.GetField("_remoteStackTraceString", bindingFlags)
+        | f -> f
+
+    static let trySetStackTrace (trace : string) (e : exn) =
+        match stackTraceField with
+        | null -> false
+        | f -> f.SetValue(e, trace) ; true
+
+    static let trySetRemoteStackTrace (trace : string) (e : exn) =
         match remoteStackTraceField with
         | null -> false
-        | f -> remoteStackTraceField.SetValue(e, trace) ; true
+        | f -> f.SetValue(e, trace) ; true
 
     /// <summary>
     ///     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
     /// </summary>
     /// <param name="exn">Captured exception</param>
-    static member Capture(exn : exn) = new ExceptionDispatchInfo(exn, exn.StackTrace)
+    static member Capture(exn : exn) =
+        if exn = null then invalidArg "exn" "argument cannot be null."
+        new ExceptionDispatchInfo(exn, exn.StackTrace)
 
     /// <summary>
-    ///     Returns the source augmented with the remote stack trace.
+    ///     Returns contained exception with restored stacktrace state.
+    ///     This operation mutates exception contents, so should be used with care.
     /// </summary>
     /// <param name="useSeparator">Add a separator after remote stacktrace. Defaults to true.</param>
-    member __.Reify (useSeparator) : exn =
-        acquire ()
-        let newTrace =
-            if useSeparator then
-                sprintf "%s%s%s%s" remoteStackTrace Environment.NewLine separator Environment.NewLine
-            else
-                remoteStackTrace + Environment.NewLine
+    /// <param name="prepareForRaise">Prepare exception state for raise. Defaults to false.</param>
+    member __.Reify (?useSeparator : bool, ?prepareForRaise : bool) : exn =
+        let useSeparator = defaultArg useSeparator true
+        let prepareForRaise = defaultArg prepareForRaise false
+        lock sourceExn (fun () -> 
+            try ()
+            finally
+                let newTrace =
+                    if useSeparator then
+                        sourceStackTrace + Environment.NewLine + separator
+                    else
+                        sourceStackTrace
 
-        let _ = trySetRemoteStackTraceField newTrace sourceExn
-        sourceExn
+                if prepareForRaise then
+                    trySetRemoteStackTrace (newTrace + Environment.NewLine) sourceExn |> ignore
+                else
+                    trySetStackTrace newTrace sourceExn |> ignore
+                    trySetRemoteStackTrace null sourceExn |> ignore
 
-    member __.SourceException = sourceExn
-    member __.StackTrace = remoteStackTrace
-
-    member internal __.IsMatchingException(exn : exn) =
-        obj.ReferenceEquals(sourceExn, exn) && remoteStackTrace = exn.StackTrace
+            sourceExn)
 
     /// <summary>
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
     /// </summary>
     /// <param name="line">Line to be appended.</param>
-    member __.AppendToStackTrace(line : string) =
-        acquire()
-        let newTrace = sprintf "%s%s%s" remoteStackTrace Environment.NewLine line
+    member __.AppendToStackTrace(line : string) = 
+        let newTrace = sprintf "%s%s%s" sourceStackTrace Environment.NewLine line
         new ExceptionDispatchInfo(sourceExn, newTrace)
 
     /// <summary>
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
     /// </summary>
     /// <param name="line">Line to be appended.</param>
-    member __.AppendToStackTrace(lines : seq<string>) =
-        let line = String.concat Environment.NewLine lines
-        __.AppendToStackTrace line
+    member __.AppendToStackTrace(lines : seq<string>) = 
+        __.AppendToStackTrace(String.concat Environment.NewLine lines)
 
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -96,7 +94,7 @@ module ExceptionDispatchInfo =
     /// <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
     /// <param name="edi">Exception dispatch info to be raised.</param>
     let inline raise useSeparator (edi : ExceptionDispatchInfo) =
-        raise <| edi.Reify(useSeparator)
+        raise <| edi.Reify(useSeparator, prepareForRaise = true)
 
     /// <summary>
     ///     Immediately raises exception instance, preserving its current stacktrace
