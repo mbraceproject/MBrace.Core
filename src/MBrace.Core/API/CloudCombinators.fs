@@ -91,7 +91,8 @@ type Cloud =
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (computations : seq<Cloud<'T>>) : Cloud<'T []> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
-        return! runtime.ScheduleParallel computations
+        let workflow = runtime.ScheduleParallel computations
+        return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T>> computations)" workflow
     }
 
     /// <summary>
@@ -100,7 +101,8 @@ type Cloud =
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Choice (computations : seq<Cloud<'T option>>) : Cloud<'T option> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
-        return! runtime.ScheduleChoice computations
+        let workflow = runtime.ScheduleChoice computations
+        return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option>> computations)" workflow
     }
 
     /// <summary>
@@ -111,7 +113,8 @@ type Cloud =
     /// <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
     static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int) : Cloud<Cloud<'T>> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
-        return! runtime.ScheduleStartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
+        let! receiver = runtime.ScheduleStartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
+        return Cloud.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" receiver
     }
 
     /// <summary>

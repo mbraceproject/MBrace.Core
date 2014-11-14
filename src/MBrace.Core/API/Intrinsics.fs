@@ -83,8 +83,21 @@ type Cloud =
     /// </summary>
     /// <param name="mapper">Continuation mapping function.</param>
     /// <param name="workflow">Input workflow.</param>
+    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
     static member WithMappedContinuation (mapper : Continuation<'T> -> Continuation<'S>) (workflow : Cloud<'S>) =
         Body(fun ctx cont -> let (Body f) = workflow in f ctx (mapper cont))
+
+    /// <summary>
+    ///     Appends a function information entry to the symbolic stacktrace in the exception continuation.
+    /// </summary>
+    /// <param name="functionName">Function info string to be appended.</param>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
+    static member WithAppendedStackTrace (functionName : string) (workflow : Cloud<'T>) =
+        Body(fun ctx cont ->
+            let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
+            let (Body f) = workflow
+            f ctx cont')
 
     /// <summary>
     ///     Starts provided cloud workflow in the thread pool.

@@ -52,29 +52,29 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
     member __.Reify (?useSeparator : bool, ?prepareForRaise : bool) : exn =
         let useSeparator = defaultArg useSeparator true
         let prepareForRaise = defaultArg prepareForRaise false
-        lock sourceExn (fun () -> 
-            try ()
-            finally
-                let newTrace =
-                    if useSeparator then
-                        sourceStackTrace + Environment.NewLine + separator
-                    else
-                        sourceStackTrace
+        let newTrace =
+            if useSeparator then
+                sourceStackTrace + Environment.NewLine + separator
+            else
+                sourceStackTrace
 
+        try ()
+        finally
+            lock sourceExn (fun () ->
                 if prepareForRaise then
                     trySetRemoteStackTrace (newTrace + Environment.NewLine) sourceExn |> ignore
                 else
                     trySetStackTrace newTrace sourceExn |> ignore
-                    trySetRemoteStackTrace null sourceExn |> ignore
+                    trySetRemoteStackTrace null sourceExn |> ignore)
 
-            sourceExn)
+        sourceExn
 
     /// <summary>
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
     /// </summary>
     /// <param name="line">Line to be appended.</param>
     member __.AppendToStackTrace(line : string) = 
-        let newTrace = sprintf "%s%s%s" sourceStackTrace Environment.NewLine line
+        let newTrace = sourceStackTrace + Environment.NewLine + line
         new ExceptionDispatchInfo(sourceExn, newTrace)
 
     /// <summary>

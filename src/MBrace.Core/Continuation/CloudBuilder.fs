@@ -160,13 +160,7 @@ module internal CloudBuilderUtils =
 type CloudBuilder () =
     member __.Return (t : 'T) = ret t
     member __.Zero () = zero
-    member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> =
-        Body(fun ctx cont ->
-            let functionName = getMetadata f
-            let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi)}
-            let (Body f) = delay f
-            f ctx cont')
-
+    member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = delay f
     member __.ReturnFrom (c : Cloud<'T>) = c
     member __.Combine(f : Cloud<unit>, g : Cloud<'T>) = combine f g
     member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = bind f g
