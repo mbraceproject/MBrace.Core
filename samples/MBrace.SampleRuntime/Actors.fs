@@ -315,8 +315,9 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
     /// Heartbeat fault threshold
     member __.Threshold = threshold
     /// Initializes an asynchronous hearbeat sender workflow
-    member __.InitHeartBeat () =
-        let cts = new CancellationTokenSource()
+    member __.InitHeartBeat () = async {
+        let! ct = Async.CancellationToken
+        let cts = CancellationTokenSource.CreateLinkedTokenSource ct
         let rec heartbeat () = async {
             try source <-- SetLeaseState Acquired with _ -> ()
             do! Async.Sleep (int threshold.TotalMilliseconds / 2)
@@ -324,7 +325,8 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
         }
 
         Async.Start(heartbeat(), cts.Token)
-        { new IDisposable with member __.Dispose () = cts.Cancel () }
+        return { new IDisposable with member __.Dispose () = cts.Cancel () }
+    }
     
     /// <summary>
     ///     Initializes a new lease monitor.
