@@ -3,6 +3,7 @@
 open System.Diagnostics
 open System.Threading
 
+open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime.Actors
 open Nessos.MBrace.SampleRuntime.Tasks
 open Nessos.MBrace.SampleRuntime.RuntimeProvider
@@ -19,7 +20,7 @@ let printfn fmt = Printf.ksprintf System.Console.WriteLine fmt
 let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
 
     let localEndPoint = Nessos.MBrace.SampleRuntime.Config.getLocalEndpoint()
-    printfn "MBrace worker initialized on %O." localEndPoint
+    //printfn "MBrace worker initialized on %O." localEndPoint
     printfn "Listening to task queue at %O." runtime.IPEndPoint
 
     let currentTaskCount = ref 0
@@ -73,4 +74,21 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
 
     return! loop ()
 }
-        
+
+open Nessos.Thespian
+
+let workerManager (cts: CancellationTokenSource) (msg: WorkerManager) =
+    async {
+        match msg with
+        | SubscribeToRuntime(rc, runtimeStateStr, maxConcurrentTasks) ->
+            let runtimeState =
+                let bytes = System.Convert.FromBase64String(runtimeStateStr)
+                VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
+            Async.Start(initWorker runtimeState maxConcurrentTasks, cts.Token)
+            try do! rc.Reply() with e -> printfn "Failed to confirm worker subscription to client: %O" e
+            return cts
+        | Unsubscribe rc ->
+            cts.Cancel()
+            try do! rc.Reply() with e -> printfn "Failed to confirm worker unsubscription to client: %O" e
+            return new CancellationTokenSource()
+    }

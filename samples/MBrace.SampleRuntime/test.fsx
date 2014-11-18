@@ -4,11 +4,28 @@
 #r "MBrace.Library.dll"
 #r "MBrace.SampleRuntime.exe"
 
+open System
 open Nessos.MBrace
 open Nessos.MBrace.Library
 open Nessos.MBrace.SampleRuntime
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
+
+open System.Diagnostics
+
+let initWorkers (count : int) =
+    if count < 1 then invalidArg "workerCount" "must be positive."
+    let exe = MBraceRuntime.WorkerExecutable    
+    let psi = new ProcessStartInfo(exe, String.Empty)
+    psi.WorkingDirectory <- System.IO.Path.GetDirectoryName exe
+    psi.UseShellExecute <- true
+    [| for _ in 1..count -> Process.Start psi |]
+
+initWorkers 4
+
+let workers = [| "andor:60603"; "andor:60604"; "andor:60605"; "andor:60606" |]
+
+let r = MBraceRuntime.Init workers
 
 let runtime = MBraceRuntime.InitLocal(4)
 
@@ -20,11 +37,13 @@ let getWordCount inputSize =
 
 
 let t = runtime.RunAsTask(getWordCount 2000)
+let t' = r.RunAsTask(getWordCount 2000)
 do System.Threading.Thread.Sleep 3000
 runtime.KillAllWorkers() 
 runtime.AppendWorkers 4
 
 t.Result
+t'.Result
 
 let testFunc = cloud {
     let! result = Array.init 20 (fun i -> cloud { return if i = 15 then failwith "kaboom!" else i }) |> Cloud.Parallel

@@ -8,6 +8,8 @@
 
 open System.Diagnostics
 
+open Nessos.Thespian
+open Nessos.Thespian.Remote
 open Nessos.MBrace
 open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
@@ -15,13 +17,14 @@ open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime.Tasks
 
 /// IWorkerRef implementation for the runtime
-type Worker(proc : Process) =
-    let id = sprintf "sample runtime worker (pid %d)" proc.Id
+type Worker(procId : string) =
+    let id = sprintf "sample runtime worker (id %s)" procId
     interface IWorkerRef with
         member __.Id = id
         member __.Type = "sample runtime worker node"
 
-    static member LocalWorker = new Worker(Process.GetCurrentProcess())
+    static member LocalWorker = new Worker(Process.GetCurrentProcess().Id.ToString())
+    static member RemoteWorker(id: string) = new Worker(id)
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =

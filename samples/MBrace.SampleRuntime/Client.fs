@@ -4,6 +4,8 @@
     open System.Diagnostics
     open System.Threading
 
+    open Nessos.Thespian
+    open Nessos.Thespian.Remote
     open Nessos.MBrace
     open Nessos.MBrace.Runtime
     open Nessos.MBrace.Runtime.Compiler
@@ -35,8 +37,18 @@
             Array.init count (fun _ -> Process.Start psi)
 
         let mutable procs = [||]
-        let getWorkerRefs () = procs |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
+        let mutable workerManagers = Array.empty
+        let getWorkerRefs () =
+            if procs.Length > 0 then procs |> Array.map (fun (p: Process) -> new Worker(p.Id.ToString()) :> IWorkerRef)
+            else workerManagers |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
         let state = RuntimeState.InitLocal logger getWorkerRefs
+
+        let appendWorker (address: string) =
+            let url = sprintf "utcp://%s/workerManager" address
+            let workerManager = ActorRef.fromUri url
+            let state = Argument.ofRuntime state
+            workerManager <!= fun ch -> Actors.WorkerManager.SubscribeToRuntime(ch, state, 10)
+            workerManager.Id.ToString()
         
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
@@ -69,6 +81,15 @@
         member __.AppendWorkers (count : int) =
             let newProcs = initWorkers state count
             lock procs (fun () -> procs <- Array.append procs newProcs)
+
+        member __.AppendWorkers (addresses: string[]) =
+            lock workerManagers (fun () -> workerManagers <- addresses |> Array.map appendWorker)
+
+        static member Init(workers: string[], ?logger: string -> unit) =
+            let logger = defaultArg logger ignore
+            let client = new MBraceRuntime(logger)
+            client.AppendWorkers workers
+            client
 
         /// Initialize a new local rutime instance with supplied worker count.
         static member InitLocal(workerCount : int, ?logger : string -> unit) =

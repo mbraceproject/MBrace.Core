@@ -36,3 +36,4 @@ let private _initRuntimeState () =
 let initRuntimeState = runOnce _initRuntimeState
 /// returns the local ip endpoint used by Thespian
 let getLocalEndpoint () = initRuntimeState () ; TcpListenerPool.GetListener().LocalEndPoint
+let getAddress() = initRuntimeState () ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)

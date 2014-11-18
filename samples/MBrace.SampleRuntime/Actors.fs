@@ -494,3 +494,8 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     member __.ComputeDependencies (graph:'T) =
         VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true)
         |> List.map Utilities.ComputeAssemblyId
+
+
+type WorkerManager =
+    | SubscribeToRuntime of IReplyChannel<unit> * string * int
+    | Unsubscribe of IReplyChannel<unit>
