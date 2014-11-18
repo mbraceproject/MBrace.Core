@@ -42,7 +42,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                     let runTask () = async {
                         printfn "Starting task %s of type '%O'." task.TaskId task.Type
 
-                        use hb = leaseMonitor.InitHeartBeat()
+                        use! hb = leaseMonitor.InitHeartBeat()
 
                         let sw = new Stopwatch()
                         sw.Start()
