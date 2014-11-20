@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Serializer.fs" />
+    <Compile Include="ResourceRegistry.fs" />
     <Compile Include="CloudFile.fs" />
   </ItemGroup>
   <ItemGroup>

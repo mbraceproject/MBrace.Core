@@ -10,20 +10,20 @@ open Nessos.MBrace
 type CloudFile =
     
     [<NonSerialized>]
-    val mutable provider : ICloudFileProvider
-    val providerId : string
-    val path : string
+    val mutable private provider : ICloudFileProvider
+    val private providerId : string
+    val private path : string
 
     internal new (provider : ICloudFileProvider, path : string) =
         {
             provider = provider
-            providerId = CloudFileRegistry.GetId provider
+            providerId = ResourceRegistry<ICloudFileProvider>.GetId provider
             path = path
         }
 
     [<OnDeserializedAttribute>]
     member private __.OnDeserialized(_ : StreamingContext) =
-        __.provider <- CloudFileRegistry.GetProvider __.providerId
+        __.provider <- ResourceRegistry<ICloudFileProvider>.Resolve __.providerId
 
     member __.Path = __.path
     member __.Container = __.provider.GetFileContainer __.path
@@ -36,9 +36,7 @@ type CloudFile =
 
 
 and ICloudFileProvider =
-    
-    /// Unique file store identifier
-    abstract ProviderId : string
+    inherit IResource
 
     abstract GetFileContainer : path:string -> string
     abstract GetFileName : path:string -> string
@@ -99,15 +97,3 @@ and ICloudFileProvider =
     /// <param name="path">Path to new file.</param>
     abstract CreateFile : path:string -> Async<Stream>
     abstract ReadFile : path:string -> Async<Stream>
-
-and CloudFileRegistry private () =
-
-    static let index = new System.Collections.Concurrent.ConcurrentDictionary<string, ICloudFileProvider> ()
-    static member GetId (p : ICloudFileProvider) = p.GetType().FullName + ":" + p.ProviderId
-    static member Register(p : ICloudFileProvider) = index.AddOrUpdate(CloudFileRegistry.GetId p, p, fun _ p' -> p')
-    static member GetProvider(id : string) =
-        let mutable provider = Unchecked.defaultof<_>
-        let ok = index.TryGetValue(id, &provider)
-        if ok then provider
-        else
-            invalidOp "could not locate '%s'." id
