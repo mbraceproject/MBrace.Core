@@ -32,7 +32,7 @@ type Nessos.MBrace.Store.CloudFile with
     /// <param name="path">Input path to cloud file.</param>
     static member FromPath(path : string) = cloud {
         let! provider = Cloud.GetResource<ICloudFileProvider> ()
-        return! Cloud.OfAsync <| provider.GetFile(path)
+        return! Cloud.OfAsync <| provider.FromPath(path)
     }
 
     /// <summary> 
@@ -40,10 +40,8 @@ type Nessos.MBrace.Store.CloudFile with
     /// </summary>
     /// <param name="cloudFile">CloudFile to read.</param>
     /// <param name="deserializer">Function that reads data from the underlying stream.</param>
-    static member Read(cloudFile : CloudFile, deserializer : Stream -> Async<'T>) : Cloud<'T> = cloud {
-        let! provider = Cloud.GetResource<ICloudFileProvider> ()
-        return! Cloud.OfAsync <| provider.Read(cloudFile, deserializer)
-    }
+    static member Read(cloudFile : CloudFile, deserializer : Stream -> Async<'T>) : Cloud<'T> =
+        Cloud.OfAsync <| cloudFile.Read deserializer
 
     /// <summary> 
     ///     Returns all CloudFiles in given container.

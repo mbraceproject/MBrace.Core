@@ -129,7 +129,17 @@ type CloudFile =
     member __.ProviderId = __.providerId
 
     /// Asynchronously returns a reading stream to file.
-    member __.AsyncRead () = __.provider.BeginRead __.path
+    member __.BeginRead () : Async<Stream> = __.provider.BeginRead __.path
+
+    /// <summary>
+    ///     Reads the contents of provided cloud file using provided deserializer.
+    /// </summary>
+    /// <param name="file">cloud file to be read.</param>
+    /// <param name="deserializer">deserializing function.</param>
+    member __.Read(deserializer : Stream -> Async<'T>) : Async<'T> = async {
+        use! stream = __.BeginRead()
+        return! deserializer stream
+    }
 
     interface ICloudDisposable with
         member __.Dispose () = __.provider.DeleteFile __.path
@@ -155,7 +165,7 @@ module CloudFileUtils =
         ///     Creates a CloudFile instance from existing path.
         /// </summary>
         /// <param name="path">Path to be wrapped.</param>
-        member p.GetFile(path : string) = async {
+        member p.FromPath(path : string) = async {
             let! exists = p.FileExists path
             return
                 if exists then new CloudFile(p, path)
@@ -164,7 +174,7 @@ module CloudFileUtils =
         }
 
         /// <summary>
-        ///     Enumerates all entries as Cloud file instances.s
+        ///     Enumerates all entries as Cloud file instances.
         /// </summary>
         /// <param name="container">Cotnainer to be enumerated.</param>
         member p.EnumerateCloudFiles(container : string) = async {
@@ -173,37 +183,10 @@ module CloudFileUtils =
         }
 
         /// <summary>
-        ///     Reads the contents of provided cloud file using provided deserializer.
-        /// </summary>
-        /// <param name="file">cloud file to be read.</param>
-        /// <param name="deserializer">deserializing function.</param>
-        member p.Read(file : CloudFile, deserializer : Stream -> Async<'T>) = async {
-            use! stream = p.BeginRead file.Path
-            return! deserializer stream
-        }
-
-        /// <summary>
-        ///     Copy the contents of stream to given cloud file.
-        /// </summary>
-        /// <param name="source">Source stream.</param>
-        /// <param name="targetFile">Target file.</param>
-        member p.OfStream(source : Stream, targetFile : string) = async {
-            do! p.OfStream(source, targetFile)
-            return new CloudFile(p, targetFile)
-        }
-
-        /// <summary>
-        ///     Copy the contents of given cloud file to local stream.
-        /// </summary>
-        /// <param name="sourceFile">Source cloud file.</param>
-        /// <param name="target">Target stream.</param>
-        member p.ToStream(sourceFile : CloudFile, target : Stream) = p.ToStream(sourceFile.Path, target)
-
-        /// <summary>
         ///     Delete given cloud file.
         /// </summary>
         /// <param name="file">Cloud file.</param>
-        member p.Delete(file : CloudFile) = p.DeleteFile file.Path
+        member p.Delete(file : CloudFile) = (file :> ICloudDisposable).Dispose()
 
         /// <summary>
         ///     Checks if cloud file exists in store.
