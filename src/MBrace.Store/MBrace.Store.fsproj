@@ -42,10 +42,11 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DependencyRegistry.fs" />
     <Compile Include="Serializer.fs" />
-    <Compile Include="ResourceRegistry.fs" />
     <Compile Include="CloudFile.fs" />
     <Compile Include="CloudAtom.fs" />
+    <Compile Include="CloudRef.fs" />
     <Compile Include="StoreCombinators.fs" />
   </ItemGroup>
   <ItemGroup>

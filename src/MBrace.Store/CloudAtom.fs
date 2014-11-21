@@ -11,6 +11,8 @@ open Nessos.MBrace.Runtime
 type ICloudAtomProvider =
     inherit IResource
 
+    abstract IsSupportedValue : 'T -> bool
+
     /// <summary>
     ///     Checks if entry with provided key exists.
     /// </summary>
@@ -67,13 +69,13 @@ type CloudAtom<'T> =
     internal new (provider : ICloudAtomProvider, id : string) =
         {
             provider = provider
-            providerId = ResourceRegistry<ICloudAtomProvider>.GetId provider
+            providerId = Dependency.GetId<ICloudAtomProvider> provider
             id = id
         }
 
     [<OnDeserializedAttribute>]
     member private __.OnDeserialized(_ : StreamingContext) =
-        __.provider <- ResourceRegistry<ICloudAtomProvider>.Resolve __.providerId
+        __.provider <- Dependency.Resolve<ICloudAtomProvider> __.providerId
     
     /// Atom identifier
     member __.Id = __.id
@@ -103,10 +105,10 @@ type CloudAtom<'T> =
     /// <summary>
     ///     Asynchronously returns the contained value for given atom.
     /// </summary>
-    member __.GetValue () = __.provider.GetValue __.id
+    member __.GetValue () = __.provider.GetValue<'T> __.id
 
     /// Synchronously returns the contained value for given atom.
-    member __.Value = Async.RunSync (__.provider.GetValue __.id)
+    member __.Value = Async.RunSync (__.provider.GetValue<'T> __.id)
 
     interface ICloudDisposable with
         member __.Dispose () = __.provider.Delete __.id

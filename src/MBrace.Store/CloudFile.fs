@@ -110,12 +110,12 @@ type CloudFile =
 
     [<OnDeserializedAttribute>]
     member private __.OnDeserialized(_ : StreamingContext) =
-        __.provider <- ResourceRegistry<ICloudFileProvider>.Resolve __.providerId
+        __.provider <- Dependency.Resolve<ICloudFileProvider> __.providerId
 
     internal new (provider : ICloudFileProvider, path : string) =
         {
             provider = provider
-            providerId = ResourceRegistry<ICloudFileProvider>.GetId provider
+            providerId = Dependency.GetId<ICloudFileProvider> provider
             path = path
         }
 

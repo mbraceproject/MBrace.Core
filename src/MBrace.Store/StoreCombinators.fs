@@ -96,3 +96,27 @@ type CloudAtom =
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
     static member Delete (atom : CloudAtom<'T>) = Cloud.Dispose atom
+
+/// Represents an immutable reference to an
+/// object that is persisted in the underlying store.
+/// Cloud references are cached locally for performance.
+type CloudRef<'T> = Nessos.MBrace.Store.CloudRef<'T>
+
+/// Cloud reference methods.
+type CloudRef =
+
+    /// <summary>
+    ///     Creates a new cloud reference to the underlying store with provided value.
+    ///     Cloud references are immutable and cached locally for performance.
+    /// </summary>
+    /// <param name="value">Cloud reference value.</param>
+    static member New(value : 'T) = cloud {
+        let! storeP = Cloud.GetResource<StoreProvider> ()
+        return CloudRef.Create(value, storeP)
+    }
+
+    /// <summary>
+    ///     Dereference a Cloud reference.
+    /// </summary>
+    /// <param name="cloudRef">CloudRef to be dereferenced.</param>
+    static member Read(cref : CloudRef<'T>) = Cloud.OfAsync <| cref.GetValue()
