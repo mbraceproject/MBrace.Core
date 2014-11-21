@@ -46,6 +46,7 @@
     <Compile Include="ResourceRegistry.fs" />
     <Compile Include="CloudFile.fs" />
     <Compile Include="CloudAtom.fs" />
+    <Compile Include="StoreCombinators.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj">

@@ -7,9 +7,9 @@ type IResource =
     /// such as a server endpoint or connection string.
     abstract UUID : string
 
-type ResourceRegistry<'TResource when 'TResource :> IResource> private () =
+type internal ResourceRegistry<'TResource when 'TResource :> IResource> private () =
     static let index = new ConcurrentDictionary<string, 'TResource> ()
-    static member GetId (resource : 'TResource) = resource.GetType().FullName + " : " + resource.UUID
+    static member GetId (resource : 'TResource) = resource.UUID
     static member Register(resource : 'TResource) = 
         index.AddOrUpdate(ResourceRegistry<'TResource>.GetId resource, resource, fun _ _ -> resource)
 
@@ -19,3 +19,7 @@ type ResourceRegistry<'TResource when 'TResource :> IResource> private () =
         if ok then provider
         else
             invalidOp "could not recover resource %s." id
+
+and ResourceRegistry =
+    static member Register<'TResource when 'TResource :> IResource> (resource : 'TResource) =
+        ResourceRegistry<'TResource>.Register(resource)
