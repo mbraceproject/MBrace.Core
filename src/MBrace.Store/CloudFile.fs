@@ -24,6 +24,12 @@ type ICloudFileProvider =
     abstract GetFileName : path:string -> string
 
     /// <summary>
+    ///     Returns the file size in bytes.
+    /// </summary>
+    /// <param name="path">Input file path.</param>
+    abstract GetFileSize : path:string -> Async<int64>
+
+    /// <summary>
     ///     Checks if path to filer/container is of valid format.
     /// </summary>
     /// <param name="path"></param>
@@ -127,6 +133,9 @@ type CloudFile =
     member __.Name = __.provider.GetFileName __.path
     /// Cloud service unique identifier
     member __.ProviderId = __.providerId
+
+    /// Returns the file size in bytes
+    member __.GetSizeAsync () = __.provider.GetFileSize __.path 
 
     /// Asynchronously returns a reading stream to file.
     member __.BeginRead () : Async<Stream> = __.provider.BeginRead __.path

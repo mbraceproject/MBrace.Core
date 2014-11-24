@@ -120,3 +120,22 @@ type CloudRef =
     /// </summary>
     /// <param name="cloudRef">CloudRef to be dereferenced.</param>
     static member Read(cref : CloudRef<'T>) = Cloud.OfAsync <| cref.GetValue()
+
+
+/// Represents a finite and immutable sequence of
+/// elements that is persisted in the underlying store
+/// and can be enumerated on demand.
+type CloudSeq<'T> = Nessos.MBrace.Store.CloudSeq<'T>
+
+/// Cloud sequence methods.
+type CloudSeq =
+
+    /// <summary>
+    ///     Creates a new cloud sequence with given values in the underlying store.
+    ///     Cloud sequences are cached locally for performance.
+    /// </summary>
+    /// <param name="values">Collection to populate the cloud sequence with.</param>
+    static member New(values : seq<'T>) = cloud {
+        let! storeP = Cloud.GetResource<StoreProvider> ()
+        return! Cloud.OfAsync <| CloudSeq<'T>.Create(values, storeP)
+    }

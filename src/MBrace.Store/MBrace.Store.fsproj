@@ -47,6 +47,7 @@
     <Compile Include="CloudFile.fs" />
     <Compile Include="CloudAtom.fs" />
     <Compile Include="CloudRef.fs" />
+    <Compile Include="CloudSeq.fs" />
     <Compile Include="StoreCombinators.fs" />
   </ItemGroup>
   <ItemGroup>
