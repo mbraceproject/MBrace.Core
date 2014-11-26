@@ -38,12 +38,17 @@ type ISerializer =
     abstract SeqDeserialize<'T> : source:Stream * length:int -> seq<'T>
 
 
-/// Global store registy; used for bootstrapping store connection settings on
-/// data primitive deserialization.
+/// Global serialization registy; used for bootstrapping data deserialization
+/// in storage primitives
 type SerializerRegistry private () =
     static let registry = new System.Collections.Concurrent.ConcurrentDictionary<string, ISerializer> ()
 
-    static member Register(serializer : ISerializer, ?force) = 
+    /// <summary>
+    ///     Registers a serializer instance.
+    /// </summary>
+    /// <param name="serializer">Serializer to be registered.</param>
+    /// <param name="force">Force overwrite. Defaults to false.</param>
+    static member Register(serializer : ISerializer, ?force : bool) : unit =
         if defaultArg force false then
             registry.AddOrUpdate(serializer.Id, serializer, fun _ _ -> serializer) |> ignore
         elif registry.TryAdd(serializer.Id, serializer) then ()
@@ -51,7 +56,11 @@ type SerializerRegistry private () =
             let msg = sprintf "SerializerRegistry: a serializer with id '%O' already exists in registry." id
             invalidOp msg
 
-    static member Resolve(id : string) = 
+    /// <summary>
+    ///     Resolves a registered serializer instance by id.
+    /// </summary>
+    /// <param name="id">Serializer id.</param>
+    static member Resolve(id : string) : ISerializer = 
         let mutable serializer = Unchecked.defaultof<ISerializer>
         if registry.TryGetValue(id, &serializer) then serializer
         else

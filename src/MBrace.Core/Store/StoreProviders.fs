@@ -178,7 +178,12 @@ and ICloudStoreActivator =
 type CloudStoreRegistry private () =
     static let registry = new System.Collections.Concurrent.ConcurrentDictionary<string, ICloudStore> ()
 
-    static member Register(store : ICloudStore, ?force) = 
+    /// <summary>
+    ///     Registers a cloudstore instance. 
+    /// </summary>
+    /// <param name="store">Store to be registered.</param>
+    /// <param name="force">Force overwrite. Defaults to false.</param>
+    static member Register(store : ICloudStore, ?force : bool) : unit = 
         if defaultArg force false then
             registry.AddOrUpdate(store.UUID, store, fun _ _ -> store) |> ignore
         elif registry.TryAdd(store.UUID, store) then ()
@@ -186,17 +191,25 @@ type CloudStoreRegistry private () =
             let msg = sprintf "CloudStoreRegistry: a store with id '%O' already exists in registry." id
             invalidOp msg
 
-    static member Resolve(id : string) = 
+    /// <summary>
+    ///     Resolves a registerd cloudstore instance by UUID.
+    /// </summary>
+    /// <param name="id">CloudStore UUID.</param>
+    static member Resolve(id : string) : ICloudStore = 
         let mutable store = Unchecked.defaultof<ICloudStore>
         if registry.TryGetValue(id, &store) then store
         else
             let msg = sprintf "CloudStoreRegistry: no store with id '%O' could be resolved." id
             invalidOp msg
 
-
+/// Provides a collection of parameters required
+/// for cloud storage operations in MBrace.
 type CloudStoreConfiguration =
     {
+        /// Cloud store implementation
         Store : ICloudStore
+        /// Serializer used for persisting .NET objects in store
         Serializer : ISerializer
+        /// Default FileStore container
         DefaultContainer : string
     }

@@ -17,19 +17,19 @@ type Nessos.MBrace.CloudFile with
     /// </summary>
     /// <param name="serializer">Function that will write data on the underlying stream.</param>
     /// <param name="uri">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
-    static member Create(serializer : Stream -> Async<unit>, ?path : string) : Cloud<CloudFile> = cloud {
-        let! storeConfig = Cloud.GetResource<CloudStoreConfiguration> ()
-        let path = match path with Some p -> p | None -> storeConfig.Store.FileStore.CreateUniqueFileName storeConfig.DefaultContainer
-        return! Cloud.OfAsync <| storeConfig.Store.CreateFile(path, serializer)
+    static member New(serializer : Stream -> Async<unit>, ?path : string) : Cloud<CloudFile> = cloud {
+        let! csc = Cloud.GetResource<CloudStoreConfiguration> ()
+        let path = match path with Some p -> p | None -> csc.Store.FileStore.CreateUniqueFileName csc.DefaultContainer
+        return! Cloud.OfAsync <| csc.CreateFile(path, serializer)
     }
 
     /// <summary>
     ///     Returns an existing cloud file instance from provided path.
     /// </summary>
     /// <param name="path">Input path to cloud file.</param>
-    static member FromPath(path : string) = cloud {
-        let! storeConfig = Cloud.GetResource<CloudStoreConfiguration> ()
-        return! Cloud.OfAsync <| storeConfig.Store.FromPath(path)
+    static member FromPath(path : string) : Cloud<CloudFile> = cloud {
+        let! csc = Cloud.GetResource<CloudStoreConfiguration> ()
+        return! Cloud.OfAsync <| csc.FromPath(path)
     }
 
     /// <summary> 
@@ -45,8 +45,8 @@ type Nessos.MBrace.CloudFile with
     /// </summary>
     /// <param name="container">The container (folder) to search.</param>
     static member Enumerate(container : string) : Cloud<CloudFile []> = cloud {
-        let! storeConfig = Cloud.GetResource<CloudStoreConfiguration> ()
-        return! Cloud.OfAsync <| storeConfig.Store.EnumerateCloudFiles container
+        let! csc = Cloud.GetResource<CloudStoreConfiguration> ()
+        return! Cloud.OfAsync <| csc.EnumerateCloudFiles container
     }
 
 /// CloudAtom utility functions
@@ -56,9 +56,9 @@ type CloudAtom =
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    static member Create<'T>(initial : 'T) = cloud {
-        let! storeConfig = Cloud.GetResource<CloudStoreConfiguration> ()
-        return! Cloud.OfAsync <| storeConfig.Store.CreateAtom initial
+    static member New<'T>(initial : 'T) : Cloud<CloudAtom<'T>> = cloud {
+        let! csc = Cloud.GetResource<CloudStoreConfiguration> ()
+        return! Cloud.OfAsync <| csc.CreateAtom initial
     }
 
     /// <summary>
@@ -66,7 +66,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    static member Update (updateF : 'T -> 'T) (atom : CloudAtom<'T>) = 
+    static member Update (updateF : 'T -> 'T) (atom : CloudAtom<'T>) : Cloud<unit> = 
         Cloud.OfAsync <| atom.Update updateF
 
     /// <summary>
@@ -74,7 +74,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    static member Force (value : 'T) (atom : CloudAtom<'T>) =
+    static member Force (value : 'T) (atom : CloudAtom<'T>) : Cloud<unit> =
         Cloud.OfAsync <| atom.Force value
 
     /// <summary>
@@ -82,7 +82,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="trasactF"></param>
     /// <param name="atom"></param>
-    static member Transact (trasactF : 'T -> 'R * 'T) (atom : CloudAtom<'T>) =
+    static member Transact (trasactF : 'T -> 'R * 'T) (atom : CloudAtom<'T>) : Cloud<'R> =
         Cloud.OfAsync <| atom.Transact trasactF
 
     /// <summary>
@@ -90,6 +90,28 @@ type CloudAtom =
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
     static member Delete (atom : CloudAtom<'T>) = Cloud.Dispose atom
+
+
+/// Cloud reference methods.
+type CloudRef =
+
+    /// <summary>
+    ///     Creates a new cloud reference to the underlying store with provided value.
+    ///     Cloud references are immutable and cached locally for performance.
+    /// </summary>
+    /// <param name="value">Cloud reference value.</param>
+    /// <param name="container">FileStore container used for cloud req. Defaults to process default.</param>
+    /// <param name="serializer">Serialization used for object serialization. Default to runtime default.</param>
+    static member New(value : 'T, ?container : string, ?serializer : ISerializer) : Cloud<CloudRef<'T>> = cloud {
+        let! csc = Cloud.GetResource<CloudStoreConfiguration> ()
+        return! Cloud.OfAsync <| csc.CreateCloudRef(value, ?container = container, ?serializer = serializer)
+    }
+
+    /// <summary>
+    ///     Dereference a Cloud reference.
+    /// </summary>
+    /// <param name="cloudRef">CloudRef to be dereferenced.</param>
+    static member Read(cloudRef : CloudRef<'T>) : Cloud<'T> = Cloud.OfAsync <| cloudRef.GetValue()
 
 
 /// Cloud sequence methods.
@@ -100,7 +122,9 @@ type CloudSeq =
     ///     Cloud sequences are cached locally for performance.
     /// </summary>
     /// <param name="values">Collection to populate the cloud sequence with.</param>
-    static member New(values : seq<'T>) = cloud {
-        let! storeConfig = Cloud.GetResource<CloudStoreConfiguration> ()
-        return! Cloud.OfAsync <| storeConfig.Store.CreateCloudSeq<'T>(values, storeConfig.DefaultContainer, storeConfig.Serializer)
+    /// <param name="container">FileStore container used for cloud req. Defaults to process default.</param>
+    /// <param name="serializer">Serialization used for object serialization. Default to runtime default.</param>
+    static member New(values : seq<'T>, ?container, ?serializer) : Cloud<CloudSeq<'T>> = cloud {
+        let! csc = Cloud.GetResource<CloudStoreConfiguration> ()
+        return! Cloud.OfAsync <| csc.CreateCloudSeq<'T>(values, ?container = container, ?serializer = serializer)
     }

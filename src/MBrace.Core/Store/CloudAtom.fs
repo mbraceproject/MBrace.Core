@@ -9,7 +9,7 @@ open Nessos.MBrace.Runtime
 
 /// Represent a distributed atomically updatable value container
 [<Sealed; AutoSerializable(true)>]
-type CloudAtom<'T> internal (store : ICloudStore, id : string) =
+type CloudAtom<'T> private (store : ICloudStore, id : string) =
 
     [<NonSerialized>]
     let mutable tableStore = store.TableStore
@@ -76,9 +76,9 @@ open Nessos.MBrace.Runtime
 [<AutoOpen>]
 module CloudAtomUtils =
 
-    type ICloudStore with
+    type CloudStoreConfiguration with
         /// <summary>
         ///     Creates a new atom instance.
         /// </summary>
         /// <param name="init">Initial value.s</param>
-        member s.CreateAtom<'T> (init : 'T) = CloudAtom<'T>.Create(init, s)
+        member csc.CreateAtom<'T> (init : 'T) = CloudAtom<'T>.Create(init, csc.Store)

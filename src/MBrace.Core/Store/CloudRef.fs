@@ -87,7 +87,14 @@ open Nessos.MBrace
 [<AutoOpen>]
 module CloudRefUtils =
 
-    type ICloudStore with
-
-        member s.CreateCloudRef(value : 'T, container : string, serializer : ISerializer) = 
-            CloudRef<'T>.Create(value, container, s, serializer)
+    type CloudStoreConfiguration with
+        /// <summary>
+        ///     Creates a new cloud ref
+        /// </summary>
+        /// <param name="value">Value for cloud ref.</param>
+        /// <param name="container">FileStore container used for cloud ref. Defaults to configuration container.</param>
+        /// <param name="serializer">Serialization used for object serialization. Default to configuration serializer.</param>
+        member csc.CreateCloudRef(value : 'T, ?container : string, ?serializer) = 
+            let serializer = defaultArg serializer csc.Serializer
+            let container = defaultArg container csc.DefaultContainer
+            CloudRef<'T>.Create(value, container, csc.Store, serializer)

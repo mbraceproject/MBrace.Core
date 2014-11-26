@@ -61,6 +61,14 @@ open Nessos.MBrace
 [<AutoOpen>]
 module CloudSeqUtils =
 
-    type ICloudStore with
-        member s.CreateCloudSeq<'T>(values : seq<'T>, container : string, serializer : ISerializer) =
-            CloudSeq<'T>.Create(values, container, s, serializer)
+    type CloudStoreConfiguration with
+        /// <summary>
+        ///     Creates a new CloudSeq instance
+        /// </summary>
+        /// <param name="values">Values to be serialized.</param>
+        /// <param name="container">FileStore container used for cloud ref. Defaults to configuration container.</param>
+        /// <param name="serializer">Serialization used for object serialization. Default to configuration serializer.</param>
+        member csc.CreateCloudSeq<'T>(values : seq<'T>, ?container : string, ?serializer) =
+            let container = defaultArg container csc.DefaultContainer
+            let serializer = defaultArg serializer csc.Serializer
+            CloudSeq<'T>.Create(values, container, csc.Store, serializer)

@@ -58,27 +58,27 @@ open Nessos.MBrace
 [<AutoOpen>]
 module CloudFileUtils =
 
-    type ICloudStore with
+    type CloudStoreConfiguration with
         
         /// <summary>
         ///     Creates a new CloudFile instance using provided serializing function.
         /// </summary>
         /// <param name="path">Path to Cloudfile.</param>
         /// <param name="serializer">Serializing function.</param>
-        member s.CreateFile(path : string, serializer : Stream -> Async<unit>) = async {
-            use! stream = s.FileStore.BeginWrite path
+        member csc.CreateFile(path : string, serializer : Stream -> Async<unit>) = async {
+            use! stream = csc.Store.FileStore.BeginWrite path
             do! serializer stream
-            return new CloudFile(s, path)
+            return new CloudFile(csc.Store, path)
         }
 
         /// <summary>
         ///     Creates a CloudFile instance from existing path.
         /// </summary>
         /// <param name="path">Path to be wrapped.</param>
-        member s.FromPath(path : string) = async {
-            let! exists = s.FileStore.FileExists path
+        member csc.FromPath(path : string) = async {
+            let! exists = csc.Store.FileStore.FileExists path
             return
-                if exists then new CloudFile(s, path)
+                if exists then new CloudFile(csc.Store, path)
                 else
                     raise <| new FileNotFoundException(path)
         }
@@ -87,19 +87,19 @@ module CloudFileUtils =
         ///     Enumerates all entries as Cloud file instances.
         /// </summary>
         /// <param name="container">Cotnainer to be enumerated.</param>
-        member s.EnumerateCloudFiles(container : string) = async {
-            let! files = s.FileStore.EnumerateFiles container
-            return files |> Array.map (fun f -> new CloudFile(s, f))
+        member csc.EnumerateCloudFiles(container : string) = async {
+            let! files = csc.Store.FileStore.EnumerateFiles container
+            return files |> Array.map (fun f -> new CloudFile(csc.Store, f))
         }
 
         /// <summary>
         ///     Delete given cloud file.
         /// </summary>
         /// <param name="file">Cloud file.</param>
-        member s.Delete(file : CloudFile) = (file :> ICloudDisposable).Dispose()
+        member csc.Delete(file : CloudFile) = (file :> ICloudDisposable).Dispose()
 
         /// <summary>
         ///     Checks if cloud file exists in store.
         /// </summary>
         /// <param name="file">File to be examined.</param>
-        member s.Exists(file : CloudFile) = s.FileStore.FileExists file.Path
+        member csc.Exists(file : CloudFile) = csc.Store.FileStore.FileExists file.Path
