@@ -192,3 +192,11 @@ type CloudStoreRegistry private () =
         else
             let msg = sprintf "CloudStoreRegistry: no store with id '%O' could be resolved." id
             invalidOp msg
+
+
+type CloudStoreConfiguration =
+    {
+        Store : ICloudStore
+        Serializer : ISerializer
+        DefaultContainer : string
+    }
