@@ -6,41 +6,47 @@ open System.IO
 open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
 
-type private CloudRefStorageSource<'T> =
-    | Entry of CloudAtom<'T>
-    | File of serializerId:string * CloudFile
-with
-    member s.ReadValue () = async {
-        match s with
-        | Entry a -> return! a.GetValue()
-        | File(serializerId, file) ->
-            let serializer = Dependency.Resolve<ISerializer> serializerId
-            use! stream = file.BeginRead()
-            return serializer.Deserialize<'T>(stream)
-    }
-
-    member s.Disposable =
-        match s with
-        | Entry a -> a :> ICloudDisposable
-        | File(_,f) -> f :> ICloudDisposable
+type private CloudRefStorageSource =
+    | Table of id:string
+    | File of serializerId:string * path:string
 
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.
 /// Cloud references are cached locally for performance.
 [<Sealed; AutoSerializable(true)>]
-type CloudRef<'T> private (init : 'T, source : CloudRefStorageSource<'T>) =
+type CloudRef<'T> private (init : 'T, source : CloudRefStorageSource, store : ICloudStore) =
 
     // conveniently, the uninitialized value for optional fields coincides with 'None'.
     // a more correct approach would initialize using an OnDeserialized callback
     [<NonSerialized>]
     let mutable cachedValue = Some init
+    [<NonSerialized>]
+    let mutable localStore = Some store
+    let storeId = store.UUID
+    // delayed store bootstrapping after deserialization
+    let getStore() =
+        match localStore with
+        | Some s -> s
+        | None ->
+            let s = CloudStoreRegistry.Resolve storeId
+            localStore <- Some s
+            s
+
+    let getValue () = async {
+        match source with
+        | Table id -> return! getStore().TableStore.Value.GetValue id
+        | File(serializerId, path) ->
+            let serializer = SerializerRegistry.Resolve serializerId
+            use! stream = getStore().FileStore.BeginRead path
+            return serializer.Deserialize<'T>(stream)
+    }
 
     /// Asynchronously dereferences the cloud ref.
     member __.GetValue () = async {
         match cachedValue with
         | Some v -> return v
         | None ->
-            let! v = source.ReadValue()
+            let! v = getValue ()
             cachedValue <- Some v
             return v
     }
@@ -50,20 +56,38 @@ type CloudRef<'T> private (init : 'T, source : CloudRefStorageSource<'T>) =
         match cachedValue with
         | Some v -> v
         | None ->
-            let v = source.ReadValue() |> Async.RunSync
+            let v = getValue () |> Async.RunSync
             cachedValue <- Some v
             v
 
     interface ICloudDisposable with
-        member __.Dispose () = source.Disposable.Dispose()
+        member __.Dispose () = async {
+            match source with
+            | Table id -> return! getStore().TableStore.Value.Delete id
+            | File(_, id) -> return! getStore().FileStore.DeleteFile id
+        }
 
-    static member internal Create(value : 'T, config : CloudStoreConfiguration) = async {
-        match config.AtomProvider with
+    static member internal Create(value : 'T, container : string, store : ICloudStore, serializer : ISerializer) = async {
+        match store.TableStore with
         | Some ap when ap.IsSupportedValue value ->
-            let! atom = ap.CreateAtom value
-            return new CloudRef<'T>(value, Entry atom)
+            let! id = ap.Create value
+            return new CloudRef<'T>(value, Table id, store)
         | _ ->
-            let fileName = config.FileProvider.CreateUniqueFileName "TODO : implement process-bound container name"
-            let! file = config.FileProvider.CreateFile(fileName, fun stream -> async { return config.Serializer.Serialize(stream, value) })
-            return new CloudRef<'T>(value, File(config.Serializer.UUID, file))
+            let fileName = store.FileStore.CreateUniqueFileName container
+            use! stream = store.FileStore.BeginWrite fileName
+            do serializer.Serialize(stream, value)
+            return new CloudRef<'T>(value, File(serializer.Id, fileName), store)
     }
+
+
+namespace Nessos.MBrace.Store
+
+open Nessos.MBrace
+
+[<AutoOpen>]
+module CloudRefUtils =
+
+    type ICloudStore with
+
+        member s.CreateCloudRef(value : 'T, container : string, serializer : ISerializer) = 
+            CloudRef<'T>.Create(value, container, s, serializer)

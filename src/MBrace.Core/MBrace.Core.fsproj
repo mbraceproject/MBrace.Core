@@ -66,13 +66,13 @@
     <Compile Include="Cloud\RuntimeProvider.fs" />
     <Compile Include="Cloud\Intrinsics.fs" />
     <Compile Include="Cloud\CloudCombinators.fs" />
-    <Compile Include="Store\Registry.fs" />
-    <Compile Include="Store\CloudAtom.fs" />
+    <Compile Include="Store\Serialization.fs" />
+    <Compile Include="Store\StoreProviders.fs" />
     <Compile Include="Store\CloudFile.fs" />
-    <Compile Include="Store\StoreConfiguration.fs" />
-    <Compile Include="Store\StoreCombinators.fs" />
+    <Compile Include="Store\CloudAtom.fs" />
     <Compile Include="Store\CloudRef.fs" />
     <Compile Include="Store\CloudSeq.fs" />
+    <Compile Include="Store\StoreCombinators.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

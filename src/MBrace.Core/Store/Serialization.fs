@@ -1,10 +1,13 @@
 ﻿namespace Nessos.MBrace.Store
 
+open System
 open System.IO
 
-/// Serializer abstraction
+/// Serialization abstraction
 type ISerializer =
-    inherit IResource
+
+    /// Serializer identifier
+    abstract Id : string
 
     /// <summary>
     ///     Serializes a value to stream.
@@ -35,13 +38,22 @@ type ISerializer =
     abstract SeqDeserialize<'T> : source:Stream * length:int -> seq<'T>
 
 
-/// Store configuration
-type CloudStoreConfiguration =
-    {
-        Serializer : ISerializer
-        AtomProvider : ICloudAtomProvider option
+/// Global store registy; used for bootstrapping store connection settings on
+/// data primitive deserialization.
+type SerializerRegistry private () =
+    static let registry = new System.Collections.Concurrent.ConcurrentDictionary<string, ISerializer> ()
 
-        /// Default cloud file container for current execution contexts
-        DefaultContainer : string
-        FileProvider : ICloudFileProvider
-    }
+    static member Register(serializer : ISerializer, ?force) = 
+        if defaultArg force false then
+            registry.AddOrUpdate(serializer.Id, serializer, fun _ _ -> serializer) |> ignore
+        elif registry.TryAdd(serializer.Id, serializer) then ()
+        else
+            let msg = sprintf "SerializerRegistry: a serializer with id '%O' already exists in registry." id
+            invalidOp msg
+
+    static member Resolve(id : string) = 
+        let mutable serializer = Unchecked.defaultof<ISerializer>
+        if registry.TryGetValue(id, &serializer) then serializer
+        else
+            let msg = sprintf "SerializerRegistry: no serializer with id '%O' could be resolved." id
+            invalidOp msg

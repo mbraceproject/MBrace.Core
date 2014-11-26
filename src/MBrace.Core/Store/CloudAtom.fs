@@ -1,90 +1,36 @@
-﻿namespace Nessos.MBrace.Store
+﻿namespace Nessos.MBrace
 
 open System
 open System.IO
 open System.Runtime.Serialization
 
-open Nessos.MBrace
+open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
-
-/// Defines a distributed key/value storage service abstraction
-type ICloudAtomProvider =
-    inherit IResource
-
-    abstract IsSupportedValue : 'T -> bool
-
-    /// <summary>
-    ///     Checks if entry with provided key exists.
-    /// </summary>
-    /// <param name="id">Entry id.</param>
-    abstract Exists : id:string -> Async<bool>
-
-    /// <summary>
-    ///     Deletes entry with provided key.
-    /// </summary>
-    /// <param name="id"></param>
-    abstract Delete : id:string -> Async<unit>
-
-    /// <summary>
-    ///     Creates a new entry with provided initial value.
-    ///     Returns the key identifier for new entry.
-    /// </summary>
-    /// <param name="initial">Initial value.</param>
-    abstract Create<'T> : initial:'T -> Async<string>
-
-    /// <summary>
-    ///     Returns the current value of provided atom.
-    /// </summary>
-    /// <param name="id">Entry identifier.</param>
-    abstract GetValue<'T> : id:string -> Async<'T>
-
-    /// <summary>
-    ///     Atomically updates table entry of given id using updating function.
-    /// </summary>
-    /// <param name="id">Entry identifier.</param>
-    /// <param name="updater">Updating function.</param>
-    abstract Update : id:string * updater:('T -> 'T) -> Async<unit>
-
-    /// <summary>
-    ///     Force update of existing table entry with given value.
-    /// </summary>
-    /// <param name="id">Entry identifier.</param>
-    /// <param name="value">Value to be set.</param>
-    abstract Force : id:string * value:'T -> Async<unit>
-
-    /// <summary>
-    ///     Enumerates all table entries.
-    /// </summary>
-    abstract Enumerate : unit -> Async<(string * Type) []>
 
 /// Represent a distributed atomically updatable value container
 [<Sealed; AutoSerializable(true)>]
-type CloudAtom<'T> =
+type CloudAtom<'T> internal (store : ICloudStore, id : string) =
 
     [<NonSerialized>]
-    val mutable private provider : ICloudAtomProvider
-    val private providerId : string
-    val private id : string
-
-    internal new (provider : ICloudAtomProvider, id : string) =
-        {
-            provider = provider
-            providerId = Dependency.GetId<ICloudAtomProvider> provider
-            id = id
-        }
-
-    [<OnDeserializedAttribute>]
-    member private __.OnDeserialized(_ : StreamingContext) =
-        __.provider <- Dependency.Resolve<ICloudAtomProvider> __.providerId
+    let mutable tableStore = store.TableStore
+    let storeId = store.UUID
+    // delayed store bootstrapping after deserialization
+    let getStore() =
+        match tableStore with
+        | Some ts -> ts
+        | None ->
+            let ts = CloudStoreRegistry.Resolve(id).TableStore |> Option.get
+            tableStore <- Some ts
+            ts
     
     /// Atom identifier
-    member __.Id = __.id
+    member __.Id = id
 
     /// <summary>
     ///     Atomically updates the contained value.  
     /// </summary>
     /// <param name="updater">value updating function.</param>
-    member __.Update(updater : 'T -> 'T) : Async<unit> = __.provider.Update(__.id, updater)
+    member __.Update(updater : 'T -> 'T) : Async<unit> = getStore().Update(id, updater)
 
     /// <summary>
     ///     Transactionally updates the contained value.
@@ -100,34 +46,39 @@ type CloudAtom<'T> =
     ///     Forces the contained value to provided argument.
     /// </summary>
     /// <param name="value">Value to be forced.</param>
-    member __.Force(value : 'T) = __.provider.Force(__.id, value)
+    member __.Force(value : 'T) =  getStore().Force(id, value)
     
     /// <summary>
     ///     Asynchronously returns the contained value for given atom.
     /// </summary>
-    member __.GetValue () = __.provider.GetValue<'T> __.id
+    member __.GetValue () = getStore().GetValue<'T> id
 
     /// Synchronously returns the contained value for given atom.
-    member __.Value = Async.RunSync (__.provider.GetValue<'T> __.id)
+    member __.Value = Async.RunSync (getStore().GetValue<'T> id)
 
     interface ICloudDisposable with
-        member __.Dispose () = __.provider.Delete __.id
+        member __.Dispose () = getStore().Delete id
+
+    static member internal Create(value : 'T, store : ICloudStore) = async {
+        match store.TableStore with
+        | None -> return raise <| ResourceNotFoundException "Table store not available in this runtime."
+        | Some ts ->
+            let! id = ts.Create<'T>(value)
+            return new CloudAtom<'T>(store, id)
+    }
+
+
+namespace Nessos.MBrace.Store
+
+open Nessos.MBrace
+open Nessos.MBrace.Runtime
     
 [<AutoOpen>]
 module CloudAtomUtils =
 
-    type ICloudAtomProvider with
+    type ICloudStore with
         /// <summary>
         ///     Creates a new atom instance.
         /// </summary>
         /// <param name="init">Initial value.s</param>
-        member p.CreateAtom<'T> (init : 'T) = async {
-            let! id = p.Create<'T>(init)
-            return new CloudAtom<'T>(p, id)
-        }
-
-        /// <summary>
-        ///     Deletes provided cloud atom instance.
-        /// </summary>
-        /// <param name="atom">Atom to be deleted.</param>
-        member p.Delete (atom : CloudAtom<'T>) = p.Delete atom.Id
+        member s.CreateAtom<'T> (init : 'T) = CloudAtom<'T>.Create(init, s)

@@ -1,43 +1,66 @@
-﻿namespace Nessos.MBrace.Store
+﻿namespace Nessos.MBrace
 
 open System
 open System.Collections
 open System.Collections.Generic
 open System.IO
 
-open Nessos.MBrace
+open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
 
 [<Sealed; AutoSerializable(true)>]
-type CloudSeq<'T> private (serializerId : string, length : int, source : CloudFile) =
+type CloudSeq<'T> private (path : string, length : int, store : ICloudStore, serializer : ISerializer) =
+
+    let storeId = store.UUID
+    let serializerId = serializer.Id
+
+    [<NonSerialized>]
+    let mutable store = Some store.FileStore
+    [<NonSerialized>]
+    let mutable serializer = Some serializer
+
+    let getStore() =
+        match store with
+        | Some s -> s
+        | None ->
+            let s = CloudStoreRegistry.Resolve(storeId).FileStore
+            store <- Some s
+            s
     
     let getSequenceAsync() = async {
-        let serializer = Dependency.Resolve<ISerializer> serializerId
-        let! stream = source.BeginRead()
-        return serializer.SeqDeserialize<'T>(stream, length)
+        let s = match serializer with Some s -> s | None -> SerializerRegistry.Resolve serializerId
+        let! stream = getStore().BeginRead path
+        return s.SeqDeserialize<'T>(stream, length)
     }
 
     let getSequence () = getSequenceAsync () |> Async.RunSync
 
-    member __.Id = source.Path
-    member __.File = source
+    member __.Id = path
     member __.Length = length
-
     member __.GetSequenceAsync() = getSequenceAsync()
 
     interface ICloudDisposable with
-        member __.Dispose() = (source :> ICloudDisposable).Dispose()
+        member __.Dispose() = getStore().DeleteFile(path)
 
     interface IEnumerable<'T> with
         member __.GetEnumerator() = (getSequence() :> IEnumerable).GetEnumerator()
         member __.GetEnumerator() = getSequence().GetEnumerator()
 
-    static member internal Create (values : seq<'T>, config : CloudStoreConfiguration) = async {
-        let fileName = config.FileProvider.CreateUniqueFileName "TODO : implement process-bound container name"
-        let size = ref 0
-        let! file = config.FileProvider.CreateFile(fileName, fun stream -> async { size := config.Serializer.SeqSerialize(stream, values) })
-        return new CloudSeq<'T>(config.Serializer.UUID, !size, file)
+    static member internal Create (values : seq<'T>, container : string, store : ICloudStore, serializer : ISerializer) = async {
+        let fileName = store.FileStore.CreateUniqueFileName container
+        use! stream = store.FileStore.BeginWrite(fileName)
+        let length = serializer.SeqSerialize(stream, values)
+        return new CloudSeq<'T>(fileName, length, store, serializer)
     }
 
-//type CloudSeq =
-//    static member New<'T>(value : 'T, provider : StoreProvider) = CloudRef<'T>.Create(value, provider)
+
+namespace Nessos.MBrace.Store
+
+open Nessos.MBrace
+
+[<AutoOpen>]
+module CloudSeqUtils =
+
+    type ICloudStore with
+        member s.CreateCloudSeq<'T>(values : seq<'T>, container : string, serializer : ISerializer) =
+            CloudSeq<'T>.Create(values, container, s, serializer)
