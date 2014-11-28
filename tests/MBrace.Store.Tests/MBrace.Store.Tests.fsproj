@@ -310,6 +310,7 @@
     <Compile Include="Config.fs" />
     <Compile Include="FileStore.fs" />
     <Compile Include="TableStore.fs" />
+    <Compile Include="MBraceStoreTests.fs" />
     <Compile Include="FileSystemStore.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />

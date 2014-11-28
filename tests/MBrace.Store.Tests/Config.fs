@@ -17,13 +17,15 @@ module StoreConfiguration =
     let fileSystemStore = FileSystemStore.LocalTemp
     let serializer = FsPicklerStoreSerializer.Default
     do StoreRegistry.Register serializer
+    do StoreRegistry.Register(fileSystemStore :> ICloudFileStore)
+    do StoreRegistry.Register(fileSystemStore :> ICloudTableStore)
 
-    let mkExecutionContext fileStore tableStoreOpt =
+    let mkExecutionContext fileStore tableStore =
         let config =
             {
                 FileStore = fileStore
                 DefaultFileContainer = fileStore.CreateUniqueContainerName()
-                TableStore = tableStoreOpt
+                TableStore = Some tableStore
                 Serializer = serializer
             }
 
