@@ -5,7 +5,7 @@
 open System.Threading
 
 open Nessos.MBrace
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 [<AutoOpen>]
 module private SchedulerInternals =

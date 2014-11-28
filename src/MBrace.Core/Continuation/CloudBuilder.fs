@@ -2,7 +2,7 @@
 
 //  Cloud builder implementations
 
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 [<AutoOpen>]
 module internal CloudBuilderUtils =

@@ -11,6 +11,7 @@ open System.Diagnostics
 open Nessos.Thespian
 open Nessos.Thespian.Remote
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
 

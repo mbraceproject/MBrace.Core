@@ -8,6 +8,7 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Library
 open Nessos.MBrace.Tests

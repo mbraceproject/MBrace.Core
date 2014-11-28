@@ -7,6 +7,7 @@
     open Nessos.Thespian
     open Nessos.Thespian.Remote
     open Nessos.MBrace
+    open Nessos.MBrace.Continuation
     open Nessos.MBrace.Runtime
     open Nessos.MBrace.Runtime.Compiler
     open Nessos.MBrace.SampleRuntime.Tasks

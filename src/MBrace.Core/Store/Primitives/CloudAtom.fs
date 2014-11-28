@@ -5,7 +5,7 @@ open System.IO
 open System.Runtime.Serialization
 
 open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 /// Represent a distributed atomically updatable value container
 [<Sealed; AutoSerializable(true)>]
@@ -63,7 +63,6 @@ type CloudAtom<'T> internal (tableStore : ICloudTableStore, id : string) =
 namespace Nessos.MBrace.Store
 
 open Nessos.MBrace
-open Nessos.MBrace.Runtime
     
 [<AutoOpen>]
 module CloudAtomUtils =

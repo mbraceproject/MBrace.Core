@@ -2,7 +2,7 @@
 
 open Nessos.MBrace
 open Nessos.MBrace.Library
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 type InMemoryRuntime private (context : SchedulingContext) =
 

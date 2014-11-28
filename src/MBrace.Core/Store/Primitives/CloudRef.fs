@@ -4,7 +4,7 @@ open System
 open System.IO
 
 open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.

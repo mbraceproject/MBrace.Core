@@ -5,7 +5,7 @@ open System
 open System.IO
 
 open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 #nowarn "444"
 

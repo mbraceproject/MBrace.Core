@@ -5,6 +5,7 @@
 //
 
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime.Actors
 open Nessos.MBrace.SampleRuntime.Tasks

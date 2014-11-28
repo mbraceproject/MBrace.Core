@@ -1,10 +1,10 @@
-﻿namespace Nessos.MBrace.Runtime
+﻿namespace Nessos.MBrace.Continuation
 
 open System.Threading
 open System.Threading.Tasks
 
 open Nessos.MBrace
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 #nowarn "444"
 

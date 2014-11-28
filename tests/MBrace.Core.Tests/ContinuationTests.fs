@@ -440,8 +440,8 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``runtime resources`` () =
-        Cloud.RunProtected(Cloud.GetWorkerCount()) |> Choice.shouldFailwith<_, Runtime.ResourceNotFoundException>
+        Cloud.RunProtected(Cloud.GetWorkerCount()) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
 
-//    [<Test>]
-//    let ``storage resouces`` () =
-//        Cloud.RunProtected(CloudRef.New 0) |> Choice.shouldFailwith<_, Runtime.ResourceNotFoundException>
+    [<Test>]
+    let ``storage resouces`` () =
+        Cloud.RunProtected(CloudRef.New 0) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>

@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Runtime
+﻿namespace Nessos.MBrace.Continuation
 
     open System
     open System.Threading

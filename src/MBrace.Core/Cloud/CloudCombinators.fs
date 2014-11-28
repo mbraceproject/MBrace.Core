@@ -5,7 +5,7 @@
 open System.Threading
 open System.Threading.Tasks
 
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 /// Cloud workflows static methods
 type Cloud =

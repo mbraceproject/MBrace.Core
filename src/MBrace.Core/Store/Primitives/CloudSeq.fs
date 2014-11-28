@@ -6,7 +6,7 @@ open System.Collections.Generic
 open System.IO
 
 open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 [<Sealed; AutoSerializable(true)>]
 type CloudSeq<'T> private (path : string, length : int, file : CloudFile, serializer : ISerializer) =

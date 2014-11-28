@@ -2,6 +2,7 @@
 
     open Nessos.Thespian
     open Nessos.Thespian.Remote.Protocols
+    open Nessos.MBrace.Continuation
     open Nessos.MBrace.Runtime
     open Nessos.MBrace.SampleRuntime.Actors
 

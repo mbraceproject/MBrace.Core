@@ -12,6 +12,7 @@ open System.Threading.Tasks
 open Nessos.Vagrant
 
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Serialization
 open Nessos.MBrace.SampleRuntime.Actors
