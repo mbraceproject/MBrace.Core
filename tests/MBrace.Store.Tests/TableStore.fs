@@ -87,19 +87,17 @@ type ``Table Store Tests`` (tableStore : ICloudTableStore) =
             tableStore.Delete id |> run
 
     [<Test; Repeat(repeats)>]
-    member __.``Force value with contention`` () =
+    member __.``Force value`` () =
         if tableStore.IsSupportedValue [1..100] then
             let id = tableStore.Create<int> 0 |> run
-            let worker _ = async {
-                for i in 1 .. 10 do
-                    do! tableStore.Update(id, fun i -> i + 1)
+
+            let worker i = async {
+                if i = 5 then
+                    do! tableStore.Force(id, 42)
+                else
+                    do! tableStore.Update<int>(id, fun i -> i)
             }
 
-            let force = async {
-                for i in 1 .. 20 do
-                    do! tableStore.Force(id, 0)
-            }
-
-            Array.init 10 worker |> Array.append [| force |] |> Async.Parallel |> Async.Ignore |> run
-            tableStore.GetValue<int>(id) |> run |> should be (lessThan 50)
+            Array.init 10 worker |> Async.Parallel |> Async.Ignore |> run
+            tableStore.GetValue<int>(id) |> run |> should equal 42
             tableStore.Delete id |> run
