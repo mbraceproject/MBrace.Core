@@ -6,6 +6,9 @@ type ICloudTableStore =
     /// Unique table store identifier
     abstract UUID : string
 
+    /// Returns a serializable table store factory for the current instance.
+    abstract GetFactory : unit -> ICloudTableStoreFactory
+
     /// <summary>
     ///     Checks if provided value is suitable for table storage
     /// </summary>
@@ -55,3 +58,8 @@ type ICloudTableStore =
     ///     Enumerates all keys.
     /// </summary>
     abstract EnumerateKeys : unit -> Async<string>
+
+/// Defines a serializable abstract factory for a table store instance.
+/// Used for pushing filestore definitions across machines
+and ICloudTableStoreFactory =
+    abstract Create : unit -> ICloudTableStore

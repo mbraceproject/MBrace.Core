@@ -9,6 +9,9 @@ type ICloudFileStore =
     /// unique cloud file store identifier
     abstract UUID : string
 
+    /// Returns a serializable file store factory for the current instance.
+    abstract GetFactory : unit -> ICloudFileStoreFactory
+
     /// <summary>
     ///     Returns the container for given file path.
     /// </summary>
@@ -100,3 +103,8 @@ type ICloudFileStore =
     /// <param name="sourceFile">Source file.</param>
     /// <param name="target">Target stream.</param>
     abstract ToStream : sourceFile:string * target:Stream -> Async<unit>
+
+/// Defines a serializable abstract factory for a file store instance.
+/// Used for pushing filestore definitions across machines
+and ICloudFileStoreFactory =
+    abstract Create : unit -> ICloudFileStore
