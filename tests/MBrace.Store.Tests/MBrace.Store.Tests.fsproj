@@ -307,7 +307,9 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
-    <Compile Include="StoreTests.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="FileStore.fs" />
+    <Compile Include="TableStore.fs" />
     <Compile Include="FileSystemStore.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
