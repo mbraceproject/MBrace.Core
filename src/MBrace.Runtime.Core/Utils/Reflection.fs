@@ -37,15 +37,13 @@ let (|Named|Array|Ptr|Param|) (t : System.Type) =
 /// matches against lambda types, returning a tuple ArgType [] * ResultType
 let (|FSharpFunc|_|) : Type -> _ =
     let fsFunctionTypes =
-        let types = [
+        hset [
             typedefof<FSharpFunc<_,_>>
             typedefof<FSharpFunc<_,_,_>>
             typedefof<FSharpFunc<_,_,_,_>>
             typedefof<FSharpFunc<_,_,_,_,_>>
             typedefof<FSharpFunc<_,_,_,_,_,_>>
         ]
-
-        new HashSet<_>(types)
 
     let rec tryGetFSharpFunc =
         function

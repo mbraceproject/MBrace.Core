@@ -12,6 +12,7 @@ open Nessos.Thespian.Remote.TcpProtocol
 open Nessos.Vagrant
 
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Runtime.Utils
 
 let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
@@ -23,7 +24,7 @@ let private _initRuntimeState () =
     let ignoredAssemblies =
         let this = Assembly.GetExecutingAssembly()
         let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-        new System.Collections.Generic.HashSet<_>(dependencies)
+        hset dependencies
 
     VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll)
 

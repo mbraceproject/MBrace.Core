@@ -25,12 +25,6 @@ type ICloudFileStore =
     abstract GetFileName : path:string -> string
 
     /// <summary>
-    ///     Returns the file size in bytes.
-    /// </summary>
-    /// <param name="path">Input file path.</param>
-    abstract GetFileSize : path:string -> Async<int64>
-
-    /// <summary>
     ///     Checks if path to filer/container is of valid format.
     /// </summary>
     /// <param name="path"></param>
@@ -44,6 +38,12 @@ type ICloudFileStore =
     /// </summary>
     /// <param name="container">container path.</param>
     abstract CreateUniqueFileName : container:string -> string
+
+    /// <summary>
+    ///     Returns the file size in bytes.
+    /// </summary>
+    /// <param name="path">Input file path.</param>
+    abstract GetFileSize : path:string -> Async<int64>
 
     /// <summary>
     ///     Checks if file exists in given path

@@ -6,6 +6,7 @@ open System.IO
 
 open Nessos.Vagrant
 
+open Nessos.MBrace.Runtime.Utils
 open Nessos.MBrace.Runtime.Utils.Retry
 
 /// Vagrant state container
@@ -16,7 +17,7 @@ type VagrantRegistry private () =
     static let ignoredAssemblies = 
         let this = Assembly.GetExecutingAssembly()
         let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-        new System.Collections.Generic.HashSet<_>(dependencies)
+        hset dependencies
 
     /// Gets the registered vagrant instance.
     static member Vagrant =

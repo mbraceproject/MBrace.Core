@@ -57,7 +57,7 @@ type ICloudTableStore =
     /// <summary>
     ///     Enumerates all keys.
     /// </summary>
-    abstract EnumerateKeys : unit -> Async<string>
+    abstract EnumerateKeys : unit -> Async<string []>
 
 /// Defines a serializable abstract factory for a table store instance.
 /// Used for pushing filestore definitions across machines
