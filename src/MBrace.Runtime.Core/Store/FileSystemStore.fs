@@ -203,7 +203,7 @@ type FileSystemStore private (rootPath : string) =
         member __.Update (id : string, updater : 'T -> 'T) = async {
             let path = getAtomPath id
             use fs = trap path FileMode.Open FileAccess.ReadWrite FileShare.None
-            let value = atomPickler().Deserialize<'T>(fs)
+            let value = atomPickler().Deserialize<'T>(fs, leaveOpen = true)
             let value' = updater value
             fs.Position <- 0L
             atomPickler().Serialize<'T>(fs, value')
