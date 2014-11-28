@@ -124,3 +124,10 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
             use m = new MemoryStream()
             fileStore.ToStream(file, m) |> run
             m.ToArray() |> should equal data
+
+        fileStore.DeleteFile file |> run
+
+    [<TestFixtureTearDown>]
+    member test.``Cleanup`` () =
+        if fileStore.ContainerExists testContainer |> run then
+            fileStore.DeleteContainer testContainer |> run
