@@ -37,9 +37,9 @@ type CloudSeq<'T> private (path : string, length : int, file : CloudFile, serial
 
     static member internal Create (values : seq<'T>, container : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let fileName = fileStore.CreateUniqueFileName container
-        use! stream = fileStore.BeginWrite(fileName)
-        let length = serializer.SeqSerialize(stream, values)
-        return new CloudSeq<'T>(fileName, length, fileStore, serializer)
+        let length = ref 0
+        let! file = fileStore.CreateFile(fileName, fun stream -> async { return length := serializer.SeqSerialize(stream, values) })
+        return new CloudSeq<'T>(fileName, !length, file, serializer)
     }
 
 
@@ -50,14 +50,12 @@ open Nessos.MBrace
 [<AutoOpen>]
 module CloudSeqUtils =
 
-    type CloudStoreConfiguration with
+    type ICloudFileStore with
         /// <summary>
         ///     Creates a new CloudSeq instance
         /// </summary>
         /// <param name="values">Values to be serialized.</param>
-        /// <param name="container">FileStore container used for cloud ref. Defaults to configuration container.</param>
-        /// <param name="serializer">Serialization used for object serialization. Default to configuration serializer.</param>
-        member csc.CreateCloudSeq<'T>(values : seq<'T>, ?container : string, ?serializer) =
-            let container = defaultArg container csc.DefaultContainer
-            let serializer = defaultArg serializer csc.Serializer
-            CloudSeq<'T>.Create(values, container, csc.Store, serializer)
+        /// <param name="container">FileStore container used for cloud sequence.</param>
+        /// <param name="serializer">Serializer used for objects.</param>
+        member fs.CreateCloudSeq<'T>(values : seq<'T>, container : string, serializer) =
+            CloudSeq<'T>.Create(values, container, fs, serializer)
