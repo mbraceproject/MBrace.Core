@@ -95,13 +95,14 @@ type FileSystemStore private (rootPath : string) =
 
         member __.GetFileContainer(path : string) = Path.GetDirectoryName path
         member __.GetFileName(path : string) = Path.GetFileName path
+        member __.Combine(container : string, fileName : string) = Path.Combine(container, fileName)
         member __.IsValidPath(path : string) = isValidPath path
 
         member __.CreateUniqueContainerName() = Guid.NewGuid().ToString("N")
         member __.CreateUniqueFileName(container : string) = Path.Combine(container, Path.GetRandomFileName())
 
         member __.GetFileSize(path : string) = async {
-            return let fI = new FileInfo(path) in fI.Length
+            return let fI = new FileInfo(getFileSystemPath path) in fI.Length
         }
 
         member __.FileExists(file : string) = async {
@@ -142,7 +143,7 @@ type FileSystemStore private (rootPath : string) =
             return
                 if isValidPath path then
                     let container = Path.GetDirectoryName path
-                    do initDir container
+                    do initDir <| getFileSystemPath container
 
                     new FileStream(getFileSystemPath path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
                 else

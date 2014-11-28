@@ -25,6 +25,13 @@ type ICloudFileStore =
     abstract GetFileName : path:string -> string
 
     /// <summary>
+    ///     Combines a container and filename to a complete path.
+    /// </summary>
+    /// <param name="container">Container path</param>
+    /// <param name="fileName">Filename</param>
+    abstract Combine : container:string * fileName:string -> string
+
+    /// <summary>
     ///     Checks if path to filer/container is of valid format.
     /// </summary>
     /// <param name="path"></param>
