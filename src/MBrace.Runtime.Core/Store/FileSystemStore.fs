@@ -16,11 +16,6 @@ type FileSystemStore private (rootPath : string) =
 
     static let atomPickler () = VagrantRegistry.Vagrant.Pickler
 
-    let uriRootPath =
-        let uri = Uri(rootPath)
-        if uri.IsUnc then uri.ToString()
-        else sprintf "file://%s/%s" (System.Net.Dns.GetHostName()) uri.AbsolutePath
-
     let uuid = 
         let uri = Uri(rootPath)
         if uri.IsUnc then sprintf "filesystemstore:%O" uri
@@ -30,7 +25,7 @@ type FileSystemStore private (rootPath : string) =
         if not <| Directory.Exists dir then
             Directory.CreateDirectory dir |> ignore
 
-    let atomContainer = Path.Combine(uriRootPath, "_atomic")
+    let atomContainer = Path.Combine(rootPath, "_atomic")
 
     let rec trap path (mode : FileMode) (access : FileAccess) (share : FileShare) =
         let fs = 
@@ -42,7 +37,7 @@ type FileSystemStore private (rootPath : string) =
         | None -> trap path mode access share
 
     let getAtomPath(id : string) = Path.Combine(atomContainer, id)
-    let getFileSystemPath(file : string) = Path.Combine(uriRootPath, file)
+    let getFileSystemPath(file : string) = Path.Combine(rootPath, file)
 
     let isValidPath (path : string) =
         // need formats of type "container/folder"
@@ -126,6 +121,10 @@ type FileSystemStore private (rootPath : string) =
 
         member __.ContainerExists(container : string) = async {
             return Directory.Exists(getFileSystemPath container)
+        }
+
+        member __.CreateContainer(container : string) = async {
+            return Directory.CreateDirectory(getFileSystemPath container) |> ignore
         }
 
         member __.DeleteContainer(container : string) = async {

@@ -68,6 +68,12 @@ type ICloudFileStore =
     /// </summary>
     /// <param name="container">file container.</param>
     abstract ContainerExists : container:string -> Async<bool>
+
+    /// <summary>
+    ///     Creates a new container in store.
+    /// </summary>
+    /// <param name="container">Container id.</param>
+    abstract CreateContainer : container:string -> Async<unit>
         
     /// <summary>
     ///     Deletes container in given path

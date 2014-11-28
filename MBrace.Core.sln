@@ -40,6 +40,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.SampleRuntime.Tests"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Library", "src\MBrace.Library\MBrace.Library.fsproj", "{51606FFC-69BB-4755-8454-9E943E2B7290}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Store.Tests", "tests\MBrace.Store.Tests\MBrace.Store.Tests.fsproj", "{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -70,6 +72,10 @@ Global
 		{51606FFC-69BB-4755-8454-9E943E2B7290}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{51606FFC-69BB-4755-8454-9E943E2B7290}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{51606FFC-69BB-4755-8454-9E943E2B7290}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,5 +88,6 @@ Global
 		{BB4A3241-4D46-4888-861D-A34440ECFE8B} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 		{77CDB612-B779-4643-A190-E715AD107617} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 		{51606FFC-69BB-4755-8454-9E943E2B7290} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
+		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 	EndGlobalSection
 EndGlobal

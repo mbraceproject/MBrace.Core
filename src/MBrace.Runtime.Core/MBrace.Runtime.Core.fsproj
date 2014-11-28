@@ -55,36 +55,6 @@
   <Target Name="AfterBuild">
   </Target>
   -->
-  <ItemGroup>
-    <Compile Include="Utils\Utils.fs" />
-    <Compile Include="Utils\Retry.fs" />
-    <Compile Include="Utils\Reflection.fs" />
-    <Compile Include="Utils\TypePrinter.fs" />
-    <Compile Include="Utils\RecordPrinter.fs" />
-    <Compile Include="Vagrant.fs" />
-    <Compile Include="Serialization.fs" />
-    <Compile Include="Store\FileSystemStore.fs" />
-    <Compile Include="Compiler\Types.fs" />
-    <Compile Include="Compiler\CloudUtils.fs" />
-    <Compile Include="Compiler\Compiler.fs" />
-    <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj">
-      <Name>MBrace.Core</Name>
-      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework'">
       <Choose>
@@ -283,4 +253,34 @@
       </ItemGroup>
     </Otherwise>
   </Choose>
+  <ItemGroup>
+    <Compile Include="Utils\Utils.fs" />
+    <Compile Include="Utils\Retry.fs" />
+    <Compile Include="Utils\Reflection.fs" />
+    <Compile Include="Utils\TypePrinter.fs" />
+    <Compile Include="Utils\RecordPrinter.fs" />
+    <Compile Include="Vagrant.fs" />
+    <Compile Include="Serialization.fs" />
+    <Compile Include="Store\FileSystemStore.fs" />
+    <Compile Include="Compiler\Types.fs" />
+    <Compile Include="Compiler\CloudUtils.fs" />
+    <Compile Include="Compiler\Compiler.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj">
+      <Name>MBrace.Core</Name>
+      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
 </Project>
