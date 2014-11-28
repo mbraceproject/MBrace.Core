@@ -9,27 +9,16 @@ open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
 
 [<Sealed; AutoSerializable(true)>]
-type CloudSeq<'T> private (path : string, length : int, store : ICloudStore, serializer : ISerializer) =
+type CloudSeq<'T> private (path : string, length : int, file : CloudFile, serializer : ISerializer) =
 
-    let storeId = store.UUID
     let serializerId = serializer.Id
 
     [<NonSerialized>]
-    let mutable store = Some store.FileStore
-    [<NonSerialized>]
     let mutable serializer = Some serializer
-
-    let getStore() =
-        match store with
-        | Some s -> s
-        | None ->
-            let s = CloudStoreRegistry.Resolve(storeId).FileStore
-            store <- Some s
-            s
     
     let getSequenceAsync() = async {
-        let s = match serializer with Some s -> s | None -> SerializerRegistry.Resolve serializerId
-        let! stream = getStore().BeginRead path
+        let s = match serializer with Some s -> s | None -> StoreRegistry.GetSerializer serializerId
+        let! stream = file.BeginRead()
         return s.SeqDeserialize<'T>(stream, length)
     }
 
@@ -40,17 +29,17 @@ type CloudSeq<'T> private (path : string, length : int, store : ICloudStore, ser
     member __.GetSequenceAsync() = getSequenceAsync()
 
     interface ICloudDisposable with
-        member __.Dispose() = getStore().DeleteFile(path)
+        member __.Dispose() = (file :> ICloudDisposable).Dispose()
 
     interface IEnumerable<'T> with
         member __.GetEnumerator() = (getSequence() :> IEnumerable).GetEnumerator()
         member __.GetEnumerator() = getSequence().GetEnumerator()
 
-    static member internal Create (values : seq<'T>, container : string, store : ICloudStore, serializer : ISerializer) = async {
-        let fileName = store.FileStore.CreateUniqueFileName container
-        use! stream = store.FileStore.BeginWrite(fileName)
+    static member internal Create (values : seq<'T>, container : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
+        let fileName = fileStore.CreateUniqueFileName container
+        use! stream = fileStore.BeginWrite(fileName)
         let length = serializer.SeqSerialize(stream, values)
-        return new CloudSeq<'T>(fileName, length, store, serializer)
+        return new CloudSeq<'T>(fileName, length, fileStore, serializer)
     }
 
 

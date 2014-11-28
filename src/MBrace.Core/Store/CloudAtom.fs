@@ -9,17 +9,17 @@ open Nessos.MBrace.Runtime
 
 /// Represent a distributed atomically updatable value container
 [<Sealed; AutoSerializable(true)>]
-type CloudAtom<'T> private (store : ICloudStore, id : string) =
+type CloudAtom<'T> internal (tableStore : ICloudTableStore, id : string) =
 
+    let storeId = tableStore.UUID
     [<NonSerialized>]
-    let mutable tableStore = store.TableStore
-    let storeId = store.UUID
+    let mutable tableStore = Some tableStore
     // delayed store bootstrapping after deserialization
     let getStore() =
         match tableStore with
         | Some ts -> ts
         | None ->
-            let ts = CloudStoreRegistry.Resolve(id).TableStore |> Option.get
+            let ts = StoreRegistry.GetTableStore storeId
             tableStore <- Some ts
             ts
     
@@ -59,14 +59,6 @@ type CloudAtom<'T> private (store : ICloudStore, id : string) =
     interface ICloudDisposable with
         member __.Dispose () = getStore().Delete id
 
-    static member internal Create(value : 'T, store : ICloudStore) = async {
-        match store.TableStore with
-        | None -> return raise <| ResourceNotFoundException "Table store not available in this runtime."
-        | Some ts ->
-            let! id = ts.Create<'T>(value)
-            return new CloudAtom<'T>(store, id)
-    }
-
 
 namespace Nessos.MBrace.Store
 
@@ -76,9 +68,12 @@ open Nessos.MBrace.Runtime
 [<AutoOpen>]
 module CloudAtomUtils =
 
-    type CloudStoreConfiguration with
+    type ICloudTableStore with
         /// <summary>
         ///     Creates a new atom instance.
         /// </summary>
         /// <param name="init">Initial value.s</param>
-        member csc.CreateAtom<'T> (init : 'T) = CloudAtom<'T>.Create(init, csc.Store)
+        member ts.CreateAtom<'T> (init : 'T) = async {
+            let! id = ts.Create<'T>(init)
+            return new CloudAtom<'T>(ts, id)
+        }

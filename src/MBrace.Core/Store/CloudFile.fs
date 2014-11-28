@@ -7,17 +7,18 @@ open Nessos.MBrace.Store
 
 /// Represents a file stored in the cloud storage service.
 [<Sealed; AutoSerializable(true)>]
-type CloudFile internal (store : ICloudStore, path : string) =
+type CloudFile internal (fileStore : ICloudFileStore, path : string) =
 
+    let storeId = fileStore.UUID
     [<NonSerialized>]
-    let mutable fileStore = Some store.FileStore
-    let storeId = store.UUID
+    let mutable fileStore = Some fileStore
+
     // delayed store bootstrapping after deserialization
     let getStore() =
         match fileStore with
         | Some fs -> fs
         | None ->
-            let fs = CloudStoreRegistry.Resolve(storeId).FileStore
+            let fs = StoreRegistry.GetFileStore storeId
             fileStore <- Some fs
             fs
 
@@ -58,27 +59,27 @@ open Nessos.MBrace
 [<AutoOpen>]
 module CloudFileUtils =
 
-    type CloudStoreConfiguration with
+    type ICloudFileStore with
         
         /// <summary>
         ///     Creates a new CloudFile instance using provided serializing function.
         /// </summary>
         /// <param name="path">Path to Cloudfile.</param>
         /// <param name="serializer">Serializing function.</param>
-        member csc.CreateFile(path : string, serializer : Stream -> Async<unit>) = async {
-            use! stream = csc.Store.FileStore.BeginWrite path
+        member fs.CreateFile(path : string, serializer : Stream -> Async<unit>) = async {
+            use! stream = fs.BeginWrite path
             do! serializer stream
-            return new CloudFile(csc.Store, path)
+            return new CloudFile(fs, path)
         }
 
         /// <summary>
         ///     Creates a CloudFile instance from existing path.
         /// </summary>
         /// <param name="path">Path to be wrapped.</param>
-        member csc.FromPath(path : string) = async {
-            let! exists = csc.Store.FileStore.FileExists path
+        member fs.FromPath(path : string) = async {
+            let! exists = fs.FileExists path
             return
-                if exists then new CloudFile(csc.Store, path)
+                if exists then new CloudFile(fs, path)
                 else
                     raise <| new FileNotFoundException(path)
         }
@@ -87,19 +88,13 @@ module CloudFileUtils =
         ///     Enumerates all entries as Cloud file instances.
         /// </summary>
         /// <param name="container">Cotnainer to be enumerated.</param>
-        member csc.EnumerateCloudFiles(container : string) = async {
-            let! files = csc.Store.FileStore.EnumerateFiles container
-            return files |> Array.map (fun f -> new CloudFile(csc.Store, f))
+        member fs.EnumerateCloudFiles(container : string) = async {
+            let! files = fs.EnumerateFiles container
+            return files |> Array.map (fun f -> new CloudFile(fs, f))
         }
-
-        /// <summary>
-        ///     Delete given cloud file.
-        /// </summary>
-        /// <param name="file">Cloud file.</param>
-        member csc.Delete(file : CloudFile) = (file :> ICloudDisposable).Dispose()
 
         /// <summary>
         ///     Checks if cloud file exists in store.
         /// </summary>
         /// <param name="file">File to be examined.</param>
-        member csc.Exists(file : CloudFile) = csc.Store.FileStore.FileExists file.Path
+        member fs.Exists(file : CloudFile) = fs.FileExists file.Path
