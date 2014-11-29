@@ -21,6 +21,8 @@ type private ResourceContainer<'Resource>(name : string, proj : 'Resource -> str
             let msg = sprintf "StoreRegistry: no %s with id '%O' could be resolved." name id
             invalidOp msg
 
+/// Store resource registry; used for bootstrapping resource data
+/// on deserialization of cloud primitives.
 type StoreRegistry private () =
     static let serializers = new ResourceContainer<ISerializer> ("serializer", fun s -> s.Id)
     static let tableStores = new ResourceContainer<ICloudTableStore> ("table store", fun s -> s.UUID)

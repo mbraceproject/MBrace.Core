@@ -38,6 +38,12 @@ type CloudFile internal (fileStore : ICloudFileStore, path : string) =
     member __.BeginRead () : Async<Stream> = getStore().BeginRead path
 
     /// <summary>
+    ///     Copy file contents to local stream.
+    /// </summary>
+    /// <param name="target">Target stream.</param>
+    member __.CopyToStream (target : Stream) = getStore().ToStream(path, target)
+
+    /// <summary>
     ///     Reads the contents of provided cloud file using provided deserializer.
     /// </summary>
     /// <param name="file">cloud file to be read.</param>
@@ -69,6 +75,16 @@ module CloudFileUtils =
         member fs.CreateFile(path : string, serializer : Stream -> Async<unit>) = async {
             use! stream = fs.BeginWrite path
             do! serializer stream
+            return new CloudFile(fs, path)
+        }
+
+        /// <summary>
+        ///     Creates a new CloudFile instance copying data from local stream.
+        /// </summary>
+        /// <param name="path">Path to CloudFile.</param>
+        /// <param name="source">Source stream.</param>
+        member fs.CreateFile(path : string, source : Stream) = async {
+            do! fs.OfStream(source, path)
             return new CloudFile(fs, path)
         }
 

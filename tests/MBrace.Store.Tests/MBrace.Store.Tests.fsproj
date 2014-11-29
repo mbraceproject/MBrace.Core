@@ -308,6 +308,7 @@
   </Choose>
   <ItemGroup>
     <Compile Include="Config.fs" />
+    <Compile Include="TestTypes.fs" />
     <Compile Include="FileStore.fs" />
     <Compile Include="TableStore.fs" />
     <Compile Include="MBraceStoreTests.fs" />
@@ -326,6 +327,11 @@
     <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
       <Name>MBrace.Core</Name>
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Library\MBrace.Library.fsproj">
+      <Name>MBrace.Library</Name>
+      <Project>{51606ffc-69bb-4755-8454-9e943e2b7290}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj">

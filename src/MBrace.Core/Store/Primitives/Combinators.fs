@@ -9,6 +9,33 @@ open Nessos.MBrace.Continuation
 
 #nowarn "444"
 
+type CloudStore =
+    
+    /// Returns the default container for current execution context.
+    static member GetDefaultContainer () = cloud {
+        let! config = Cloud.GetResource<CloudStoreConfiguration> ()
+        return config.DefaultFileContainer
+    }
+
+    /// Enumerates all containers in file store in execution context.
+    static member EnumerateContainers () = cloud {
+        let! config = Cloud.GetResource<CloudStoreConfiguration> ()
+        return config.FileStore.EnumerateContainers()
+    }
+
+    /// Generates a unique container name for current execution context.
+    static member GetUniqueContainerName () = cloud {
+        let! config = Cloud.GetResource<CloudStoreConfiguration> ()
+        return config.FileStore.CreateUniqueContainerName()
+    }
+
+    /// Generates a unique container name for current execution context.
+    static member GetUniqueFileName (?container : string) = cloud {
+        let! config = Cloud.GetResource<CloudStoreConfiguration> ()
+        let container = match container with Some c -> c | None -> config.DefaultFileContainer
+        return config.FileStore.CreateUniqueFileName(container)
+    }
+
 type Nessos.MBrace.CloudFile with
 
     /// <summary> 
@@ -16,7 +43,7 @@ type Nessos.MBrace.CloudFile with
     ///     Use the serialize function to write to the underlying stream.
     /// </summary>
     /// <param name="serializer">Function that will write data on the underlying stream.</param>
-    /// <param name="uri">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
+    /// <param name="path">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
     static member New(serializer : Stream -> Async<unit>, ?path : string) : Cloud<CloudFile> = cloud {
         let! config = Cloud.GetResource<CloudStoreConfiguration> ()
         let path = match path with Some p -> p | None -> config.FileStore.CreateUniqueFileName config.DefaultFileContainer
@@ -43,9 +70,10 @@ type Nessos.MBrace.CloudFile with
     /// <summary> 
     ///     Returns all CloudFiles in given container.
     /// </summary>
-    /// <param name="container">The container (folder) to search.</param>
-    static member Enumerate(container : string) : Cloud<CloudFile []> = cloud {
+    /// <param name="container">The container (folder) to search. Defaults to context container.</param>
+    static member EnumerateFiles(?container : string) : Cloud<CloudFile []> = cloud {
         let! config = Cloud.GetResource<CloudStoreConfiguration> ()
+        let container = match container with Some c -> c | None -> config.DefaultFileContainer
         return! Cloud.OfAsync <| config.FileStore.EnumerateCloudFiles container
     }
 

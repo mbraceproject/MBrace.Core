@@ -8,6 +8,9 @@ open System.IO
 open Nessos.MBrace.Store
 open Nessos.MBrace.Continuation
 
+/// Represents a finite and immutable sequence of
+/// elements that is stored in the underlying CloudStore
+/// and will be enumerated on demand.
 [<Sealed; AutoSerializable(true)>]
 type CloudSeq<'T> private (path : string, length : int, file : CloudFile, serializer : ISerializer) =
 
@@ -24,8 +27,11 @@ type CloudSeq<'T> private (path : string, length : int, file : CloudFile, serial
 
     let getSequence () = getSequenceAsync () |> Async.RunSync
 
-    member __.Id = path
+    /// Path to CloudSeq in store
+    member __.Path = path
+    /// Sequence length
     member __.Length = length
+    /// Asynchronously fetches the sequence
     member __.GetSequenceAsync() = getSequenceAsync()
 
     interface ICloudDisposable with
