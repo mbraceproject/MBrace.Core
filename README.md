@@ -8,4 +8,4 @@ Repository includes a toy [runtime](https://github.com/nessos/MBrace.Core/tree/m
 
 Head (branch master), Build & Unit tests
   * Windows/.NET [![Build status](https://ci.appveyor.com/api/projects/status/hn8ha2uawe9851gc/branch/master?svg=true)](https://ci.appveyor.com/project/nessos/mbrace-core/branch/master)
-  * Mac OS X/Mono 3.10 [![Build Status](https://travis-ci.org/mbraceproject/MBrace.Core.png?branch=master)](https://travis-ci.org/nessos/MBrace.Core/branches)
+  * Mac OS X/Mono 3.10 [![Build status](https://ci.appveyor.com/api/projects/status/3yaglw86q7vnja7w/branch/master?svg=true)](https://ci.appveyor.com/project/nessos/mbrace-core/branch/master)
