@@ -55,6 +55,43 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Compile Include="Config.fs" />
+    <Compile Include="Actors.fs" />
+    <Compile Include="Tasks.fs" />
+    <Compile Include="Combinators.fs" />
+    <Compile Include="RuntimeProvider.fs" />
+    <Compile Include="Worker.fs" />
+    <Compile Include="Client.fs" />
+    <Compile Include="main.fs" />
+    <None Include="test.fsx" />
+    <Content Include="App.config" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MBrace.Library\MBrace.Library.fsproj">
+      <Name>MBrace.Library</Name>
+      <Project>{51606ffc-69bb-4755-8454-9e943e2b7290}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj">
+      <Name>MBrace.Runtime.Core</Name>
+      <Project>{bb4a3241-4d46-4888-861d-a34440ecfe8b}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
+      <Name>MBrace.Core</Name>
+      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework'">
       <Choose>
@@ -220,41 +257,4 @@
       </ItemGroup>
     </Otherwise>
   </Choose>
-  <ItemGroup>
-    <Compile Include="Config.fs" />
-    <Compile Include="Actors.fs" />
-    <Compile Include="Tasks.fs" />
-    <Compile Include="Combinators.fs" />
-    <Compile Include="RuntimeProvider.fs" />
-    <Compile Include="Worker.fs" />
-    <Compile Include="Client.fs" />
-    <Compile Include="main.fs" />
-    <None Include="test.fsx" />
-    <Content Include="App.config" />
-    <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.Library\MBrace.Library.fsproj">
-      <Name>MBrace.Library</Name>
-      <Project>{51606ffc-69bb-4755-8454-9e943e2b7290}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj">
-      <Name>MBrace.Runtime.Core</Name>
-      <Project>{bb4a3241-4d46-4888-861d-a34440ecfe8b}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
-      <Name>MBrace.Core</Name>
-      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
 </Project>

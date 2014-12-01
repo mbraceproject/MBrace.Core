@@ -7,3 +7,4 @@ nuget NUnit.Runners
 nuget Thespian.Core 0.1.1-alpha
 nuget Vagrant
 nuget Unquote
+nuget WindowsAzure.Storage 4.3.0
