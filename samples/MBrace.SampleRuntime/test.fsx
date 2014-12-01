@@ -11,58 +11,34 @@ open Nessos.MBrace.SampleRuntime
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
-open System.Diagnostics
-
-let initWorkers (count : int) =
-    if count < 1 then invalidArg "workerCount" "must be positive."
-    let exe = MBraceRuntime.WorkerExecutable    
-    let psi = new ProcessStartInfo(exe, String.Empty)
-    psi.WorkingDirectory <- System.IO.Path.GetDirectoryName exe
-    psi.UseShellExecute <- true
-    [| for _ in 1..count -> Process.Start psi |]
-
-initWorkers 4
-
-let workers = [| "andor:60603"; "andor:60604"; "andor:60605"; "andor:60606" |]
-
-let r = MBraceRuntime.Init workers
-
 let runtime = MBraceRuntime.InitLocal(4)
+
+open Nessos.MBrace.Channels
+
+runtime.Run(
+    cloud {
+        let! chan = Channel.New<int> ()
+        let rec sender n = cloud {
+            if n = 0 then return ()
+            else
+                do! Channel.Send n chan
+                return! sender (n-1)
+        }
+
+        let rec receiver n = cloud {
+            if n = 100 then return ()
+            else
+                let! i = Channel.Receive chan
+                printfn "RECEIVED : %d" i
+                return! receiver (n + 1)
+        }
+
+        let! _ = sender 100 <||> receiver 0
+        return ()
+    })
 
 let getWordCount inputSize =
     let map (text : string) = cloud { return text.Split(' ').Length }
     let reduce i i' = cloud { return i + i' }
     let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
     MapReduce.mapReduce map 0 reduce inputs
-
-
-let t = runtime.RunAsTask(getWordCount 2000)
-let t' = r.RunAsTask(getWordCount 2000)
-do System.Threading.Thread.Sleep 3000
-runtime.KillAllWorkers() 
-runtime.AppendWorkers 4
-
-t.Result
-t'.Result
-
-let testFunc = cloud {
-    let! result = Array.init 20 (fun i -> cloud { return if i = 15 then failwith "kaboom!" else i }) |> Cloud.Parallel
-    return Array.sum result
-}
-
-let rec fib n = cloud {
-    if n <= 1 then return failwith "kaboom"
-    else
-        let! fnn, fn = fib (n-2) <||> fib (n-1)
-        return fnn + fn
-}
-
-let test = cloud {
-    try return! fib 10
-    with e ->
-        System.Console.WriteLine("{0}", e)
-        return! Cloud.Raise e
-//        return raise e // using raise should clear stacktrace
-}
-
-runtime.Run test

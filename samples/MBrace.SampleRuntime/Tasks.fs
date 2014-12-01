@@ -13,6 +13,7 @@ open Nessos.Vagrant
 
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
+open Nessos.MBrace.Channels
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Serialization
 open Nessos.MBrace.SampleRuntime.Actors
@@ -84,14 +85,16 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Task dependent assemblies.</param>
     /// <param name="task">Task to be executed.</param>
-    static member RunAsync (runtimeProvider : IRuntimeProvider) (dependencies : AssemblyId list) (task : Task) = async {
+    static member RunAsync (runtimeProvider : IRuntimeProvider) (channelProvider : IChannelProvider) 
+                            (dependencies : AssemblyId list) (task : Task) = async {
         let tem = new TaskExecutionMonitor()
         let ctx =
             {
                 Resources = 
                     resource { 
                         yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; 
-                        yield dependencies ; yield Config.getStoreConfiguration task.Container
+                        yield dependencies ; yield Config.getStoreConfiguration task.Container ;
+                        yield channelProvider
                     }
 
                 CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
