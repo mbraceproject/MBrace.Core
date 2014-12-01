@@ -5,6 +5,16 @@ open System.Collections.Concurrent
 type private ResourceContainer<'Resource>(name : string, proj : 'Resource -> string) =
     let container = new ConcurrentDictionary<string, 'Resource> ()
 
+    member __.ContainsKey(id : string) = container.ContainsKey id
+
+    member __.TryRegister(resource : 'Resource, ?force : bool) =
+        let key = proj resource
+        if defaultArg force false then
+            container.AddOrUpdate(key, resource, fun _ _ -> resource) |> ignore
+            true
+        else 
+            container.TryAdd(key, resource)
+
     member __.Register(resource : 'Resource, ?force : bool) =
         let key = proj resource
         if defaultArg force false then
@@ -50,6 +60,27 @@ type StoreRegistry private () =
     static member Register(tableStore : ICloudTableStore, ?force : bool) : unit = tableStores.Register(tableStore, ?force = force)
 
     /// <summary>
+    ///     Registers a serializer instance. 
+    /// </summary>
+    /// <param name="serializer">Serializer to be registered.</param>
+    /// <param name="force">Force overwrite. Defaults to false.</param>
+    static member TryRegister(serializer : ISerializer, ?force : bool) : bool = serializers.TryRegister(serializer, ?force = force)
+
+    /// <summary>
+    ///     Registers a file store instance. 
+    /// </summary>
+    /// <param name="fileStore">File store to be registered.</param>
+    /// <param name="force">Force overwrite. Defaults to false.</param>
+    static member TryRegister(fileStore : ICloudFileStore, ?force : bool) : bool = fileStores.TryRegister(fileStore, ?force = force)
+
+    /// <summary>
+    ///     Registers a serializer instance. 
+    /// </summary>
+    /// <param name="serializer">Serializer to be registered.</param>
+    /// <param name="force">Force overwrite. Defaults to false.</param>
+    static member TryRegister(tableStore : ICloudTableStore, ?force : bool) : bool = tableStores.TryRegister(tableStore, ?force = force)
+
+    /// <summary>
     ///     Resolves a registered serializer instance by id.
     /// </summary>
     /// <param name="id">Serializer id.</param>
@@ -66,3 +97,21 @@ type StoreRegistry private () =
     /// </summary>
     /// <param name="id">Table store id.</param>
     static member GetTableStore(id : string) = tableStores.Resolve(id)
+
+    /// <summary>
+    ///     Checks if serializer with given id is registered.
+    /// </summary>
+    /// <param name="serializer">Serializer id</param>
+    member __.ContainsSerializer(serializerId : string) = serializers.ContainsKey serializerId
+
+    /// <summary>
+    ///     Checks if file store with given id is registered.
+    /// </summary>
+    /// <param name="fileStoreId">FileStore id.</param>
+    member __.ContainsFileStore(fileStoreId : string) = fileStores.ContainsKey fileStoreId
+
+    /// <summary>
+    ///     Checks if table store with given id is registered.
+    /// </summary>
+    /// <param name="tableStoreId">TableStore id.</param>
+    member __.ContainsTableStore(tableStoreId : string) = tableStores.ContainsKey tableStoreId
