@@ -1,0 +1,1139 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>b3d0b0bd-3b5d-4a4d-bb4c-91070cd21c85</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>MBrace.Azure.Store</RootNamespace>
+    <AssemblyName>MBrace.Azure.Store</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
+    <Name>MBrace.Azure.Store</Name>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath>..\..\bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>
+    </DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>..\..\bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>
+    </DocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Utils.fs" />
+    <Compile Include="BlobStore.fs" />
+    <None Include="test.fsx" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj">
+      <Name>MBrace.Core</Name>
+      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Choose>
+    <When Condition="'$(VisualStudioVersion)' == '11.0'">
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+  <Import Project="$(FSharpTargetsPath)" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework'">
+      <Choose>
+        <When Condition="$(TargetFrameworkVersion) == 'v1.0'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v1.1'">
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v2.0'">
+          <ItemGroup>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net20\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v3.5'">
+          <ItemGroup>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net35\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v4.0' And $(TargetFrameworkProfile) == 'Client'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net40\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkVersion) == 'v4.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net40\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <Otherwise>
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </Otherwise>
+      </Choose>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETPortable'">
+      <Choose>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/de' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\de\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\de\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\de\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/es' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\es\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\es\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\es\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/fr' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\fr\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\fr\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\fr\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/it' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\it\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\it\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\it\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/ja' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\ja\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\ja\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\ja\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/ko' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\ko\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\ko\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\ko\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/ru' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\ru\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\ru\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\ru\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/zh-hans' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\zh-Hans\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\zh-Hans\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\zh-Hans\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net40+sl5+wp8+win8+wpa/zh-hant' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\zh-Hant\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\zh-Hant\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\zh-Hant\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'Profile136' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\portable-net40+sl5+wp80+win8+wpa81\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/de' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\de\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\de\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\de\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\de\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/es' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\es\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\es\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\es\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\es\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/fr' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\fr\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\fr\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\fr\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\fr\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/it' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\it\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\it\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\it\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\it\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/ja' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\ja\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\ja\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\ja\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\ja\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/ko' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\ko\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\ko\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\ko\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\ko\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/ru' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\ru\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\ru\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\ru\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\ru\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/zh-hans' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\zh-Hans\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\zh-Hans\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\zh-Hans\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\zh-Hans\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp8+win8+wpa/zh-hant' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\zh-Hant\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\zh-Hant\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\zh-Hant\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\zh-Hant\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetFrameworkProfile) == 'net45+wp80+win8+wpa81+aspnetcore50' And $(TargetPlatformIdentifier) == 'Portable' And $(TargetPlatformVersion) == '7.0'">
+          <ItemGroup>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\portable-net45+wp80+win8+wpa81+aspnetcore50\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <Otherwise>
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net45+wp8+win8+wpa\zh-Hant\Microsoft.Data.Edm.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData.resources">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net45+wp8+win8+wpa\zh-Hant\Microsoft.Data.OData.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client.resources">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\zh-Hant\Microsoft.Data.Services.Client.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\portable-net45+wp80+win8+wpa81+aspnetcore50\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial.resources">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net45+wp8+win8+wpa\zh-Hant\System.Spatial.resources.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </Otherwise>
+      </Choose>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == 'MonoAndroid'">
+      <ItemGroup>
+        <Reference Include="Microsoft.Data.Edm">
+          <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.OData">
+          <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.Services.Client">
+          <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Configuration">
+          <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Spatial">
+          <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Storage">
+          <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Data">
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == 'MonoTouch'">
+      <ItemGroup>
+        <Reference Include="Microsoft.Data.Edm">
+          <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.OData">
+          <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.Services.Client">
+          <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Configuration">
+          <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Spatial">
+          <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Storage">
+          <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Data">
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == 'Silverlight'">
+      <Choose>
+        <When Condition="$(SilverlightVersion) == 'v3.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(SilverlightVersion) == 'v4.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\sl4\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\sl4\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\sl4\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\sl4\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <Otherwise>
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\portable-net40+sl5+wp80+win8+wpa81\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </Otherwise>
+      </Choose>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == 'Windows'">
+      <ItemGroup>
+        <Reference Include="Microsoft.Data.Edm">
+          <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.Edm.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.OData">
+          <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.OData.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.Services.Client">
+          <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\Microsoft.Data.Services.Client.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Configuration">
+          <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>..\..\packages\Newtonsoft.Json\lib\portable-net40+sl5+wp80+win8+wpa81\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Spatial">
+          <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\System.Spatial.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Storage">
+          <HintPath>..\..\packages\WindowsAzure.Storage\lib\win8\Microsoft.WindowsAzure.Storage.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == 'WindowsPhoneApp'">
+      <Choose>
+        <When Condition="$(TargetPlatformVersion) == '7.1'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <When Condition="$(TargetPlatformVersion) == 'v8.0'">
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\portable-net40+sl5+wp8+win8+wpa\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\portable-net45+wp8+win8+wpa\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\portable-net40+sl5+wp8+win8+wpa\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\wp8\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </When>
+        <Otherwise>
+          <ItemGroup>
+            <Reference Include="Microsoft.Data.Edm">
+              <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.OData">
+              <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.Data.Services.Client">
+              <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Configuration">
+              <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Newtonsoft.Json">
+              <HintPath>..\..\packages\Newtonsoft.Json\lib\portable-net40+sl5+wp80+win8+wpa81\Newtonsoft.Json.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Spatial">
+              <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="Microsoft.WindowsAzure.Storage">
+              <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+              <Private>True</Private>
+              <Paket>True</Paket>
+            </Reference>
+            <Reference Include="System.Data">
+              <Paket>True</Paket>
+            </Reference>
+          </ItemGroup>
+        </Otherwise>
+      </Choose>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <Reference Include="Microsoft.Data.Edm">
+          <HintPath>..\..\packages\Microsoft.Data.Edm\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.OData">
+          <HintPath>..\..\packages\Microsoft.Data.OData\lib\net40\Microsoft.Data.OData.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Data.Services.Client">
+          <HintPath>..\..\packages\Microsoft.Data.Services.Client\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Configuration">
+          <HintPath>..\..\packages\Microsoft.WindowsAzure.ConfigurationManager\lib\net40\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Spatial">
+          <HintPath>..\..\packages\System.Spatial\lib\net40\System.Spatial.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.WindowsAzure.Storage">
+          <HintPath>..\..\packages\WindowsAzure.Storage\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Data">
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
+</Project>
