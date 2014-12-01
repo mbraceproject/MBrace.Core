@@ -45,10 +45,19 @@ type ``MBrace store tests`` () as self =
 
 
     [<Test>]
-    member __.``Simple CloudSeq`` () =
-        let cseq = CloudSeq.New [|1 .. 10000|] |> run
-        cseq |> Seq.length |> should equal 10000
-        cseq.Length |> should equal 10000
+    member __.``Simple CloudSeq`` () = 
+        let ref = run <| CloudSeq.New [1..10000]
+        ref |> Seq.length |> should equal 10000
+
+    [<Test>]
+    member __.``Parallel CloudSeq`` () =
+        let ref = run <| CloudSeq.New [1..10000]
+        ref |> Seq.length |> should equal 10000
+        cloud {
+            let! ref = CloudSeq.New [1 .. 10000]
+            let! (x, y) = cloud { return Seq.length ref } <||> cloud { return Seq.length ref }
+            return x + y
+        } |> run |> should equal 20000
 
     [<Test>]
     member __.``Simple CloudFile`` () =
@@ -72,6 +81,33 @@ type ``MBrace store tests`` () as self =
             return Seq.length lines
         } |> run |> should equal 1000
 
+    [<Test>]
+    member __.``CloudFile read from stream`` () =
+        let mk a = Array.init (a * 1024) byte
+        let n = 512
+        cloud {
+            let! f = 
+                CloudFile.New(fun stream -> async {
+                    let b = mk n
+                    stream.Write(b, 0, b.Length)
+                    stream.Flush()
+                    stream.Dispose() })
+
+            let! bytes = CloudFile.ReadAllBytes(f)
+            return bytes
+        } |> run |> should equal (mk n)
+
+    [<Test>]
+    member __.``CloudFile get by name`` () =
+        cloud {
+            let! f = CloudFile.WriteAllBytes([|1uy..100uy|])
+            let! t = Cloud.StartChild(cloud { 
+                let! f' = CloudFile.FromPath f.Path
+                return! CloudFile.ReadAllBytes f'   
+            })
+
+            return! t
+        } |> run |> should equal [|1uy .. 100uy|]
 
     [<Test>]
     member __.``Disposable CloudFile`` () =
@@ -81,15 +117,89 @@ type ``MBrace store tests`` () as self =
             return! CloudFile.ReadAllText file
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
-//    [<Test>]
-//    member __.``Get files in container`` () =
-//        cloud {
-//            let! container = CloudStore.GetUniqueContainerName()
-//            let! file1 = CloudFile.WriteAllBytes([|1uy .. 100uy|], "container")
-//            let! file1 = CloudFile.WriteAllBytes [|1uy .. 100uy|]
-//        
-//        
-//        }
+    [<Test>]
+    member __.``Get files in container`` () =
+        cloud {
+            let! container = CloudStore.GetUniqueContainerName()
+            let! fileNames = CloudStore.GetFullPath(Seq.map (sprintf "file%d") [1..10], container)
+            let! files =
+                fileNames
+                |> Seq.map (fun f -> CloudFile.WriteAllBytes([|1uy .. 100uy|], f))
+                |> Cloud.Parallel
+
+            let! files' = CloudFile.EnumerateFiles container
+            return files.Length = files'.Length
+        } |> run |> should equal true
+
+    [<Test>]
+    member __.``CloudFile attempt to write on stream`` () =
+        cloud {
+            let! cf = CloudFile.New(fun stream -> async { stream.WriteByte(10uy) })
+            return! CloudFile.Read(cf, fun stream -> async { stream.WriteByte(20uy) })
+        } |> runProtected |> Choice.shouldFailwith<_,exn>
+
+    [<Test>]
+    member __.``CloudFile attempt to read nonexistent file`` () =
+        cloud {
+            return! CloudFile.FromPath(Guid.NewGuid().ToString())
+        } |> runProtected |> Choice.shouldFailwith<_,exn>
+
+    [<Test>]
+    member __.``CloudAtom - Sequential updates`` () =
+        cloud {
+            let! a = CloudAtom.New 0
+            for i in 1 .. 100 do
+                do! CloudAtom.Update (fun i -> i + 1) a
+
+            return a
+        } |> run |> fun a -> a.Value |> should equal 100
+
+    [<Test; Repeat(repeats)>]
+    member __.``CloudAtom - Parallel updates`` () =
+        cloud {
+            let! a = CloudAtom.New 0
+            let worker _ = cloud {
+                for _ in 1 .. 10 do
+                    do! CloudAtom.Update (fun i -> i + 1) a
+            }
+            do! Seq.init 10 worker |> Cloud.Parallel |> Cloud.Ignore
+            return a
+        } |> run |> fun a -> a.Value |> should equal 100
+
+    [<Test; Repeat(repeats)>]
+    member __.``CloudAtom - Parallel updates with large obj`` () =
+        cloud {
+            let! isSupported = CloudAtom.IsSupportedValue [1 .. 100]
+            if isSupported then return true
+            else
+                let! atom = CloudAtom.New List.empty<int>
+                do! Seq.init 100 (fun i -> CloudAtom.Update (fun is -> i :: is) atom) |> Cloud.Parallel |> Cloud.Ignore
+                return List.sum atom.Value = List.sum [1..100]
+        } |> run |> should equal true
+
+    [<Test; Repeat(repeats)>]
+    member __.``CloudAtom - transact with contention`` () =
+        cloud {
+            let! a = CloudAtom.New 0
+            let! results = Seq.init 100 (fun _ -> CloudAtom.Transact(fun i -> i, (i+1)) a) |> Cloud.Parallel
+            return Array.sum results
+        } |> run |> should equal (Array.sum [|0 .. 99|])
+
+    [<Test; Repeat(repeats)>]
+    member __.``CloudAtom - force with contention`` () =
+        cloud {
+            let! a = CloudAtom.New 0
+            do! Seq.init 100 (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
+            return a.Value
+        } |> run |> should be (greaterThan 50)
+
+    [<Test; Repeat(repeats)>]
+    member __.``CloudAtom - dispose`` () =
+        cloud {
+            let! a = CloudAtom.New 0
+            do! cloud { use a = a in () }
+            return! CloudAtom.Read a
+        } |> runProtected |> Choice.shouldFailwith<_,exn>
 
 
 [<TestFixture; AbstractClass>]

@@ -36,6 +36,13 @@ type CloudStore =
         return config.FileStore.CreateUniqueFileName(container)
     }
 
+    /// Creates an absolute path for a sequence of filenames with given container
+    static member GetFullPath (files : seq<string>, ?container : string) = cloud {
+        let! config = Cloud.GetResource<CloudStoreConfiguration> ()
+        let container = match container with Some c -> c | None -> config.DefaultFileContainer
+        return files |> Seq.map (fun f -> config.FileStore.Combine(container, f)) |> Seq.toArray
+    }
+
 type Nessos.MBrace.CloudFile with
 
     /// <summary> 
@@ -95,6 +102,12 @@ type CloudAtom =
     }
 
     /// <summary>
+    ///     Dereferences a cloud atom.
+    /// </summary>
+    /// <param name="atom">Atom instance.</param>
+    static member Read(atom : CloudAtom<'T>) : Cloud<'T> = Cloud.OfAsync <| atom.GetValue()
+
+    /// <summary>
     ///     Atomically updates the contained value.
     /// </summary>
     /// <param name="updater">value updating function.</param>
@@ -123,6 +136,19 @@ type CloudAtom =
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
     static member Delete (atom : CloudAtom<'T>) = Cloud.Dispose atom
+
+
+    /// <summary>
+    ///     Checks if value is supported by current table store.
+    /// </summary>
+    /// <param name="value">Value to be checked.</param>
+    static member IsSupportedValue(value : 'T) = cloud {
+        let! config = Cloud.GetResource<CloudStoreConfiguration> ()
+        return
+            match config.TableStore with
+            | None -> false
+            | Some ts -> ts.IsSupportedValue value
+    }
 
 
 /// Cloud reference methods.
