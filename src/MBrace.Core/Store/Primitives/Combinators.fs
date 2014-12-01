@@ -150,7 +150,6 @@ type CloudAtom =
             | Some ts -> ts.IsSupportedValue value
     }
 
-
 /// Cloud reference methods.
 type CloudRef =
 
