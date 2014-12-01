@@ -26,11 +26,15 @@ type CloudAtom<'T> internal (tableStore : ICloudTableStore, id : string) =
     /// Atom identifier
     member __.Id = id
 
+    // Note : async members must delay getStore() to avoid
+    // fileStore being captured in closures
+
     /// <summary>
     ///     Atomically updates the contained value.  
     /// </summary>
     /// <param name="updater">value updating function.</param>
-    member __.Update(updater : 'T -> 'T) : Async<unit> = getStore().Update(id, updater)
+    member __.Update(updater : 'T -> 'T) : Async<unit> =
+        async { return! getStore().Update(id, updater) }
 
     /// <summary>
     ///     Transactionally updates the contained value.
@@ -46,18 +50,18 @@ type CloudAtom<'T> internal (tableStore : ICloudTableStore, id : string) =
     ///     Forces the contained value to provided argument.
     /// </summary>
     /// <param name="value">Value to be forced.</param>
-    member __.Force(value : 'T) =  getStore().Force(id, value)
+    member __.Force(value : 'T) = async { return! getStore().Force(id, value) }
     
     /// <summary>
     ///     Asynchronously returns the contained value for given atom.
     /// </summary>
-    member __.GetValue () = getStore().GetValue<'T> id
+    member __.GetValue () = async { return! getStore().GetValue<'T> id }
 
     /// Synchronously returns the contained value for given atom.
     member __.Value = Async.RunSync (getStore().GetValue<'T> id)
 
     interface ICloudDisposable with
-        member __.Dispose () = getStore().Delete id
+        member __.Dispose () = async { return! getStore().Delete id }
 
 
 namespace Nessos.MBrace.Store

@@ -28,11 +28,11 @@ type Worker(procId : string) =
     static member RemoteWorker(id: string) = new Worker(id)
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, procId, container, taskId, dependencies, context) =
 
     /// Creates a runtime provider instance for a provided task
     static member FromTask state procId dependencies (task : Task) =
-        new RuntimeProvider(state, procId, task.TaskId, dependencies, Distributed)
+        new RuntimeProvider(state, procId, task.Container, task.TaskId, dependencies, Distributed)
         
     interface IRuntimeProvider with
         member __.ProcessId = procId
@@ -40,23 +40,23 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext context = 
-            new RuntimeProvider(state, procId, taskId, dependencies, context) :> IRuntimeProvider
+            new RuntimeProvider(state, procId, container, taskId, dependencies, context) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.Parallel state procId dependencies computations
+            | Distributed -> Combinators.Parallel state procId container dependencies computations
             | ThreadParallel -> ThreadPool.Parallel computations
             | Sequential -> Sequential.Parallel computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.Choice state procId dependencies computations
+            | Distributed -> Combinators.Choice state procId container dependencies computations
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
         member __.ScheduleStartChild(computation,_,_) =
             match context with
-            | Distributed -> Combinators.StartChild state procId dependencies computation
+            | Distributed -> Combinators.StartChild state procId container dependencies computation
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 

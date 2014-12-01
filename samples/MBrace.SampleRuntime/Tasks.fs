@@ -68,6 +68,8 @@ type Task =
         Type : Type
         /// Cloud process unique identifier
         ProcessId : string
+        /// Default file store container for process
+        Container : string
         /// Task unique identifier
         TaskId : string
         /// Triggers task execution with worker-provided execution context
@@ -86,7 +88,12 @@ with
         let tem = new TaskExecutionMonitor()
         let ctx =
             {
-                Resources = resource { yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; yield dependencies }
+                Resources = 
+                    resource { 
+                        yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; 
+                        yield dependencies ; yield Config.getStoreConfiguration task.Container
+                    }
+
                 CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
             }
 
@@ -135,7 +142,7 @@ with
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
-    member rt.EnqueueTask procId dependencies cts sc ec cc (wf : Cloud<'T>) =
+    member rt.EnqueueTask procId container dependencies cts sc ec cc (wf : Cloud<'T>) =
         let taskId = System.Guid.NewGuid().ToString()
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
@@ -145,6 +152,7 @@ with
             { 
                 Type = typeof<'T>
                 ProcessId = procId
+                Container = container
                 TaskId = taskId
                 StartTask = startTask
                 CancellationTokenSource = cts
@@ -160,7 +168,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell procId dependencies cts (wf : Cloud<'T>) = async {
+    member rt.StartAsCell procId container dependencies cts (wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let setResult ctx r = 
             async {
@@ -171,7 +179,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        rt.EnqueueTask procId dependencies cts scont econt ccont wf
+        rt.EnqueueTask procId container dependencies cts scont econt ccont wf
         return resultCell
     }
 

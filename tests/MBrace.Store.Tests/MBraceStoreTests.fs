@@ -26,12 +26,12 @@ type ``MBrace store tests`` () as self =
     abstract Run : Cloud<'T> * ?ct:CancellationToken -> 'T
 
     [<Test>]
-    member __.``Simple CloudRef`` () = 
+    member __.``CloudRef - simple`` () = 
         let ref = run <| CloudRef.New 42
         ref.Value |> should equal 42
 
     [<Test>]
-    member __.``Parallel CloudRef`` () =
+    member __.``CloudRef - Parallel`` () =
         cloud {
             let! ref = CloudRef.New [1 .. 100]
             let! (x, y) = cloud { return ref.Value.Length } <||> cloud { return ref.Value.Length }
@@ -39,18 +39,18 @@ type ``MBrace store tests`` () as self =
         } |> run |> should equal 200
 
     [<Test>]
-    member __.``Distributed tree`` () =
+    member __.``CloudRef - Distributed tree`` () =
         let tree = createTree 5 |> run
         getBranchCount tree |> run |> should equal 31
 
 
     [<Test>]
-    member __.``Simple CloudSeq`` () = 
+    member __.``CloudSeq - simple`` () = 
         let ref = run <| CloudSeq.New [1..10000]
         ref |> Seq.length |> should equal 10000
 
     [<Test>]
-    member __.``Parallel CloudSeq`` () =
+    member __.``CloudSeq - parallel`` () =
         let ref = run <| CloudSeq.New [1..10000]
         ref |> Seq.length |> should equal 10000
         cloud {
@@ -60,7 +60,7 @@ type ``MBrace store tests`` () as self =
         } |> run |> should equal 20000
 
     [<Test>]
-    member __.``Simple CloudFile`` () =
+    member __.``CloudFile - simple`` () =
         let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> run
         file.GetSizeAsync() |> Async.RunSynchronously |> should equal 100
         cloud {
@@ -69,7 +69,7 @@ type ``MBrace store tests`` () as self =
         } |> run |> should equal 100
 
     [<Test>]
-    member __.``Large CloudFile`` () =
+    member __.``CloudFile - large`` () =
         let file =
             cloud {
                 let text = Seq.init 1000 (fun _ -> "lorem ipsum dolor sit amet")
@@ -82,7 +82,7 @@ type ``MBrace store tests`` () as self =
         } |> run |> should equal 1000
 
     [<Test>]
-    member __.``CloudFile read from stream`` () =
+    member __.``CloudFile - read from stream`` () =
         let mk a = Array.init (a * 1024) byte
         let n = 512
         cloud {
@@ -98,7 +98,7 @@ type ``MBrace store tests`` () as self =
         } |> run |> should equal (mk n)
 
     [<Test>]
-    member __.``CloudFile get by name`` () =
+    member __.``CloudFile - get by name`` () =
         cloud {
             let! f = CloudFile.WriteAllBytes([|1uy..100uy|])
             let! t = Cloud.StartChild(cloud { 
@@ -110,7 +110,7 @@ type ``MBrace store tests`` () as self =
         } |> run |> should equal [|1uy .. 100uy|]
 
     [<Test>]
-    member __.``Disposable CloudFile`` () =
+    member __.``CloudFile - disposable`` () =
         cloud {
             let! file = CloudFile.WriteAllText "lorem ipsum dolor"
             do! cloud { use file = file in () }
@@ -118,7 +118,7 @@ type ``MBrace store tests`` () as self =
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
-    member __.``Get files in container`` () =
+    member __.``CloudFile - get files in container`` () =
         cloud {
             let! container = CloudStore.GetUniqueContainerName()
             let! fileNames = CloudStore.GetFullPath(Seq.map (sprintf "file%d") [1..10], container)
@@ -132,14 +132,14 @@ type ``MBrace store tests`` () as self =
         } |> run |> should equal true
 
     [<Test>]
-    member __.``CloudFile attempt to write on stream`` () =
+    member __.``CloudFile - attempt to write on stream`` () =
         cloud {
             let! cf = CloudFile.New(fun stream -> async { stream.WriteByte(10uy) })
             return! CloudFile.Read(cf, fun stream -> async { stream.WriteByte(20uy) })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
-    member __.``CloudFile attempt to read nonexistent file`` () =
+    member __.``CloudFile - attempt to read nonexistent file`` () =
         cloud {
             return! CloudFile.FromPath(Guid.NewGuid().ToString())
         } |> runProtected |> Choice.shouldFailwith<_,exn>
@@ -191,7 +191,7 @@ type ``MBrace store tests`` () as self =
             let! a = CloudAtom.New 0
             do! Seq.init 100 (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
             return a.Value
-        } |> run |> should be (greaterThan 50)
+        } |> run |> should be (greaterThan 10)
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - dispose`` () =

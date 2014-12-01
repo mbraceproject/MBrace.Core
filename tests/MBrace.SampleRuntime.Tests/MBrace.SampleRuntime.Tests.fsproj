@@ -350,10 +350,16 @@
   </Choose>
   <ItemGroup>
     <Compile Include="DistributionTests.fs" />
+    <Compile Include="StoreTests.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\MBrace.Store.Tests\MBrace.Store.Tests.fsproj">
+      <Name>MBrace.Store.Tests</Name>
+      <Project>{b04b2ab2-eb56-4236-aa8e-8a4f9a3ab488}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">

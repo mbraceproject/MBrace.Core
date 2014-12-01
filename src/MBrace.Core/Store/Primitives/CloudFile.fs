@@ -31,17 +31,20 @@ type CloudFile internal (fileStore : ICloudFileStore, path : string) =
     /// Cloud service unique identifier
     member __.StoreId = storeId
 
+    // Note : async members must delay getStore() to avoid
+    // fileStore being captured in closures
+
     /// Returns the file size in bytes
-    member __.GetSizeAsync () = getStore().GetFileSize path
+    member __.GetSizeAsync () = async { return! getStore().GetFileSize path }
 
     /// Asynchronously returns a reading stream to file.
-    member __.BeginRead () : Async<Stream> = getStore().BeginRead path
+    member __.BeginRead () : Async<Stream> = async { return! getStore().BeginRead path }
 
     /// <summary>
     ///     Copy file contents to local stream.
     /// </summary>
     /// <param name="target">Target stream.</param>
-    member __.CopyToStream (target : Stream) = getStore().ToStream(path, target)
+    member __.CopyToStream (target : Stream) = async { return! getStore().ToStream(path, target) }
 
     /// <summary>
     ///     Reads the contents of provided cloud file using provided deserializer.
@@ -54,7 +57,7 @@ type CloudFile internal (fileStore : ICloudFileStore, path : string) =
     }
 
     interface ICloudDisposable with
-        member __.Dispose () = getStore().DeleteFile path
+        member __.Dispose () = async { return! getStore().DeleteFile path }
 
 
 namespace Nessos.MBrace.Store
