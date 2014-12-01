@@ -8,10 +8,20 @@ open Nessos.MBrace.Store
 open Nessos.MBrace.Azure.Store
 open Nessos.MBrace.Store.Tests
 
-
 module Helper =
     open System
-    let conn = Environment.GetEnvironmentVariable("azurestorageconn", EnvironmentVariableTarget.User)
+
+    let selectEnv name =
+        (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
+            Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
+            Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
+        |> function 
+            | s, _, _ when not <| String.IsNullOrEmpty(s) -> s
+            | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
+            | _, _, s when not <| String.IsNullOrEmpty(s) -> s
+            | _ -> failwith "Variable not found"
+
+    let conn = selectEnv "azurestorageconn"
     let store = lazy new BlobStore(conn)
 
 [<TestFixture>]
