@@ -56,7 +56,8 @@ type TableStore (conn : string) =
         
         member x.Update(id: string, updater: 'T -> 'T): Async<unit> = 
             async {
-                let interval = 2 // 2 ms
+                let interval = let r = new Random() in r.Next(2,5) 
+                let maxInterval = 5000
                 let rec update currInterval = async {
                     let! e = Table.read<FatEntity> acc defaultTable id String.Empty
                     let oldValue = deserialize(e.GetPayload())
@@ -68,7 +69,7 @@ type TableStore (conn : string) =
                     | Choice1Of2 _ -> return ()
                     | Choice2Of2 e when Table.PreconditionFailed e -> 
                         do! Async.Sleep currInterval
-                        return! update (interval * currInterval)
+                        return! update (min (interval * currInterval) maxInterval)
                     | Choice2Of2 e -> return raise e
                 }
                 return! update interval
