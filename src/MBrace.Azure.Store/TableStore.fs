@@ -56,7 +56,8 @@ type TableStore (conn : string) =
         
         member x.Update(id: string, updater: 'T -> 'T): Async<unit> = 
             async {
-                let rec update () = async {
+                let interval = 2 // 2 ms
+                let rec update currInterval = async {
                     let! e = Table.read<FatEntity> acc defaultTable id String.Empty
                     let oldValue = deserialize(e.GetPayload())
                     let newValue = updater oldValue
@@ -65,10 +66,12 @@ type TableStore (conn : string) =
                     let! result = Async.Catch <| Table.merge acc defaultTable e
                     match result with
                     | Choice1Of2 _ -> return ()
-                    | Choice2Of2 e when Table.PreconditionFailed e -> return! update()
+                    | Choice2Of2 e when Table.PreconditionFailed e -> 
+                        do! Async.Sleep currInterval
+                        return! update (interval * currInterval)
                     | Choice2Of2 e -> return raise e
                 }
-                return! update ()
+                return! update interval
             }       
 
         member x.Force(id: string, newValue: 'T): Async<unit> = 
