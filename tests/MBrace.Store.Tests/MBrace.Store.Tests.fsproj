@@ -48,58 +48,6 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
-  <ItemGroup>
-    <Compile Include="Config.fs" />
-    <Compile Include="TestTypes.fs" />
-    <Compile Include="FileStore.fs" />
-    <Compile Include="TableStore.fs" />
-    <Compile Include="MBraceStoreTests.fs" />
-    <Compile Include="FileSystemStore.fs" />
-    <Compile Include="AzureStore.fs" />
-    <Content Include="App.config" />
-    <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\src\MBrace.Azure.Store\MBrace.Azure.Store.fsproj">
-      <Name>MBrace.Azure.Store</Name>
-      <Project>{b3d0b0bd-3b5d-4a4d-bb4c-91070cd21c85}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
-      <Name>MBrace.Core</Name>
-      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Library\MBrace.Library.fsproj">
-      <Name>MBrace.Library</Name>
-      <Project>{51606ffc-69bb-4755-8454-9e943e2b7290}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj">
-      <Name>MBrace.Runtime.Core</Name>
-      <Project>{bb4a3241-4d46-4888-861d-a34440ecfe8b}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\MBrace.Core.Tests\MBrace.Core.Tests.fsproj">
-      <Name>MBrace.Core.Tests</Name>
-      <Project>{0c3966d4-2c78-4dcf-b84b-73809f3f51bc}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework'">
       <Choose>
@@ -358,4 +306,50 @@
       </ItemGroup>
     </Otherwise>
   </Choose>
+  <ItemGroup>
+    <Compile Include="Config.fs" />
+    <Compile Include="TestTypes.fs" />
+    <Compile Include="FileStore.fs" />
+    <Compile Include="TableStore.fs" />
+    <Compile Include="MBraceStoreTests.fs" />
+    <Compile Include="FileSystemStore.fs" />
+    <Content Include="App.config" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
+      <Name>MBrace.Core</Name>
+      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Library\MBrace.Library.fsproj">
+      <Name>MBrace.Library</Name>
+      <Project>{51606ffc-69bb-4755-8454-9e943e2b7290}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj">
+      <Name>MBrace.Runtime.Core</Name>
+      <Project>{bb4a3241-4d46-4888-861d-a34440ecfe8b}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MBrace.Core.Tests\MBrace.Core.Tests.fsproj">
+      <Name>MBrace.Core.Tests</Name>
+      <Project>{0c3966d4-2c78-4dcf-b84b-73809f3f51bc}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
 </Project>

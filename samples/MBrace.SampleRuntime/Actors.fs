@@ -16,6 +16,7 @@ open Nessos.Thespian.Remote.Protocols
 open Nessos.Vagrant
 
 open Nessos.MBrace.Continuation
+open Nessos.MBrace.Channels
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime
 
@@ -415,6 +416,48 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
 
         new Queue<'T>(self.Value)
 
+//
+//  Defines a distributed channel implementation
+//
+
+type private ChannelMsg<'T> =
+    | Send of 'T
+    | Receive of IReplyChannel<'T>
+
+type Channel<'T> private (source : ActorRef<ChannelMsg<'T>>) =
+
+    interface IChannel<'T> with
+        member __.Send(msg : 'T) = source.AsyncPost(Send msg)
+        member __.Receive(?timeout : int) = source.PostWithReply(Receive, ?timeout = timeout)
+        member __.Dispose () = async.Zero()
+
+    /// Initializes a new distribued queue instance.
+    static member Init() =
+        let behaviour (senders : ImmutableQueue<'T>, receivers : ImmutableQueue<IReplyChannel<'T>>) msg = async {
+            match msg with
+            | Send t ->
+                match receivers.TryDequeue () with
+                | Some(rc, receivers') ->
+                    do! rc.Reply t
+                    return (senders, receivers')
+                | None ->
+                    return (senders.Enqueue t, receivers)
+
+            | Receive rc ->
+                match senders.TryDequeue () with
+                | Some(t, senders') ->
+                    do! rc.Reply t
+                    return (senders', receivers)
+                | None ->
+                    return senders, receivers.Enqueue rc
+        }
+
+        let ref =
+            Actor.Stateful (ImmutableQueue.Empty, ImmutableQueue.Empty) behaviour
+            |> Actor.Publish
+            |> Actor.ref
+
+        new Channel<'T>(ref)
 
 //
 //  Distributed Resource factory.
@@ -436,6 +479,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
     member __.RequestResultAggregator<'T>(count : int) = __.RequestResource(fun () -> ResultAggregator<'T>.Init(count))
     member __.RequestCancellationTokenSource(?parent) = __.RequestResource(fun () -> DistributedCancellationTokenSource.Init(?parent = parent))
     member __.RequestResultCell<'T>() = __.RequestResource(fun () -> ResultCell<'T>.Init())
+    member __.RequestChannel<'T>() = __.RequestResource(fun () -> Channel<'T>.Init())
 
     static member Init () =
         let behavior (RequestResource(ctor,rc)) = async {

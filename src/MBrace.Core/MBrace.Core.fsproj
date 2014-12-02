@@ -76,6 +76,7 @@
     <Compile Include="Store\Primitives\CloudRef.fs" />
     <Compile Include="Store\Primitives\CloudSeq.fs" />
     <Compile Include="Store\Primitives\Combinators.fs" />
+    <Compile Include="Channels\Channel.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

@@ -14,6 +14,7 @@ open Nessos.MBrace
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Channels
 
 open Nessos.MBrace.SampleRuntime.Tasks
 
@@ -26,6 +27,14 @@ type Worker(procId : string) =
 
     static member LocalWorker = new Worker(Process.GetCurrentProcess().Id.ToString())
     static member RemoteWorker(id: string) = new Worker(id)
+
+
+type ChannelProvider (state : RuntimeState) =
+    interface IChannelProvider with
+        member __.CreateChannel<'T> () = async {
+            let! ch = state.ResourceFactory.RequestChannel<'T> ()
+            return ch :> IChannel<'T>
+        }
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, procId, container, taskId, dependencies, context) =

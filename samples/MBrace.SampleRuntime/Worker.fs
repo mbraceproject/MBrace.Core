@@ -25,8 +25,9 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
 
     let currentTaskCount = ref 0
     let runTask procId deps t =
-        let provider = RuntimeProvider.FromTask runtime procId deps t
-        Task.RunAsync provider deps t
+        let runtimeProvider = RuntimeProvider.FromTask runtime procId deps t
+        let channelProvider = new ChannelProvider(runtime)
+        Task.RunAsync runtimeProvider channelProvider deps t
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then

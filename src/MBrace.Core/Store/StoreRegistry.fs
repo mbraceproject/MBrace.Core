@@ -2,7 +2,7 @@
 
 open System.Collections.Concurrent
 
-type private ResourceContainer<'Resource>(name : string, proj : 'Resource -> string) =
+type internal ResourceContainer<'Resource>(name : string, proj : 'Resource -> string) =
     let container = new ConcurrentDictionary<string, 'Resource> ()
 
     member __.ContainsKey(id : string) = container.ContainsKey id
