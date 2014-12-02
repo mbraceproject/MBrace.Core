@@ -39,8 +39,8 @@ type BlobStore (conn : string) =
         member x.BeginWrite(path: string): Async<Stream> = 
             async {
                 let! blob = getBlobRef path
-                let! stream = Async.AwaitTask(blob.OpenWriteAsync())
-                return stream :> _
+                let! stream = blob.OpenWriteAsync()
+                return stream :> Stream
             } 
         
         member x.Combine(container: string, fileName: string): string = 
