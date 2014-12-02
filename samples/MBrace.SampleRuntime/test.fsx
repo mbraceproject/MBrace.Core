@@ -13,22 +13,20 @@ MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Samp
 
 let runtime = MBraceRuntime.InitLocal(4)
 
-open Nessos.MBrace.Channels
-
 runtime.Run(
     cloud {
-        let! chan = Channel.New<int> ()
+        let! sp,rp = CloudChannel.New<int> ()
         let rec sender n = cloud {
             if n = 0 then return ()
             else
-                do! Channel.Send n chan
+                do! CloudChannel.Send n sp
                 return! sender (n-1)
         }
 
         let rec receiver n = cloud {
             if n = 100 then return ()
             else
-                let! i = Channel.Receive chan
+                let! i = CloudChannel.Receive rp
                 printfn "RECEIVED : %d" i
                 return! receiver (n + 1)
         }

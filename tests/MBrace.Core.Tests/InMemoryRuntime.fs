@@ -11,7 +11,10 @@ type InMemoryRuntime private (context : SchedulingContext) =
     static member Create () = new InMemoryRuntime(ThreadParallel)
 
     static member Resource =
-        resource { yield InMemoryRuntime.Create () :> IRuntimeProvider }
+        resource { 
+            yield InMemoryRuntime.Create () :> IRuntimeProvider
+            yield new MailboxChannelProvider() :> ICloudChannelProvider 
+        }
         
     interface IRuntimeProvider with
         member __.ProcessId = "in memory process"

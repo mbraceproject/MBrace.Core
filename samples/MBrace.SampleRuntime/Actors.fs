@@ -15,8 +15,8 @@ open Nessos.Thespian.Remote.Protocols
 
 open Nessos.Vagrant
 
+open Nessos.MBrace
 open Nessos.MBrace.Continuation
-open Nessos.MBrace.Channels
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.SampleRuntime
 
@@ -426,38 +426,48 @@ type private ChannelMsg<'T> =
 
 type Channel<'T> private (source : ActorRef<ChannelMsg<'T>>) =
 
-    interface IChannel<'T> with
-        member __.Send(msg : 'T) = source.AsyncPost(Send msg)
+    interface IReceivePort<'T> with
         member __.Receive(?timeout : int) = source.PostWithReply(Receive, ?timeout = timeout)
         member __.Dispose () = async.Zero()
 
+    interface ISendPort<'T> with
+        member __.Send(msg : 'T) = source.AsyncPost(Send msg)
+
     /// Initializes a new distribued queue instance.
     static member Init() =
-        let behaviour (senders : ImmutableQueue<'T>, receivers : ImmutableQueue<IReplyChannel<'T>>) msg = async {
+        let self = ref Unchecked.defaultof<ActorRef<ChannelMsg<'T>>>
+        let behaviour (messages : ImmutableQueue<'T>, receivers : ImmutableQueue<IReplyChannel<'T>>) msg = async {
             match msg with
             | Send t ->
                 match receivers.TryDequeue () with
                 | Some(rc, receivers') ->
-                    do! rc.Reply t
-                    return (senders, receivers')
+                    // receiving side may have timed out a long time ago, protect
+                    try 
+                        do! rc.Reply t
+                        return (messages, receivers')
+                    with e ->
+                        // reply failed, re-enqueue
+                        self.Value <-- Send t
+                        return (messages, receivers')
+
                 | None ->
-                    return (senders.Enqueue t, receivers)
+                    return (messages.Enqueue t, receivers)
 
             | Receive rc ->
-                match senders.TryDequeue () with
+                match messages.TryDequeue () with
                 | Some(t, senders') ->
                     do! rc.Reply t
                     return (senders', receivers)
                 | None ->
-                    return senders, receivers.Enqueue rc
+                    return messages, receivers.Enqueue rc
         }
 
-        let ref =
+        self :=
             Actor.Stateful (ImmutableQueue.Empty, ImmutableQueue.Empty) behaviour
             |> Actor.Publish
             |> Actor.ref
 
-        new Channel<'T>(ref)
+        new Channel<'T>(self.Value)
 
 //
 //  Distributed Resource factory.

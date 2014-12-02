@@ -369,3 +369,55 @@ module ``ThreadPool Parallelism Tests`` =
         } |> run |> Choice.shouldFailwith<_, TimeoutException>
 
         !counter |> should equal 1
+
+    [<Test>]
+    let ``Channels: simple send/receive`` () =
+        cloud {
+            let! send,recv = CloudChannel.New<int> ()
+            let! _,value = CloudChannel.Send 42 send <||> CloudChannel.Receive recv
+            return value
+        } |> run |> Choice.shouldEqual 42
+
+    [<Test>]
+    let ``Channels: multiple send/receive`` () =
+        cloud {
+            let! sp,rp = CloudChannel.New<int option> ()
+            let rec sender n = cloud {
+                if n = 0 then
+                    do! CloudChannel.Send None sp
+                else
+                    do! CloudChannel.Send (Some n) sp
+                    return! sender (n-1)
+            }
+
+            let rec receiver c = cloud {
+                let! v = CloudChannel.Receive rp
+                match v with
+                | None -> return c
+                | Some i -> return! receiver (c + i)
+            }
+
+            let! _, result = sender 100 <||> receiver 0
+            return result
+        } |> run |> Choice.shouldEqual 5050
+
+    [<Test>]
+    let ``Channels: multiple senders`` () =
+        cloud {
+            let! sp, rp = CloudChannel.New<int> ()
+            let sender n = cloud {
+                for i in 1 .. n do
+                    do! CloudChannel.Send i sp
+            }
+
+            let rec receiver c n = cloud {
+                if n = 0 then return c
+                else
+                    let! i = CloudChannel.Receive rp
+                    return! receiver (c + i) (n - 1)
+            }
+
+            let senders = Seq.init 10 (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
+            let! _,result = senders <||> receiver 0 100
+            return result
+        } |> run |> Choice.shouldEqual 550

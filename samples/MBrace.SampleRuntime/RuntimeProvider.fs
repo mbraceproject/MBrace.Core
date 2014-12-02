@@ -10,11 +10,11 @@ open System.Diagnostics
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote
+
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
-open Nessos.MBrace.Channels
 
 open Nessos.MBrace.SampleRuntime.Tasks
 
@@ -30,10 +30,10 @@ type Worker(procId : string) =
 
 
 type ChannelProvider (state : RuntimeState) =
-    interface IChannelProvider with
+    interface ICloudChannelProvider with
         member __.CreateChannel<'T> () = async {
             let! ch = state.ResourceFactory.RequestChannel<'T> ()
-            return ch :> IChannel<'T>
+            return ch :> ISendPort<'T>, ch :> IReceivePort<'T>
         }
         
 /// Scheduling implementation provider
