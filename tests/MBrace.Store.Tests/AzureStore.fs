@@ -23,7 +23,7 @@ module Helper =
 
     let conn = selectEnv "azurestorageconn"
     let blobStore = lazy new BlobStore(conn)
-    let tableStore = lazy new TableStore(conn, Nessos.MBrace.Runtime.VagrantRegistry.Pickler)
+    let tableStore = lazy new TableStore(conn, Nessos.FsPickler.FsPickler.CreateBinary())
 
 [<TestFixture>]
 type ``Azure Blob store tests`` () =
