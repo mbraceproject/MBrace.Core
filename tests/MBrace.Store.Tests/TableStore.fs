@@ -21,10 +21,13 @@ module private Helpers =
 #endif
 
 [<TestFixture; AbstractClass>]
-type ``Table Store Tests`` (tableStore : ICloudTableStore) =
+type ``Table Store Tests`` (tableStore : ICloudTableStore, ?npar, ?nseq) =
     do StoreRegistry.Register(tableStore, force = true)
 
     let run x = Async.RunSync x
+
+    let npar = defaultArg npar 20
+    let nseq = defaultArg nseq 20
 
     [<Test>]
     member __.``UUID is not null or empty.`` () = 
@@ -55,22 +58,22 @@ type ``Table Store Tests`` (tableStore : ICloudTableStore) =
     [<Test>]
     member __.``Update sequentially`` () =
         let id = tableStore.Create 0 |> run
-        for i = 1 to 100 do 
+        for i = 1 to 10 * nseq do 
             tableStore.Update(id, fun i -> i + 1) |> run
 
-        tableStore.GetValue<int>(id) |> run |> should equal 100
+        tableStore.GetValue<int>(id) |> run |> should equal (10 * nseq)
         tableStore.Delete id |> run
 
     [<Test; Repeat(repeats)>]
     member __.``Update with contention -- int`` () =
         let id = tableStore.Create 0 |> run
         let worker _ = async {
-            for i in 1 .. 20 do
+            for i in 1 .. nseq do
                 do! tableStore.Update(id, fun i -> i + 1)
         }
 
-        Array.init 20 worker |> Async.Parallel |> Async.Ignore |> run
-        tableStore.GetValue<int>(id) |> run |> should equal 400
+        Array.init npar worker |> Async.Parallel |> Async.Ignore |> run
+        tableStore.GetValue<int>(id) |> run |> should equal (npar * nseq)
         tableStore.Delete id |> run
 
     [<Test; Repeat(repeats)>]
@@ -78,12 +81,12 @@ type ``Table Store Tests`` (tableStore : ICloudTableStore) =
         if tableStore.IsSupportedValue [1..100] then
             let id = tableStore.Create<int list> [] |> run
             let worker _ = async {
-                for i in 1 .. 10 do
+                for i in 1 .. nseq do
                     do! tableStore.Update(id, fun xs -> i :: xs)
             }
 
-            Array.init 10 worker |> Async.Parallel |> Async.Ignore |> run
-            tableStore.GetValue<int list>(id) |> run |> List.length |> should equal 100
+            Array.init npar worker |> Async.Parallel |> Async.Ignore |> run
+            tableStore.GetValue<int list>(id) |> run |> List.length |> should equal (npar * nseq)
             tableStore.Delete id |> run
 
     [<Test; Repeat(repeats)>]
@@ -98,6 +101,6 @@ type ``Table Store Tests`` (tableStore : ICloudTableStore) =
                     do! tableStore.Update<int>(id, fun i -> i)
             }
 
-            Array.init 10 worker |> Async.Parallel |> Async.Ignore |> run
+            Array.init npar worker |> Async.Parallel |> Async.Ignore |> run
             tableStore.GetValue<int>(id) |> run |> should equal 42
             tableStore.Delete id |> run

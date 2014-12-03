@@ -16,7 +16,11 @@ open NUnit.Framework
 open FsUnit
 
 [<TestFixture; AbstractClass>]
-type ``MBrace store tests`` () as self =
+type ``MBrace store tests`` (?npar, ?nseq) as self =
+
+    // number of parallel and sequential updates for CloudAtom tests.
+    let npar = defaultArg npar 20
+    let nseq = defaultArg nseq 10
 
     let run wf = self.Run wf 
     let runProtected wf = 
@@ -148,23 +152,23 @@ type ``MBrace store tests`` () as self =
     member __.``CloudAtom - Sequential updates`` () =
         cloud {
             let! a = CloudAtom.New 0
-            for i in 1 .. 100 do
+            for i in 1 .. 10 * nseq do
                 do! CloudAtom.Update (fun i -> i + 1) a
 
             return a
-        } |> run |> fun a -> a.Value |> should equal 100
+        } |> run |> fun a -> a.Value |> should equal (10 * nseq)
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - Parallel updates`` () =
         cloud {
             let! a = CloudAtom.New 0
             let worker _ = cloud {
-                for _ in 1 .. 10 do
+                for _ in 1 .. nseq do
                     do! CloudAtom.Update (fun i -> i + 1) a
             }
-            do! Seq.init 10 worker |> Cloud.Parallel |> Cloud.Ignore
+            do! Seq.init npar worker |> Cloud.Parallel |> Cloud.Ignore
             return a
-        } |> run |> fun a -> a.Value |> should equal 100
+        } |> run |> fun a -> a.Value |> should equal (npar * nseq)
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - Parallel updates with large obj`` () =
@@ -173,23 +177,23 @@ type ``MBrace store tests`` () as self =
             if isSupported then return true
             else
                 let! atom = CloudAtom.New List.empty<int>
-                do! Seq.init 100 (fun i -> CloudAtom.Update (fun is -> i :: is) atom) |> Cloud.Parallel |> Cloud.Ignore
-                return List.sum atom.Value = List.sum [1..100]
+                do! Seq.init npar (fun i -> CloudAtom.Update (fun is -> i :: is) atom) |> Cloud.Parallel |> Cloud.Ignore
+                return List.sum atom.Value = List.sum [1..npar]
         } |> run |> should equal true
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - transact with contention`` () =
         cloud {
             let! a = CloudAtom.New 0
-            let! results = Seq.init 100 (fun _ -> CloudAtom.Transact(fun i -> i, (i+1)) a) |> Cloud.Parallel
+            let! results = Seq.init npar (fun _ -> CloudAtom.Transact(fun i -> i, (i+1)) a) |> Cloud.Parallel
             return Array.sum results
-        } |> run |> should equal (Array.sum [|0 .. 99|])
+        } |> run |> should equal (Array.sum [|0 .. npar - 1|])
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - force with contention`` () =
         cloud {
             let! a = CloudAtom.New 0
-            do! Seq.init 100 (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
+            do! Seq.init npar (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
             return a.Value
         } |> run |> should be (greaterThan 0)
 
