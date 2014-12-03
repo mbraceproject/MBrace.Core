@@ -34,14 +34,14 @@ type ``Azure Blob store tests`` () =
 
 [<TestFixture>]
 type ``Azure Table store tests`` () =
-    inherit  ``Table Store Tests``(Helper.tableStore.Value)
+    inherit  ``Table Store Tests``(Helper.tableStore.Value, npar = 10, nseq = 5)
 
     static do
         StoreRegistry.TryRegister(Helper.tableStore.Value) |> ignore
 
 [<TestFixture>]
 type ``Azure MBrace tests`` () =
-    inherit ``Local MBrace store tests``(Helper.blobStore.Value, Helper.tableStore.Value)
+    inherit ``Local MBrace store tests``(Helper.blobStore.Value, Helper.tableStore.Value, npar = 10, nseq = 5)
 
     static do
         StoreRegistry.TryRegister(Helper.blobStore.Value) |> ignore
