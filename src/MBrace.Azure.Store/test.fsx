@@ -2,6 +2,7 @@
 // for more guidance on F# programming.
 
 #I "../../bin/"
+#r "FsPickler"
 #r "MBrace.Azure.Store"
 #r "MBrace.Core"
 
@@ -15,59 +16,28 @@ open Nessos.MBrace
 let conn = Environment.GetEnvironmentVariable("azurestorageconn", EnvironmentVariableTarget.User)
 
 let fileStore = new BlobStore(conn) :> ICloudFileStore
-let tableStore = new TableStore(conn) :> ICloudTableStore
+let tableStore = new TableStore(conn, Nessos.FsPickler.FsPickler.CreateBinary()) :> ICloudTableStore
 
 let run = Async.RunSynchronously
 
 let testContainer = fileStore.CreateUniqueContainerName()
 
 
-let container = fileStore.CreateUniqueContainerName()
-fileStore.ContainerExists container |> run //|> should equal false
-fileStore.CreateContainer container |> run
-fileStore.ContainerExists container |> run //|> should equal true
-fileStore.DeleteContainer container |> run
-fileStore.ContainerExists container |> run //|> should equal false
+let id = tableStore.Create<int> -10 |> run
 
-let data = Array.init (1024 * 1024 * 4) byte
-let file = fileStore.CreateUniqueFileName testContainer
-do
-    use stream = fileStore.BeginWrite file |> run
-    stream.Write(data, 0, data.Length)
+let worker i = async {
+    if i = 5 then
+        do! tableStore.Force(id, 42)
+    else
+        do! tableStore.Update<int>(id, fun i -> Console.WriteLine(i) ; i)
+}
 
-do
-    use m = new MemoryStream()
-    use stream = fileStore.BeginRead file |> run
-    stream.CopyTo m
-    m.ToArray() |> should equal data
-        
-fileStore.DeleteFile file |> run
+Array.init 10 worker |> Async.Parallel |> Async.Ignore |> run
+tableStore.Force(id, 50) |> run
+tableStore.GetValue<int>(id) |> run
 
 
 
-
-
-let file = fileStore.CreateUniqueFileName testContainer
-
-fileStore.FileExists file |> run |> should equal false
-
-// write to file
-do
-    use stream = fileStore.BeginWrite file |> run
-    for i = 1 to 100 do stream.WriteByte(byte i)
-
-fileStore.FileExists file |> run |> should equal true
-fileStore.EnumerateFiles testContainer |> run |> Array.exists ((=) file) |> should equal true
-
-// read from file
-do
-    use stream = fileStore.BeginRead file |> run
-    for i = 1 to 100 do
-        stream.ReadByte() |> should equal i
-
-fileStore.DeleteFile file |> run
-
-fileStore.FileExists file |> run |> should equal false
 
 StoreRegistry.Register(fileStore)
 StoreRegistry.Register(tableStore)
