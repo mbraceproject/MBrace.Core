@@ -207,8 +207,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
 
 [<TestFixture; AbstractClass>]
-type ``Local MBrace store tests`` (fileStore, tableStore) =
-    inherit ``MBrace store tests``()
+type ``Local MBrace store tests`` (fileStore, tableStore, ?npar, ?nseq) =
+    inherit ``MBrace store tests``(?npar = npar, ?nseq = nseq)
 
     let ctx = StoreConfiguration.mkExecutionContext fileStore tableStore
 
