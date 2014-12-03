@@ -192,7 +192,7 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - force with contention`` () =
         cloud {
-            let! a = CloudAtom.New 0
+            let! a = CloudAtom.New -1
             do! Seq.init npar (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
             return a.Value
         } |> run |> should be (greaterThan 0)
