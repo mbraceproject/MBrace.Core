@@ -5,13 +5,14 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
+open Nessos.FsPickler
 open Nessos.MBrace.Store
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
 /// Store implementation that uses a filesystem as backend.
 [<Sealed;AutoSerializable(false)>]
-type TableStore (conn : string) =
+type TableStore (conn : string, pickler : BinarySerializer) =
     
     let acc = CloudStorageAccount.Parse(conn)
     let defaultTable = "mbrace"
@@ -22,9 +23,9 @@ type TableStore (conn : string) =
 
         member x.Create(initial: 'T): Async<string> = 
             async {
-                let binary = serialize initial 
+                let binary = pickler.Pickle(initial)
                 let id = Guid.NewGuid().ToString()
-                let e = new FatEntity(id, binary)
+                let e = new FatEntity(id, String.Empty, binary)
                 let! _ = Table.insert<FatEntity> acc defaultTable e
                 return id
             }
@@ -60,10 +61,10 @@ type TableStore (conn : string) =
                 let maxInterval = 5000
                 let rec update currInterval = async {
                     let! e = Table.read<FatEntity> acc defaultTable id String.Empty
-                    let oldValue = deserialize(e.GetPayload())
+                    let oldValue = pickler.UnPickle<'T>(e.GetPayload())
                     let newValue = updater oldValue
-                    let newBinary = serialize newValue
-                    let e = new FatEntity(e.PartitionKey, newBinary, ETag = e.ETag)
+                    let newBinary = pickler.Pickle<'T>(newValue)
+                    let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = e.ETag)
                     let! result = Async.Catch <| Table.merge acc defaultTable e
                     match result with
                     | Choice1Of2 _ -> return ()
@@ -78,8 +79,8 @@ type TableStore (conn : string) =
         member x.Force(id: string, newValue: 'T): Async<unit> = 
             async {
                 let! e = Table.read<FatEntity> acc defaultTable id String.Empty
-                let newBinary = serialize newValue
-                let e = new FatEntity(e.PartitionKey, newBinary, ETag = "*")
+                let newBinary = pickler.Pickle<'T>(newValue)
+                let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge acc defaultTable e
                 return ()
             }       
@@ -88,13 +89,14 @@ type TableStore (conn : string) =
         member x.GetValue(id: string): Async<'T> = 
             async {
                 let! e = Table.read<FatEntity> acc defaultTable id String.Empty
-                let value = deserialize(e.GetPayload())
+                let value = pickler.UnPickle<'T>(e.GetPayload())
                 return value
             }
         
-        member x.IsSupportedValue(value: 'T): bool = isFatEntity value
+        member x.IsSupportedValue(value: 'T): bool = pickler.ComputeSize(value) <= MaxPayloadSize
         
         member x.GetFactory(): ICloudTableStoreFactory = 
             let c = conn
+            let p = pickler
             { new ICloudTableStoreFactory with
-                  member x.Create() : ICloudTableStore = new TableStore(c) :> _ }
+                  member x.Create() : ICloudTableStore = new TableStore(c, p) :> _ }

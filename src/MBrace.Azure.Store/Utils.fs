@@ -17,20 +17,11 @@ module internal Utils =
     let NumberOfProperties = 15L
     let MaxPayloadSize = NumberOfProperties * PayloadSizePerProperty
 
-    let serializer = FsPickler.CreateBinary()
-
-    let serialize (value : 'T) = serializer.Pickle(value)
-
-    let deserialize<'T> binary = serializer.UnPickle<'T>(binary)
-
     let partitionIn n (a : byte []) =
         let n = ((float a.Length) / (float n) |> ceil |> int)
         [| for i in 0 .. n - 1 ->
             let i, j = a.Length * i / n, a.Length * (i + 1) / n
             Array.sub a i (j - i) |]
-
-    let isFatEntity (item : 'T) =
-        serializer.ComputeSize(item) <= MaxPayloadSize
 
     type Async with
         static member inline Cast<'T, 'U>(task : Async<'T>) = async { let! t = task in return box t :?> 'U }
@@ -38,6 +29,25 @@ module internal Utils =
     type AsyncBuilder with
         member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
             async { let! r = Async.AwaitTask(f) in return! g r }
+
+
+(*
+    //http://msdn.microsoft.com/en-us/library/azure/dd179338.aspx
+
+    let generate arity =
+        let sb = new System.Text.StringBuilder()
+        let generics = {1..arity} |> Seq.map (sprintf "'T%02d") |> String.concat ", "
+        let args = {1..arity} |> Seq.map(fun i -> sprintf "item%02d : 'T%02d" i i) |> String.concat ", "
+        let param = {1..arity} |> Seq.map (sprintf "Unchecked.defaultof<'T%02d>") |> String.concat ", "
+        Printf.bprintf sb "type TupleEntity<%s> (pk : string, rk : string, %s) =\n" generics args
+        Printf.bprintf sb "    inherit TableEntity(pk, rk)\n"
+        Printf.bprintf sb "    member val Item%02d = item%02d with get, set\n" |> fun f -> Seq.iter (fun i -> f i i) {1..arity}
+        Printf.bprintf sb "    new () = TupleEntity<%s>(null, null,%s)\n" generics param
+        sb.ToString()
+
+    for i = 1 to 16 do
+        printfn "%s" <| generate i
+*)
 
 module internal Clients =
     open Microsoft.WindowsAzure.Storage
@@ -95,38 +105,38 @@ module internal Table =
 /// WARNING : See the above link for any restrictions such as having a parameterless ctor,
 /// and public properties.
 [<AllowNullLiteral>]
-type FatEntity (entityId, binary) =
-    inherit TableEntity(entityId, String.Empty)
+type FatEntity (pk, rk, binary) =
+    inherit TableEntity(pk, rk)
 
-    let check (a : byte [] []) i = if a = null then null elif i >= a.Length then Array.empty else a.[i]
+    let check (a : byte [] []) i = 
+        let i = i - 1
+        if a = null then null elif i >= a.Length then Array.empty else a.[i]
     let binaries = 
         if binary <> null 
         then partitionIn PayloadSizePerProperty binary
         else null
 
     /// Max size 64KB
-    member val Part00 = check binaries 0  with get, set
-    member val Part01 = check binaries 1  with get, set
-    member val Part02 = check binaries 2  with get, set
-    member val Part03 = check binaries 3  with get, set
-    member val Part04 = check binaries 4  with get, set
-    member val Part05 = check binaries 5  with get, set
-    member val Part06 = check binaries 6  with get, set
-    member val Part07 = check binaries 7  with get, set
-    member val Part08 = check binaries 8  with get, set
-    member val Part09 = check binaries 9  with get, set
-    member val Part10 = check binaries 10 with get, set
-    member val Part11 = check binaries 11 with get, set
-    member val Part12 = check binaries 12 with get, set
-    member val Part13 = check binaries 13 with get, set
-    member val Part14 = check binaries 14 with get, set
+    member val Item01 = check binaries 1  with get, set
+    member val Item02 = check binaries 2  with get, set
+    member val Item03 = check binaries 3  with get, set
+    member val Item04 = check binaries 4  with get, set
+    member val Item05 = check binaries 5  with get, set
+    member val Item06 = check binaries 6  with get, set
+    member val Item07 = check binaries 7  with get, set
+    member val Item08 = check binaries 8  with get, set
+    member val Item09 = check binaries 9  with get, set
+    member val Item10 = check binaries 10 with get, set
+    member val Item11 = check binaries 11 with get, set
+    member val Item12 = check binaries 12 with get, set
+    member val Item13 = check binaries 13 with get, set
+    member val Item14 = check binaries 14 with get, set
+    member val Item15 = check binaries 14 with get, set
 
     member this.GetPayload () = 
-        [|this.Part00 ; this.Part01; this.Part02; this.Part03
-          this.Part04 ; this.Part05; this.Part06; this.Part07
-          this.Part08 ; this.Part09; this.Part10; this.Part11
-          this.Part12 ; this.Part13; this.Part14 |]
+        [| this.Item01; this.Item02; this.Item03; this.Item04; this.Item05; this.Item06; this.Item07; this.Item08; this.Item09; 
+           this.Item10; this.Item11; this.Item12; this.Item13; this.Item14; this.Item15; |]
         |> Array.map (fun a -> if a = null then Array.empty else a)
         |> Array.concat
         
-    new () = FatEntity (null, null)
+    new () = FatEntity (null, null, null)
