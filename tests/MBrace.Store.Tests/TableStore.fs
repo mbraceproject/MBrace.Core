@@ -95,7 +95,7 @@ type ``Table Store Tests`` (tableStore : ICloudTableStore, ?npar, ?nseq) =
             let id = tableStore.Create<int> 0 |> run
 
             let worker i = async {
-                if i = 5 then
+                if i = npar / 2 then
                     do! tableStore.Force(id, 42)
                 else
                     do! tableStore.Update<int>(id, fun i -> i)
