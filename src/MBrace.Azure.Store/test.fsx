@@ -161,7 +161,7 @@ ScalingAffinityCounter.Create(0, 10, tableStore)
 
 #r "Microsoft.WindowsAzure.Storage"
 #r "Microsoft.WindowsAzure.Configuration"
-
+#load "Utils.fs"
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.WindowsAzure.Storage
 
@@ -171,14 +171,8 @@ type TupleEntity<'T> (pk, rk, value : 'T) =
     member val Item1 = value with get, set
     new () = TupleEntity<'T>(null, null, Unchecked.defaultof<'T>)
 
-type TupleEntity<'T,'U> (pk, rk, v1 : 'T, v2 : 'U) =
-    inherit TableEntity(pk, rk)
-    member val Item1 = v1 with get, set
-    member val Item2 = v2 with get, set
-    new () = TupleEntity<'T,'U>(null, null, Unchecked.defaultof<'T>, Unchecked.defaultof<'U>)
 
-
-
+let fspickler = Nessos.FsPickler.FsPickler.CreateBinary()
 let acc = CloudStorageAccount.Parse(conn)
 let client = acc.CreateCloudTableClient()
 
@@ -186,22 +180,30 @@ let table = client.GetTableReference("temp")
 table.CreateIfNotExists()
 let guid () = Guid.NewGuid().ToString("N")
 
-let e = new FatEntity(guid(), guid(), [|42uy|])
-let insert = TableOperation.Insert(e)
-let r = table.Execute(insert)
-r.Result
+let niter = 100
+for i = 0 to niter do
+    let e = new TupleEntity<int>(guid (), String.Empty, 42)
+    let insert = TableOperation.Insert(e)
+    let r = table.Execute(insert)
+    ()
 
+for i = 0 to niter do
+    let m = DynamicEntity.create<int> (guid()) String.Empty 42 (fun v -> fspickler.Pickle(v))
+    let insert = TableOperation.Insert(m)
+    let r = table.Execute(insert)
+    ()
 
-let e = new TupleEntity<int>(guid (), guid(), 42)
-let insert = TableOperation.Insert(e)
-let r = table.Execute(insert)
-r.Result
+for i = 0 to niter do
+    let m = new FatEntity(guid(), String.Empty, fspickler.Pickle(42))
+    let insert = TableOperation.Insert(m)
+    let r = table.Execute(insert)
+    ()
 
-
-let e = new TupleEntity<_,_>(guid (), guid(), 42, DateTime.Now)
-let insert = TableOperation.Insert(e)
-let r = table.Execute(insert)
-r.Result
-
+for i = 0 to niter do
+    let m = new DynamicTableEntity(guid(), String.Empty)
+    m.Properties.Add("Value", new EntityProperty(Nullable<_>(42)))
+    let insert = TableOperation.Insert(m)
+    let r = table.Execute(insert)
+    ()
 
 generate 20

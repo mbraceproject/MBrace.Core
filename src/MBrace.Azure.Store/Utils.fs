@@ -30,25 +30,6 @@ module internal Utils =
         member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
             async { let! r = Async.AwaitTask(f) in return! g r }
 
-
-(*
-    //http://msdn.microsoft.com/en-us/library/azure/dd179338.aspx
-
-    let generate arity =
-        let sb = new System.Text.StringBuilder()
-        let generics = {1..arity} |> Seq.map (sprintf "'T%02d") |> String.concat ", "
-        let args = {1..arity} |> Seq.map(fun i -> sprintf "item%02d : 'T%02d" i i) |> String.concat ", "
-        let param = {1..arity} |> Seq.map (sprintf "Unchecked.defaultof<'T%02d>") |> String.concat ", "
-        Printf.bprintf sb "type TupleEntity<%s> (pk : string, rk : string, %s) =\n" generics args
-        Printf.bprintf sb "    inherit TableEntity(pk, rk)\n"
-        Printf.bprintf sb "    member val Item%02d = item%02d with get, set\n" |> fun f -> Seq.iter (fun i -> f i i) {1..arity}
-        Printf.bprintf sb "    new () = TupleEntity<%s>(null, null,%s)\n" generics param
-        sb.ToString()
-
-    for i = 1 to 16 do
-        printfn "%s" <| generate i
-*)
-
 module internal Clients =
     open Microsoft.WindowsAzure.Storage
 
@@ -131,7 +112,7 @@ type FatEntity (pk, rk, binary) =
     member val Item12 = check binaries 12 with get, set
     member val Item13 = check binaries 13 with get, set
     member val Item14 = check binaries 14 with get, set
-    member val Item15 = check binaries 14 with get, set
+    member val Item15 = check binaries 15 with get, set
 
     member this.GetPayload () = 
         [| this.Item01; this.Item02; this.Item03; this.Item04; this.Item05; this.Item06; this.Item07; this.Item08; this.Item09; 
@@ -140,3 +121,53 @@ type FatEntity (pk, rk, binary) =
         |> Array.concat
         
     new () = FatEntity (null, null, null)
+
+
+
+(*
+    //http://msdn.microsoft.com/en-us/library/azure/dd179338.aspx
+
+    let generate arity =
+        let sb = new System.Text.StringBuilder()
+        let generics = {1..arity} |> Seq.map (sprintf "'T%02d") |> String.concat ", "
+        let args = {1..arity} |> Seq.map(fun i -> sprintf "item%02d : 'T%02d" i i) |> String.concat ", "
+        let param = {1..arity} |> Seq.map (sprintf "Unchecked.defaultof<'T%02d>") |> String.concat ", "
+        Printf.bprintf sb "type TupleEntity<%s> (pk : string, rk : string, %s) =\n" generics args
+        Printf.bprintf sb "    inherit TableEntity(pk, rk)\n"
+        Printf.bprintf sb "    member val Item%02d = item%02d with get, set\n" |> fun f -> Seq.iter (fun i -> f i i) {1..arity}
+        Printf.bprintf sb "    new () = TupleEntity<%s>(null, null,%s)\n" generics param
+        sb.ToString()
+
+    for i = 1 to 16 do
+        printfn "%s" <| generate i
+*)
+(*
+module DynamicEntity =
+
+    let create<'T> pk rk (value : 'T) serialize =
+        let e = new DynamicTableEntity(pk, rk)
+        let prop =
+            match box value with
+            | :? bool           as value -> Some <| EntityProperty.GeneratePropertyForBool(new Nullable<_>(value))
+            | :? DateTime       as value -> Some <| EntityProperty.GeneratePropertyForDateTimeOffset(new Nullable<_>(new DateTimeOffset(value)))
+            | :? DateTimeOffset as value -> Some <| EntityProperty.GeneratePropertyForDateTimeOffset(new Nullable<_>(value))
+            | :? double         as value -> Some <| EntityProperty.GeneratePropertyForDouble(new Nullable<_>(value))
+            | :? Guid           as value -> Some <| EntityProperty.GeneratePropertyForGuid(new Nullable<_>(value))
+            | :? int            as value -> Some <| EntityProperty.GeneratePropertyForInt(new Nullable<_>(value))
+            | :? int64          as value -> Some <| EntityProperty.GeneratePropertyForLong(new Nullable<_>(value))
+            | :? string         as value -> Some <| EntityProperty.GeneratePropertyForString(value)
+            | _ -> None
+        match prop with
+        | Some p ->
+            e.Properties.Add("Value", p)
+        | None ->
+            let binary = serialize value
+            
+            let binaries = 
+                if binary = null then null
+                else partitionIn PayloadSizePerProperty binary
+            
+            binaries 
+            |> Array.iteri (fun i b -> e.Properties.Add(sprintf "Item%0d" (i + 1), EntityProperty.GeneratePropertyForByteArray(b)))
+        e
+*)
