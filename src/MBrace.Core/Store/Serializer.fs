@@ -10,12 +10,11 @@ open System.IO
 type ISerializer =
 
     /// Serializer identifier
-    abstract Name : string
+    abstract Id : string
 
-    /// Creates a lightweight serializer descriptor
-    /// used for re-establishing serializer instances
-    /// in remote processes
-    abstract GetSerializerFactory : unit -> ISerializerFactory
+    /// Creates a serializable descriptor used for 
+    /// re-establishing serializer instances in remote processes
+    abstract GetSerializerDescriptor : unit -> ISerializerDescriptor
 
     /// <summary>
     ///     Serializes a value to stream.
@@ -45,6 +44,10 @@ type ISerializer =
     /// <param name="length">Expected number of elements.</param>
     abstract SeqDeserialize<'T> : source:Stream * length:int -> seq<'T>
 
-
-and ISerializerFactory =
-    abstract Create : unit -> ISerializer
+/// Serializable serializer identifier
+/// that can be recovered in remote processes.
+and ISerializerDescriptor =
+    /// Descriptor Identifier
+    abstract Id : string
+    /// Recovers the serializer instance locally
+    abstract Recover : unit -> ISerializer

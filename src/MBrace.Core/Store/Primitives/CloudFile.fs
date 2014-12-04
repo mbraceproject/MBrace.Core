@@ -5,11 +5,12 @@
 //
 //open Nessos.MBrace.Store
 //
-///// Represents a file stored in the cloud storage service.
+///// Represents a file reference bound to specific cloud store instance
 //[<Sealed; AutoSerializable(true)>]
 //type CloudFile internal (fileStore : ICloudFileStore, path : string) =
 //
-//    let storeId = fileStore.UUID
+//    let storeFactory = fileStore.GetFactory()
+//
 //    [<NonSerialized>]
 //    let mutable fileStore = Some fileStore
 //
@@ -18,18 +19,18 @@
 //        match fileStore with
 //        | Some fs -> fs
 //        | None ->
-//            let fs = StoreRegistry.GetFileStore storeId
+//            let fs = storeFactory.Create()
 //            fileStore <- Some fs
 //            fs
 //
 //    /// Full path to cloud file.
 //    member __.Path = path
 //    /// Path of containing folder
-//    member __.Container = getStore().GetFileContainer path
+//    member __.DirectoryName = getStore().GetDirectoryName path
 //    /// File name
-//    member __.Name = getStore().GetFileName path
+//    member __.FileName = getStore().GetFileName path
 //    /// Cloud service unique identifier
-//    member __.StoreId = storeId
+//    member __.StoreId = storeFactory.Id
 //
 //    // Note : async members must delay getStore() to avoid
 //    // fileStore being captured in closures

@@ -1,11 +1,11 @@
 ﻿namespace Nessos.MBrace
 
-//open System
-//open System.IO
-//
-//open Nessos.MBrace.Store
-//open Nessos.MBrace.Continuation
-//
+open System
+open System.IO
+
+open Nessos.MBrace.Store
+open Nessos.MBrace.Continuation
+
 ///// Represents an immutable reference to an
 ///// object that is persisted in the underlying store.
 ///// Cloud references are cached locally for performance.
@@ -45,7 +45,7 @@
 //                let! file = fileStore.CreateFile(fileName, fun stream -> async { return serializer.Serialize(stream, value) })
 //                return new CloudRef<'T>(value, file, serializer)
 //        }
-//
+
 //
 //namespace Nessos.MBrace.Store
 //
