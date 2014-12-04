@@ -10,9 +10,11 @@ open Microsoft.FSharp.Quotations.Patterns
 open Swensen.Unquote
 
 open Nessos.Vagrant
+open Nessos.FsPickler
 
 open Nessos.MBrace
 open Nessos.MBrace.Runtime.Utils.PrettyPrinters
+open Nessos.MBrace.Runtime.Vagrant
 open Nessos.MBrace.Runtime.Serialization
 
 /// Parsed version of Expr.CustomAttributes
@@ -88,7 +90,7 @@ type CloudComputation internal () =
     abstract Consume : ICloudComputationConsumer<'R> -> 'R
     
     /// Creates a typed serialization for the cloud computation
-    member self.GetPickle () = Pickle.pickle self
+    member self.GetPickle () = VagrantRegistry.Pickler.PickleTyped self
 
 /// Abstract cloud computation unpacker
 and ICloudComputationConsumer<'R> =
@@ -137,8 +139,8 @@ type CompilerException =
                 sprintf "'%s' " e.Name
 
         e.Errors
-        |> String.concat "\n"
-        |> sprintf "Cloud workflow %sof type '%s' contains errors:\n%s" name (Type.prettyPrint e.Type)
+        |> String.concat Environment.NewLine
+        |> sprintf "Cloud workflow %sof type '%s' contains errors:%s%s" name Environment.NewLine (Type.prettyPrint e.Type)
 
     val public Name : string
     val public Type : Type

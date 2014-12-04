@@ -6,7 +6,10 @@ open System.IO
 /// Defines a cloud file storage abstraction
 type ICloudFileStore =
 
-    /// unique cloud file store identifier
+    /// Implementation name
+    abstract Name : string
+
+    /// Store identifier
     abstract Id : string
 
     /// Returns a serializable file store descriptor
@@ -16,6 +19,18 @@ type ICloudFileStore =
     //
     //  Region : Path operations
     //
+
+    /// Returns the root directory for cloud store instance.
+    abstract GetRootDirectory : unit -> string
+
+    /// Generates a random, uniquely specified path to directory
+    abstract GetUniqueDirectoryPath : unit -> string
+
+    /// <summary>
+    ///     Returns a normal form for path. Returns None if invalid format.
+    /// </summary>
+    /// <param name="path">Input filepath.</param>
+    abstract TryGetFullPath : path:string -> string option
 
     /// <summary>
     ///     Returns the directory name for given path.
@@ -54,8 +69,8 @@ type ICloudFileStore =
     /// <summary>
     ///     Gets all files that exist in given container
     /// </summary>
-    /// <param name="directory">Path to directory. Defaults to root directory.</param>
-    abstract EnumerateFiles : ?directory:string -> Async<string []>
+    /// <param name="directory">Path to directory.</param>
+    abstract EnumerateFiles : directory:string -> Async<string []>
 
     /// <summary>
     ///     Deletes file in given path
@@ -72,21 +87,21 @@ type ICloudFileStore =
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
-    /// <param name="directory">Path to directory. Defaults to uniquely generated path.</param>
-    abstract CreateDirectory : ?directory:string -> Async<unit>
+    /// <param name="directory">Path to directory</param>
+    abstract CreateDirectory : directory:string -> Async<string>
         
     /// <summary>
     ///     Deletes provided directory.
     /// </summary>
     /// <param name="directory">file container.</param>
-    /// <param name="recursive">Delete recursively. Defaults to false.</param>
-    abstract DeleteDirectory : directory:string * ?recursiveDelete:bool -> Async<unit>
+    /// <param name="recursive">Delete recursively.</param>
+    abstract DeleteDirectory : directory:string * recursiveDelete:bool -> Async<unit>
 
     /// <summary>
     ///     Get all directories that exist in given directory.
     /// </summary>
-    /// <param name="directory">Directory to enumerate. Defaults to root directory.</param>
-    abstract EnumerateDirectories : ?directory:string -> Async<string []>
+    /// <param name="directory">Directory to enumerate.</param>
+    abstract EnumerateDirectories : directory:string -> Async<string []>
 
     //
     //  Region : File read/write API
@@ -121,6 +136,8 @@ type ICloudFileStore =
 /// Defines a serializable file store descriptor
 /// used for recovering instances in remote processes.
 and ICloudFileStoreDescriptor =
+    /// Implementation name
+    abstract Name : string
     /// Descriptor Identifier
     abstract Id : string
     /// Recovers the serializer instance locally
@@ -134,10 +151,6 @@ type CloudFileStoreConfiguration =
         /// Default directory used by current execution context.
         DefaultDirectory : string
     }
-with
-    member cfsc.GetRandomFilePath () =
-        let fileName = Path.GetRandomFileName()
-        cfsc.FileStore.Combine [| cfsc.DefaultDirectory ; fileName |]
 
 [<AutoOpen>]
 module CloudFileStoreUtils =
@@ -154,6 +167,10 @@ module CloudFileStoreUtils =
             return! deserializer stream
         }
 
+        member cfs.GetRandomFilePath (directory : string) =
+            let fileName = Path.GetRandomFileName()
+            cfs.Combine [| directory ; fileName |]
+
 // Combinators for MBrace
 
 namespace Nessos.MBrace
@@ -167,6 +184,11 @@ open Nessos.MBrace.Store
 #nowarn "444"
 
 type FileStore =
+
+    static member GetFileStore () = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore
+    }
 
     static member GetDirectoryName(path : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
@@ -200,7 +222,12 @@ type FileStore =
 
     static member EnumerateFiles(?directory : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| fs.FileStore.EnumerateFiles(?directory = directory)
+        let directory =
+            match directory with
+            | Some d -> d
+            | None -> fs.FileStore.GetRootDirectory()
+
+        return! Cloud.OfAsync <| fs.FileStore.EnumerateFiles(directory)
     }
 
     static member DeleteFile(directory : string) = cloud {
@@ -215,23 +242,42 @@ type FileStore =
 
     static member CreateDirectory(?directory : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| fs.FileStore.CreateDirectory(?directory = directory)
+        let directory =
+            match directory with
+            | Some d -> d
+            | None -> fs.FileStore.GetUniqueDirectoryPath()
+
+        return! Cloud.OfAsync <| fs.FileStore.CreateDirectory(directory)
     }
 
     static member DeleteDirectory(directory : string, ?recursiveDelete : bool) = cloud {
+        let recursiveDelete = defaultArg recursiveDelete false
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| fs.FileStore.DeleteDirectory(directory, ?recursiveDelete = recursiveDelete)
+        return! Cloud.OfAsync <| fs.FileStore.DeleteDirectory(directory, recursiveDelete = recursiveDelete)
     }
 
     static member EnumerateDirectories(?directory : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| fs.FileStore.EnumerateDirectories(?directory = directory)
+        let directory =
+            match directory with
+            | Some d -> d
+            | None -> fs.FileStore.GetRootDirectory()
+
+        return! Cloud.OfAsync <| fs.FileStore.EnumerateDirectories(directory)
     }
 
     static member CreateFile(serializer : Stream -> Async<unit>, ?path : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let path = match path with Some p -> p | None -> fs.GetRandomFilePath()
-        return! Cloud.OfAsync <| fs.FileStore.Create(serializer, path)
+        let path = match path with Some p -> p | None -> fs.FileStore.GetRandomFilePath fs.DefaultDirectory
+        do! Cloud.OfAsync <| fs.FileStore.Create(serializer, path)
+        return path
+    }
+
+    static member CreateFile(serializer : Stream -> Async<unit>, directory : string, fileName : string) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let path = fs.FileStore.Combine [|directory ; fileName|]
+        do! Cloud.OfAsync <| fs.FileStore.Create(serializer, path)
+        return path
     }
 
     static member ReadFile<'T>(deserializer : Stream -> Async<'T>, path : string) = cloud {

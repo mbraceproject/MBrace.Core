@@ -18,6 +18,7 @@ open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Utils
 open Nessos.MBrace.Runtime.Utils.Reflection
 open Nessos.MBrace.Runtime.Utils.PrettyPrinters
+open Nessos.MBrace.Runtime.Vagrant
 open Nessos.MBrace.Runtime.Compiler.Utils
 
 [<AutoOpen>]
