@@ -73,7 +73,7 @@ module CloudFileUtils =
         /// <summary>
         ///     Creates a new CloudFile instance using provided serializing function.
         /// </summary>
-        /// <param name="path">Path to Cloudfile.</param>
+        /// <param name="path">Path to CloudFile.</param>
         /// <param name="serializer">Serializing function.</param>
         member fs.CreateFile(path : string, serializer : Stream -> Async<unit>) = async {
             use! stream = fs.BeginWrite path
@@ -106,7 +106,7 @@ module CloudFileUtils =
         /// <summary>
         ///     Enumerates all entries as Cloud file instances.
         /// </summary>
-        /// <param name="container">Cotnainer to be enumerated.</param>
+        /// <param name="container">Container to be enumerated.</param>
         member fs.EnumerateCloudFiles(container : string) = async {
             let! files = fs.EnumerateFiles container
             return files |> Array.map (fun f -> new CloudFile(fs, f))
