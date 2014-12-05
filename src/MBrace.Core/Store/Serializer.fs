@@ -12,6 +12,10 @@ type ISerializer =
     /// Serializer identifier
     abstract Id : string
 
+    /// Creates a serializable descriptor used for 
+    /// re-establishing serializer instances in remote processes
+    abstract GetSerializerDescriptor : unit -> ISerializerDescriptor
+
     /// <summary>
     ///     Serializes a value to stream.
     /// </summary>
@@ -39,3 +43,11 @@ type ISerializer =
     /// <param name="source">Source stream.</param>
     /// <param name="length">Expected number of elements.</param>
     abstract SeqDeserialize<'T> : source:Stream * length:int -> seq<'T>
+
+/// Serializable serializer identifier
+/// that can be recovered in remote processes.
+and ISerializerDescriptor =
+    /// Descriptor Identifier
+    abstract Id : string
+    /// Recovers the serializer instance locally
+    abstract Recover : unit -> ISerializer

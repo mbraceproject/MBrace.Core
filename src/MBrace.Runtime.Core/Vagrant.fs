@@ -1,18 +1,22 @@
-﻿namespace Nessos.MBrace.Runtime
+﻿namespace Nessos.MBrace.Runtime.Vagrant
 
 open System
 open System.Reflection
 open System.IO
 
+open Nessos.FsPickler
 open Nessos.Vagrant
 
+open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime.Utils
 open Nessos.MBrace.Runtime.Utils.Retry
+open Nessos.MBrace.Runtime.Serialization
 
 /// Vagrant state container
 type VagrantRegistry private () =
 
-    static let instance : Vagrant option ref = ref None
+    static let vagrantInstance : Vagrant option ref = ref None
+    static let serializer : ISerializer option ref = ref None
 
     static let ignoredAssemblies = 
         let this = Assembly.GetExecutingAssembly()
@@ -21,12 +25,17 @@ type VagrantRegistry private () =
 
     /// Gets the registered vagrant instance.
     static member Vagrant =
-        match instance.Value with
+        match vagrantInstance.Value with
         | None -> invalidOp "No instance of vagrant has been registered."
         | Some instance -> instance
 
     /// Gets the registered FsPickler serializer instance.
     static member Pickler = VagrantRegistry.Vagrant.Pickler
+
+    static member Serializer =
+        match serializer.Value with
+        | None -> invalidOp "No instance of vagrant has been registered."
+        | Some s -> s
 
     /// <summary>
     ///     Computes assembly dependencies for given serializable object graph.
@@ -41,9 +50,14 @@ type VagrantRegistry private () =
     /// </summary>
     /// <param name="factory">Vagrant instance factory.</param>
     static member Initialize(factory : unit -> Vagrant) =
-        lock instance (fun () ->
-            match instance.Value with
-            | None -> instance := Some (factory ())
+        lock vagrantInstance (fun () ->
+            match vagrantInstance.Value with
+            | None -> 
+                let v = factory ()
+                let s = FsPicklerStoreSerializer.CreateAndRegister(v.Pickler, "Vagrant pickler")
+                vagrantInstance := Some v
+                serializer := Some (s :> ISerializer)
+
             | Some _ -> invalidOp "An instance of Vagrant has already been registered.")
 
     /// <summary>
@@ -56,5 +70,4 @@ type VagrantRegistry private () =
         VagrantRegistry.Initialize(fun () ->
             let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| Guid.NewGuid())
             let dir = retry (RetryPolicy.Retry(3, delay = 0.2<sec>)) (fun () -> Directory.CreateDirectory cachePath)
-            Vagrant.Initialize(cacheDirectory = cachePath, isIgnoredAssembly = ignoreAssembly, ?loadPolicy = loadPolicy)
-        )
+            Vagrant.Initialize(cacheDirectory = cachePath, isIgnoredAssembly = ignoreAssembly, ?loadPolicy = loadPolicy))

@@ -68,16 +68,11 @@
     <Compile Include="Cloud\CloudCombinators.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\FileStore.fs" />
-    <Compile Include="Store\TableStore.fs" />
-    <Compile Include="Store\StoreRegistry.fs" />
-    <Compile Include="Store\StoreConfiguration.fs" />
-    <Compile Include="Store\Primitives\CloudFile.fs" />
-    <Compile Include="Store\Primitives\CloudAtom.fs" />
-    <Compile Include="Store\Primitives\CloudRef.fs" />
-    <Compile Include="Store\Primitives\CloudSeq.fs" />
-    <Compile Include="Store\Combinators.fs" />
-    <Compile Include="Channels\Channel.fs" />
-    <Compile Include="Channels\ChannelCombinators.fs" />
+    <Compile Include="Store\CloudAtom.fs" />
+    <Compile Include="Store\CloudChannel.fs" />
+    <Compile Include="Store\CloudFile.fs" />
+    <Compile Include="Store\CloudRef.fs" />
+    <Compile Include="Store\CloudSeq.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

@@ -25,78 +25,30 @@ type BlobStore (conn : string) =
         return container.GetBlockBlobReference(blob)
     }
 
-    let validChars = set { 'a'..'z' } |> Set.add '-'
-
     interface ICloudFileStore with
-        member x.UUID : string = acc.BlobStorageUri.ToString()
+        member this.Name = acc.BlobStorageUri.ToString()
+        member this.Id : string = conn
 
-        member x.BeginRead(path: string): Async<Stream> = 
-            async {
-                let! blob = getBlobRef path
-                return! Async.AwaitTask(blob.OpenReadAsync())
-            }
-        
-        member x.BeginWrite(path: string): Async<Stream> = 
-            async {
-                let! blob = getBlobRef path
-                let! stream = blob.OpenWriteAsync()
-                return stream :> Stream
-            } 
-        
-        member x.Combine(container: string, fileName: string): string = 
-            Path.Combine(container, fileName)
-        
-        member x.ContainerExists(container: string): Async<bool> = 
-            async {
-                let container = getContainer container
-                return! Async.AwaitTask <| container.ExistsAsync()
-            }
-        
-        member x.CreateContainer(container: string): Async<unit> = 
-            async {
-                let container = getContainer container
-                let! _ = Async.AwaitTask <| container.CreateIfNotExistsAsync()
-                return ()
-            }
+        member this.GetRootDirectory () = String.Empty
 
-        member x.CreateUniqueContainerName(): string = 
-            Guid.NewGuid().ToString()
-        
-        member x.CreateUniqueFileName(container: string): string = 
-            Path.Combine(container, Guid.NewGuid().ToString())
-        
-        member x.DeleteContainer(container: string): Async<unit> = 
-            async {
-                let container = getContainer container
-                let! _ = Async.AwaitTask <| container.DeleteIfExistsAsync()
-                return ()
-            }
-        
-        member x.DeleteFile(path: string): Async<unit> = 
+        member this.GetUniqueDirectoryPath() : string = Guid.NewGuid().ToString()
+
+        member this.TryGetFullPath(path : string) = Some path
+
+        member this.GetDirectoryName(path : string) = Path.GetDirectoryName(path)
+
+        member this.GetFileName(path : string) = Path.GetFileName(path)
+
+        member this.Combine(paths : string []) : string = 
+            Path.Combine(paths)
+
+        member this.GetFileSize(path: string) : Async<int64> = 
             async {
                 let! blob = getBlobRef path
-                let! _ =  Async.AwaitIAsyncResult <| blob.DeleteAsync()
-                return ()
+                let! _ = Async.AwaitIAsyncResult <| blob.FetchAttributesAsync()
+                return blob.Properties.Length
             }
-        
-        member x.EnumerateContainers(): Async<string []> = 
-            async {
-                let client = Clients.getBlobClient acc
-                return client.ListContainers() 
-                       |> Seq.map (fun c -> c.Name)
-                       |> Seq.toArray
-            }
-        
-        member x.EnumerateFiles(container: string): Async<string []> = 
-            async {
-                let cont = getContainer container
-                return cont.ListBlobs()
-                        |> Seq.map (fun blob ->  blob.Uri.Segments |> Seq.last)
-                        |> Seq.map (fun y -> (x :> ICloudFileStore).Combine(container, y))
-                        |> Seq.toArray
-            }
-        
-        member x.FileExists(path: string): Async<bool> = 
+        member this.FileExists(path: string) : Async<bool> = 
             async {
                 let container, file = toContainerFile path
                 let container = getContainer container
@@ -108,42 +60,99 @@ type BlobStore (conn : string) =
                 else 
                     return false
             }
-        
-        
-        member x.GetFileContainer(path: string): string = 
-            Path.GetDirectoryName(path)
-        
-        member x.GetFileName(path: string): string = 
-            Path.GetFileName(path)
-        
-        member x.GetFileSize(path: string): Async<int64> = 
+
+        member this.EnumerateFiles(container: string) : Async<string []> = 
             async {
-                let! blob = getBlobRef path
-                let! _ = Async.AwaitIAsyncResult <| blob.FetchAttributesAsync()
-                return blob.Properties.Length
+                let cont = getContainer container
+                return cont.ListBlobs()
+                        |> Seq.map (fun blob ->  blob.Uri.Segments |> Seq.last)
+                        |> Seq.map (fun y -> Path.Combine(container, y))
+                        |> Seq.toArray
             }
         
-        member x.IsValidPath(path: string): bool = 
-            path.Length >= 3 && 
-                path.Length <= 63 && 
-                path |> String.forall validChars.Contains &&
-                not <| path.Contains("--")
+        member this.DeleteFile(path: string) : Async<unit> = 
+            async {
+                let! blob = getBlobRef path
+                let! _ =  Async.AwaitIAsyncResult <| blob.DeleteAsync()
+                return ()
+            }
+
+        member this.DirectoryExists(container: string) : Async<bool> = 
+            async {
+                let container = getContainer container
+                return! Async.AwaitTask <| container.ExistsAsync()
+            }
         
-        member x.OfStream(source: Stream, target: string): Async<unit> = 
+        member this.CreateDirectory(container: string) : Async<string> = 
+            async {
+                let container = getContainer container
+                let! _ =  container.CreateIfNotExistsAsync()
+                return container.Name
+            }
+
+        member this.DeleteDirectory(container: string, recursiveDelete : bool) : Async<unit> = 
+            async {
+                if not recursiveDelete then raise <| NotImplementedException("Non recursive delete")
+                let container = getContainer container
+                let! _ = container.DeleteIfExistsAsync()
+                return ()
+            }
+
+        
+        member this.EnumerateDirectories(directory) : Async<string []> = 
+            async {
+                let client = Clients.getBlobClient acc
+                return client.ListContainers(directory) 
+                       |> Seq.map (fun c -> c.Name)
+                       |> Seq.toArray
+            }
+
+        member this.BeginWrite(path: string) : Async<Stream> = 
+            async {
+                let! blob = getBlobRef path
+                let! stream = blob.OpenWriteAsync()
+                return stream :> Stream
+            } 
+        
+        member this.BeginRead(path: string) : Async<Stream> = 
+            async {
+                let! blob = getBlobRef path
+                return! Async.AwaitTask(blob.OpenReadAsync())
+            }
+
+        member this.OfStream(source: Stream, target: string) : Async<unit> = 
             async {
                 let! blob = getBlobRef target
                 let! _ = Async.AwaitIAsyncResult <| blob.UploadFromStreamAsync(source)
                 return ()
             }
         
-        member x.ToStream(sourceFile: string, target: Stream): Async<unit> = 
+        member this.ToStream(sourceFile: string, target: Stream) : Async<unit> = 
             async {
                 let! blob = getBlobRef sourceFile
                 let! _ = Async.AwaitIAsyncResult <| blob.DownloadToStreamAsync(target)
                 return ()
             }
-        
-        member x.GetFactory() : ICloudFileStoreFactory = 
-            let c = conn
-            { new ICloudFileStoreFactory with
-                  member x.Create() : ICloudFileStore = new BlobStore(c) :> _ }
+
+        member this.GetFileStoreDescriptor() : ICloudFileStoreDescriptor = 
+            let id = (this :> ICloudFileStore).Id
+            let name = (this :> ICloudFileStore).Name
+            { new ICloudFileStoreDescriptor with
+                  member this.Id : string = id
+                  member this.Name : string = name
+                  member this.Recover() : ICloudFileStore = new BlobStore(this.Id) :> _
+            }
+
+//    let validChars = set { 'a'..'z' } |> Set.add '-'
+//        member this.CreateUniqueFileName(container: string) : string = 
+//            Path.Combine(container, Guid.NewGuid().ToString())
+//
+//        member this.GetFileContainer(path: string) : string = 
+//            Path.GetDirectoryName(path)
+//        
+//        
+//        member this.IsValidPath(path: string) : bool = 
+//            path.Length >= 3 && 
+//                path.Length <= 63 && 
+//                path |> String.forall validChars.Contains &&
+//                not <| path.Contains("--")

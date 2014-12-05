@@ -60,7 +60,6 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="BlobStore.fs" />
-    <Compile Include="TableStore.fs" />
     <None Include="test.fsx" />
     <None Include="paket.references" />
     <Content Include="App.config" />

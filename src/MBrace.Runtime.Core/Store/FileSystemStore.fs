@@ -12,45 +12,61 @@ open Nessos.MBrace.Runtime.Utils.Retry
 
 /// Store implementation that uses a filesystem as backend.
 [<Sealed;AutoSerializable(false)>]
-type FileSystemStore private (rootPath : string) =
-
-    static let atomPickler () = VagrantRegistry.Vagrant.Pickler
-
-    let uuid = 
-        let uri = Uri(rootPath)
-        if uri.IsUnc then sprintf "filesystemstore:%O" uri
-        else sprintf "filesystemstore://%s/%s" (System.Net.Dns.GetHostName()) uri.AbsolutePath
+type FileSystemStore private (rootPath : string, uuid : string) =
 
     let initDir dir =
         if not <| Directory.Exists dir then
             Directory.CreateDirectory dir |> ignore
 
-    let atomContainer = Path.Combine(rootPath, "_atomic")
+//    let atomContainer = Path.Combine(rootPath, "_atomic")
 
-    let rec trap path (mode : FileMode) (access : FileAccess) (share : FileShare) =
-        let fs = 
-            try Some(new FileStream(path, mode, access, share))
-            with :? IOException as e when File.Exists(path) -> None
+//    let rec trap path (mode : FileMode) (access : FileAccess) (share : FileShare) =
+//        let fs = 
+//            try Some(new FileStream(path, mode, access, share))
+//            with :? IOException as e when File.Exists(path) -> None
+//
+//        match fs with
+//        | Some fs -> fs
+//        | None -> trap path mode access share
 
-        match fs with
-        | Some fs -> fs
-        | None -> trap path mode access share
+//    let getAtomPath(id : string) = Path.Combine(atomContainer, id)
 
-    let getAtomPath(id : string) = Path.Combine(atomContainer, id)
-    let getFileSystemPath(file : string) = Path.Combine(rootPath, file)
-
-    let isValidPath (path : string) =
-        // need formats of type "container/folder"
-        if Path.IsPathRooted path then false
-        else
-            // best way to verify a path is valid format
-            let isValidFormat = try Path.GetFullPath path |> ignore ; true with _ -> false
-            if isValidFormat then
-                match Path.GetDirectoryName path with
-                | "" | null -> false
-                | dir -> dir |> Path.GetDirectoryName |> String.IsNullOrEmpty
+    let normalize (path : string) =
+        if Path.IsPathRooted path then
+            let nf = Path.GetFullPath path
+            if nf.StartsWith rootPath then nf
             else
-                false
+                let msg = sprintf "invalid path '%O'." path
+                raise <| new FormatException(msg)
+        else
+            Path.Combine(rootPath, path) |> Path.GetFullPath
+
+
+
+//        match (try Path.GetFullPath fullPath |> Some with _ -> None) with
+//        | Some nf when nf.StartsWith rootPath -> None
+//        | nf -> nf
+
+        
+
+
+            
+//        // best way to verify a path is valid format
+//        match (try Path.GetFullPath path |> Some with _ -> None) with
+//        | None -> false
+//        | Some p -> p.StartsWith rootPath
+
+//        // need formats of type "container/folder"
+//        if Path.IsPathRooted path then false
+//        else
+//            // best way to verify a path is valid format
+//            let isValidFormat = try Path.GetFullPath path |> ignore ; true with _ -> false
+//            if isValidFormat then
+//                match Path.GetDirectoryName path with
+//                | "" | null -> false
+//                | dir -> dir |> Path.GetDirectoryName |> String.IsNullOrEmpty
+//            else
+//                false
 
     /// <summary>
     ///     Creates a new FileSystemStore instance on given path.
@@ -62,22 +78,27 @@ type FileSystemStore private (rootPath : string) =
         let create = defaultArg create false
         let cleanup = defaultArg cleanup false
 
-        let path = Path.GetFullPath path
+        let rootPath = Path.GetFullPath path
 
-        if Directory.Exists path then
+        let uuid = 
+            let uri = Uri(rootPath)
+            if uri.IsUnc then uri.ToString()
+            else sprintf "//%s/%s" (System.Net.Dns.GetHostName()) uri.AbsolutePath
+
+        if Directory.Exists rootPath then
             if cleanup then
                 let cleanup () =
-                    Directory.EnumerateDirectories path |> Seq.iter (fun d -> Directory.Delete(d, true))
-                    Directory.EnumerateFiles path |> Seq.iter File.Delete
+                    Directory.EnumerateDirectories rootPath |> Seq.iter (fun d -> Directory.Delete(d, true))
+                    Directory.EnumerateFiles rootPath |> Seq.iter File.Delete
                         
                 retry (RetryPolicy.Retry(2, 0.5<sec>)) cleanup
 
         elif create then
-            retry (RetryPolicy.Retry(2, 0.5<sec>)) (fun () -> Directory.CreateDirectory path |> ignore)
+            retry (RetryPolicy.Retry(2, 0.5<sec>)) (fun () -> Directory.CreateDirectory rootPath |> ignore)
         else
-            raise <| new DirectoryNotFoundException(path)
+            raise <| new DirectoryNotFoundException(rootPath)
 
-        new FileSystemStore(path)
+        new FileSystemStore(rootPath, uuid)
 
     /// Initializes a FileSystemStore instance on the local system temp path.
     static member LocalTemp =
@@ -85,77 +106,70 @@ type FileSystemStore private (rootPath : string) =
         FileSystemStore.Create(localFsPath, create = true, cleanup = false)
 
     interface ICloudFileStore with
-        member __.UUID = uuid
-        member __.GetFactory () =
-            let path = rootPath
+        member __.Name = "FileSystemStore"
+        member __.Id = uuid
+        member __.GetFileStoreDescriptor () =
+            let rootPath = rootPath
+            let uuid = uuid
             {
-                new ICloudFileStoreFactory with
-                    member __.Create () = FileSystemStore.Create(path, false, false) :> ICloudFileStore
+                new ICloudFileStoreDescriptor with
+                    member __.Name = "FileSystemStore"
+                    member __.Id = uuid
+                    member __.Recover () = new FileSystemStore(rootPath, uuid) :> ICloudFileStore
             }
 
-        member __.GetFileContainer(path : string) = Path.GetDirectoryName path
+        member __.GetDirectoryName(path : string) = Path.GetDirectoryName path
         member __.GetFileName(path : string) = Path.GetFileName path
-        member __.Combine(container : string, fileName : string) = Path.Combine(container, fileName)
-        member __.IsValidPath(path : string) = isValidPath path
-
-        member __.CreateUniqueContainerName() = Guid.NewGuid().ToString("N")
-        member __.CreateUniqueFileName(container : string) = Path.Combine(container, Path.GetRandomFileName())
+        member __.Combine(paths : string []) = Path.Combine paths
+        member __.GetRootDirectory () = rootPath
+        member __.TryGetFullPath (path : string) = try normalize path |> Some with _ -> None
+        member __.GetUniqueDirectoryPath () = Path.Combine(rootPath, Guid.NewGuid().ToString("N"))
 
         member __.GetFileSize(path : string) = async {
-            return let fI = new FileInfo(getFileSystemPath path) in fI.Length
+            return let fI = new FileInfo(normalize path) in fI.Length
         }
 
         member __.FileExists(file : string) = async {
-            return File.Exists(getFileSystemPath file)
+            return File.Exists(normalize file)
         }
 
         member __.DeleteFile(file : string) = async {
-            return File.Delete(getFileSystemPath file)
+            return File.Delete(normalize file)
         }
 
-        member __.EnumerateFiles(container : string) = async {
+        member __.EnumerateFiles(directory : string) = async {
             return 
-                Directory.EnumerateFiles(getFileSystemPath container)
-                |> Seq.map (fun f -> Path.Combine(container, Path.GetFileName f))
+                Directory.EnumerateFiles(normalize directory)
                 |> Seq.toArray
         }
 
-        member __.ContainerExists(container : string) = async {
-            return Directory.Exists(getFileSystemPath container)
+        member __.DirectoryExists(directory : string) = async {
+            return Directory.Exists(normalize directory)
         }
 
-        member __.CreateContainer(container : string) = async {
-            return Directory.CreateDirectory(getFileSystemPath container) |> ignore
+        member __.CreateDirectory(directory : string) = async {
+            return 
+                let dI = Directory.CreateDirectory(normalize directory) in
+                directory
         }
 
-        member __.DeleteContainer(container : string) = async {
-            return Directory.Delete(getFileSystemPath container)
+        member __.DeleteDirectory(container : string, recursiveDelete : bool) = async {
+            return Directory.Delete(normalize container, recursiveDelete)
         }
 
-        member __.EnumerateContainers() = async {
+        member __.EnumerateDirectories(directory) = async {
             return
-                Directory.EnumerateDirectories(rootPath)
+                Directory.EnumerateDirectories(directory)
                 |> Seq.map Path.GetFileName
                 |> Seq.toArray
         }
 
         member __.BeginWrite(path : string) = async {
-            return
-                if isValidPath path then
-                    let container = Path.GetDirectoryName path
-                    do initDir <| getFileSystemPath container
-
-                    new FileStream(getFileSystemPath path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
-                else
-                    raise <| DirectoryNotFoundException(sprintf "invalid path '%s'." path)
+            return new FileStream(normalize path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
         }
 
         member __.BeginRead(path : string) = async {
-            return
-                if isValidPath path then
-                    new FileStream(getFileSystemPath path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream
-                else
-                    raise <| DirectoryNotFoundException(sprintf "invalid path '%s'." path)
+            return new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream
         }
 
         member self.OfStream(source : Stream, target : string) = async {
@@ -168,56 +182,56 @@ type FileSystemStore private (rootPath : string) =
             do! fs.CopyToAsync target
         }
 
-    interface ICloudTableStore with
-        member __.UUID = uuid
-        member __.GetFactory () =
-            let path = rootPath
-            {
-                new ICloudTableStoreFactory with
-                    member __.Create () = FileSystemStore.Create(path, false, false) :> ICloudTableStore
-            }
-
-        member __.IsSupportedValue _ = true
-
-        member __.Exists(id : string) = async {
-            return File.Exists(getAtomPath id)
-        }
-
-        member __.Delete(id : string) = async {
-            return File.Delete(getAtomPath id)
-        }
-
-        member __.Create<'T>(initial : 'T) = async {
-            do initDir atomContainer
-            let id = Path.GetRandomFileName()
-            use fs = new FileStream(getAtomPath id, FileMode.Create, FileAccess.Write, FileShare.None)
-            do atomPickler().Serialize(fs, initial)
-            return id
-        }
-
-        member __.GetValue<'T>(id : string) = async {
-            use fs = trap (getAtomPath id) FileMode.Open FileAccess.Read FileShare.None in
-            return atomPickler().Deserialize<'T>(fs)
-        }
-
-        member __.Update (id : string, updater : 'T -> 'T) = async {
-            let path = getAtomPath id
-            use fs = trap path FileMode.Open FileAccess.ReadWrite FileShare.None
-            let value = atomPickler().Deserialize<'T>(fs, leaveOpen = true)
-            let value' = updater value
-            fs.Position <- 0L
-            atomPickler().Serialize<'T>(fs, value')
-        }
-
-        member __.Force (id : string, value : 'T) = async {
-            let path = getAtomPath id
-            use fs = trap path FileMode.Open FileAccess.Write FileShare.None
-            atomPickler().Serialize<'T>(fs, value)
-        }
-
-        member __.EnumerateKeys () = async {
-            return 
-                Directory.EnumerateFiles(atomContainer)
-                |> Seq.map Path.GetFileName
-                |> Seq.toArray
-        }
+//    interface ICloudTableStore with
+//        member __.UUID = uuid
+//        member __.GetFactory () =
+//            let path = rootPath
+//            {
+//                new ICloudTableStoreFactory with
+//                    member __.Create () = FileSystemStore.Create(path, false, false) :> ICloudTableStore
+//            }
+//
+//        member __.IsSupportedValue _ = true
+//
+//        member __.Exists(id : string) = async {
+//            return File.Exists(getAtomPath id)
+//        }
+//
+//        member __.Delete(id : string) = async {
+//            return File.Delete(getAtomPath id)
+//        }
+//
+//        member __.Create<'T>(initial : 'T) = async {
+//            do initDir atomContainer
+//            let id = Path.GetRandomFileName()
+//            use fs = new FileStream(getAtomPath id, FileMode.Create, FileAccess.Write, FileShare.None)
+//            do atomPickler().Serialize(fs, initial)
+//            return id
+//        }
+//
+//        member __.GetValue<'T>(id : string) = async {
+//            use fs = trap (getAtomPath id) FileMode.Open FileAccess.Read FileShare.None in
+//            return atomPickler().Deserialize<'T>(fs)
+//        }
+//
+//        member __.Update (id : string, updater : 'T -> 'T) = async {
+//            let path = getAtomPath id
+//            use fs = trap path FileMode.Open FileAccess.ReadWrite FileShare.None
+//            let value = atomPickler().Deserialize<'T>(fs, leaveOpen = true)
+//            let value' = updater value
+//            fs.Position <- 0L
+//            atomPickler().Serialize<'T>(fs, value')
+//        }
+//
+//        member __.Force (id : string, value : 'T) = async {
+//            let path = getAtomPath id
+//            use fs = trap path FileMode.Open FileAccess.Write FileShare.None
+//            atomPickler().Serialize<'T>(fs, value)
+//        }
+//
+//        member __.EnumerateKeys () = async {
+//            return 
+//                Directory.EnumerateFiles(atomContainer)
+//                |> Seq.map Path.GetFileName
+//                |> Seq.toArray
+//        }
