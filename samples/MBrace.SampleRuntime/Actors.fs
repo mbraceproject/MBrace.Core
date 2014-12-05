@@ -18,6 +18,7 @@ open Nessos.Vagrant
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Runtime.Vagrant
 open Nessos.MBrace.SampleRuntime
 
 /// Actor publication utilities

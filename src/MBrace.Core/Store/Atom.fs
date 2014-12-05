@@ -32,7 +32,7 @@ module CloudAtomUtils =
     type ICloudAtom<'T> with
 
         /// <summary>
-        ///     Transactionally updates the contained value.
+        ///     Performs transaction on atom.
         /// </summary>
         /// <param name="transaction">Transaction function.</param>
         member atom.Transact(transaction : 'T -> 'R * 'T) : Async<'R> = async {
@@ -90,10 +90,12 @@ and ICloudAtomProviderDescriptor =
     /// Recovers the atom provider instance locally
     abstract Recover : unit -> ICloudAtomProvider
 
-
+/// Atom configuration passed to the continuation execution context
 type AtomConfiguration =
     {
+        /// Atom provider instance
         AtomProvider : ICloudAtomProvider
+        /// Default container for instance in current execution context.
         DefaultContainer : string
     }
 

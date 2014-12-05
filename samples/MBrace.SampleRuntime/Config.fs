@@ -11,17 +11,18 @@ open Nessos.Thespian.Remote.TcpProtocol
 
 open Nessos.Vagrant
 
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Utils
 open Nessos.MBrace.Runtime.Store
+open Nessos.MBrace.Runtime.Vagrant
 open Nessos.MBrace.Runtime.Serialization
 
 let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
-let private fileStore = ref Unchecked.defaultof<ICloudFileStore>
-let private tableStore = ref Unchecked.defaultof<ICloudTableStore>
-let private serializer = ref Unchecked.defaultof<ISerializer>
+let mutable private fileStore = Unchecked.defaultof<ICloudFileStore>
+let mutable private atomProvider = Unchecked.defaultof<ICloudAtomProvider>
 
 /// vagrant, fspickler and thespian state initializations
 let private _initRuntimeState () =
@@ -41,14 +42,8 @@ let private _initRuntimeState () =
     TcpListenerPool.RegisterListener(IPEndPoint.any)
 
     // store initialization
-    let store = FileSystemStore.LocalTemp
-    let pickler = FsPicklerStoreSerializer.Default
-    StoreRegistry.Register(store :> ICloudFileStore)
-    StoreRegistry.Register(store :> ICloudTableStore)
-    StoreRegistry.Register(pickler)
-    fileStore := store :> _
-    tableStore := store :> _
-    serializer := pickler :> _
+    fileStore <- FileSystemStore.LocalTemp :> ICloudFileStore
+    atomProvider <- FileSystemAtomProvider.LocalTemp :> ICloudAtomProvider
 
 /// runtime configuration initializer function
 let initRuntimeState = runOnce _initRuntimeState
@@ -57,14 +52,14 @@ let getLocalEndpoint () = initRuntimeState () ; TcpListenerPool.GetListener().Lo
 let getAddress() = initRuntimeState () ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
 
 /// initializes store configuration for runtime
-let getStoreConfiguration container = 
+let getStoreConfiguration defaultDirectory atomContainer = 
     initRuntimeState ()
-    {
-        FileStore = fileStore.Value
-        TableStore = Some tableStore.Value
-        Serializer = serializer.Value
-        DefaultFileContainer = container
+    resource {
+        yield { FileStore = fileStore ; DefaultDirectory = defaultDirectory }
+        yield { AtomProvider = atomProvider ; DefaultContainer = atomContainer }
+        yield VagrantRegistry.Serializer
     }
+    
 
-/// generates a unique container
-let getContainerName () = initRuntimeState () ; fileStore.Value.CreateUniqueContainerName()
+let getFileStore () = initRuntimeState () ; fileStore
+let getAtomProvider () = initRuntimeState () ; atomProvider

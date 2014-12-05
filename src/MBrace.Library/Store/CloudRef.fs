@@ -1,6 +1,7 @@
 ﻿namespace Nessos.MBrace
 
 open System
+open System.Runtime.Serialization
 open System.IO
 
 open Nessos.MBrace
@@ -9,16 +10,20 @@ open Nessos.MBrace.Continuation
 
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.
-/// Cloud references are cached locally for performance.
-[<Sealed; AutoSerializable(true)>]
-type CloudRef<'T> private (value : 'T, file : string, fileStore : ICloudFileStore, serializer : ISerializer) =
-    
+/// Cloud references cached locally for performance.
+[<Sealed; AutoSerializable(true) ; DataContract>]
+type CloudRef<'T> private (value : 'T, path : string, fileStore : ICloudFileStore, serializer : ISerializer) =
+
+    [<DataMember(Name = "Path")>]
+    let path = path
+    [<DataMember(Name = "StoreId")>]
     let storeId = fileStore.GetFileStoreDescriptor()
+    [<DataMember(Name = "SerializerId")>]
     let serializerId = serializer.GetSerializerDescriptor()
 
     // conveniently, the uninitialized value for optional fields coincides with 'None'.
     // a more correct approach would initialize using an OnDeserialized callback
-    [<NonSerialized>]
+    [<IgnoreDataMember>]
     let mutable cachedValue = Some value
 
     /// Asynchronously dereferences the cloud ref.
@@ -28,7 +33,7 @@ type CloudRef<'T> private (value : 'T, file : string, fileStore : ICloudFileStor
         | None ->
             let store = storeId.Recover()
             let serializer = serializerId.Recover()
-            use! stream = store.BeginRead file
+            use! stream = store.BeginRead path
             let v = serializer.Deserialize<'T>(stream, leaveOpen = false)
             cachedValue <- Some v
             return v
@@ -41,7 +46,7 @@ type CloudRef<'T> private (value : 'T, file : string, fileStore : ICloudFileStor
         | None -> __.GetValue() |> Async.RunSync
 
     interface ICloudDisposable with
-        member __.Dispose () = async { return! storeId.Recover().DeleteFile file }
+        member __.Dispose () = async { return! storeId.Recover().DeleteFile path }
 
     static member CreateAsync(value : 'T, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let path = fileStore.GetRandomFilePath directory

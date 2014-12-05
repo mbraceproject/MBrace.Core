@@ -3,6 +3,7 @@
 open System
 open System.Collections
 open System.Collections.Generic
+open System.Runtime.Serialization
 open System.IO
 
 open Nessos.MBrace.Store
@@ -11,15 +12,21 @@ open Nessos.MBrace.Continuation
 /// Represents a finite and immutable sequence of
 /// elements that is stored in the underlying CloudStore
 /// and will be enumerated on demand.
-[<Sealed; AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true) ; DataContract>]
 type CloudSeq<'T> private (path : string, length : int, fileStore : ICloudFileStore, serializer : ISerializer) =
 
+    [<DataMember(Name = "Path")>]
+    let path = path
+    [<DataMember(Name = "Count")>]
+    let length = length
+    [<DataMember(Name = "SerializerId")>]
     let serializerId = serializer.GetSerializerDescriptor()
+    [<DataMember(Name = "StoreId")>]
     let storeId = fileStore.GetFileStoreDescriptor()
 
-    [<NonSerialized>]
+    [<IgnoreDataMember>]
     let mutable serializer = Some serializer
-    [<NonSerialized>]
+    [<IgnoreDataMember>]
     let mutable fileStore = Some fileStore
 
     let getFileStore() = 

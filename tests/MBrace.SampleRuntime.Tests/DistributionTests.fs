@@ -10,7 +10,6 @@ open FsUnit
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Runtime
-open Nessos.MBrace.Library
 open Nessos.MBrace.Tests
 open Nessos.MBrace.SampleRuntime
 open Nessos.MBrace.SampleRuntime.Actors

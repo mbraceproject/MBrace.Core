@@ -13,7 +13,8 @@ open Nessos.Thespian.Remote
 
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
-open Nessos.MBrace.Library
+open Nessos.MBrace.Store
+open Nessos.MBrace.InMemoryRuntime
 open Nessos.MBrace.Runtime
 
 open Nessos.MBrace.SampleRuntime.Tasks
@@ -29,43 +30,59 @@ type Worker(procId : string) =
     static member RemoteWorker(id: string) = new Worker(id)
 
 
-type ChannelProvider (state : RuntimeState) =
+type ActorChannelProvider (state : RuntimeState) =
+    let id = state.IPEndPoint.ToString()
     interface ICloudChannelProvider with
-        member __.CreateChannel<'T> () = async {
+        member __.Name = "ActorChannel"
+        member __.Id = id
+        member __.CreateUniqueContainerName () = ""
+        member __.GetChannelProviderDescriptor () =
+            let id = id
+            let state = state
+            {
+                new ICloudChannelProviderDescriptor with
+                    member __.Name = "ActorChannel"
+                    member __.Id = id
+                    member __.Recover () = new ActorChannelProvider(state) :> _
+            }
+
+        member __.CreateChannel<'T> (_ : string) = async {
             let! ch = state.ResourceFactory.RequestChannel<'T> ()
             return ch :> ISendPort<'T>, ch :> IReceivePort<'T>
         }
+
+        member __.DisposeContainer _ = async.Zero()
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, procId, container, taskId, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies, taskId, context) =
 
     /// Creates a runtime provider instance for a provided task
-    static member FromTask state procId dependencies (task : Task) =
-        new RuntimeProvider(state, procId, task.Container, task.TaskId, dependencies, Distributed)
+    static member FromTask state procInfo dependencies (task : Task) =
+        new RuntimeProvider(state, procInfo, dependencies, task.TaskId, Distributed)
         
     interface IRuntimeProvider with
-        member __.ProcessId = procId
+        member __.ProcessId = procInfo.ProcessId
         member __.TaskId = taskId
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext context = 
-            new RuntimeProvider(state, procId, container, taskId, dependencies, context) :> IRuntimeProvider
+            new RuntimeProvider(state, procInfo, dependencies, taskId, context) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.Parallel state procId container dependencies computations
+            | Distributed -> Combinators.Parallel state procInfo dependencies computations
             | ThreadParallel -> ThreadPool.Parallel computations
             | Sequential -> Sequential.Parallel computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.Choice state procId container dependencies computations
+            | Distributed -> Combinators.Choice state procInfo dependencies computations
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
         member __.ScheduleStartChild(computation,_,_) =
             match context with
-            | Distributed -> Combinators.StartChild state procId container dependencies computation
+            | Distributed -> Combinators.StartChild state procInfo dependencies computation
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 

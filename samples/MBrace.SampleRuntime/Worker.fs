@@ -4,6 +4,7 @@ open System.Diagnostics
 open System.Threading
 
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Runtime.Vagrant
 open Nessos.MBrace.SampleRuntime.Actors
 open Nessos.MBrace.SampleRuntime.Tasks
 open Nessos.MBrace.SampleRuntime.RuntimeProvider
@@ -26,7 +27,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
     let currentTaskCount = ref 0
     let runTask procId deps t =
         let runtimeProvider = RuntimeProvider.FromTask runtime procId deps t
-        let channelProvider = new ChannelProvider(runtime)
+        let channelProvider = new ActorChannelProvider(runtime)
         Task.RunAsync runtimeProvider channelProvider deps t
 
     let rec loop () = async {
@@ -38,7 +39,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                 let! task = runtime.TryDequeue()
                 match task with
                 | None -> do! Async.Sleep 500
-                | Some (task, procId, dependencies, leaseMonitor) ->
+                | Some (task, dependencies, leaseMonitor) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
                         printfn "Starting task %s of type '%O'." task.TaskId task.Type
@@ -47,7 +48,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
 
                         let sw = new Stopwatch()
                         sw.Start()
-                        let! result = runTask procId dependencies task |> Async.Catch
+                        let! result = runTask task.ProcessInfo dependencies task |> Async.Catch
                         sw.Stop()
 
                         match result with
@@ -85,6 +86,7 @@ let workerManager (cts: CancellationTokenSource) (msg: WorkerManager) =
             let runtimeState =
                 let bytes = System.Convert.FromBase64String(runtimeStateStr)
                 VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
+
             Async.Start(initWorker runtimeState maxConcurrentTasks, cts.Token)
             try do! rc.Reply() with e -> printfn "Failed to confirm worker subscription to client: %O" e
             return cts
