@@ -151,6 +151,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
     [<Test>]
     member __.``CloudAtom - Sequential updates`` () =
+        // avoid capturing test fixture class in closure
+        let nseq = nseq
         cloud {
             let! a = CloudAtom.New 0
             for i in 1 .. 10 * nseq do
@@ -161,6 +163,9 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - Parallel updates`` () =
+        // avoid capturing test fixture class in closure
+        let npar = npar
+        let nseq = nseq
         cloud {
             let! a = CloudAtom.New 0
             let worker _ = cloud {
@@ -173,6 +178,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - Parallel updates with large obj`` () =
+        // avoid capturing test fixture class in closure
+        let npar = npar
         cloud {
             let! isSupported = CloudAtom.IsSupportedValue [1 .. 100]
             if isSupported then return true
@@ -184,6 +191,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - transact with contention`` () =
+        // avoid capturing test fixture class in closure
+        let npar = npar
         cloud {
             let! a = CloudAtom.New 0
             let! results = Seq.init npar (fun _ -> CloudAtom.Transact(fun i -> i, (i+1)) a) |> Cloud.Parallel
@@ -192,6 +201,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - force with contention`` () =
+        // avoid capturing test fixture class in closure
+        let npar = npar
         cloud {
             let! a = CloudAtom.New 0
             do! Seq.init npar (fun i -> CloudAtom.Force (i+1) a) |> Cloud.Parallel |> Cloud.Ignore

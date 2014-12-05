@@ -9,12 +9,15 @@
 open System
 open System.Threading.Tasks
 
+open Nessos.FsPickler
 open Nessos.Vagrant
 
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
+open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Serialization
+open Nessos.MBrace.Runtime.Vagrant
 open Nessos.MBrace.SampleRuntime.Actors
 
 // Tasks are cloud workflows that have been attached to continuations.
@@ -61,15 +64,26 @@ type TaskExecutionMonitor () =
             return! Async.Raise e.InnerException
     }
 
+/// Process information record
+type ProcessInfo =
+    {
+        /// Cloud process unique identifier
+        ProcessId : string
+        /// Default file store container for process
+        DefaultDirectory : string
+        /// Default atom container for process
+        DefaultAtomContainer : string
+        /// Default channel container for process
+        DefaultChannelContainer : string
+    }
+
 /// Defines a task to be executed in a worker node
 type Task = 
     {
         /// Return type of the defining cloud workflow.
         Type : Type
-        /// Cloud process unique identifier
-        ProcessId : string
-        /// Default file store container for process
-        Container : string
+        /// Cloud process information
+        ProcessInfo : ProcessInfo
         /// Task unique identifier
         TaskId : string
         /// Triggers task execution with worker-provided execution context
@@ -94,8 +108,9 @@ with
                     Resources = 
                         resource { 
                             yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; 
-                            yield dependencies ; yield Config.getStoreConfiguration task.Container ;
-                            yield channelProvider
+                            yield! Config.getStoreConfiguration task.ProcessInfo.DefaultDirectory task.ProcessInfo.DefaultAtomContainer ;
+                            yield { ChannelProvider = channelProvider ; DefaultContainer = task.ProcessInfo.DefaultChannelContainer }
+                            yield channelProvider ; yield dependencies 
                         }
 
                     CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
@@ -114,7 +129,7 @@ type RuntimeState =
         IPEndPoint : System.Net.IPEndPoint
         /// Reference to the global task queue employed by the runtime
         /// Queue contains pickled task and its vagrant dependency manifest
-        TaskQueue : Queue<Pickle<Task> * (*ProcessId*) string * AssemblyId list>
+        TaskQueue : Queue<Pickle<Task> * AssemblyId list>
         /// Reference to a Vagrant assembly exporting actor.
         AssemblyExporter : AssemblyExporter
         /// Reference to the runtime resource manager
@@ -146,7 +161,7 @@ with
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
-    member rt.EnqueueTask procId container dependencies cts sc ec cc (wf : Cloud<'T>) =
+    member rt.EnqueueTask procInfo dependencies cts sc ec cc (wf : Cloud<'T>) =
         let taskId = System.Guid.NewGuid().ToString()
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
@@ -155,15 +170,14 @@ with
         let task = 
             { 
                 Type = typeof<'T>
-                ProcessId = procId
-                Container = container
+                ProcessInfo = procInfo
                 TaskId = taskId
                 StartTask = startTask
                 CancellationTokenSource = cts
             }
 
-        let taskp = Pickle.pickle task
-        rt.TaskQueue.Enqueue(taskp, procId, dependencies)
+        let taskp = VagrantRegistry.Pickler.PickleTyped task
+        rt.TaskQueue.Enqueue(taskp, dependencies)
 
     /// <summary>
     ///     Schedules a cloud workflow as a distributed result cell.
@@ -172,7 +186,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell procId container dependencies cts (wf : Cloud<'T>) = async {
+    member rt.StartAsCell procInfo dependencies cts (wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let setResult ctx r = 
             async {
@@ -183,7 +197,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        rt.EnqueueTask procId container dependencies cts scont econt ccont wf
+        rt.EnqueueTask procInfo dependencies cts scont econt ccont wf
         return resultCell
     }
 
@@ -192,10 +206,10 @@ with
         let! item = rt.TaskQueue.TryDequeue()
         match item with
         | None -> return None
-        | Some ((tp, procId, deps), leaseMonitor) -> 
+        | Some ((tp, deps), leaseMonitor) -> 
             do! rt.AssemblyExporter.LoadDependencies deps
-            let task = Pickle.unpickle tp
-            return Some (task, procId, deps, leaseMonitor)
+            let task = VagrantRegistry.Pickler.UnPickleTyped tp
+            return Some (task, deps, leaseMonitor)
     }
 
 

@@ -32,7 +32,7 @@ type ICloudChannelProvider =
 
     /// Returns a serializable channel provider descriptor
     /// that can be used in remote processes.
-    abstract GetChannelProviderDescriptor : unit -> ICloudAtomProviderDescriptor
+    abstract GetChannelProviderDescriptor : unit -> ICloudChannelProviderDescriptor
 
     /// Create a uniquely specified container name.
     abstract CreateUniqueContainerName : unit -> string

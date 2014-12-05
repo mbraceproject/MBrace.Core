@@ -11,6 +11,7 @@ open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Utils
 open Nessos.MBrace.Runtime.Utils.Retry
+open Nessos.MBrace.Runtime.Vagrant
 
 /// Store implementation that uses a filesystem as backend.
 [<Sealed;AutoSerializable(false)>]
@@ -171,23 +172,10 @@ type FileSystemStore private (rootPath : string, uuid : string) =
 
 
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type internal FileSystemAtom<'T> (path : string, serializer : ISerializer) =
-
-    [<DataMember(Name = "Serializer")>]
-    let serializerId = serializer.GetSerializerDescriptor()
+type internal FileSystemAtom<'T> (path : string) =
 
     [<DataMember(Name = "Path")>]
     let path = path
-
-    let mutable serializer = Some serializer
-
-    let getSerializer () =
-        match serializer with
-        | Some s -> s
-        | None ->
-            let s = serializerId.Recover()
-            serializer <- Some s
-            s
 
     let rec trap (mode : FileMode) (access : FileAccess) (share : FileShare) =
         let fs = 
@@ -203,20 +191,20 @@ type internal FileSystemAtom<'T> (path : string, serializer : ISerializer) =
         member __.Value = (__ :> ICloudAtom<'T>).GetValue() |> Async.RunSync
         member __.GetValue () = async {
             use fs = trap FileMode.Open FileAccess.Read FileShare.None
-            return getSerializer().Deserialize<'T>(fs, leaveOpen = false)
+            return VagrantRegistry.Pickler.Deserialize<'T>(fs)
         }
 
         member __.Update(updater : 'T -> 'T, ?maxRetries : int) = async {
             use fs = trap FileMode.Open FileAccess.ReadWrite FileShare.None
-            let value = getSerializer().Deserialize<'T>(fs, leaveOpen = true)
+            let value = VagrantRegistry.Pickler.Deserialize<'T>(fs, leaveOpen = true)
             let value' = updater value
             fs.Position <- 0L
-            getSerializer().Serialize<'T>(fs, value', leaveOpen = false)
+            VagrantRegistry.Pickler.Serialize<'T>(fs, value', leaveOpen = false)
         }
 
         member __.Force(value : 'T) = async {
             use fs = trap FileMode.Open FileAccess.Write FileShare.None
-            getSerializer().Serialize<'T>(fs, value, leaveOpen = false)
+            VagrantRegistry.Pickler.Serialize<'T>(fs, value, leaveOpen = false)
         }
 
     interface ICloudDisposable with
@@ -226,7 +214,7 @@ type internal FileSystemAtom<'T> (path : string, serializer : ISerializer) =
             
 
 [<Sealed;AutoSerializable(false)>]
-type FileSystemAtomProvider private (rootPath : string, uuid : string, serializer : ISerializer) =
+type FileSystemAtomProvider private (rootPath : string, uuid : string) =
 
     let createAtom container (initValue : 'T) =
         let directory = Path.Combine(rootPath, container)
@@ -238,9 +226,9 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string, serialize
                         Directory.CreateDirectory directory |> ignore)
         
         use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
-        in serializer.Serialize<'T>(fs, initValue, leaveOpen = false)
+        in VagrantRegistry.Pickler.Serialize<'T>(fs, initValue)
 
-        new FileSystemAtom<'T>(path, serializer)
+        new FileSystemAtom<'T>(path)
 
     /// <summary>
     ///     Creates a new FileSystemAtomProvider instance on given path.
@@ -248,13 +236,9 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string, serialize
     /// <param name="path">Local or UNC path.</param>
     /// <param name="create">Create directory if missing. Defaults to false</param>
     /// <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
-    static member Create(path : string, ?create, ?cleanup, ?serializer : ISerializer) =
+    static member Create(path : string, ?create, ?cleanup) =
         let create = defaultArg create false
         let cleanup = defaultArg cleanup false
-        let serializer = 
-            match serializer with
-            | None -> Vagrant.VagrantRegistry.Serializer
-            | Some s -> s
 
         let rootPath = Path.GetFullPath path
 
@@ -276,7 +260,7 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string, serialize
         else
             raise <| new DirectoryNotFoundException(rootPath)
 
-        new FileSystemAtomProvider(rootPath, uuid, serializer)
+        new FileSystemAtomProvider(rootPath, uuid)
 
     /// Initializes a FileSystemStore instance on the local system temp path.
     static member LocalTemp =
@@ -288,15 +272,12 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string, serialize
         member __.Id = uuid
         member __.GetAtomProviderDescriptor() =
             let rootPath = rootPath
-            let serializerId = serializer.GetSerializerDescriptor()
             let uuid = uuid
             {
                 new ICloudAtomProviderDescriptor with
                     member __.Name = "FileSystemAtomProvider"
                     member __.Id = uuid
-                    member __.Recover () = 
-                        let serializer = serializerId.Recover()
-                        new FileSystemAtomProvider(rootPath, uuid, serializer) :> _
+                    member __.Recover () = new FileSystemAtomProvider(rootPath, uuid) :> _
             }
 
         member __.CreateUniqueContainerName () = System.Guid.NewGuid().ToString("N")
