@@ -8,7 +8,7 @@ open System.Runtime.Serialization
 open Nessos.MBrace.Store
 open Microsoft.WindowsAzure.Storage
 
-/// Store implementation that uses a filesystem as backend.
+/// Store implementation that uses a Azure Blob Storage as backend.
 [<Sealed;AutoSerializable(false)>]
 type BlobStore (conn : string) =
     
@@ -135,24 +135,12 @@ type BlobStore (conn : string) =
             }
 
         member this.GetFileStoreDescriptor() : ICloudFileStoreDescriptor = 
-            let id = (this :> ICloudFileStore).Id
-            let name = (this :> ICloudFileStore).Name
+            let this = this :> ICloudFileStore
+            let id = this.Id
+            let name = this.Name
+            let conn = conn
             { new ICloudFileStoreDescriptor with
                   member this.Id : string = id
                   member this.Name : string = name
                   member this.Recover() : ICloudFileStore = new BlobStore(this.Id) :> _
             }
-
-//    let validChars = set { 'a'..'z' } |> Set.add '-'
-//        member this.CreateUniqueFileName(container: string) : string = 
-//            Path.Combine(container, Guid.NewGuid().ToString())
-//
-//        member this.GetFileContainer(path: string) : string = 
-//            Path.GetDirectoryName(path)
-//        
-//        
-//        member this.IsValidPath(path: string) : bool = 
-//            path.Length >= 3 && 
-//                path.Length <= 63 && 
-//                path |> String.forall validChars.Contains &&
-//                not <| path.Contains("--")

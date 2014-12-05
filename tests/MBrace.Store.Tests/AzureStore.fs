@@ -23,26 +23,7 @@ module Helper =
 
     let conn = selectEnv "azurestorageconn"
     let blobStore = lazy new BlobStore(conn)
-    let tableStore = lazy new TableStore(conn, Nessos.FsPickler.FsPickler.CreateBinary())
 
 [<TestFixture>]
 type ``Azure Blob store tests`` () =
     inherit  ``File Store Tests``(Helper.blobStore.Value)
-
-    static do
-        StoreRegistry.TryRegister(Helper.blobStore.Value) |> ignore
-
-[<TestFixture>]
-type ``Azure Table store tests`` () =
-    inherit  ``Table Store Tests``(Helper.tableStore.Value, npar = 5, nseq = 5)
-
-    static do
-        StoreRegistry.TryRegister(Helper.tableStore.Value) |> ignore
-
-[<TestFixture>]
-type ``Azure MBrace tests`` () =
-    inherit ``Local MBrace store tests``(Helper.blobStore.Value, Helper.tableStore.Value, npar = 5, nseq = 5)
-
-    static do
-        StoreRegistry.TryRegister(Helper.blobStore.Value) |> ignore
-        StoreRegistry.TryRegister(Helper.tableStore.Value) |> ignore
