@@ -26,7 +26,7 @@ type BlobStore (conn : string) =
     }
 
     interface ICloudFileStore with
-        member this.Name = acc.BlobStorageUri.ToString()
+        member this.Name = acc.BlobStorageUri.PrimaryUri.ToString()
         member this.Id : string = conn
 
         member this.GetRootDirectory () = String.Empty
