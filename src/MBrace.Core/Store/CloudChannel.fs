@@ -24,14 +24,48 @@ open Nessos.MBrace
 /// Defines a factory for distributed channels
 type ICloudChannelProvider =
 
-    /// unique cloud file store identifier
+    /// Implementation name
+    abstract Name : string
+
+    /// unique cloud channel source identifier
     abstract Id : string
 
+    /// Returns a serializable channel provider descriptor
+    /// that can be used in remote processes.
+    abstract GetChannelProviderDescriptor : unit -> ICloudAtomProviderDescriptor
+
+    /// Create a uniquely specified container name.
+    abstract CreateUniqueContainerName : unit -> string
+
     /// <summary>
-    ///     Creates a new channel instance for given type
+    ///     Creates a new channel instance for given type.
     /// </summary>
-    /// <param name="container">Container id for current instance.</param>
-    abstract CreateChannel<'T> : unit -> Async<ISendPort<'T> * IReceivePort<'T>>
+    /// <param name="container">Container for channel.</param>
+    abstract CreateChannel<'T> : container:string -> Async<ISendPort<'T> * IReceivePort<'T>>
+
+    /// <summary>
+    ///     Disposes all atoms in provided container
+    /// </summary>
+    /// <param name="container">Atom container.</param>
+    abstract DisposeContainer : container:string -> Async<unit>
+
+/// Defines a serializable channel provider descriptor
+/// used for recovering instances in remote processes.
+and ICloudChannelProviderDescriptor =
+    /// Implementation name
+    abstract Name : string
+    /// Descriptor Identifier
+    abstract Id : string
+    /// Recovers the channel provider instance locally
+    abstract Recover : unit -> ICloudChannelProvider
+
+/// Provides channel configuration to be passed
+/// in the cloud monad execution context
+type ChannelConfiguration =
+    {
+        ChannelProvider : ICloudChannelProvider
+        DefaultContainer : string
+    }
 
 namespace Nessos.MBrace
 
@@ -45,8 +79,8 @@ type CloudChannel =
 
     /// Creates a new channel instance.
     static member New<'T>() = cloud {
-        let! provider = Cloud.GetResource<ICloudChannelProvider> ()
-        return! Cloud.OfAsync <| provider.CreateChannel<'T> ()
+        let! config = Cloud.GetResource<ChannelConfiguration> ()
+        return! Cloud.OfAsync <| config.ChannelProvider.CreateChannel<'T> (config.DefaultContainer)
     }
 
     /// <summary>
@@ -66,24 +100,3 @@ type CloudChannel =
     static member Receive<'T> (channel : IReceivePort<'T>, ?timeout : int) = cloud {
         return! Cloud.OfAsync <| channel.Receive (?timeout = timeout)
     }
-
-///// Defines an in-memory channel factory using F# MailboxProcessor
-//type MailboxChannelProvider () =
-//    interface ICloudChannelProvider with
-//        member __.CreateChannel<'T> () = async {
-//            let mbox = MailboxProcessor<'T>.Start(fun _ -> async.Zero())
-//            let sender =
-//                {
-//                    new ISendPort<'T> with
-//                        member __.Send(msg : 'T) = async { return mbox.Post msg }
-//                }
-//
-//            let receiver =
-//                {
-//                    new IReceivePort<'T> with
-//                        member __.Receive(?timeout : int) = mbox.Receive(?timeout = timeout)
-//                        member __.Dispose() = async.Zero()
-//                }
-//
-//            return sender, receiver
-//        }

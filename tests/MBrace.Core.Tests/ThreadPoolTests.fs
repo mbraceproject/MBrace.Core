@@ -7,6 +7,7 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.InMemoryRuntime
 
 [<TestFixture>]
 [<Category("ThreadPoolTests")>]
@@ -18,9 +19,11 @@ module ``ThreadPool Parallelism Tests`` =
 #else
     let repeats = 3
 #endif
+
+    let resources = InMemoryRuntime.DefaultResources
         
-    let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)
-    let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = InMemoryRuntime.Resource)
+    let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)
+    let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)
 
 
     [<Test>]
@@ -421,3 +424,17 @@ module ``ThreadPool Parallelism Tests`` =
             let! _,result = senders <||> receiver 0 100
             return result
         } |> run |> Choice.shouldEqual 550
+
+    [<Test>]
+    let ``Atom: update with contention`` () =
+        cloud {
+            let! atom = CloudAtom.New 0
+            let updater _ = cloud {
+                for i in 1 .. 100 do
+                    do! CloudAtom.Update ((+) 1) atom
+            }
+
+            let! _ = Seq.init 100 updater |> Cloud.Parallel
+
+            return! CloudAtom.Read atom
+        } |> run |> Choice.shouldEqual 10000

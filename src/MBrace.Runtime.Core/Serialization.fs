@@ -43,7 +43,7 @@ type FsPicklerStoreSerializer private (fsp : FsPicklerSerializer, id : string) =
                     member __.Recover () = FsPicklerStoreSerializer.Resolve id :> _
             }
 
-        member __.Serialize(stream, value : 'T) = fsp.Serialize(stream, value)
-        member __.Deserialize<'T>(stream) = fsp.Deserialize<'T>(stream)
-        member __.SeqSerialize(stream, values : 'T seq) = fsp.SerializeSequence(stream, values)
-        member __.SeqDeserialize<'T>(stream, length : int) = fsp.DeserializeSequence<'T>(stream)
+        member __.Serialize(stream, value : 'T, leaveOpen) = fsp.Serialize(stream, value, leaveOpen = leaveOpen)
+        member __.Deserialize<'T>(stream, leaveOpen) = fsp.Deserialize<'T>(stream, leaveOpen = leaveOpen)
+        member __.SeqSerialize(stream, values : 'T seq, leaveOpen) = fsp.SerializeSequence(stream, values, leaveOpen = leaveOpen)
+        member __.SeqDeserialize<'T>(stream, length : int, leaveOpen) = fsp.DeserializeSequence<'T>(stream, leaveOpen = leaveOpen)

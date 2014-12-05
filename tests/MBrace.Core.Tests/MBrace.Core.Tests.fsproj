@@ -50,7 +50,6 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="InMemoryRuntime.fs" />
     <Compile Include="ContinuationTests.fs" />
     <Compile Include="ThreadPoolTests.fs" />
     <Content Include="App.config" />

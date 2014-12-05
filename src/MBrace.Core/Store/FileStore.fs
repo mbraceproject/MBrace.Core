@@ -140,7 +140,7 @@ and ICloudFileStoreDescriptor =
     abstract Name : string
     /// Descriptor Identifier
     abstract Id : string
-    /// Recovers the serializer instance locally
+    /// Recovers the file store instance locally
     abstract Recover : unit -> ICloudFileStore
 
 /// Store configuration record passed to the continuation execution context

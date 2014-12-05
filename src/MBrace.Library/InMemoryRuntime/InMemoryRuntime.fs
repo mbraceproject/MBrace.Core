@@ -1,31 +1,45 @@
-﻿namespace Nessos.MBrace.Tests
+﻿namespace Nessos.MBrace.InMemoryRuntime
 
 open Nessos.MBrace
-open Nessos.MBrace.Library
 open Nessos.MBrace.Continuation
 
-type InMemoryRuntime private (context : SchedulingContext) =
+type ConsoleLogger () =
+    interface ICloudLogger with
+        member __.Log(message : string) = System.Console.WriteLine message
+
+type NullLogger () =
+    interface ICloudLogger with
+        member __.Log _ = ()
+
+type InMemoryRuntime private (context : SchedulingContext, logger) =
 
     let taskId = System.Guid.NewGuid().ToString()
 
-    static member Create () = new InMemoryRuntime(ThreadParallel)
+    static member Create (?logger : ICloudLogger) = 
+        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
+        new InMemoryRuntime(ThreadParallel, logger)
 
-    static member Resource =
+    static member DefaultResources =
         resource { 
             yield InMemoryRuntime.Create () :> IRuntimeProvider
-            yield new MailboxChannelProvider() :> ICloudChannelProvider 
+            yield InMemoryChannelProvider.CreateConfiguration()
+            yield InMemoryAtomProvider.CreateConfiguration()
         }
         
     interface IRuntimeProvider with
         member __.ProcessId = "in memory process"
         member __.TaskId = taskId
-        member __.Logger = { new ICloudLogger with member __.Log _ = () }
+        member __.Logger = logger
         member __.GetAvailableWorkers () = async {
             return raise <| new System.NotSupportedException("'GetAvailableWorkers not supported in InMemory runtime.")
         }
 
         member __.CurrentWorker =
-            raise <| new System.NotSupportedException("'GetAvailableWorkers not supported in InMemory runtime.")
+            {
+                new IWorkerRef with
+                    member __.Type = "threadpool"
+                    member __.Id = string <| System.Threading.Thread.CurrentThread.ManagedThreadId
+            }
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext newContext = 
@@ -34,7 +48,7 @@ type InMemoryRuntime private (context : SchedulingContext) =
                 | Distributed -> ThreadParallel
                 | c -> c
 
-            new InMemoryRuntime(newContext) :> IRuntimeProvider
+            new InMemoryRuntime(newContext, logger) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
