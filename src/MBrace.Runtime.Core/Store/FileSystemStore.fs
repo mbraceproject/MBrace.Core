@@ -33,33 +33,6 @@ type FileSystemStore private (rootPath : string, uuid : string) =
         else
             Path.Combine(rootPath, path) |> Path.GetFullPath
 
-
-
-//        match (try Path.GetFullPath fullPath |> Some with _ -> None) with
-//        | Some nf when nf.StartsWith rootPath -> None
-//        | nf -> nf
-
-        
-
-
-            
-//        // best way to verify a path is valid format
-//        match (try Path.GetFullPath path |> Some with _ -> None) with
-//        | None -> false
-//        | Some p -> p.StartsWith rootPath
-
-//        // need formats of type "container/folder"
-//        if Path.IsPathRooted path then false
-//        else
-//            // best way to verify a path is valid format
-//            let isValidFormat = try Path.GetFullPath path |> ignore ; true with _ -> false
-//            if isValidFormat then
-//                match Path.GetDirectoryName path with
-//                | "" | null -> false
-//                | dir -> dir |> Path.GetDirectoryName |> String.IsNullOrEmpty
-//            else
-//                false
-
     /// <summary>
     ///     Creates a new FileSystemStore instance on given path.
     /// </summary>
@@ -212,14 +185,15 @@ type internal FileSystemAtom<'T> (path : string) =
             return retry (RetryPolicy.Retry(2, 0.5<sec>)) (fun () -> File.Delete path) 
         }
             
-
-[<Sealed;AutoSerializable(false)>]
+/// File system based atom implementation with pessimistic concurrency.
+[<Sealed ; AutoSerializable(false)>]
 type FileSystemAtomProvider private (rootPath : string, uuid : string) =
 
     let createAtom container (initValue : 'T) =
         let directory = Path.Combine(rootPath, container)
         let path = Path.Combine(directory, Path.GetRandomFileName())
 
+        // populate directory if it doesn't exist
         retry (RetryPolicy.Retry(2, 0.5<sec>))
                 (fun () -> 
                     if not <| Directory.Exists directory then 

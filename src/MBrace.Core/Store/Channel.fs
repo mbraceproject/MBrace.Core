@@ -59,11 +59,12 @@ and ICloudChannelProviderDescriptor =
     /// Recovers the channel provider instance locally
     abstract Recover : unit -> ICloudChannelProvider
 
-/// Provides channel configuration to be passed
-/// in the cloud monad execution context
+/// Channel configuration passed to the continuation execution context
 type ChannelConfiguration =
     {
+        /// Atom provider instance
         ChannelProvider : ICloudChannelProvider
+        /// Default container for instance in current execution context.
         DefaultContainer : string
     }
 

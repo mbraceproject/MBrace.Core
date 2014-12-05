@@ -68,11 +68,8 @@
     <Compile Include="Cloud\CloudCombinators.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\FileStore.fs" />
-    <Compile Include="Store\CloudAtom.fs" />
-    <Compile Include="Store\CloudChannel.fs" />
-    <Compile Include="Store\CloudFile.fs" />
-    <Compile Include="Store\CloudRef.fs" />
-    <Compile Include="Store\CloudSeq.fs" />
+    <Compile Include="Store\Atom.fs" />
+    <Compile Include="Store\Channel.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

@@ -2,6 +2,7 @@
 
 open Nessos.MBrace.InMemoryRuntime
 
+/// Collection of mapReduce and related workflows
 module MapReduce =
 
     /// <summary>
