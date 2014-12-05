@@ -5,6 +5,8 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
+open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Store
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Utils
@@ -15,21 +17,10 @@ open Nessos.MBrace.Runtime.Utils.Retry
 type FileSystemStore private (rootPath : string, uuid : string) =
 
     let initDir dir =
-        if not <| Directory.Exists dir then
-            Directory.CreateDirectory dir |> ignore
-
-//    let atomContainer = Path.Combine(rootPath, "_atomic")
-
-//    let rec trap path (mode : FileMode) (access : FileAccess) (share : FileShare) =
-//        let fs = 
-//            try Some(new FileStream(path, mode, access, share))
-//            with :? IOException as e when File.Exists(path) -> None
-//
-//        match fs with
-//        | Some fs -> fs
-//        | None -> trap path mode access share
-
-//    let getAtomPath(id : string) = Path.Combine(atomContainer, id)
+        retry (RetryPolicy.Retry(2, 0.5<sec>))
+                (fun () ->
+                    if not <| Directory.Exists dir then
+                        Directory.CreateDirectory dir |> ignore)
 
     let normalize (path : string) =
         if Path.IsPathRooted path then
@@ -182,56 +173,143 @@ type FileSystemStore private (rootPath : string, uuid : string) =
             do! fs.CopyToAsync target
         }
 
-//    interface ICloudTableStore with
-//        member __.UUID = uuid
-//        member __.GetFactory () =
-//            let path = rootPath
-//            {
-//                new ICloudTableStoreFactory with
-//                    member __.Create () = FileSystemStore.Create(path, false, false) :> ICloudTableStore
-//            }
-//
-//        member __.IsSupportedValue _ = true
-//
-//        member __.Exists(id : string) = async {
-//            return File.Exists(getAtomPath id)
-//        }
-//
-//        member __.Delete(id : string) = async {
-//            return File.Delete(getAtomPath id)
-//        }
-//
-//        member __.Create<'T>(initial : 'T) = async {
-//            do initDir atomContainer
-//            let id = Path.GetRandomFileName()
-//            use fs = new FileStream(getAtomPath id, FileMode.Create, FileAccess.Write, FileShare.None)
-//            do atomPickler().Serialize(fs, initial)
-//            return id
-//        }
-//
-//        member __.GetValue<'T>(id : string) = async {
-//            use fs = trap (getAtomPath id) FileMode.Open FileAccess.Read FileShare.None in
-//            return atomPickler().Deserialize<'T>(fs)
-//        }
-//
-//        member __.Update (id : string, updater : 'T -> 'T) = async {
-//            let path = getAtomPath id
-//            use fs = trap path FileMode.Open FileAccess.ReadWrite FileShare.None
-//            let value = atomPickler().Deserialize<'T>(fs, leaveOpen = true)
-//            let value' = updater value
-//            fs.Position <- 0L
-//            atomPickler().Serialize<'T>(fs, value')
-//        }
-//
-//        member __.Force (id : string, value : 'T) = async {
-//            let path = getAtomPath id
-//            use fs = trap path FileMode.Open FileAccess.Write FileShare.None
-//            atomPickler().Serialize<'T>(fs, value)
-//        }
-//
-//        member __.EnumerateKeys () = async {
-//            return 
-//                Directory.EnumerateFiles(atomContainer)
-//                |> Seq.map Path.GetFileName
-//                |> Seq.toArray
-//        }
+
+
+[<AutoSerializable(true) ; Sealed; DataContract>]
+type internal FileSystemAtom<'T> (path : string, serializer : ISerializer) =
+
+    [<DataMember(Name = "Serializer")>]
+    let serializerId = serializer.GetSerializerDescriptor()
+
+    [<DataMember(Name = "Path")>]
+    let path = path
+
+    let mutable serializer = Some serializer
+
+    let getSerializer () =
+        match serializer with
+        | Some s -> s
+        | None ->
+            let s = serializerId.Recover()
+            serializer <- Some s
+            s
+
+    let rec trap (mode : FileMode) (access : FileAccess) (share : FileShare) =
+        let fs = 
+            try Some(new FileStream(path, mode, access, share))
+            with :? IOException as e when File.Exists path -> None
+
+        match fs with
+        | Some fs -> fs
+        | None -> trap mode access share
+    
+    interface ICloudAtom<'T> with
+        member __.Id = path
+        member __.Value = (__ :> ICloudAtom<'T>).GetValue() |> Async.RunSync
+        member __.GetValue () = async {
+            use fs = trap FileMode.Open FileAccess.Read FileShare.None
+            return getSerializer().Deserialize<'T>(fs, leaveOpen = false)
+        }
+
+        member __.Update(updater : 'T -> 'T, ?maxRetries : int) = async {
+            use fs = trap FileMode.Open FileAccess.ReadWrite FileShare.None
+            let value = getSerializer().Deserialize<'T>(fs, leaveOpen = true)
+            let value' = updater value
+            fs.Position <- 0L
+            getSerializer().Serialize<'T>(fs, value', leaveOpen = false)
+        }
+
+        member __.Force(value : 'T) = async {
+            use fs = trap FileMode.Open FileAccess.Write FileShare.None
+            getSerializer().Serialize<'T>(fs, value, leaveOpen = false)
+        }
+
+    interface ICloudDisposable with
+        member __.Dispose () = async { 
+            return retry (RetryPolicy.Retry(2, 0.5<sec>)) (fun () -> File.Delete path) 
+        }
+            
+
+[<Sealed;AutoSerializable(false)>]
+type FileSystemAtomProvider private (rootPath : string, uuid : string, serializer : ISerializer) =
+
+    let createAtom container (initValue : 'T) =
+        let directory = Path.Combine(rootPath, container)
+        let path = Path.Combine(directory, Path.GetRandomFileName())
+
+        retry (RetryPolicy.Retry(2, 0.5<sec>))
+                (fun () -> 
+                    if not <| Directory.Exists directory then 
+                        Directory.CreateDirectory directory |> ignore)
+        
+        use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
+        in serializer.Serialize<'T>(fs, initValue, leaveOpen = false)
+
+        new FileSystemAtom<'T>(path, serializer)
+
+    /// <summary>
+    ///     Creates a new FileSystemAtomProvider instance on given path.
+    /// </summary>
+    /// <param name="path">Local or UNC path.</param>
+    /// <param name="create">Create directory if missing. Defaults to false</param>
+    /// <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
+    static member Create(path : string, ?create, ?cleanup, ?serializer : ISerializer) =
+        let create = defaultArg create false
+        let cleanup = defaultArg cleanup false
+        let serializer = 
+            match serializer with
+            | None -> Vagrant.VagrantRegistry.Serializer
+            | Some s -> s
+
+        let rootPath = Path.GetFullPath path
+
+        let uuid = 
+            let uri = Uri(rootPath)
+            if uri.IsUnc then uri.ToString()
+            else sprintf "//%s/%s" (System.Net.Dns.GetHostName()) uri.AbsolutePath
+
+        if Directory.Exists rootPath then
+            if cleanup then
+                let cleanup () =
+                    Directory.EnumerateDirectories rootPath |> Seq.iter (fun d -> Directory.Delete(d, true))
+                    Directory.EnumerateFiles rootPath |> Seq.iter File.Delete
+                        
+                retry (RetryPolicy.Retry(2, 0.5<sec>)) cleanup
+
+        elif create then
+            retry (RetryPolicy.Retry(2, 0.5<sec>)) (fun () -> Directory.CreateDirectory rootPath |> ignore)
+        else
+            raise <| new DirectoryNotFoundException(rootPath)
+
+        new FileSystemAtomProvider(rootPath, uuid, serializer)
+
+    interface ICloudAtomProvider with
+        member __.Name = "FileSystemAtomProvider"
+        member __.Id = uuid
+        member __.GetAtomProviderDescriptor() =
+            let rootPath = rootPath
+            let serializerId = serializer.GetSerializerDescriptor()
+            let uuid = uuid
+            {
+                new ICloudAtomProviderDescriptor with
+                    member __.Name = "FileSystemAtomProvider"
+                    member __.Id = uuid
+                    member __.Recover () = 
+                        let serializer = serializerId.Recover()
+                        new FileSystemAtomProvider(rootPath, uuid, serializer) :> _
+            }
+
+        member __.CreateUniqueContainerName () = System.Guid.NewGuid().ToString("N")
+        member __.IsSupportedValue _ = true
+        member __.CreateAtom<'T>(container : string, initValue : 'T) = async {
+            return createAtom container initValue :> ICloudAtom<'T>
+        }
+
+        member __.DisposeContainer (container : string) = async {
+            let directory = Path.Combine(rootPath, container)
+            return
+                retry (RetryPolicy.Retry(3, 0.5<sec>))
+                        (fun () -> 
+                            if Directory.Exists directory then
+                                Directory.Delete(directory, true) |> ignore)
+        }

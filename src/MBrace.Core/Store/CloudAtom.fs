@@ -8,6 +8,9 @@ type ICloudAtom<'T> =
     abstract Id : string
 
     /// Returns the current value of atom.
+    abstract Value : 'T
+
+    /// Asynchronously returns the current value of atom.
     abstract GetValue : unit -> Async<'T>
 
     /// <summary>
@@ -45,8 +48,18 @@ open Nessos.MBrace
 /// Defines a factory for distributed atoms
 type ICloudAtomProvider =
 
+    /// Implementation name
+    abstract Name : string
+
     /// Cloud atom identifier
     abstract Id : string
+
+    /// Returns a serializable atom provider descriptor
+    /// that can be used in remote processes.
+    abstract GetAtomProviderDescriptor : unit -> ICloudAtomProviderDescriptor
+
+    /// Create a uniquely specified container name.
+    abstract CreateUniqueContainerName : unit -> string
 
     /// <summary>
     ///     Checks if provided value is supported in atom instances.
@@ -57,10 +70,32 @@ type ICloudAtomProvider =
     /// <summary>
     ///     Creates a new atom instance with given initial value.
     /// </summary>
+    /// <param name="container">Atom container.</param>
     /// <param name="initValue"></param>
-    abstract CreateAtom<'T> : initValue:'T -> Async<ICloudAtom<'T>>
+    abstract CreateAtom<'T> : container:string * initValue:'T -> Async<ICloudAtom<'T>>
+
+    /// <summary>
+    ///     Disposes all atoms in provided container
+    /// </summary>
+    /// <param name="container">Atom container.</param>
+    abstract DisposeContainer : container:string -> Async<unit>
+
+/// Defines a serializable atom provider descriptor
+/// used for recovering instances in remote processes.
+and ICloudAtomProviderDescriptor =
+    /// Implementation name
+    abstract Name : string
+    /// Descriptor Identifier
+    abstract Id : string
+    /// Recovers the atom provider instance locally
+    abstract Recover : unit -> ICloudAtomProvider
 
 
+type AtomConfiguration =
+    {
+        AtomProvider : ICloudAtomProvider
+        DefaultContainer : string
+    }
 
 namespace Nessos.MBrace
 
@@ -76,8 +111,8 @@ type CloudAtom =
     /// </summary>
     /// <param name="initial">Initial value.</param>
     static member New<'T>(initial : 'T) : Cloud<ICloudAtom<'T>> = cloud {
-        let! ap = Cloud.GetResource<ICloudAtomProvider> ()
-        return! Cloud.OfAsync <| ap.CreateAtom initial
+        let! config = Cloud.GetResource<AtomConfiguration> ()
+        return! Cloud.OfAsync <| config.AtomProvider.CreateAtom(config.DefaultContainer, initial)
     }
 
     /// <summary>
@@ -122,9 +157,9 @@ type CloudAtom =
     /// </summary>
     /// <param name="value">Value to be checked.</param>
     static member IsSupportedValue(value : 'T) = cloud {
-        let! config = Cloud.TryGetResource<ICloudAtomProvider> ()
+        let! config = Cloud.TryGetResource<AtomConfiguration> ()
         return
             match config with
             | None -> false
-            | Some ap -> ap.IsSupportedValue value
+            | Some ap -> ap.AtomProvider.IsSupportedValue value
     }

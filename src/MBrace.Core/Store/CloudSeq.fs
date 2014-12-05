@@ -40,7 +40,7 @@ type CloudSeq<'T> private (path : string, length : int, fileStore : ICloudFileSt
     
     let getSequenceAsync() = async {
         let! stream = getFileStore().BeginRead(path)
-        return getSerializer().SeqDeserialize<'T>(stream, length)
+        return getSerializer().SeqDeserialize<'T>(stream, length, leaveOpen = false)
     }
 
     let getSequence () = getSequenceAsync () |> Async.RunSync
@@ -61,7 +61,7 @@ type CloudSeq<'T> private (path : string, length : int, fileStore : ICloudFileSt
 
     static member CreateAsync (values : seq<'T>, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let fileName = fileStore.GetRandomFilePath directory
-        let! length = async { use! stream = fileStore.BeginWrite fileName in return serializer.SeqSerialize(stream, values) }
+        let! length = async { use! stream = fileStore.BeginWrite fileName in return serializer.SeqSerialize(stream, values, leaveOpen = false) }
         return new CloudSeq<'T>(fileName, length, fileStore, serializer)
     }
 

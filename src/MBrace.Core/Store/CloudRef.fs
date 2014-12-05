@@ -29,7 +29,7 @@ type CloudRef<'T> private (value : 'T, file : string, fileStore : ICloudFileStor
             let store = storeId.Recover()
             let serializer = serializerId.Recover()
             use! stream = store.BeginRead file
-            let v = serializer.Deserialize<'T>(stream)
+            let v = serializer.Deserialize<'T>(stream, leaveOpen = false)
             cachedValue <- Some v
             return v
     }
@@ -45,7 +45,7 @@ type CloudRef<'T> private (value : 'T, file : string, fileStore : ICloudFileStor
 
     static member CreateAsync(value : 'T, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let path = fileStore.GetRandomFilePath directory
-        do! async { use! stream = fileStore.BeginWrite path in do serializer.Serialize(stream, value) }
+        do! async { use! stream = fileStore.BeginWrite path in do serializer.Serialize(stream, value, leaveOpen = false) }
         return new CloudRef<'T>(value, path, fileStore, serializer)
     }
 
@@ -60,7 +60,7 @@ type CloudRef =
     /// <param name="value">Cloud reference value.</param>
     /// <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
     /// <param name="serializer">Serialization used for object serialization. Defaults to runtime context.</param>
-    static member Create(value : 'T, ?directory : string, ?serializer : ISerializer) = cloud {
+    static member New(value : 'T, ?directory : string, ?serializer : ISerializer) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration>()
         let! serializer = cloud {
             match serializer with

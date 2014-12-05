@@ -1,6 +1,6 @@
-﻿namespace Nessos.MBrace.Library
+﻿namespace Nessos.MBrace
 
-open Nessos.MBrace
+open Nessos.MBrace.InMemoryRuntime
 
 module MapReduce =
 
