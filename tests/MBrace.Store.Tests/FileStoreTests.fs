@@ -14,55 +14,55 @@ open FsUnit
 
 [<TestFixture; AbstractClass>]
 type ``File Store Tests`` (fileStore : ICloudFileStore) =
-    do StoreRegistry.Register(fileStore, force = true)
 
     let run x = Async.RunSync x
 
-    let testContainer = fileStore.CreateUniqueContainerName()
+    let testDirectory = fileStore.CreateUniqueDirectoryPath()
 
     [<Test>]
     member __.``UUID is not null or empty.`` () = 
-        String.IsNullOrEmpty fileStore.UUID
+        String.IsNullOrEmpty fileStore.Id
         |> should equal false
 
     [<Test>]
     member __.``Store factory should generate identical instances`` () =
-        let fact = fileStore.GetFactory() |> FsPickler.Clone
-        let fileStore' = fact.Create()
-        fileStore'.UUID |> should equal fileStore.UUID
+        let descr = fileStore.GetFileStoreDescriptor() |> FsPickler.Clone
+        let fileStore' = descr.Recover()
+        fileStore'.Id |> should equal fileStore.Id
+        fileStore'.Name |> should equal fileStore.Name
 
     [<Test>]
-    member __.``Create and delete container.`` () =
-        let container = fileStore.CreateUniqueContainerName()
-        fileStore.ContainerExists container |> run |> should equal false
-        fileStore.CreateContainer container |> run
-        fileStore.ContainerExists container |> run |> should equal true
-        fileStore.DeleteContainer container |> run
-        fileStore.ContainerExists container |> run |> should equal false
+    member __.``Create and delete directory.`` () =
+        let dir = fileStore.CreateUniqueDirectoryPath()
+        fileStore.DirectoryExists dir |> run |> should equal false
+        fileStore.CreateDirectory dir |> run
+        fileStore.DirectoryExists dir |> run |> should equal true
+        fileStore.DeleteDirectory(dir, recursiveDelete = false) |> run
+        fileStore.DirectoryExists dir |> run |> should equal false
 
     [<Test>]
-    member __.``Get container`` () =
-        let file = fileStore.CreateUniqueFileName testContainer
-        file |> fileStore.GetFileContainer |> should equal testContainer
+    member __.``Get directory`` () =
+        let file = fileStore.GetRandomFilePath testDirectory
+        file |> fileStore.GetDirectoryName |> should equal testDirectory
 
     [<Test>]
     member __.``Get file name`` () =
         let name = "test.txt"
-        let file = fileStore.Combine(testContainer, name)
-        file |> fileStore.GetFileContainer |> should equal testContainer
+        let file = fileStore.Combine [|testDirectory ; name |]
+        file |> fileStore.GetDirectoryName |> should equal testDirectory
         file |> fileStore.GetFileName |> should equal name
 
     [<Test>]
-    member __.``Enumerate containers`` () =
-        let container = fileStore.CreateUniqueContainerName()
-        fileStore.CreateContainer container |> run
-        let containers = fileStore.EnumerateContainers() |> run
-        containers |> Array.exists((=) container) |> should equal true
-        fileStore.DeleteContainer container |> run
+    member __.``Enumerate root directories`` () =
+        let directory = fileStore.CreateUniqueDirectoryPath()
+        fileStore.CreateDirectory directory |> run
+        let directories = fileStore.EnumerateRootDirectories() |> run
+        directories |> Array.exists((=) directory) |> should equal true
+        fileStore.DeleteDirectory(directory, recursiveDelete = false) |> run
 
     [<Test>]
     member test.``Create, read and delete a file.`` () = 
-        let file = fileStore.CreateUniqueFileName testContainer
+        let file = fileStore.GetRandomFilePath testDirectory
 
         fileStore.FileExists file |> run |> should equal false
 
@@ -72,7 +72,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
             for i = 1 to 100 do stream.WriteByte(byte i)
 
         fileStore.FileExists file |> run |> should equal true
-        fileStore.EnumerateFiles testContainer |> run |> Array.exists ((=) file) |> should equal true
+        fileStore.EnumerateFiles testDirectory |> run |> Array.exists ((=) file) |> should equal true
 
         // read from file
         do
@@ -86,7 +86,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
 
     [<Test>]
     member __.``Get byte count`` () =
-        let file = fileStore.CreateUniqueFileName testContainer
+        let file = fileStore.GetRandomFilePath testDirectory
         // write to file
         do
             use stream = fileStore.BeginWrite file |> run
@@ -99,7 +99,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
     [<Test>]
     member test.``Create and Read a large file.`` () =
         let data = Array.init (1024 * 1024 * 4) byte
-        let file = fileStore.CreateUniqueFileName testContainer
+        let file = fileStore.GetRandomFilePath testDirectory
         do
             use stream = fileStore.BeginWrite file |> run
             stream.Write(data, 0, data.Length)
@@ -115,7 +115,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
     [<Test>]
     member test.``from stream to file and back to stream.`` () =
         let data = Array.init (1024 * 1024) byte
-        let file = fileStore.CreateUniqueFileName testContainer
+        let file = fileStore.GetRandomFilePath testDirectory
         do
             use m = new MemoryStream(data)
             fileStore.OfStream(m, file) |> run
@@ -129,5 +129,5 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
 
     [<TestFixtureTearDown>]
     member test.``Cleanup`` () =
-        if fileStore.ContainerExists testContainer |> run then
-            fileStore.DeleteContainer testContainer |> run
+        if fileStore.DirectoryExists testDirectory |> run then
+            fileStore.DeleteDirectory(testDirectory, recursiveDelete = true) |> run

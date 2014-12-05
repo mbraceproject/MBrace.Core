@@ -31,7 +31,7 @@ type BlobStore (conn : string) =
 
         member this.GetRootDirectory () = String.Empty
 
-        member this.GetUniqueDirectoryPath() : string = Guid.NewGuid().ToString()
+        member this.CreateUniqueDirectoryPath() : string = Guid.NewGuid().ToString()
 
         member this.TryGetFullPath(path : string) = Some path
 
@@ -83,11 +83,11 @@ type BlobStore (conn : string) =
                 return! Async.AwaitTask <| container.ExistsAsync()
             }
         
-        member this.CreateDirectory(container: string) : Async<string> = 
+        member this.CreateDirectory(container: string) : Async<unit> = 
             async {
                 let container = getContainer container
                 let! _ =  container.CreateIfNotExistsAsync()
-                return container.Name
+                return ()
             }
 
         member this.DeleteDirectory(container: string, recursiveDelete : bool) : Async<unit> = 

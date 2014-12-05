@@ -4,8 +4,8 @@ open System
 open System.Threading
 
 open Nessos.MBrace
-open Nessos.MBrace.Library
 open Nessos.MBrace.Continuation
+open Nessos.MBrace.InMemoryRuntime
 open Nessos.MBrace.Tests
 open Nessos.MBrace.Store
 open Nessos.MBrace.Store.Tests.TestTypes
@@ -124,14 +124,14 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     [<Test>]
     member __.``CloudFile - get files in container`` () =
         cloud {
-            let! container = CloudStore.GetUniqueContainerName()
-            let! fileNames = CloudStore.GetFullPath(Seq.map (sprintf "file%d") [1..10], container)
+            let! container = FileStore.CreateUniqueDirectoryPath()
+            let! fileNames = FileStore.Combine(container, Seq.map (sprintf "file%d") [1..10])
             let! files =
                 fileNames
                 |> Seq.map (fun f -> CloudFile.WriteAllBytes([|1uy .. 100uy|], f))
                 |> Cloud.Parallel
 
-            let! files' = CloudFile.EnumerateFiles container
+            let! files' = CloudFile.Enumerate container
             return files.Length = files'.Length
         } |> run |> should equal true
 
@@ -145,7 +145,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     [<Test>]
     member __.``CloudFile - attempt to read nonexistent file`` () =
         cloud {
-            return! CloudFile.FromPath(Guid.NewGuid().ToString())
+            let! cf = CloudFile.FromPath(Guid.NewGuid().ToString())
+            return! CloudFile.Read(cf, fun s -> async { return s.ReadByte() })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
@@ -192,8 +193,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - force with contention`` () =
         cloud {
-            let! a = CloudAtom.New -1
-            do! Seq.init npar (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
+            let! a = CloudAtom.New 0
+            do! Seq.init npar (fun i -> CloudAtom.Force (i+1) a) |> Cloud.Parallel |> Cloud.Ignore
             return a.Value
         } |> run |> should be (greaterThan 0)
 
@@ -207,9 +208,19 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
 
 [<TestFixture; AbstractClass>]
-type ``Local MBrace store tests`` (fileStore, tableStore, ?npar, ?nseq) =
+type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, serializer : ISerializer, ?npar, ?nseq) =
     inherit ``MBrace store tests``(?npar = npar, ?nseq = nseq)
 
-    let ctx = StoreConfiguration.mkExecutionContext fileStore tableStore
+    let fileStoreConfig = { FileStore = fileStore ; DefaultDirectory = fileStore.CreateUniqueDirectoryPath () }
+    let atomProviderConfig = { AtomProvider = atomProvider ; DefaultContainer = atomProvider.CreateUniqueContainerName() }
+    let channelProvider = { ChannelProvider = channelProvider ; DefaultContainer = channelProvider.CreateUniqueContainerName() }
 
-    override __.Run(wf : Cloud<'T>, ?ct) = Cloud.RunSynchronously(wf, resources = ctx, ?cancellationToken = ct)
+    let resources = resource { 
+        yield! InMemoryRuntime.DefaultResources
+        yield fileStoreConfig
+        yield atomProviderConfig
+        yield channelProvider 
+        yield serializer
+    }
+
+    override __.Run(wf : Cloud<'T>, ?ct) = Cloud.RunSynchronously(wf, resources = resources, ?cancellationToken = ct)

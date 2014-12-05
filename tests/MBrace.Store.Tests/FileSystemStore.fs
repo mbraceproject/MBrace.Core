@@ -4,17 +4,28 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.Runtime.Vagrant
+open Nessos.MBrace.Runtime.Store
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Store.Tests
 
-[<TestFixture>]
-type ``FileSystem File store tests`` () =
-    inherit  ``File Store Tests``(StoreConfiguration.fileSystemStore)
+[<AutoOpen>]
+module private Config =
+    do VagrantRegistry.Initialize(throwOnError = false)
+
+    let fsStore = FileSystemStore.LocalTemp
+    let atomProvider = FileSystemAtomProvider.LocalTemp
+    let chanProvider = InMemoryRuntime.InMemoryChannelProvider()
+    let serializer = VagrantRegistry.Serializer
 
 [<TestFixture>]
-type ``FileSystem Table store tests`` () =
-    inherit  ``Table Store Tests``(StoreConfiguration.fileSystemStore)
+type ``FileSystem File store tests`` () =
+    inherit  ``File Store Tests``(fsStore)
+
+[<TestFixture>]
+type ``FileSystem Atom tests`` () =
+    inherit  ``Atom Tests``(atomProvider)
 
 [<TestFixture>]
 type ``FileSystem MBrace tests`` () =
-    inherit ``Local MBrace store tests``(StoreConfiguration.fileSystemStore, StoreConfiguration.fileSystemStore)
+    inherit ``Local MBrace store tests``(fsStore, atomProvider, chanProvider, serializer)
