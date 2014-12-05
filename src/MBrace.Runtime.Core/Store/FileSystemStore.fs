@@ -114,7 +114,7 @@ type FileSystemStore private (rootPath : string, uuid : string) =
         member __.Combine(paths : string []) = Path.Combine paths
         member __.GetRootDirectory () = rootPath
         member __.TryGetFullPath (path : string) = try normalize path |> Some with _ -> None
-        member __.GetUniqueDirectoryPath () = Path.Combine(rootPath, Guid.NewGuid().ToString("N"))
+        member __.CreateUniqueDirectoryPath () = Path.Combine(rootPath, Guid.NewGuid().ToString("N"))
 
         member __.GetFileSize(path : string) = async {
             return let fI = new FileInfo(normalize path) in fI.Length
@@ -129,9 +129,7 @@ type FileSystemStore private (rootPath : string, uuid : string) =
         }
 
         member __.EnumerateFiles(directory : string) = async {
-            return 
-                Directory.EnumerateFiles(normalize directory)
-                |> Seq.toArray
+            return Directory.EnumerateFiles(normalize directory) |> Seq.toArray
         }
 
         member __.DirectoryExists(directory : string) = async {
@@ -139,9 +137,7 @@ type FileSystemStore private (rootPath : string, uuid : string) =
         }
 
         member __.CreateDirectory(directory : string) = async {
-            return 
-                let dI = Directory.CreateDirectory(normalize directory) in
-                directory
+            return Directory.CreateDirectory(normalize directory) |> ignore
         }
 
         member __.DeleteDirectory(container : string, recursiveDelete : bool) = async {
@@ -149,14 +145,13 @@ type FileSystemStore private (rootPath : string, uuid : string) =
         }
 
         member __.EnumerateDirectories(directory) = async {
-            return
-                Directory.EnumerateDirectories(directory)
-                |> Seq.map Path.GetFileName
-                |> Seq.toArray
+            return Directory.EnumerateDirectories(normalize directory) |> Seq.toArray
         }
 
         member __.BeginWrite(path : string) = async {
-            return new FileStream(normalize path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
+            let path = normalize path
+            initDir <| Path.GetDirectoryName path
+            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
         }
 
         member __.BeginRead(path : string) = async {
@@ -282,6 +277,11 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string, serialize
             raise <| new DirectoryNotFoundException(rootPath)
 
         new FileSystemAtomProvider(rootPath, uuid, serializer)
+
+    /// Initializes a FileSystemStore instance on the local system temp path.
+    static member LocalTemp =
+        let localFsPath = Path.Combine(Path.GetTempPath(), "mbrace-atomStore")
+        FileSystemAtomProvider.Create(localFsPath, create = true, cleanup = false)
 
     interface ICloudAtomProvider with
         member __.Name = "FileSystemAtomProvider"

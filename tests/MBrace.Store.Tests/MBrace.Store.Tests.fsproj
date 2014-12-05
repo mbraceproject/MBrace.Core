@@ -49,10 +49,10 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Config.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="TestTypes.fs" />
-    <Compile Include="FileStore.fs" />
-    <Compile Include="TableStore.fs" />
+    <Compile Include="FileStoreTests.fs" />
+    <Compile Include="AtomTests.fs" />
     <Compile Include="MBraceStoreTests.fs" />
     <Compile Include="FileSystemStore.fs" />
     <Content Include="App.config" />

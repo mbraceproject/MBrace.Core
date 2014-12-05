@@ -49,7 +49,8 @@ type VagrantRegistry private () =
     ///     Initializes the registry using provided factory.
     /// </summary>
     /// <param name="factory">Vagrant instance factory.</param>
-    static member Initialize(factory : unit -> Vagrant) =
+    /// <param name="throwOnError">Throw exception on error.</param>
+    static member Initialize(factory : unit -> Vagrant, ?throwOnError) =
         lock vagrantInstance (fun () ->
             match vagrantInstance.Value with
             | None -> 
@@ -58,16 +59,18 @@ type VagrantRegistry private () =
                 vagrantInstance := Some v
                 serializer := Some (s :> ISerializer)
 
-            | Some _ -> invalidOp "An instance of Vagrant has already been registered.")
+            | Some _ when defaultArg throwOnError true -> invalidOp "An instance of Vagrant has already been registered."
+            | Some _ -> ())
 
     /// <summary>
     ///     Initializes vagrant using default settings.
     /// </summary>
     /// <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
     /// <param name="loadPolicy">Specify a default assembly load policy.</param>
-    static member Initialize (?ignoreAssembly : Assembly -> bool, ?loadPolicy) =
+    /// <param name="throwOnError">Throw exception on error.</param>
+    static member Initialize (?ignoreAssembly : Assembly -> bool, ?loadPolicy, ?throwOnError) =
         let ignoreAssembly (a : Assembly) = ignoredAssemblies.Contains a || ignoreAssembly |> Option.exists (fun i -> i a)
-        VagrantRegistry.Initialize(fun () ->
+        VagrantRegistry.Initialize((fun () ->
             let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| Guid.NewGuid())
             let dir = retry (RetryPolicy.Retry(3, delay = 0.2<sec>)) (fun () -> Directory.CreateDirectory cachePath)
-            Vagrant.Initialize(cacheDirectory = cachePath, isIgnoredAssembly = ignoreAssembly, ?loadPolicy = loadPolicy))
+            Vagrant.Initialize(cacheDirectory = cachePath, isIgnoredAssembly = ignoreAssembly, ?loadPolicy = loadPolicy)), ?throwOnError = throwOnError)

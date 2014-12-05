@@ -24,7 +24,7 @@ type ICloudFileStore =
     abstract GetRootDirectory : unit -> string
 
     /// Generates a random, uniquely specified path to directory
-    abstract GetUniqueDirectoryPath : unit -> string
+    abstract CreateUniqueDirectoryPath : unit -> string
 
     /// <summary>
     ///     Returns a normal form for path. Returns None if invalid format.
@@ -88,7 +88,7 @@ type ICloudFileStore =
     ///     Creates a new directory in store.
     /// </summary>
     /// <param name="directory">Path to directory</param>
-    abstract CreateDirectory : directory:string -> Async<string>
+    abstract CreateDirectory : directory:string -> Async<unit>
         
     /// <summary>
     ///     Deletes provided directory.
@@ -171,6 +171,11 @@ module CloudFileStoreUtils =
             let fileName = Path.GetRandomFileName()
             cfs.Combine [| directory ; fileName |]
 
+        member cfs.EnumerateRootDirectories () = async {
+            let dir = cfs.GetRootDirectory()
+            return! cfs.EnumerateDirectories(dir)
+        }
+
 // Combinators for MBrace
 
 namespace Nessos.MBrace
@@ -210,9 +215,19 @@ type FileStore =
         return fs.FileStore.Combine paths
     }
 
+    static member Combine(directory : string, fileNames : seq<string>) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fileNames |> Seq.map (fun f -> fs.FileStore.Combine [|directory ; f |])
+    }
+
     static member GetFileSize(path : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
         return! Cloud.OfAsync <| fs.FileStore.GetFileSize path
+    }
+
+    static member CreateUniqueDirectoryPath() = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore.CreateUniqueDirectoryPath()
     }
 
     static member FileExists(path : string) = cloud {
@@ -245,7 +260,7 @@ type FileStore =
         let directory =
             match directory with
             | Some d -> d
-            | None -> fs.FileStore.GetUniqueDirectoryPath()
+            | None -> fs.FileStore.CreateUniqueDirectoryPath()
 
         return! Cloud.OfAsync <| fs.FileStore.CreateDirectory(directory)
     }
