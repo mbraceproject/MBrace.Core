@@ -133,5 +133,5 @@ type BlobStore (connectionString : string) =
             { new ICloudFileStoreDescriptor with
                   member this.Id : string = id
                   member this.Name : string = name
-                  member this.Recover() : ICloudFileStore = new BlobStore(this.Id) :> _
+                  member this.Recover() : ICloudFileStore = new BlobStore(conn) :> _
             }
