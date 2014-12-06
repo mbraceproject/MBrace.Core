@@ -8,26 +8,18 @@ open System.Runtime.Serialization
 open Nessos.MBrace.Store
 open Microsoft.WindowsAzure.Storage
 
-/// Store implementation that uses a Azure Blob Storage as backend.
+///  Store implementation that uses a Azure Blob Storage as backend.
 [<Sealed;AutoSerializable(false)>]
-type BlobStore (conn : string) =
+type BlobStore (connectionString : string) =
     
-    let acc = CloudStorageAccount.Parse(conn)
+    let acc = CloudStorageAccount.Parse(connectionString)
 
-    let getContainer container = 
-        let client = Clients.getBlobClient acc
-        client.GetContainerReference container
-
-    let getBlobRef path = async {
-        let container, blob = toContainerFile path
-        let container = getContainer container
-        let! _ = Async.AwaitTask <| container.CreateIfNotExistsAsync()
-        return container.GetBlockBlobReference(blob)
-    }
+    let getBlobRef = getBlobRef acc
+    let getContainer = getContainer acc
 
     interface ICloudFileStore with
-        member this.Name = acc.BlobStorageUri.PrimaryUri.ToString()
-        member this.Id : string = conn
+        member this.Name = "MBrace.Azure.Store.BlobStore"
+        member this.Id : string = acc.BlobStorageUri.PrimaryUri.ToString()
 
         member this.GetRootDirectory () = String.Empty
 
@@ -50,7 +42,7 @@ type BlobStore (conn : string) =
             }
         member this.FileExists(path: string) : Async<bool> = 
             async {
-                let container, file = toContainerFile path
+                let container, file = splitPath path
                 let container = getContainer container
                 
                 let! b1 = Async.AwaitTask(container.ExistsAsync())
@@ -92,16 +84,15 @@ type BlobStore (conn : string) =
 
         member this.DeleteDirectory(container: string, recursiveDelete : bool) : Async<unit> = 
             async {
-                if not recursiveDelete then raise <| NotImplementedException("Non recursive delete")
+                ignore recursiveDelete
                 let container = getContainer container
                 let! _ = container.DeleteIfExistsAsync()
                 return ()
             }
-
         
         member this.EnumerateDirectories(directory) : Async<string []> = 
             async {
-                let client = Clients.getBlobClient acc
+                let client = getBlobClient acc
                 return client.ListContainers(directory) 
                        |> Seq.map (fun c -> c.Name)
                        |> Seq.toArray
@@ -138,7 +129,7 @@ type BlobStore (conn : string) =
             let this = this :> ICloudFileStore
             let id = this.Id
             let name = this.Name
-            let conn = conn
+            let conn = connectionString
             { new ICloudFileStoreDescriptor with
                   member this.Id : string = id
                   member this.Name : string = name
