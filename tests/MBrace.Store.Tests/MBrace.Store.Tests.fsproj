@@ -55,6 +55,7 @@
     <Compile Include="AtomTests.fs" />
     <Compile Include="MBraceStoreTests.fs" />
     <Compile Include="FileSystemStore.fs" />
+    <Compile Include="AzureStore.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -66,6 +67,11 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\..\src\MBrace.Azure.Store\MBrace.Azure.Store.fsproj">
+      <Name>MBrace.Azure.Store</Name>
+      <Project>{b3d0b0bd-3b5d-4a4d-bb4c-91070cd21c85}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
       <Name>MBrace.Core</Name>
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
