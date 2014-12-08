@@ -1,5 +1,8 @@
 ﻿namespace Nessos.MBrace.Continuation
 
+open System
+open System.Runtime.Serialization
+
 [<AutoOpen>]
 module private ResourceRegistryUtils =
     let inline key<'T> = typeof<'T>.AssemblyQualifiedName
@@ -42,8 +45,10 @@ type ResourceRegistry private (index : Map<string, obj>) =
     member __.InstalledResources = index |> Map.toArray |> Array.map fst
 
 /// Exception raised on missing resource resolution
-and ResourceNotFoundException internal (message : string) = 
-    inherit System.Exception(message)
+and [<AutoSerializable(true)>] ResourceNotFoundException =
+    inherit Exception
+    internal new (message : string) = { inherit Exception(message) }
+    private new (sI : SerializationInfo, sc : StreamingContext) =  { inherit Exception(sI, sc) }
 
 
 /// Resource registry builder API
