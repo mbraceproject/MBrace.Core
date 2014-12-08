@@ -66,7 +66,7 @@ type ``Atom Tests`` (atomProvider : ICloudAtomProvider, ?npar, ?nseq) =
     [<Test>]
     member __.``Update sequentially`` () =
         let atom = atomProvider.CreateAtom(testContainer,0) |> run
-        for i = 1 to 10 * nseq do
+        for i = 1 to 10 * nseq do 
             atom.Update(fun i -> i + 1) |> run
 
         atom.Value |> should equal (10 * nseq)
@@ -96,11 +96,12 @@ type ``Atom Tests`` (atomProvider : ICloudAtomProvider, ?npar, ?nseq) =
 
     [<Test; Repeat(repeats)>]
     member __.``Force value`` () =
+        let npar = npar
         if atomProvider.IsSupportedValue [1..100] then
             let atom = atomProvider.CreateAtom<int>(testContainer, 0) |> run
 
             let worker i = async {
-                if i = 5 then
+                if i = npar / 2 then
                     do! atom.Force 42
                 else
                     do! atom.Update id

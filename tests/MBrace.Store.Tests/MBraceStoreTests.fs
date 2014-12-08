@@ -204,8 +204,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
         // avoid capturing test fixture class in closure
         let npar = npar
         cloud {
-            let! a = CloudAtom.New 0
-            do! Seq.init npar (fun i -> CloudAtom.Force (i+1) a) |> Cloud.Parallel |> Cloud.Ignore
+            let! a = CloudAtom.New -1
+            do! Seq.init npar (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
             return a.Value
         } |> run |> should be (greaterThan 0)
 
