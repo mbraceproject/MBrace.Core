@@ -57,6 +57,7 @@
   -->
   <ItemGroup>
     <Compile Include="Utils\Utils.fs" />
+    <Compile Include="Utils\String.fs" />
     <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Reflection.fs" />
     <Compile Include="Utils\TypePrinter.fs" />
@@ -64,6 +65,7 @@
     <Compile Include="Serialization.fs" />
     <Compile Include="Vagrant.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
+    <Compile Include="Store\FileStoreCache.fs" />
     <Compile Include="Compiler\Types.fs" />
     <Compile Include="Compiler\CloudUtils.fs" />
     <Compile Include="Compiler\Compiler.fs" />
