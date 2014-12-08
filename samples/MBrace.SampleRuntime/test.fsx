@@ -6,7 +6,6 @@
 
 open System
 open Nessos.MBrace
-open Nessos.MBrace.Library
 open Nessos.MBrace.SampleRuntime
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
@@ -40,3 +39,16 @@ let getWordCount inputSize =
     let reduce i i' = cloud { return i + i' }
     let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
     MapReduce.mapReduce map 0 reduce inputs
+
+type Cloud with
+    static member All (one : IWorkerRef -> Cloud<'T>) : Cloud<'T []> =
+        cloud {
+            let! wr = Cloud.GetAvailableWorkers()
+            let! handles = wr |> Array.map (fun w -> Cloud.StartChild(one w,w))
+                              |> Cloud.Parallel
+            return! handles |> Cloud.Parallel
+        }
+
+runtime.Run(Cloud.All (fun w -> cloud.Return w.Id))
+
+runtime.Run(Cloud.All (fun _ -> Cloud.GetWorkerCount()))
