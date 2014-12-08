@@ -24,6 +24,6 @@ module Helper =
     let conn = selectEnv "azurestorageconn"
     let blobStore = lazy new BlobStore(conn)
 
-[<TestFixture>]
+[<TestFixture; Category("AzureStore")>]
 type ``Azure Blob store tests`` () =
     inherit  ``File Store Tests``(Helper.blobStore.Value)

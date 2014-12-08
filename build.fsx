@@ -62,6 +62,7 @@ Target "Clean" (fun _ ->
 
 let configuration = environVarOrDefault "Configuration" "Release"
 let ignoreClusterTests = environVarOrDefault "IgnoreClusterTests" "false" |> Boolean.Parse
+let ignoreAzureStoreTests = environVarOrDefault "IgnoreAzureStoreTests" "false" |> Boolean.Parse
 
 Target "Build" (fun _ ->
     // Build the rest of the project
@@ -89,6 +90,7 @@ Target "RunTests" (fun _ ->
         { p with
             DisableShadowCopy = true
             TimeOut = TimeSpan.FromMinutes 60.
+            ExcludeCategory = if ignoreAzureStoreTests then "AzureStore" else p.ExcludeCategory
             OutputFile = "TestResults.xml" })
 )
 
