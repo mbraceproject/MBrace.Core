@@ -207,7 +207,7 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
             let! a = CloudAtom.New -1
             do! Seq.init npar (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
             return a.Value
-        } |> run |> should be (greaterThan 0)
+        } |> run |> should be (greaterThanOrEqualTo 0)
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - dispose`` () =
