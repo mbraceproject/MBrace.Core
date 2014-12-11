@@ -82,6 +82,7 @@ let testAssemblies =
         yield "bin/MBrace.Core.Tests.dll"
         yield "bin/MBrace.Store.Tests.dll"
         if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
+        if not ignoreAzureStoreTests then yield "bin/MBrace.Azure.Store.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
@@ -90,7 +91,6 @@ Target "RunTests" (fun _ ->
         { p with
             DisableShadowCopy = true
             TimeOut = TimeSpan.FromMinutes 60.
-            ExcludeCategory = if ignoreAzureStoreTests then "AzureStore" else p.ExcludeCategory
             OutputFile = "TestResults.xml" })
 )
 
