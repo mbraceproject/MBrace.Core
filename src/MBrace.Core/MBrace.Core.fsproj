@@ -64,13 +64,13 @@
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\CloudBuilder.fs" />
     <Compile Include="Continuation\Combinators.fs" />
-    <Compile Include="Cloud\RuntimeTypes.fs" />
-    <Compile Include="Cloud\RuntimeProvider.fs" />
-    <Compile Include="Cloud\RuntimeCombinators.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\FileStore.fs" />
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Channel.fs" />
+    <Compile Include="Runtime\RuntimeTypes.fs" />
+    <Compile Include="Runtime\RuntimeProvider.fs" />
+    <Compile Include="Runtime\RuntimeCombinators.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
