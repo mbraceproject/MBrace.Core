@@ -1,4 +1,6 @@
-﻿namespace Nessos.MBrace
+﻿// Collection of runtime-related combinators
+[<AutoOpen>]
+module Nessos.MBrace.RuntimeCombinators
 
 #nowarn "444"
 
@@ -7,45 +9,7 @@ open System.Threading.Tasks
 
 open Nessos.MBrace.Continuation
 
-/// Cloud workflows static methods
-type Cloud =
-
-    /// <summary>
-    ///     Gets the current cancellation token.
-    /// </summary>
-    static member CancellationToken = 
-        Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx.CancellationToken)
-
-    /// <summary>
-    ///     Raise an exception.
-    /// </summary>
-    /// <param name="e">exception to be raised.</param>
-    static member Raise<'T> (e : exn) : Cloud<'T> = raiseM e
-
-    /// <summary>
-    ///     Catch exception from given cloud workflow.
-    /// </summary>
-    /// <param name="cloudWorkflow">Workflow to be protected.</param>
-    static member Catch(cloudWorkflow : Cloud<'T>) : Cloud<Choice<'T, exn>> = cloud {
-        try
-            let! res = cloudWorkflow
-            return Choice1Of2 res
-        with e ->
-            return Choice2Of2 e
-    }
-
-    /// <summary>
-    ///     Creates a cloud workflow that asynchronously sleeps for a given amount of time.
-    /// </summary>
-    /// <param name="millisecondsDue">Milliseconds to suspend computation.</param>
-    static member Sleep(millisecondsDue : int) : Cloud<unit> = 
-        Cloud.OfAsync<unit>(Async.Sleep millisecondsDue)
-
-    /// <summary>
-    ///     Wraps an asynchronous workflow into a cloud workflow.
-    /// </summary>
-    /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
-    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Cloud<'T> = ofAsync asyncWorkflow
+type Nessos.MBrace.Cloud with
 
     /// <summary>
     ///     Writes an entry to a logging provider, if it exists.
@@ -63,27 +27,7 @@ type Cloud =
     ///     Writes an entry to a logging provider, if it exists.
     /// </summary>
     /// <param name="logEntry">Added log entry.</param>
-    static member Logf fmt : Cloud<unit> = Printf.ksprintf Cloud.Log fmt
-
-    /// <summary>
-    ///     Performs a cloud computations, discarding its result
-    /// </summary>
-    /// <param name="workflow"></param>
-    static member Ignore (workflow : Cloud<'T>) : Cloud<unit> = cloud { let! _ = workflow in return () }
-
-    /// <summary>
-    ///     Disposes of a distributed resource.
-    /// </summary>
-    /// <param name="disposable">Resource to be disposed.</param>
-    static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : Cloud<unit> =
-        Cloud.OfAsync(disposable.Dispose())
-
-    /// <summary>
-    ///     Asynchronously await task completion
-    /// </summary>
-    /// <param name="task">Task to be awaited</param>
-    static member AwaitTask (task : Task<'T>) : Cloud<'T> = 
-        Cloud.OfAsync(Async.AwaitTask task)
+    static member Logf fmt = Printf.ksprintf Cloud.Log fmt
 
     /// <summary>
     ///     Cloud.Parallel combinator
@@ -166,55 +110,79 @@ type Cloud =
     }
 
     /// <summary>
+    ///     Sets a new scheduling context for target workflow.
+    /// </summary>
+    /// <param name="workflow">Target workflow.</param>
+    /// <param name="schedulingContext">Target scheduling context.</param>
+    [<CompilerMessage("'SetSchedulingContext' only intended for runtime implementers.", 444)>]
+    static member WithSchedulingContext (schedulingContext : SchedulingContext) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider>()
+        let runtime' = runtime.WithSchedulingContext schedulingContext
+        return! Cloud.SetResource(workflow, runtime')
+    }
+
+    /// <summary>
     ///     Force thread local execution semantics for given cloud workflow.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
-    static member ToLocal(workflow : Cloud<'T>) = Cloud.SetSchedulingContext(workflow, ThreadParallel)
+    static member ToLocal(workflow : Cloud<'T>) = Cloud.WithSchedulingContext ThreadParallel workflow
 
     /// <summary>
     ///     Force sequential execution semantics for given cloud workflow.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
-    static member ToSequential(workflow : Cloud<'T>) = Cloud.SetSchedulingContext(workflow, Sequential)
+    static member ToSequential(workflow : Cloud<'T>) = Cloud.WithSchedulingContext Sequential workflow
 
+    /// <summary>
+    ///     Gets the current fault policy.
+    /// </summary>
+    static member GetFaultPolicy () : Cloud<FaultPolicy> = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+        return runtime.FaultPolicy
+    }
 
-/// [omit]
-/// Contains common operators for cloud computation.
-
-[<AutoOpen>]
-module Operators =
+    /// <summary>
+    ///     Sets a new fault policy for given workflow.
+    /// </summary>
+    /// <param name="policy">Updated fault policy.</param>
+    /// <param name="workflow">Workflow to be used.</param>
+    static member WithFaultPolicy (policy : FaultPolicy) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+        let runtime' = runtime.WithFaultPolicy policy
+        return! Cloud.SetResource(workflow, resource)
+    }
         
-    /// <summary>
-    ///     Combines two cloud computations into one that executes them in parallel.
-    /// </summary>
-    /// <param name="left">The first cloud computation.</param>
-    /// <param name="right">The second cloud computation.</param>
-    let (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
-        cloud { 
-            let! result = 
-                    Cloud.Parallel<obj> [| cloud { let! value = left in return value :> obj }; 
-                                            cloud { let! value = right in return value :> obj } |]
-            return (result.[0] :?> 'a, result.[1] :?> 'b) 
-        }
+/// <summary>
+///     Combines two cloud computations into one that executes them in parallel.
+/// </summary>
+/// <param name="left">The first cloud computation.</param>
+/// <param name="right">The second cloud computation.</param>
+let (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
+    cloud { 
+        let! result = 
+                Cloud.Parallel<obj> [| cloud { let! value = left in return value :> obj }; 
+                                        cloud { let! value = right in return value :> obj } |]
+        return (result.[0] :?> 'a, result.[1] :?> 'b) 
+    }
 
-    /// <summary>
-    ///     Combines two cloud computations into one that executes them in parallel and returns the
-    ///     result of the first computation that completes and cancels the other.
-    /// </summary>
-    /// <param name="left">The first cloud computation.</param>
-    /// <param name="right">The second cloud computation.</param>
-    let (<|>) (left : Cloud<'a>) (right : Cloud<'a>) : Cloud<'a> =
-        cloud {
-            let! result = 
-                Cloud.Choice [| cloud { let! value = left  in return Some (value) }
-                                cloud { let! value = right in return Some (value) }  |]
+/// <summary>
+///     Combines two cloud computations into one that executes them in parallel and returns the
+///     result of the first computation that completes and cancels the other.
+/// </summary>
+/// <param name="left">The first cloud computation.</param>
+/// <param name="right">The second cloud computation.</param>
+let (<|>) (left : Cloud<'a>) (right : Cloud<'a>) : Cloud<'a> =
+    cloud {
+        let! result = 
+            Cloud.Choice [| cloud { let! value = left  in return Some (value) }
+                            cloud { let! value = right in return Some (value) }  |]
 
-            return result.Value
-        }
+        return result.Value
+    }
 
-    /// <summary>
-    ///     Combines two cloud computations into one that executes them sequentially.
-    /// </summary>
-    /// <param name="left">The first cloud computation.</param>
-    /// <param name="right">The second cloud computation.</param>
-    let (<.>) first second = cloud { let! v1 = first in let! v2 = second in return (v1, v2) }
+/// <summary>
+///     Combines two cloud computations into one that executes them sequentially.
+/// </summary>
+/// <param name="left">The first cloud computation.</param>
+/// <param name="right">The second cloud computation.</param>
+let (<.>) first second = cloud { let! v1 = first in let! v2 = second in return (v1, v2) }

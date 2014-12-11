@@ -3,35 +3,37 @@
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
 
+/// A logger that writes to the system console
 type ConsoleLogger () =
     interface ICloudLogger with
         member __.Log(message : string) = System.Console.WriteLine message
 
+/// A logger that ignores entries
 type NullLogger () =
     interface ICloudLogger with
         member __.Log _ = ()
 
-type InMemoryRuntime private (context : SchedulingContext, logger) =
+/// .NET ThreadPool runtime provider
+type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =
 
     let taskId = System.Guid.NewGuid().ToString()
 
-    static member Create (?logger : ICloudLogger) = 
+    /// <summary>
+    ///     Creates a new threadpool runtime instance.
+    /// </summary>
+    /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
+    /// <param name="faultPolicy">Fault policy for runtime. Defaults to Infinite retries.</param>
+    static member Create (?logger : ICloudLogger, ?faultPolicy) = 
         let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        new InMemoryRuntime(ThreadParallel, logger)
-
-    static member DefaultResources =
-        resource { 
-            yield InMemoryRuntime.Create () :> IRuntimeProvider
-            yield InMemoryChannelProvider.CreateConfiguration()
-            yield InMemoryAtomProvider.CreateConfiguration()
-        }
+        let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.InfiniteRetry()
+        new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger)
         
     interface IRuntimeProvider with
         member __.ProcessId = "in memory process"
         member __.TaskId = taskId
         member __.Logger = logger
         member __.GetAvailableWorkers () = async {
-            return raise <| new System.NotSupportedException("'GetAvailableWorkers not supported in InMemory runtime.")
+            return raise <| new System.NotSupportedException("'GetAvailableWorkers' not supported in InMemory runtime.")
         }
 
         member __.CurrentWorker =
@@ -48,7 +50,10 @@ type InMemoryRuntime private (context : SchedulingContext, logger) =
                 | Distributed -> ThreadParallel
                 | c -> c
 
-            new InMemoryRuntime(newContext, logger) :> IRuntimeProvider
+            new ThreadPoolRuntime(newContext, faultPolicy, logger) :> IRuntimeProvider
+
+        member __.FaultPolicy = faultPolicy
+        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(context, newFp, logger) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
@@ -64,3 +69,16 @@ type InMemoryRuntime private (context : SchedulingContext, logger) =
             match context with
             | Sequential -> Sequential.StartChild workflow
             | _ -> ThreadPool.StartChild(workflow, ?timeoutMilliseconds = timeoutMilliseconds)
+
+type InMemory =
+
+    /// <summary>
+    ///     Creates a resource bundle for in-memory cloud computations.
+    /// </summary>
+    /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
+    static member CreateResources(?logger : ICloudLogger) : ResourceRegistry =
+        resource { 
+            yield ThreadPoolRuntime.Create (?logger = logger) :> IRuntimeProvider
+            yield InMemoryChannelProvider.CreateConfiguration()
+            yield InMemoryAtomProvider.CreateConfiguration()
+        }

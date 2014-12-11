@@ -68,6 +68,9 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         member __.WithSchedulingContext context = 
             new RuntimeProvider(state, procInfo, dependencies, taskId, context) :> IRuntimeProvider
 
+        member __.FaultPolicy = raise <| new System.NotImplementedException()
+        member __.WithFaultPolicy _ = raise <| new System.NotImplementedException()
+
         member __.ScheduleParallel computations = 
             match context with
             | Distributed -> Combinators.Parallel state procInfo dependencies computations

@@ -63,9 +63,10 @@
     <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\CloudBuilder.fs" />
+    <Compile Include="Continuation\Combinators.fs" />
+    <Compile Include="Cloud\RuntimeTypes.fs" />
     <Compile Include="Cloud\RuntimeProvider.fs" />
-    <Compile Include="Cloud\Intrinsics.fs" />
-    <Compile Include="Cloud\CloudCombinators.fs" />
+    <Compile Include="Cloud\RuntimeCombinators.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\FileStore.fs" />
     <Compile Include="Store\Atom.fs" />

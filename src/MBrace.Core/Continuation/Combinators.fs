@@ -8,7 +8,7 @@ open Nessos.MBrace.Continuation
 
 #nowarn "444"
 
-/// Intrinsic cloud workflow methods
+/// Cloud workflows continuation API
 type Cloud =
         
     /// <summary>
@@ -51,6 +51,15 @@ type Cloud =
     [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
     static member TryGetResource<'TResource> () : Cloud<'TResource option> =
         Cloud.FromContinuations(fun ctx cont -> cont.Success ctx <| ctx.Resources.TryResolve<'TResource> ())
+
+    /// <summary>
+    ///     Installs a new resource to executed workflow.
+    /// </summary>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    /// <param name="resource">Resource to be installed.</param>
+    [<CompilerMessage("'SetResource' only intended for runtime implementers.", 444)>]
+    static member SetResource(workflow : Cloud<'T>, resource : 'Resource) : Cloud<'T> =
+        Cloud.FromContinuations(fun ctx cont -> let (Body f) = workflow in f { ctx with Resources = ctx.Resources.Register resource } cont)
 
     /// <summary>
     ///     Wraps a cloud workflow into an asynchronous workflow.
@@ -132,23 +141,68 @@ type Cloud =
         let wf = Cloud.ToAsync(cloudWorkflow, ?resources = resources) 
         Async.RunSync(wf, ?cancellationToken = cancellationToken)
 
-    /// <summary>
-    ///     Sets a new scheduling context for target workflow.
-    /// </summary>
-    /// <param name="workflow">Target workflow.</param>
-    /// <param name="schedulingContext">Target scheduling context.</param>
-    [<CompilerMessage("'SetSchedulingContext' only intended for runtime implementers.", 444)>]
-    static member SetSchedulingContext(workflow : Cloud<'T>, schedulingContext) : Cloud<'T> =
-        Cloud.FromContinuations(fun ctx cont ->
-            let result =
-                try 
-                    let runtime = ctx.Resources.Resolve<IRuntimeProvider>()
-                    let runtime' = runtime.WithSchedulingContext schedulingContext
-                    Choice1Of2 runtime'
-                with e -> Choice2Of2 e
 
-            match result with
-            | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
-            | Choice1Of2 runtime' ->
-                let ctx = { ctx with Resources = ctx.Resources.Register(runtime') }
-                Cloud.StartWithContinuations(workflow, cont, ctx))
+namespace Nessos.MBrace
+
+open System.Threading.Tasks
+open Nessos.MBrace.Continuation
+
+/// Cloud workflows user API
+type Cloud =
+    
+    /// <summary>
+    ///     Gets the current cancellation token.
+    /// </summary>
+    static member CancellationToken = 
+        Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx.CancellationToken)
+
+    /// <summary>
+    ///     Raise an exception.
+    /// </summary>
+    /// <param name="e">exception to be raised.</param>
+    static member Raise<'T> (e : exn) : Cloud<'T> = raiseM e
+
+    /// <summary>
+    ///     Catch exception from given cloud workflow.
+    /// </summary>
+    /// <param name="cloudWorkflow">Workflow to be protected.</param>
+    static member Catch(cloudWorkflow : Cloud<'T>) : Cloud<Choice<'T, exn>> = cloud {
+        try
+            let! res = cloudWorkflow
+            return Choice1Of2 res
+        with e ->
+            return Choice2Of2 e
+    }
+
+    /// <summary>
+    ///     Creates a cloud workflow that asynchronously sleeps for a given amount of time.
+    /// </summary>
+    /// <param name="millisecondsDue">Milliseconds to suspend computation.</param>
+    static member Sleep(millisecondsDue : int) : Cloud<unit> = 
+        Cloud.OfAsync<unit>(Async.Sleep millisecondsDue)
+
+    /// <summary>
+    ///     Wraps an asynchronous workflow into a cloud workflow.
+    /// </summary>
+    /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
+    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Cloud<'T> = ofAsync asyncWorkflow
+
+    /// <summary>
+    ///     Performs a cloud computations, discarding its result
+    /// </summary>
+    /// <param name="workflow"></param>
+    static member Ignore (workflow : Cloud<'T>) : Cloud<unit> = cloud { let! _ = workflow in return () }
+
+    /// <summary>
+    ///     Disposes of a distributed resource.
+    /// </summary>
+    /// <param name="disposable">Resource to be disposed.</param>
+    static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : Cloud<unit> =
+        Cloud.OfAsync(disposable.Dispose())
+
+    /// <summary>
+    ///     Asynchronously await task completion
+    /// </summary>
+    /// <param name="task">Task to be awaited</param>
+    static member AwaitTask (task : Task<'T>) : Cloud<'T> = 
+        Cloud.OfAsync(Async.AwaitTask task)

@@ -7,7 +7,17 @@ open NUnit.Framework
 open FsUnit
 
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.InMemoryRuntime
+
+type TestLogger () =
+    let logs = new ResizeArray<string>()
+
+    member __.Logs = logs.ToArray()
+    member __.Clear () = lock logs (fun () -> logs.Clear())
+
+    interface ICloudLogger with
+        member __.Log msg = lock logs (fun () -> logs.Add msg)
 
 [<TestFixture>]
 [<Category("ThreadPoolTests")>]
@@ -20,7 +30,8 @@ module ``ThreadPool Parallelism Tests`` =
     let repeats = 3
 #endif
 
-    let resources = InMemoryRuntime.DefaultResources
+    let logger = new TestLogger()
+    let resources = InMemory.CreateResources(logger)
         
     let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)
     let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)
@@ -372,6 +383,15 @@ module ``ThreadPool Parallelism Tests`` =
         } |> run |> Choice.shouldFailwith<_, TimeoutException>
 
         !counter |> should equal 1
+
+    [<Test>]
+    let ``Logging`` () =
+        logger.Clear()
+        cloud {
+            for i in 1 .. 100 do
+                do! Cloud.Logf "message %d" i
+        } |> run |> ignore
+        logger.Logs.Length |> should equal 100
 
     [<Test>]
     let ``Channels: simple send/receive`` () =

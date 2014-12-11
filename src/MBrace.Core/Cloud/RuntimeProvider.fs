@@ -34,6 +34,17 @@ type IRuntimeProvider =
     abstract Logger : ICloudLogger
 
     /// <summary>
+    ///     Gets the current fault policy.
+    /// </summary>
+    abstract FaultPolicy : FaultPolicy
+
+    /// <summary>
+    ///     Creates a new scheduler instance with updated fault policy.
+    /// </summary>
+    /// <param name="newPolicy">new fault policy.</param>
+    abstract WithFaultPolicy : newPolicy:FaultPolicy -> IRuntimeProvider
+
+    /// <summary>
     ///     Creates a new scheduler instance with updated scheduling context
     /// </summary>
     /// <param name="newContext">new scheduling context</param>
