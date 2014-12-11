@@ -26,6 +26,13 @@ module ``SampleRuntime Tests`` =
 
     let mutable runtime : MBraceRuntime option = None
 
+    type System.Threading.Tasks.Task<'T> with
+        member t.CorrectResult =
+            try t.Result
+            with :? AggregateException as e -> 
+                raise e.InnerException
+
+
     [<TestFixtureSetUp>]
     let init () =
         MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
@@ -494,6 +501,24 @@ module ``SampleRuntime Tests`` =
         runtime.Value.KillAllWorkers()
         runtime.Value.AppendWorkers 4
         t.Result |> should equal 100
+
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``5. Fault Tolerance : Custom fault policy 1`` () =
+        let t = runtime.Value.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+        do Thread.Sleep 4000
+        runtime.Value.KillAllWorkers()
+        runtime.Value.AppendWorkers 4
+        Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>
+
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``5. Fault Tolerance : Custom fault policy 2`` () =
+        let t = runtime.Value.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+        do Thread.Sleep 4000
+        runtime.Value.KillAllWorkers()
+        runtime.Value.AppendWorkers 4
+        Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>
 
     [<Test>]
     let ``6. Channels : simple send/receive`` () =

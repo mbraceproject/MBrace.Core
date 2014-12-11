@@ -372,8 +372,8 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
 //
 
 type private QueueMsg<'T> =
-    | EnQueue of 'T
-    | TryDequeue of IReplyChannel<('T * LeaseMonitor) option>
+    | EnQueue of 'T * (* fault count *) int
+    | TryDequeue of IReplyChannel<('T * (* fault count *) int * LeaseMonitor) option>
 
 type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
     static member Empty = new ImmutableQueue<'T>([],[])
@@ -388,30 +388,30 @@ type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
 
 /// Provides a distributed, fault-tolerant queue implementation
 type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
-    member __.Enqueue (t : 'T) = source <-- EnQueue t
+    member __.Enqueue (t : 'T) = source <-- EnQueue (t, 0)
     member __.TryDequeue () = source <!- TryDequeue
 
     /// Initializes a new distribued queue instance.
     static member Init() =
         let self = ref Unchecked.defaultof<ActorRef<QueueMsg<'T>>>
-        let behaviour (queue : ImmutableQueue<'T>) msg = async {
+        let behaviour (queue : ImmutableQueue<'T * int>) msg = async {
             match msg with
-            | EnQueue t -> return queue.Enqueue t
+            | EnQueue (t, faultCount) -> return queue.Enqueue (t, faultCount)
             | TryDequeue rc ->
                 match queue.TryDequeue() with
                 | None ->
-                    do! rc.Reply None 
+                    do! rc.Reply None
                     return queue
 
-                | Some(t, queue') ->
+                | Some((t, faultCount), queue') ->
                     let putBack, leaseMonitor = LeaseMonitor.Init (TimeSpan.FromSeconds 5.)
-                    do! rc.Reply (Some (t, leaseMonitor))
-                    let _ = putBack.Subscribe(fun () -> self.Value <-- EnQueue t)
+                    do! rc.Reply (Some (t, faultCount, leaseMonitor))
+                    let _ = putBack.Subscribe(fun () -> self.Value <-- EnQueue (t, faultCount + 1))
                     return queue'
         }
 
         self :=
-            Actor.Stateful ImmutableQueue<'T>.Empty behaviour
+            Actor.Stateful ImmutableQueue<'T * int>.Empty behaviour
             |> Actor.Publish
             |> Actor.ref
 

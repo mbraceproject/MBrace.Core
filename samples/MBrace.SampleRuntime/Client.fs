@@ -53,9 +53,15 @@ type MBraceRuntime private (logger : string -> unit) =
         let state = Argument.ofRuntime state
         workerManager <!= fun ch -> Actors.WorkerManager.SubscribeToRuntime(ch, state, 10)
         workerManager.Id.ToString()
-        
-    /// Asynchronously execute a workflow on the distributed runtime.
-    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
+
+    /// <summary>
+    ///     Asynchronously execute a workflow on the distributed runtime.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token for computation.</param>
+    /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
+    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
+        let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
         let computation = CloudCompiler.Compile workflow
         let processInfo =
             {
@@ -68,21 +74,31 @@ type MBraceRuntime private (logger : string -> unit) =
         let! cts = state.ResourceFactory.RequestCancellationTokenSource()
         try
             cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-            let! resultCell = state.StartAsCell processInfo computation.Dependencies cts computation.Workflow
+            let! resultCell = state.StartAsCell processInfo computation.Dependencies cts faultPolicy computation.Workflow
             let! result = resultCell.AwaitResult()
             return result.Value
         finally
             cts.Cancel ()
     }
 
-    /// Execute a workflow on the distributed runtime as task.
-    member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
-        let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken)
+    /// <summary>
+    ///     Execute a workflow on the distributed runtime as task.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token for computation.</param>
+    /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
+    member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
+        let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
         Async.StartAsTask(asyncwf)
 
-    /// Execute a workflow on the distributed runtime synchronously
-    member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
-        __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSync
+    /// <summary>
+    ///     Execute a workflow on the distributed runtime synchronously
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token for computation.</param>
+    /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
+    member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
+        __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])

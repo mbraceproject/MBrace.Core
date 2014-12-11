@@ -1,6 +1,7 @@
 ﻿namespace Nessos.MBrace
 
 open System
+open System.Runtime.Serialization
 
 /// Scheduling context for currently executing cloud process.
 type SchedulingContext =
@@ -17,6 +18,16 @@ type IWorkerRef =
     abstract Type : string
     /// Worker unique identifier
     abstract Id : string
+
+/// Exception indicating fault in MBrace runtime
+[<AutoSerializable(true)>]
+type FaultException =
+    inherit Exception
+
+    new() = { inherit Exception() }
+    new(message : string) = { inherit Exception(message)}
+    new(message : string, innerException : exn) = { inherit Exception(message, innerException) }
+    new (sI : SerializationInfo, sC : StreamingContext) = { inherit Exception(sI, sC) }
 
 /// Fault recovery policy used in runtime execution;
 /// takes number of attempts and fault exception returning

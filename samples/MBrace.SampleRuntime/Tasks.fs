@@ -88,6 +88,10 @@ type Task =
         TaskId : string
         /// Triggers task execution with worker-provided execution context
         StartTask : ExecutionContext -> unit
+        /// Task fault policy
+        FaultPolicy : FaultPolicy
+        /// Exception Continuation
+        Econt : ExecutionContext -> ExceptionDispatchInfo -> unit
         /// Distributed cancellation token source bound to task
         CancellationTokenSource : DistributedCancellationTokenSource
     }
@@ -100,7 +104,8 @@ with
     /// <param name="task">Task to be executed.</param>
     static member RunAsync (runtimeProvider : IRuntimeProvider) 
                             (channelProvider : ICloudChannelProvider) 
-                            (dependencies : AssemblyId list) (task : Task) = 
+                            (dependencies : AssemblyId list) (faultCount : int)
+                            (task : Task) = 
         async {
             let tem = new TaskExecutionMonitor()
             let ctx =
@@ -116,7 +121,16 @@ with
                     CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
                 }
 
-            do task.StartTask ctx
+            if faultCount > 0 then
+                let faultException = new FaultException(sprintf "Fault exception when running task '%s'." task.TaskId)
+                match task.FaultPolicy.Policy faultCount (faultException :> exn) with
+                | None -> task.Econt ctx <| ExceptionDispatchInfo.Capture faultException
+                | Some timeout ->
+                    do! Async.Sleep (int timeout.TotalMilliseconds)
+                    do task.StartTask ctx
+            else
+                do task.StartTask ctx
+
             return! TaskExecutionMonitor.AwaitCompletion tem
         }
 
@@ -161,7 +175,7 @@ with
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
-    member rt.EnqueueTask procInfo dependencies cts sc ec cc (wf : Cloud<'T>) =
+    member rt.EnqueueTask procInfo dependencies cts fp sc ec cc (wf : Cloud<'T>) =
         let taskId = System.Guid.NewGuid().ToString()
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
@@ -173,6 +187,8 @@ with
                 ProcessInfo = procInfo
                 TaskId = taskId
                 StartTask = startTask
+                FaultPolicy = fp
+                Econt = ec
                 CancellationTokenSource = cts
             }
 
@@ -186,7 +202,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell procInfo dependencies cts (wf : Cloud<'T>) = async {
+    member rt.StartAsCell procInfo dependencies cts fp (wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let setResult ctx r = 
             async {
@@ -197,7 +213,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        rt.EnqueueTask procInfo dependencies cts scont econt ccont wf
+        rt.EnqueueTask procInfo dependencies cts fp scont econt ccont wf
         return resultCell
     }
 
@@ -206,10 +222,8 @@ with
         let! item = rt.TaskQueue.TryDequeue()
         match item with
         | None -> return None
-        | Some ((tp, deps), leaseMonitor) -> 
+        | Some ((tp, deps), faultCount, leaseMonitor) -> 
             do! rt.AssemblyExporter.LoadDependencies deps
             let task = VagrantRegistry.Pickler.UnPickleTyped tp
-            return Some (task, deps, leaseMonitor)
+            return Some (task, deps, faultCount, leaseMonitor)
     }
-
-

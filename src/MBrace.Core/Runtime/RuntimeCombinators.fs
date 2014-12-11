@@ -149,7 +149,7 @@ type Nessos.MBrace.Cloud with
     static member WithFaultPolicy (policy : FaultPolicy) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let runtime' = runtime.WithFaultPolicy policy
-        return! Cloud.SetResource(workflow, resource)
+        return! Cloud.SetResource(workflow, runtime')
     }
         
 /// <summary>

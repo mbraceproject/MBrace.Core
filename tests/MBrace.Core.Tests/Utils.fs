@@ -21,6 +21,9 @@ type Cloud =
 
 module Choice =
 
+    let protect (f : unit -> 'T) =
+        try f () |> Choice1Of2 with e -> Choice2Of2 e
+
     let shouldEqual (value : 'T) (input : Choice<'T, exn>) = 
         match input with
         | Choice1Of2 v' -> should equal value v'

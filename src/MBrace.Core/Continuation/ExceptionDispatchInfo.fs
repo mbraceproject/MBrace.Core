@@ -53,7 +53,7 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
         let useSeparator = defaultArg useSeparator true
         let prepareForRaise = defaultArg prepareForRaise false
         let newTrace =
-            if useSeparator then
+            if useSeparator && not <| String.IsNullOrEmpty sourceStackTrace then
                 sourceStackTrace + Environment.NewLine + separator
             else
                 sourceStackTrace

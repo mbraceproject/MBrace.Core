@@ -52,3 +52,12 @@ type Cloud with
 runtime.Run(Cloud.All (fun w -> cloud.Return w.Id))
 
 runtime.Run(Cloud.All (fun _ -> Cloud.GetWorkerCount()))
+
+runtime.KillAllWorkers()
+runtime.AppendWorkers 4
+
+let t1 = runtime.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+let t2 = runtime.RunAsTask(Cloud.Sleep 20000)
+let t3 = runtime.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+
+t1.Result

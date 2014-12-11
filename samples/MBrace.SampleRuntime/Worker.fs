@@ -25,10 +25,10 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
     printfn "Listening to task queue at %O." runtime.IPEndPoint
 
     let currentTaskCount = ref 0
-    let runTask procId deps t =
+    let runTask procId deps faultCount t =
         let runtimeProvider = RuntimeProvider.FromTask runtime procId deps t
         let channelProvider = new ActorChannelProvider(runtime)
-        Task.RunAsync runtimeProvider channelProvider deps t
+        Task.RunAsync runtimeProvider channelProvider deps faultCount t
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
@@ -39,7 +39,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                 let! task = runtime.TryDequeue()
                 match task with
                 | None -> do! Async.Sleep 500
-                | Some (task, dependencies, leaseMonitor) ->
+                | Some (task, dependencies, faultCount, leaseMonitor) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
                         printfn "Starting task %s of type '%O'." task.TaskId task.Type
@@ -48,7 +48,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
 
                         let sw = new Stopwatch()
                         sw.Start()
-                        let! result = runTask task.ProcessInfo dependencies task |> Async.Catch
+                        let! result = runTask task.ProcessInfo dependencies faultCount task |> Async.Catch
                         sw.Stop()
 
                         match result with
