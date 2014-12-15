@@ -13,9 +13,19 @@ open Nessos.MBrace
 
 // Define your library scripting code here
 
-let conn = Environment.GetEnvironmentVariable("azurestorageconn", EnvironmentVariableTarget.User)
+let conn = Environment.GetEnvironmentVariable("azurestorageconn", "")
 
 let fileStore = new BlobStore(conn) :> ICloudFileStore
+
+
+fileStore.EnumerateDirectories("mbraceruntime") |> Async.RunSynchronously
+fileStore.EnumerateRootDirectories() |> Async.RunSynchronously
+
+let t = fileStore.EnumerateFiles("wikipedia") |> Async.RunSynchronously
+
+
+
+
 let tableStore = new TableStore(conn, Nessos.FsPickler.FsPickler.CreateBinary()) :> ICloudTableStore
 
 let run = Async.RunSynchronously

@@ -7,6 +7,7 @@ open System.Runtime.Serialization
 
 open Nessos.MBrace.Store
 open Microsoft.WindowsAzure.Storage
+open Microsoft.WindowsAzure.Storage.Blob
 
 ///  Store implementation that uses a Azure Blob Storage as backend.
 [<Sealed;AutoSerializable(false)>]
@@ -53,13 +54,20 @@ type BlobStore (connectionString : string) =
                     return false
             }
 
-        member this.EnumerateFiles(container: string) : Async<string []> = 
+        member this.EnumerateFiles(container : string) : Async<string []> = 
             async {
-                let cont = getContainer container
-                return cont.ListBlobs()
-                        |> Seq.map (fun blob ->  blob.Uri.Segments |> Seq.last)
-                        |> Seq.map (fun y -> Path.Combine(container, y))
-                        |> Seq.toArray
+                let containerRef = getContainer container
+                let blobs = new ResizeArray<string>()
+                let rec aux (token : BlobContinuationToken) = async {
+                    let! (result : BlobResultSegment) = containerRef.ListBlobsSegmentedAsync(token)
+                    for blob in result.Results do
+                        let p = blob.Uri.Segments |> Seq.last
+                        blobs.Add(Path.Combine(container, p))
+                    if result.ContinuationToken = null then return ()
+                    else return! aux result.ContinuationToken
+                }
+                do! aux null
+                return blobs.ToArray()
             }
         
         member this.DeleteFile(path: string) : Async<unit> = 
