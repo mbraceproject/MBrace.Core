@@ -25,9 +25,8 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
         |> should equal false
 
     [<Test>]
-    member __.``Store factory should generate identical instances`` () =
-        let descr = fileStore.GetFileStoreDescriptor() |> FsPickler.Clone
-        let fileStore' = descr.Recover()
+    member __.``Store instance should be serializable`` () =
+        let fileStore' = FsPickler.Clone fileStore
         fileStore'.Id |> should equal fileStore.Id
         fileStore'.Name |> should equal fileStore.Name
 

@@ -40,9 +40,8 @@ type ``Atom Tests`` (atomProvider : ICloudAtomProvider, ?npar, ?nseq) =
         |> should equal false
 
     [<Test>]
-    member __.``Store factory should generate identical instances`` () =
-        let fact = atomProvider.GetAtomProviderDescriptor() |> FsPickler.Clone
-        let atomProvider' = fact.Recover()
+    member __.``Atom provider should be serializable`` () =
+        let atomProvider' = FsPickler.Clone atomProvider
         atomProvider'.Name |> should equal atomProvider.Name
         atomProvider'.Id |> should equal atomProvider.Id
 

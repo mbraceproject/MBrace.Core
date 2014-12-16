@@ -55,9 +55,12 @@ type VagrantRegistry private () =
             match vagrantInstance.Value with
             | None -> 
                 let v = factory ()
-                let s = FsPicklerStoreSerializer.CreateAndRegister(v.Pickler, "Vagrant pickler")
                 vagrantInstance := Some v
-                serializer := Some (s :> ISerializer)
+                serializer := Some (
+                    { new FsPicklerStoreSerializer () with
+                        member __.Id = "VagrantSerializer"
+                        member __.Serializer = VagrantRegistry.Pickler :> _
+                    } :> ISerializer)
 
             | Some _ when defaultArg throwOnError true -> invalidOp "An instance of Vagrant has already been registered."
             | Some _ -> ())

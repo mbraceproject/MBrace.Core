@@ -14,8 +14,11 @@ open Nessos.MBrace.Runtime.Utils.Retry
 open Nessos.MBrace.Runtime.Vagrant
 
 /// Store implementation that uses a filesystem as backend.
-[<Sealed;AutoSerializable(false)>]
-type FileSystemStore private (rootPath : string, uuid : string) =
+[<Sealed; DataContract>]
+type FileSystemStore private (rootPath : string) =
+
+    [<DataMember(Name = "RootPath")>]
+    let rootPath = rootPath
 
     let initDir dir =
         retry (RetryPolicy.Retry(2, 0.5<sec>))
@@ -45,11 +48,6 @@ type FileSystemStore private (rootPath : string, uuid : string) =
 
         let rootPath = Path.GetFullPath path
 
-        let uuid = 
-            let uri = Uri(rootPath)
-            if uri.IsUnc then uri.ToString()
-            else sprintf "//%s/%s" (System.Net.Dns.GetHostName()) uri.AbsolutePath
-
         if Directory.Exists rootPath then
             if cleanup then
                 let cleanup () =
@@ -63,7 +61,7 @@ type FileSystemStore private (rootPath : string, uuid : string) =
         else
             raise <| new DirectoryNotFoundException(rootPath)
 
-        new FileSystemStore(rootPath, uuid)
+        new FileSystemStore(rootPath)
 
     /// Initializes a FileSystemStore instance on the local system temp path.
     static member LocalTemp =
@@ -72,17 +70,7 @@ type FileSystemStore private (rootPath : string, uuid : string) =
 
     interface ICloudFileStore with
         member __.Name = "FileSystemStore"
-        member __.Id = uuid
-        member __.GetFileStoreDescriptor () =
-            let rootPath = rootPath
-            let uuid = uuid
-            {
-                new ICloudFileStoreDescriptor with
-                    member __.Name = "FileSystemStore"
-                    member __.Id = uuid
-                    member __.Recover () = new FileSystemStore(rootPath, uuid) :> ICloudFileStore
-            }
-
+        member __.Id = rootPath
         member __.GetDirectoryName(path : string) = Path.GetDirectoryName path
         member __.GetFileName(path : string) = Path.GetFileName path
         member __.Combine(paths : string []) = Path.Combine paths
@@ -186,8 +174,11 @@ type internal FileSystemAtom<'T> (path : string) =
         }
             
 /// File system based atom implementation with pessimistic concurrency.
-[<Sealed ; AutoSerializable(false)>]
-type FileSystemAtomProvider private (rootPath : string, uuid : string) =
+[<Sealed; DataContract>]
+type FileSystemAtomProvider private (rootPath : string) =
+
+    [<DataMember(Name = "rootPath")>]
+    let rootPath = rootPath
 
     let createAtom container (initValue : 'T) =
         let directory = Path.Combine(rootPath, container)
@@ -216,11 +207,6 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string) =
 
         let rootPath = Path.GetFullPath path
 
-        let uuid = 
-            let uri = Uri(rootPath)
-            if uri.IsUnc then uri.ToString()
-            else sprintf "//%s/%s" (System.Net.Dns.GetHostName()) uri.AbsolutePath
-
         if Directory.Exists rootPath then
             if cleanup then
                 let cleanup () =
@@ -234,7 +220,7 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string) =
         else
             raise <| new DirectoryNotFoundException(rootPath)
 
-        new FileSystemAtomProvider(rootPath, uuid)
+        new FileSystemAtomProvider(rootPath)
 
     /// Initializes a FileSystemStore instance on the local system temp path.
     static member LocalTemp =
@@ -243,17 +229,7 @@ type FileSystemAtomProvider private (rootPath : string, uuid : string) =
 
     interface ICloudAtomProvider with
         member __.Name = "FileSystemAtomProvider"
-        member __.Id = uuid
-        member __.GetAtomProviderDescriptor() =
-            let rootPath = rootPath
-            let uuid = uuid
-            {
-                new ICloudAtomProviderDescriptor with
-                    member __.Name = "FileSystemAtomProvider"
-                    member __.Id = uuid
-                    member __.Recover () = new FileSystemAtomProvider(rootPath, uuid) :> _
-            }
-
+        member __.Id = rootPath
         member __.CreateUniqueContainerName () = System.Guid.NewGuid().ToString("N")
         member __.IsSupportedValue _ = true
         member __.CreateAtom<'T>(container : string, initValue : 'T) = async {

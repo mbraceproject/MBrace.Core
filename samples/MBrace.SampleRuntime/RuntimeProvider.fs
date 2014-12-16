@@ -36,15 +36,6 @@ type ActorChannelProvider (state : RuntimeState) =
         member __.Name = "ActorChannel"
         member __.Id = id
         member __.CreateUniqueContainerName () = ""
-        member __.GetChannelProviderDescriptor () =
-            let id = id
-            let state = state
-            {
-                new ICloudChannelProviderDescriptor with
-                    member __.Name = "ActorChannel"
-                    member __.Id = id
-                    member __.Recover () = new ActorChannelProvider(state) :> _
-            }
 
         member __.CreateChannel<'T> (_ : string) = async {
             let! ch = state.ResourceFactory.RequestChannel<'T> ()

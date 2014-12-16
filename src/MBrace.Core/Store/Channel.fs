@@ -30,10 +30,6 @@ type ICloudChannelProvider =
     /// unique cloud channel source identifier
     abstract Id : string
 
-    /// Returns a serializable channel provider descriptor
-    /// that can be used in remote processes.
-    abstract GetChannelProviderDescriptor : unit -> ICloudChannelProviderDescriptor
-
     /// Create a uniquely specified container name.
     abstract CreateUniqueContainerName : unit -> string
 
@@ -48,16 +44,6 @@ type ICloudChannelProvider =
     /// </summary>
     /// <param name="container">Atom container.</param>
     abstract DisposeContainer : container:string -> Async<unit>
-
-/// Defines a serializable channel provider descriptor
-/// used for recovering instances in remote processes.
-and ICloudChannelProviderDescriptor =
-    /// Implementation name
-    abstract Name : string
-    /// Descriptor Identifier
-    abstract Id : string
-    /// Recovers the channel provider instance locally
-    abstract Recover : unit -> ICloudChannelProvider
 
 /// Channel configuration passed to the continuation execution context
 type ChannelConfiguration =

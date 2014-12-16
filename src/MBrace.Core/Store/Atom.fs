@@ -54,10 +54,6 @@ type ICloudAtomProvider =
     /// Cloud atom identifier
     abstract Id : string
 
-    /// Returns a serializable atom provider descriptor
-    /// that can be used in remote processes.
-    abstract GetAtomProviderDescriptor : unit -> ICloudAtomProviderDescriptor
-
     /// Create a uniquely specified container name.
     abstract CreateUniqueContainerName : unit -> string
 
@@ -79,16 +75,6 @@ type ICloudAtomProvider =
     /// </summary>
     /// <param name="container">Atom container.</param>
     abstract DisposeContainer : container:string -> Async<unit>
-
-/// Defines a serializable atom provider descriptor
-/// used for recovering instances in remote processes.
-and ICloudAtomProviderDescriptor =
-    /// Implementation name
-    abstract Name : string
-    /// Descriptor Identifier
-    abstract Id : string
-    /// Recovers the atom provider instance locally
-    abstract Recover : unit -> ICloudAtomProvider
 
 /// Atom configuration passed to the continuation execution context
 type AtomConfiguration =

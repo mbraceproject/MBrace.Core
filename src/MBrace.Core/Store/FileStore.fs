@@ -3,6 +3,13 @@
 open System
 open System.IO
 
+/// Cloud storage entity identifier
+type ICloudStorageEntity =
+    /// Type identifier for entity
+    abstract Type : string
+    /// Entity unique identifier
+    abstract Id : string
+
 /// Defines a cloud file storage abstraction
 type ICloudFileStore =
 
@@ -11,10 +18,6 @@ type ICloudFileStore =
 
     /// Store identifier
     abstract Id : string
-
-    /// Returns a serializable file store descriptor
-    /// that can be used in remote processes.
-    abstract GetFileStoreDescriptor : unit -> ICloudFileStoreDescriptor
 
     //
     //  Region : Path operations
@@ -132,16 +135,6 @@ type ICloudFileStore =
     /// <param name="sourceFile">Source file.</param>
     /// <param name="target">Target stream.</param>
     abstract ToStream : sourceFile:string * target:Stream -> Async<unit>
-
-/// Defines a serializable file store descriptor
-/// used for recovering instances in remote processes.
-and ICloudFileStoreDescriptor =
-    /// Implementation name
-    abstract Name : string
-    /// Descriptor Identifier
-    abstract Id : string
-    /// Recovers the file store instance locally
-    abstract Recover : unit -> ICloudFileStore
 
 /// Store configuration passed to the continuation execution context
 type CloudFileStoreConfiguration = 

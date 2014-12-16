@@ -43,11 +43,7 @@ type InMemoryAtomProvider () =
     interface ICloudAtomProvider with
         member __.Name = "InMemoryAtomProvider"
         member __.Id = id
-        member __.GetAtomProviderDescriptor () = 
-            raise <| new NotSupportedException("Serialization not supported in in-memory runtimes.")
-
         member __.CreateUniqueContainerName () = Guid.NewGuid().ToString("N")
-
         member __.IsSupportedValue _ = true
         member __.CreateAtom<'T>(_, init : 'T) = async { return new InMemoryAtom<'T>(init) :> _ }
         member __.DisposeContainer _ = async.Zero()
@@ -66,9 +62,6 @@ type InMemoryChannelProvider () =
     interface ICloudChannelProvider with
         member __.Name = "InMemoryChannelProvider"
         member __.Id = id
-        member __.GetChannelProviderDescriptor () = 
-            raise <| new NotSupportedException("Serialization not supported in in-memory runtimes.")
-
         member __.CreateUniqueContainerName () = Guid.NewGuid().ToString("N")
 
         member __.CreateChannel<'T> (_ : string) = async {

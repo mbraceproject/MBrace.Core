@@ -10,10 +10,18 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Blob
 
 ///  Store implementation that uses a Azure Blob Storage as backend.
-[<Sealed;AutoSerializable(false)>]
+[<Sealed; DataContract>]
 type BlobStore (connectionString : string) =
-    
-    let acc = CloudStorageAccount.Parse(connectionString)
+
+    [<DataMember(Name = "ConnectionString")>]
+    let connectionString = connectionString
+
+    [<IgnoreDataMember>]
+    let mutable acc = CloudStorageAccount.Parse(connectionString)
+
+    [<OnDeserialized>]
+    let onDeserialized (_ : StreamingContext) =
+        acc <- CloudStorageAccount.Parse(connectionString)
 
     let getBlobRef = getBlobRef acc
     let getContainer = getContainer acc
@@ -131,15 +139,4 @@ type BlobStore (connectionString : string) =
                 let! blob = getBlobRef sourceFile
                 let! _ = Async.AwaitIAsyncResult <| blob.DownloadToStreamAsync(target)
                 return ()
-            }
-
-        member this.GetFileStoreDescriptor() : ICloudFileStoreDescriptor = 
-            let this = this :> ICloudFileStore
-            let id = this.Id
-            let name = this.Name
-            let conn = connectionString
-            { new ICloudFileStoreDescriptor with
-                  member this.Id : string = id
-                  member this.Name : string = name
-                  member this.Recover() : ICloudFileStore = new BlobStore(conn) :> _
             }

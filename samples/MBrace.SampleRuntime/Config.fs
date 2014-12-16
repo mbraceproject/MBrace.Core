@@ -42,7 +42,8 @@ let private _initRuntimeState () =
     TcpListenerPool.RegisterListener(IPEndPoint.any)
 
     // store initialization
-    fileStore <- FileSystemStore.LocalTemp :> ICloudFileStore
+    FileStoreCache.RegisterLocalFileSystemCache()
+    fileStore <- FileStoreCache.CreateCachedStore(FileSystemStore.LocalTemp :> ICloudFileStore)
     atomProvider <- FileSystemAtomProvider.LocalTemp :> ICloudAtomProvider
 
 /// runtime configuration initializer function

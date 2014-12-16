@@ -8,50 +8,85 @@ open Nessos.MBrace
 open Nessos.MBrace.Store
 open Nessos.MBrace.Continuation
 
+type private CloudRefHeader = { Type : Type }
+
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.
 /// Cloud references cached locally for performance.
-[<Sealed; AutoSerializable(true) ; DataContract>]
-type CloudRef<'T> private (value : 'T, path : string, fileStore : ICloudFileStore, serializer : ISerializer) =
+[<Sealed; DataContract>]
+type CloudRef<'T> =
 
+    // https://visualfsharp.codeplex.com/workitem/199
     [<DataMember(Name = "Path")>]
-    let path = path
-    [<DataMember(Name = "StoreId")>]
-    let storeId = fileStore.GetFileStoreDescriptor()
-    [<DataMember(Name = "SerializerId")>]
-    let serializerId = serializer.GetSerializerDescriptor()
+    val mutable private path : string
+    [<DataMember(Name = "FileStore")>]
+    val mutable private fileStore : ICloudFileStore
+    [<DataMember(Name = "Serializer")>]
+    val mutable private serializer : ISerializer
 
     // conveniently, the uninitialized value for optional fields coincides with 'None'.
     // a more correct approach would initialize using an OnDeserialized callback
     [<IgnoreDataMember>]
-    let mutable cachedValue = Some value
+    val mutable private cachedValue : 'T option
+
+    private new (value, path, fileStore, serializer) =
+        { cachedValue = value ; path = path ; serializer = serializer ; fileStore = fileStore }
 
     /// Asynchronously dereferences the cloud ref.
-    member __.GetValue () = async {
-        match cachedValue with
+    member r.GetValue () = async {
+        match r.cachedValue with
         | Some v -> return v
         | None ->
-            let store = storeId.Recover()
-            let serializer = serializerId.Recover()
-            use! stream = store.BeginRead path
-            let v = serializer.Deserialize<'T>(stream, leaveOpen = false)
-            cachedValue <- Some v
+            use! stream = r.fileStore.BeginRead r.path
+            let _ = r.serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = true)
+            let v = r.serializer.Deserialize<'T>(stream, leaveOpen = false)
+            r.cachedValue <- Some v
             return v
     }
 
     /// Synchronously dereferences the cloud ref.
-    member __.Value =
-        match cachedValue with
+    member r.Value =
+        match r.cachedValue with
         | Some v -> v
-        | None -> __.GetValue() |> Async.RunSync
+        | None -> r.GetValue() |> Async.RunSync
 
     interface ICloudDisposable with
-        member __.Dispose () = async { return! storeId.Recover().DeleteFile path }
+        member r.Dispose () = r.fileStore.DeleteFile r.path
 
-    static member CreateAsync(value : 'T, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
+    interface ICloudStorageEntity with
+        member r.Type = sprintf "cloudref:%O" typeof<'T>
+        member r.Id = r.path
+
+    /// <summary>
+    ///     Creates a new cloud ref in underlying file store with given serializer.
+    /// </summary>
+    /// <param name="value">Value to be stored in cloud ref.</param>
+    /// <param name="directory">Containing directory in file store.</param>
+    /// <param name="fileStore">File store instance.</param>
+    /// <param name="serializer">Serializer instance.</param>
+    static member Create(value : 'T, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let path = fileStore.GetRandomFilePath directory
-        do! async { use! stream = fileStore.BeginWrite path in do serializer.Serialize(stream, value, leaveOpen = false) }
-        return new CloudRef<'T>(value, path, fileStore, serializer)
+        use! stream = fileStore.BeginWrite path 
+        serializer.Serialize(stream, { Type = typeof<'T> }, leaveOpen = true)
+        serializer.Serialize(stream, value, leaveOpen = false)
+        return new CloudRef<'T>(Some value, path, fileStore, serializer)
+    }
+
+    /// <summary>
+    ///     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+    /// </summary>
+    /// <param name="path">Path to cloud ref.</param>
+    /// <param name="fileStore">File store instance.</param>
+    /// <param name="serializer">Serializer instance.</param>
+    static member Parse(path : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
+        use! stream = fileStore.BeginRead path
+        let header = serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = false)
+        return
+            if header.Type = typeof<'T> then
+                new CloudRef<'T>(None, path, fileStore, serializer)
+            else
+                let msg = sprintf "expected cloudref of type %O but was %O." typeof<'T> header.Type
+                raise <| new InvalidDataException(msg)
     }
 
 #nowarn "444"
@@ -75,7 +110,23 @@ type CloudRef =
 
         let directory = match directory with None -> fs.DefaultDirectory | Some d -> d
 
-        return! Cloud.OfAsync <| CloudRef<'T>.CreateAsync(value, directory, fs.FileStore, serializer)
+        return! Cloud.OfAsync <| CloudRef<'T>.Create(value, directory, fs.FileStore, serializer)
+    }
+
+    /// <summary>
+    ///     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+    /// </summary>
+    /// <param name="path">Path to cloud ref.</param>
+    /// <param name="serializer">Serializer for cloud ref.</param>
+    static member Parse<'T>(path : string, ?serializer : ISerializer) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration>()
+        let! serializer = cloud {
+            match serializer with
+            | None -> return! Cloud.GetResource<ISerializer> ()
+            | Some s -> return s
+        }
+
+        return! Cloud.OfAsync <| CloudRef<'T>.Parse(path, fs.FileStore, serializer)
     }
 
     /// <summary>
