@@ -59,6 +59,8 @@ type private StreamCombiner(s1 : Stream, s2 : Stream) =
 [<Sealed; DataContract>]
 type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFileStore, 
                                 cacheBehavior : CacheBehavior, sourceStore : ICloudFileStore) =
+
+    static let cacheEvent = new Event<ICloudFileStore * string> ()
     
     [<Literal>]
     static let defaultContext = "DefaultCacheContext"
@@ -94,6 +96,8 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
             invalidOp <| sprintf "No local cache store has been installed under '%s'." cacheContext
 
     let getCachedFileName (path : string) = localCacheStore.Combine [|localCacheContainer ; Convert.StringToBase32 path|]
+
+    static member OnCache = cacheEvent.Publish
 
     member this.Container = localCacheContainer
     member this.CacheStore = localCacheStore
@@ -154,6 +158,8 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
                                 use! stream = sourceStore.BeginRead path
                                 in do! localCacheStore.OfStream(stream, cachedFileName)
 
+                                let _ = cacheEvent.TriggerAsTask(sourceStore, path)
+
                                 return! localCacheStore.BeginRead cachedFileName
                             with e when retries > 0 ->
                                 // retry in case of concurrent cache writes
@@ -176,6 +182,7 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
                 let! cachedFileExists = cachedFileExists
                 if cachedFileExists then do! retryAsync (RetryPolicy.Retry(3, 0.5<sec>)) (localCacheStore.DeleteFile cachedFile)
                 let! cacheStream = localCacheStore.BeginWrite(getCachedFileName path)
+                let _ = cacheEvent.TriggerAsTask(sourceStore, path)
                 return new StreamCombiner(sourceStream, cacheStream) :> Stream
             else
                 return! sourceStore.BeginWrite path

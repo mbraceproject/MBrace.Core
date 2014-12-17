@@ -64,6 +64,8 @@
     <Compile Include="Utils\RecordPrinter.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="Vagrant.fs" />
+    <Compile Include="Store\InMemoryCache.fs" />
+    <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
     <Compile Include="Compiler\Types.fs" />
@@ -79,12 +81,18 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Caching" />
     <Reference Include="System.Runtime.Serialization" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj">
       <Name>MBrace.Core</Name>
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MBrace.Library\MBrace.Library.fsproj">
+      <Name>MBrace.Library</Name>
+      <Project>{51606ffc-69bb-4755-8454-9e943e2b7290}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

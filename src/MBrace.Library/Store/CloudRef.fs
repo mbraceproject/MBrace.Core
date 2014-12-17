@@ -1,4 +1,44 @@
-﻿namespace Nessos.MBrace
+﻿namespace Nessos.MBrace.Store
+
+/// CloudRef in-memory caching abstraction
+type ICloudRefCache =
+    /// <summary>
+    ///     Attempt to add key/value pair to cache.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    abstract TryAdd<'T> : key:string * value:'T -> bool
+
+    /// <summary>
+    ///     Attempt to recover value of given type from cache.
+    /// </summary>
+    /// <param name="key"></param>
+    abstract TryFind<'T> : key:string -> 'T option
+
+/// CloudRef cache registration point
+type CloudRefCache private () =
+    static let mutable cache : ICloudRefCache option = None
+
+    static let getKey (store : ICloudFileStore) (path : string) = 
+        sprintf "%s:%s:%s" store.Name store.Id path
+        
+    /// Gets the global CloudRef In-Memory cache.
+    static member InstalledCache = cache
+    /// Sets the global CloudRef In-Memory cache.
+    static member SetCache c = cache <- Some c
+    
+    static member inline internal Add<'T>(store, path, value : 'T) =
+        match CloudRefCache.InstalledCache with
+        | None -> ()
+        | Some c -> c.TryAdd(getKey store path, value) |> ignore
+
+    static member inline internal TryFind<'T>(store, path) =
+        match CloudRefCache.InstalledCache with
+        | None -> None
+        | Some c -> c.TryFind<'T>(getKey store path)
+
+
+namespace Nessos.MBrace
 
 open System
 open System.Runtime.Serialization
@@ -27,26 +67,37 @@ type CloudRef<'T> =
     // conveniently, the uninitialized value for optional fields coincides with 'None'.
     // a more correct approach would initialize using an OnDeserialized callback
     [<IgnoreDataMember>]
-    val mutable private cachedValue : 'T option
+    val mutable private value : 'T option
 
     private new (value, path, fileStore, serializer) =
-        { cachedValue = value ; path = path ; serializer = serializer ; fileStore = fileStore }
+        { value = value ; path = path ; serializer = serializer ; fileStore = fileStore }
 
     /// Asynchronously dereferences the cloud ref.
     member r.GetValue () = async {
-        match r.cachedValue with
+        match r.value with
         | Some v -> return v
+        | None ->
+
+        match CloudRefCache.TryFind<'T>(r.fileStore, r.path) with
+        | Some v -> 
+            r.value <- Some v
+            return v
         | None ->
             use! stream = r.fileStore.BeginRead r.path
             let _ = r.serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = true)
             let v = r.serializer.Deserialize<'T>(stream, leaveOpen = false)
-            r.cachedValue <- Some v
+            CloudRefCache.Add(r.fileStore, r.path, v)
+            r.value <- Some v
             return v
     }
 
     /// Synchronously dereferences the cloud ref.
     member r.Value =
-        match r.cachedValue with
+        match r.value with
+        | Some v -> v
+        | None ->
+
+        match CloudRefCache.TryFind<'T>(r.fileStore, r.path) with
         | Some v -> v
         | None -> r.GetValue() |> Async.RunSync
 

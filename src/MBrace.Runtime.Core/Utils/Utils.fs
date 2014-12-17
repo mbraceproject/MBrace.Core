@@ -29,3 +29,7 @@ module Utils =
                 true
             else
                 dict.TryAdd(key, value)
+
+    type Event<'T> with
+        member e.TriggerAsTask(t : 'T) =
+            System.Threading.Tasks.Task.Factory.StartNew(fun () -> e.Trigger t)
