@@ -9,7 +9,7 @@ open System.IO
 open Nessos.MBrace.Store
 open Nessos.MBrace.Continuation
 
-type private CloudSeqHeader = { Type : Type ; Count : int }
+type private CloudSeqHeader = { Type : Type ; Count : int ; Payload : string }
 
 /// Represents a finite and immutable sequence of
 /// elements that is stored in the underlying CloudStore
@@ -19,8 +19,10 @@ type CloudSeq<'T> =
 
     // https://visualfsharp.codeplex.com/workitem/199
 
-    [<DataMember(Name = "Path")>]
+    [<DataMember(Name = "HeaderPath")>]
     val mutable private path : string
+    [<DataMember(Name = "PayloadPath")>]
+    val mutable private payloadPath : string
     [<DataMember(Name = "Count")>]
     val mutable private count : int
     [<DataMember(Name = "FileStore")>]
@@ -28,14 +30,21 @@ type CloudSeq<'T> =
     [<DataMember(Name = "Serializer")>]
     val mutable private serializer : ISerializer
 
-    private new (path, count, fileStore, serializer) = 
-        { path = path ; count = count ; fileStore = fileStore ; serializer = serializer }
+    private new (path, count, payloadPath, fileStore, serializer) = 
+        { path = path ; count = count ; payloadPath = payloadPath ; fileStore = fileStore ; serializer = serializer }
 
     /// Asynchronously fetches the sequence
     member c.GetSequenceAsync() = async {
-        let! stream = c.fileStore.BeginRead(c.path)
-        let _ = c.serializer.Deserialize<CloudSeqHeader>(stream, leaveOpen = true)
-        return c.serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
+        match c.payloadPath with
+        | null ->
+            // header and payload found on same file
+            let! stream = c.fileStore.BeginRead(c.path)
+            let _ = c.serializer.Deserialize<CloudSeqHeader>(stream, leaveOpen = true)
+            return c.serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
+        | path ->
+            // payload found on different file
+            let! stream = c.fileStore.BeginRead(path)
+            return c.serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
     }
 
     /// Path to Cloud sequence in store
@@ -48,7 +57,12 @@ type CloudSeq<'T> =
         member c.Id = c.path
 
     interface ICloudDisposable with
-        member c.Dispose () = c.fileStore.DeleteFile c.path
+        member c.Dispose () = async {
+            do! c.fileStore.DeleteFile c.path
+            match c.payloadPath with
+            | null -> ()
+            | p -> do! c.fileStore.DeleteFile p 
+        }
 
     interface IEnumerable<'T> with
         member c.GetEnumerator() = (c.GetSequenceAsync() |> Async.RunSync :> IEnumerable).GetEnumerator()
@@ -64,15 +78,25 @@ type CloudSeq<'T> =
     static member Create (values : seq<'T>, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let fileName = fileStore.GetRandomFilePath directory
         use! stream = fileStore.BeginWrite fileName
-        // serialize initial dummy header
-        let header = { Type = typeof<'T> ; Count = 0 }
-        serializer.Serialize(stream, header, leaveOpen = true)
-        // serialize sequence, extract element count
-        let count = serializer.SeqSerialize(stream, values, leaveOpen = true)
-        // move to origin of stream, serializing element count at the header
-        let _ = stream.Seek(0L, SeekOrigin.Begin)
-        serializer.Serialize(stream, { header with Count = count}, leaveOpen = false)
-        return new CloudSeq<'T>(fileName, count, fileStore, serializer)
+        // use different encodings depending on stream ability to seek
+        if stream.CanSeek then
+            // serialize initial dummy header
+            let header = { Type = typeof<'T> ; Count = 0 ; Payload = null }
+            serializer.Serialize(stream, header, leaveOpen = true)
+            // serialize sequence, extract element count
+            let count = serializer.SeqSerialize(stream, values, leaveOpen = true)
+            // move to origin of stream, serializing element count at the header
+            let _ = stream.Seek(0L, SeekOrigin.Begin)
+            serializer.Serialize(stream, { header with Count = count}, leaveOpen = false)
+            return new CloudSeq<'T>(fileName, count, null, fileStore, serializer)
+        else
+            let payloadPath = fileStore.GetRandomFilePath directory
+            use! stream = fileStore.BeginWrite payloadPath
+            let count = serializer.SeqSerialize(stream, values, leaveOpen = false)
+            let header = { Type = typeof<'T> ; Count = count ; Payload = payloadPath }
+            use! stream' = fileStore.BeginWrite fileName
+            in serializer.Serialize(stream', header, leaveOpen = false)
+            return new CloudSeq<'T>(fileName, count, payloadPath, fileStore, serializer)
     }
 
     /// <summary>
@@ -86,7 +110,7 @@ type CloudSeq<'T> =
         let header = serializer.Deserialize<CloudSeqHeader>(stream, leaveOpen = false)
         return
             if header.Type = typeof<'T> then
-                new CloudSeq<'T>(path, header.Count, fileStore, serializer)
+                new CloudSeq<'T>(path, header.Count, header.Payload, fileStore, serializer)
             else
                 let msg = sprintf "expected cloudseq of type %O but was %O." typeof<'T> header.Type
                 raise <| new InvalidDataException(msg)

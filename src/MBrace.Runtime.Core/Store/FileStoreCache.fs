@@ -49,7 +49,7 @@ type private StreamCombiner(s1 : Stream, s2 : Stream) =
     override __.WriteByte(b : byte) = s1.WriteByte b ; s2.WriteByte b
     override __.Write(buf : byte[], offset, count) = s1.Write(buf, offset, count) ; s2.Write(buf, offset, count)
 
-    override __.SetLength l = s1.SetLength l ; s2.SetLength l
+    override __.SetLength l = raise <| new NotSupportedException()
     override __.Flush () = s1.Flush() ; s2.Flush()
 
     interface IDisposable with
