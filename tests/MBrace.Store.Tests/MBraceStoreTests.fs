@@ -68,6 +68,7 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
         cloud {
             let! cseqs = CloudSeq.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
             cseqs.Length |> should be (greaterThanOrEqualTo 8)
+            cseqs.Length |> should be (lessThan 10)
             let! partialSums = cseqs |> Array.map (fun c -> cloud { return Seq.sum c }) |> Cloud.Parallel
             return Array.sum partialSums
         } |> run |> should equal (Array.sum [|1L .. 1000000L|])
