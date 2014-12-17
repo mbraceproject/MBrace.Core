@@ -64,6 +64,15 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
         } |> run |> should equal 20000
 
     [<Test>]
+    member __.``CloudSeq - partitioned`` () =
+        cloud {
+            let! cseqs = CloudSeq.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
+            cseqs.Length |> should be (greaterThanOrEqualTo 8)
+            let! partialSums = cseqs |> Array.map (fun c -> cloud { return Seq.sum c }) |> Cloud.Parallel
+            return Array.sum partialSums
+        } |> run |> should equal (Array.sum [|1L .. 1000000L|])
+
+    [<Test>]
     member __.``CloudFile - simple`` () =
         let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> run
         file.GetSizeAsync() |> Async.RunSynchronously |> should equal 100
