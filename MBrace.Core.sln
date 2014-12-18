@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30723.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{6382DB39-BBF3-4137-8644-6C915F279363}"
 	ProjectSection(SolutionItems) = preProject
@@ -42,6 +42,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Library", "src\MBrac
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Store.Tests", "tests\MBrace.Store.Tests\MBrace.Store.Tests.fsproj", "{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Core.CSharp", "src\MBrace.Core.CSharp\MBrace.Core.CSharp.csproj", "{9F535680-053F-4514-91FA-472B82646B15}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -76,6 +78,10 @@ Global
 		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F535680-053F-4514-91FA-472B82646B15}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F535680-053F-4514-91FA-472B82646B15}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F535680-053F-4514-91FA-472B82646B15}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F535680-053F-4514-91FA-472B82646B15}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -89,5 +95,6 @@ Global
 		{77CDB612-B779-4643-A190-E715AD107617} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 		{51606FFC-69BB-4755-8454-9E943E2B7290} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 		{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
+		{9F535680-053F-4514-91FA-472B82646B15} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 	EndGlobalSection
 EndGlobal
