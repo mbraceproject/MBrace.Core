@@ -52,7 +52,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Store\CloudFile.fs" />
     <Compile Include="Store\CloudRef.fs" />
-    <Compile Include="Store\CloudSeq.fs" />
+    <Compile Include="Store\CloudBucket.fs" />
     <Compile Include="InMemoryRuntime\Sequential.fs" />
     <Compile Include="InMemoryRuntime\ThreadPool.fs" />
     <Compile Include="InMemoryRuntime\InMemoryStore.fs" />

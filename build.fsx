@@ -62,7 +62,6 @@ Target "Clean" (fun _ ->
 
 let configuration = environVarOrDefault "Configuration" "Release"
 let ignoreClusterTests = environVarOrDefault "IgnoreClusterTests" "false" |> Boolean.Parse
-let ignoreAzureStoreTests = environVarOrDefault "IgnoreAzureStoreTests" "false" |> Boolean.Parse
 
 Target "Build" (fun _ ->
     // Build the rest of the project
@@ -82,7 +81,6 @@ let testAssemblies =
         yield "bin/MBrace.Core.Tests.dll"
         yield "bin/MBrace.Store.Tests.dll"
         if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
-        if not ignoreAzureStoreTests then yield "bin/MBrace.Azure.Store.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->

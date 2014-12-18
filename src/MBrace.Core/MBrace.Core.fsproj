@@ -67,6 +67,7 @@
     <Compile Include="Runtime\RuntimeTypes.fs" />
     <Compile Include="Runtime\RuntimeProvider.fs" />
     <Compile Include="Runtime\RuntimeCombinators.fs" />
+    <Compile Include="Store\InMemoryCache.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\FileStore.fs" />
     <Compile Include="Store\Atom.fs" />

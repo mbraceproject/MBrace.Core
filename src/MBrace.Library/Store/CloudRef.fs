@@ -1,44 +1,4 @@
-﻿namespace Nessos.MBrace.Store
-
-/// CloudRef in-memory caching abstraction
-type ICloudRefCache =
-    /// <summary>
-    ///     Attempt to add key/value pair to cache.
-    /// </summary>
-    /// <param name="key"></param>
-    /// <param name="value"></param>
-    abstract TryAdd<'T> : key:string * value:'T -> bool
-
-    /// <summary>
-    ///     Attempt to recover value of given type from cache.
-    /// </summary>
-    /// <param name="key"></param>
-    abstract TryFind<'T> : key:string -> 'T option
-
-/// CloudRef cache registration point
-type CloudRefCache private () =
-    static let mutable cache : ICloudRefCache option = None
-
-    static let getKey (store : ICloudFileStore) (path : string) = 
-        sprintf "%s:%s:%s" store.Name store.Id path
-        
-    /// Gets the global CloudRef In-Memory cache.
-    static member InstalledCache = cache
-    /// Sets the global CloudRef In-Memory cache.
-    static member SetCache c = cache <- Some c
-    
-    static member inline internal Add<'T>(store, path, value : 'T) =
-        match CloudRefCache.InstalledCache with
-        | None -> ()
-        | Some c -> c.TryAdd(getKey store path, value) |> ignore
-
-    static member inline internal TryFind<'T>(store, path) =
-        match CloudRefCache.InstalledCache with
-        | None -> None
-        | Some c -> c.TryFind<'T>(getKey store path)
-
-
-namespace Nessos.MBrace
+﻿namespace Nessos.MBrace
 
 open System
 open System.Runtime.Serialization
@@ -48,7 +8,19 @@ open Nessos.MBrace
 open Nessos.MBrace.Store
 open Nessos.MBrace.Continuation
 
-type private CloudRefHeader = { Type : Type }
+type private CloudRefHeader = { Type : Type ; UUID : string }
+
+type private CloudRefCache =
+    
+    static member inline internal Add<'T>(uuid, value : 'T) =
+        match InMemoryCacheRegistry.InstalledCache with
+        | None -> ()
+        | Some c -> c.TryAdd(uuid, value) |> ignore
+
+    static member inline internal TryFind<'T>(uuid) =
+        match InMemoryCacheRegistry.InstalledCache with
+        | None -> None
+        | Some c -> c.TryFind<'T>(uuid)
 
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.
@@ -59,47 +31,36 @@ type CloudRef<'T> =
     // https://visualfsharp.codeplex.com/workitem/199
     [<DataMember(Name = "Path")>]
     val mutable private path : string
+    [<DataMember(Name = "UUID")>]
+    val mutable private uuid : string
     [<DataMember(Name = "FileStore")>]
     val mutable private fileStore : ICloudFileStore
     [<DataMember(Name = "Serializer")>]
     val mutable private serializer : ISerializer
 
-    // conveniently, the uninitialized value for optional fields coincides with 'None'.
-    // a more correct approach would initialize using an OnDeserialized callback
-    [<IgnoreDataMember>]
-    val mutable private value : 'T option
-
-    private new (value, path, fileStore, serializer) =
-        { value = value ; path = path ; serializer = serializer ; fileStore = fileStore }
+    private new (uuid, path, fileStore, serializer) =
+        { path = path ; uuid = uuid ; fileStore = fileStore ; serializer = serializer }
 
     /// Asynchronously dereferences the cloud ref.
     member r.GetValue () = async {
-        match r.value with
+        match CloudRefCache.TryFind r.uuid with
         | Some v -> return v
-        | None ->
-
-        match CloudRefCache.TryFind<'T>(r.fileStore, r.path) with
-        | Some v -> 
-            r.value <- Some v
-            return v
         | None ->
             use! stream = r.fileStore.BeginRead r.path
             let _ = r.serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = true)
             let v = r.serializer.Deserialize<'T>(stream, leaveOpen = false)
-            CloudRefCache.Add(r.fileStore, r.path, v)
-            r.value <- Some v
+            CloudRefCache.Add(r.uuid, v)
             return v
     }
 
     /// Synchronously dereferences the cloud ref.
     member r.Value =
-        match r.value with
-        | Some v -> v
-        | None ->
-
-        match CloudRefCache.TryFind<'T>(r.fileStore, r.path) with
+        match CloudRefCache.TryFind r.uuid with
         | Some v -> v
         | None -> r.GetValue() |> Async.RunSync
+
+    /// Returns size of cloud ref in bytes
+    member r.Size = r.fileStore.GetFileSize r.path |> Async.RunSync
 
     interface ICloudDisposable with
         member r.Dispose () = r.fileStore.DeleteFile r.path
@@ -116,11 +77,12 @@ type CloudRef<'T> =
     /// <param name="fileStore">File store instance.</param>
     /// <param name="serializer">Serializer instance.</param>
     static member Create(value : 'T, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
+        let uuid = Guid.NewGuid().ToString()
         let path = fileStore.GetRandomFilePath directory
         use! stream = fileStore.BeginWrite path 
-        serializer.Serialize(stream, { Type = typeof<'T> }, leaveOpen = true)
+        serializer.Serialize(stream, { Type = typeof<'T> ; UUID = uuid }, leaveOpen = true)
         serializer.Serialize(stream, value, leaveOpen = false)
-        return new CloudRef<'T>(Some value, path, fileStore, serializer)
+        return new CloudRef<'T>(uuid, path, fileStore, serializer)
     }
 
     /// <summary>
@@ -131,10 +93,12 @@ type CloudRef<'T> =
     /// <param name="serializer">Serializer instance.</param>
     static member Parse(path : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         use! stream = fileStore.BeginRead path
-        let header = serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = false)
+        let header = 
+            try serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = false)
+            with e -> raise <| new FormatException("Error reading cloud ref header.", e)
         return
             if header.Type = typeof<'T> then
-                new CloudRef<'T>(None, path, fileStore, serializer)
+                new CloudRef<'T>(header.UUID, path, fileStore, serializer)
             else
                 let msg = sprintf "expected cloudref of type %O but was %O." typeof<'T> header.Type
                 raise <| new InvalidDataException(msg)

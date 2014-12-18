@@ -49,29 +49,47 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
 
     [<Test>]
-    member __.``CloudSeq - simple`` () = 
-        let ref = run <| CloudSeq.New [1..10000]
-        ref |> Seq.length |> should equal 10000
+    member __.``CloudBucket - simple`` () = 
+        let b = run <| CloudBucket.New [1..10000]
+        b.Cache()
+        b.Count |> should equal 10000
+        b |> Seq.sum |> should equal (List.sum [1..10000])
 
     [<Test>]
-    member __.``CloudSeq - parallel`` () =
-        let ref = run <| CloudSeq.New [1..10000]
+    member __.``CloudBucket - parallel`` () =
+        let ref = run <| CloudBucket.New [1..10000]
         ref |> Seq.length |> should equal 10000
         cloud {
-            let! ref = CloudSeq.New [1 .. 10000]
+            let! ref = CloudBucket.New [1 .. 10000]
             let! (x, y) = cloud { return Seq.length ref } <||> cloud { return Seq.length ref }
             return x + y
         } |> run |> should equal 20000
 
     [<Test>]
-    member __.``CloudSeq - partitioned`` () =
+    member __.``CloudBucket - partitioned`` () =
         cloud {
-            let! cseqs = CloudSeq.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
-            cseqs.Length |> should be (greaterThanOrEqualTo 8)
-            cseqs.Length |> should be (lessThan 10)
-            let! partialSums = cseqs |> Array.map (fun c -> cloud { return Seq.sum c }) |> Cloud.Parallel
+            let! buckets = CloudBucket.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
+            buckets.Length |> should be (greaterThanOrEqualTo 8)
+            buckets.Length |> should be (lessThan 10)
+            let! partialSums = buckets |> Array.map (fun c -> cloud { return Seq.sum c }) |> Cloud.Parallel
             return Array.sum partialSums
         } |> run |> should equal (Array.sum [|1L .. 1000000L|])
+
+    [<Test>]
+    member __.``CloudBucket - of deserializer`` () =
+        cloud {
+            use! file = CloudFile.WriteLines([1..100] |> List.map (fun i -> string i))
+            let deserializer (s : System.IO.Stream) =
+                seq {
+                    use textReader = new System.IO.StreamReader(s)
+                    while not textReader.EndOfStream do
+                        yield textReader.ReadLine()
+                }
+
+            let! buckets = CloudBucket.FromFile(file.Path, deserializer)
+            let! ch = Cloud.StartChild(cloud { return buckets |> Seq.length })
+            return! ch
+        } |> run |> should equal 100
 
     [<Test>]
     member __.``CloudFile - simple`` () =

@@ -6,4 +6,3 @@ test:
   assemblies:
     - MBrace.Core.Tests.dll
     - MBrace.Store.Tests.dll
-    - MBrace.Azure.Store.Tests.dll
