@@ -9,7 +9,7 @@ open System.IO
 open Nessos.MBrace.Store
 open Nessos.MBrace.Continuation
 
-type private CloudBucketCache =
+type private CloudSequenceCache =
 
     static member inline ContainsKey<'T>(uuid) =
         match InMemoryCacheRegistry.InstalledCache with
@@ -27,10 +27,10 @@ type private CloudBucketCache =
         | Some c -> c.TryFind<'T []>(uuid)
 
 /// <summary>
-///     Ordered, immutable collection of values persisted in a single entity in FileStore.
+///     Ordered, immutable collection of values persisted in a single FileStore entity.
 /// </summary>
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
-type CloudBucket<'T> =
+type CloudSequence<'T> =
 
     // https://visualfsharp.codeplex.com/workitem/199
     [<DataMember(Name = "UUID")>]
@@ -56,35 +56,35 @@ type CloudBucket<'T> =
 
     /// Read elements as lazy sequence
     member c.GetSequenceAsync () = async {
-        match CloudBucketCache.TryFind c.uuid with
+        match CloudSequenceCache.TryFind c.uuid with
         | None -> return! c.GetSequenceFromStore ()
         | Some ts -> return ts :> seq<'T>
     }
 
-    /// Saves Cloud bucket contents to in-memory array
+    /// Saves Cloud sequence contents to in-memory array
     member c.ToArray () : 'T [] = 
-        match CloudBucketCache.TryFind c.uuid with
+        match CloudSequenceCache.TryFind c.uuid with
         | None -> c.GetSequenceFromStore () |> Async.RunSync |> Seq.toArray
         | Some ts -> ts
 
     // Cache contents to local memory
     member c.Cache () = 
         let mkArray () = c.GetSequenceFromStore() |> Async.RunSync |> Seq.toArray
-        CloudBucketCache.Add(c.uuid, mkArray)
+        CloudSequenceCache.Add(c.uuid, mkArray)
 
     /// Indicates if array is cached in local context
-    member c.IsCachedLocally = CloudBucketCache.ContainsKey c.uuid
+    member c.IsCachedLocally = CloudSequenceCache.ContainsKey c.uuid
 
-    /// Path to Cloud bucket in store
+    /// Path to Cloud sequence in store
     member c.Path = c.path
 
-    member c.Item
-        with get i =
-            match CloudBucketCache.TryFind c.uuid with
-            | None -> c.GetSequenceFromStore () |> Async.RunSync |> Seq.nth i
-            | Some ts -> ts.[i]
+//    member c.Item
+//        with get i =
+//            match CloudSequenceCache.TryFind c.uuid with
+//            | None -> c.GetSequenceFromStore () |> Async.RunSync |> Seq.nth i
+//            | Some ts -> ts.[i]
 
-    /// Cloud bucket element count
+    /// Cloud sequence element count
     member c.Count = 
         match c.count with
         | Some l -> l
@@ -98,7 +98,7 @@ type CloudBucket<'T> =
     member c.Size = c.fileStore.GetFileSize c.path |> Async.RunSync
 
     interface ICloudStorageEntity with
-        member c.Type = sprintf "CloudBucket:%O" typeof<'T>
+        member c.Type = sprintf "CloudSequence:%O" typeof<'T>
         member c.Id = c.path
 
     interface ICloudDisposable with
@@ -111,11 +111,11 @@ type CloudBucket<'T> =
     interface IReadOnlyCollection<'T> with
         member c.Count = c.Count
 
-    override c.ToString() = sprintf "CloudBucket[%O] at %s" typeof<'T> c.path
+    override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()
 
     /// <summary>
-    ///     Creates a new Cloud bucket with given values in provided file store.
+    ///     Creates a new Cloud sequence with given values in provided file store.
     /// </summary>
     /// <param name="values">Input sequence.</param>
     /// <param name="directory">Containing directory in file store.</param>
@@ -125,22 +125,22 @@ type CloudBucket<'T> =
         let path = fileStore.GetRandomFilePath directory
         use! stream = fileStore.BeginWrite path
         let length = serializer.SeqSerialize<'T>(stream, values, leaveOpen = false)
-        return new CloudBucket<'T>(path, Some length, fileStore, serializer)
+        return new CloudSequence<'T>(path, Some length, fileStore, serializer)
     }
 
     /// <summary>
-    ///     Writes sequence of values into a collection of Cloud buckets partitioned by serialization size.
+    ///     Writes sequence of values into a collection of Cloud sequences partitioned by serialization size.
     /// </summary>
     /// <param name="values">Input sequence.</param>
     /// <param name="maxPartitionSize">Maximum partition size in bytes.</param>
     /// <param name="directory">Containing directory in file store.</param>
     /// <param name="fileStore">File store instance.</param>
     /// <param name="serializer">Serializer instance.</param>
-    static member CreatePartitioned(values : seq<'T>, maxPartitionSize : int64, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) : Async<CloudBucket<'T> []> = 
+    static member CreatePartitioned(values : seq<'T>, maxPartitionSize : int64, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) : Async<CloudSequence<'T> []> = 
         async {
             if maxPartitionSize <= 0L then return invalidArg "maxPartitionSize" "Must be greater that 0."
 
-            let buckets = new ResizeArray<CloudBucket<'T>>()
+            let seqs = new ResizeArray<CloudSequence<'T>>()
             let currentStream = ref Unchecked.defaultof<Stream>
             let splitNext () = currentStream.Value.Position >= maxPartitionSize
             let partitionedValues = PartitionedEnumerable.ofSeq splitNext values
@@ -149,30 +149,30 @@ type CloudBucket<'T> =
                 use! stream = fileStore.BeginWrite path
                 currentStream := stream
                 let length = serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false)
-                let array = new CloudBucket<'T>(path, Some length, fileStore, serializer)
-                buckets.Add array
+                let seq = new CloudSequence<'T>(path, Some length, fileStore, serializer)
+                seqs.Add seq
 
-            return buckets.ToArray()
+            return seqs.ToArray()
         }
 
     /// <summary>
     ///     Parses an already existing sequence of given type in provided file store.
     /// </summary>
-    /// <param name="path">Path to Cloud bucket.</param>
+    /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="fileStore">File store instance.</param>
     /// <param name="serializer">Serializer instance.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
     static member Parse(path : string, fileStore : ICloudFileStore, serializer : ISerializer, ?force : bool) = async {
         let force = defaultArg force false
-        let bucket = new CloudBucket<'T>(path, None, fileStore, serializer)
-        if force then bucket.Count |> ignore
-        return bucket
+        let cseq = new CloudSequence<'T>(path, None, fileStore, serializer)
+        if force then cseq.Count |> ignore
+        return cseq
     }
 
     /// <summary>
     ///     Parses an already existing sequence of given type in provided file store.
     /// </summary>
-    /// <param name="path">Path to Cloud bucket.</param>
+    /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="fileStore">File store instance.</param>
     /// <param name="deserializer">Deserializer instance.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
@@ -187,21 +187,21 @@ type CloudBucket<'T> =
                     member __.SeqDeserialize<'a>(source,_) = deserializer source :> obj :?> seq<'a>
             }
 
-        return! CloudBucket<'T>.Parse(path, fileStore, serializer, ?force = force)
+        return! CloudSequence<'T>.Parse(path, fileStore, serializer, ?force = force)
     }
 
 #nowarn "444"
 
-type CloudBucket =
+type CloudSequence =
 
     /// <summary>
-    ///     Creates a new Cloud bucket with given values in the underlying store.
-    ///     Cloud buckets are cached locally for performance.
+    ///     Creates a new Cloud sequence with given values in the underlying store.
+    ///     Cloud sequences are cached locally for performance.
     /// </summary>
     /// <param name="values">Input sequence.</param>
-    /// <param name="directory">FileStore directory used for Cloud bucket. Defaults to execution context.</param>
+    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    static member New(values : seq<'T>, ?directory, ?serializer) : Cloud<CloudBucket<'T>> = cloud {
+    static member New(values : seq<'T>, ?directory, ?serializer) : Cloud<CloudSequence<'T>> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let! serializer = cloud {
             match serializer with
@@ -210,19 +210,19 @@ type CloudBucket =
         }
 
         let dir = defaultArg directory config.DefaultDirectory
-        return! Cloud.OfAsync <| CloudBucket<'T>.Create(values, dir, config.FileStore, serializer)
+        return! Cloud.OfAsync <| CloudSequence<'T>.Create(values, dir, config.FileStore, serializer)
     }
 
     /// <summary>
-    ///     Creates a collection of Cloud buckets partitioned by file size.
+    ///     Creates a collection of Cloud sequences partitioned by file size.
     /// </summary>
     /// <param name="values">Input sequence./param>
-    /// <param name="maxPartitionSize">Maximum size in bytes per Cloud bucket partition.</param>
+    /// <param name="maxPartitionSize">Maximum size in bytes per Cloud sequence partition.</param>
     /// <param name="directory"></param>
     /// <param name="serializer"></param>
-    /// <param name="directory">FileStore directory used for Cloud bucket. Defaults to execution context.</param>
+    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    static member NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : Cloud<CloudBucket<'T> []> = cloud {
+    static member NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : Cloud<CloudSequence<'T> []> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let! serializer = cloud {
             match serializer with
@@ -231,16 +231,16 @@ type CloudBucket =
         }
 
         let dir = defaultArg directory config.DefaultDirectory
-        return! Cloud.OfAsync <| CloudBucket<'T>.CreatePartitioned(values, maxPartitionSize, dir, config.FileStore, serializer)
+        return! Cloud.OfAsync <| CloudSequence<'T>.CreatePartitioned(values, maxPartitionSize, dir, config.FileStore, serializer)
     }
 
     /// <summary>
     ///     Parses an already existing sequence of given type in provided file store.
     /// </summary>
-    /// <param name="path">Path to Cloud bucket.</param>
+    /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member Parse<'T>(path : string, ?serializer, ?force) : Cloud<CloudBucket<'T>> = cloud {
+    static member Parse<'T>(path : string, ?serializer, ?force) : Cloud<CloudSequence<'T>> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let! serializer = cloud {
             match serializer with
@@ -248,16 +248,16 @@ type CloudBucket =
             | Some s -> return s
         }
 
-        return! Cloud.OfAsync <| CloudBucket<'T>.Parse(path, config.FileStore, serializer, ?force = force)
+        return! Cloud.OfAsync <| CloudSequence<'T>.Parse(path, config.FileStore, serializer, ?force = force)
     }
 
     /// <summary>
-    ///     Creates a CloudBucket from file path with user-provided deserialization function.
+    ///     Creates a CloudSequence from file path with user-provided deserialization function.
     /// </summary>
-    /// <param name="path">Path to Cloud bucket.</param>
+    /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : Cloud<CloudBucket<'T>> = cloud {
+    static member FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : Cloud<CloudSequence<'T>> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| CloudBucket<'T>.Parse(path, config.FileStore, deserializer, ?force = force)
+        return! Cloud.OfAsync <| CloudSequence<'T>.Parse(path, config.FileStore, deserializer, ?force = force)
     }
