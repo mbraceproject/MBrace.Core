@@ -18,14 +18,19 @@ namespace Nessos.MBrace.Core.CSharp
         /// </summary>
         /// <typeparam name="TResult">Type of the computation.</typeparam>
         /// <param name="value">Value to return.</param>
-        public static Cloud<TResult> Return<TResult>(TResult value)
+        public static Cloud<TResult> FromValue<TResult>(TResult value)
+        {
+            return builder.Return(value);
+        }
+
+        public static Cloud<TResult> AsCloud<TResult>(this TResult value)
         {
             return builder.Return(value);
         }
 
         public static Cloud<TResult> New<TResult>(Func<Cloud<TResult>> delay)
         {
-            return builder.Delay()
+            return builder.Delay(delay.AsFSharpFunc());
         }
 
         public static Cloud<TResult> Then<TSource, TResult>(this Cloud<TSource> workflow, Func<TSource, Cloud<TResult>> continuation)
@@ -34,30 +39,21 @@ namespace Nessos.MBrace.Core.CSharp
             return builder.Bind<TSource, TResult>(workflow, fsFunc);
         }
 
+        public static Cloud<TResult> ReturnFrom<TResult>(this Cloud<TResult> workflow)
+        {
+            return builder.ReturnFrom<TResult>(workflow);
+        }
+
         // Linq comprehension syntax friendly methods.
 
         public static Cloud<V> SelectMany<T, U, V>(this Cloud<T> workflow, Func<T, Cloud<U>> continuation, Func<T, U, V> projection)
         {
-            return workflow.Then(t => continuation(t).Then(u => Cloud.Return(projection(t, u))));
+            return workflow.Then(t => continuation(t).Then(u => Cloud.FromValue(projection(t, u))));
         }
 
         public static Cloud<TResult> Select<TResult>(TResult value)
         {
-            return Cloud.Return(value); 
-        }
-
-        private static void test ()
-        {
-            var wf = Cloud.Parallel(
-                        Cloud.New(42),
-                        Cloud.New(43))
-                    .Then(xs => CloudAtom.New(xs.Sum()))
-                    .Then(atom => CloudAtom.Read(atom));
-
-            var foobar = (from x in Cloud.New(1)
-                          from y in Cloud.New(42)
-                          select x + y)
-                         .Then(x => Cloud.New(x * x));
+            return Cloud.FromValue(value); 
         }
     }
 }
