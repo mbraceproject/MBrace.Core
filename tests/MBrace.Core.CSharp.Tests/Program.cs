@@ -12,7 +12,7 @@ namespace MBrace.Core.CSharp
 {
     class Program
     {
-        public static Nessos.MBrace.Cloud<int> Fibonacci(int n)
+        public static Cloud<int> Fibonacci(int n)
         {
             return Cloud.New(() =>
                 (n <= 1) ?
@@ -24,7 +24,7 @@ namespace MBrace.Core.CSharp
             );
         }
 
-        public static Nessos.MBrace.Cloud<int> Fib(int n)
+        public static Cloud<int> Fib(int n)
         {
             return Cloud.New<int>(() =>
             {
@@ -52,7 +52,7 @@ namespace MBrace.Core.CSharp
             var rt = MBraceRuntime.InitLocal(3, null);
 
             //var result1 = rt.Run(Fib(10), null, null);
-            var result2 = rt.Run(Fibonacci(10), null, null);
+            var result2 = rt.Run(Fibonacci(10).Computation, null, null);
 
             rt.KillAllWorkers();
         }

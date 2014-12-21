@@ -20,28 +20,28 @@ namespace Nessos.MBrace.Core.CSharp
         /// <param name="value">Value to return.</param>
         public static Cloud<TResult> FromValue<TResult>(TResult value)
         {
-            return builder.Return(value);
+            return new Cloud<TResult>(builder.Return(value));
         }
 
         public static Cloud<TResult> AsCloud<TResult>(this TResult value)
         {
-            return builder.Return(value);
+            return new Cloud<TResult>(builder.Return(value));
         }
 
         public static Cloud<TResult> New<TResult>(Func<Cloud<TResult>> delay)
         {
-            return builder.Delay(delay.AsFSharpFunc());
+            
+            return new Cloud<TResult>(builder.Delay(delay.AsFSharpFunc()));
         }
 
         public static Cloud<TResult> Then<TSource, TResult>(this Cloud<TSource> workflow, Func<TSource, Cloud<TResult>> continuation)
         {
-            var fsFunc = continuation.AsFSharpFunc();
-            return builder.Bind<TSource, TResult>(workflow, fsFunc);
+            return new Cloud<TResult>(builder.Bind<TSource, TResult>(workflow.Computation, continuation.AsFSharpFunc()));
         }
 
         public static Cloud<TResult> ReturnFrom<TResult>(this Cloud<TResult> workflow)
         {
-            return builder.ReturnFrom<TResult>(workflow);
+            return new Cloud<TResult>(builder.ReturnFrom<TResult>(workflow.Computation));
         }
 
         // Linq comprehension syntax friendly methods.

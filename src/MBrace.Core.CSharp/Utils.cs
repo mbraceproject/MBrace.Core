@@ -12,14 +12,14 @@ namespace Nessos.MBrace.Core.CSharp
 
     internal static class Utils
     {
-        internal static FSharpFunc<T,U> AsFSharpFunc<T,U> (this Func<T,U> f)
+        internal static FSharpFunc<T,Nessos.MBrace.Cloud<U>> AsFSharpFunc<T,U> (this Func<T,Cloud<U>> f)
         {
-            return FSharpFunc<T, U>.FromConverter(t => f(t));
+            return FSharpFunc<T, Nessos.MBrace.Cloud<U>>.FromConverter(t => f(t).Computation);
         }
 
-        internal static FSharpFunc<Unit, T> AsFSharpFunc<T>(this Func<T> f)
+        internal static FSharpFunc<Unit, Nessos.MBrace.Cloud<T>> AsFSharpFunc<T>(this Func<Cloud<T>> f)
         {
-            return FSharpFunc<Unit, T>.FromConverter(_ => f());
+            return FSharpFunc<Unit, Nessos.MBrace.Cloud<T>>.FromConverter(_ => f().Computation);
         }
 
     }
