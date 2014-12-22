@@ -45,6 +45,8 @@ Target "AssemblyInfo" (fun _ ->
 
     !! "./src/**/AssemblyInfo.fs"
     |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
+    !! "./src/**/AssemblyInfo.cs"
+    |> Seq.iter (fun info -> CreateCSharpAssemblyInfo info attributes)
 )
 
 
