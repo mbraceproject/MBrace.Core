@@ -1,5 +1,5 @@
 ﻿using Microsoft.FSharp.Core;
-using Nessos.MBrace.Core.CSharp;
+using Nessos.MBrace.CSharp;
 using Nessos.MBrace.SampleRuntime;
 using System;
 using System.Collections.Generic;

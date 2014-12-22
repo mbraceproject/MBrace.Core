@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Nessos.MBrace.Core.CSharp
+namespace Nessos.MBrace.CSharp
 {
     public class Cloud<TResult>
     {

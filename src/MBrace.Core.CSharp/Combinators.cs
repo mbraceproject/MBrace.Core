@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MCloud = Nessos.MBrace.Cloud;
 
-namespace Nessos.MBrace.Core.CSharp
+namespace Nessos.MBrace.CSharp
 {
     public static partial class Cloud
     {
