@@ -11,12 +11,14 @@ namespace Nessos.MBrace.CSharp
     {
         public static Cloud<TResult []> Parallel<TResult>(this IEnumerable<Cloud<TResult>> workflows)
         {
-            return new Cloud<TResult[]>(MCloud.Parallel(workflows.Select(w => w.Computation)));
+            var wfs = workflows.Select(w => w.Computation).ToArray();
+            return new Cloud<TResult[]>(MCloud.Parallel(wfs));
         }
 
         public static Cloud<TResult[]> Parallel<TResult>(params Cloud<TResult> [] workflows)
         {
-            return new Cloud<TResult[]>(MCloud.Parallel(workflows.Select(w => w.Computation)));
+            var wfs = workflows.Select(w => w.Computation).ToArray();
+            return new Cloud<TResult[]>(MCloud.Parallel(wfs));
         }
 
         public static CloudUnit Log(string format, params object[] args)
