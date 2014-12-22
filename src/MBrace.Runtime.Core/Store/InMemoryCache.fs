@@ -76,7 +76,7 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
         else
             false
 
-    interface IInMemoryCache with
+    interface ICache with
         member self.ContainsKey key = self.ContainsKey key
         member self.TryAdd<'T>(key : string, value : 'T) = self.Add(key, value)
         member self.TryFind<'T>(key : string) =

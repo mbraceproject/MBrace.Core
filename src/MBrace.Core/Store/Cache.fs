@@ -1,8 +1,12 @@
 ﻿namespace Nessos.MBrace.Store
 
-/// In-memory caching abstraction
-type IInMemoryCache =
+/// Object caching abstraction
+type ICache =
 
+    /// <summary>
+    ///     Returns true iff key is contained in cache.
+    /// </summary>
+    /// <param name="key"></param>
     abstract ContainsKey : key:string -> bool
 
     /// <summary>
@@ -20,7 +24,7 @@ type IInMemoryCache =
 
 /// In-Memory cache registration point
 type InMemoryCacheRegistry private () =
-    static let mutable cache : IInMemoryCache option = None
+    static let mutable cache : ICache option = None
 
     /// Gets the global In-Memory cache.
     static member InstalledCache = cache

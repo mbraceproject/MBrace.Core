@@ -14,6 +14,7 @@ type SchedulingContext =
 
 /// Denotes a reference to a worker node in the cluster
 type IWorkerRef =
+    inherit IComparable
     /// Worker type identifier
     abstract Type : string
     /// Worker unique identifier

@@ -36,12 +36,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
             return raise <| new System.NotSupportedException("'GetAvailableWorkers' not supported in InMemory runtime.")
         }
 
-        member __.CurrentWorker =
-            {
-                new IWorkerRef with
-                    member __.Type = "threadpool"
-                    member __.Id = string <| System.Threading.Thread.CurrentThread.ManagedThreadId
-            }
+        member __.CurrentWorker = raise <| new System.NotSupportedException("'CurrentWorker' not supported in InMemory runtime.")
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext newContext = 

@@ -25,6 +25,10 @@ type Worker(procId : string) =
     interface IWorkerRef with
         member __.Id = id
         member __.Type = "sample runtime worker node"
+        member __.CompareTo(other : obj) =
+            match other with
+            | :? Worker as w -> compare id (w :> IWorkerRef).Id
+            | _ -> invalidArg "other" "invalid comparand."
 
     static member LocalWorker = new Worker(Process.GetCurrentProcess().Id.ToString())
     static member RemoteWorker(id: string) = new Worker(id)
