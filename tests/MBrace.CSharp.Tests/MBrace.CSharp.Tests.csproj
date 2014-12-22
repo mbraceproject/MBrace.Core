@@ -53,9 +53,9 @@
       <Project>{f95ea755-fbe4-44fc-8945-313b46bf6920}</Project>
       <Name>MBrace.SampleRuntime</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Core.CSharp\MBrace.Core.CSharp.csproj">
+    <ProjectReference Include="..\..\src\MBrace.CSharp\MBrace.CSharp.csproj">
       <Project>{9f535680-053f-4514-91fa-472b82646b15}</Project>
-      <Name>MBrace.Core.CSharp</Name>
+      <Name>MBrace.CSharp</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
