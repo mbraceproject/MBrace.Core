@@ -56,6 +56,10 @@ type CloudFile =
     interface ICloudDisposable with
         member f.Dispose () = f.fileStore.DeleteFile f.path
 
+    interface ICloudStorageEntity with
+        member f.Type = "cloudfile"
+        member f.Id = f.path
+
     /// <summary>
     ///     Create a new CloudFile instance.
     /// </summary>

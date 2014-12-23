@@ -50,14 +50,9 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="Store\CloudFile.fs" />
-    <Compile Include="Store\CloudRef.fs" />
-    <Compile Include="Store\CloudSequence.fs" />
-    <Compile Include="InMemoryRuntime\Sequential.fs" />
-    <Compile Include="InMemoryRuntime\ThreadPool.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryStore.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryRuntime.fs" />
-    <Compile Include="Workflows\MapReduce.fs" />
+    <Compile Include="Sequential.fs" />
+    <Compile Include="ThreadPool.fs" />
+    <Compile Include="MapReduce.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

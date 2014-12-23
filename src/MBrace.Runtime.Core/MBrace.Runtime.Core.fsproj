@@ -64,6 +64,7 @@
     <Compile Include="Utils\RecordPrinter.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="Vagrant.fs" />
+    <Compile Include="Logging.fs" />
     <Compile Include="Store\InMemoryCache.fs" />
     <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
@@ -71,6 +72,8 @@
     <Compile Include="Compiler\Types.fs" />
     <Compile Include="Compiler\CloudUtils.fs" />
     <Compile Include="Compiler\Compiler.fs" />
+    <Compile Include="InMemoryRuntime\InMemoryStore.fs" />
+    <Compile Include="InMemoryRuntime\InMemoryRuntime.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

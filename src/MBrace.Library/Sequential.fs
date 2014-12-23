@@ -1,6 +1,4 @@
-﻿namespace Nessos.MBrace.InMemoryRuntime
-
-open Nessos.MBrace
+﻿namespace Nessos.MBrace
 
 /// Collection of context-less combinators for 
 /// execution within local thread context.

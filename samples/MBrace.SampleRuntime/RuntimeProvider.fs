@@ -14,7 +14,6 @@ open Nessos.Thespian.Remote
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Store
-open Nessos.MBrace.InMemoryRuntime
 open Nessos.MBrace.Runtime
 
 open Nessos.MBrace.SampleRuntime.Tasks

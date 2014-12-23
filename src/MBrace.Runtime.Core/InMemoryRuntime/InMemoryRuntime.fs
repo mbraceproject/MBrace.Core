@@ -1,17 +1,8 @@
-﻿namespace Nessos.MBrace.InMemoryRuntime
+﻿namespace Nessos.MBrace.Runtime.InMemory
 
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
-
-/// A logger that writes to the system console
-type ConsoleLogger () =
-    interface ICloudLogger with
-        member __.Log(message : string) = System.Console.WriteLine message
-
-/// A logger that ignores entries
-type NullLogger () =
-    interface ICloudLogger with
-        member __.Log _ = ()
+open Nessos.MBrace.Runtime.Logging
 
 /// .NET ThreadPool runtime provider
 type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =

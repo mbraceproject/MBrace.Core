@@ -6,6 +6,7 @@ open FsUnit
 open Nessos.MBrace
 open Nessos.MBrace.Runtime.Vagrant
 open Nessos.MBrace.Runtime.Store
+open Nessos.MBrace.Runtime.InMemory
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Store.Tests
 
@@ -15,7 +16,7 @@ module private Config =
 
     let fsStore = FileSystemStore.LocalTemp
     let atomProvider = FileSystemAtomProvider.LocalTemp
-    let chanProvider = InMemoryRuntime.InMemoryChannelProvider()
+    let chanProvider = InMemoryChannelProvider()
     let serializer = VagrantRegistry.Serializer
 
 [<TestFixture>]

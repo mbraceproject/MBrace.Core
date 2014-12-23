@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.InMemoryRuntime
+﻿namespace Nessos.MBrace.Runtime.InMemory
 
 open Nessos.MBrace
 

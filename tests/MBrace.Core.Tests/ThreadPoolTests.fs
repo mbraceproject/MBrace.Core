@@ -8,7 +8,7 @@ open FsUnit
 
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
-open Nessos.MBrace.InMemoryRuntime
+open Nessos.MBrace.Runtime.InMemory
 
 type TestLogger () =
     let logs = new ResizeArray<string>()

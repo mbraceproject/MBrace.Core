@@ -5,7 +5,7 @@ open System.Threading
 
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
-open Nessos.MBrace.InMemoryRuntime
+open Nessos.MBrace.Runtime.InMemory
 open Nessos.MBrace.Tests
 open Nessos.MBrace.Store
 open Nessos.MBrace.Store.Tests.TestTypes

@@ -75,6 +75,11 @@
       <Project>{51606ffc-69bb-4755-8454-9e943e2b7290}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj">
+      <Name>MBrace.Runtime.Core</Name>
+      <Project>{bb4a3241-4d46-4888-861d-a34440ecfe8b}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
