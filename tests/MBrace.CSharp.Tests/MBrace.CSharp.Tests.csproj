@@ -7,8 +7,8 @@
     <ProjectGuid>{902BED62-CD5F-4E1D-BC70-B1D83722084B}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Nessos.MBrace.Core.CSharp.Tests</RootNamespace>
-    <AssemblyName>MBrace.Core.CSharp.Tests</AssemblyName>
+    <RootNamespace>Nessos.MBrace.CSharp.Tests</RootNamespace>
+    <AssemblyName>MBrace.CSharp.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
