@@ -15,11 +15,15 @@ build/
 [Bb]in/
 [Oo]bj/
 
+# paket
+.paket/paket.exe
+
 # Enable "build/" folder in the NuGet Packages folder since NuGet packages use it for MSBuild targets
 !packages/*/build/
 
 # MSTest test Results
 [Tt]est[Rr]esult*/
+[Tt]est[Rr]esult.xml
 [Bb]uild[Ll]og.*
 
 *_i.c
@@ -154,3 +158,22 @@ $RECYCLE.BIN/
 
 # Mac desktop service store files
 .DS_Store
+
+# ===================================================
+# Exclude F# project specific directories and files
+# ===================================================
+
+# NuGet Packages Directory
+packages/
+
+# Generated documentation folder
+docs/output/
+
+# Temp folder used for publishing docs
+temp/
+
+# Test results produced by build
+TestResults.xml
+
+# Nuget outputs
+nuget/*.nupkg
