@@ -15,7 +15,7 @@ namespace MBrace.Core.CSharp
         public static Cloud<int> Fibonacci(int n)
         {
             if (n <= 1)
-                return Cloud.FromValue(1);
+                return 1.AsCloud();
             else
                 return Cloud.Parallel(
                             Fibonacci(n - 1),
@@ -39,8 +39,8 @@ namespace MBrace.Core.CSharp
             var wf =
                 Cloud.New(() =>
                     Cloud.Parallel(
-                        Cloud.FromValue(20),
-                        Cloud.FromValue(22))
+                        20.AsCloud(),
+                        22.AsCloud())
                     .Then(ys => ys.Sum().AsCloud())
                 );
 
