@@ -30,7 +30,6 @@ namespace Nessos.MBrace.CSharp
 
         public static Cloud<TResult> New<TResult>(Func<Cloud<TResult>> delay)
         {
-            
             return new Cloud<TResult>(builder.Delay(delay.AsFSharpFunc()));
         }
 
