@@ -7,10 +7,7 @@ using System.Threading.Tasks;
 
 namespace Nessos.MBrace.CSharp
 {
-
-    // F# <-> C# helpers
-
-    internal static class Utils
+    internal static class FSharpFuncExtensions
     {
         internal static FSharpFunc<T,Nessos.MBrace.Cloud<U>> AsFSharpFunc<T,U> (this Func<T,Cloud<U>> f)
         {

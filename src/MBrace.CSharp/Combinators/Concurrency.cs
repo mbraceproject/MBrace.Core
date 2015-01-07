@@ -21,10 +21,16 @@ namespace Nessos.MBrace.CSharp
             return new Cloud<TResult[]>(MCloud.Parallel(wfs));
         }
 
-        public static CloudUnit Log(string format, params object[] args)
-        {
-            return new CloudUnit(MCloud.Log(String.Format(format, args)));
-        }
+        //public static Cloud<Option<TResult>> Choice<TResult>(this IEnumerable<Cloud<Option<TResult>>> workflows)
+        //{
+        //    var wfs = workflows.Select(w => w.Computation).ToArray();
+        //    return new Cloud<Option<TResult>>(MCloud.Choice(wfs));
+        //}
 
+        //public static Cloud<Option<TResult>> Choice<TResult>(params Cloud<Option<TResult>>[] workflows)
+        //{
+        //    var wfs = workflows.Select(w => w.Computation).ToArray();
+        //    return new Cloud<Option<TResult>>(MCloud.Choice(wfs));
+        //}
     }
 }

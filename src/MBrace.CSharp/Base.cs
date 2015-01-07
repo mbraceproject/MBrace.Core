@@ -20,7 +20,7 @@ namespace Nessos.MBrace.CSharp
     /// <summary>
     /// Cloud Unit.
     /// </summary>
-    public partial class CloudUnit : Cloud<Unit>
+    public class CloudUnit : Cloud<Unit>
     {
         internal CloudUnit(Nessos.MBrace.Cloud<Unit> cloud) : base(cloud)
         {
