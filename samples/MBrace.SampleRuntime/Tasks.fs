@@ -122,13 +122,19 @@ with
                 }
 
             if faultCount > 0 then
+                // current task has already faulted once, 
+                // consult user-provided fault policy for deciding how to proceed.
                 let faultException = new FaultException(sprintf "Fault exception when running task '%s'." task.TaskId)
                 match task.FaultPolicy.Policy faultCount (faultException :> exn) with
-                | None -> task.Econt ctx <| ExceptionDispatchInfo.Capture faultException
+                | None -> 
+                    // fault policy decrees exception, pass fault to exception continuation
+                    task.Econt ctx <| ExceptionDispatchInfo.Capture faultException
                 | Some timeout ->
+                    // fault policy decrees retry, sleep for specified time and execute
                     do! Async.Sleep (int timeout.TotalMilliseconds)
                     do task.StartTask ctx
             else
+                // no faults, just execute the task
                 do task.StartTask ctx
 
             return! TaskExecutionMonitor.AwaitCompletion tem
