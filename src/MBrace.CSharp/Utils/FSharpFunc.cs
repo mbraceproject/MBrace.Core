@@ -19,5 +19,10 @@ namespace Nessos.MBrace.CSharp
             return FSharpFunc<Unit, Nessos.MBrace.Cloud<T>>.FromConverter(_ => f().Computation);
         }
 
+        internal static FSharpFunc<T, U> AsFSharpFunc<T, U>(this Func<T,U> f)
+        {
+            return FSharpFunc<T,U>.FromConverter(t => f(t));
+        }
+
     }
 }

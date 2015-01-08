@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.FSharp.Core;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +10,7 @@ namespace Nessos.MBrace.CSharp
 {
     public static partial class Cloud
     {
-        public static Cloud<TResult []> Parallel<TResult>(this IEnumerable<Cloud<TResult>> workflows)
+        public static Cloud<TResult[]> Parallel<TResult>(this IEnumerable<Cloud<TResult>> workflows)
         {
             var wfs = workflows.Select(w => w.Computation).ToArray();
             return new Cloud<TResult[]>(MCloud.Parallel(wfs));
@@ -17,20 +18,32 @@ namespace Nessos.MBrace.CSharp
 
         public static Cloud<TResult[]> Parallel<TResult>(params Cloud<TResult> [] workflows)
         {
-            var wfs = workflows.Select(w => w.Computation).ToArray();
-            return new Cloud<TResult[]>(MCloud.Parallel(wfs));
+            return Cloud.Parallel((IEnumerable<Cloud<TResult>>)workflows);
         }
 
-        //public static Cloud<Option<TResult>> Choice<TResult>(this IEnumerable<Cloud<Option<TResult>>> workflows)
-        //{
-        //    var wfs = workflows.Select(w => w.Computation).ToArray();
-        //    return new Cloud<Option<TResult>>(MCloud.Choice(wfs));
-        //}
+        public static Cloud<Option<TResult>> Choice<TResult>(this IEnumerable<Cloud<Option<TResult>>> workflows)
+        {
+            Func<Option<TResult>, MBrace.Cloud<FSharpOption<TResult>>> transform = option => Builder.Return(option.AsFSharpOption());
+            var fsTransform = transform.AsFSharpFunc();
 
-        //public static Cloud<Option<TResult>> Choice<TResult>(params Cloud<Option<TResult>>[] workflows)
-        //{
-        //    var wfs = workflows.Select(w => w.Computation).ToArray();
-        //    return new Cloud<Option<TResult>>(MCloud.Choice(wfs));
-        //}
+            var wfs = workflows
+                        .Select(wf => Builder.Bind(wf.Computation, fsTransform))
+                        .ToArray();
+            var choice = MCloud.Choice<TResult>(wfs);
+
+            Func<FSharpOption<TResult>, MBrace.Cloud<Option<TResult>>> transformRev = fsOption => Builder.Return(Option<TResult>.FromFSharpOption(fsOption));
+            var fsTransformRev = transformRev.AsFSharpFunc();
+            var result = Builder.Bind(choice, fsTransformRev);
+
+            return new Cloud<Option<TResult>>(result);
+        }
+
+        public static Cloud<Option<TResult>> Choice<TResult>(params Cloud<Option<TResult>>[] workflows)
+        {
+            return Cloud.Choice((IEnumerable<Cloud<Option<TResult>>>)workflows);
+        }
+
+
+
     }
 }

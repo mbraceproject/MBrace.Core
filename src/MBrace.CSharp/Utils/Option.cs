@@ -10,6 +10,7 @@ namespace Nessos.MBrace.CSharp
     /// <summary>
     /// Represents a type that can hold a value or it might not have one.
     /// </summary>
+    [Serializable]
     public class Option<TValue>
     {
         private TValue _value;
@@ -46,7 +47,7 @@ namespace Nessos.MBrace.CSharp
             return this.HasValue ? FSharpOption<TValue>.Some(this.Value) : FSharpOption<TValue>.None;
         }
 
-        internal Option<TValue> FromFSharpOption(FSharpOption<TValue> option)
+        internal static Option<TValue> FromFSharpOption(FSharpOption<TValue> option)
         {
             return FSharpOption<TValue>.get_IsNone(option) ? Option<TValue>.None : Option<TValue>.Some(option.Value);
         }
