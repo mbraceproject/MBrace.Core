@@ -13,5 +13,11 @@ namespace Nessos.MBrace.CSharp
         {
             return new CloudUnit(MCloud.Log(String.Format(format, args)));
         }
+
+        public static CloudUnit Sleep(int millisecondsDue)
+        {
+            return new CloudUnit(MCloud.Sleep(millisecondsDue));
+        }
+
     }
 }

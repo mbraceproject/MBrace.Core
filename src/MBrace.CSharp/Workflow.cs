@@ -26,12 +26,19 @@ namespace Nessos.MBrace.CSharp
 
         public static Cloud<TResult> AsCloud<TResult>(this TResult value)
         {
+
             return new Cloud<TResult>(Builder.Return(value));
         }
 
         public static Cloud<TResult> New<TResult>(Func<Cloud<TResult>> delay)
         {
             return new Cloud<TResult>(Builder.Delay(delay.AsFSharpFunc()));
+        }
+
+        public static Cloud<TResult> New<TResult>(Func<TResult> delay)
+        {
+            Func<Cloud<TResult>> cloudDelay = () => delay().AsCloud();
+            return new Cloud<TResult>(Builder.Delay(cloudDelay.AsFSharpFunc()));
         }
 
         public static CloudUnit New(Func<CloudUnit> delay)
@@ -42,6 +49,18 @@ namespace Nessos.MBrace.CSharp
         public static Cloud<TResult> Then<TSource, TResult>(this Cloud<TSource> workflow, Func<TSource, Cloud<TResult>> continuation)
         {
             return new Cloud<TResult>(Builder.Bind<TSource, TResult>(workflow.Computation, continuation.AsFSharpFunc()));
+        }
+
+        public static Cloud<TResult> Then<TSource, TResult>(this Cloud<TSource> workflow, Func<TSource, TResult> continuation)
+        {
+            Func<TSource, Cloud<TResult>> f = x => continuation(x).AsCloud();
+            return new Cloud<TResult>(Builder.Bind<TSource, TResult>(workflow.Computation, f.AsFSharpFunc()));
+        }
+
+        public static Cloud<TResult> Then<TResult>(this CloudUnit workflow, Func<TResult> continuation)
+        {
+            Func<Cloud<TResult>> f = () => continuation().AsCloud();
+            return new Cloud<TResult>(Builder.Bind<Unit, TResult>(workflow.Computation, f.AsFSharpFunc()));
         }
 
         public static Cloud<TResult> Then<TResult>(this CloudUnit workflow, Func<Cloud<TResult>> continuation)

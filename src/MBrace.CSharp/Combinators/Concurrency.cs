@@ -43,7 +43,17 @@ namespace Nessos.MBrace.CSharp
             return Cloud.Choice((IEnumerable<Cloud<Option<TResult>>>)workflows);
         }
 
+        public static Cloud<TResult> Choice<TResult>(this IEnumerable<Cloud<TResult>> workflows)
+        {
+            return workflows
+                    .Select(wf => wf.Then(w => Option<TResult>.Some(w).AsCloud()))
+                    .Choice()
+                    .Then(result => result.Value.AsCloud());
+        }
 
-
+        public static Cloud<TResult> Choice<TResult>(params Cloud<TResult> [] workflows)
+        {
+            return Cloud.Choice((IEnumerable<Cloud<TResult>>)workflows);
+        }
     }
 }
