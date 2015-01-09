@@ -34,9 +34,10 @@ namespace MBrace.CSharp.Tests
                 if (i == 4 && j == 0) return Option<int>.Some(42).AsCloud();
                 else
                     return Cloud.Choice(
+					new [] {
                             ChoiceExperiment(i + 1, 0),
                             ChoiceExperiment(i + 1, 1),
-                            ChoiceExperiment(i + 1, 2));
+                            ChoiceExperiment(i + 1, 2)});
             });
         }
 
@@ -48,9 +49,10 @@ namespace MBrace.CSharp.Tests
             if (i == 4 && j == 0) return Option<int>.Some(42).AsCloud();
             else
                 return Cloud.Choice(
-                        ChoiceExperiment2(i + 1, 0),
+				    new [] {
+				    ChoiceExperiment2(i + 1, 0),
                         ChoiceExperiment2(i + 1, 1),
-                        ChoiceExperiment2(i + 1, 2));
+				    ChoiceExperiment2(i + 1, 2)});
             
         }
 
