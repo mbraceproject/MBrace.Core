@@ -1,12 +1,12 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 open System
 open System.Text
 open System.Runtime.Serialization
 open System.IO
 
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
+open MBrace.Continuation
+open MBrace.Store
 
 #nowarn "444"
 

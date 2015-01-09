@@ -1,14 +1,14 @@
-﻿namespace Nessos.MBrace.Store.Tests.FileSystem
+﻿namespace MBrace.Store.Tests.FileSystem
 
 open NUnit.Framework
 open FsUnit
 
-open Nessos.MBrace
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.Runtime.Store
-open Nessos.MBrace.Runtime.InMemory
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store.Tests
+open MBrace
+open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Store
+open MBrace.Runtime.InMemory
+open MBrace.Continuation
+open MBrace.Store.Tests
 
 [<AutoOpen>]
 module private Config =

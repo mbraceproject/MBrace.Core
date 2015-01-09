@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 open System
 open System.Runtime.Serialization

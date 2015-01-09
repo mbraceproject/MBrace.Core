@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Store
+﻿namespace MBrace.Store
 
 open System
 open System.IO

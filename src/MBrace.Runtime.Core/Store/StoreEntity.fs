@@ -1,12 +1,12 @@
-﻿namespace Nessos.MBrace.Runtime.Store
+﻿namespace MBrace.Runtime.Store
 
 open System.Collections.Generic
 open System.Runtime.Serialization
 
 open Nessos.FsPickler
 
-open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime.Utils
+open MBrace.Store
+open MBrace.Runtime.Utils
 
 type StorageEntity =
 

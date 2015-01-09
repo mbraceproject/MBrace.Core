@@ -1,14 +1,14 @@
-﻿module internal Nessos.MBrace.SampleRuntime.Combinators
+﻿module internal MBrace.SampleRuntime.Combinators
 
 //
 //  Provides distributed implementations for Cloud.Parallel, Cloud.Choice and Cloud.StartChild
 //
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.SampleRuntime.Actors
-open Nessos.MBrace.SampleRuntime.Tasks
+open MBrace
+open MBrace.Continuation
+open MBrace.Runtime
+open MBrace.SampleRuntime.Actors
+open MBrace.SampleRuntime.Tasks
 
 #nowarn "444"
 

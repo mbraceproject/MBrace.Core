@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 /// Sending side of a distributed channel
 type ISendPort<'T> =
@@ -17,9 +17,9 @@ type IReceivePort<'T> =
     /// <param name="timeout">Timeout in milliseconds.</param>
     abstract Receive : ?timeout:int -> Async<'T>
 
-namespace Nessos.MBrace.Store
+namespace MBrace.Store
 
-open Nessos.MBrace
+open MBrace
 
 /// Defines a factory for distributed channels
 type ICloudChannelProvider =
@@ -54,10 +54,10 @@ type ChannelConfiguration =
         DefaultContainer : string
     }
 
-namespace Nessos.MBrace
+namespace MBrace
 
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
+open MBrace.Continuation
+open MBrace.Store
 
 #nowarn "444"
 

@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.SampleRuntime.Tests
+﻿namespace MBrace.SampleRuntime.Tests
 
 open System
 open System.IO
@@ -7,12 +7,12 @@ open System.Threading
 open NUnit.Framework
 open FsUnit
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Tests
-open Nessos.MBrace.SampleRuntime
-open Nessos.MBrace.SampleRuntime.Actors
+open MBrace
+open MBrace.Continuation
+open MBrace.Runtime
+open MBrace.Tests
+open MBrace.SampleRuntime
+open MBrace.SampleRuntime.Actors
 
 [<TestFixture>]
 module ``SampleRuntime Tests`` =

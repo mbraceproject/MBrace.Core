@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Runtime.Compiler
+﻿namespace MBrace.Runtime.Compiler
 
 open System
 open System.Reflection
@@ -12,10 +12,10 @@ open Swensen.Unquote
 open Nessos.Vagrant
 open Nessos.FsPickler
 
-open Nessos.MBrace
-open Nessos.MBrace.Runtime.Utils.PrettyPrinters
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.Runtime.Serialization
+open MBrace
+open MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Serialization
 
 /// Parsed version of Expr.CustomAttributes
 type ExprMetadata =

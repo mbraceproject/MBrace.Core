@@ -1,12 +1,12 @@
-﻿module Nessos.MBrace.Runtime.Serialization
+﻿module MBrace.Runtime.Serialization
 
 open System.IO
 open System.Linq
 open System.Collections.Concurrent
 
 open Nessos.FsPickler
-open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime.Utils
+open MBrace.Store
+open MBrace.Runtime.Utils
 
 [<AbstractClass>]
 type FsPicklerStoreSerializer () =

@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.SampleRuntime.Config
+﻿module internal MBrace.SampleRuntime.Config
 
 open System
 open System.Reflection
@@ -11,13 +11,13 @@ open Nessos.Thespian.Remote.TcpProtocol
 
 open Nessos.Vagrant
 
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Runtime.Utils
-open Nessos.MBrace.Runtime.Store
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.Runtime.Serialization
+open MBrace.Continuation
+open MBrace.Store
+open MBrace.Runtime
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Store
+open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Serialization
 
 let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 

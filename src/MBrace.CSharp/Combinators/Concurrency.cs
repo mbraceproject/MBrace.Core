@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using MCloud = Nessos.MBrace.Cloud;
+using MCloud = MBrace.Cloud;
 
-namespace Nessos.MBrace.CSharp
+namespace MBrace.CSharp
 {
     public static partial class Cloud
     {

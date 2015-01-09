@@ -1,4 +1,4 @@
-namespace Nessos.MBrace.Runtime.Compiler
+namespace MBrace.Runtime.Compiler
 
 open System
 open System.Reflection
@@ -12,14 +12,14 @@ open Microsoft.FSharp.Quotations.ExprShape
 open Nessos.FsPickler
 open Nessos.Vagrant
 
-open Nessos.MBrace
+open MBrace
 
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Runtime.Utils
-open Nessos.MBrace.Runtime.Utils.Reflection
-open Nessos.MBrace.Runtime.Utils.PrettyPrinters
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.Runtime.Compiler.Utils
+open MBrace.Runtime
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.Reflection
+open MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Compiler.Utils
 
 [<AutoOpen>]
 module private CompilerImpl =

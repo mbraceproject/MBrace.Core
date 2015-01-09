@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 open System.Collections
 open System.Collections.Generic

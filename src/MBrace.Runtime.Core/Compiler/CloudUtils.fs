@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Runtime.Compiler.Utils
+﻿module internal MBrace.Runtime.Compiler.Utils
 
 open System
 open System.Reflection
@@ -8,8 +8,8 @@ open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Quotations.ExprShape
 
-open Nessos.MBrace
-open Nessos.MBrace.Runtime.Utils.Reflection
+open MBrace
+open MBrace.Runtime.Utils.Reflection
 
 /// checks if the given type or covariant type arguments are of type Cloud<'T>
 let rec yieldsCloudBlock (t : Type) =

@@ -1,10 +1,10 @@
-﻿namespace Nessos.MBrace.SampleRuntime.Tests
+﻿namespace MBrace.SampleRuntime.Tests
 
 open System.Threading
 
-open Nessos.MBrace
-open Nessos.MBrace.Store.Tests
-open Nessos.MBrace.SampleRuntime
+open MBrace
+open MBrace.Store.Tests
+open MBrace.SampleRuntime
 
 open NUnit.Framework
 

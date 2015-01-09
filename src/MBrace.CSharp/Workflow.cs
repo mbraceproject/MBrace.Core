@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Nessos.MBrace.CSharp
+namespace MBrace.CSharp
 {
     /// <summary>
     /// Provides methods to create basic Cloud workflows.

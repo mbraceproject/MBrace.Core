@@ -1,6 +1,6 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
-open Nessos.MBrace.Continuation
+open MBrace.Continuation
 
 // Cloud<'T> is a continuation-based computation that can be distributed.
 // It takes two parameters, an ExecutionContext and a continuation triple.

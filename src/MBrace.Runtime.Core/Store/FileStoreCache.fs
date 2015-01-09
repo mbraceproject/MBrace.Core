@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Runtime.Store
+﻿namespace MBrace.Runtime.Store
 
 open System
 open System.IO
@@ -6,11 +6,11 @@ open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 
-open Nessos.MBrace
-open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime.Utils
-open Nessos.MBrace.Runtime.Utils.String
-open Nessos.MBrace.Runtime.Utils.Retry
+open MBrace
+open MBrace.Store
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.String
+open MBrace.Runtime.Utils.Retry
 
 /// Defines cache behavior.
 [<Flags>]

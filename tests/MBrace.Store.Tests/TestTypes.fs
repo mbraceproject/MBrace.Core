@@ -1,6 +1,6 @@
-﻿module Nessos.MBrace.Store.Tests.TestTypes
+﻿module MBrace.Store.Tests.TestTypes
 
-open Nessos.MBrace
+open MBrace
 
 type CloudTree<'T> = Leaf | Branch of 'T * TreeRef<'T> * TreeRef<'T>
 

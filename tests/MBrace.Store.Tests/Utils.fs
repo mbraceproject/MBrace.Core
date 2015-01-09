@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Store.Tests
+﻿namespace MBrace.Store.Tests
 
 open NUnit.Framework
 

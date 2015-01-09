@@ -1,10 +1,10 @@
-﻿namespace Nessos.MBrace.Runtime.Utils.PrettyPrinters
+﻿namespace MBrace.Runtime.Utils.PrettyPrinters
 
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
-open Nessos.MBrace.Runtime.Utils.Reflection
+open MBrace.Runtime.Utils.Reflection
 
 [<AutoOpen>]
 module private Utils =

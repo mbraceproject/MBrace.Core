@@ -1,12 +1,12 @@
-﻿namespace Nessos.MBrace.Tests
+﻿namespace MBrace.Tests
 
 open System.Threading
 
 open NUnit.Framework
 open FsUnit
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Continuation
 
 type Cloud =
     static member RunProtected(comp, ?resources) =

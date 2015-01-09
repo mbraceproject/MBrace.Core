@@ -5,8 +5,8 @@
 #r "MBrace.SampleRuntime.exe"
 
 open System
-open Nessos.MBrace
-open Nessos.MBrace.SampleRuntime
+open MBrace
+open MBrace.SampleRuntime
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 

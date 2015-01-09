@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 /// Collection of context-less combinators for 
 /// execution within local thread context.

@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 #nowarn "444"
 
 open System.Threading
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Continuation
 
 [<AutoOpen>]
 module private SchedulerInternals =

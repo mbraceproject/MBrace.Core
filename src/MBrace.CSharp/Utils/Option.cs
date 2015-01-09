@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Nessos.MBrace.CSharp
+namespace MBrace.CSharp
 {
     /// <summary>
     /// Represents a type that can hold a value or it might not have one.

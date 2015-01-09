@@ -1,8 +1,8 @@
-﻿namespace Nessos.MBrace.Runtime.InMemory
+﻿namespace MBrace.Runtime.InMemory
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime.Logging
+open MBrace
+open MBrace.Continuation
+open MBrace.Runtime.Logging
 
 /// .NET ThreadPool runtime provider
 type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =

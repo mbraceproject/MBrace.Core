@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Store
+﻿namespace MBrace.Store
 
 /// Object caching abstraction
 type ICache =

@@ -1,13 +1,13 @@
-﻿namespace Nessos.MBrace.Runtime.InMemory
+﻿namespace MBrace.Runtime.InMemory
 
-open Nessos.MBrace
+open MBrace
 
 open System
 open System.Threading
 
-open Nessos.MBrace
-open Nessos.MBrace.Store
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Store
+open MBrace.Continuation
 
 type private Box<'T> = { Value : 'T }
 

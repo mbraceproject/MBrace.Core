@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Store
+﻿namespace MBrace.Store
 
 open System
 open System.IO
@@ -186,13 +186,13 @@ module CloudFileStoreUtils =
 
 // Combinators for MBrace
 
-namespace Nessos.MBrace
+namespace MBrace
 
 open System
 open System.IO
 
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
+open MBrace.Continuation
+open MBrace.Store
 
 #nowarn "444"
 

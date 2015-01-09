@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Tests
+﻿namespace MBrace.Tests
 
 open System
 open System.Threading
@@ -6,7 +6,7 @@ open System.Threading
 open NUnit.Framework
 open FsUnit
 
-open Nessos.MBrace
+open MBrace
 
 #nowarn "444"
 

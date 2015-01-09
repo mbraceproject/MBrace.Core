@@ -1,8 +1,8 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 //  Cloud builder implementations
 
-open Nessos.MBrace.Continuation
+open MBrace.Continuation
 
 [<AutoOpen>]
 module internal CloudBuilderUtils =

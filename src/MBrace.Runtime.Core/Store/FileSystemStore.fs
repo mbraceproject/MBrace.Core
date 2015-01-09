@@ -1,17 +1,17 @@
-﻿namespace Nessos.MBrace.Runtime.Store
+﻿namespace MBrace.Runtime.Store
 
 open System
 open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Runtime.Utils
-open Nessos.MBrace.Runtime.Utils.Retry
-open Nessos.MBrace.Runtime.Vagrant
+open MBrace
+open MBrace.Continuation
+open MBrace.Store
+open MBrace.Runtime
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.Retry
+open MBrace.Runtime.Vagrant
 
 /// Store implementation that uses a filesystem as backend.
 [<Sealed; DataContract>]

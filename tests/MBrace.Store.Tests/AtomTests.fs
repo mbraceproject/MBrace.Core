@@ -1,10 +1,10 @@
-﻿namespace Nessos.MBrace.Store.Tests
+﻿namespace MBrace.Store.Tests
 
 open System
 
-open Nessos.MBrace
-open Nessos.MBrace.Store
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Store
+open MBrace.Continuation
 
 open Nessos.FsPickler
 

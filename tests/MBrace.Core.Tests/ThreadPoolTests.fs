@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Tests
+﻿namespace MBrace.Tests
     
 open System
 open System.Threading
@@ -6,9 +6,9 @@ open System.Threading
 open NUnit.Framework
 open FsUnit
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime.InMemory
+open MBrace
+open MBrace.Continuation
+open MBrace.Runtime.InMemory
 
 type TestLogger () =
     let logs = new ResizeArray<string>()

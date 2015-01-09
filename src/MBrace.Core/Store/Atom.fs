@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 /// Represent a distributed atomically updatable value reference
 type ICloudAtom<'T> =
@@ -41,9 +41,9 @@ module CloudAtomUtils =
             return result.Value
         }
 
-namespace Nessos.MBrace.Store
+namespace MBrace.Store
  
-open Nessos.MBrace
+open MBrace
 
 /// Defines a factory for distributed atoms
 type ICloudAtomProvider =
@@ -85,10 +85,10 @@ type AtomConfiguration =
         DefaultContainer : string
     }
 
-namespace Nessos.MBrace
+namespace MBrace
 
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
+open MBrace.Continuation
+open MBrace.Store
 
 #nowarn "444"
 

@@ -7,7 +7,7 @@
     <ProjectGuid>{9F535680-053F-4514-91FA-472B82646B15}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Nessos.MBrace.CSharp</RootNamespace>
+    <RootNamespace>MBrace.CSharp</RootNamespace>
     <AssemblyName>MBrace.CSharp</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>

@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace.Runtime.Store
+﻿namespace MBrace.Runtime.Store
 
 open System
 open System.Collections.Generic
 open System.Collections.Specialized
 open System.Runtime.Caching
 
-open Nessos.MBrace.Store
+open MBrace.Store
 
 /// In-Memory caching mechanism using System.Runtime.Caching.MemoryCache
 type InMemoryCache private (name : string, config : NameValueCollection) =

@@ -1,6 +1,6 @@
-﻿namespace Nessos.MBrace.Runtime.Logging
+﻿namespace MBrace.Runtime.Logging
 
-open Nessos.MBrace.Continuation
+open MBrace.Continuation
 
 /// A logger that writes to the system console
 type ConsoleLogger () =

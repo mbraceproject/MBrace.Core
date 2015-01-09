@@ -1,5 +1,5 @@
-﻿using Nessos.MBrace.CSharp;
-using Nessos.MBrace.SampleRuntime;
+﻿using MBrace.CSharp;
+using MBrace.SampleRuntime;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MBrace.Core.CSharp
+namespace MBrace.CSharp.Tests
 {
     class Program
     {

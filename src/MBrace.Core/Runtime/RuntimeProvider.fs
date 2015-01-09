@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace.Continuation
+﻿namespace MBrace.Continuation
 
 // Distributed runtime provider definition
 // Cloud workflows actuating parallelism should
 // be passed an instance of IRuntimeProvider in their
 // ExecutionContext.
 
-open Nessos.MBrace
+open MBrace
 
 /// <summary>
 ///     Abstract logger.

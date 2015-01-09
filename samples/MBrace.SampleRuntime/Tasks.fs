@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.SampleRuntime.Tasks
+﻿module internal MBrace.SampleRuntime.Tasks
 
 // Provides facility for the execution of tasks.
 // In this context, a task denotes a single work item to be sent
@@ -12,13 +12,13 @@ open System.Threading.Tasks
 open Nessos.FsPickler
 open Nessos.Vagrant
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Runtime.Serialization
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.SampleRuntime.Actors
+open MBrace
+open MBrace.Continuation
+open MBrace.Store
+open MBrace.Runtime
+open MBrace.Runtime.Serialization
+open MBrace.Runtime.Vagrant
+open MBrace.SampleRuntime.Actors
 
 // Tasks are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
@@ -164,7 +164,7 @@ with
     /// Initialize a new runtime state in the local process
     static member InitLocal (logger : string -> unit) (getWorkers : unit -> IWorkerRef []) =
         {
-            IPEndPoint = Nessos.MBrace.SampleRuntime.Config.getLocalEndpoint()
+            IPEndPoint = MBrace.SampleRuntime.Config.getLocalEndpoint()
             Workers = Cell.Init getWorkers
             Logger = Logger.Init logger
             TaskQueue = Queue<_>.Init ()

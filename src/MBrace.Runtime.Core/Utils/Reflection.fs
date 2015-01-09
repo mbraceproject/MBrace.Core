@@ -1,5 +1,5 @@
 ﻿/// Reflection utilities
-module Nessos.MBrace.Runtime.Utils.Reflection
+module MBrace.Runtime.Utils.Reflection
 
 open System
 open System.Collections.Generic

@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 /// Collection of mapReduce and related workflows
 module MapReduce =

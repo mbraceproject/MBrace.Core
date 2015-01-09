@@ -1,12 +1,12 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 open System
 open System.Runtime.Serialization
 open System.IO
 
-open Nessos.MBrace
-open Nessos.MBrace.Store
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Store
+open MBrace.Continuation
 
 type private CloudRefHeader = { Type : Type ; UUID : string }
 

@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Runtime.Utils
+﻿namespace MBrace.Runtime.Utils
 
 open System.Collections.Concurrent
 open System.Threading.Tasks

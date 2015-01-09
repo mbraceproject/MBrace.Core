@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Runtime.Utils.PrettyPrinters
+﻿namespace MBrace.Runtime.Utils.PrettyPrinters
 
 open System
 

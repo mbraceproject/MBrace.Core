@@ -1,5 +1,5 @@
 ﻿/// Retry utilities
-module Nessos.MBrace.Runtime.Utils.Retry
+module MBrace.Runtime.Utils.Retry
 
 open System
 

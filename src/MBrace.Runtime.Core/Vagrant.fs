@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Runtime.Vagrant
+﻿namespace MBrace.Runtime.Vagrant
 
 open System
 open System.Reflection
@@ -7,10 +7,10 @@ open System.IO
 open Nessos.FsPickler
 open Nessos.Vagrant
 
-open Nessos.MBrace.Store
-open Nessos.MBrace.Runtime.Utils
-open Nessos.MBrace.Runtime.Utils.Retry
-open Nessos.MBrace.Runtime.Serialization
+open MBrace.Store
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.Retry
+open MBrace.Runtime.Serialization
 
 /// Vagrant state container
 type VagrantRegistry private () =

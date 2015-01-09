@@ -1,10 +1,10 @@
-﻿namespace Nessos.MBrace.Continuation
+﻿namespace MBrace.Continuation
 
 open System.Threading
 open System.Threading.Tasks
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Continuation
 
 #nowarn "444"
 
@@ -142,10 +142,10 @@ type Cloud =
         Async.RunSync(wf, ?cancellationToken = cancellationToken)
 
 
-namespace Nessos.MBrace
+namespace MBrace
 
 open System.Threading.Tasks
-open Nessos.MBrace.Continuation
+open MBrace.Continuation
 
 /// Cloud workflows user API
 type Cloud =

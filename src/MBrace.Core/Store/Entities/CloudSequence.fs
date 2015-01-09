@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace
+﻿namespace MBrace
 
 open System
 open System.Collections
@@ -6,8 +6,8 @@ open System.Collections.Generic
 open System.Runtime.Serialization
 open System.IO
 
-open Nessos.MBrace.Store
-open Nessos.MBrace.Continuation
+open MBrace.Store
+open MBrace.Continuation
 
 type private CloudSequenceCache =
 

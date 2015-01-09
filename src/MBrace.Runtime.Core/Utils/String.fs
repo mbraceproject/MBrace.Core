@@ -1,4 +1,4 @@
-﻿module Nessos.MBrace.Runtime.Utils.String
+﻿module MBrace.Runtime.Utils.String
 
 open System
 open System.Collections.Generic

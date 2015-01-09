@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.SampleRuntime
+﻿namespace MBrace.SampleRuntime
 
 open System.IO
 open System.Diagnostics
@@ -6,14 +6,14 @@ open System.Threading
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote
-open Nessos.MBrace
-open Nessos.MBrace.Store
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.Runtime.Compiler
-open Nessos.MBrace.SampleRuntime.Tasks
-open Nessos.MBrace.SampleRuntime.RuntimeProvider
+open MBrace
+open MBrace.Store
+open MBrace.Continuation
+open MBrace.Runtime
+open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Compiler
+open MBrace.SampleRuntime.Tasks
+open MBrace.SampleRuntime.RuntimeProvider
 
 #nowarn "40"
 

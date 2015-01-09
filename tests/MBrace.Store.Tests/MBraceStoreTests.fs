@@ -1,14 +1,14 @@
-﻿namespace Nessos.MBrace.Store.Tests
+﻿namespace MBrace.Store.Tests
 
 open System
 open System.Threading
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime.InMemory
-open Nessos.MBrace.Tests
-open Nessos.MBrace.Store
-open Nessos.MBrace.Store.Tests.TestTypes
+open MBrace
+open MBrace.Continuation
+open MBrace.Runtime.InMemory
+open MBrace.Tests
+open MBrace.Store
+open MBrace.Store.Tests.TestTypes
 
 open Nessos.FsPickler
 

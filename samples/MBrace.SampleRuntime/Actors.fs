@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.SampleRuntime.Actors
+﻿namespace MBrace.SampleRuntime.Actors
 
 //
 //  Implements a collection of distributed resources that provide
@@ -15,11 +15,11 @@ open Nessos.Thespian.Remote.Protocols
 
 open Nessos.Vagrant
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.SampleRuntime
+open MBrace
+open MBrace.Continuation
+open MBrace.Runtime
+open MBrace.Runtime.Vagrant
+open MBrace.SampleRuntime
 
 /// Actor publication utilities
 type Actor private () =
