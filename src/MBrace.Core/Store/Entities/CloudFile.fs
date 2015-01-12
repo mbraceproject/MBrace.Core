@@ -29,7 +29,7 @@ type CloudFile =
     /// File name
     member f.FileName = f.fileStore.GetFileName f.path
     /// Cloud store service unique identifier
-    member f.StoreId = f.StoreId
+    member f.StoreId = f.fileStore.Id
 
     /// Returns the file size in bytes
     member f.GetSizeAsync () = f.fileStore.GetFileSize f.path
