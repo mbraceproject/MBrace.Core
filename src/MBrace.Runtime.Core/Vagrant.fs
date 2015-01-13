@@ -18,11 +18,6 @@ type VagrantRegistry private () =
     static let vagrantInstance : Vagrant option ref = ref None
     static let serializer : ISerializer option ref = ref None
 
-    static let ignoredAssemblies = 
-        let this = Assembly.GetExecutingAssembly()
-        let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-        hset dependencies
-
     /// Gets the registered vagrant instance.
     static member Vagrant =
         match vagrantInstance.Value with
@@ -71,9 +66,15 @@ type VagrantRegistry private () =
     /// <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
     /// <param name="loadPolicy">Specify a default assembly load policy.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
-    static member Initialize (?ignoreAssembly : Assembly -> bool, ?loadPolicy, ?throwOnError) =
-        let ignoreAssembly (a : Assembly) = ignoredAssemblies.Contains a || ignoreAssembly |> Option.exists (fun i -> i a)
+    static member Initialize (?ignoredAssemblies : seq<Assembly>, ?loadPolicy, ?throwOnError) =
+        let ignoredAssemblies = seq { 
+            yield Assembly.GetExecutingAssembly() 
+            match ignoredAssemblies with 
+            | None -> () 
+            | Some ias -> yield! ias
+        }
+
         VagrantRegistry.Initialize((fun () ->
             let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| Guid.NewGuid())
             let dir = retry (RetryPolicy.Retry(3, delay = 0.2<sec>)) (fun () -> Directory.CreateDirectory cachePath)
-            Vagrant.Initialize(cacheDirectory = cachePath, isIgnoredAssembly = ignoreAssembly, ?loadPolicy = loadPolicy)), ?throwOnError = throwOnError)
+            Vagrant.Initialize(cacheDirectory = cachePath, ignoredAssemblies = ignoredAssemblies, ?loadPolicy = loadPolicy)), ?throwOnError = throwOnError)
