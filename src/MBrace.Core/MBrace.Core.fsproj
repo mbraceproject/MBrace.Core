@@ -71,7 +71,6 @@
     <Compile Include="Store\FileStore.fs" />
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Channel.fs" />
-    <Compile Include="Store\Entities\StoreUtils.fs" />
     <Compile Include="Store\Entities\CloudFile.fs" />
     <Compile Include="Store\Entities\CloudRef.fs" />
     <Compile Include="Store\Entities\CloudSequence.fs" />

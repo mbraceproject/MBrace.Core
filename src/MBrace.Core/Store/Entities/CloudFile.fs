@@ -1,8 +1,9 @@
 ﻿namespace MBrace
 
 open System
-open System.Text
 open System.Runtime.Serialization
+open System.Text
+open System.Threading.Tasks
 open System.IO
 
 open MBrace.Continuation
@@ -10,8 +11,17 @@ open MBrace.Store
 
 #nowarn "444"
 
+[<AutoOpen>]
+module private CloudFileUtils =
+
+    type AsyncBuilder with
+        member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
+        member ab.Bind(t : Task, cont : unit -> Async<'S>) =
+            let t0 = t.ContinueWith ignore
+            ab.Bind(Async.AwaitTask t0, cont)
+
 /// Represents a file reference bound to specific cloud store instance
-[<Sealed ; DataContract>]
+[<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type CloudFile =
 
     // https://visualfsharp.codeplex.com/workitem/199
@@ -52,6 +62,9 @@ type CloudFile =
         use! stream = f.fileStore.BeginRead f.path
         return! deserializer stream
     }
+
+    override f.ToString() = sprintf "CloudFile at %s" f.path
+    member private c.StructuredFormatDisplay = c.ToString()
 
     interface ICloudDisposable with
         member f.Dispose () = f.fileStore.DeleteFile f.path

@@ -25,7 +25,7 @@ type private CloudRefCache =
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.
 /// Cloud references cached locally for performance.
-[<Sealed; DataContract>]
+[<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type CloudRef<'T> =
 
     // https://visualfsharp.codeplex.com/workitem/199
@@ -61,6 +61,9 @@ type CloudRef<'T> =
 
     /// Returns size of cloud ref in bytes
     member r.Size = r.fileStore.GetFileSize r.path |> Async.RunSync
+
+    override r.ToString() = sprintf "CloudRef[%O] at %s" typeof<'T> r.path
+    member private r.StructuredFormatDisplay = r.ToString()
 
     interface ICloudDisposable with
         member r.Dispose () = r.fileStore.DeleteFile r.path
