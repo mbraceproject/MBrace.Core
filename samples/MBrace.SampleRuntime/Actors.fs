@@ -374,7 +374,7 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
 type private QueueMsg<'T> =
     | EnQueue of 'T * (* fault count *) int
     | EnQueueMultiple of 'T []
-    | TryDequeue of isApplicableMessage:('T -> bool) * IReplyChannel<('T * (* fault count *) int * LeaseMonitor) option>
+    | TryDequeue of shouldDequeue:('T -> bool) * IReplyChannel<('T * (* fault count *) int * LeaseMonitor) option>
 
 type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
     static member Empty = new ImmutableQueue<'T>([],[])
@@ -401,9 +401,9 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
             match msg with
             | EnQueue (t, faultCount) -> return queue.Enqueue (t, faultCount)
             | EnQueueMultiple ts -> return ts |> Seq.map (fun t -> (t,0)) |> Seq.toList |> queue.EnqueueMultiple
-            | TryDequeue (check,rc) ->
+            | TryDequeue (shouldDequeue,rc) ->
                 match queue.TryDequeue() with
-                | Some((t, faultCount), queue') when (try check t with _ -> false) ->
+                | Some((t, faultCount), queue') when (try shouldDequeue t with _ -> false) ->
                     let putBack, leaseMonitor = LeaseMonitor.Init (TimeSpan.FromSeconds 5.)
                     do! rc.Reply (Some (t, faultCount, leaseMonitor))
                     let _ = putBack.Subscribe(fun () -> self.Value <-- EnQueue (t, faultCount + 1))

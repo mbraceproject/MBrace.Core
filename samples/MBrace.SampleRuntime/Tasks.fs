@@ -252,23 +252,22 @@ with
     }
 
     /// Attempt to dequeue a task from the runtime task queue
-    member rt.TryDequeue (currentWorker : IWorkerRef) = async {
-        // checker lambda to be run by Queue actor
-        let checkApplicable (pt : PickledTask) =
+    member rt.TryDequeue (dequeueingWorker : IWorkerRef) = async {
+        // task dequeue predicate -- checks if task is assigned to particular target
+        let workerCell = rt.Workers
+        let shouldDequeue (pt : PickledTask) =
             match pt.Target with
             // task not applicable to specific worker, approve dequeue
             | None -> true
             // task applicable to current worker, approve dequeue
-            | Some w when w = currentWorker -> true
+            | Some w when w = dequeueingWorker -> true
             | Some w ->
-                // worker not applicable to current worker, check if worker has been disposed
-                let workers = rt.Workers.GetValue() |> Async.RunSync
-                if Array.exists ((=) currentWorker) workers then
-                    false
-                else
-                    true
+                // worker not applicable to current worker, dequeue if target worker has been disposed
+                workerCell.GetValue() 
+                |> Async.RunSync
+                |> Array.forall ((<>) dequeueingWorker)
 
-        let! item =  rt.TaskQueue.TryDequeue checkApplicable
+        let! item =  rt.TaskQueue.TryDequeue shouldDequeue
         match item with
         | None -> return None
         | Some (pt, faultCount, leaseMonitor) -> 
