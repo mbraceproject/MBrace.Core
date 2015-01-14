@@ -104,6 +104,16 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
     member this.SourceStore = sourceStore
 
     /// <summary>
+    /// Returns locally installed cache stores under given context.
+    /// </summary>
+    /// <param name="cacheContext">Cache context identifier.</param>
+    static member GetLocalCacheStore(?cacheContext : string) : ICloudFileStore =
+        let cacheContext = defaultArg cacheContext defaultContext
+        match localCaches.TryGetValue(cacheContext) with
+        | true, store -> fst store
+        | false, _    -> invalidOp <| sprintf "No cache declared under context %s." cacheContext
+
+    /// <summary>
     ///     Installs a local file store cache under given context.
     /// </summary>
     /// <param name="localCacheStore">Local cache store.</param>
@@ -113,7 +123,7 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
         let cacheContext = defaultArg cacheContext defaultContext
         let cacheBehavior = defaultArg cacheBehavior CacheBehavior.Default
         if not <| localCaches.TryAdd(cacheContext, (localCacheStore, cacheBehavior)) then
-            invalidOp <| sprintf "A a cache store has already been declared under '%s'." cacheContext
+            invalidOp <| sprintf "A cache store has already been declared under '%s'." cacheContext
 
     /// <summary>
     ///     Defines a locally specified file system cache store.
