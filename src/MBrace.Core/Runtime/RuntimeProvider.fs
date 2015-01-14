@@ -8,7 +8,7 @@
 open MBrace
 
 /// <summary>
-///     Abstract logger.
+///     Abstract logger for cloud workflows.
 /// </summary>
 type ICloudLogger =
     /// <summary>
@@ -55,17 +55,20 @@ type IRuntimeProvider =
     /// </summary>
     abstract SchedulingContext : SchedulingContext
 
+    /// Specifies whether runtime supports submission of tasks to specific worker nodes
+    abstract IsTargetedWorkerSupported : bool
+
     /// <summary>
     ///     Parallel fork/join implementation.
     /// </summary>
-    /// <param name="computations">Computations to be executed.</param>
-    abstract ScheduleParallel : computations:seq<Cloud<'T>> -> Cloud<'T []>
+    /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
+    abstract ScheduleParallel : computations:seq<Cloud<'T> * IWorkerRef option> -> Cloud<'T []>
 
     /// <summary>
     ///     Parallel nondeterministic choice implementation.
     /// </summary>
-    /// <param name="computations">Computations to be executed.</param>
-    abstract ScheduleChoice : computations:seq<Cloud<'T option>> -> Cloud<'T option>
+    /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
+    abstract ScheduleChoice : computations:seq<Cloud<'T option> * IWorkerRef option> -> Cloud<'T option>
 
     /// <summary>
     ///     Start a new computation as a child task.

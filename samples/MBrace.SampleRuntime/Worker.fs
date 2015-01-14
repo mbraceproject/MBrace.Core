@@ -36,7 +36,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
             return! loop ()
         else
             try
-                let! task = runtime.TryDequeue()
+                let! task = runtime.TryDequeue Worker.LocalWorker
                 match task with
                 | None -> do! Async.Sleep 500
                 | Some (task, dependencies, faultCount, leaseMonitor) ->

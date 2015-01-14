@@ -231,23 +231,89 @@ type Cloud =
     static member Logf fmt = Printf.ksprintf Cloud.Log fmt
 
     /// <summary>
-    ///     Cloud.Parallel combinator
+    ///     Creates a cloud computation that will execute the given computations
+    ///     possibly in parallel and if successful returns the array of gathered results.
+    ///     This operator may create distribution.
+    ///     Exceptions raised by children carry cancellation semantics.
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (computations : seq<Cloud<'T>>) : Cloud<'T []> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
-        let workflow = runtime.ScheduleParallel computations
+        let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun c -> c,None))
         return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T>> computations)" workflow
     }
 
     /// <summary>
-    ///     Cloud.Choice combinator
+    ///     Creates a cloud computation that will execute provided computation on every available worker
+    ///     in the cluster and if successful returns the array of gathered results.
+    ///     This operator may create distribution.
+    ///     Any exception raised by children carry cancellation semantics.
+    /// </summary>
+    /// <param name="computation">Computation to be executed in every worker.</param>
+    static member Parallel(computation : Cloud<'T>) = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+        let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
+        let workflow = runtime.ScheduleParallel (workers |> Seq.map (fun w -> computation, Some w))
+        return! Cloud.WithAppendedStackTrace "Cloud.EveryWhere[T](Cloud<T> computation)" workflow
+    }
+
+    /// <summary>
+    ///     Creates a cloud computation that will execute given computations to targeted workers
+    ///     possibly in parallel and if successful returns the array of gathered results.
+    ///     This operator may create distribution.
+    ///     Exceptions raised by children carry cancellation semantics.
+    /// </summary>
+    /// <param name="computations">Input computations to be executed in parallel.</param>
+    static member Parallel (computations : seq<Cloud<'T> * IWorkerRef>) : Cloud<'T []> = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+        let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun (c,w) -> c,Some w))
+        return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T> * IWorkerRef> computations)" workflow
+    }
+
+    /// <summary>
+    ///     Returns a cloud computation that will execute given computations
+    ///     possibly in parallel and will return when any of the supplied computations
+    ///     have returned a successful value or if all of them fail to succeed. 
+    ///     If a computation succeeds the rest of them are canceled.
+    ///     The success of a computation is encoded as an option type.
+    ///     This operator may create distribution.
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Choice (computations : seq<Cloud<'T option>>) : Cloud<'T option> = cloud {
         let! runtime = Cloud.GetResource<IRuntimeProvider> ()
-        let workflow = runtime.ScheduleChoice computations
+        let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun c -> c,None))
         return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option>> computations)" workflow
+    }
+
+    /// <summary>
+    ///     Returns a cloud computation that will execute the given computation on every available worker
+    ///     possibly in parallel and will return when any of the supplied computations
+    ///     have returned a successful value or if all of them fail to succeed. 
+    ///     If a computation succeeds the rest of them are canceled.
+    ///     The success of a computation is encoded as an option type.
+    ///     This operator may create distribution.
+    /// </summary>
+    /// <param name="computation">Input computation to be executed everywhere.</param>
+    static member Choice (computation : Cloud<'T option>) : Cloud<'T option> = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+        let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
+        let workflow = runtime.ScheduleChoice (workers |> Seq.map (fun w -> computation,Some w))
+        return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](Cloud<T option> computation)" workflow
+    }
+
+    /// <summary>
+    ///     Returns a cloud computation that will execute the given computation on every available worker
+    ///     possibly in parallel and will return when any of the supplied computations
+    ///     have returned a successful value or if all of them fail to succeed. 
+    ///     If a computation succeeds the rest of them are canceled.
+    ///     The success of a computation is encoded as an option type.
+    ///     This operator may create distribution.
+    /// </summary>
+    /// <param name="computations">Input computations to be executed in parallel.</param>
+    static member Choice (computations : seq<Cloud<'T option> * IWorkerRef>) : Cloud<'T option> = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
+        let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun (c,w) -> c,Some w))
+        return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option> * IWorkerRef> computations)" workflow
     }
 
     /// <summary>

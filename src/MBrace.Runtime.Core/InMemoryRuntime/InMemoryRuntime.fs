@@ -23,6 +23,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
         member __.ProcessId = "in memory process"
         member __.TaskId = taskId
         member __.Logger = logger
+        member __.IsTargetedWorkerSupported = false
         member __.GetAvailableWorkers () = async {
             return raise <| new System.NotSupportedException("'GetAvailableWorkers' not supported in InMemory runtime.")
         }
@@ -42,11 +43,29 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
         member __.WithFaultPolicy newFp = new ThreadPoolRuntime(context, newFp, logger) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
+            let computations =
+                computations
+                |> Seq.map (fun (c,w) ->
+                    if Option.isSome w then
+                        raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime.")
+                    else
+                        c)
+                |> Seq.toArray
+
             match context with
             | Sequential -> Sequential.Parallel computations
             | _ -> ThreadPool.Parallel computations
 
         member __.ScheduleChoice computations = 
+            let computations =
+                computations
+                |> Seq.map (fun (c,w) ->
+                    if Option.isSome w then
+                        raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime.")
+                    else
+                        c)
+                |> Seq.toArray
+
             match context with
             | Sequential -> Sequential.Choice computations
             | _ -> ThreadPool.Choice computations

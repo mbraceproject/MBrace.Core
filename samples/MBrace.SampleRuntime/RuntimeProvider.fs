@@ -20,7 +20,7 @@ open MBrace.SampleRuntime.Tasks
 
 /// IWorkerRef implementation for the runtime
 type Worker(procId : string) =
-    let id = sprintf "sample runtime worker (id %s)" procId
+    let id = sprintf "sample runtime worker (pid %s)" procId
     interface IWorkerRef with
         member __.Id = id
         member __.Type = "sample runtime worker node"
@@ -28,6 +28,14 @@ type Worker(procId : string) =
             match other with
             | :? Worker as w -> compare id (w :> IWorkerRef).Id
             | _ -> invalidArg "other" "invalid comparand."
+
+    override __.ToString() = id
+    override __.Equals other = 
+        match other with
+        | :? Worker as w -> id = (w :> IWorkerRef).Id
+        | _ -> false
+
+    override __.GetHashCode() = id.GetHashCode()
 
     static member LocalWorker = new Worker(Process.GetCurrentProcess().Id.ToString())
     static member RemoteWorker(id: string) = new Worker(id)
@@ -50,6 +58,13 @@ type ActorChannelProvider (state : RuntimeState) =
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies, faultPolicy, taskId, context) =
 
+    let failTargetWorker () = invalidOp <| sprintf "Cannot target worker when running in '%A' execution context" context
+
+    let extractComputations (computations : seq<Cloud<_> * IWorkerRef option>) =
+        computations
+        |> Seq.map (fun (c,w) -> if Option.isSome w then failTargetWorker () else c)
+        |> Seq.toArray
+
     /// Creates a runtime provider instance for a provided task
     static member FromTask state procInfo dependencies (task : Task) =
         new RuntimeProvider(state, procInfo, dependencies, task.FaultPolicy, task.TaskId, Distributed)
@@ -66,21 +81,27 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         member __.WithFaultPolicy newPolicy = 
             new RuntimeProvider(state, procInfo, dependencies, newPolicy, taskId, context) :> IRuntimeProvider
 
+        member __.IsTargetedWorkerSupported = 
+            match context with
+            | Distributed -> true
+            | _ -> false
+
         member __.ScheduleParallel computations = 
             match context with
             | Distributed -> Combinators.Parallel state procInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Parallel computations
-            | Sequential -> Sequential.Parallel computations
+            | ThreadParallel -> ThreadPool.Parallel (extractComputations computations)
+            | Sequential -> Sequential.Parallel (extractComputations computations)
 
         member __.ScheduleChoice computations = 
             match context with
             | Distributed -> Combinators.Choice state procInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Choice computations
-            | Sequential -> Sequential.Choice computations
+            | ThreadParallel -> ThreadPool.Choice (extractComputations computations)
+            | Sequential -> Sequential.Choice (extractComputations computations)
 
-        member __.ScheduleStartChild(computation,_,_) =
+        member __.ScheduleStartChild(computation,worker,_) =
             match context with
-            | Distributed -> Combinators.StartChild state procInfo dependencies faultPolicy computation
+            | Distributed -> Combinators.StartChild state procInfo dependencies faultPolicy worker computation
+            | _ when Option.isSome worker -> failTargetWorker ()
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 

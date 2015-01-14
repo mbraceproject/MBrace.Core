@@ -10,7 +10,7 @@ open MBrace.SampleRuntime
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
-let runtime = MBraceRuntime.InitLocal(4)
+let runtime = MBraceRuntime.InitLocal(10)
 
 runtime.Run(
     cloud {
@@ -61,3 +61,17 @@ let t2 = runtime.RunAsTask(Cloud.Sleep 20000)
 let t3 = runtime.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
 
 t1.Result
+
+let rec stackOverflow () = 1 + stackOverflow()
+
+let rec test () = cloud {
+    try
+        let! wf = Cloud.StartChild(cloud { return stackOverflow() })
+        return! wf
+    with _ -> 
+        return! test ()
+//        let! wf = Cloud.StartChild(test ())
+//        return! wf
+}
+
+runtime.Run(test(), faultPolicy = FaultPolicy.NoRetry)

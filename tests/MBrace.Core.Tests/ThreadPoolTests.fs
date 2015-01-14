@@ -39,7 +39,7 @@ module ``ThreadPool Parallelism Tests`` =
 
     [<Test>]
     let ``Parallel : empty input`` () =
-        run (Cloud.Parallel [||]) |> Choice.shouldEqual [||]
+        run (Cloud.Parallel Array.empty<Cloud<int>> ) |> Choice.shouldEqual [||]
 
     [<Test>]
     let ``Parallel : simple inputs`` () =
@@ -174,7 +174,7 @@ module ``ThreadPool Parallelism Tests`` =
 
     [<Test>]
     let ``Choice : empty input`` () =
-        Cloud.Choice [] |> run |> Choice.shouldEqual None
+        Cloud.Choice List.empty<Cloud<int option>> |> run |> Choice.shouldEqual None
 
     [<Test>]
     [<Repeat(repeats)>]

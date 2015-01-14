@@ -74,7 +74,7 @@ type MBraceRuntime private (logger : string -> unit) =
         let! cts = state.ResourceFactory.RequestCancellationTokenSource()
         try
             cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-            let! resultCell = state.StartAsCell processInfo computation.Dependencies cts faultPolicy computation.Workflow
+            let! resultCell = state.StartAsCell processInfo computation.Dependencies cts faultPolicy None computation.Workflow
             let! result = resultCell.AwaitResult()
             return result.Value
         finally

@@ -57,7 +57,7 @@ module ``SampleRuntime Tests`` =
 
     [<Test>]
     let ``1. Parallel : empty input`` () =
-        run (Cloud.Parallel [||]) |> Choice.shouldEqual [||]
+        run (Cloud.Parallel List.empty<Cloud<int>>) |> Choice.shouldEqual [||]
 
     [<Test>]
     let ``1. Parallel : simple inputs`` () =
@@ -266,8 +266,34 @@ module ``SampleRuntime Tests`` =
         wordCount 1000 MapReduce.mapReduce |> run |> Choice.shouldEqual 5000
 
     [<Test>]
+    [<Repeat(repeats)>]
+    let ``1. Parallel : to all workers`` () =
+        cloud {
+            let! workers = Cloud.GetAvailableWorkers()
+            let! results = Cloud.Parallel Cloud.CurrentWorker
+            return set results = set workers
+        } |> run |> Choice.shouldEqual true
+
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``1. Parallel : to current worker`` () =
+        cloud {
+            let! thisWorker = Cloud.CurrentWorker
+            let! results = Cloud.Parallel [(Cloud.CurrentWorker, thisWorker)]
+            return results.[0] = thisWorker
+        } |> run |> Choice.shouldEqual true
+
+    [<Test>]
+    let ``1. Parallel : to all workers in local semantics`` () =
+        Cloud.CurrentWorker
+        |> Cloud.Parallel
+        |> Cloud.ToLocal
+        |> run
+        |> Choice.shouldFailwith<_, InvalidOperationException>
+
+    [<Test>]
     let ``2. Choice : empty input`` () =
-        Cloud.Choice [] |> run |> Choice.shouldEqual None
+        Cloud.Choice List.empty<Cloud<int option>> |> run |> Choice.shouldEqual None
 
     [<Test>]
     [<Repeat(repeats)>]
@@ -416,6 +442,32 @@ module ``SampleRuntime Tests`` =
             return result, counter.Value
         } |> run |> Choice.shouldEqual (Some(), 17)
 
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``2. Choice : to all workers`` () =
+        cloud {
+            let! workers = Cloud.GetAvailableWorkers()
+            let latch = Latch.Init 0
+            let! _ = Cloud.Choice (cloud { let _ = latch.Incr() in return Option<int>.None })
+            return latch.Value = workers.Length
+        } |> run |> Choice.shouldEqual true
+
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``2. Choice : to current worker`` () =
+        cloud {
+            let! thisWorker = Cloud.CurrentWorker
+            let! results = Cloud.Choice [(cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
+            return results.Value = thisWorker
+        } |> run |> Choice.shouldEqual true
+
+    [<Test>]
+    let ``2. Choice : to all workers in local semantics`` () =
+        cloud { return Some 42 }
+        |> Cloud.Choice
+        |> Cloud.ToLocal
+        |> run
+        |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
     [<Repeat(repeats)>]
@@ -475,6 +527,16 @@ module ``SampleRuntime Tests`` =
 
         // ensure final increment was cancelled.
         count.Value |> should equal 1
+
+    [<Test>]
+    [<Repeat(repeats)>]
+    let ``3. StartChild: to current worker`` () =
+        cloud {
+            let! currentWorker = Cloud.CurrentWorker
+            let! ch = Cloud.StartChild(Cloud.CurrentWorker, target = currentWorker)
+            let! result = ch
+            return result = currentWorker
+        } |> run |> Choice.shouldEqual true
 
 
     [<Test>]

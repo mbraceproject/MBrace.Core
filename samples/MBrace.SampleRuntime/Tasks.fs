@@ -140,6 +140,45 @@ with
             return! TaskExecutionMonitor.AwaitCompletion tem
         }
 
+
+/// Type of pickled task as represented in the task queue
+type PickledTask = 
+    {
+        Task : Pickle<Task> 
+        Dependencies : AssemblyId list 
+        Target : IWorkerRef option
+    }
+with
+    /// <summary>
+    ///     Create a pickled task out of given cloud workflow and continuations
+    /// </summary>
+    /// <param name="dependencies">Vagrant dependency manifest.</param>
+    /// <param name="cts">Distributed cancellation token source.</param>
+    /// <param name="sc">Success continuation</param>
+    /// <param name="ec">Exception continuation</param>
+    /// <param name="cc">Cancellation continuation</param>
+    /// <param name="wf">Workflow</param>
+    static member CreateTask procInfo dependencies cts fp sc ec cc worker (wf : Cloud<'T>) : PickledTask =
+        let taskId = System.Guid.NewGuid().ToString()
+        let startTask ctx =
+            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
+            Cloud.StartWithContinuations(wf, cont, ctx)
+
+        let task = 
+            { 
+                Type = typeof<'T>
+                ProcessInfo = procInfo
+                TaskId = taskId
+                StartTask = startTask
+                FaultPolicy = fp
+                Econt = ec
+                CancellationTokenSource = cts
+            }
+
+        let taskp = VagrantRegistry.Pickler.PickleTyped task
+
+        { Task = taskp ; Dependencies = dependencies ; Target = worker }
+
 /// Defines a handle to the state of a runtime instance
 /// All information pertaining to the runtime execution state
 /// is contained in a single process -- the initializing client.
@@ -149,7 +188,7 @@ type RuntimeState =
         IPEndPoint : System.Net.IPEndPoint
         /// Reference to the global task queue employed by the runtime
         /// Queue contains pickled task and its vagrant dependency manifest
-        TaskQueue : Queue<Pickle<Task> * AssemblyId list>
+        TaskQueue : Queue<PickledTask>
         /// Reference to a Vagrant assembly exporting actor.
         AssemblyExporter : AssemblyExporter
         /// Reference to the runtime resource manager
@@ -173,7 +212,7 @@ with
         }
 
     /// <summary>
-    ///     Enqueue a cloud workflow with supplied continuations to the runtime task queue.
+    ///     Create a pickled task out of given cloud workflow and continuations
     /// </summary>
     /// <param name="dependencies">Vagrant dependency manifest.</param>
     /// <param name="cts">Distributed cancellation token source.</param>
@@ -181,25 +220,14 @@ with
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
-    member rt.EnqueueTask procInfo dependencies cts fp sc ec cc (wf : Cloud<'T>) =
-        let taskId = System.Guid.NewGuid().ToString()
-        let startTask ctx =
-            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartWithContinuations(wf, cont, ctx)
+    member rt.EnqueueTask procInfo dependencies cts fp sc ec cc worker (wf : Cloud<'T>) : unit =
+        rt.TaskQueue.Enqueue <| PickledTask.CreateTask procInfo dependencies cts fp sc ec cc worker wf
 
-        let task = 
-            { 
-                Type = typeof<'T>
-                ProcessInfo = procInfo
-                TaskId = taskId
-                StartTask = startTask
-                FaultPolicy = fp
-                Econt = ec
-                CancellationTokenSource = cts
-            }
-
-        let taskp = VagrantRegistry.Pickler.PickleTyped task
-        rt.TaskQueue.Enqueue(taskp, dependencies)
+    /// <summary>
+    ///     Atomically schedule a collection of tasks
+    /// </summary>
+    /// <param name="tasks">Tasks to be enqueued</param>
+    member rt.EnqueueTasks tasks = rt.TaskQueue.EnqueueMultiple tasks
 
     /// <summary>
     ///     Schedules a cloud workflow as a distributed result cell.
@@ -208,7 +236,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell procInfo dependencies cts fp (wf : Cloud<'T>) = async {
+    member rt.StartAsCell procInfo dependencies cts fp worker (wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let setResult ctx r = 
             async {
@@ -219,17 +247,32 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        rt.EnqueueTask procInfo dependencies cts fp scont econt ccont wf
+        rt.EnqueueTask procInfo dependencies cts fp scont econt ccont worker wf
         return resultCell
     }
 
     /// Attempt to dequeue a task from the runtime task queue
-    member rt.TryDequeue () = async {
-        let! item = rt.TaskQueue.TryDequeue()
+    member rt.TryDequeue (currentWorker : IWorkerRef) = async {
+        // checker lambda to be run by Queue actor
+        let checkApplicable (pt : PickledTask) =
+            match pt.Target with
+            // task not applicable to specific worker, approve dequeue
+            | None -> true
+            // task applicable to current worker, approve dequeue
+            | Some w when w = currentWorker -> true
+            | Some w ->
+                // worker not applicable to current worker, check if worker has been disposed
+                let workers = rt.Workers.GetValue() |> Async.RunSync
+                if Array.exists ((=) currentWorker) workers then
+                    false
+                else
+                    true
+
+        let! item =  rt.TaskQueue.TryDequeue checkApplicable
         match item with
         | None -> return None
-        | Some ((tp, deps), faultCount, leaseMonitor) -> 
-            do! rt.AssemblyExporter.LoadDependencies deps
-            let task = VagrantRegistry.Pickler.UnPickleTyped tp
-            return Some (task, deps, faultCount, leaseMonitor)
+        | Some (pt, faultCount, leaseMonitor) -> 
+            do! rt.AssemblyExporter.LoadDependencies pt.Dependencies
+            let task = VagrantRegistry.Pickler.UnPickleTyped pt.Task
+            return Some (task, pt.Dependencies, faultCount, leaseMonitor)
     }

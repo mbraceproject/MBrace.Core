@@ -373,11 +373,13 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
 
 type private QueueMsg<'T> =
     | EnQueue of 'T * (* fault count *) int
-    | TryDequeue of IReplyChannel<('T * (* fault count *) int * LeaseMonitor) option>
+    | EnQueueMultiple of 'T []
+    | TryDequeue of isApplicableMessage:('T -> bool) * IReplyChannel<('T * (* fault count *) int * LeaseMonitor) option>
 
 type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
     static member Empty = new ImmutableQueue<'T>([],[])
     member __.Enqueue t = new ImmutableQueue<'T>(front, t :: back)
+    member __.EnqueueMultiple ts = new ImmutableQueue<'T>(front, List.rev ts @ back)
     member __.TryDequeue () = 
         match front with
         | hd :: tl -> Some(hd, new ImmutableQueue<'T>(tl, back))
@@ -389,7 +391,8 @@ type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
 /// Provides a distributed, fault-tolerant queue implementation
 type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
     member __.Enqueue (t : 'T) = source <-- EnQueue (t, 0)
-    member __.TryDequeue () = source <!- TryDequeue
+    member __.EnqueueMultiple (ts : 'T []) = source <-- EnQueueMultiple ts
+    member __.TryDequeue (check : 'T -> bool) = source <!- fun ch -> TryDequeue(check, ch)
 
     /// Initializes a new distribued queue instance.
     static member Init() =
@@ -397,17 +400,18 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
         let behaviour (queue : ImmutableQueue<'T * int>) msg = async {
             match msg with
             | EnQueue (t, faultCount) -> return queue.Enqueue (t, faultCount)
-            | TryDequeue rc ->
+            | EnQueueMultiple ts -> return ts |> Seq.map (fun t -> (t,0)) |> Seq.toList |> queue.EnqueueMultiple
+            | TryDequeue (check,rc) ->
                 match queue.TryDequeue() with
-                | None ->
-                    do! rc.Reply None
-                    return queue
-
-                | Some((t, faultCount), queue') ->
+                | Some((t, faultCount), queue') when (try check t with _ -> false) ->
                     let putBack, leaseMonitor = LeaseMonitor.Init (TimeSpan.FromSeconds 5.)
                     do! rc.Reply (Some (t, faultCount, leaseMonitor))
                     let _ = putBack.Subscribe(fun () -> self.Value <-- EnQueue (t, faultCount + 1))
                     return queue'
+
+                | _ ->
+                    do! rc.Reply None
+                    return queue
         }
 
         self :=

@@ -19,14 +19,14 @@ let inline private withCancellationToken (cts : DistributedCancellationTokenSour
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq<Cloud<'T>>) =
+let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
-        | Choice1Of2 [||] -> cont.Success ctx [||]
+        | Choice1Of2 [| |] -> cont.Success ctx [||]
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| comp |] ->
+        | Choice1Of2 [| (comp, None) |] ->
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
@@ -69,22 +69,21 @@ let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq
                         TaskExecutionMonitor.TriggerCompletion ctx
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
-            try
-                for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask procInfo dependencies childCts fp (onSuccess i) onException onCancellation computations.[i]
-            with e ->
-                childCts.Cancel() ; return! Async.Raise e
+            // Create tasks and enqueue
+            computations
+            |> Array.mapi (fun i (c,w) -> PickledTask.CreateTask procInfo dependencies childCts fp (onSuccess i) onException onCancellation w c)
+            |> state.EnqueueTasks
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<Cloud<'T option>>) =
+let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
+        | Choice1Of2 [| (comp, None) |] -> Cloud.StartWithContinuations(comp, cont, ctx)
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in cont closures
@@ -136,18 +135,17 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<C
                         TaskExecutionMonitor.TriggerCompletion ctx
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
-            try
-                for i = 0 to computations.Length - 1 do
-                    state.EnqueueTask procInfo dependencies childCts fp onSuccess onException onCancellation computations.[i]
-            with e ->
-                childCts.Cancel() ; return! Async.Raise e
+            // create child tasks
+            computations
+            |> Array.mapi (fun i (c,w) -> PickledTask.CreateTask procInfo dependencies childCts fp onSuccess onException onCancellation w c)
+            |> state.EnqueueTasks
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartChild (state : RuntimeState) procInfo dependencies fp (computation : Cloud<'T>) = cloud {
+let StartChild (state : RuntimeState) procInfo dependencies fp worker (computation : Cloud<'T>) = cloud {
     let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell procInfo dependencies cts fp computation
+    let! resultCell = Cloud.OfAsync <| state.StartAsCell procInfo dependencies cts fp worker computation
     return cloud { 
         let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
         return result.Value
