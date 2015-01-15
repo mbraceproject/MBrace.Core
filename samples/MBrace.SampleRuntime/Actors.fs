@@ -371,10 +371,10 @@ type LeaseMonitor private (threshold : TimeSpan, source : ActorRef<LeaseMonitorM
 //  Distributed, fault-tolerant queue implementation
 //
 
-type private QueueMsg<'T> =
+type private QueueMsg<'T, 'DequeueToken> =
     | EnQueue of 'T * (* fault count *) int
     | EnQueueMultiple of 'T []
-    | TryDequeue of shouldDequeue:('T -> bool) * IReplyChannel<('T * (* fault count *) int * LeaseMonitor) option>
+    | TryDequeue of 'DequeueToken * IReplyChannel<('T * (* fault count *) int * LeaseMonitor) option>
 
 type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
     static member Empty = new ImmutableQueue<'T>([],[])
@@ -389,21 +389,21 @@ type private ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
             | hd :: tl -> Some(hd, new ImmutableQueue<'T>(tl, []))
 
 /// Provides a distributed, fault-tolerant queue implementation
-type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
+type Queue<'T, 'DequeueToken> private (source : ActorRef<QueueMsg<'T, 'DequeueToken>>) =
     member __.Enqueue (t : 'T) = source <-- EnQueue (t, 0)
     member __.EnqueueMultiple (ts : 'T []) = source <-- EnQueueMultiple ts
-    member __.TryDequeue (check : 'T -> bool) = source <!- fun ch -> TryDequeue(check, ch)
+    member __.TryDequeue (token) = source <!- fun ch -> TryDequeue(token, ch)
 
     /// Initializes a new distribued queue instance.
-    static member Init() =
-        let self = ref Unchecked.defaultof<ActorRef<QueueMsg<'T>>>
+    static member Init(shouldDequeue : 'DequeueToken -> 'T -> bool) =
+        let self = ref Unchecked.defaultof<ActorRef<QueueMsg<'T, 'DequeueToken>>>
         let behaviour (queue : ImmutableQueue<'T * int>) msg = async {
             match msg with
             | EnQueue (t, faultCount) -> return queue.Enqueue (t, faultCount)
             | EnQueueMultiple ts -> return ts |> Seq.map (fun t -> (t,0)) |> Seq.toList |> queue.EnqueueMultiple
-            | TryDequeue (shouldDequeue,rc) ->
+            | TryDequeue (dt, rc) ->
                 match queue.TryDequeue() with
-                | Some((t, faultCount), queue') when (try shouldDequeue t with _ -> false) ->
+                | Some((t, faultCount), queue') when (try shouldDequeue dt t with _ -> false) ->
                     let putBack, leaseMonitor = LeaseMonitor.Init (TimeSpan.FromSeconds 5.)
                     do! rc.Reply (Some (t, faultCount, leaseMonitor))
                     let _ = putBack.Subscribe(fun () -> self.Value <-- EnQueue (t, faultCount + 1))
@@ -419,7 +419,7 @@ type Queue<'T> private (source : ActorRef<QueueMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Queue<'T>(self.Value)
+        new Queue<'T, 'DequeueToken>(self.Value)
 
 //
 //  Defines a distributed channel implementation

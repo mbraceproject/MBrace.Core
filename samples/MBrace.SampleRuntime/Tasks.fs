@@ -188,7 +188,7 @@ type RuntimeState =
         IPEndPoint : System.Net.IPEndPoint
         /// Reference to the global task queue employed by the runtime
         /// Queue contains pickled task and its vagrant dependency manifest
-        TaskQueue : Queue<PickledTask>
+        TaskQueue : Queue<PickledTask, IWorkerRef>
         /// Reference to a Vagrant assembly exporting actor.
         AssemblyExporter : AssemblyExporter
         /// Reference to the runtime resource manager
@@ -202,11 +202,23 @@ type RuntimeState =
 with
     /// Initialize a new runtime state in the local process
     static member InitLocal (logger : string -> unit) (getWorkers : unit -> IWorkerRef []) =
+        // task dequeue predicate -- checks if task is assigned to particular target
+        let shouldDequeue (dequeueingWorker : IWorkerRef) (pt : PickledTask) =
+            match pt.Target with
+            // task not applicable to specific worker, approve dequeue
+            | None -> true
+            | Some w ->
+                // task applicable to current worker, approve dequeue
+                if w = dequeueingWorker then true
+                else
+                    // worker not applicable to current worker, dequeue if target worker has been disposed
+                    getWorkers () |> Array.forall ((<>) dequeueingWorker)
+
         {
             IPEndPoint = MBrace.SampleRuntime.Config.getLocalEndpoint()
             Workers = Cell.Init getWorkers
             Logger = Logger.Init logger
-            TaskQueue = Queue<_>.Init ()
+            TaskQueue = Queue<_,_>.Init shouldDequeue
             AssemblyExporter = AssemblyExporter.Init()
             ResourceFactory = ResourceFactory.Init ()
         }
@@ -253,21 +265,7 @@ with
 
     /// Attempt to dequeue a task from the runtime task queue
     member rt.TryDequeue (dequeueingWorker : IWorkerRef) = async {
-        // task dequeue predicate -- checks if task is assigned to particular target
-        let workerCell = rt.Workers
-        let shouldDequeue (pt : PickledTask) =
-            match pt.Target with
-            // task not applicable to specific worker, approve dequeue
-            | None -> true
-            // task applicable to current worker, approve dequeue
-            | Some w when w = dequeueingWorker -> true
-            | Some w ->
-                // worker not applicable to current worker, dequeue if target worker has been disposed
-                workerCell.GetValue() 
-                |> Async.RunSync
-                |> Array.forall ((<>) dequeueingWorker)
-
-        let! item =  rt.TaskQueue.TryDequeue shouldDequeue
+        let! item =  rt.TaskQueue.TryDequeue dequeueingWorker
         match item with
         | None -> return None
         | Some (pt, faultCount, leaseMonitor) -> 
