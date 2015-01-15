@@ -183,19 +183,24 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
                 return! sourceStore.BeginRead path
         }
         
-        member x.BeginWrite(path: string): Async<Stream> = async {
+        member x.Write(path: string, writer : Stream -> Async<'R>): Async<'R> = async {
             if cacheBehavior.HasFlag CacheBehavior.OnWrite then
                 let cachedFile = getCachedFileName path
-                // check if file exists in local cache first.
-                let! cachedFileExists = Async.StartChild(localCacheStore.FileExists cachedFile)
-                let! sourceStream = sourceStore.BeginWrite path
-                let! cachedFileExists = cachedFileExists
+                // check if files exist
+                let! cachedFileExists, sourceFileExists = Async.Parallel(localCacheStore.FileExists cachedFile, sourceStore.FileExists path)
+                // fail if source path exists in store, delete local copy if already cached
+                if sourceFileExists then raise <| IOException(sprintf "The file '%s' already exists in store." path)
                 if cachedFileExists then do! retryAsync (RetryPolicy.Retry(3, 0.5<sec>)) (localCacheStore.DeleteFile cachedFile)
-                let! cacheStream = localCacheStore.BeginWrite(getCachedFileName path)
+                // write contents to local cache store
+                let! r = localCacheStore.Write(cachedFile, writer)
+                // use stream copying API writing to remote store
+                use! stream = localCacheStore.BeginRead cachedFile
+                in do! sourceStore.OfStream(stream, path)
+                // trigger cache event and return result
                 let _ = cacheEvent.TriggerAsTask(sourceStore, path)
-                return new StreamCombiner(sourceStream, cacheStream) :> Stream
+                return r
             else
-                return! sourceStore.BeginWrite path
+                return! sourceStore.Write(path, writer)
         }
         
         member x.Combine(paths: string []): string = sourceStore.Combine paths

@@ -82,9 +82,11 @@ type CloudRef<'T> =
     static member Create(value : 'T, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let uuid = Guid.NewGuid().ToString()
         let path = fileStore.GetRandomFilePath directory
-        use! stream = fileStore.BeginWrite path 
-        serializer.Serialize(stream, { Type = typeof<'T> ; UUID = uuid }, leaveOpen = true)
-        serializer.Serialize(stream, value, leaveOpen = false)
+        let writer (stream : Stream) = async {
+            serializer.Serialize(stream, { Type = typeof<'T> ; UUID = uuid }, leaveOpen = true)
+            serializer.Serialize(stream, value, leaveOpen = false)
+        }
+        do! fileStore.Write(path, writer)
         return new CloudRef<'T>(uuid, path, fileStore, serializer)
     }
 

@@ -162,8 +162,10 @@ type CloudSequence<'T> =
     /// <param name="serializer">Serializer instance.</param>
     static member Create (values : seq<'T>, directory : string, fileStore : ICloudFileStore, serializer : ISerializer) = async {
         let path = fileStore.GetRandomFilePath directory
-        use! stream = fileStore.BeginWrite path
-        let length = serializer.SeqSerialize<'T>(stream, values, leaveOpen = false)
+        let writer (stream : Stream) = async {
+            return serializer.SeqSerialize<'T>(stream, values, leaveOpen = false)
+        }
+        let! length = fileStore.Write(path, writer)
         return new CloudSequence<'T>(path, Some length, fileStore, serializer)
     }
 
@@ -185,9 +187,11 @@ type CloudSequence<'T> =
             let partitionedValues = PartitionedEnumerable.ofSeq splitNext values
             for partition in partitionedValues do
                 let path = fileStore.GetRandomFilePath directory
-                use! stream = fileStore.BeginWrite path
-                currentStream := stream
-                let length = serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false)
+                let writer (stream : Stream) = async {
+                    currentStream := stream
+                    return serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false)
+                }
+                let! length = fileStore.Write(path, writer)
                 let seq = new CloudSequence<'T>(path, Some length, fileStore, serializer)
                 seqs.Add seq
 

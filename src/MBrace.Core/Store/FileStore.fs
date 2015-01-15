@@ -114,7 +114,8 @@ type ICloudFileStore =
     ///     Creates a new file in store. If successful returns a writing stream.
     /// </summary>
     /// <param name="path">Path to new file.</param>
-    abstract BeginWrite : path:string -> Async<Stream>
+    /// <param name="writer">Asynchronous writer function.</param>
+    abstract Write : path:string * writer:(Stream -> Async<'R>) -> Async<'R>
 
     /// <summary>
     ///     Reads from an existing file in store. If successful returns a reading stream.
@@ -149,24 +150,14 @@ type CloudFileStoreConfiguration =
 module CloudFileStoreUtils =
     
     type ICloudFileStore with
-        // TODO : retry policy?
-        /// <summary>
-        ///     Creates a new file in store with provided serializer function.
-        /// </summary>
-        /// <param name="serializer">Serializer function.</param>
-        /// <param name="path">Path to file. Defaults to auto-generated path.</param>
-        member cfs.Create(serializer : Stream -> Async<unit>, path : string) = async {
-            use! stream = cfs.BeginWrite path
-            do! serializer stream
-        }
 
         /// <summary>
         ///     Reads file in store with provided deserializer function.
         /// </summary>
         /// <param name="deserializer">Deserializer function.</param>
         /// <param name="path">Path to file.</param>
-        member cfs.ReadAsync<'T>(deserializer : Stream -> Async<'T>, path : string) = async {
-            use! stream = cfs.BeginWrite path
+        member cfs.Read<'T>(deserializer : Stream -> Async<'T>, path : string) = async {
+            use! stream = cfs.BeginRead path
             return! deserializer stream
         }
 
@@ -356,7 +347,7 @@ type FileStore =
     static member CreateFile(serializer : Stream -> Async<unit>, ?path : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let path = match path with Some p -> p | None -> fs.FileStore.GetRandomFilePath fs.DefaultDirectory
-        do! Cloud.OfAsync <| fs.FileStore.Create(serializer, path)
+        do! Cloud.OfAsync <| fs.FileStore.Write(path, serializer)
         return path
     }
 
@@ -369,7 +360,7 @@ type FileStore =
     static member CreateFile(serializer : Stream -> Async<unit>, directory : string, fileName : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let path = fs.FileStore.Combine [|directory ; fileName|]
-        do! Cloud.OfAsync <| fs.FileStore.Create(serializer, path)
+        do! Cloud.OfAsync <| fs.FileStore.Write(path, serializer)
         return path
     }
 
@@ -380,5 +371,5 @@ type FileStore =
     /// <param name="path">Path to file.</param>
     static member ReadFile<'T>(deserializer : Stream -> Async<'T>, path : string) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| fs.FileStore.ReadAsync(deserializer, path)
+        return! Cloud.OfAsync <| fs.FileStore.Read(deserializer, path)
     }

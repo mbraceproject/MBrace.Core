@@ -66,9 +66,8 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
         fileStore.FileExists file |> run |> should equal false
 
         // write to file
-        do
-            use stream = fileStore.BeginWrite file |> run
-            for i = 1 to 100 do stream.WriteByte(byte i)
+        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> run
+
 
         fileStore.FileExists file |> run |> should equal true
         fileStore.EnumerateFiles testDirectory |> run |> Array.exists ((=) file) |> should equal true
@@ -87,9 +86,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
     member __.``Get byte count`` () =
         let file = fileStore.GetRandomFilePath testDirectory
         // write to file
-        do
-            use stream = fileStore.BeginWrite file |> run
-            for i = 1 to 100 do stream.WriteByte(byte i)
+        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> run
 
         fileStore.GetFileSize file |> run |> should equal 100
 
@@ -99,9 +96,8 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
     member test.``Create and Read a large file.`` () =
         let data = Array.init (1024 * 1024 * 4) byte
         let file = fileStore.GetRandomFilePath testDirectory
-        do
-            use stream = fileStore.BeginWrite file |> run
-            stream.Write(data, 0, data.Length)
+        
+        fileStore.Write(file, fun stream -> async { stream.Write(data, 0, data.Length) }) |> run
 
         do
             use m = new MemoryStream()

@@ -110,10 +110,11 @@ type FileSystemStore private (rootPath : string) =
             return Directory.EnumerateDirectories(normalize directory) |> Seq.toArray
         }
 
-        member __.BeginWrite(path : string) = async {
+        member __.Write(path : string, writer : Stream -> Async<'R>) = async {
             let path = normalize path
             initDir <| Path.GetDirectoryName path
-            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
+            use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
+            return! writer fs
         }
 
         member __.BeginRead(path : string) = async {
@@ -121,7 +122,9 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member self.OfStream(source : Stream, target : string) = async {
-            use! fs = (self :> ICloudFileStore).BeginWrite target
+            let path = normalize target
+            initDir <| Path.GetDirectoryName path
+            use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
             do! source.CopyToAsync fs
         }
 
