@@ -135,7 +135,7 @@ module internal CloudBuilderUtils =
     let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
     let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
     let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
-        tryFinally (bind (ret t) g) (delay (fun () -> ofAsync (t.Dispose())))
+        tryFinally (bind (ret t) g) (delay t.Dispose)
 
     let inline forM (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =
         let rec loop i () =

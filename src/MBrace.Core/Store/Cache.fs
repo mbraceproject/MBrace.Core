@@ -22,11 +22,11 @@ type ICache =
     /// <param name="key"></param>
     abstract TryFind<'T> : key:string -> 'T option
 
-/// In-Memory cache registration point
-type InMemoryCacheRegistry private () =
-    static let mutable cache : ICache option = None
-
-    /// Gets the global In-Memory cache.
-    static member InstalledCache = cache
-    /// Sets the global In-Memory cache.
-    static member SetCache c = cache <- Some c
+///// In-Memory cache registration point
+//type InMemoryCacheRegistry private () =
+//    static let mutable cache : ICache option = None
+//
+//    /// Gets the global In-Memory cache.
+//    static member InstalledCache = cache
+//    /// Sets the global In-Memory cache.
+//    static member SetCache c = cache <- Some c

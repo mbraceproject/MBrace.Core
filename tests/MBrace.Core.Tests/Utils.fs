@@ -43,6 +43,6 @@ module Choice =
 type DummyDisposable() =
     let isDisposed = ref false
     interface ICloudDisposable with
-        member __.Dispose () = async { isDisposed := true }
+        member __.Dispose () = cloud { isDisposed := true }
 
     member __.IsDisposed = !isDisposed

@@ -28,7 +28,7 @@ type private InMemoryAtom<'T> (initial : 'T) =
         member __.Value = container.Value.Value
         member __.Update(updater, ?maxRetries) = async { return swap updater }
         member __.Force(value) = async { return container := { Value = value } }
-        member __.Dispose () = async.Zero()
+        member __.Dispose () = cloud.Zero()
 
 [<AutoSerializable(false)>]
 type InMemoryAtomProvider () =
@@ -76,7 +76,7 @@ type InMemoryChannelProvider () =
                 {
                     new IReceivePort<'T> with
                         member __.Receive(?timeout : int) = mbox.Receive(?timeout = timeout)
-                        member __.Dispose() = async.Zero()
+                        member __.Dispose() = cloud.Zero()
                 }
 
             return sender, receiver

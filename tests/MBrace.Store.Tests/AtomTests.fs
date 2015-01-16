@@ -26,6 +26,7 @@ type ``Atom Tests`` (atomProvider : ICloudAtomProvider, ?npar, ?nseq) =
     let testContainer = atomProvider.CreateUniqueContainerName()
 
     let run x = Async.RunSync x
+    let runLocal x = Cloud.ToAsync(x, resources = resource { yield atomProvider }) |> run
 
     let npar = defaultArg npar 20
     let nseq = defaultArg nseq 20
@@ -51,7 +52,7 @@ type ``Atom Tests`` (atomProvider : ICloudAtomProvider, ?npar, ?nseq) =
         let atom = atomProvider.CreateAtom(testContainer, value) |> run
         atom.Value |> should equal value
         atom.GetValue() |> run |> should equal value
-        (atom :> ICloudDisposable).Dispose() |> run
+        atom |> Cloud.Dispose |> runLocal
         shouldfail (fun () -> atom.Value |> ignore)
 
     [<Test>]

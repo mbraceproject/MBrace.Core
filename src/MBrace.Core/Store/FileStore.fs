@@ -3,13 +3,6 @@
 open System
 open System.IO
 
-/// Cloud storage entity identifier
-type ICloudStorageEntity =
-    /// Type identifier for entity
-    abstract Type : string
-    /// Entity unique identifier
-    abstract Id : string
-
 /// Defines a cloud file storage abstraction
 type ICloudFileStore =
 
@@ -137,6 +130,13 @@ type ICloudFileStore =
     /// <param name="target">Target stream.</param>
     abstract ToStream : sourceFile:string * target:Stream -> Async<unit>
 
+/// Cloud storage entity identifier
+type ICloudStorageEntity =
+    /// Type identifier for entity
+    abstract Type : string
+    /// Entity unique identifier
+    abstract Id : string
+
 /// Store configuration passed to the continuation execution context
 type CloudFileStoreConfiguration = 
     {
@@ -144,6 +144,10 @@ type CloudFileStoreConfiguration =
         FileStore : ICloudFileStore
         /// Default directory used by current execution context.
         DefaultDirectory : string
+        // Local caching facility
+        Cache : ICache
+        // Default serializer
+        Serializer : ISerializer
     }
 
 [<AutoOpen>]

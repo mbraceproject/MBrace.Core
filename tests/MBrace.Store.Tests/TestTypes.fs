@@ -14,7 +14,8 @@ let rec createTree d = cloud {
 }
 
 let rec getBranchCount (tree : TreeRef<int>) = cloud {
-    match tree.Value with
+    let! value = tree.Value
+    match value with
     | Leaf -> return 0
     | Branch(_,l,r) ->
         let! c,c' = getBranchCount l <||> getBranchCount r

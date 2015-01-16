@@ -172,7 +172,7 @@ type internal FileSystemAtom<'T> (path : string) =
         }
 
     interface ICloudDisposable with
-        member __.Dispose () = async { 
+        member __.Dispose () = cloud { 
             return retry (RetryPolicy.Retry(2, 0.5<sec>)) (fun () -> File.Delete path) 
         }
             

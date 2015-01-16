@@ -30,4 +30,4 @@ type NoWarnAttribute() = inherit System.Attribute()
 /// Denotes handle to a distributable resource that can be disposed of.
 type ICloudDisposable =
     /// Releases any storage resources used by this object.
-    abstract Dispose : unit -> Async<unit>
+    abstract Dispose : unit -> Cloud<unit>

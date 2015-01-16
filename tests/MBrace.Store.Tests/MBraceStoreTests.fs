@@ -38,7 +38,7 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     member __.``CloudRef - Parallel`` () =
         cloud {
             let! ref = CloudRef.New [1 .. 100]
-            let! (x, y) = cloud { return ref.Value.Length } <||> cloud { return ref.Value.Length }
+            let! (x, y) = cloud { let! v = ref.Value in return v.Length } <||> cloud { let! v = ref.Value in return v.Length }
             return x + y
         } |> run |> should equal 200
 
