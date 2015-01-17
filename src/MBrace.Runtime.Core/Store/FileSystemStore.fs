@@ -39,17 +39,13 @@ type FileSystemStore private (rootPath : string) =
     /// <summary>
     ///     Creates a new FileSystemStore instance on given path.
     /// </summary>
-    /// <param name="path">Local or UNC path. Defaults to system temp folder.</param>
+    /// <param name="path">Local or UNC path.</param>
     /// <param name="create">Create directory if missing. Defaults to false.</param>
     /// <param name="cleanup">Cleanup directory if it exists. Defaults to false.</param>
-    static member Create(?path : string, ?create, ?cleanup) =
+    static member Create(path : string, ?create, ?cleanup) =
         let create = defaultArg create false
         let cleanup = defaultArg cleanup false
-
-        let rootPath = 
-            match path with
-            | Some p -> Path.GetFullPath p
-            | None -> Path.Combine(Path.GetTempPath(), "mbrace-local-fs")
+        let rootPath = Path.GetFullPath path
 
         if Directory.Exists rootPath then
             if cleanup then
@@ -65,6 +61,20 @@ type FileSystemStore private (rootPath : string) =
             raise <| new DirectoryNotFoundException(rootPath)
 
         new FileSystemStore(rootPath)
+
+    /// <summary>
+    ///     Creates a local file system store that can be shared between local processes.
+    /// </summary>
+    static member CreateSharedLocal() =
+        let path = Path.Combine(Path.GetTempPath(), "mbrace-local-fs")
+        FileSystemStore.Create(path, create = true, cleanup = false)
+
+    /// <summary>
+    ///     Creates a local file system store that is unique to the current process.
+    /// </summary>
+    static member CreateUniqueLocal() =
+        let path = Path.Combine(Path.GetTempPath(), sprintf "mbrace-cache-%d" <| System.Diagnostics.Process.GetCurrentProcess().Id)
+        FileSystemStore.Create(path, create = true, cleanup = true)
 
     interface ICloudFileStore with
         member __.Name = "FileSystemStore"

@@ -21,6 +21,7 @@ open MBrace.Runtime.Serialization
 
 let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
+let mutable private localCacheStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private fileStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private atomProvider = Unchecked.defaultof<ICloudAtomProvider>
 let mutable private inMemoryCache = Unchecked.defaultof<ICache>
@@ -38,9 +39,11 @@ let private _initRuntimeState () =
     TcpListenerPool.RegisterListener(IPEndPoint.any)
 
     // store initialization
-    FileStoreCache.RegisterLocalFileSystemCache()
+    // TODO : implement task-parametric store configuration
+    let globalStore = FileSystemStore.CreateSharedLocal()
+    localCacheStore <- FileSystemStore.CreateUniqueLocal() :> ICloudFileStore
     inMemoryCache <- InMemoryCache.Create()
-    fileStore <- FileStoreCache.CreateCachedStore(FileSystemStore.Create(create = true, cleanup = false) :> ICloudFileStore)
+    fileStore <- FileStoreCache.Create(globalStore, localCacheStore, localCacheContainer = "cache")
     atomProvider <- FileSystemAtomProvider.Create(create = true, cleanup = false) :> ICloudAtomProvider
 
 /// runtime configuration initializer function

@@ -24,130 +24,35 @@ type CacheBehavior =
     /// Cache on read/write.
     | Default = 3uy
 
-// Combines two write-only streams into one.
-type private StreamCombiner(s1 : Stream, s2 : Stream) =
-    inherit Stream()
-
-    override __.Length = s1.Length
-    override __.ReadTimeout = min s1.ReadTimeout s2.ReadTimeout
-    override __.Position 
-        with get () = s1.Position
-        and set p = s1.Position <- p ; s2.Position <- p
-
-    override __.CanRead = false
-    override __.Read(_,_,_) = raise <| new NotSupportedException()
-
-    override __.CanSeek = s1.CanSeek && s2.CanSeek
-    override __.Seek(i,o) = 
-        let i1 = s1.Seek(i,o) 
-        let i2 = s2.Seek(i,o)
-        i1
-
-    override __.CanTimeout = s1.CanTimeout || s2.CanTimeout
-    override __.WriteTimeout = min s1.WriteTimeout s2.WriteTimeout
-    override __.CanWrite = true
-    override __.WriteByte(b : byte) = s1.WriteByte b ; s2.WriteByte b
-    override __.Write(buf : byte[], offset, count) = s1.Write(buf, offset, count) ; s2.Write(buf, offset, count)
-
-    override __.SetLength l = raise <| new NotSupportedException()
-    override __.Flush () = s1.Flush() ; s2.Flush()
-
-    interface IDisposable with
-        member __.Dispose () = s1.Dispose() ; s2.Dispose()
-
 /// File store caching facility
-[<Sealed; DataContract>]
-type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFileStore, 
-                                cacheBehavior : CacheBehavior, sourceStore : ICloudFileStore) =
-
-    static let cacheEvent = new Event<ICloudFileStore * string> ()
-    
-    [<Literal>]
-    static let defaultContext = "DefaultCacheContext"
-    static let localCaches = new ConcurrentDictionary<string, ICloudFileStore * CacheBehavior> ()
-    static let localCacheContainers = new ConcurrentDictionary<string, string> ()
-    static let getCachedContainerName (ctx : string) (localCacheStore : ICloudFileStore) (store : ICloudFileStore) =
-        let key = sprintf "%s::%O::%s" ctx (store.GetType()) store.Id
-        localCacheContainers.GetOrAdd(key, fun _ -> localCacheStore.CreateUniqueDirectoryPath())
-
-    [<DataMember(Name = "SourceStore")>]
-    let sourceStore = sourceStore
-
-    [<DataMember(Name = "CacheContext")>]
-    let cacheContext = cacheContext
-
-    [<IgnoreDataMember>]
-    let mutable localCacheContainer = getCachedContainerName cacheContext localCacheStore sourceStore
-
-    [<IgnoreDataMember>]
-    let mutable cacheBehavior = cacheBehavior
-
-    [<IgnoreDataMember>]
-    let mutable localCacheStore = localCacheStore
-
-    [<OnDeserialized>]
-    let onDeserialized (_ : StreamingContext) =
-        let ok, (lcs, cb) = localCaches.TryGetValue cacheContext
-        if ok then
-            localCacheStore <- lcs
-            cacheBehavior <- cb
-            localCacheContainer <- getCachedContainerName cacheContext localCacheStore sourceStore
-        else
-            invalidOp <| sprintf "No local cache store has been installed under '%s'." cacheContext
+[<Sealed; AutoSerializable(false)>]
+type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : ICloudFileStore, 
+                                cacheBehavior : CacheBehavior, localCacheContainer : string) =
 
     let getCachedFileName (path : string) = localCacheStore.Combine [|localCacheContainer ; Convert.StringToBase32 path|]
-
-    static member OnCache = cacheEvent.Publish
+    let cacheEvent = new Event<string> ()
 
     member this.Container = localCacheContainer
     member this.CacheStore = localCacheStore
     member this.SourceStore = sourceStore
 
     /// <summary>
-    /// Returns locally installed cache stores under given context.
+    ///     Wraps a file store instance in an instance that caches files to a local file store.
     /// </summary>
-    /// <param name="cacheContext">Cache context identifier.</param>
-    static member GetLocalCacheStore(?cacheContext : string) : ICloudFileStore =
-        let cacheContext = defaultArg cacheContext defaultContext
-        match localCaches.TryGetValue(cacheContext) with
-        | true, store -> fst store
-        | false, _    -> invalidOp <| sprintf "No cache declared under context %s." cacheContext
-
-    /// <summary>
-    ///     Installs a local file store cache under given context.
-    /// </summary>
-    /// <param name="localCacheStore">Local cache store.</param>
-    /// <param name="cacheContext">Cache context identifier. Must be identical in all caching nodes.</param>
-    /// <param name="cacheBehavior">Caching behavior. Defaults to all.</param>
-    static member RegisterLocalCacheStore(localCacheStore : ICloudFileStore, ?cacheContext : string, ?cacheBehavior) : unit =
-        let cacheContext = defaultArg cacheContext defaultContext
+    /// <param name="target">Target file store to cache files from.</param>
+    /// <param name="localCacheStore">Local file store to cache files to.</param>
+    /// <param name="cacheBehavior">Caching behavior. Defaults to Read/Write caching.</param>
+    /// <param name="localCacheContainer">Directory in local store to contain cached files. Defaults to self-assigned.</param>
+    static member Create(target : ICloudFileStore, localCacheStore : ICloudFileStore, ?cacheBehavior, ?localCacheContainer) : FileStoreCache =
         let cacheBehavior = defaultArg cacheBehavior CacheBehavior.Default
-        if not <| localCaches.TryAdd(cacheContext, (localCacheStore, cacheBehavior)) then
-            invalidOp <| sprintf "A cache store has already been declared under '%s'." cacheContext
+        let localCacheContainer =
+            match localCacheContainer with 
+            | None -> localCacheStore.CreateUniqueDirectoryPath()
+            | Some c -> c
 
-    /// <summary>
-    ///     Defines a locally specified file system cache store.
-    /// </summary>
-    /// <param name="cacheContext">Cache context identifier. Must be identical in all caching nodes.</param>
-    /// <param name="cacheBehavior">Caching behavior. Defaults to all.</param>
-    static member RegisterLocalFileSystemCache(?cacheContext : string, ?cacheBehavior) : unit =
-        let localPath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-cache-%d" <| System.Diagnostics.Process.GetCurrentProcess().Id)
-        let localFileSystemStore = FileSystemStore.Create(localPath, create = true, cleanup = true)
-        FileStoreCache.RegisterLocalCacheStore(localFileSystemStore, ?cacheContext = cacheContext, ?cacheBehavior = cacheBehavior)
+        do localCacheStore.CreateDirectory(localCacheContainer) |> Async.RunSynchronously
 
-    /// <summary>
-    ///     Creates a file store cache instance.
-    /// </summary>
-    /// <param name="target">Target file store to be cached.</param>
-    /// <param name="cacheContext">Caching context identifier. Must be identical in all caching nodes.</param>
-    static member CreateCachedStore(target : ICloudFileStore, ?cacheContext : string) : FileStoreCache =
-        let cacheContext = defaultArg cacheContext defaultContext
-        let ok, (localCacheStore, cacheBehavior) = localCaches.TryGetValue cacheContext
-        if ok then
-            new FileStoreCache(cacheContext, localCacheStore, cacheBehavior, target)
-        else
-            invalidOp <| sprintf "No local cache store has been installed under '%s'." cacheContext
-            
+        new FileStoreCache(target, localCacheStore, cacheBehavior, localCacheContainer)
 
     interface ICloudFileStore with
         member x.BeginRead(path: string): Async<Stream> = async {
@@ -168,7 +73,7 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
                                 use! stream = sourceStore.BeginRead path
                                 in do! localCacheStore.OfStream(stream, cachedFileName)
 
-                                let _ = cacheEvent.TriggerAsTask(sourceStore, path)
+                                let _ = cacheEvent.TriggerAsTask path
 
                                 return! localCacheStore.BeginRead cachedFileName
                             with e when retries > 0 ->
@@ -197,7 +102,7 @@ type FileStoreCache private (cacheContext : string, localCacheStore : ICloudFile
                 use! stream = localCacheStore.BeginRead cachedFile
                 in do! sourceStore.OfStream(stream, path)
                 // trigger cache event and return result
-                let _ = cacheEvent.TriggerAsTask(sourceStore, path)
+                let _ = cacheEvent.TriggerAsTask path
                 return r
             else
                 return! sourceStore.Write(path, writer)
