@@ -35,7 +35,7 @@ type Worker(procId : string) =
         | :? Worker as w -> id = (w :> IWorkerRef).Id
         | _ -> false
 
-    override __.GetHashCode() = id.GetHashCode()
+    override __.GetHashCode() = hash id
 
     static member LocalWorker = new Worker(Process.GetCurrentProcess().Id.ToString())
     static member RemoteWorker(id: string) = new Worker(id)
