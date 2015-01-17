@@ -68,14 +68,23 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
     /// Creates a runtime provider instance for a provided task
     static member FromTask state procInfo dependencies (task : Task) =
         new RuntimeProvider(state, procInfo, dependencies, task.FaultPolicy, task.TaskId, Distributed)
+
+    /// Creates a runtime provider instance for in-memory computation
+    static member CreateInMemoryRuntime(state, procInfo : ProcessInfo) =
+        new RuntimeProvider(state, procInfo, [], FaultPolicy.NoRetry, "ThreadPool", ThreadParallel)
         
     interface IRuntimeProvider with
         member __.ProcessId = procInfo.ProcessId
         member __.TaskId = taskId
 
         member __.SchedulingContext = context
-        member __.WithSchedulingContext context = 
-            new RuntimeProvider(state, procInfo, dependencies, faultPolicy, taskId, context) :> IRuntimeProvider
+        member __.WithSchedulingContext ctx =
+            match ctx, context with
+            | Distributed, (ThreadParallel | Sequential)
+            | ThreadParallel, Sequential ->
+                invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
+            | _ ->
+                new RuntimeProvider(state, procInfo, dependencies, faultPolicy, taskId, ctx) :> IRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 

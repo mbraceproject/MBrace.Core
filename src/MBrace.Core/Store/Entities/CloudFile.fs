@@ -1,234 +1,421 @@
 ﻿namespace MBrace
 
-//open System
-//open System.Runtime.Serialization
-//open System.Text
-//open System.Threading.Tasks
-//open System.IO
-//
-//open MBrace.Continuation
-//open MBrace.Store
-//
-//#nowarn "444"
-//
-//[<AutoOpen>]
-//module private CloudFileUtils =
-//
-//    type AsyncBuilder with
-//        member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
-//        member ab.Bind(t : Task, cont : unit -> Async<'S>) =
-//            let t0 = t.ContinueWith ignore
-//            ab.Bind(Async.AwaitTask t0, cont)
-//
-///// Represents a file reference bound to specific cloud store instance
-//[<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
-//type CloudFile =
-//
-//    // https://visualfsharp.codeplex.com/workitem/199
-//    [<DataMember(Name = "Path")>]
-//    val mutable private path : string
-//    [<DataMember(Name = "FileStore")>]
-//    val mutable private fileStore : ICloudFileStore
-//
-//    private new (path : string, fileStore : ICloudFileStore) = { path = path ; fileStore = fileStore }
-//
-//    /// Full path to cloud file.
-//    member f.Path = f.path
-//    /// Path of containing folder
-//    member f.DirectoryName = f.fileStore.GetDirectoryName f.path
-//    /// File name
-//    member f.FileName = f.fileStore.GetFileName f.path
-//    /// Cloud store service unique identifier
-//    member f.StoreId = f.fileStore.Id
-//
-//    /// Returns the file size in bytes
-//    member f.GetSizeAsync () = f.fileStore.GetFileSize f.path
-//
-//    /// Asynchronously returns a reading stream to file.
-//    member f.BeginRead () : Async<Stream> = f.fileStore.BeginRead f.path
-//
-//    /// <summary>
-//    ///     Copy file contents to local stream.
-//    /// </summary>
-//    /// <param name="target">Target stream.</param>
-//    member f.CopyToStream (target : Stream) = f.fileStore.ToStream(f.path, target)
-//
-//    /// <summary>
-//    ///     Reads the contents of provided cloud file using provided deserializer.
-//    /// </summary>
-//    /// <param name="file">cloud file to be read.</param>
-//    /// <param name="deserializer">deserializing function.</param>
-//    member f.Read(deserializer : Stream -> Async<'T>) : Async<'T> = async {
-//        use! stream = f.fileStore.BeginRead f.path
-//        return! deserializer stream
-//    }
-//
-//    override f.ToString() = sprintf "CloudFile at %s" f.path
-//    member private c.StructuredFormatDisplay = c.ToString()
-//
-//    interface ICloudDisposable with
-//        member f.Dispose () = f.fileStore.DeleteFile f.path
-//
-//    interface ICloudStorageEntity with
-//        member f.Type = "cloudfile"
-//        member f.Id = f.path
-//
-//    /// <summary>
-//    ///     Create a new CloudFile instance.
-//    /// </summary>
-//    /// <param name="path">Path to cloud file.</param>
-//    /// <param name="fileStore">File store instance.</param>
-//    static member Create(path : string, fileStore : ICloudFileStore) =
-//        new CloudFile(path, fileStore)
-//
-//
-//    /// <summary> 
-//    ///     Create a new file in the storage with the specified folder and name.
-//    ///     Use the serialize function to write to the underlying stream.
-//    /// </summary>
-//    /// <param name="serializer">Function that will write data on the underlying stream.</param>
-//    /// <param name="path">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
-//    static member New(serializer : Stream -> Async<unit>, ?path : string) : Cloud<CloudFile> = cloud {
-//        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-//        let! path = FileStore.CreateFile(serializer, ?path = path)
-//        return new CloudFile(path, config.FileStore)
-//    }
-//
-//    /// <summary> 
-//    ///     Create a new file in the storage with the specified folder and name.
-//    ///     Use the serialize function to write to the underlying stream.
-//    /// </summary>
-//    /// <param name="serializer">Function that will write data on the underlying stream.</param>
-//    /// <param name="path">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
-//    static member New(serializer : Stream -> Async<unit>, directory, fileName) : Cloud<CloudFile> = cloud {
-//        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-//        let! path = FileStore.CreateFile(serializer, directory, fileName)
-//        return new CloudFile(path, config.FileStore)
-//    }
-//
-//    /// <summary>
-//    ///     Returns an existing cloud file instance from provided path.
-//    /// </summary>
-//    /// <param name="path">Input path to cloud file.</param>
-//    static member FromPath(path : string) : Cloud<CloudFile> = cloud {
-//        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-//        return new CloudFile(path, config.FileStore)
-//    }
-//
-//    /// <summary> 
-//    ///     Read the contents of a CloudFile using the given deserialize/reader function.
-//    /// </summary>
-//    /// <param name="cloudFile">CloudFile to read.</param>
-//    /// <param name="deserializer">Function that reads data from the underlying stream.</param>
-//    static member Read(cloudFile : CloudFile, deserializer : Stream -> Async<'T>) : Cloud<'T> =
-//        Cloud.OfAsync <| cloudFile.Read deserializer
-//
-//    /// <summary> 
-//    ///     Returns all files in given directory as CloudFiles.
-//    /// </summary>
-//    /// <param name="directory">Directory to enumerate. Defaults to execution context.</param>
-//    static member Enumerate(?directory : string) : Cloud<CloudFile []> = cloud {
-//        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-//        let directory = match directory with Some d -> d | None -> config.DefaultDirectory
-//        let! files = Cloud.OfAsync <| config.FileStore.EnumerateFiles directory
-//        return files |> Array.map (fun f -> new CloudFile(f, config.FileStore))
-//    }
-//
-//
-//    /// <summary>
-//    ///     Reads a CloudFile as a sequence of lines.
-//    /// </summary>
-//    /// <param name="file">Input CloudFile.</param>
-//    /// <param name="encoding">Text encoding.</param>
-//    static member ReadLines(file : CloudFile, ?encoding : Encoding) = cloud {
-//        let reader (stream : Stream) = async {
-//            let ra = new ResizeArray<string> ()
-//            use sr = 
-//                match encoding with
-//                | None -> new StreamReader(stream)
-//                | Some e -> new StreamReader(stream, e)
-//
-//            do while not sr.EndOfStream do
-//                ra.Add <| sr.ReadLine()
-//
-//            return ra.ToArray()
-//        }
-//
-//        return! CloudFile.Read(file, reader)
-//    }
-//
-//    /// <summary>
-//    ///     Writes a sequence of lines to a given CloudFile path.
-//    /// </summary>
-//    /// <param name="lines">Lines to be written.</param>
-//    /// <param name="encoding">Text encoding.</param>
-//    /// <param name="path">Path to CloudFile.</param>
-//    static member WriteLines(lines : seq<string>, ?encoding : Encoding, ?path : string) = cloud {
-//        let writer (stream : Stream) = async {
-//            use sw = 
-//                match encoding with
-//                | None -> new StreamWriter(stream)
-//                | Some e -> new StreamWriter(stream, e)
-//            for line in lines do
-//                do! sw.WriteLineAsync(line)
-//        }
-//
-//        return! CloudFile.New(writer, ?path = path)
-//    }
-//
-//    /// <summary>
-//    ///     Dump all file contents to a single string.
-//    /// </summary>
-//    /// <param name="file">Input CloudFile.</param>
-//    /// <param name="encoding">Text encoding.</param>
-//    static member ReadAllText(file : CloudFile, ?encoding : Encoding) = cloud {
-//        let reader (stream : Stream) = async {
-//            use sr = 
-//                match encoding with
-//                | None -> new StreamReader(stream)
-//                | Some e -> new StreamReader(stream, e)
-//            return sr.ReadToEnd()
-//        }
-//        return! CloudFile.Read(file, reader)
-//    }
-//
-//    /// <summary>
-//    ///     Writes string contents to given CloudFile.
-//    /// </summary>
-//    /// <param name="text">Input text.</param>
-//    /// <param name="encoding">Output encoding.</param>
-//    /// <param name="path">Path to Cloud file.</param>
-//    static member WriteAllText(text : string, ?encoding : Encoding, ?path : string) = cloud {
-//        let writer (stream : Stream) = async {
-//            use sw = 
-//                match encoding with
-//                | None -> new StreamWriter(stream)
-//                | Some e -> new StreamWriter(stream, e)
-//            do! sw.WriteLineAsync text
-//        }
-//        return! CloudFile.New(writer, ?path = path)
-//    }
-//        
-//    /// <summary>
-//    ///     Dump the contents of given CloudFile as byte[].
-//    /// </summary>
-//    /// <param name="file">Input CloudFile.</param>
-//    static member ReadAllBytes(file : CloudFile) = cloud {
-//        let reader (stream : Stream) = async {
-//            use ms = new MemoryStream()
-//            do! stream.CopyToAsync ms
-//            return ms.ToArray()
-//        }
-//
-//        return! CloudFile.Read(file, reader)
-//    }
-//
-//    /// <summary>
-//    ///     Write buffer contents to CloudFile.
-//    /// </summary>
-//    /// <param name="buffer">Source buffer.</param>
-//    /// <param name="path">Path to Cloud file.</param>
-//    static member WriteAllBytes(buffer : byte [], ?path : string) = cloud {
-//        let writer (stream : Stream) = stream.AsyncWrite(buffer, 0, buffer.Length)
-//        return! CloudFile.New(writer, ?path = path)
-//    }
+open System
+open System.Runtime.Serialization
+open System.Text
+open System.Threading.Tasks
+open System.IO
+
+open MBrace.Continuation
+open MBrace.Store
+
+#nowarn "444"
+
+[<AutoOpen>]
+module private CloudFileUtils =
+
+    type AsyncBuilder with
+        member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
+        member ab.Bind(t : Task, cont : unit -> Async<'S>) =
+            let t0 = t.ContinueWith ignore
+            ab.Bind(Async.AwaitTask t0, cont)
+
+
+/// Generic FileStore utilities
+type FileStore =
+
+    /// Returns the file store instance carried in current execution context.
+    static member Current = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore
+    }
+
+    /// <summary>
+    ///     Returns the directory name for given path.
+    /// </summary>
+    /// <param name="path">Input file path.</param>
+    static member GetDirectoryName(path : string) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore.GetDirectoryName path
+    }
+
+    /// <summary>
+    ///     Returns the file name for given path.
+    /// </summary>
+    /// <param name="path">Input file path.</param>
+    static member GetFileName(path : string) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore.GetFileName path
+    }
+
+    /// <summary>
+    ///     Combines two strings into one path.
+    /// </summary>
+    /// <param name="path1">First path.</param>
+    /// <param name="path2">Second path.</param>
+    static member Combine(path1 : string, path2 : string) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore.Combine [| path1 ; path2 |]
+    }
+
+    /// <summary>
+    ///     Combines an array of paths into a path.
+    /// </summary>
+    /// <param name="paths">Strings to be combined.</param>
+    static member Combine(paths : string []) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore.Combine paths
+    }
+
+    /// <summary>
+    ///     Combines a collection of file names with provided directory prefix.
+    /// </summary>
+    /// <param name="directory">Directory prefix path.</param>
+    /// <param name="fileNames">File names to be combined.</param>
+    static member Combine(directory : string, fileNames : seq<string>) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fileNames |> Seq.map (fun f -> fs.FileStore.Combine [|directory ; f |]) |> Seq.toArray
+    }
+
+    /// Generates a random, uniquely specified path to directory
+    static member CreateUniqueDirectoryPath() = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return fs.FileStore.CreateUniqueDirectoryPath()
+    }
+
+
+/// Represents a directory found in the cloud store
+[<DataContract; Sealed>]
+type CloudDirectory =
+
+    [<DataMember(Name = "Path")>]
+    val mutable private path : string
+
+    /// <summary>
+    ///     Defines a reference to a cloud directory. This will not create a directory in the cloud store.
+    /// </summary>
+    /// <param name="path">Path to directory.</param>
+    new (path : string) = { path = path }
+    
+    /// Path to directory
+    member d.Path = d.path
+
+    interface ICloudDisposable with
+        member d.Dispose () = CloudDirectory.Delete d
+
+    /// <summary>
+    ///     Checks if directory exists in given path
+    /// </summary>
+    /// <param name="directory">Path to directory.</param>
+    static member Exists(directory : string) : Cloud<bool> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return! Cloud.OfAsync <| fs.FileStore.DirectoryExists directory
+    }
+
+    /// <summary>
+    ///     Checks if directory exists in given path
+    /// </summary>
+    /// <param name="directory">Path to directory.</param>
+    static member Exists(directory : CloudDirectory) =
+        CloudDirectory.Exists directory.Path
+
+    /// <summary>
+    ///     Creates a new directory in store.
+    /// </summary>
+    /// <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
+    static member Create(?directory : string) : Cloud<CloudDirectory> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let directory =
+            match directory with
+            | Some d -> d
+            | None -> fs.FileStore.CreateUniqueDirectoryPath()
+
+        do! Cloud.OfAsync <| fs.FileStore.CreateDirectory(directory)
+        return new CloudDirectory(directory)
+    }
+
+    /// <summary>
+    ///     Deletes directory from store.
+    /// </summary>
+    /// <param name="directory">Directory to be deleted.</param>
+    /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+    static member Delete(directory : string, ?recursiveDelete : bool) : Cloud<unit> = cloud {
+        let recursiveDelete = defaultArg recursiveDelete false
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return! Cloud.OfAsync <| fs.FileStore.DeleteDirectory(directory, recursiveDelete = recursiveDelete)
+    }
+
+    /// <summary>
+    ///     Deletes directory from store.
+    /// </summary>
+    /// <param name="directory">Directory to be deleted.</param>
+    /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+    static member Delete(directory : CloudDirectory, ?recursiveDelete : bool) =
+        CloudDirectory.Delete(directory.Path, ?recursiveDelete = recursiveDelete)
+
+    /// <summary>
+    ///     Enumerates all directories contained in path.
+    /// </summary>
+    /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
+    static member Enumerate(?directory : string) : Cloud<CloudDirectory []> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let directory =
+            match directory with
+            | Some d -> d
+            | None -> fs.FileStore.GetRootDirectory()
+
+        let! dirs = Cloud.OfAsync <| fs.FileStore.EnumerateDirectories(directory)
+        return dirs |> Array.map (fun d -> new CloudDirectory(d))
+    }
+
+/// Represents a file found in the cloud store
+[<DataContract; Sealed>]
+type CloudFile =
+
+    [<DataMember(Name = "Path")>]
+    val mutable private path : string
+
+    /// <summary>
+    ///     Defines a reference to a cloud file. This will not create a file in the cloud store.
+    /// </summary>
+    /// <param name="path">Path to file.</param>
+    new (path : string) = { path = path }
+    
+    /// Path to cloud file
+    member f.Path = f.path
+
+    interface ICloudDisposable with
+        member f.Dispose () = CloudFile.Delete f
+
+    /// <summary>
+    ///     Gets the size of provided file, in bytes.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    static member GetSize(path : string) : Cloud<int64> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return! Cloud.OfAsync <| fs.FileStore.GetFileSize path
+    }
+
+    /// <summary>
+    ///     Gets the size of provided file, in bytes.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    static member GetSize(file : CloudFile) =
+        CloudFile.GetSize(file.Path)
+
+    /// <summary>
+    ///     Checks if file exists in store.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    static member Exists(path : string) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return! Cloud.OfAsync <| fs.FileStore.FileExists path
+    }
+
+    /// <summary>
+    ///     Checks if file exists in store.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    static member Exists(file : CloudFile) =
+        CloudFile.Exists(file.Path)
+
+    /// <summary>
+    ///     Deletes file in given path.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    static member Delete(path : string) = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return! Cloud.OfAsync <| fs.FileStore.DeleteFile path
+    }
+
+    /// <summary>
+    ///     Deletes file in given path.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    static member Delete(file : CloudFile) =
+        CloudFile.Delete(file.Path)
+
+    /// <summary>
+    ///     Creates a new file in store with provided serializer function.
+    /// </summary>
+    /// <param name="serializer">Serializer function.</param>
+    /// <param name="path">Path to file. Defaults to auto-generated path.</param>
+    static member Create(serializer : Stream -> Async<unit>, ?path : string) : Cloud<CloudFile> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let path = match path with Some p -> p | None -> fs.FileStore.GetRandomFilePath fs.DefaultDirectory
+        do! Cloud.OfAsync <| fs.FileStore.Write(path, serializer)
+        return new CloudFile(path)
+    }
+
+    /// <summary>
+    ///     Creates a new file in store with provided serializer function.
+    /// </summary>
+    /// <param name="serializer">Serializer function.</param>
+    /// <param name="directory">Containing directory.</param>
+    /// <param name="fileName">File name.</param>
+    static member Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Cloud<CloudFile> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let path = fs.FileStore.Combine [|directory ; fileName|]
+        do! Cloud.OfAsync <| fs.FileStore.Write(path, serializer)
+        return new CloudFile(path)
+    }
+
+    /// <summary>
+    ///     Reads file in store with provided deserializer function.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    /// <param name="deserializer">Deserializer function.</param>
+    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Cloud<'T> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return! Cloud.OfAsync <| fs.FileStore.Read(deserializer, path)
+    }
+
+    /// <summary>
+    ///     Reads file in store with provided deserializer function.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="deserializer">Deserializer function.</param>
+    static member Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>) : Cloud<'T> = 
+        CloudFile.Read(file.Path, deserializer)
+
+    /// <summary>
+    ///     Gets all files that exist in given container.
+    /// </summary>
+    /// <param name="directory">Path to directory. Defaults to the process directory.</param>
+    static member Enumerate(?directory : string) : Cloud<CloudFile []> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let directory =
+            match directory with
+            | Some d -> d
+            | None -> fs.DefaultDirectory
+
+        let! paths = Cloud.OfAsync <| fs.FileStore.EnumerateFiles(directory)
+        return paths |> Array.map (fun path -> new CloudFile(path))
+    }
+
+    //
+    //  Cloud file text utilities
+    //
+
+    /// <summary>
+    ///     Writes a sequence of lines to a given CloudFile path.
+    /// </summary>
+    /// <param name="lines">Lines to be written.</param>
+    /// <param name="encoding">Text encoding.</param>
+    /// <param name="path">Path to CloudFile.</param>
+    static member WriteLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
+        let writer (stream : Stream) = async {
+            use sw = 
+                match encoding with
+                | None -> new StreamWriter(stream)
+                | Some e -> new StreamWriter(stream, e)
+
+            do for line in lines do
+                do sw.WriteLine(line)
+        }
+
+        return! CloudFile.Create(writer, ?path = path)
+    }
+
+    /// <summary>
+    ///     Reads a file as a sequence of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadLines(file : string, ?encoding : Encoding) : Cloud<string []> = cloud {
+        let reader (stream : Stream) = async {
+            let ra = new ResizeArray<string> ()
+            use sr = 
+                match encoding with
+                | None -> new StreamReader(stream)
+                | Some e -> new StreamReader(stream, e)
+
+            do while not sr.EndOfStream do
+                ra.Add <| sr.ReadLine()
+
+            return ra.ToArray()
+        }
+
+        return! CloudFile.Read(file, reader)
+    }
+
+    /// <summary>
+    ///     Reads a file as a sequence of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadLines(file : CloudFile, ?encoding : Encoding) = 
+        CloudFile.ReadLines(file.Path, ?encoding = encoding)
+
+    /// <summary>
+    ///     Writes string contents to given CloudFile.
+    /// </summary>
+    /// <param name="text">Input text.</param>
+    /// <param name="encoding">Output encoding.</param>
+    /// <param name="path">Path to Cloud file.</param>
+    static member WriteAllText(text : string, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
+        let writer (stream : Stream) = async {
+            use sw = 
+                match encoding with
+                | None -> new StreamWriter(stream)
+                | Some e -> new StreamWriter(stream, e)
+            do! sw.WriteLineAsync text
+        }
+
+        return! CloudFile.Create(writer, ?path = path)
+    }
+
+    /// <summary>
+    ///     Dump all file contents to a single string.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadAllText(file : string, ?encoding : Encoding) = cloud {
+        let reader (stream : Stream) = async {
+            use sr = 
+                match encoding with
+                | None -> new StreamReader(stream)
+                | Some e -> new StreamReader(stream, e)
+            return sr.ReadToEnd()
+        }
+        return! CloudFile.Read(file, reader)
+    }
+
+    /// <summary>
+    ///     Dump all file contents to a single string.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadAllText(file : CloudFile, ?encoding : Encoding) =
+        CloudFile.ReadAllText(file.Path, ?encoding = encoding)
+
+    /// <summary>
+    ///     Write buffer contents to CloudFile.
+    /// </summary>
+    /// <param name="buffer">Source buffer.</param>
+    /// <param name="path">Path to Cloud file.</param>
+    static member WriteAllBytes(buffer : byte [], ?path : string) : Cloud<CloudFile> = cloud {
+        let writer (stream : Stream) = stream.AsyncWrite(buffer, 0, buffer.Length)
+        return! CloudFile.Create(writer, ?path = path)
+    }
+        
+    /// <summary>
+    ///     Store all contents of given file to a new byte array.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    static member ReadAllBytes(path : string) : Cloud<byte []> = cloud {
+        let reader (stream : Stream) = async {
+            use ms = new MemoryStream()
+            do! stream.CopyToAsync ms
+            return ms.ToArray()
+        }
+
+        return! CloudFile.Read(path, reader)
+    }
+
+    /// <summary>
+    ///     Store all contents of given file to a new byte array.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    static member ReadAllBytes(file : CloudFile) : Cloud<byte []> =
+        CloudFile.ReadAllBytes(file.Path)

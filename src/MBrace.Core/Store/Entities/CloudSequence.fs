@@ -76,25 +76,25 @@ type CloudSequence<'T> =
         return serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
     }
 
-    /// Lazily retrieves enumerable
+    /// Returns an enumerable that lazily fetches elements of the cloud sequence from store.
     member c.ToEnumerable () = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache.TryFind<'T []> (c.uuid) with
-        | Some v -> return v :> seq<'T>
+        match config.Cache.TryFind c.uuid with
+        | Some v -> return v :?> seq<'T>
         | None -> return! c.GetSequenceFromStore(config)
     }
 
-    /// Saves Cloud sequence contents to in-memory array
+    /// Fetches all elements of the cloud sequence and returns them as a local array.
     member c.ToArray () : Cloud<'T []> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache.TryFind<'T []> (c.uuid) with
-        | Some v -> return v 
+        match config.Cache.TryFind c.uuid with
+        | Some v -> return v :?> 'T []
         | None ->
             let! seq = c.GetSequenceFromStore(config)
             return Seq.toArray seq
     }
 
-    // Cache contents to local execution context. Returns true iff succesful.
+    /// Cache contents to local execution context. Returns true iff succesful.
     member c.Cache () = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         if config.Cache.ContainsKey c.uuid then return true
@@ -220,9 +220,18 @@ type CloudSequence =
     }
 
     /// <summary>
+    ///     Parses an already existing sequence of given type in provided file store.
+    /// </summary>
+    /// <param name="file">Target cloud file.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    static member Parse<'T>(file : CloudFile, ?serializer, ?force) : Cloud<CloudSequence<'T>> =
+        CloudSequence.Parse<'T>(file, ?serializer = serializer, ?force = force)
+
+    /// <summary>
     ///     Creates a CloudSequence from file path with user-provided deserialization function.
     /// </summary>
-    /// <param name="path">Path to Cloud sequence.</param>
+    /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
     static member FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : Cloud<CloudSequence<'T>> = cloud {
@@ -238,3 +247,35 @@ type CloudSequence =
 
         return! CloudSequence.Parse(path, serializer, ?force = force)
     }
+
+    /// <summary>
+    ///     Creates a CloudSequence from file path with user-provided deserialization function.
+    /// </summary>
+    /// <param name="file">Target cloud file.</param>
+    /// <param name="deserializer">Sequence deserializer function.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    static member FromFile<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force) =
+        CloudSequence.FromFile<'T>(file.Path, deserializer = deserializer, ?force = force)
+
+
+[<RequireQualifiedAccess>]
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module CloudSequence =
+    
+    /// <summary>
+    ///     Returns an enumerable that lazily fetches elements of the cloud sequence from store.
+    /// </summary>
+    /// <param name="cseq">Input cloud sequence</param>
+    let toSeq (cseq : CloudSequence<'T>) = cseq.ToEnumerable()
+
+    /// <summary>
+    ///     Fetches all elements of the cloud sequence and returns them as a local array.
+    /// </summary>
+    /// <param name="cseq">Input cloud sequence</param>
+    let toArray (cseq : CloudSequence<'T>) = cseq.ToArray()
+
+    /// <summary>
+    ///     Cache contents to local execution context. Returns true iff succesful.
+    /// </summary>
+    /// <param name="cseq">Input cloud sequence.</param>
+    let cache (cseq : CloudSequence<'T>) = cseq.Cache()

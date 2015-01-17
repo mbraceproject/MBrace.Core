@@ -54,6 +54,15 @@ type MBraceRuntime private (logger : string -> unit) =
         workerManager <!= fun ch -> Actors.WorkerManager.SubscribeToRuntime(ch, state, 10)
         workerManager.Id.ToString()
 
+    let createProcessInfo () =
+        {
+            ProcessId = System.Guid.NewGuid().ToString()
+            DefaultDirectory = Config.getFileStore().CreateUniqueDirectoryPath()
+            DefaultAtomContainer = Config.getAtomProvider().CreateUniqueContainerName()
+            DefaultChannelContainer = channelProvider.CreateUniqueContainerName()
+        }
+        
+
     /// <summary>
     ///     Asynchronously execute a workflow on the distributed runtime.
     /// </summary>
@@ -63,13 +72,7 @@ type MBraceRuntime private (logger : string -> unit) =
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
         let computation = CloudCompiler.Compile workflow
-        let processInfo =
-            {
-                ProcessId = System.Guid.NewGuid().ToString()
-                DefaultDirectory = Config.getFileStore().CreateUniqueDirectoryPath()
-                DefaultAtomContainer = Config.getAtomProvider().CreateUniqueContainerName()
-                DefaultChannelContainer = channelProvider.CreateUniqueContainerName()
-            }
+        let processInfo = createProcessInfo ()
 
         let! cts = state.ResourceFactory.RequestCancellationTokenSource()
         try
@@ -99,6 +102,29 @@ type MBraceRuntime private (logger : string -> unit) =
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
     member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
+
+    /// <summary>
+    ///     Run workflow as local, in-memory computation
+    /// </summary>
+    /// <param name="workflow">Workflow to execute</param>
+    member __.RunLocalAsync(workflow : Cloud<'T>) : Async<'T> =
+        let procInfo = createProcessInfo ()
+        let runtimeP = RuntimeProvider.RuntimeProvider.CreateInMemoryRuntime(state, procInfo)
+        let resources = resource {
+            yield! Config.getStoreConfiguration procInfo.DefaultDirectory procInfo.DefaultAtomContainer
+            yield channelProvider
+            yield runtimeP :> IRuntimeProvider
+        }
+
+        Cloud.ToAsync(workflow, resources = resources)
+
+    /// <summary>
+    ///     Run workflow as local, in-memory computation
+    /// </summary>
+    /// <param name="workflow">Workflow to execute</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    member __.RunLocal(workflow, ?cancellationToken) : 'T = 
+        let wf = __.RunLocalAsync(workflow) in Async.RunSync(wf, ?cancellationToken = cancellationToken)
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])
@@ -132,17 +158,3 @@ type MBraceRuntime private (logger : string -> unit) =
             let path = Path.GetFullPath path
             if File.Exists path then exe <- Some path
             else raise <| FileNotFoundException(path)
-
-    /// <summary>
-    ///     Run workflow as local computation
-    /// </summary>
-    /// <param name="workflow"></param>
-    /// <param name="cancellationToken"></param>
-    static member RunLocal(workflow : Cloud<'T>, ?cancellationToken) = 
-        // TODO : add InMemoryRuntime to resources
-        let resources = 
-            Config.getStoreConfiguration 
-                (Config.getFileStore().CreateUniqueDirectoryPath())
-                (Config.getAtomProvider().CreateUniqueContainerName())
-
-        Cloud.RunSynchronously(workflow, resources = resources, ?cancellationToken = cancellationToken)

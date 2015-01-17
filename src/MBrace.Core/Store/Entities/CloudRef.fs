@@ -42,7 +42,7 @@ type CloudRef<'T> =
     member r.Value = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         match config.Cache.TryFind r.uuid with
-        | Some v -> return v
+        | Some v -> return v :?> 'T
         | None -> return! Cloud.OfAsync <| r.GetValueFromStore(config)
     }
 
@@ -84,7 +84,7 @@ type CloudRef =
     /// </summary>
     /// <param name="value">Cloud reference value.</param>
     /// <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
-    /// <param name="serializer">Serialization used for object serialization. Defaults to runtime context.</param>
+    /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
     static member New(value : 'T, ?directory : string, ?serializer : ISerializer) = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory

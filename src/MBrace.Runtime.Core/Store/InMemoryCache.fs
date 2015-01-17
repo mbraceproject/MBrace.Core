@@ -58,7 +58,7 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
     /// </summary>
     /// <param name="key">Key.</param>
     /// <param name="value">Value.</param>
-    member self.Add(key : string, value : 'T) : bool =
+    member self.Add(key : string, value : obj) : bool =
         if obj.ReferenceEquals(value, null) then false
         else
             try cache.Add(key, value, policy)
@@ -78,8 +78,5 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
 
     interface ICache with
         member self.ContainsKey key = self.ContainsKey key
-        member self.TryAdd<'T>(key : string, value : 'T) = self.Add(key, value)
-        member self.TryFind<'T>(key : string) =
-            match self.TryFind key with
-            | Some(:? 'T as t) -> Some t
-            | _ -> None
+        member self.Add(key : string, value : obj) = self.Add(key, value)
+        member self.TryFind(key : string) = self.TryFind key
