@@ -39,14 +39,17 @@ type FileSystemStore private (rootPath : string) =
     /// <summary>
     ///     Creates a new FileSystemStore instance on given path.
     /// </summary>
-    /// <param name="path">Local or UNC path.</param>
-    /// <param name="create">Create directory if missing. Defaults to false</param>
-    /// <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
-    static member Create(path : string, ?create, ?cleanup) =
+    /// <param name="path">Local or UNC path. Defaults to system temp folder.</param>
+    /// <param name="create">Create directory if missing. Defaults to false.</param>
+    /// <param name="cleanup">Cleanup directory if it exists. Defaults to false.</param>
+    static member Create(?path : string, ?create, ?cleanup) =
         let create = defaultArg create false
         let cleanup = defaultArg cleanup false
 
-        let rootPath = Path.GetFullPath path
+        let rootPath = 
+            match path with
+            | Some p -> Path.GetFullPath p
+            | None -> Path.Combine(Path.GetTempPath(), "mbrace-local-fs")
 
         if Directory.Exists rootPath then
             if cleanup then
@@ -62,11 +65,6 @@ type FileSystemStore private (rootPath : string) =
             raise <| new DirectoryNotFoundException(rootPath)
 
         new FileSystemStore(rootPath)
-
-    /// Initializes a FileSystemStore instance on the local system temp path.
-    static member LocalTemp =
-        let localFsPath = Path.Combine(Path.GetTempPath(), "mbrace-localfs")
-        FileSystemStore.Create(localFsPath, create = true, cleanup = false)
 
     interface ICloudFileStore with
         member __.Name = "FileSystemStore"
@@ -132,7 +130,6 @@ type FileSystemStore private (rootPath : string) =
             use! fs = (self :> ICloudFileStore).BeginRead source
             do! fs.CopyToAsync target
         }
-
 
 
 [<AutoSerializable(true) ; Sealed; DataContract>]
@@ -201,14 +198,18 @@ type FileSystemAtomProvider private (rootPath : string) =
     /// <summary>
     ///     Creates a new FileSystemAtomProvider instance on given path.
     /// </summary>
-    /// <param name="path">Local or UNC path.</param>
+    /// <param name="path">Local or UNC path. Defaults to system temp folder.</param>
     /// <param name="create">Create directory if missing. Defaults to false</param>
     /// <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
-    static member Create(path : string, ?create, ?cleanup) =
+    [<Obsolete("File system should not be used for atomic operations.")>]
+    static member Create(?path : string, ?create, ?cleanup) =
         let create = defaultArg create false
         let cleanup = defaultArg cleanup false
 
-        let rootPath = Path.GetFullPath path
+        let rootPath = 
+            match path with
+            | Some p -> Path.GetFullPath p
+            | None -> Path.Combine(Path.GetTempPath(), "mbrace-atom-store")
 
         if Directory.Exists rootPath then
             if cleanup then
@@ -224,11 +225,6 @@ type FileSystemAtomProvider private (rootPath : string) =
             raise <| new DirectoryNotFoundException(rootPath)
 
         new FileSystemAtomProvider(rootPath)
-
-    /// Initializes a FileSystemStore instance on the local system temp path.
-    static member LocalTemp =
-        let localFsPath = Path.Combine(Path.GetTempPath(), "mbrace-atomStore")
-        FileSystemAtomProvider.Create(localFsPath, create = true, cleanup = false)
 
     interface ICloudAtomProvider with
         member __.Name = "FileSystemAtomProvider"

@@ -40,8 +40,8 @@ let private _initRuntimeState () =
     // store initialization
     FileStoreCache.RegisterLocalFileSystemCache()
     inMemoryCache <- InMemoryCache.Create()
-    fileStore <- FileStoreCache.CreateCachedStore(FileSystemStore.LocalTemp :> ICloudFileStore)
-    atomProvider <- FileSystemAtomProvider.LocalTemp :> ICloudAtomProvider
+    fileStore <- FileStoreCache.CreateCachedStore(FileSystemStore.Create(create = true, cleanup = false) :> ICloudFileStore)
+    atomProvider <- FileSystemAtomProvider.Create(create = true, cleanup = false) :> ICloudAtomProvider
 
 /// runtime configuration initializer function
 let initRuntimeState = runOnce _initRuntimeState

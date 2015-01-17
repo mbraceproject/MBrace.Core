@@ -14,8 +14,8 @@ open MBrace.Store.Tests
 module private Config =
     do VagrantRegistry.Initialize(throwOnError = false)
 
-    let fsStore = FileSystemStore.LocalTemp
-    let atomProvider = FileSystemAtomProvider.LocalTemp
+    let fsStore = FileSystemStore.Create(create = true, cleanup = false)
+    let atomProvider = FileSystemAtomProvider.Create(create = true, cleanup = false)
     let chanProvider = InMemoryChannelProvider()
     let cache = InMemoryCache.Create()
     let serializer = VagrantRegistry.Serializer
