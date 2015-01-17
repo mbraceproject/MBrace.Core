@@ -29,3 +29,5 @@ type ``Store tests`` () =
         match runtime with
         | None -> invalidOp "no runtime state available."
         | Some r -> r.Run(wf, ?cancellationToken = ct)
+
+    override __.RunLocal(wf : Cloud<'T>) = MBraceRuntime.RunLocal wf

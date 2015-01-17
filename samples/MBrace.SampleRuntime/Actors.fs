@@ -433,7 +433,7 @@ type Channel<'T> private (source : ActorRef<ChannelMsg<'T>>) =
 
     interface IReceivePort<'T> with
         member __.Receive(?timeout : int) = source.PostWithReply(Receive, ?timeout = timeout)
-        member __.Dispose () = async.Zero()
+        member __.Dispose () = cloud.Zero()
 
     interface ISendPort<'T> with
         member __.Send(msg : 'T) = source.AsyncPost(Send msg)

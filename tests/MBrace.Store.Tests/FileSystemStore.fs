@@ -17,6 +17,7 @@ module private Config =
     let fsStore = FileSystemStore.LocalTemp
     let atomProvider = FileSystemAtomProvider.LocalTemp
     let chanProvider = InMemoryChannelProvider()
+    let cache = InMemoryCache.Create()
     let serializer = VagrantRegistry.Serializer
 
 [<TestFixture>]
@@ -29,4 +30,4 @@ type ``FileSystem Atom tests`` () =
 
 [<TestFixture>]
 type ``FileSystem MBrace tests`` () =
-    inherit ``Local MBrace store tests``(fsStore, atomProvider, chanProvider, serializer)
+    inherit ``Local MBrace store tests``(fsStore, atomProvider, chanProvider, serializer, cache)

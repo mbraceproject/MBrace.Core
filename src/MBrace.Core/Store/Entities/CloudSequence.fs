@@ -50,23 +50,6 @@ type private PartitionedEnumerable<'T> private (splitNext : unit -> bool, source
     static member ofSeq (splitNext : unit -> bool) (source : seq<'T>) : seq<seq<'T>> =
         new PartitionedEnumerable<'T>(splitNext, source) :> _
 
-//type private CloudSequenceCache =
-//
-//    static member inline ContainsKey<'T>(uuid) =
-//        match InMemoryCacheRegistry.InstalledCache with
-//        | Some c -> c.ContainsKey uuid
-//        | _ -> false
-//    
-//    static member inline Add<'T>(uuid, values : unit -> 'T []) =
-//        match InMemoryCacheRegistry.InstalledCache with
-//        | Some c when not <| c.ContainsKey uuid -> c.TryAdd(uuid, values ()) |> ignore
-//        | _ -> ()
-//
-//    static member inline TryFind<'T>(uuid) =
-//        match InMemoryCacheRegistry.InstalledCache with
-//        | None -> None
-//        | Some c -> c.TryFind<'T []>(uuid)
-
 /// <summary>
 ///     Ordered, immutable collection of values persisted in a single FileStore entity.
 /// </summary>
@@ -111,19 +94,17 @@ type CloudSequence<'T> =
             return Seq.toArray seq
     }
 
-    // Cache contents to local memory
+    // Cache contents to local execution context. Returns true iff succesful.
     member c.Cache () = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache.TryFind<'T []> (c.uuid) with
-        | Some v -> return ()
-        | None ->
+        if config.Cache.ContainsKey c.uuid then return true
+        else
             let! seq = c.GetSequenceFromStore(config)
             let array = Seq.toArray seq
-            let _ = config.Cache.TryAdd(c.uuid, array)
-            return ()
+            return config.Cache.Add(c.uuid, array)
     }
 
-    /// Indicates if array is cached in local context
+    /// Indicates if array is cached in local execution context
     member c.IsCachedLocally = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         return config.Cache.ContainsKey c.uuid
@@ -131,12 +112,6 @@ type CloudSequence<'T> =
 
     /// Path to Cloud sequence in store
     member c.Path = c.path
-
-//    member c.Item
-//        with get i =
-//            match CloudSequenceCache.TryFind c.uuid with
-//            | None -> c.GetSequenceFromStore () |> Async.RunSync |> Seq.nth i
-//            | Some ts -> ts.[i]
 
     /// Cloud sequence element count
     member c.Count = cloud {
@@ -168,13 +143,6 @@ type CloudSequence<'T> =
 
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()
-
-//    interface IEnumerable<'T> with
-//        member c.GetEnumerator() = (c.GetSequenceAsync() |> Async.RunSync :> IEnumerable).GetEnumerator()
-//        member c.GetEnumerator() = (c.GetSequenceAsync() |> Async.RunSync).GetEnumerator()
-
-//    interface IReadOnlyCollection<'T> with
-//        member c.Count = c.Count
 
 #nowarn "444"
 

@@ -10,11 +10,11 @@ type ICache =
     abstract ContainsKey : key:string -> bool
 
     /// <summary>
-    ///     Attempt to add key/value pair to cache.
+    ///     Adds a key/value pair to cache.
     /// </summary>
     /// <param name="key"></param>
     /// <param name="value"></param>
-    abstract TryAdd<'T> : key:string * value:'T -> bool
+    abstract Add<'T> : key:string * value:'T -> bool
 
     /// <summary>
     ///     Attempt to recover value of given type from cache.

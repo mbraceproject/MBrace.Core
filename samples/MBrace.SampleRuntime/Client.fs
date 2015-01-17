@@ -132,3 +132,17 @@ type MBraceRuntime private (logger : string -> unit) =
             let path = Path.GetFullPath path
             if File.Exists path then exe <- Some path
             else raise <| FileNotFoundException(path)
+
+    /// <summary>
+    ///     Run workflow as local computation
+    /// </summary>
+    /// <param name="workflow"></param>
+    /// <param name="cancellationToken"></param>
+    static member RunLocal(workflow : Cloud<'T>, ?cancellationToken) = 
+        // TODO : add InMemoryRuntime to resources
+        let resources = 
+            Config.getStoreConfiguration 
+                (Config.getFileStore().CreateUniqueDirectoryPath())
+                (Config.getAtomProvider().CreateUniqueContainerName())
+
+        Cloud.RunSynchronously(workflow, resources = resources, ?cancellationToken = cancellationToken)

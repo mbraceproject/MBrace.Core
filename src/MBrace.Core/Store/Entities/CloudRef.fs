@@ -29,31 +29,34 @@ type CloudRef<'T> =
     internal new (uuid, path, serializer) =
         { path = path ; uuid = uuid ; serializer = serializer }
 
-    /// Asynchronously dereferences the cloud ref.
-    member r.GetValue (?cache : bool) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        return! Cloud.OfAsync <| async {
-            match config.Cache.TryFind r.uuid with
-            | Some v -> return v
-            | None ->
-                let serializer = match r.serializer with Some s -> s | None -> config.Serializer
-                use! stream = config.FileStore.BeginRead r.path
-                // consume header
-                let _ = serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = false)
-                // consume payload
-                let v = serializer.Deserialize<'T>(stream, leaveOpen = true)
-                if defaultArg cache false then
-                    ignore <| config.Cache.TryAdd(r.uuid, v)
-                return v
-        }
+    member private r.GetValueFromStore(config : CloudFileStoreConfiguration) = async {
+        let serializer = match r.serializer with Some s -> s | None -> config.Serializer
+        use! stream = config.FileStore.BeginRead r.path
+        // consume header
+        let _ = serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = true)
+        // deserialize payload
+        return serializer.Deserialize<'T>(stream, leaveOpen = false)
     }
 
-    member r.Value = r.GetValue()
+    /// Dereference the cloud ref
+    member r.Value = cloud {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        match config.Cache.TryFind r.uuid with
+        | Some v -> return v
+        | None -> return! Cloud.OfAsync <| r.GetValueFromStore(config)
+    }
 
-    member r.Cache() = r.GetValue(cache = true) |> Cloud.Ignore
+    /// Caches the cloud ref value to the local execution contexts. Returns true iff successful.
+    member r.Cache() = cloud {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        if config.Cache.ContainsKey r.uuid then return true
+        else
+            let! v = Cloud.OfAsync <| r.GetValueFromStore(config)
+            return config.Cache.Add(r.uuid, v)
+    }
 
-    /// Returns size of cloud ref in bytes
-    member r.GetSize () = cloud {
+    /// Gets the size of cloud ref in bytes
+    member r.Size = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         return! Cloud.OfAsync <| config.FileStore.GetFileSize r.path
     }
@@ -126,10 +129,10 @@ type CloudRef =
     ///     Dereference a Cloud reference.
     /// </summary>
     /// <param name="cloudRef">CloudRef to be dereferenced.</param>
-    static member Read(cloudRef : CloudRef<'T>) : Cloud<'T> = cloudRef.GetValue()
+    static member Read(cloudRef : CloudRef<'T>) : Cloud<'T> = cloudRef.Value
 
     /// <summary>
     ///     Cache a cloud reference to local execution context
     /// </summary>
     /// <param name="cloudRef">Cloud ref input</param>
-    static member Cache(cloudRef : CloudRef<'T>) : Cloud<unit> = cloudRef.Cache()
+    static member Cache(cloudRef : CloudRef<'T>) : Cloud<bool> = cloudRef.Cache()

@@ -23,16 +23,19 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     let nseq = defaultArg nseq 10
 
     let run wf = self.Run wf 
+    let runLocal wf = self.RunLocal wf
+
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     abstract Run : Cloud<'T> * ?ct:CancellationToken -> 'T
+    abstract RunLocal : Cloud<'T> -> 'T
 
     [<Test>]
     member __.``CloudRef - simple`` () = 
         let ref = run <| CloudRef.New 42
-        ref.Value |> should equal 42
+        ref.Value |> runLocal |> should equal 42
 
     [<Test>]
     member __.``CloudRef - Parallel`` () =
@@ -51,17 +54,21 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     [<Test>]
     member __.``CloudSequence - simple`` () = 
         let b = run <| CloudSequence.New [1..10000]
-        b.Cache()
-        b.Count |> should equal 10000
-        b |> Seq.sum |> should equal (List.sum [1..10000])
+        b.Cache() |> runLocal
+        b.Count |> runLocal |> should equal 10000
+        b.ToEnumerable() |> runLocal |> Seq.sum |> should equal (List.sum [1..10000])
 
     [<Test>]
     member __.``CloudSequence - parallel`` () =
         let ref = run <| CloudSequence.New [1..10000]
-        ref |> Seq.length |> should equal 10000
+        ref.ToEnumerable() |> runLocal |> Seq.length |> should equal 10000
         cloud {
             let! ref = CloudSequence.New [1 .. 10000]
-            let! (x, y) = cloud { return Seq.length ref } <||> cloud { return Seq.length ref }
+            let! (x, y) = 
+                cloud { let! seq = ref.ToEnumerable() in return Seq.length seq } 
+                    <||>
+                cloud { let! seq = ref.ToEnumerable() in return Seq.length seq } 
+
             return x + y
         } |> run |> should equal 20000
 
@@ -71,7 +78,7 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
             let! seqs = CloudSequence.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
             seqs.Length |> should be (greaterThanOrEqualTo 8)
             seqs.Length |> should be (lessThan 10)
-            let! partialSums = seqs |> Array.map (fun c -> cloud { return Seq.sum c }) |> Cloud.Parallel
+            let! partialSums = seqs |> Array.map (fun c -> cloud { let! e = c.ToEnumerable() in return Seq.sum e }) |> Cloud.Parallel
             return Array.sum partialSums
         } |> run |> should equal (Array.sum [|1L .. 1000000L|])
 
@@ -247,10 +254,17 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
 
 [<TestFixture; AbstractClass>]
-type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, serializer : ISerializer, ?npar, ?nseq) =
+type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, serializer : ISerializer, cache, ?npar, ?nseq) =
     inherit ``MBrace store tests``(?npar = npar, ?nseq = nseq)
 
-    let fileStoreConfig = { FileStore = fileStore ; DefaultDirectory = fileStore.CreateUniqueDirectoryPath () }
+    let fileStoreConfig = 
+        { 
+            FileStore = fileStore
+            DefaultDirectory = fileStore.CreateUniqueDirectoryPath ()
+            Cache = cache
+            Serializer = serializer
+        }
+
     let atomProviderConfig = { AtomProvider = atomProvider ; DefaultContainer = atomProvider.CreateUniqueContainerName() }
     let channelProvider = { ChannelProvider = channelProvider ; DefaultContainer = channelProvider.CreateUniqueContainerName() }
 
@@ -258,8 +272,8 @@ type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, ser
         yield! InMemory.CreateResources()
         yield fileStoreConfig
         yield atomProviderConfig
-        yield channelProvider 
-        yield serializer
+        yield channelProvider
     }
 
     override __.Run(wf : Cloud<'T>, ?ct) = Cloud.RunSynchronously(wf, resources = resources, ?cancellationToken = ct)
+    override __.RunLocal(wf : Cloud<'T>) = Cloud.RunSynchronously(wf, resources = resources)

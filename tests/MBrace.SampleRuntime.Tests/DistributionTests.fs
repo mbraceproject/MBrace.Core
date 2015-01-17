@@ -71,7 +71,7 @@ module ``SampleRuntime Tests`` =
     let ``1. Parallel : use binding`` () =
         let latch = Latch.Init 0
         cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = async { return latch.Incr() |> ignore } }
+            use foo = { new ICloudDisposable with member __.Dispose () = cloud { return latch.Incr() |> ignore } }
             let! _ = cloud { return latch.Incr() } <||> cloud { return latch.Incr() }
             return latch.Value
         } |> run |> Choice.shouldEqual 2
