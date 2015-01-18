@@ -2,6 +2,10 @@
 
 /// Sending side of a distributed channel
 type ISendPort<'T> =
+
+    /// Channel identifier
+    abstract Id : string
+
     /// <summary>
     ///     Sends a message over the channel
     /// </summary>
@@ -11,6 +15,10 @@ type ISendPort<'T> =
 /// Receiving side of a distributed channel
 type IReceivePort<'T> =
     inherit ICloudDisposable
+
+    /// Channel identifier
+    abstract Id : string
+
     /// <summary>
     ///     Asynchronously awaits a message from the channel.
     /// </summary>

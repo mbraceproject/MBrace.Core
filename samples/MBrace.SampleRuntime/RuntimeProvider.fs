@@ -41,6 +41,25 @@ type Worker(procId : string) =
     static member RemoteWorker(id: string) = new Worker(id)
 
 
+type ActorAtomProvider (state : RuntimeState) =
+    let id = state.IPEndPoint.ToString()
+    interface ICloudAtomProvider with
+        member x.CreateAtom(container: string, initValue: 'T): Async<ICloudAtom<'T>> = async {
+            let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
+            let! atom = state.ResourceFactory.RequestAtom<'T>(id, initValue)
+            return atom :> ICloudAtom<'T>
+        }
+
+        member x.CreateUniqueContainerName () = System.Guid.NewGuid().ToString()
+
+        member x.DisposeContainer (_ : string) = async.Zero()
+        
+        member x.Id: string = id
+        
+        member x.IsSupportedValue(value: 'T): bool = true
+        
+        member x.Name: string = "ActorAtom"
+
 type ActorChannelProvider (state : RuntimeState) =
     let id = state.IPEndPoint.ToString()
     interface ICloudChannelProvider with
@@ -48,8 +67,9 @@ type ActorChannelProvider (state : RuntimeState) =
         member __.Id = id
         member __.CreateUniqueContainerName () = ""
 
-        member __.CreateChannel<'T> (_ : string) = async {
-            let! ch = state.ResourceFactory.RequestChannel<'T> ()
+        member __.CreateChannel<'T> (container : string) = async {
+            let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
+            let! ch = state.ResourceFactory.RequestChannel<'T> id
             return ch :> ISendPort<'T>, ch :> IReceivePort<'T>
         }
 

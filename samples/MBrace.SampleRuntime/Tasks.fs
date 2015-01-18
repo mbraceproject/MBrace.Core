@@ -102,7 +102,8 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Task dependent assemblies.</param>
     /// <param name="task">Task to be executed.</param>
-    static member RunAsync (runtimeProvider : IRuntimeProvider) 
+    static member RunAsync (runtimeProvider : IRuntimeProvider)
+                            (atomProvider : ICloudAtomProvider)
                             (channelProvider : ICloudChannelProvider) 
                             (dependencies : AssemblyId list) (faultCount : int)
                             (task : Task) = 
@@ -113,8 +114,9 @@ with
                     Resources = 
                         resource { 
                             yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; 
-                            yield! Config.getStoreConfiguration task.ProcessInfo.DefaultDirectory task.ProcessInfo.DefaultAtomContainer ;
-                            yield { ChannelProvider = channelProvider ; DefaultContainer = task.ProcessInfo.DefaultChannelContainer }
+                            yield Config.getFileStoreConfiguration task.ProcessInfo.DefaultDirectory ;
+                            yield { AtomProvider = atomProvider ; DefaultContainer = task.ProcessInfo.DefaultAtomContainer } ;
+                            yield { ChannelProvider = channelProvider ; DefaultContainer = task.ProcessInfo.DefaultChannelContainer } ;
                             yield channelProvider ; yield dependencies 
                         }
 

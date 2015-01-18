@@ -45,6 +45,7 @@ type MBraceRuntime private (logger : string -> unit) =
         if procs.Length > 0 then procs |> Array.map (fun (p: Process) -> new Worker(p.Id.ToString()) :> IWorkerRef)
         else workerManagers |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
     let state = RuntimeState.InitLocal logger getWorkerRefs
+    let atomProvider = new ActorAtomProvider(state) :> ICloudAtomProvider
     let channelProvider = new ActorChannelProvider(state) :> ICloudChannelProvider
 
     let appendWorker (address: string) =
@@ -58,7 +59,7 @@ type MBraceRuntime private (logger : string -> unit) =
         {
             ProcessId = System.Guid.NewGuid().ToString()
             DefaultDirectory = Config.getFileStore().CreateUniqueDirectoryPath()
-            DefaultAtomContainer = Config.getAtomProvider().CreateUniqueContainerName()
+            DefaultAtomContainer = atomProvider.CreateUniqueContainerName()
             DefaultChannelContainer = channelProvider.CreateUniqueContainerName()
         }
         
@@ -111,7 +112,8 @@ type MBraceRuntime private (logger : string -> unit) =
         let procInfo = createProcessInfo ()
         let runtimeP = RuntimeProvider.RuntimeProvider.CreateInMemoryRuntime(state, procInfo)
         let resources = resource {
-            yield! Config.getStoreConfiguration procInfo.DefaultDirectory procInfo.DefaultAtomContainer
+            yield Config.getFileStoreConfiguration procInfo.DefaultDirectory
+            yield atomProvider
             yield channelProvider
             yield runtimeP :> IRuntimeProvider
         }

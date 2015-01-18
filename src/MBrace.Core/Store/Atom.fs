@@ -1,14 +1,13 @@
 ﻿namespace MBrace
 
+open MBrace.Continuation
+
 /// Represent a distributed atomically updatable value reference
 type ICloudAtom<'T> =
     inherit ICloudDisposable
 
     /// Cloud atom identifier
     abstract Id : string
-
-    /// Returns the current value of atom.
-    abstract Value : 'T
 
     /// Asynchronously returns the current value of atom.
     abstract GetValue : unit -> Async<'T>
@@ -30,6 +29,9 @@ type ICloudAtom<'T> =
 module CloudAtomUtils =
     
     type ICloudAtom<'T> with
+
+        /// Returns the current value of atom.
+        member atom.Value = atom.GetValue() |> Async.RunSync
 
         /// <summary>
         ///     Performs transaction on atom.
@@ -107,31 +109,36 @@ type CloudAtom =
     ///     Dereferences a cloud atom.
     /// </summary>
     /// <param name="atom">Atom instance.</param>
-    static member Read(atom : ICloudAtom<'T>) : Cloud<'T> = Cloud.OfAsync <| atom.GetValue()
+    static member Read(atom : ICloudAtom<'T>) : Cloud<'T> = cloud {
+        return! Cloud.OfAsync <| atom.GetValue()
+    }
 
     /// <summary>
     ///     Atomically updates the contained value.
     /// </summary>
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    static member Update (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : Cloud<unit> = 
-        Cloud.OfAsync <| atom.Update updateF
+    static member Update (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : Cloud<unit> = cloud {
+        return! Cloud.OfAsync <| atom.Update updateF
+    }
 
     /// <summary>
     ///     Forces the contained value to provided argument.
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    static member Force (value : 'T) (atom : ICloudAtom<'T>) : Cloud<unit> =
-        Cloud.OfAsync <| atom.Force value
+    static member Force (value : 'T) (atom : ICloudAtom<'T>) : Cloud<unit> = cloud {
+        return! Cloud.OfAsync <| atom.Force value
+    }
 
     /// <summary>
     ///     Transactionally updates the contained value.
     /// </summary>
     /// <param name="trasactF"></param>
     /// <param name="atom"></param>
-    static member Transact (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : Cloud<'R> =
-        Cloud.OfAsync <| atom.Transact trasactF
+    static member Transact (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : Cloud<'R> = cloud {
+        return! Cloud.OfAsync <| atom.Transact trasactF
+    }
 
     /// <summary>
     ///     Deletes the provided atom instance from store.

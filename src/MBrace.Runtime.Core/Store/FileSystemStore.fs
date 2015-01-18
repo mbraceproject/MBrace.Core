@@ -159,7 +159,6 @@ type internal FileSystemAtom<'T> (path : string) =
     
     interface ICloudAtom<'T> with
         member __.Id = path
-        member __.Value = (__ :> ICloudAtom<'T>).GetValue() |> Async.RunSync
         member __.GetValue () = async {
             use fs = trap FileMode.Open FileAccess.Read FileShare.None
             return VagrantRegistry.Pickler.Deserialize<'T>(fs)

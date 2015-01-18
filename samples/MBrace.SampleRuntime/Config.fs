@@ -23,7 +23,6 @@ let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
 let mutable private localCacheStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private fileStore = Unchecked.defaultof<ICloudFileStore>
-let mutable private atomProvider = Unchecked.defaultof<ICloudAtomProvider>
 let mutable private inMemoryCache = Unchecked.defaultof<ICache>
 
 /// vagrant, fspickler and thespian state initializations
@@ -44,7 +43,6 @@ let private _initRuntimeState () =
     localCacheStore <- FileSystemStore.CreateUniqueLocal() :> ICloudFileStore
     inMemoryCache <- InMemoryCache.Create()
     fileStore <- FileStoreCache.Create(globalStore, localCacheStore, localCacheContainer = "cache")
-    atomProvider <- FileSystemAtomProvider.Create(create = true, cleanup = false) :> ICloudAtomProvider
 
 /// runtime configuration initializer function
 let initRuntimeState = runOnce _initRuntimeState
@@ -53,13 +51,13 @@ let getLocalEndpoint () = initRuntimeState () ; TcpListenerPool.GetListener().Lo
 let getAddress() = initRuntimeState () ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
 
 /// initializes store configuration for runtime
-let getStoreConfiguration defaultDirectory atomContainer = 
+let getFileStoreConfiguration defaultDirectory = 
     initRuntimeState ()
-    resource {
-        yield { FileStore = fileStore ; DefaultDirectory = defaultDirectory ; Serializer = VagrantRegistry.Serializer ; Cache = InMemoryCache.Create() }
-        yield { AtomProvider = atomProvider ; DefaultContainer = atomContainer }
+    { 
+        FileStore = fileStore ; 
+        DefaultDirectory = defaultDirectory ; 
+        Serializer = VagrantRegistry.Serializer ; 
+        Cache = inMemoryCache
     }
-    
 
 let getFileStore () = initRuntimeState () ; fileStore
-let getAtomProvider () = initRuntimeState () ; atomProvider

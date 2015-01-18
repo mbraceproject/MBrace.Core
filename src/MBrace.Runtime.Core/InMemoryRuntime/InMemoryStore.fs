@@ -25,7 +25,6 @@ type private InMemoryAtom<'T> (initial : 'T) =
     interface ICloudAtom<'T> with
         member __.Id = id
         member __.GetValue () = async { return container.Value.Value }
-        member __.Value = container.Value.Value
         member __.Update(updater, ?maxRetries) = async { return swap updater }
         member __.Force(value) = async { return container := { Value = value } }
         member __.Dispose () = cloud.Zero()
@@ -64,17 +63,20 @@ type InMemoryChannelProvider () =
         member __.Id = id
         member __.CreateUniqueContainerName () = Guid.NewGuid().ToString("N")
 
-        member __.CreateChannel<'T> (_ : string) = async {
+        member __.CreateChannel<'T> (container : string) = async {
+            let id = sprintf "%s/%s" container <| Guid.NewGuid().ToString()
             let mbox = Microsoft.FSharp.Control.MailboxProcessor<'T>.Start(fun _ -> async.Zero())
             let sender =
                 {
                     new ISendPort<'T> with
+                        member __.Id = id
                         member __.Send(msg : 'T) = async { return mbox.Post msg }
                 }
 
             let receiver =
                 {
                     new IReceivePort<'T> with
+                        member __.Id = id
                         member __.Receive(?timeout : int) = mbox.Receive(?timeout = timeout)
                         member __.Dispose() = cloud.Zero()
                 }

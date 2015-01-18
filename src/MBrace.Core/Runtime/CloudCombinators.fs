@@ -200,7 +200,7 @@ type Cloud =
     /// </summary>
     /// <param name="disposable">Resource to be disposed.</param>
     static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : Cloud<unit> =
-        disposable.Dispose()
+        cloud { return! disposable.Dispose() }
 
     /// <summary>
     ///     Asynchronously await task completion

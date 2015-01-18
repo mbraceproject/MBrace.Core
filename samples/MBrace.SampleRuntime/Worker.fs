@@ -27,8 +27,9 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
     let currentTaskCount = ref 0
     let runTask procId deps faultCount t =
         let runtimeProvider = RuntimeProvider.FromTask runtime procId deps t
+        let atomProvider = new ActorAtomProvider(runtime)
         let channelProvider = new ActorChannelProvider(runtime)
-        Task.RunAsync runtimeProvider channelProvider deps faultCount t
+        Task.RunAsync runtimeProvider atomProvider channelProvider deps faultCount t
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then

@@ -85,7 +85,7 @@ type Latch private (source : ActorRef<LatchMessage>) =
         new Latch(ref)
 
 //
-//  Distributed readable cell
+//  Distributed read-only cell
 //
 
 type Cell<'T> private (source : ActorRef<IReplyChannel<'T>>) =
@@ -421,25 +421,114 @@ type Queue<'T, 'DequeueToken> private (source : ActorRef<QueueMsg<'T, 'DequeueTo
 
         new Queue<'T, 'DequeueToken>(self.Value)
 
+
+
+
 //
-//  Defines a distributed channel implementation
+//  Distributed atom implementation
+//
+
+type private tag = uint64
+
+type private AtomMsg<'T> =
+    | GetValue of IReplyChannel<tag * 'T>
+    | TrySetValue of tag * 'T * IReplyChannel<bool>
+    | ForceValue of 'T * IReplyChannel<unit>
+    | Dispose of IReplyChannel<unit>
+
+type Atom<'T> private (id : string, source : ActorRef<AtomMsg<'T>>) =
+
+    interface ICloudAtom<'T> with
+        member __.Id = id
+        member __.GetValue() = async {
+            let! _,value = source <!- GetValue
+            return value
+        }
+
+        member __.Dispose() = Cloud.OfAsync (source <!- Dispose)
+
+        member __.Force(value : 'T) = source <!- fun ch -> ForceValue(value, ch)
+        member __.Update(f : 'T -> 'T, ?maxRetries) = async {
+            if maxRetries |> Option.exists (fun i -> i < 0) then
+                invalidArg "maxRetries" "must be non-negative."
+
+            let rec tryUpdate retries = async {
+                let! tag, value = source <!- GetValue
+                let value' = f value
+                let! success = source <!- fun ch -> TrySetValue(tag, value', ch)
+                if success then return ()
+                else
+                    match maxRetries with
+                    | None -> return! tryUpdate None
+                    | Some 0 -> return raise <| new OperationCanceledException("ran out of retries.")
+                    | Some i -> return! tryUpdate (Some (i-1))
+            }
+
+            return! tryUpdate maxRetries
+        }
+
+    static member Init(id : string, init : 'T) =
+        let behaviour (state : (uint64 * 'T) option) (msg : AtomMsg<'T>) = async {
+            match state with
+            | None -> // object disposed
+                let e = new System.ObjectDisposedException("ActorAtom")
+                match msg with
+                | GetValue rc -> do! rc.ReplyWithException e
+                | TrySetValue(_,_,rc) -> do! rc.ReplyWithException e
+                | ForceValue(_,rc) -> do! rc.ReplyWithException e
+                | Dispose rc -> do! rc.ReplyWithException e
+                return state
+
+            | Some ((tag, value) as s) ->
+                match msg with
+                | GetValue rc ->
+                    do! rc.Reply s
+                    return state
+                | TrySetValue(tag', value', rc) ->
+                    if tag' = tag then
+                        do! rc.Reply true
+                        return Some (tag + 1uL, value')
+                    else
+                        do! rc.Reply false
+                        return state
+                | ForceValue(value', rc) ->
+                    do! rc.Reply ()
+                    return Some (tag + 1uL, value')
+                | Dispose rc ->
+                    do! rc.Reply ()
+                    return None
+        }
+
+        let ref =
+            Actor.Stateful (Some (0uL, init)) behaviour
+            |> Actor.Publish
+            |> Actor.ref
+
+        new Atom<'T>(id, ref)
+        
+            
+
+//
+//  Distributed channel implementation
 //
 
 type private ChannelMsg<'T> =
     | Send of 'T
     | Receive of IReplyChannel<'T>
 
-type Channel<'T> private (source : ActorRef<ChannelMsg<'T>>) =
+type Channel<'T> private (id : string, source : ActorRef<ChannelMsg<'T>>) =
 
     interface IReceivePort<'T> with
+        member __.Id = id
         member __.Receive(?timeout : int) = source.PostWithReply(Receive, ?timeout = timeout)
         member __.Dispose () = cloud.Zero()
 
     interface ISendPort<'T> with
+        member __.Id = id
         member __.Send(msg : 'T) = source.AsyncPost(Send msg)
 
-    /// Initializes a new distribued queue instance.
-    static member Init() =
+    /// Initializes a new distributed queue instance.
+    static member Init(id : string) =
         let self = ref Unchecked.defaultof<ActorRef<ChannelMsg<'T>>>
         let behaviour (messages : ImmutableQueue<'T>, receivers : ImmutableQueue<IReplyChannel<'T>>) msg = async {
             match msg with
@@ -472,7 +561,7 @@ type Channel<'T> private (source : ActorRef<ChannelMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Channel<'T>(self.Value)
+        new Channel<'T>(id, self.Value)
 
 //
 //  Distributed Resource factory.
@@ -494,7 +583,8 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
     member __.RequestResultAggregator<'T>(count : int) = __.RequestResource(fun () -> ResultAggregator<'T>.Init(count))
     member __.RequestCancellationTokenSource(?parent) = __.RequestResource(fun () -> DistributedCancellationTokenSource.Init(?parent = parent))
     member __.RequestResultCell<'T>() = __.RequestResource(fun () -> ResultCell<'T>.Init())
-    member __.RequestChannel<'T>() = __.RequestResource(fun () -> Channel<'T>.Init())
+    member __.RequestChannel<'T>(id) = __.RequestResource(fun () -> Channel<'T>.Init(id))
+    member __.RequestAtom<'T>(id, init) = __.RequestResource(fun () -> Atom<'T>.Init(id, init))
 
     static member Init () =
         let behavior (RequestResource(ctor,rc)) = async {
