@@ -5,7 +5,7 @@ open System.Threading
 
 open MBrace
 open MBrace.Continuation
-open MBrace.Runtime.InMemory
+open MBrace.InMemory
 open MBrace.Tests
 open MBrace.Store
 open MBrace.Store.Tests.TestTypes
@@ -263,23 +263,11 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, serializer : ISerializer, cache, ?npar, ?nseq) =
     inherit ``MBrace store tests``(?npar = npar, ?nseq = nseq)
 
-    let fileStoreConfig = 
-        { 
-            FileStore = fileStore
-            DefaultDirectory = fileStore.CreateUniqueDirectoryPath ()
-            Cache = cache
-            Serializer = serializer
-        }
+    let fileStoreConfig = CloudFileStoreConfiguration.Create(fileStore, serializer, cache = cache)
+    let atomConfig = CloudAtomConfiguration.Create(atomProvider)
+    let channelConfig = CloudChannelConfiguration.Create(channelProvider)
 
-    let atomProviderConfig = { AtomProvider = atomProvider ; DefaultContainer = atomProvider.CreateUniqueContainerName() }
-    let channelProvider = { ChannelProvider = channelProvider ; DefaultContainer = channelProvider.CreateUniqueContainerName() }
+    let imem = InMemoryRuntime.Create(fileConfig = fileStoreConfig, atomConfig = atomConfig, channelConfig = channelConfig)
 
-    let resources = resource { 
-        yield ThreadPoolRuntime.Create() :> IRuntimeProvider
-        yield fileStoreConfig
-        yield atomProviderConfig
-        yield channelProvider
-    }
-
-    override __.Run(wf : Cloud<'T>, ?ct) = Cloud.RunSynchronously(wf, resources = resources, ?cancellationToken = ct)
-    override __.RunLocal(wf : Cloud<'T>) = Cloud.RunSynchronously(wf, resources = resources)
+    override __.Run(wf : Cloud<'T>, ?ct) = imem.Run(wf, ?cancellationToken = ct)
+    override __.RunLocal(wf : Cloud<'T>) = imem.Run(wf)

@@ -4,9 +4,9 @@ open NUnit.Framework
 open FsUnit
 
 open MBrace
+open MBrace.InMemory
 open MBrace.Runtime.Vagrant
 open MBrace.Runtime.Store
-open MBrace.Runtime.InMemory
 open MBrace.Continuation
 open MBrace.Store.Tests
 
@@ -16,7 +16,7 @@ module private Config =
 
     let fsStore = FileSystemStore.CreateSharedLocal()
     let atomProvider = FileSystemAtomProvider.Create(create = true, cleanup = false)
-    let chanProvider = InMemoryChannelProvider()
+    let chanProvider = new InMemoryChannelProvider()
     let cache = InMemoryCache.Create()
     let serializer = VagrantRegistry.Serializer
 

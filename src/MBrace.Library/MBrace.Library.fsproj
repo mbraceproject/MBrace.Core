@@ -50,8 +50,6 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="Sequential.fs" />
-    <Compile Include="ThreadPool.fs" />
     <Compile Include="MapReduce.fs" />
   </ItemGroup>
   <ItemGroup>

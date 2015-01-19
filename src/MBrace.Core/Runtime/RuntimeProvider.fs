@@ -2,7 +2,7 @@
 
 // Distributed runtime provider definition
 // Cloud workflows actuating parallelism should
-// be passed an instance of IRuntimeProvider in their
+// be passed an instance of ICloudRuntimeProvider in their
 // ExecutionContext.
 
 open MBrace
@@ -20,7 +20,7 @@ type ICloudLogger =
 /// <summary>
 ///     Executing runtime abstraction.
 /// </summary>
-type IRuntimeProvider =
+type ICloudRuntimeProvider =
 
     /// Get cloud process identifier
     abstract ProcessId : string
@@ -42,13 +42,13 @@ type IRuntimeProvider =
     ///     Creates a new scheduler instance with updated fault policy.
     /// </summary>
     /// <param name="newPolicy">new fault policy.</param>
-    abstract WithFaultPolicy : newPolicy:FaultPolicy -> IRuntimeProvider
+    abstract WithFaultPolicy : newPolicy:FaultPolicy -> ICloudRuntimeProvider
 
     /// <summary>
     ///     Creates a new scheduler instance with updated scheduling context
     /// </summary>
     /// <param name="newContext">new scheduling context</param>
-    abstract WithSchedulingContext : newContext:SchedulingContext -> IRuntimeProvider
+    abstract WithSchedulingContext : newContext:SchedulingContext -> ICloudRuntimeProvider
 
     /// <summary>
     ///     Gets the current scheduling context.

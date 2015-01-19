@@ -54,13 +54,24 @@ type ICloudChannelProvider =
     abstract DisposeContainer : container:string -> Async<unit>
 
 /// Channel configuration passed to the continuation execution context
-type ChannelConfiguration =
+type CloudChannelConfiguration =
     {
         /// Atom provider instance
         ChannelProvider : ICloudChannelProvider
         /// Default container for instance in current execution context.
         DefaultContainer : string
     }
+with  
+    /// <summary>
+    ///     Creates a channel configuration instance using provided components.
+    /// </summary>
+    /// <param name="channelProvider">Channel provider instance.</param>
+    /// <param name="defaultContainer">Default container for current process. Defaults to auto generated.</param>
+    static member Create(channelProvider : ICloudChannelProvider, ?defaultContainer : string) =
+        {
+            ChannelProvider = channelProvider
+            DefaultContainer = match defaultContainer with Some c -> c | None -> channelProvider.CreateUniqueContainerName()
+        }
 
 namespace MBrace
 
@@ -74,7 +85,7 @@ type CloudChannel =
 
     /// Creates a new channel instance.
     static member New<'T>() = cloud {
-        let! config = Cloud.GetResource<ChannelConfiguration> ()
+        let! config = Cloud.GetResource<CloudChannelConfiguration> ()
         return! Cloud.OfAsync <| config.ChannelProvider.CreateChannel<'T> (config.DefaultContainer)
     }
 

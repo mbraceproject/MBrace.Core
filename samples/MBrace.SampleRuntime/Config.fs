@@ -23,7 +23,7 @@ let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
 let mutable private localCacheStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private fileStore = Unchecked.defaultof<ICloudFileStore>
-let mutable private inMemoryCache = Unchecked.defaultof<ICache>
+let mutable private inMemoryCache = Unchecked.defaultof<IObjectCache>
 
 /// vagrant, fspickler and thespian state initializations
 let private _initRuntimeState () =
@@ -57,7 +57,7 @@ let getFileStoreConfiguration defaultDirectory =
         FileStore = fileStore ; 
         DefaultDirectory = defaultDirectory ; 
         Serializer = VagrantRegistry.Serializer ; 
-        Cache = inMemoryCache
+        Cache = Some inMemoryCache
     }
 
 let getFileStore () = initRuntimeState () ; fileStore

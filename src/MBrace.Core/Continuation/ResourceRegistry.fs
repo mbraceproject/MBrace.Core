@@ -12,6 +12,19 @@ module private ResourceRegistryUtils =
 [<Sealed ; AutoSerializable(false)>]
 type ResourceRegistry private (index : Map<string, obj>) =
 
+    member private __.Index = index
+
+    /// Gets all resources currently registered with factory.
+    member __.InstalledResources = index |> Map.toArray |> Array.map fst
+
+    /// <summary>
+    ///     Creates a new resource registry by appending provided resource.
+    ///     Any existing resources of the same type will be overwritten.
+    /// </summary>
+    /// <param name="resource">input resource.</param>
+    member __.Register<'TResource>(resource : 'TResource) = 
+        new ResourceRegistry(Map.add key<'TResource> (box resource) index)
+
     /// Try Resolving resource of given type
     member __.TryResolve<'TResource> () = index.TryFind key<'TResource> |> Option.map unbox<'TResource>
 
@@ -27,22 +40,27 @@ type ResourceRegistry private (index : Map<string, obj>) =
     static member Empty = new ResourceRegistry(Map.empty)
 
     /// <summary>
-    ///     Creates a new resource registry by appending provided resource.
-    ///     Any existing resources of the same type will be overwritten.
+    ///     Combines two resource registries into one.
     /// </summary>
-    /// <param name="resource">input resource.</param>
-    member __.Register<'TResource>(resource : 'TResource) = 
-        new ResourceRegistry(Map.add key<'TResource> (box resource) index)
-
-    member private __.Index = index
-    member internal __.CombineWith(other : ResourceRegistry) = 
-        let mutable index = index
-        for kv in other.Index do
+    /// <param name="resources1">First resource registry.</param>
+    /// <param name="resources2">Second resource registry.</param>
+    static member Combine(resources1 : ResourceRegistry, resources2 : ResourceRegistry) =
+        let mutable index = resources1.Index
+        for kv in resources2.Index do
             index <- Map.add kv.Key kv.Value index
         new ResourceRegistry(index)
 
-    /// Gets all resources currently registered with factory.
-    member __.InstalledResources = index |> Map.toArray |> Array.map fst
+    /// <summary>
+    ///     Combines two resource registries into one.
+    /// </summary>
+    /// <param name="resources1">First resource registry.</param>
+    /// <param name="resources2">Second resource registry.</param>
+    static member Combine(resources : seq<ResourceRegistry>) =
+        let mutable index = Map.empty
+        for r in resources do
+            for kv in r.Index do
+                index <- Map.add kv.Key kv.Value index
+        new ResourceRegistry(index)
 
 /// Exception raised on missing resource resolution
 and [<AutoSerializable(true)>] ResourceNotFoundException =
@@ -56,10 +74,11 @@ and [<AutoSerializable(true)>] ResourceNotFoundException =
 module ResourceBuilder =
 
     type ResourceBuilder () =
+        member __.Zero () = ResourceRegistry.Empty
         member __.Delay (f : unit -> ResourceRegistry) = f ()
         member __.Yield<'TResource> (resource : 'TResource) = ResourceRegistry.Empty.Register<'TResource> (resource)
         member __.YieldFrom (registry : ResourceRegistry) = registry
-        member __.Combine(registry : ResourceRegistry, registry' : ResourceRegistry) = registry.CombineWith registry'
+        member __.Combine(registry : ResourceRegistry, registry' : ResourceRegistry) = ResourceRegistry.Combine(registry, registry')
 
     /// resource registry builder
     let resource = new ResourceBuilder()

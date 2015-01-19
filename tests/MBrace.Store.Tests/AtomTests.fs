@@ -5,6 +5,7 @@ open System
 open MBrace
 open MBrace.Store
 open MBrace.Continuation
+open MBrace.InMemory
 
 open Nessos.FsPickler
 
@@ -26,7 +27,8 @@ type ``Atom Tests`` (atomProvider : ICloudAtomProvider, ?npar, ?nseq) =
     let testContainer = atomProvider.CreateUniqueContainerName()
 
     let run x = Async.RunSync x
-    let runLocal x = Cloud.ToAsync(x, resources = resource { yield Runtime.InMemory.ThreadPoolRuntime.Create() :> IRuntimeProvider }) |> run
+    let imem = InMemoryRuntime.Create(atomConfig = CloudAtomConfiguration.Create atomProvider)
+    let runLocal x = imem.Run x
 
     let npar = defaultArg npar 20
     let nseq = defaultArg nseq 20

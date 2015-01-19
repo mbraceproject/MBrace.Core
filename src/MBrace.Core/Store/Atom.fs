@@ -76,13 +76,25 @@ type ICloudAtomProvider =
     abstract DisposeContainer : container:string -> Async<unit>
 
 /// Atom configuration passed to the continuation execution context
-type AtomConfiguration =
+type CloudAtomConfiguration =
     {
         /// Atom provider instance
         AtomProvider : ICloudAtomProvider
         /// Default container for instance in current execution context.
         DefaultContainer : string
     }
+with
+    /// <summary>
+    ///     Creates an atom configuration instance using provided components.
+    /// </summary>
+    /// <param name="atomProvider">Atom provider instance.</param>
+    /// <param name="defaultContainer">Default container for current process. Defaults to auto generated.</param>
+    static member Create(atomProvider : ICloudAtomProvider, ?defaultContainer : string) =
+        {
+            AtomProvider = atomProvider
+            DefaultContainer = match defaultContainer with Some c -> c | None -> atomProvider.CreateUniqueContainerName()
+        }
+
 
 namespace MBrace
 
@@ -98,7 +110,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="initial">Initial value.</param>
     static member New<'T>(initial : 'T) : Cloud<ICloudAtom<'T>> = cloud {
-        let! config = Cloud.GetResource<AtomConfiguration> ()
+        let! config = Cloud.GetResource<CloudAtomConfiguration> ()
         return! Cloud.OfAsync <| config.AtomProvider.CreateAtom(config.DefaultContainer, initial)
     }
 
@@ -149,7 +161,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="value">Value to be checked.</param>
     static member IsSupportedValue(value : 'T) = cloud {
-        let! config = Cloud.TryGetResource<AtomConfiguration> ()
+        let! config = Cloud.TryGetResource<CloudAtomConfiguration> ()
         return
             match config with
             | None -> false

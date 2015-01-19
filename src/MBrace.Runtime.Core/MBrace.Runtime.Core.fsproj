@@ -72,8 +72,6 @@
     <Compile Include="Compiler\Types.fs" />
     <Compile Include="Compiler\CloudUtils.fs" />
     <Compile Include="Compiler\Compiler.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryStore.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryRuntime.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

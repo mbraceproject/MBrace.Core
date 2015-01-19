@@ -102,7 +102,7 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Task dependent assemblies.</param>
     /// <param name="task">Task to be executed.</param>
-    static member RunAsync (runtimeProvider : IRuntimeProvider)
+    static member RunAsync (runtimeProvider : ICloudRuntimeProvider)
                             (atomProvider : ICloudAtomProvider)
                             (channelProvider : ICloudChannelProvider) 
                             (dependencies : AssemblyId list) (faultCount : int)

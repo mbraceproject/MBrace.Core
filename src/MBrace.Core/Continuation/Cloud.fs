@@ -17,7 +17,8 @@ open MBrace.Continuation
 
 /// Representation of a cloud computation, which, when run 
 /// will produce a value of type 'T, or raise an exception.
-type Cloud<'T> = internal Body of (ExecutionContext -> Continuation<'T> -> unit)
+type Cloud<'T> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
+    member internal __.Body = body
 
 /// Adding this attribute to a let-binding marks that
 /// the value definition contains cloud expressions.

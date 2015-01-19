@@ -16,8 +16,8 @@ type Cloud =
     /// </summary>
     /// <param name="body">Execution body.</param>
     [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
-    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> = 
-        Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
+    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> =
+        fromContinuations body
 
     /// <summary>
     ///     Starts a cloud workflow with given execution context in the current thread.
@@ -33,8 +33,7 @@ type Cloud =
     ///     Returns the resource registry for current execution context.
     /// </summary>
     [<CompilerMessage("'GetResourceRegistry' only intended for runtime implementers.", 444)>]
-    static member GetResourceRegistry () : Cloud<ResourceRegistry> =
-        Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx.Resources)
+    static member GetResourceRegistry () : Cloud<ResourceRegistry> = getResources ()
 
     /// <summary>
     ///     Gets resource from current execution context.
@@ -66,26 +65,9 @@ type Cloud =
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
     /// <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
-    static member ToAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry) : Async<'T> = async {
-        let! ct = Async.CancellationToken
-        return! 
-            Async.FromContinuations(fun (sc,ec,cc) ->
-                let context = 
-                    {
-                        Resources = match resources with None -> ResourceRegistry.Empty | Some r -> r
-                        CancellationToken = ct
-                    }
-
-                let cont =
-                    {
-                        Success = fun _ t -> sc t
-                        Exception = fun _ edi -> ec (extract edi)
-                        Cancellation = fun _ c -> cc c
-                    }
-
-                do Trampoline.Reset()
-                Cloud.StartWithContinuations(cloudWorkflow, cont, context))
-    }
+    static member ToAsync(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry) : Async<'T> =
+        let resources = match resources with Some r -> r | None -> ResourceRegistry.Empty
+        toAsync resources cloudWorkflow
 
     /// <summary>
     ///     Wraps a workflow with a mapped continuation.
@@ -140,6 +122,9 @@ type Cloud =
     static member RunSynchronously(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry, ?cancellationToken) : 'T =
         let wf = Cloud.ToAsync(cloudWorkflow, ?resources = resources) 
         Async.RunSync(wf, ?cancellationToken = cancellationToken)
+
+
+//    static member RunLocal(cloudWorkflow : Cloud<'T>, ?)
 
 
 namespace MBrace
@@ -217,7 +202,7 @@ type Cloud =
     /// </summary>
     /// <param name="logEntry">Added log entry.</param>
     static member Log(logEntry : string) : Cloud<unit> = cloud {
-        let! runtime = Cloud.TryGetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.TryGetResource<IRuntimeProvider> ()
         return 
             match runtime with
             | None -> ()
@@ -238,7 +223,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (computations : seq<Cloud<'T>>) : Cloud<'T []> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun c -> c,None))
         return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T>> computations)" workflow
     }
@@ -251,7 +236,7 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Computation to be executed in every worker.</param>
     static member Parallel(computation : Cloud<'T>) = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
         let workflow = runtime.ScheduleParallel (workers |> Seq.map (fun w -> computation, Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.EveryWhere[T](Cloud<T> computation)" workflow
@@ -265,7 +250,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (computations : seq<Cloud<'T> * IWorkerRef>) : Cloud<'T []> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun (c,w) -> c,Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T> * IWorkerRef> computations)" workflow
     }
@@ -280,7 +265,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Choice (computations : seq<Cloud<'T option>>) : Cloud<'T option> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun c -> c,None))
         return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option>> computations)" workflow
     }
@@ -295,7 +280,7 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Input computation to be executed everywhere.</param>
     static member Choice (computation : Cloud<'T option>) : Cloud<'T option> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
         let workflow = runtime.ScheduleChoice (workers |> Seq.map (fun w -> computation,Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](Cloud<T option> computation)" workflow
@@ -311,7 +296,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Choice (computations : seq<Cloud<'T option> * IWorkerRef>) : Cloud<'T option> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun (c,w) -> c,Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option> * IWorkerRef> computations)" workflow
     }
@@ -323,7 +308,7 @@ type Cloud =
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
     static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int) : Cloud<Cloud<'T>> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let! receiver = runtime.ScheduleStartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
         return Cloud.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" receiver
     }
@@ -332,7 +317,7 @@ type Cloud =
     ///     Gets information on the execution cluster.
     /// </summary>
     static member CurrentWorker : Cloud<IWorkerRef> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return runtime.CurrentWorker
     }
 
@@ -340,7 +325,7 @@ type Cloud =
     ///     Gets all workers in currently running cluster context.
     /// </summary>
     static member GetAvailableWorkers () : Cloud<IWorkerRef []> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return! Cloud.OfAsync <| runtime.GetAvailableWorkers()
     }
 
@@ -356,7 +341,7 @@ type Cloud =
     ///     Gets the assigned id of the currently running cloud process.
     /// </summary>
     static member GetProcessId () : Cloud<string> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return runtime.ProcessId
     }
 
@@ -364,7 +349,7 @@ type Cloud =
     ///     Gets the assigned id of the currently running cloud task.
     /// </summary>
     static member GetTaskId () : Cloud<string> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return runtime.TaskId
     }
 
@@ -372,7 +357,7 @@ type Cloud =
     ///     Gets the current scheduling context.
     /// </summary>
     static member GetSchedulingContext () = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return runtime.SchedulingContext
     }
 
@@ -383,7 +368,7 @@ type Cloud =
     /// <param name="schedulingContext">Target scheduling context.</param>
     [<CompilerMessage("'SetSchedulingContext' only intended for runtime implementers.", 444)>]
     static member WithSchedulingContext (schedulingContext : SchedulingContext) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider>()
+        let! runtime = Cloud.GetResource<IRuntimeProvider>()
         let runtime' = runtime.WithSchedulingContext schedulingContext
         return! Cloud.SetResource(workflow, runtime')
     }
@@ -404,7 +389,7 @@ type Cloud =
     ///     Gets the current fault policy.
     /// </summary>
     static member GetFaultPolicy () : Cloud<FaultPolicy> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         return runtime.FaultPolicy
     }
 
@@ -414,7 +399,7 @@ type Cloud =
     /// <param name="policy">Updated fault policy.</param>
     /// <param name="workflow">Workflow to be used.</param>
     static member WithFaultPolicy (policy : FaultPolicy) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
-        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Cloud.GetResource<IRuntimeProvider> ()
         let runtime' = runtime.WithFaultPolicy policy
         return! Cloud.SetResource(workflow, runtime')
     }

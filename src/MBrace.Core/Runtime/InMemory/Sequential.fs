@@ -1,27 +1,11 @@
-﻿namespace MBrace
+﻿namespace MBrace.InMemory
+
+open MBrace
 
 /// Collection of context-less combinators for 
 /// execution within local thread context.
 [<RequireQualifiedAccess>]
 module Sequential =
-
-    /// <summary>
-    ///     Provides a context-less sequential fold implementation.
-    /// </summary>
-    /// <param name="folder">Folding function.</param>
-    /// <param name="init">Initial state function.</param>
-    /// <param name="ts">Input sequence.</param>
-    let fold (folder : 'State -> 'T -> Cloud<'State>) (init : 'State) (ts : seq<'T>) = cloud {
-        let ts = Seq.toArray ts
-        let rec aux i state = cloud {
-            if i = ts.Length then return state
-            else
-                let! state' = folder state ts.[i]
-                return! aux (i+1) state'
-        }
-    
-        return! aux 0 init
-    }
 
     /// <summary>
     ///     Provides a context-less Cloud.Parallel implementation
@@ -68,10 +52,14 @@ module Sequential =
     /// </summary>
     /// <param name="computation">Input computation</param>
     let StartChild (computation : Cloud<'T>) = cloud {
-        let! result = computation |> Cloud.Catch
-        return cloud {  
-            match result with 
+        let! result = cloud {
+            try let! t = computation in return Choice1Of2 t
+            with e -> return Choice2Of2 e
+        }
+
+        return cloud {
+            match result with
             | Choice1Of2 t -> return t
-            | Choice2Of2 e -> return! Cloud.Raise e
+            | Choice2Of2 e -> return! raiseM e
         }
     }

@@ -1,22 +1,25 @@
-﻿namespace MBrace.Runtime.InMemory
+﻿namespace MBrace.InMemory
 
 open MBrace
 open MBrace.Continuation
-open MBrace.Runtime.Logging
 
-/// .NET ThreadPool runtime provider
+/// In-Memory runtime provider
 type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =
 
-    let taskId = System.Guid.NewGuid().ToString()
+    let taskId = sprintf "task:%O" <| System.Guid.NewGuid()
 
     /// <summary>
     ///     Creates a new threadpool runtime instance.
     /// </summary>
     /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
-    /// <param name="faultPolicy">Fault policy for runtime. Defaults to Infinite retries.</param>
-    static member Create (?logger : ICloudLogger, ?faultPolicy) = 
-        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.InfiniteRetry()
+    /// <param name="faultPolicy">Fault policy for runtime. Defaults to no retries.</param>
+    static member Create (?logger : ICloudLogger, ?faultPolicy : FaultPolicy) = 
+        let logger =
+            match logger with 
+            | Some l -> l 
+            | None -> { new ICloudLogger with member __.Log _ = () }
+
+        let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.NoRetry
         new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger)
         
     interface IRuntimeProvider with

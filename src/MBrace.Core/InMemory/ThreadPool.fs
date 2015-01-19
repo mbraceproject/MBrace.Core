@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.InMemory
 
 #nowarn "444"
 
@@ -15,17 +15,15 @@ module private SchedulerInternals =
         let mutable value = init
 
         member __.Increment() = Interlocked.Increment &value
-        member __.Decrement() = Interlocked.Decrement &value
         member __.Value = value
 
     let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
 
     let scheduleTask res ct sc ec cc wf =
-        ThreadPool.QueueUserWorkItem(fun _ ->
+        Trampoline.QueueWorkItem(fun () ->
             let ctx = { Resources = res ; CancellationToken = ct }
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartWithContinuations(wf, cont, ctx))
-        |> ignore
 
 /// Collection of context-less combinators for 
 /// execution within local thread context.
@@ -41,6 +39,7 @@ type ThreadPool =
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             | Choice1Of2 [||] -> cont.Success ctx [||]
+            // pass continuation directly to child, if singular
             | Choice1Of2 [| comp |] ->
                 let cont' = Continuation.map (fun t -> [| t |]) cont
                 Cloud.StartWithContinuations(comp, cont')
@@ -83,6 +82,7 @@ type ThreadPool =
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             | Choice1Of2 [||] -> cont.Success ctx None
+            // pass continuation directly to child, if singular
             | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
             | Choice1Of2 computations ->
                 let innerCts = mkLinkedCts ctx.CancellationToken

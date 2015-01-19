@@ -8,7 +8,7 @@ open FsUnit
 
 open MBrace
 open MBrace.Continuation
-open MBrace.Runtime.InMemory
+open MBrace.InMemory
 
 type TestLogger () =
     let logs = new ResizeArray<string>()
@@ -31,14 +31,12 @@ module ``ThreadPool Parallelism Tests`` =
 #endif
 
     let logger = new TestLogger()
-    let resources = resource {
-        yield ThreadPoolRuntime.Create(logger = logger) :> IRuntimeProvider
-        yield InMemoryChannelProvider.CreateConfiguration()
-        yield InMemoryAtomProvider.CreateConfiguration()
-    }
-        
-    let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)
-    let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)
+    let imem = InMemoryRuntime.Create(logger = logger)
+    let run (workflow : Cloud<'T>) = try imem.Run workflow |> Choice1Of2 with e -> Choice2Of2 e
+    let runCts (workflow : CancellationTokenSource -> Cloud<'T>) =
+        let cts = new CancellationTokenSource()
+        try imem.Run(workflow cts, cancellationToken = cts.Token) |> Choice1Of2
+        with e -> Choice2Of2 e
 
 
     [<Test>]

@@ -7,6 +7,9 @@ open MBrace.Continuation
 [<AutoOpen>]
 module internal CloudBuilderUtils =
 
+    let inline Body f = new Cloud<_>(f)
+    let inline (|Body|) (f : Cloud<_>) = f.Body
+
     let inline capture (e : 'exn) = ExceptionDispatchInfo.Capture e
     let inline extract (edi : ExceptionDispatchInfo) = edi.Reify(false, false)
     let protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e

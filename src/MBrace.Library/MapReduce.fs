@@ -1,5 +1,7 @@
 ﻿namespace MBrace
 
+open MBrace.InMemory
+
 /// Collection of mapReduce and related workflows
 module MapReduce =
 

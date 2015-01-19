@@ -79,7 +79,7 @@ type CloudSequence<'T> =
     /// Returns an enumerable that lazily fetches elements of the cloud sequence from store.
     member c.ToEnumerable () = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache.TryFind c.uuid with
+        match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
         | Some v -> return v :?> seq<'T>
         | None -> return! c.GetSequenceFromStore(config)
     }
@@ -87,7 +87,7 @@ type CloudSequence<'T> =
     /// Fetches all elements of the cloud sequence and returns them as a local array.
     member c.ToArray () : Cloud<'T []> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache.TryFind c.uuid with
+        match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
         | Some v -> return v :?> 'T []
         | None ->
             let! seq = c.GetSequenceFromStore(config)
@@ -97,17 +97,19 @@ type CloudSequence<'T> =
     /// Cache contents to local execution context. Returns true iff succesful.
     member c.Cache () = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        if config.Cache.ContainsKey c.uuid then return true
-        else
+        match config.Cache with
+        | None -> return false
+        | Some ch when ch.ContainsKey c.uuid -> return true
+        | Some ch ->
             let! seq = c.GetSequenceFromStore(config)
             let array = Seq.toArray seq
-            return config.Cache.Add(c.uuid, array)
+            return ch.Add(c.uuid, array)
     }
 
     /// Indicates if array is cached in local execution context
     member c.IsCachedLocally = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.Cache.ContainsKey c.uuid
+        return config.Cache |> Option.exists(fun ch -> ch.ContainsKey c.uuid)
     }
 
     /// Path to Cloud sequence in store

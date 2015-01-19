@@ -1,7 +1,7 @@
 ﻿namespace MBrace.Store
 
 /// Object caching abstraction
-type ICache =
+type IObjectCache =
 
     /// <summary>
     ///     Returns true iff key is contained in cache.

@@ -13,6 +13,7 @@ open Nessos.Thespian.Remote
 
 open MBrace
 open MBrace.Continuation
+open MBrace.InMemory
 open MBrace.Store
 open MBrace.Runtime
 
@@ -93,7 +94,7 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
     static member CreateInMemoryRuntime(state, procInfo : ProcessInfo) =
         new RuntimeProvider(state, procInfo, [], FaultPolicy.NoRetry, "ThreadPool", ThreadParallel)
         
-    interface IRuntimeProvider with
+    interface ICloudRuntimeProvider with
         member __.ProcessId = procInfo.ProcessId
         member __.TaskId = taskId
 
@@ -104,11 +105,11 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
             | ThreadParallel, Sequential ->
                 invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
             | _ ->
-                new RuntimeProvider(state, procInfo, dependencies, faultPolicy, taskId, ctx) :> IRuntimeProvider
+                new RuntimeProvider(state, procInfo, dependencies, faultPolicy, taskId, ctx) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, procInfo, dependencies, newPolicy, taskId, context) :> IRuntimeProvider
+            new RuntimeProvider(state, procInfo, dependencies, newPolicy, taskId, context) :> ICloudRuntimeProvider
 
         member __.IsTargetedWorkerSupported = 
             match context with

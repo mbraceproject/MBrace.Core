@@ -145,10 +145,25 @@ type CloudFileStoreConfiguration =
         /// Default directory used by current execution context.
         DefaultDirectory : string
         // Local caching facility
-        Cache : ICache
+        Cache : IObjectCache option
         // Default serializer
         Serializer : ISerializer
     }
+with
+    /// <summary>
+    ///     Creates a store configuration instance using provided components.
+    /// </summary>
+    /// <param name="fileStore">File store instance.</param>
+    /// <param name="serializer">Serializer instance.</param>
+    /// <param name="defaultDirectory">Default directory for current process. Defaults to auto generated.</param>
+    /// <param name="cache">Object cache. Defaults to no cache.</param>
+    static member Create(fileStore : ICloudFileStore, serializer : ISerializer, ?defaultDirectory : string, ?cache : IObjectCache) =
+        {
+            FileStore = fileStore
+            DefaultDirectory = match defaultDirectory with Some d -> d | None -> fileStore.CreateUniqueDirectoryPath()
+            Cache = cache
+            Serializer = serializer
+        }
 
 [<AutoOpen>]
 module CloudFileStoreUtils =

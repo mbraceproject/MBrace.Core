@@ -74,6 +74,11 @@
     <Compile Include="Store\Entities\CloudFile.fs" />
     <Compile Include="Store\Entities\CloudRef.fs" />
     <Compile Include="Store\Entities\CloudSequence.fs" />
+    <Compile Include="InMemory\Sequential.fs" />
+    <Compile Include="InMemory\ThreadPool.fs" />
+    <Compile Include="InMemory\InMemoryStore.fs" />
+    <Compile Include="InMemory\InMemoryRuntimeProvider.fs" />
+    <Compile Include="InMemory\InMemoryRuntime.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

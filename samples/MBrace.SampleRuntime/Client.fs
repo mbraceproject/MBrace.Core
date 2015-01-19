@@ -115,7 +115,7 @@ type MBraceRuntime private (logger : string -> unit) =
             yield Config.getFileStoreConfiguration procInfo.DefaultDirectory
             yield atomProvider
             yield channelProvider
-            yield runtimeP :> IRuntimeProvider
+            yield runtimeP :> ICloudRuntimeProvider
         }
 
         Cloud.ToAsync(workflow, resources = resources)

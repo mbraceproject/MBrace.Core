@@ -41,7 +41,7 @@ type CloudRef<'T> =
     /// Dereference the cloud ref
     member r.Value = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        match config.Cache.TryFind r.uuid with
+        match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
         | Some v -> return v :?> 'T
         | None -> return! Cloud.OfAsync <| r.GetValueFromStore(config)
     }
@@ -49,10 +49,19 @@ type CloudRef<'T> =
     /// Caches the cloud ref value to the local execution contexts. Returns true iff successful.
     member r.Cache() = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        if config.Cache.ContainsKey r.uuid then return true
-        else
-            let! v = Cloud.OfAsync <| r.GetValueFromStore(config)
-            return config.Cache.Add(r.uuid, v)
+        match config.Cache with
+        | None -> return false
+        | Some c ->
+            if c.ContainsKey r.uuid then return true
+            else
+                let! v = Cloud.OfAsync <| r.GetValueFromStore(config)
+                return c.Add(r.uuid, v)
+    }
+
+    /// Indicates if array is cached in local execution context
+    member c.IsCachedLocally = cloud {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return config.Cache |> Option.exists(fun ch -> ch.ContainsKey c.uuid)
     }
 
     /// Gets the size of cloud ref in bytes
