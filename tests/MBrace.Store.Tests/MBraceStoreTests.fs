@@ -268,7 +268,7 @@ type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, ser
     let channelProvider = { ChannelProvider = channelProvider ; DefaultContainer = channelProvider.CreateUniqueContainerName() }
 
     let resources = resource { 
-        yield! InMemory.CreateResources()
+        yield ThreadPoolRuntime.Create() :> IRuntimeProvider
         yield fileStoreConfig
         yield atomProviderConfig
         yield channelProvider

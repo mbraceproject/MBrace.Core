@@ -31,7 +31,11 @@ module ``ThreadPool Parallelism Tests`` =
 #endif
 
     let logger = new TestLogger()
-    let resources = InMemory.CreateResources(logger)
+    let resources = resource {
+        yield ThreadPoolRuntime.Create(logger = logger) :> IRuntimeProvider
+        yield InMemoryChannelProvider.CreateConfiguration()
+        yield InMemoryAtomProvider.CreateConfiguration()
+    }
         
     let run (workflow : Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)
     let runCts (workflow : CancellationTokenSource -> Cloud<'T>) = Cloud.RunProtected(workflow, resources = resources)

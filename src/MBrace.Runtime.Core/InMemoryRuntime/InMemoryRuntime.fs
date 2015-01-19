@@ -20,7 +20,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
         new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger)
         
     interface IRuntimeProvider with
-        member __.ProcessId = "in memory process"
+        member __.ProcessId = sprintf "In-Memory cloud process (pid:%d)" <| System.Diagnostics.Process.GetCurrentProcess().Id
         member __.TaskId = taskId
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false
@@ -33,9 +33,10 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
         member __.SchedulingContext = context
         member __.WithSchedulingContext newContext = 
             let newContext =
-                match newContext with
-                | Distributed -> ThreadParallel
-                | c -> c
+                match context, newContext with
+                | Sequential, ThreadParallel -> invalidOp <| sprintf "Cannot set scheduling context from '%A' to '%A'." Sequential ThreadParallel
+                | _, Distributed -> ThreadParallel
+                | _, c -> c
 
             new ThreadPoolRuntime(newContext, faultPolicy, logger) :> IRuntimeProvider
 
@@ -47,7 +48,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
                 computations
                 |> Seq.map (fun (c,w) ->
                     if Option.isSome w then
-                        raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime.")
+                        raise <| new System.NotSupportedException("Targeted workers not supported in InMemory runtime.")
                     else
                         c)
                 |> Seq.toArray
@@ -74,16 +75,3 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
             match context with
             | Sequential -> Sequential.StartChild workflow
             | _ -> ThreadPool.StartChild(workflow, ?timeoutMilliseconds = timeoutMilliseconds)
-
-type InMemory =
-
-    /// <summary>
-    ///     Creates a resource bundle for in-memory cloud computations.
-    /// </summary>
-    /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
-    static member CreateResources(?logger : ICloudLogger) : ResourceRegistry =
-        resource { 
-            yield ThreadPoolRuntime.Create (?logger = logger) :> IRuntimeProvider
-            yield InMemoryChannelProvider.CreateConfiguration()
-            yield InMemoryAtomProvider.CreateConfiguration()
-        }
