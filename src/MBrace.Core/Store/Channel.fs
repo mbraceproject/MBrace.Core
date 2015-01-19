@@ -10,7 +10,7 @@ type ISendPort<'T> =
     ///     Sends a message over the channel
     /// </summary>
     /// <param name="message">Message to send.</param>
-    abstract Send : message:'T -> Async<unit>
+    abstract Send : message:'T -> Cloud<unit>
 
 /// Receiving side of a distributed channel
 type IReceivePort<'T> =
@@ -23,7 +23,7 @@ type IReceivePort<'T> =
     ///     Asynchronously awaits a message from the channel.
     /// </summary>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    abstract Receive : ?timeout:int -> Async<'T>
+    abstract Receive : ?timeout:int -> Cloud<'T>
 
 namespace MBrace.Store
 
@@ -84,7 +84,7 @@ type CloudChannel =
     /// <param name="message">Message to send.</param>
     /// <param name="channel">Target channel.</param>
     static member Send<'T> (message : 'T) (channel : ISendPort<'T>) = cloud {
-        return! Cloud.OfAsync <| channel.Send message
+        return! channel.Send message
     }
 
     /// <summary>
@@ -93,5 +93,5 @@ type CloudChannel =
     /// <param name="channel">Source channel.</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     static member Receive<'T> (channel : IReceivePort<'T>, ?timeout : int) = cloud {
-        return! Cloud.OfAsync <| channel.Receive (?timeout = timeout)
+        return! channel.Receive (?timeout = timeout)
     }

@@ -9,35 +9,32 @@ type ICloudAtom<'T> =
     /// Cloud atom identifier
     abstract Id : string
 
-    /// Asynchronously returns the current value of atom.
-    abstract GetValue : unit -> Async<'T>
+    /// Gets the current value of the atom.
+    abstract Value : Cloud<'T>
 
     /// <summary>
     ///     Atomically updates table entry of given id using updating function.
     /// </summary>
     /// <param name="updater">Value updating function</param>
     /// <param name="maxRetries">Maximum retries under optimistic semantics. Defaults to infinite.</param>
-    abstract Update : updater:('T -> 'T) * ?maxRetries:int -> Async<unit>
+    abstract Update : updater:('T -> 'T) * ?maxRetries:int -> Cloud<unit>
 
     /// <summary>
     ///      Forces a value on atom.
     /// </summary>
     /// <param name="value">value to be set.</param>
-    abstract Force : value:'T -> Async<unit>
+    abstract Force : value:'T -> Cloud<unit>
 
 [<AutoOpen>]
 module CloudAtomUtils =
     
     type ICloudAtom<'T> with
 
-        /// Returns the current value of atom.
-        member atom.Value = atom.GetValue() |> Async.RunSync
-
         /// <summary>
         ///     Performs transaction on atom.
         /// </summary>
         /// <param name="transaction">Transaction function.</param>
-        member atom.Transact(transaction : 'T -> 'R * 'T) : Async<'R> = async {
+        member atom.Transact(transaction : 'T -> 'R * 'T) : Cloud<'R> = cloud {
             let result = ref Unchecked.defaultof<'R>
             do! atom.Update(fun t -> let r,t' = transaction t in result := r ; t')
             return result.Value
@@ -110,7 +107,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="atom">Atom instance.</param>
     static member Read(atom : ICloudAtom<'T>) : Cloud<'T> = cloud {
-        return! Cloud.OfAsync <| atom.GetValue()
+        return! atom.Value
     }
 
     /// <summary>
@@ -119,7 +116,7 @@ type CloudAtom =
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
     static member Update (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : Cloud<unit> = cloud {
-        return! Cloud.OfAsync <| atom.Update updateF
+        return! atom.Update updateF
     }
 
     /// <summary>
@@ -128,7 +125,7 @@ type CloudAtom =
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
     static member Force (value : 'T) (atom : ICloudAtom<'T>) : Cloud<unit> = cloud {
-        return! Cloud.OfAsync <| atom.Force value
+        return! atom.Force value
     }
 
     /// <summary>
@@ -137,7 +134,7 @@ type CloudAtom =
     /// <param name="trasactF"></param>
     /// <param name="atom"></param>
     static member Transact (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : Cloud<'R> = cloud {
-        return! Cloud.OfAsync <| atom.Transact trasactF
+        return! atom.Transact trasactF
     }
 
     /// <summary>

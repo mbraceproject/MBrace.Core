@@ -187,28 +187,34 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     member __.``CloudAtom - Sequential updates`` () =
         // avoid capturing test fixture class in closure
         let nseq = nseq
-        cloud {
-            let! a = CloudAtom.New 0
-            for i in 1 .. 10 * nseq do
-                do! CloudAtom.Update (fun i -> i + 1) a
+        let atom =
+            cloud {
+                let! a = CloudAtom.New 0
+                for i in 1 .. 10 * nseq do
+                    do! CloudAtom.Update (fun i -> i + 1) a
 
-            return a
-        } |> runRemote |> fun a -> a.Value |> should equal (10 * nseq)
+                return a
+            } |> runRemote 
+            
+        atom.Value |> runLocal |> should equal (10 * nseq)
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - Parallel updates`` () =
         // avoid capturing test fixture class in closure
         let npar = npar
         let nseq = nseq
-        cloud {
-            let! a = CloudAtom.New 0
-            let worker _ = cloud {
-                for _ in 1 .. nseq do
-                    do! CloudAtom.Update (fun i -> i + 1) a
-            }
-            do! Seq.init npar worker |> Cloud.Parallel |> Cloud.Ignore
-            return a
-        } |> runRemote |> fun a -> a.Value |> should equal (npar * nseq)
+        let atom = 
+            cloud {
+                let! a = CloudAtom.New 0
+                let worker _ = cloud {
+                    for _ in 1 .. nseq do
+                        do! CloudAtom.Update (fun i -> i + 1) a
+                }
+                do! Seq.init npar worker |> Cloud.Parallel |> Cloud.Ignore
+                return a
+            } |> runRemote 
+        
+        atom.Value |> runLocal |> should equal (npar * nseq)
 
     [<Test; Repeat(repeats)>]
     member __.``CloudAtom - Parallel updates with large obj`` () =
@@ -220,7 +226,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
             else
                 let! atom = CloudAtom.New List.empty<int>
                 do! Seq.init npar (fun i -> CloudAtom.Update (fun is -> i :: is) atom) |> Cloud.Parallel |> Cloud.Ignore
-                return List.sum atom.Value = List.sum [1..npar]
+                let! values = atom.Value
+                return List.sum values = List.sum [1..npar]
         } |> runRemote |> should equal true
 
     [<Test; Repeat(repeats)>]
@@ -240,7 +247,7 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
         cloud {
             let! a = CloudAtom.New -1
             do! Seq.init npar (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
-            return a.Value
+            return! a.Value
         } |> runRemote |> should be (greaterThanOrEqualTo 0)
 
     [<Test; Repeat(repeats)>]

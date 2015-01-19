@@ -440,15 +440,15 @@ type Atom<'T> private (id : string, source : ActorRef<AtomMsg<'T>>) =
 
     interface ICloudAtom<'T> with
         member __.Id = id
-        member __.GetValue() = async {
+        member __.Value = Cloud.OfAsync <| async {
             let! _,value = source <!- GetValue
             return value
         }
 
-        member __.Dispose() = Cloud.OfAsync (source <!- Dispose)
+        member __.Dispose() = Cloud.OfAsync <| async { return! source <!- Dispose }
 
-        member __.Force(value : 'T) = source <!- fun ch -> ForceValue(value, ch)
-        member __.Update(f : 'T -> 'T, ?maxRetries) = async {
+        member __.Force(value : 'T) = Cloud.OfAsync <| async { return! source <!- fun ch -> ForceValue(value, ch) }
+        member __.Update(f : 'T -> 'T, ?maxRetries) = Cloud.OfAsync <| async {
             if maxRetries |> Option.exists (fun i -> i < 0) then
                 invalidArg "maxRetries" "must be non-negative."
 
@@ -520,12 +520,12 @@ type Channel<'T> private (id : string, source : ActorRef<ChannelMsg<'T>>) =
 
     interface IReceivePort<'T> with
         member __.Id = id
-        member __.Receive(?timeout : int) = source.PostWithReply(Receive, ?timeout = timeout)
+        member __.Receive(?timeout : int) = Cloud.OfAsync <| async { return! source.PostWithReply(Receive, ?timeout = timeout) }
         member __.Dispose () = cloud.Zero()
 
     interface ISendPort<'T> with
         member __.Id = id
-        member __.Send(msg : 'T) = source.AsyncPost(Send msg)
+        member __.Send(msg : 'T) =  Cloud.OfAsync <| async { return! source.AsyncPost(Send msg) }
 
     /// Initializes a new distributed queue instance.
     static member Init(id : string) =

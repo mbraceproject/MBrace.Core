@@ -159,12 +159,12 @@ type internal FileSystemAtom<'T> (path : string) =
     
     interface ICloudAtom<'T> with
         member __.Id = path
-        member __.GetValue () = async {
+        member __.Value = Cloud.OfAsync <| async {
             use fs = trap FileMode.Open FileAccess.Read FileShare.None
             return VagrantRegistry.Pickler.Deserialize<'T>(fs)
         }
 
-        member __.Update(updater : 'T -> 'T, ?maxRetries : int) = async {
+        member __.Update(updater : 'T -> 'T, ?maxRetries : int) = Cloud.OfAsync <| async {
             use fs = trap FileMode.Open FileAccess.ReadWrite FileShare.None
             let value = VagrantRegistry.Pickler.Deserialize<'T>(fs, leaveOpen = true)
             let value' = updater value
@@ -172,7 +172,7 @@ type internal FileSystemAtom<'T> (path : string) =
             VagrantRegistry.Pickler.Serialize<'T>(fs, value', leaveOpen = false)
         }
 
-        member __.Force(value : 'T) = async {
+        member __.Force(value : 'T) = Cloud.OfAsync <| async {
             use fs = trap FileMode.Open FileAccess.Write FileShare.None
             VagrantRegistry.Pickler.Serialize<'T>(fs, value, leaveOpen = false)
         }
