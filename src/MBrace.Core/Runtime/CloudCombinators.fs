@@ -392,7 +392,13 @@ type Cloud =
     ///     Force thread local execution semantics for given cloud workflow.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
-    static member ToLocal(workflow : Cloud<'T>) = Cloud.WithSchedulingContext ThreadParallel workflow
+    static member ToLocal(workflow : Cloud<'T>) = cloud {
+        let! runtime = Cloud.GetResource<IRuntimeProvider>()
+        if runtime.SchedulingContext = Sequential then
+            return invalidOp "Cannot set scheduling context from '%A' to '%A'." Sequential ThreadParallel
+        else
+            return! Cloud.WithSchedulingContext ThreadParallel workflow
+    }
 
     /// <summary>
     ///     Force sequential execution semantics for given cloud workflow.
