@@ -34,3 +34,8 @@ type ``Store tests`` () =
         match runtime with
         | None -> invalidOp "no runtime state available."
         | Some r -> r.RunLocal(wf)
+
+    override __.StoreClient =
+        match runtime with
+        | None -> invalidOp "no runtime state available."
+        | Some r -> r.StoreClient

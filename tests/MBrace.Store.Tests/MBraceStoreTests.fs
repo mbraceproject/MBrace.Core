@@ -31,6 +31,7 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
     abstract Run : Cloud<'T> * ?ct:CancellationToken -> 'T
     abstract RunLocal : Cloud<'T> -> 'T
+    abstract StoreClient : StoreClient
 
     [<Test>]
     member __.``CloudRef - simple`` () = 
@@ -258,6 +259,32 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
             return! CloudAtom.Read a
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
+    [<Test>]
+    member __.``StoreClient - CloudFile`` () =
+        let sc = __.StoreClient
+        let lines = Seq.init 10 string
+        let file = sc.CloudFile.WriteLines(lines) |> Async.RunSynchronously
+        sc.CloudFile.ReadLines(file)
+        |> Async.RunSynchronously
+        |> should equal lines
+
+    [<Test>]
+    member __.``StoreClient - CloudAtom`` () =
+        let sc = __.StoreClient
+        let atom = sc.CloudAtom.New(41) |> Async.RunSynchronously
+        sc.CloudAtom.Update((+) 1) atom |> Async.RunSynchronously
+        sc.CloudAtom.Read atom
+        |> Async.RunSynchronously
+        |> should equal 42
+
+    [<Test>]
+    member __.``StoreClient - CloudChannel`` () =
+        let sc = __.StoreClient
+        let sp, rp = sc.CloudChannel.New() |> Async.RunSynchronously
+        sc.CloudChannel.Send 42 sp |> Async.RunSynchronously
+        sc.CloudChannel.Receive rp
+        |> Async.RunSynchronously
+        |> should equal 42
 
 [<TestFixture; AbstractClass>]
 type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, serializer : ISerializer, cache, ?npar, ?nseq) =
@@ -269,5 +296,14 @@ type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, ser
 
     let imem = InMemoryRuntime.Create(fileConfig = fileStoreConfig, atomConfig = atomConfig, channelConfig = channelConfig)
 
+    let storeClient =
+        let resources = resource {
+            yield fileStoreConfig
+            yield atomConfig
+            yield channelConfig
+        }
+        StoreClient.CreateFromResources(resources)
+
     override __.Run(wf : Cloud<'T>, ?ct) = imem.Run(wf, ?cancellationToken = ct)
     override __.RunLocal(wf : Cloud<'T>) = imem.Run(wf)
+    override __.StoreClient = storeClient

@@ -63,6 +63,17 @@ type MBraceRuntime private (logger : string -> unit) =
             DefaultChannelContainer = channelProvider.CreateUniqueContainerName()
         }
         
+    let storeClient =
+        let resources = 
+            let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().CreateUniqueDirectoryPath())
+            let atomConfig    = CloudAtomConfiguration.Create(atomProvider, atomProvider.CreateUniqueContainerName())
+            let channelConfig = CloudChannelConfiguration.Create(channelProvider, channelProvider.CreateUniqueContainerName())
+            resource {
+                yield fileConfig
+                yield atomConfig
+                yield channelConfig
+            }
+        StoreClient.CreateFromResources(resources)
 
     /// <summary>
     ///     Asynchronously execute a workflow on the distributed runtime.
@@ -119,6 +130,8 @@ type MBraceRuntime private (logger : string -> unit) =
         }
 
         Cloud.ToAsync(workflow, resources = resources)
+
+    member __.StoreClient = storeClient
 
     /// <summary>
     ///     Run workflow as local, in-memory computation

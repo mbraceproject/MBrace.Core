@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Client
+﻿namespace MBrace
 
 #nowarn "0444"
 
@@ -360,5 +360,6 @@ type StoreClient internal (resources : ResourceRegistry) =
     member __.CloudFile = fileClient
 
     /// Create a new StoreClient instance from given resources.
+    /// Resources must contain CloudFileStoreConfiguration, CloudAtomConfiguration and CloudChannelConfiguration values.
     static member CreateFromResources(resources : ResourceRegistry) =
         new StoreClient(resources)
