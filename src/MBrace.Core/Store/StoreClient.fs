@@ -126,7 +126,7 @@ type CloudFileStoreClient internal (registry : ResourceRegistry) =
 //    member __.Current : Async<ICloudFileStore> = FileStore.Current |> toAsync
                    
     /// Generates a random, uniquely specified path to directory
-    member __.CreateUniqueDirectoryPath() = MBrace.FileStore.CreateUniqueDirectoryPath() |> toAsync
+    member __.GetRandomDirectoryName() = MBrace.FileStore.GetRandomDirectoryName() |> toAsync
 
 [<Sealed>]
 /// Collection of file store operations

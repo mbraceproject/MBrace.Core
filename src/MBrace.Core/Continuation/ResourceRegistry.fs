@@ -5,6 +5,7 @@ open System.Runtime.Serialization
 
 [<AutoOpen>]
 module private ResourceRegistryUtils =
+
     let inline key<'T> = typeof<'T>.AssemblyQualifiedName
 
 /// Immutable dependency container used for pushing
@@ -35,6 +36,9 @@ type ResourceRegistry private (index : Map<string, obj>) =
         | None -> 
             let msg = sprintf "Resource '%s' not installed in this context." typeof<'TResource>.Name
             raise <| ResourceNotFoundException msg
+
+    /// Returns true iff registry instance contains resource of given type
+    member __.Contains<'TResource> () = index.ContainsKey key<'TResource>
 
     /// Creates an empty resource container
     static member Empty = new ResourceRegistry(Map.empty)

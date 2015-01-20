@@ -1,48 +1,68 @@
 ﻿namespace MBrace.Tests
 
+open System.IO
 open System.Threading
 
 open NUnit.Framework
 open FsUnit
 
-open MBrace
 open MBrace.Continuation
+open MBrace.Store
 
-type Cloud =
-    static member RunProtected(comp, ?resources) =
-        try Cloud.RunSynchronously(comp, ?resources = resources, ?cancellationToken = None) |> Choice1Of2
-        with e -> Choice2Of2 e
+module Config =
 
-    static member RunProtected(comp : CancellationTokenSource -> Cloud<'T>, ?resources) =
-        let cts = new System.Threading.CancellationTokenSource()
-        let comp = comp cts
-        try Cloud.RunSynchronously(comp, ?resources = resources, cancellationToken = cts.Token) |> Choice1Of2
-        with e -> Choice2Of2 e
+    [<Literal>]
+#if DEBUG
+    let repeats = 10
+#else
+    let repeats = 3
+#endif
 
-module Choice =
+[<AutoOpen>]
+module Utils =
 
-    let protect (f : unit -> 'T) =
-        try f () |> Choice1Of2 with e -> Choice2Of2 e
+    let shouldfail (f : unit -> 'T) =
+        try let v = f () in raise <| new AssertionException(sprintf "should fail but was '%O'" v)
+        with _ -> ()
 
-    let shouldEqual (value : 'T) (input : Choice<'T, exn>) = 
-        match input with
-        | Choice1Of2 v' -> should equal value v'
-        | Choice2Of2 e -> should equal value e
+    let shouldFailwith<'T, 'Exn when 'Exn :> exn> (f : unit -> 'T) =
+        try let v = f () in raise <| new AssertionException(sprintf "should fail but was '%O'" v)
+        with e -> should be instanceOfType<'Exn> e
 
-    let shouldMatch (pred : 'T -> bool) (input : Choice<'T, exn>) =
-        match input with
-        | Choice1Of2 t when pred t -> ()
-        | Choice1Of2 t -> raise <| new AssertionException(sprintf "value '%A' does not match predicate." t)
-        | Choice2Of2 e -> should be instanceOfType<'T> e
+    /// type safe equality tester
+    let shouldEqual (expected : 'T) (input : 'T) = input |> should equal expected
 
-    let shouldFailwith<'T, 'Exn when 'Exn :> exn> (input : Choice<'T, exn>) = 
-        match input with
-        | Choice1Of2 t -> should be instanceOfType<'Exn> t
-        | Choice2Of2 e -> should be instanceOfType<'Exn> e
+    let shouldMatch (pred : 'T -> bool) (input : 'T) =
+        if pred input then ()
+        else
+            raise <| new AssertionException(sprintf "value '%A' does not match predicate." input)
 
-type DummyDisposable() =
-    let isDisposed = ref false
-    interface ICloudDisposable with
-        member __.Dispose () = cloud { isDisposed := true }
+    type ISerializer with
+        member s.Clone<'T>(t : 'T) =
+            use m = new MemoryStream()
+            s.Serialize(m, t, leaveOpen = true)
+            m.Position <- 0L
+            s.Deserialize<'T>(m, leaveOpen = true)
+            
 
-    member __.IsDisposed = !isDisposed
+    [<RequireQualifiedAccess>]
+    module Choice =
+
+        let protect (f : unit -> 'T) =
+            try f () |> Choice1Of2 with e -> Choice2Of2 e
+
+        let shouldEqual (value : 'T) (input : Choice<'T, exn>) = 
+            match input with
+            | Choice1Of2 v' -> should equal value v'
+            | Choice2Of2 e -> should equal value e
+
+        let shouldMatch (pred : 'T -> bool) (input : Choice<'T, exn>) =
+            match input with
+            | Choice1Of2 t when pred t -> ()
+            | Choice1Of2 t -> raise <| new AssertionException(sprintf "value '%A' does not match predicate." t)
+            | Choice2Of2 e -> should be instanceOfType<'T> e
+
+        let shouldFailwith<'T, 'Exn when 'Exn :> exn> (input : Choice<'T, exn>) = 
+            match input with
+            | Choice1Of2 t -> raise <| new AssertionException(sprintf "Expected exception, but was value '%A'." t)
+            | Choice2Of2 e -> should be instanceOfType<'Exn> e

@@ -20,7 +20,7 @@ type ICloudFileStore =
     abstract GetRootDirectory : unit -> string
 
     /// Generates a random, uniquely specified path to directory
-    abstract CreateUniqueDirectoryPath : unit -> string
+    abstract GetRandomDirectoryName : unit -> string
 
     /// <summary>
     ///     Returns a normal form for path. Returns None if invalid format.
@@ -160,7 +160,7 @@ with
     static member Create(fileStore : ICloudFileStore, serializer : ISerializer, ?defaultDirectory : string, ?cache : IObjectCache) =
         {
             FileStore = fileStore
-            DefaultDirectory = match defaultDirectory with Some d -> d | None -> fileStore.CreateUniqueDirectoryPath()
+            DefaultDirectory = match defaultDirectory with Some d -> d | None -> fileStore.GetRandomDirectoryName()
             Cache = cache
             Serializer = serializer
         }

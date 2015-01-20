@@ -47,7 +47,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
         let cacheBehavior = defaultArg cacheBehavior CacheBehavior.Default
         let localCacheContainer =
             match localCacheContainer with 
-            | None -> localCacheStore.CreateUniqueDirectoryPath()
+            | None -> localCacheStore.GetRandomDirectoryName()
             | Some c -> c
 
         do localCacheStore.CreateDirectory(localCacheContainer) |> Async.RunSynchronously
@@ -112,7 +112,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
         
         member x.CreateDirectory(directory: string): Async<unit> = sourceStore.CreateDirectory directory
         
-        member x.CreateUniqueDirectoryPath(): string = sourceStore.CreateUniqueDirectoryPath()
+        member x.GetRandomDirectoryName(): string = sourceStore.GetRandomDirectoryName()
         
         member x.DeleteDirectory(directory: string, recursiveDelete: bool): Async<unit> = sourceStore.DeleteDirectory(directory, recursiveDelete)
         

@@ -17,7 +17,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
 
     let run x = Async.RunSync x
 
-    let testDirectory = fileStore.CreateUniqueDirectoryPath()
+    let testDirectory = fileStore.GetRandomDirectoryName()
 
     [<Test>]
     member __.``UUID is not null or empty.`` () = 
@@ -32,7 +32,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
 
     [<Test>]
     member __.``Create and delete directory.`` () =
-        let dir = fileStore.CreateUniqueDirectoryPath()
+        let dir = fileStore.GetRandomDirectoryName()
         fileStore.DirectoryExists dir |> run |> should equal false
         fileStore.CreateDirectory dir |> run
         fileStore.DirectoryExists dir |> run |> should equal true
@@ -53,7 +53,7 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
 
     [<Test>]
     member __.``Enumerate root directories`` () =
-        let directory = fileStore.CreateUniqueDirectoryPath()
+        let directory = fileStore.GetRandomDirectoryName()
         fileStore.CreateDirectory directory |> run
         let directories = fileStore.EnumerateRootDirectories() |> run
         directories |> Array.exists((=) directory) |> should equal true
@@ -126,3 +126,30 @@ type ``File Store Tests`` (fileStore : ICloudFileStore) =
     member test.``Cleanup`` () =
         if fileStore.DirectoryExists testDirectory |> run then
             fileStore.DeleteDirectory(testDirectory, recursiveDelete = true) |> run
+
+//    [<Test>]
+//    member __.``StoreClient - CloudFile`` () =
+//        let sc = __.StoreClient
+//        let lines = Seq.init 10 string
+//        let file = sc.CloudFile.WriteLines(lines) |> Async.RunSynchronously
+//        sc.CloudFile.ReadLines(file)
+//        |> Async.RunSynchronously
+//        |> should equal lines
+//
+//    [<Test>]
+//    member __.``StoreClient - CloudAtom`` () =
+//        let sc = __.StoreClient
+//        let atom = sc.CloudAtom.New(41) |> Async.RunSynchronously
+//        sc.CloudAtom.Update((+) 1) atom |> Async.RunSynchronously
+//        sc.CloudAtom.Read atom
+//        |> Async.RunSynchronously
+//        |> should equal 42
+//
+//    [<Test>]
+//    member __.``StoreClient - CloudChannel`` () =
+//        let sc = __.StoreClient
+//        let sp, rp = sc.CloudChannel.New() |> Async.RunSynchronously
+//        sc.CloudChannel.Send 42 sp |> Async.RunSynchronously
+//        sc.CloudChannel.Receive rp
+//        |> Async.RunSynchronously
+//        |> should equal 42

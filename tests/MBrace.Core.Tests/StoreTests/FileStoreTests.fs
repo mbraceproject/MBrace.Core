@@ -1,4 +1,4 @@
-﻿namespace MBrace.Store.Tests
+﻿namespace MBrace.Tests
 
 open System
 open System.Threading
@@ -7,20 +7,13 @@ open MBrace
 open MBrace.Continuation
 open MBrace.InMemory
 open MBrace.Tests
-open MBrace.Store
-open MBrace.Store.Tests.TestTypes
-
-open Nessos.FsPickler
 
 open NUnit.Framework
 open FsUnit
 
+/// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``MBrace store tests`` (?npar, ?nseq) as self =
-
-    // number of parallel and sequential updates for CloudAtom tests.
-    let npar = defaultArg npar 20
-    let nseq = defaultArg nseq 10
+type ``FileStore Tests`` (nParallel : int) as self =
 
     let runRemote wf = self.Run wf 
     let runLocal wf = self.RunLocal wf
@@ -29,9 +22,10 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
         try self.Run wf |> Choice1Of2
         with e -> Choice2Of2 e
 
-    abstract Run : Cloud<'T> * ?ct:CancellationToken -> 'T
+    /// Run workflow in the runtime under test
+    abstract Run : Cloud<'T> -> 'T
+    /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
-    abstract StoreClient : StoreClient
 
     [<Test>]
     member __.``CloudRef - simple`` () = 
@@ -48,8 +42,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
 
     [<Test>]
     member __.``CloudRef - Distributed tree`` () =
-        let tree = createTree 5 |> runRemote
-        getBranchCount tree |> runRemote |> should equal 31
+        let tree = CloudTree.createTree 5 |> runRemote
+        CloudTree.getBranchCount tree |> runRemote |> should equal 31
 
 
     [<Test>]
@@ -185,125 +179,35 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
-    member __.``CloudAtom - Sequential updates`` () =
-        // avoid capturing test fixture class in closure
-        let nseq = nseq
-        let atom =
+    member __.``CloudDirectory - Create, populate, delete`` () =
+        cloud {
+            let! dir = CloudDirectory.Create ()
+            let! exists = CloudDirectory.Exists dir
+            exists |> shouldEqual true
+            let write i = cloud {
+                let! path = FileStore.GetRandomFileName dir
+                let! _ = CloudFile.WriteAllText("lorem ipsum dolor", path = path)
+                ()
+            }
+
+            do! Seq.init 20 write |> Cloud.Parallel |> Cloud.Ignore
+
+            let! files = CloudFile.Enumerate dir
+            files.Length |> should equal 20
+            do! CloudDirectory.Delete dir
+            let! exists = CloudDirectory.Exists dir
+            exists |> shouldEqual false
+        } |> runRemote
+
+    [<Test>]
+    member __.``CloudDirectory - dispose`` () =
+        let dir, file =
             cloud {
-                let! a = CloudAtom.New 0
-                for i in 1 .. 10 * nseq do
-                    do! CloudAtom.Update (fun i -> i + 1) a
+                use! dir = CloudDirectory.Create ()
+                let! path = FileStore.GetRandomFileName dir
+                let! file = CloudFile.WriteAllText("lorem ipsum dolor", path = path)
+                return dir, file
+            } |> runRemote
 
-                return a
-            } |> runRemote 
-            
-        atom.Value |> runLocal |> should equal (10 * nseq)
-
-    [<Test; Repeat(repeats)>]
-    member __.``CloudAtom - Parallel updates`` () =
-        // avoid capturing test fixture class in closure
-        let npar = npar
-        let nseq = nseq
-        let atom = 
-            cloud {
-                let! a = CloudAtom.New 0
-                let worker _ = cloud {
-                    for _ in 1 .. nseq do
-                        do! CloudAtom.Update (fun i -> i + 1) a
-                }
-                do! Seq.init npar worker |> Cloud.Parallel |> Cloud.Ignore
-                return a
-            } |> runRemote 
-        
-        atom.Value |> runLocal |> should equal (npar * nseq)
-
-    [<Test; Repeat(repeats)>]
-    member __.``CloudAtom - Parallel updates with large obj`` () =
-        // avoid capturing test fixture class in closure
-        let npar = npar
-        cloud {
-            let! isSupported = CloudAtom.IsSupportedValue [1 .. 100]
-            if isSupported then return true
-            else
-                let! atom = CloudAtom.New List.empty<int>
-                do! Seq.init npar (fun i -> CloudAtom.Update (fun is -> i :: is) atom) |> Cloud.Parallel |> Cloud.Ignore
-                let! values = atom.Value
-                return List.sum values = List.sum [1..npar]
-        } |> runRemote |> should equal true
-
-    [<Test; Repeat(repeats)>]
-    member __.``CloudAtom - transact with contention`` () =
-        // avoid capturing test fixture class in closure
-        let npar = npar
-        cloud {
-            let! a = CloudAtom.New 0
-            let! results = Seq.init npar (fun _ -> CloudAtom.Transact(fun i -> i, (i+1)) a) |> Cloud.Parallel
-            return Array.sum results
-        } |> runRemote |> should equal (Array.sum [|0 .. npar - 1|])
-
-    [<Test; Repeat(repeats)>]
-    member __.``CloudAtom - force with contention`` () =
-        // avoid capturing test fixture class in closure
-        let npar = npar
-        cloud {
-            let! a = CloudAtom.New -1
-            do! Seq.init npar (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
-            return! a.Value
-        } |> runRemote |> should be (greaterThanOrEqualTo 0)
-
-    [<Test; Repeat(repeats)>]
-    member __.``CloudAtom - dispose`` () =
-        cloud {
-            let! a = CloudAtom.New 0
-            do! cloud { use a = a in () }
-            return! CloudAtom.Read a
-        } |> runProtected |> Choice.shouldFailwith<_,exn>
-
-    [<Test>]
-    member __.``StoreClient - CloudFile`` () =
-        let sc = __.StoreClient
-        let lines = Seq.init 10 string
-        let file = sc.CloudFile.WriteLines(lines) |> Async.RunSynchronously
-        sc.CloudFile.ReadLines(file)
-        |> Async.RunSynchronously
-        |> should equal lines
-
-    [<Test>]
-    member __.``StoreClient - CloudAtom`` () =
-        let sc = __.StoreClient
-        let atom = sc.CloudAtom.New(41) |> Async.RunSynchronously
-        sc.CloudAtom.Update((+) 1) atom |> Async.RunSynchronously
-        sc.CloudAtom.Read atom
-        |> Async.RunSynchronously
-        |> should equal 42
-
-    [<Test>]
-    member __.``StoreClient - CloudChannel`` () =
-        let sc = __.StoreClient
-        let sp, rp = sc.CloudChannel.New() |> Async.RunSynchronously
-        sc.CloudChannel.Send 42 sp |> Async.RunSynchronously
-        sc.CloudChannel.Receive rp
-        |> Async.RunSynchronously
-        |> should equal 42
-
-[<TestFixture; AbstractClass>]
-type ``Local MBrace store tests`` (fileStore, atomProvider, channelProvider, serializer : ISerializer, cache, ?npar, ?nseq) =
-    inherit ``MBrace store tests``(?npar = npar, ?nseq = nseq)
-
-    let fileStoreConfig = CloudFileStoreConfiguration.Create(fileStore, serializer, cache = cache)
-    let atomConfig = CloudAtomConfiguration.Create(atomProvider)
-    let channelConfig = CloudChannelConfiguration.Create(channelProvider)
-
-    let imem = InMemoryRuntime.Create(fileConfig = fileStoreConfig, atomConfig = atomConfig, channelConfig = channelConfig)
-
-    let storeClient =
-        let resources = resource {
-            yield fileStoreConfig
-            yield atomConfig
-            yield channelConfig
-        }
-        StoreClient.CreateFromResources(resources)
-
-    override __.Run(wf : Cloud<'T>, ?ct) = imem.Run(wf, ?cancellationToken = ct)
-    override __.RunLocal(wf : Cloud<'T>) = imem.Run(wf)
-    override __.StoreClient = storeClient
+        CloudDirectory.Exists dir |> runLocal |> shouldEqual false
+        CloudFile.Exists file |> runLocal |> shouldEqual false

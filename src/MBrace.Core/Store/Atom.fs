@@ -167,3 +167,19 @@ type CloudAtom =
             | None -> false
             | Some ap -> ap.AtomProvider.IsSupportedValue value
     }
+
+    /// <summary>
+    ///     Increments a cloud counter by one.
+    /// </summary>
+    /// <param name="atom">Input atom.</param>
+    static member inline Incr (atom : ICloudAtom<'T>) = cloud {
+        return! atom.Update (fun i -> i + LanguagePrimitives.GenericOne)
+    }
+
+    /// <summary>
+    ///     Decrements a cloud counter by one.
+    /// </summary>
+    /// <param name="atom">Input atom.</param>
+    static member inline Decr (atom : ICloudAtom<'T>) = cloud {
+        return! atom.Update (fun i -> i - LanguagePrimitives.GenericOne)
+    }

@@ -50,8 +50,13 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="Utils.fs" />
+    <Compile Include="TestTypes.fs" />
     <Compile Include="ContinuationTests.fs" />
-    <Compile Include="ThreadPoolTests.fs" />
+    <Compile Include="ParallelismTests.fs" />
+    <Compile Include="StoreTests\FileStoreTests.fs" />
+    <Compile Include="StoreTests\CloudAtomTests.fs" />
+    <Compile Include="StoreTests\CloudChannelTests.fs" />
+    <Compile Include="InMemoryTests.fs" />
     <Content Include="App.config" />
     <Content Include="paket.references" />
   </ItemGroup>

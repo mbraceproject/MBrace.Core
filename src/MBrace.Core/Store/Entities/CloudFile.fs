@@ -78,15 +78,31 @@ type FileStore =
     }
 
     /// Generates a random, uniquely specified path to directory
-    static member CreateUniqueDirectoryPath() = cloud {
+    static member GetRandomDirectoryName() = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return fs.FileStore.CreateUniqueDirectoryPath()
+        return fs.FileStore.GetRandomDirectoryName()
     }
 
+    /// <summary>
+    ///     Creates a uniquely defined file path for given container.
+    /// </summary>
+    /// <param name="container">Path to containing directory. Defaults to process directory.</param>
+    static member GetRandomFileName(?container : string) : Cloud<string> = cloud {
+        let! fs = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let container = match container with Some c -> c | None -> fs.DefaultDirectory
+        return fs.FileStore.GetRandomFilePath(container)
+    }
+
+    /// <summary>
+    ///     Creates a uniquely defined file path for given container.
+    /// </summary>
+    /// <param name="container">Path to containing directory. Defaults to process directory.</param>
+    static member GetRandomFileName(?container : CloudDirectory) : Cloud<string> =
+        let container : string option = container |> Option.map (fun d -> d.Path)
+        FileStore.GetRandomFileName(?container = container)
 
 /// Represents a directory found in the cloud store
-[<DataContract; Sealed>]
-type CloudDirectory =
+and [<DataContract; Sealed>] CloudDirectory =
 
     [<DataMember(Name = "Path")>]
     val mutable private path : string
@@ -128,7 +144,7 @@ type CloudDirectory =
         let directory =
             match directory with
             | Some d -> d
-            | None -> fs.FileStore.CreateUniqueDirectoryPath()
+            | None -> fs.FileStore.GetRandomDirectoryName()
 
         do! Cloud.OfAsync <| fs.FileStore.CreateDirectory(directory)
         return new CloudDirectory(directory)
@@ -168,9 +184,15 @@ type CloudDirectory =
         return dirs |> Array.map (fun d -> new CloudDirectory(d))
     }
 
+    /// <summary>
+    ///     Gets all files that exist in given container.
+    /// </summary>
+    /// <param name="directory">Path to directory. Defaults to the process directory.</param>
+    static member Enumerate(?directory : CloudDirectory) : Cloud<CloudDirectory []> =
+        CloudDirectory.Enumerate(?directory = (directory |> Option.map (fun d -> d.Path)))
+
 /// Represents a file found in the cloud store
-[<DataContract; Sealed>]
-type CloudFile =
+and [<DataContract; Sealed>] CloudFile =
 
     [<DataMember(Name = "Path")>]
     val mutable private path : string
@@ -293,6 +315,13 @@ type CloudFile =
         return paths |> Array.map (fun path -> new CloudFile(path))
     }
 
+    /// <summary>
+    ///     Gets all files that exist in given container.
+    /// </summary>
+    /// <param name="directory">Path to directory. Defaults to the process directory.</param>
+    static member Enumerate(?directory : CloudDirectory) : Cloud<CloudFile []> =
+        CloudFile.Enumerate(?directory = (directory |> Option.map (fun d -> d.Path)))
+
     //
     //  Cloud file text utilities
     //
@@ -353,7 +382,7 @@ type CloudFile =
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
     /// <param name="path">Path to Cloud file.</param>
-    static member WriteAllText(text : string, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
+    static member WriteAllText(text : string, ?path : string, ?encoding : Encoding) : Cloud<CloudFile> = cloud {
         let writer (stream : Stream) = async {
             use sw = 
                 match encoding with

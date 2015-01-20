@@ -329,6 +329,14 @@ type Cloud =
     }
 
     /// <summary>
+    ///     Try/Finally combinator for monadic finalizers.
+    /// </summary>
+    /// <param name="body">Workflow body.</param>
+    /// <param name="finalizer">Finalizer workflow.</param>
+    static member TryFinally(body : Cloud<'T>, finalizer : Cloud<unit>) : Cloud<'T> =
+        tryFinally body finalizer
+
+    /// <summary>
     ///     Gets information on the execution cluster.
     /// </summary>
     static member CurrentWorker : Cloud<IWorkerRef> = cloud {

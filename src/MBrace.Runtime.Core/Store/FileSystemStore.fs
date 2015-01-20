@@ -84,7 +84,7 @@ type FileSystemStore private (rootPath : string) =
         member __.Combine(paths : string []) = Path.Combine paths
         member __.GetRootDirectory () = rootPath
         member __.TryGetFullPath (path : string) = try normalize path |> Some with _ -> None
-        member __.CreateUniqueDirectoryPath () = Path.Combine(rootPath, Guid.NewGuid().ToString("N"))
+        member __.GetRandomDirectoryName () = Path.Combine(rootPath, Guid.NewGuid().ToString("N"))
 
         member __.GetFileSize(path : string) = async {
             return let fI = new FileInfo(normalize path) in fI.Length

@@ -58,14 +58,14 @@ type MBraceRuntime private (logger : string -> unit) =
     let createProcessInfo () =
         {
             ProcessId = System.Guid.NewGuid().ToString()
-            DefaultDirectory = Config.getFileStore().CreateUniqueDirectoryPath()
+            DefaultDirectory = Config.getFileStore().GetRandomDirectoryName()
             DefaultAtomContainer = atomProvider.CreateUniqueContainerName()
             DefaultChannelContainer = channelProvider.CreateUniqueContainerName()
         }
         
     let storeClient =
         let resources = 
-            let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().CreateUniqueDirectoryPath())
+            let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().GetRandomDirectoryName())
             let atomConfig    = CloudAtomConfiguration.Create(atomProvider, atomProvider.CreateUniqueContainerName())
             let channelConfig = CloudChannelConfiguration.Create(channelProvider, channelProvider.CreateUniqueContainerName())
             resource {
