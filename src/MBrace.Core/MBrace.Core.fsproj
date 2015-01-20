@@ -74,6 +74,7 @@
     <Compile Include="Store\Entities\CloudFile.fs" />
     <Compile Include="Store\Entities\CloudRef.fs" />
     <Compile Include="Store\Entities\CloudSequence.fs" />
+    <Compile Include="Store\StoreClient.fs" />
     <Compile Include="InMemory\Sequential.fs" />
     <Compile Include="InMemory\ThreadPool.fs" />
     <Compile Include="InMemory\InMemoryStore.fs" />
