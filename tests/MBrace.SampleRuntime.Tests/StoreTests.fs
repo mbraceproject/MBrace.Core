@@ -22,6 +22,7 @@ type ``SampleRuntime FileStore Tests`` () =
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
     override __.FileStoreClient = session.Runtime.StoreClient.FileStore
+    override __.IsCachingStore = true
 
 
 type ``SampleRuntime Atom Tests`` () =

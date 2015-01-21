@@ -27,6 +27,8 @@ type ``FileStore Tests`` (nParallel : int) as self =
     abstract RunLocal : Cloud<'T> -> 'T
     /// Store client to be tested
     abstract FileStoreClient : FileStoreClient
+    /// denotes that underlying store employs caching
+    abstract IsCachingStore : bool
 
     //
     //  Section 2. FileStore via MBrace runtime
@@ -37,6 +39,15 @@ type ``FileStore Tests`` (nParallel : int) as self =
     member __.``2. MBrace : CloudRef - simple`` () = 
         let ref = runRemote <| CloudRef.New 42
         ref.Value |> runLocal |> shouldEqual 42
+
+    [<Test>]
+    member __.``2. MBrace : CloudRef - caching`` () = 
+        if __.IsCachingStore then
+            let b = runRemote <| CloudRef.New [1..10000]
+            b.Cache() |> runLocal |> shouldEqual true
+            let a1 = b.Value |> runLocal
+            let a2 = b.Value |> runLocal
+            obj.ReferenceEquals(a1, a2) |> shouldEqual true
 
     [<Test>]
     member __.``2. MBrace : CloudRef - Parallel`` () =
@@ -55,9 +66,18 @@ type ``FileStore Tests`` (nParallel : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - simple`` () = 
         let b = runRemote <| CloudSequence.New [1..10000]
-        b.Cache() |> runLocal |> shouldEqual true
         b.Count |> runLocal |> shouldEqual 10000
         b.ToEnumerable() |> runLocal |> Seq.sum |> shouldEqual (List.sum [1..10000])
+        b.ToArray() |> runLocal |> Array.sum |> shouldEqual (List.sum [1..10000])
+
+    [<Test>]
+    member __.``2. MBrace : CloudSequence - caching`` () = 
+        if __.IsCachingStore then
+            let b = runRemote <| CloudSequence.New [1..10000]
+            b.Cache() |> runLocal |> shouldEqual true
+            let a1 = b.ToArray() |> runLocal
+            let a2 = b.ToArray() |> runLocal
+            obj.ReferenceEquals(a1, a2) |> shouldEqual true
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - parallel`` () =

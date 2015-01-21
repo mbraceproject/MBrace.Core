@@ -1,4 +1,4 @@
-﻿namespace MBrace.Store.Tests
+﻿namespace MBrace.Runtime.Tests
 
 open NUnit.Framework
 
@@ -9,6 +9,8 @@ open MBrace.Runtime.Store
 open MBrace.Store
 open MBrace.Continuation
 open MBrace.Tests
+
+#nowarn "044"
 
 [<AutoOpen>]
 module private Config =
@@ -22,7 +24,13 @@ module private Config =
 
 [<TestFixture>]
 type ``FileSystemStore Tests`` () =
+    inherit  ``Local FileStore Tests``({ fsConfig with Cache = None })
+    override __.IsCachingStore = false
+
+[<TestFixture>]
+type ``FileSystemStore Tests (cached)`` () =
     inherit  ``Local FileStore Tests``(fsConfig)
+    override __.IsCachingStore = true
 
 [<TestFixture>]
 type ``FileSystem Atom tests`` () =

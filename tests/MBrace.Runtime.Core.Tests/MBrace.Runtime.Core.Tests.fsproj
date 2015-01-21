@@ -7,11 +7,11 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>b04b2ab2-eb56-4236-aa8e-8a4f9a3ab488</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>MBrace.Store.Tests</RootNamespace>
-    <AssemblyName>MBrace.Store.Tests</AssemblyName>
+    <RootNamespace>MBrace.Runtime.Core.Tests</RootNamespace>
+    <AssemblyName>MBrace.Runtime.Core.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>MBrace.Store.Tests</Name>
+    <Name>MBrace.Runtime.Core.Tests</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +21,7 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Store.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Runtime.Core.Tests.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,7 +30,7 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Store.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Runtime.Core.Tests.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -40,7 +40,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.SampleRuntime.Tests"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Library", "src\MBrace.Library\MBrace.Library.fsproj", "{51606FFC-69BB-4755-8454-9E943E2B7290}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Store.Tests", "tests\MBrace.Store.Tests\MBrace.Store.Tests.fsproj", "{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Runtime.Core.Tests", "tests\MBrace.Runtime.Core.Tests\MBrace.Runtime.Core.Tests.fsproj", "{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.CSharp", "src\MBrace.CSharp\MBrace.CSharp.csproj", "{9F535680-053F-4514-91FA-472B82646B15}"
 EndProject
