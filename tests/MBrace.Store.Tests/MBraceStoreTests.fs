@@ -263,8 +263,8 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     member __.``StoreClient - CloudFile`` () =
         let sc = __.StoreClient
         let lines = Seq.init 10 string
-        let file = sc.CloudFile.WriteLines(lines) |> Async.RunSynchronously
-        sc.CloudFile.ReadLines(file)
+        let file = sc.Store.File.WriteLines(lines) |> Async.RunSynchronously
+        sc.Store.File.ReadLines(file)
         |> Async.RunSynchronously
         |> should equal lines
 

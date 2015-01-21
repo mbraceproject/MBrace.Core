@@ -11,6 +11,8 @@ open System.Text
 [<Sealed>]
 /// Atom methods for MBrace.
 type CloudAtomClient internal (registry : ResourceRegistry) =
+    do registry.Resolve<CloudAtomConfiguration>()
+       |> ignore
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
     
     /// <summary>
@@ -64,6 +66,8 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
 [<Sealed>]
 /// Channel methods for MBrace.
 type CloudChannelClient internal (registry : ResourceRegistry) =
+    do registry.Resolve<CloudChannelConfiguration>()
+       |> ignore
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
 
     /// Creates a new channel instance.
@@ -85,7 +89,7 @@ type CloudChannelClient internal (registry : ResourceRegistry) =
 
 [<Sealed>]
 /// Collection of file store operations
-type CloudFileStoreClient internal (registry : ResourceRegistry) =
+type CloudPathClient internal (registry : ResourceRegistry) =
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
     
     /// <summary>
@@ -340,24 +344,33 @@ type CloudFileClient internal (registry : ResourceRegistry) =
         __.ReadAllBytes(file.Path)
 
 [<Sealed>]
+type FileStoreClient internal (registry : ResourceRegistry) =
+    do registry.Resolve<CloudFileStoreConfiguration>()
+       |> ignore
+    let pathClient = new CloudPathClient(registry)
+    let directoryClient = new CloudDirectoryClient(registry)
+    let fileClient = new CloudFileClient(registry)
+
+    /// CloudFileStore client.
+    member __.File = fileClient
+    /// CloudDirectory client.
+    member __.Directory = directoryClient
+    /// CloudFile client.
+    member __.Path = pathClient 
+
+[<Sealed>]
 /// Common client operations on CloudAtom, CloudChannel and CloudFile primitives.
-type StoreClient internal (resources : ResourceRegistry) =
-    let atomClient = new CloudAtomClient(resources)
-    let channelClient = new CloudChannelClient(resources)
-    let fileStoreClient = new CloudFileStoreClient(resources)
-    let directoryClient = new CloudDirectoryClient(resources)
-    let fileClient = new CloudFileClient(resources)
+type StoreClient internal (registry : ResourceRegistry) =
+    let atomClient    = lazy CloudAtomClient(registry)
+    let channelClient = lazy CloudChannelClient(registry)
+    let fileStore     = lazy FileStoreClient(registry)
 
     /// CloudAtom client.
-    member __.CloudAtom = atomClient
+    member __.CloudAtom = atomClient.Value
     /// CloudChannel client.
-    member __.CloudChannel = channelClient
+    member __.CloudChannel = channelClient.Value
     /// CloudFileStore client.
-    member __.CloudFileStore = fileStoreClient
-    /// CloudDirectory client.
-    member __.CloudDirectory = directoryClient
-    /// CloudFile client.
-    member __.CloudFile = fileClient
+    member __.Store = fileStore.Value
 
     /// Create a new StoreClient instance from given resources.
     /// Resources must contain CloudFileStoreConfiguration, CloudAtomConfiguration and CloudChannelConfiguration values.
