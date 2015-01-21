@@ -271,10 +271,9 @@ type ``MBrace store tests`` (?npar, ?nseq) as self =
     [<Test>]
     member __.``StoreClient - CloudAtom`` () =
         let sc = __.StoreClient
-        let atom = sc.CloudAtom.New(41) |> Async.RunSynchronously
-        sc.CloudAtom.Update((+) 1) atom |> Async.RunSynchronously
+        let atom = sc.CloudAtom.New(41) 
+        sc.CloudAtom.Update((+) 1) atom 
         sc.CloudAtom.Read atom
-        |> Async.RunSynchronously
         |> should equal 42
 
     [<Test>]

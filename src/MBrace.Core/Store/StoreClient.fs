@@ -14,54 +14,116 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     do registry.Resolve<CloudAtomConfiguration>()
        |> ignore
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
-    
+
+    let toSync (wf : Cloud<'T>) : 'T = wf |> toAsync |> Async.RunSynchronously
+
     /// <summary>
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    member __.New<'T>(initial : 'T) : Async<ICloudAtom<'T>> =  MBrace.CloudAtom.New(initial) |> toAsync
+    member __.NewAsync<'T>(initial : 'T) : Async<ICloudAtom<'T>> =
+        CloudAtom.New(initial) |> toAsync
+
+    /// <summary>
+    ///     Creates a new cloud atom instance with given value.
+    /// </summary>
+    /// <param name="initial">Initial value.</param>
+    member __.New<'T>(initial : 'T) : ICloudAtom<'T> =
+        CloudAtom.New(initial) |> toSync
        
     /// <summary>
     ///     Dereferences a cloud atom.
     /// </summary>
     /// <param name="atom">Atom instance.</param>
-    member __.Read(atom : ICloudAtom<'T>) : Async<'T> = MBrace.CloudAtom.Read(atom) |> toAsync
+    member __.ReadAsync(atom : ICloudAtom<'T>) : Async<'T> = 
+        CloudAtom.Read(atom) |> toAsync
+
+    /// <summary>
+    ///     Dereferences a cloud atom.
+    /// </summary>
+    /// <param name="atom">Atom instance.</param>
+    member __.Read(atom : ICloudAtom<'T>) : 'T = 
+        CloudAtom.Read(atom) |> toSync
 
     /// <summary>
     ///     Atomically updates the contained value.
     /// </summary>
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member __.Update (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : Async<unit> = 
+    member __.UpdateAsync (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : Async<unit> = 
         atom.Update updateF |> toAsync
+
+    /// <summary>
+    ///     Atomically updates the contained value.
+    /// </summary>
+    /// <param name="updater">value updating function.</param>
+    /// <param name="atom">Atom instance to be updated.</param>
+    member __.Update (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : unit = 
+        atom.Update updateF |> toSync
 
     /// <summary>
     ///     Forces the contained value to provided argument.
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member __.Force (value : 'T) (atom : ICloudAtom<'T>) : Async<unit> = 
+    member __.ForceAsync (value : 'T) (atom : ICloudAtom<'T>) : Async<unit> = 
         atom.Force value |> toAsync
+
+    /// <summary>
+    ///     Forces the contained value to provided argument.
+    /// </summary>
+    /// <param name="value">Value to be set.</param>
+    /// <param name="atom">Atom instance to be updated.</param>
+    member __.Force (value : 'T) (atom : ICloudAtom<'T>) : unit = 
+        atom.Force value |> toSync
 
     /// <summary>
     ///     Transactionally updates the contained value.
     /// </summary>
     /// <param name="trasactF"></param>
     /// <param name="atom"></param>
-    member __.Transact (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : Async<'R> = 
+    member __.TransactAsync (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : Async<'R> = 
         atom.Transact trasactF |> toAsync
+
+    /// <summary>
+    ///     Transactionally updates the contained value.
+    /// </summary>
+    /// <param name="trasactF"></param>
+    /// <param name="atom"></param>
+    member __.Transact (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : 'R = 
+        atom.Transact trasactF |> toSync
+
 
     /// <summary>
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    member __.Delete (atom : ICloudAtom<'T>) = Cloud.Dispose atom |> toAsync
+    member __.DeleteAsync (atom : ICloudAtom<'T>) = 
+        Cloud.Dispose atom |> toAsync
+
+
+    /// <summary>
+    ///     Deletes the provided atom instance from store.
+    /// </summary>
+    /// <param name="atom">Atom instance to be deleted.</param>
+    member __.Delete (atom : ICloudAtom<'T>) = 
+        Cloud.Dispose atom |> toSync
+
 
     /// <summary>
     ///     Checks if value is supported by current table store.
     /// </summary>
     /// <param name="value">Value to be checked.</param>
-    member __.IsSupportedValue(value : 'T) = MBrace.CloudAtom.IsSupportedValue value |> toAsync
+    member __.IsSupportedValueAsync(value : 'T) = 
+        CloudAtom.IsSupportedValue value |> toAsync
+
+    /// <summary>
+    ///     Checks if value is supported by current table store.
+    /// </summary>
+    /// <param name="value">Value to be checked.</param>
+    member __.IsSupportedValue(value : 'T) = 
+        CloudAtom.IsSupportedValue value |> toSync
+
 
 [<Sealed>]
 /// Channel methods for MBrace.
