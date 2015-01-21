@@ -1,15 +1,11 @@
 ﻿namespace MBrace.Tests
 
 open System
-open System.Threading
 
 open MBrace
-open MBrace.Continuation
-open MBrace.InMemory
 open MBrace.Store
 
 open NUnit.Framework
-open FsUnit
 
 [<TestFixture; AbstractClass>]
 type ``CloudChannel Tests`` () as self =
@@ -25,6 +21,18 @@ type ``CloudChannel Tests`` () as self =
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
+    /// Local store client instance
+    abstract StoreClient : StoreClient
+
+
+    [<Test>]
+    member __.``Local StoreClient`` () =
+        let sc = __.StoreClient
+        let sp, rp = sc.CloudChannel.New() |> Async.RunSynchronously
+        sc.CloudChannel.Send 42 sp |> Async.RunSynchronously
+        sc.CloudChannel.Receive rp
+        |> Async.RunSynchronously
+        |> shouldEqual 42
 
     [<Test>]
     member __.``Channels: simple send/receive`` () =

@@ -39,3 +39,18 @@ module WordCount =
         let reduceF i i' = cloud { return i + i' }
         let inputs = Array.init size (fun i -> "lorem ipsum dolor sit amet")
         mapReduceAlgorithm mapF 0 reduceF inputs
+
+    // naive, binary recursive mapreduce implementation
+    let rec mapReduceRec (mapF : 'T -> Cloud<'S>) 
+                            (id : 'S) (reduceF : 'S -> 'S -> Cloud<'S>)
+                            (inputs : 'T []) =
+        cloud {
+            match inputs with
+            | [||] -> return id
+            | [|t|] -> return! mapF t
+            | _ ->
+                let left = inputs.[.. inputs.Length / 2 - 1]
+                let right = inputs.[inputs.Length / 2 ..]
+                let! s,s' = (mapReduceRec mapF id reduceF left) <||> (mapReduceRec mapF id reduceF right)
+                return! reduceF s s'
+        }

@@ -1,15 +1,11 @@
 ﻿namespace MBrace.Tests
 
 open System
-open System.Threading
-
-open MBrace
-open MBrace.Continuation
-open MBrace.InMemory
-open MBrace.Store
 
 open NUnit.Framework
-open FsUnit
+
+open MBrace
+open MBrace.Store
 
 [<TestFixture; AbstractClass>]
 type ``CloudAtom Tests`` (nParallel : int) as self =
@@ -27,7 +23,18 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
+    /// Local store client instance
+    abstract StoreClient : StoreClient
 
+
+    [<Test>]
+    member __.``Local StoreClient`` () =
+        let sc = __.StoreClient
+        let atom = sc.CloudAtom.New(41) |> Async.RunSynchronously
+        sc.CloudAtom.Update((+) 1) atom |> Async.RunSynchronously
+        sc.CloudAtom.Read atom
+        |> Async.RunSynchronously
+        |> shouldEqual 42
 
     [<Test>]
     member __.``Atom: update with contention`` () =
@@ -73,7 +80,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
                 return a
             } |> runRemote
         
-        atom.Value |> runLocal |> should equal (nParallel * nSequential)
+        atom.Value |> runLocal |> shouldEqual (nParallel * nSequential)
 
     [<Test; Repeat(Config.repeats)>]
     member __.``CloudAtom - Parallel updates with large obj`` () =
@@ -87,7 +94,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
                 do! Seq.init nParallel (fun i -> CloudAtom.Update (fun is -> i :: is) atom) |> Cloud.Parallel |> Cloud.Ignore
                 let! values = atom.Value
                 return List.sum values = List.sum [1 .. nParallel]
-        } |> runRemote |> should equal true
+        } |> runRemote |> shouldEqual true
 
     [<Test; Repeat(Config.repeats)>]
     member __.``CloudAtom - transact with contention`` () =
@@ -97,7 +104,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
             let! a = CloudAtom.New 0
             let! results = Seq.init nParallel (fun _ -> CloudAtom.Transact(fun i -> i, (i+1)) a) |> Cloud.Parallel
             return Array.sum results
-        } |> runRemote |> should equal (Array.sum [|0 .. nParallel - 1|])
+        } |> runRemote |> shouldEqual (Array.sum [|0 .. nParallel - 1|])
 
     [<Test; Repeat(Config.repeats)>]
     member __.``CloudAtom - force with contention`` () =
@@ -107,7 +114,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
             let! a = CloudAtom.New -1
             do! Seq.init nParallel (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
             return! a.Value
-        } |> runRemote |> should be (greaterThanOrEqualTo 0)
+        } |> runRemote |> shouldBe (fun i -> i > 0)
 
     [<Test; Repeat(Config.repeats)>]
     member __.``CloudAtom - dispose`` () =

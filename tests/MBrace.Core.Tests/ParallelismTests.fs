@@ -4,7 +4,6 @@ open System
 open System.Threading
 
 open NUnit.Framework
-open FsUnit
 
 open MBrace
 open MBrace.Continuation
@@ -57,7 +56,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             return! c.Value
         } |> run |> Choice.shouldEqual nParallel
 
-        c.Value |> runLocal |> should equal (nParallel + 1)
+        c.Value |> runLocal |> shouldEqual (nParallel + 1)
 
     [<Test>]
     member  __.``1. Parallel : exception handler`` () =
@@ -176,7 +175,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             return ()
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-        counter.Value |> runLocal |> should equal 0
+        counter.Value |> runLocal |> shouldEqual 0
 
     [<Test>]
     [<Repeat(Config.repeats)>]
@@ -214,21 +213,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     [<Repeat(Config.repeats)>]
     member __.``1. Parallel : MapReduce recursive`` () =
         // naive, binary recursive mapreduce implementation
-        let rec mapReduce (mapF : 'T -> Cloud<'S>) 
-                            (id : 'S) (reduceF : 'S -> 'S -> Cloud<'S>)
-                            (inputs : 'T []) =
-            cloud {
-                match inputs with
-                | [||] -> return id
-                | [|t|] -> return! mapF t
-                | _ ->
-                    let left = inputs.[.. inputs.Length / 2 - 1]
-                    let right = inputs.[inputs.Length / 2 ..]
-                    let! s,s' = (mapReduce mapF id reduceF left) <||> (mapReduce mapF id reduceF right)
-                    return! reduceF s s'
-            }
-
-        WordCount.run 20 mapReduce |> run |> Choice.shouldEqual 100
+        WordCount.run 20 WordCount.mapReduceRec |> run |> Choice.shouldEqual 100
 
     [<Test>]
     [<Repeat(Config.repeats)>]
@@ -317,7 +302,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         } |> run |> Choice.shouldEqual (Some 42)
 
         // ensure only one success continuation call
-        successcounter.Value |> runLocal |> should equal 1
+        successcounter.Value |> runLocal |> shouldEqual 1
 
     [<Test>]
     [<Repeat(Config.repeats)>]
@@ -339,7 +324,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             return! Array.init nNested cluster |> Cloud.Choice
         } |> run |> Choice.shouldEqual (Some(0,0))
 
-        counter.Value |> runLocal |> should be (lessThan (nParallel / 2))
+        counter.Value |> runLocal |> shouldBe (fun i ->  i < nParallel / 2)
 
     [<Test>]
     [<Repeat(Config.repeats)>]
@@ -360,7 +345,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             return! Array.init nNested cluster |> Cloud.Choice
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-        counter.Value |> runLocal |> should equal 0
+        counter.Value |> runLocal |> shouldEqual 0
 
     [<Test>]
     [<Repeat(Config.repeats)>]
@@ -379,7 +364,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                 return! Array.init nParallel worker |> Cloud.Choice
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-        counter.Value |> runLocal |> should equal 0
+        counter.Value |> runLocal |> shouldEqual 0
 
     [<Test>]
     [<Repeat(Config.repeats)>]
@@ -413,7 +398,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                 let init = !counter + 1
                 counter := init
                 do! Cloud.Sleep 10
-                !counter |> should equal init
+                !counter |> shouldEqual init
                 if i = 16 then
                     return Some ()
                 else
@@ -468,7 +453,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
 
             let! ch = Cloud.StartChild(task)
             let! value = count.Value
-            value |> should equal 0
+            value |> shouldEqual 0
             return! ch
         } |> run |> Choice.shouldEqual 1
 
@@ -485,7 +470,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
 
             let! ch = Cloud.StartChild(task)
             let! value = count.Value
-            value |> should equal 0
+            value |> shouldEqual 0
             do! Cloud.Sleep 100
             // ensure no exception is raised in parent workflow
             // before the child workflow is properly evaluated
@@ -493,7 +478,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             return! ch
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-        count.Value |> runLocal |> should equal 2
+        count.Value |> runLocal |> shouldEqual 2
 
     [<Test>]
     [<Repeat(Config.repeats)>]
@@ -510,13 +495,13 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                 let! ch = Cloud.StartChild(task)
                 do! Cloud.Sleep 1000
                 let! value = count.Value
-                value |> should equal 1
+                value |> shouldEqual 1
                 cts.Cancel ()
                 return! ch
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
         // ensure final increment was cancelled.
-        count.Value |> runLocal |> should equal 1
+        count.Value |> runLocal |> shouldEqual 1
 
     [<Test>]
     [<Repeat(Config.repeats)>]

@@ -117,7 +117,7 @@ and [<DataContract; Sealed>] CloudDirectory =
     member d.Path = d.path
 
     interface ICloudDisposable with
-        member d.Dispose () = CloudDirectory.Delete d
+        member d.Dispose () = CloudDirectory.Delete(d, recursiveDelete = true)
 
     /// <summary>
     ///     Checks if directory exists in given path

@@ -1,22 +1,22 @@
 ﻿namespace MBrace.Tests
 
 open System
-open System.Threading
-
-open MBrace
-open MBrace.Continuation
-open MBrace.InMemory
-open MBrace.Tests
+open System.IO
 
 open NUnit.Framework
-open FsUnit
+
+open MBrace
+open MBrace.Store
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``FileStore Tests`` (nParallel : int) as self =
+type ``FileStore Tests`` (fileStore : ICloudFileStore, serializer : ISerializer, nParallel : int) as self =
 
     let runRemote wf = self.Run wf 
     let runLocal wf = self.RunLocal wf
+    let runAsync wf = Async.RunSynchronously wf
+
+    let testDirectory = fileStore.GetRandomDirectoryName()
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -26,37 +26,165 @@ type ``FileStore Tests`` (nParallel : int) as self =
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
+    /// Store client to be tested
+    abstract StoreClient : StoreClient
+
+    //
+    //  Section 1: Local raw fileStore tests
+    //
 
     [<Test>]
-    member __.``CloudRef - simple`` () = 
+    member __.``1. FileStore : UUID is not null or empty.`` () = 
+        String.IsNullOrEmpty fileStore.Id
+        |> shouldEqual false
+
+    [<Test>]
+    member __.``1. FileStore : Store instance should be serializable`` () =
+        let fileStore' = serializer.Clone fileStore
+        fileStore'.Id |> shouldEqual fileStore.Id
+        fileStore'.Name |> shouldEqual fileStore.Name
+
+    [<Test>]
+    member __.``1. FileStore : Create and delete directory.`` () =
+        let dir = fileStore.GetRandomDirectoryName()
+        fileStore.DirectoryExists dir |> runAsync |> shouldEqual false
+        fileStore.CreateDirectory dir |> runAsync
+        fileStore.DirectoryExists dir |> runAsync |> shouldEqual true
+        fileStore.DeleteDirectory(dir, recursiveDelete = false) |> runAsync
+        fileStore.DirectoryExists dir |> runAsync |> shouldEqual false
+
+    [<Test>]
+    member __.``1. FileStore : Get directory`` () =
+        let file = fileStore.GetRandomFilePath testDirectory
+        file |> fileStore.GetDirectoryName |> shouldEqual testDirectory
+
+    [<Test>]
+    member __.``1. FileStore : Get file name`` () =
+        let name = "test.txt"
+        let file = fileStore.Combine [|testDirectory ; name |]
+        file |> fileStore.GetDirectoryName |> shouldEqual testDirectory
+        file |> fileStore.GetFileName |> shouldEqual name
+
+    [<Test>]
+    member __.``1. FileStore : Enumerate root directories`` () =
+        let directory = fileStore.GetRandomDirectoryName()
+        fileStore.CreateDirectory directory |> runAsync
+        let directories = fileStore.EnumerateRootDirectories() |> runAsync
+        directories |> Array.exists((=) directory) |> shouldEqual true
+        fileStore.DeleteDirectory(directory, recursiveDelete = false) |> runAsync
+
+    [<Test>]
+    member test.``1. FileStore : Create, read and delete a file.`` () = 
+        let file = fileStore.GetRandomFilePath testDirectory
+
+        fileStore.FileExists file |> runAsync |> shouldEqual false
+
+        // write to file
+        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runAsync
+
+
+        fileStore.FileExists file |> runAsync |> shouldEqual true
+        fileStore.EnumerateFiles testDirectory |> runAsync |> Array.exists ((=) file) |> shouldEqual true
+
+        // read from file
+        do
+            use stream = fileStore.BeginRead file |> runAsync
+            for i = 1 to 100 do
+                stream.ReadByte() |> shouldEqual i
+
+        fileStore.DeleteFile file |> runAsync
+
+        fileStore.FileExists file |> runAsync |> shouldEqual false
+
+    [<Test>]
+    member __.``1. FileStore : Get byte count`` () =
+        let file = fileStore.GetRandomFilePath testDirectory
+        // write to file
+        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runAsync
+
+        fileStore.GetFileSize file |> runAsync |> shouldEqual 100L
+
+        fileStore.DeleteFile file |> runAsync
+
+    [<Test>]
+    member test.``1. FileStore : Create and Read a large file.`` () =
+        let data = Array.init (1024 * 1024 * 4) byte
+        let file = fileStore.GetRandomFilePath testDirectory
+        
+        fileStore.Write(file, fun stream -> async { stream.Write(data, 0, data.Length) }) |> runAsync
+
+        do
+            use m = new MemoryStream()
+            use stream = fileStore.BeginRead file |> runAsync
+            stream.CopyTo m
+            m.ToArray() |> shouldEqual data
+        
+        fileStore.DeleteFile file |> runAsync
+
+    [<Test>]
+    member test.``1. FileStore : from stream to file and back to stream.`` () =
+        let data = Array.init (1024 * 1024) byte
+        let file = fileStore.GetRandomFilePath testDirectory
+        do
+            use m = new MemoryStream(data)
+            fileStore.OfStream(m, file) |> runAsync
+
+        do
+            use m = new MemoryStream()
+            fileStore.ToStream(file, m) |> runAsync
+            m.ToArray() |> shouldEqual data
+
+        fileStore.DeleteFile file |> runAsync
+
+    [<Test>]
+    member __.``1. FileStore : StoreClient - CloudFile`` () =
+        let sc = __.StoreClient.CloudFile
+        let lines = Array.init 10 string
+        let file = sc.WriteLines(lines) |> Async.RunSynchronously
+        sc.ReadLines(file)
+        |> Async.RunSynchronously
+        |> shouldEqual lines
+
+    [<TestFixtureTearDown>]
+    member test.``FileStore Cleanup`` () =
+        if fileStore.DirectoryExists testDirectory |> runAsync then
+            fileStore.DeleteDirectory(testDirectory, recursiveDelete = true) |> runAsync
+
+    //
+    //  Section 2. FileStore via MBrace runtime
+    //
+
+
+    [<Test>]
+    member __.``2. MBrace : CloudRef - simple`` () = 
         let ref = runRemote <| CloudRef.New 42
-        ref.Value |> runLocal |> should equal 42
+        ref.Value |> runLocal |> shouldEqual 42
 
     [<Test>]
-    member __.``CloudRef - Parallel`` () =
+    member __.``2. MBrace : CloudRef - Parallel`` () =
         cloud {
             let! ref = CloudRef.New [1 .. 100]
             let! (x, y) = cloud { let! v = ref.Value in return v.Length } <||> cloud { let! v = ref.Value in return v.Length }
             return x + y
-        } |> runRemote |> should equal 200
+        } |> runRemote |> shouldEqual 200
 
     [<Test>]
-    member __.``CloudRef - Distributed tree`` () =
+    member __.``2. MBrace : CloudRef - Distributed tree`` () =
         let tree = CloudTree.createTree 5 |> runRemote
-        CloudTree.getBranchCount tree |> runRemote |> should equal 31
+        CloudTree.getBranchCount tree |> runRemote |> shouldEqual 31
 
 
     [<Test>]
-    member __.``CloudSequence - simple`` () = 
+    member __.``2. MBrace : CloudSequence - simple`` () = 
         let b = runRemote <| CloudSequence.New [1..10000]
-        b.Cache() |> runLocal |> should equal true
-        b.Count |> runLocal |> should equal 10000
-        b.ToEnumerable() |> runLocal |> Seq.sum |> should equal (List.sum [1..10000])
+        b.Cache() |> runLocal |> shouldEqual true
+        b.Count |> runLocal |> shouldEqual 10000
+        b.ToEnumerable() |> runLocal |> Seq.sum |> shouldEqual (List.sum [1..10000])
 
     [<Test>]
-    member __.``CloudSequence - parallel`` () =
+    member __.``2. MBrace : CloudSequence - parallel`` () =
         let ref = runRemote <| CloudSequence.New [1..10000]
-        ref.ToEnumerable() |> runLocal |> Seq.length |> should equal 10000
+        ref.ToEnumerable() |> runLocal |> Seq.length |> shouldEqual 10000
         cloud {
             let! ref = CloudSequence.New [1 .. 10000]
             let! (x, y) = 
@@ -65,20 +193,19 @@ type ``FileStore Tests`` (nParallel : int) as self =
                 cloud { let! seq = ref.ToEnumerable() in return Seq.length seq } 
 
             return x + y
-        } |> runRemote |> should equal 20000
+        } |> runRemote |> shouldEqual 20000
 
     [<Test>]
-    member __.``CloudSequence - partitioned`` () =
+    member __.``2. MBrace : CloudSequence - partitioned`` () =
         cloud {
             let! seqs = CloudSequence.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
-            seqs.Length |> should be (greaterThanOrEqualTo 8)
-            seqs.Length |> should be (lessThan 10)
+            seqs.Length |> shouldBe (fun l -> l >= 8 && l < 10)
             let! partialSums = seqs |> Array.map (fun c -> cloud { let! e = c.ToEnumerable() in return Seq.sum e }) |> Cloud.Parallel
             return Array.sum partialSums
-        } |> runRemote |> should equal (Array.sum [|1L .. 1000000L|])
+        } |> runRemote |> shouldEqual (Array.sum [|1L .. 1000000L|])
 
     [<Test>]
-    member __.``CloudSequence - of deserializer`` () =
+    member __.``2. MBrace : CloudSequence - of deserializer`` () =
         cloud {
             use! file = CloudFile.WriteLines([1..100] |> List.map (fun i -> string i))
             let deserializer (s : System.IO.Stream) =
@@ -91,19 +218,19 @@ type ``FileStore Tests`` (nParallel : int) as self =
             let! seq = CloudSequence.FromFile(file.Path, deserializer)
             let! ch = Cloud.StartChild(cloud { let! e = seq.ToEnumerable() in return Seq.length e })
             return! ch
-        } |> runRemote |> should equal 100
+        } |> runRemote |> shouldEqual 100
 
     [<Test>]
-    member __.``CloudFile - simple`` () =
+    member __.``2. MBrace : CloudFile - simple`` () =
         let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> runRemote
-        CloudFile.GetSize file |> runLocal |> should equal 100
+        CloudFile.GetSize file |> runLocal |> shouldEqual 100L
         cloud {
             let! bytes = CloudFile.ReadAllBytes file
             return bytes.Length
-        } |> runRemote |> should equal 100
+        } |> runRemote |> shouldEqual 100
 
     [<Test>]
-    member __.``CloudFile - large`` () =
+    member __.``2. MBrace : CloudFile - large`` () =
         let file =
             cloud {
                 let text = Seq.init 1000 (fun _ -> "lorem ipsum dolor sit amet")
@@ -113,10 +240,10 @@ type ``FileStore Tests`` (nParallel : int) as self =
         cloud {
             let! lines = CloudFile.ReadLines file
             return Seq.length lines
-        } |> runRemote |> should equal 1000
+        } |> runRemote |> shouldEqual 1000
 
     [<Test>]
-    member __.``CloudFile - read from stream`` () =
+    member __.``2. MBrace : CloudFile - read from stream`` () =
         let mk a = Array.init (a * 1024) byte
         let n = 512
         cloud {
@@ -129,10 +256,10 @@ type ``FileStore Tests`` (nParallel : int) as self =
 
             let! bytes = CloudFile.ReadAllBytes(f)
             return bytes
-        } |> runRemote |> should equal (mk n)
+        } |> runRemote |> shouldEqual (mk n)
 
     [<Test>]
-    member __.``CloudFile - get by name`` () =
+    member __.``2. MBrace : CloudFile - get by name`` () =
         cloud {
             use! f = CloudFile.WriteAllBytes([|1uy..100uy|])
             let! t = Cloud.StartChild(cloud { 
@@ -140,10 +267,10 @@ type ``FileStore Tests`` (nParallel : int) as self =
             })
 
             return! t
-        } |> runRemote |> should equal [|1uy .. 100uy|]
+        } |> runRemote |> shouldEqual [|1uy .. 100uy|]
 
     [<Test>]
-    member __.``CloudFile - disposable`` () =
+    member __.``2. MBrace : CloudFile - disposable`` () =
         cloud {
             let! file = CloudFile.WriteAllText "lorem ipsum dolor"
             do! cloud { use file = file in () }
@@ -151,7 +278,7 @@ type ``FileStore Tests`` (nParallel : int) as self =
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
-    member __.``CloudFile - get files in container`` () =
+    member __.``2. MBrace : CloudFile - get files in container`` () =
         cloud {
             let! container = FileStore.GetRandomDirectoryName()
             let! fileNames = FileStore.Combine(container, Seq.map (sprintf "file%d") [1..10])
@@ -162,24 +289,24 @@ type ``FileStore Tests`` (nParallel : int) as self =
 
             let! files' = CloudFile.Enumerate container
             return files.Length = files'.Length
-        } |> runRemote |> should equal true
+        } |> runRemote |> shouldEqual true
 
     [<Test>]
-    member __.``CloudFile - attempt to write on stream`` () =
+    member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
         cloud {
             use! cf = CloudFile.Create(fun stream -> async { stream.WriteByte(10uy) })
             return! CloudFile.Read(cf, fun stream -> async { stream.WriteByte(20uy) })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
-    member __.``CloudFile - attempt to read nonexistent file`` () =
+    member __.``2. MBrace : CloudFile - attempt to read nonexistent file`` () =
         cloud {
             let cf = new CloudFile(Guid.NewGuid().ToString())
             return! CloudFile.Read(cf, fun s -> async { return s.ReadByte() })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
-    member __.``CloudDirectory - Create, populate, delete`` () =
+    member __.``2. MBrace : CloudDirectory - Create, populate, delete`` () =
         cloud {
             let! dir = CloudDirectory.Create ()
             let! exists = CloudDirectory.Exists dir
@@ -193,14 +320,14 @@ type ``FileStore Tests`` (nParallel : int) as self =
             do! Seq.init 20 write |> Cloud.Parallel |> Cloud.Ignore
 
             let! files = CloudFile.Enumerate dir
-            files.Length |> should equal 20
-            do! CloudDirectory.Delete dir
+            files.Length |> shouldEqual 20
+            do! CloudDirectory.Delete(dir, recursiveDelete = true)
             let! exists = CloudDirectory.Exists dir
             exists |> shouldEqual false
         } |> runRemote
 
     [<Test>]
-    member __.``CloudDirectory - dispose`` () =
+    member __.``2. MBrace : CloudDirectory - dispose`` () =
         let dir, file =
             cloud {
                 use! dir = CloudDirectory.Create ()

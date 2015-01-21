@@ -10,6 +10,11 @@ open MBrace.Store
 /// Defines a general-purpose client object for use with in-memory cloud execution.
 [<Sealed; AutoSerializable(false)>]
 type InMemoryRuntime private (resources : ResourceRegistry) =
+
+    let storeClient = StoreClient.CreateFromResources(resources)
+
+    /// Store client instance for in memory runtime instance.
+    member r.StoreClient = storeClient
     
     /// <summary>
     ///     Asynchronously executes a cloud computation in the local process,

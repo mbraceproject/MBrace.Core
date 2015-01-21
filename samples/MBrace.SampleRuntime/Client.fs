@@ -6,9 +6,11 @@ open System.Threading
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote
+
 open MBrace
 open MBrace.Store
 open MBrace.Continuation
+open MBrace.InMemory
 open MBrace.Runtime
 open MBrace.Runtime.Vagrant
 open MBrace.Runtime.Compiler
@@ -63,17 +65,11 @@ type MBraceRuntime private (logger : string -> unit) =
             DefaultChannelContainer = channelProvider.CreateUniqueContainerName()
         }
         
-    let storeClient =
-        let resources = 
-            let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().GetRandomDirectoryName())
-            let atomConfig    = CloudAtomConfiguration.Create(atomProvider, atomProvider.CreateUniqueContainerName())
-            let channelConfig = CloudChannelConfiguration.Create(channelProvider, channelProvider.CreateUniqueContainerName())
-            resource {
-                yield fileConfig
-                yield atomConfig
-                yield channelConfig
-            }
-        StoreClient.CreateFromResources(resources)
+    let imem =
+        let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().GetRandomDirectoryName())
+        let atomConfig    = CloudAtomConfiguration.Create(atomProvider, atomProvider.CreateUniqueContainerName())
+        let channelConfig = CloudChannelConfiguration.Create(channelProvider, channelProvider.CreateUniqueContainerName())
+        InMemoryRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
 
     /// <summary>
     ///     Asynchronously execute a workflow on the distributed runtime.
@@ -131,15 +127,15 @@ type MBraceRuntime private (logger : string -> unit) =
 
         Cloud.ToAsync(workflow, resources = resources)
 
-    member __.StoreClient = storeClient
+    /// Returns the store client for provided runtime
+    member __.StoreClient = imem.StoreClient
 
     /// <summary>
     ///     Run workflow as local, in-memory computation
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    member __.RunLocal(workflow, ?cancellationToken) : 'T = 
-        let wf = __.RunLocalAsync(workflow) in Async.RunSync(wf, ?cancellationToken = cancellationToken)
+    member __.RunLocal(workflow, ?cancellationToken) : 'T = imem.Run(workflow, ?cancellationToken = cancellationToken)
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])

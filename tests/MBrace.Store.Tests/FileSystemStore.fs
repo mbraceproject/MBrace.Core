@@ -1,33 +1,40 @@
-﻿namespace MBrace.Store.Tests.FileSystem
+﻿namespace MBrace.Store.Tests
 
 open NUnit.Framework
-open FsUnit
 
 open MBrace
 open MBrace.InMemory
 open MBrace.Runtime.Vagrant
 open MBrace.Runtime.Store
+open MBrace.Store
 open MBrace.Continuation
-open MBrace.Store.Tests
+open MBrace.Tests
 
 [<AutoOpen>]
 module private Config =
     do VagrantRegistry.Initialize(throwOnError = false)
 
-    let fsStore = FileSystemStore.CreateSharedLocal()
     let atomProvider = FileSystemAtomProvider.Create(create = true, cleanup = false)
-    let chanProvider = new InMemoryChannelProvider()
-    let cache = InMemoryCache.Create()
+    let fsStore = FileSystemStore.CreateSharedLocal()
     let serializer = VagrantRegistry.Serializer
+    let config = CloudFileStoreConfiguration.Create(fsStore, serializer, cache = InMemoryCache.Create())
 
 [<TestFixture>]
 type ``FileSystem File store tests`` () =
-    inherit  ``File Store Tests``(fsStore)
+    inherit  ``FileStore Tests``(fsStore, serializer, 100)
+
+    let imem = InMemoryRuntime.Create(fileConfig = config)
+
+    override __.Run wf = imem.Run wf
+    override __.RunLocal wf = imem.Run wf
+    override __.StoreClient = imem.StoreClient
 
 [<TestFixture>]
 type ``FileSystem Atom tests`` () =
-    inherit  ``Atom Tests``(atomProvider)
+    inherit  ``CloudAtom Tests``(100)
 
-[<TestFixture>]
-type ``FileSystem MBrace tests`` () =
-    inherit ``Local MBrace store tests``(fsStore, atomProvider, chanProvider, serializer, cache)
+    let imem = InMemoryRuntime.Create(fileConfig = config)
+
+    override __.Run wf = imem.Run wf
+    override __.RunLocal wf = imem.Run wf
+    override __.StoreClient = imem.StoreClient

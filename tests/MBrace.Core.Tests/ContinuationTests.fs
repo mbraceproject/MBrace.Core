@@ -4,7 +4,7 @@ open System
 open System.Threading
 
 open NUnit.Framework
-open FsUnit
+//open FsUnit
 
 open MBrace
 open MBrace.Continuation
@@ -37,9 +37,9 @@ module ``Continuation Tests`` =
     let ``side effect`` () =
         let cell = ref 0
         let comp = cloud { incr cell } 
-        !cell |> should equal 0
+        !cell |> shouldEqual 0
         comp |> run |> Choice.shouldEqual ()
-        !cell |> should equal 1
+        !cell |> shouldEqual 1
 
     [<Test>]
     let ``uncaught exception`` () =
@@ -98,7 +98,7 @@ module ``Continuation Tests`` =
                     do! cloud { incr cell }
                 })
 
-        !cell |> should equal 0
+        !cell |> shouldEqual 0
         result |> Choice.shouldFailwith<_, OperationCanceledException>
 
     [<Test>]
@@ -108,7 +108,7 @@ module ``Continuation Tests`` =
                 do raise <| new IndexOutOfRangeException()
                 return None
             with :? IndexOutOfRangeException as e -> return (Some e)
-        } |> run |> Choice.shouldMatch Option.isSome
+        } |> run |> Choice.shouldBe Option.isSome
 
     [<Test>]
     let ``try with unhandled exception`` () =
@@ -141,7 +141,7 @@ module ``Continuation Tests`` =
                 incr cell
         } |> run |> Choice.shouldEqual true
 
-        !cell |> should equal 1
+        !cell |> shouldEqual 1
 
     [<Test>]
     let ``try finally on exception`` () =
@@ -156,7 +156,7 @@ module ``Continuation Tests`` =
                 incr cell
         } |> run |> Choice.shouldFailwith<_, IndexOutOfRangeException>
 
-        !cell |> should equal 1
+        !cell |> shouldEqual 1
 
     [<Test>]
     let ``try finally on success with exception in finally`` () =
@@ -193,7 +193,7 @@ module ``Continuation Tests`` =
             )
 
         loop () |> run |> Choice.shouldFailwith<_, Exception>
-        !n |> should equal 0
+        !n |> shouldEqual 0
 
     [<Test>]
     let ``for loop`` () =
@@ -202,9 +202,9 @@ module ``Continuation Tests`` =
             for i in 1 .. 100 do
                 do! cloud { cell := !cell + i }
         }
-        !cell |> should equal 0
+        !cell |> shouldEqual 0
         run comp |> Choice.shouldEqual ()
-        !cell |> should equal 5050
+        !cell |> shouldEqual 5050
 
     [<Test>]
     let ``for loop on empty inputs`` () =
@@ -213,9 +213,9 @@ module ``Continuation Tests`` =
             for i in (incr cell ; []) do
                 do! cloud { cell := !cell + i }
         }
-        !cell |> should equal 0
+        !cell |> shouldEqual 0
         run comp |> Choice.shouldEqual ()
-        !cell |> should equal 1
+        !cell |> shouldEqual 1
 
     [<Test>]
     let ``for loop on null inputs`` () =
@@ -233,7 +233,7 @@ module ``Continuation Tests`` =
                 if i = 55 then return invalidOp "failure"
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-        !cell |> should equal 55
+        !cell |> shouldEqual 55
 
     [<Test>]
     let ``for loop with cancellation`` () =
@@ -246,7 +246,7 @@ module ``Continuation Tests`` =
                 
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-        !cell |> should equal 55
+        !cell |> shouldEqual 55
 
     [<Test>]
     let ``while loop`` () =
@@ -265,7 +265,7 @@ module ``Continuation Tests`` =
             while (if !cell < 55 then true else invalidOp "failure") do
                 incr cell
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
-        !cell |> should equal 55
+        !cell |> shouldEqual 55
 
     [<Test>]
     let ``while loop with exception on body`` () =
@@ -275,7 +275,7 @@ module ``Continuation Tests`` =
                 incr cell
                 if !cell = 55 then invalidOp "failure"
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
-        !cell |> should equal 55
+        !cell |> shouldEqual 55
 
     [<Test>]
     let ``while loop with cancellation`` () =
@@ -288,7 +288,7 @@ module ``Continuation Tests`` =
                 
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-        !cell |> should equal 55
+        !cell |> shouldEqual 55
 
     [<Test>]
     let ``use binding`` () =
