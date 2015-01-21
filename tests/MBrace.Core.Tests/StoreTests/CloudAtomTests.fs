@@ -29,11 +29,9 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
     [<Test>]
     member __.``Local StoreClient`` () =
         let ac = __.AtomClient
-        let atom = ac.New(41) |> Async.RunSynchronously
-        ac.Update((+) 1) atom |> Async.RunSynchronously
-        ac.Read atom
-        |> Async.RunSynchronously
-        |> shouldEqual 42
+        let atom = ac.Create(41)
+        ac.Update(atom, (+) 1)
+        ac.Read atom |> shouldEqual 42
 
     [<Test>]
     member __.``Atom: update with contention`` () =
@@ -42,7 +40,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
             let! atom = CloudAtom.New 0
             let updater _ = cloud {
                 for i in 1 .. nSequential do
-                    do! CloudAtom.Update ((+) 1) atom
+                    do! CloudAtom.Update (atom, (+) 1)
             }
 
             let! _ = Seq.init nParallel updater |> Cloud.Parallel
@@ -90,7 +88,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
             if isSupported then return true
             else
                 let! atom = CloudAtom.New List.empty<int>
-                do! Seq.init nParallel (fun i -> CloudAtom.Update (fun is -> i :: is) atom) |> Cloud.Parallel |> Cloud.Ignore
+                do! Seq.init nParallel (fun i -> CloudAtom.Update (atom, fun is -> i :: is)) |> Cloud.Parallel |> Cloud.Ignore
                 let! values = atom.Value
                 return List.sum values = List.sum [1 .. nParallel]
         } |> runRemote |> shouldEqual true
@@ -101,7 +99,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
         let nParallel = nParallel
         cloud {
             let! a = CloudAtom.New 0
-            let! results = Seq.init nParallel (fun _ -> CloudAtom.Transact(fun i -> i, (i+1)) a) |> Cloud.Parallel
+            let! results = Seq.init nParallel (fun _ -> CloudAtom.Transact(a, fun i -> i, i+1)) |> Cloud.Parallel
             return Array.sum results
         } |> runRemote |> shouldEqual (Array.sum [|0 .. nParallel - 1|])
 
@@ -111,7 +109,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
         let nParallel = nParallel
         cloud {
             let! a = CloudAtom.New -1
-            do! Seq.init nParallel (fun i -> CloudAtom.Force i a) |> Cloud.Parallel |> Cloud.Ignore
+            do! Seq.init nParallel (fun i -> CloudAtom.Force(a, i)) |> Cloud.Parallel |> Cloud.Ignore
             return! a.Value
         } |> runRemote |> shouldBe (fun i -> i > 0)
 

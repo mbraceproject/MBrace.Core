@@ -25,41 +25,37 @@ module Utils =
 type ``SampleRuntime Parallelism Tests`` () as self =
     inherit ``Parallelism Tests`` (nParallel = 20)
 
-    let mutable runtime : MBraceRuntime option = None
+    let session = new RuntimeSession(nodes = 4)
 
     let run (wf : Cloud<'T>) = self.Run wf
 
     [<TestFixtureSetUp>]
-    member __.Init () =
-        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
-        runtime <- Some <| MBraceRuntime.InitLocal(4)
+    member __.Init () = session.Start()
 
     [<TestFixtureTearDown>]
-    member __.Fini () =
-        runtime |> Option.iter (fun r -> r.KillAllWorkers())
-        runtime <- None
+    member __.Fini () = session.Stop ()
 
     override __.IsTargetWorkerSupported = true
 
     override __.Run (workflow : Cloud<'T>) = 
-        Option.get(runtime).RunAsync workflow 
-        |> Async.Catch 
-        |> Async.RunSynchronously
+        session.Runtime.RunAsync (workflow)
+        |> Async.Catch
+        |> Async.RunSync
 
     override __.Run (workflow : ICancellationTokenSource -> Cloud<'T>) = 
         async {
-            let runtime = Option.get runtime
+            let runtime = session.Runtime
             let dcts = DistributedCancellationTokenSource.Init()
             let icts = { new ICancellationTokenSource with member __.Cancel() = dcts.Cancel () }
             let ct = dcts.GetLocalCancellationToken()
             return! runtime.RunAsync(workflow icts, cancellationToken = ct) |> Async.Catch
         } |> Async.RunSync
 
-    override __.RunLocal(workflow : Cloud<'T>) = Option.get(runtime).RunLocal(workflow)
+    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
-        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (runtime.Value.Workers.Length)
+        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers.Length)
 
     [<Test>]
     member __.``Z4. Runtime : Get current worker`` () =
@@ -76,26 +72,29 @@ type ``SampleRuntime Parallelism Tests`` () as self =
     [<Test>]
     [<Repeat(Config.repeats)>]
     member __.``Z5. Fault Tolerance : map/reduce`` () =
-        let t = runtime.Value.RunAsTask(WordCount.run 20 WordCount.mapReduceRec)
+        let runtime = session.Runtime
+        let t = runtime.RunAsTask(WordCount.run 20 WordCount.mapReduceRec)
         do Thread.Sleep 4000
-        runtime.Value.KillAllWorkers()
-        runtime.Value.AppendWorkers 4
+        runtime.KillAllWorkers()
+        runtime.AppendWorkers 4
         t.Result |> shouldEqual 100
 
     [<Test>]
     [<Repeat(Config.repeats)>]
     member __.``Z5. Fault Tolerance : Custom fault policy 1`` () =
-        let t = runtime.Value.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+        let runtime = session.Runtime
+        let t = runtime.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
         do Thread.Sleep 4000
-        runtime.Value.KillAllWorkers()
-        runtime.Value.AppendWorkers 4
+        runtime.KillAllWorkers()
+        runtime.AppendWorkers 4
         Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>
 
     [<Test>]
     [<Repeat(Config.repeats)>]
     member __.``Z5. Fault Tolerance : Custom fault policy 2`` () =
-        let t = runtime.Value.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+        let runtime = session.Runtime
+        let t = runtime.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
         do Thread.Sleep 4000
-        runtime.Value.KillAllWorkers()
-        runtime.Value.AppendWorkers 4
+        runtime.KillAllWorkers()
+        runtime.AppendWorkers 4
         Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>

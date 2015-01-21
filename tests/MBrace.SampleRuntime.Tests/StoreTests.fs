@@ -3,39 +3,53 @@
 open System.Threading
 
 open MBrace
-open MBrace.Store.Tests
+open MBrace.Tests
 open MBrace.SampleRuntime
 
 open NUnit.Framework
 
-//[<TestFixture>]
-//type ``Store tests`` () =
-//    inherit ``MBrace store tests``()
-//
-//    let mutable runtime : MBraceRuntime option = None
-//
-//    [<TestFixtureSetUp>]
-//    member __.Init () =
-//        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
-//        runtime <- Some <| MBraceRuntime.InitLocal(4)
-//        do Thread.Sleep 2000
-//
-//    [<TestFixtureTearDown>]
-//    member __.Fini () =
-//        runtime |> Option.iter (fun r -> r.KillAllWorkers())
-//        runtime <- None
-//
-//    override __.Run(wf : Cloud<'T>, ?ct : CancellationToken) =
-//        match runtime with
-//        | None -> invalidOp "no runtime state available."
-//        | Some r -> r.Run(wf, ?cancellationToken = ct)
-//
-//    override __.RunLocal(wf : Cloud<'T>) =
-//        match runtime with
-//        | None -> invalidOp "no runtime state available."
-//        | Some r -> r.RunLocal(wf)
-//
-//    override __.StoreClient =
-//        match runtime with
-//        | None -> invalidOp "no runtime state available."
-//        | Some r -> r.StoreClient
+type ``SampleRuntime FileStore Tests`` () =
+    inherit ``FileStore Tests``(nParallel = 10)
+
+    let session = new RuntimeSession(nodes = 4)
+
+    [<TestFixtureSetUp>]
+    member __.Init () = session.Start()
+
+    [<TestFixtureTearDown>]
+    member __.Fini () = session.Stop ()
+
+    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.FileStoreClient = session.Runtime.StoreClient.FileStore
+
+
+type ``SampleRuntime Atom Tests`` () =
+    inherit ``CloudAtom Tests``(nParallel = 10)
+
+    let session = new RuntimeSession(nodes = 4)
+
+    [<TestFixtureSetUp>]
+    member __.Init () = session.Start()
+
+    [<TestFixtureTearDown>]
+    member __.Fini () = session.Stop ()
+
+    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.AtomClient = session.Runtime.StoreClient.Atom
+
+type ``SampleRuntime Channel Tests`` () =
+    inherit ``CloudChannel Tests``(nParallel = 10)
+
+    let session = new RuntimeSession(nodes = 4)
+
+    [<TestFixtureSetUp>]
+    member __.Init () = session.Start()
+
+    [<TestFixtureTearDown>]
+    member __.Fini () = session.Stop ()
+
+    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.ChannelClient = session.Runtime.StoreClient.Channel

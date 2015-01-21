@@ -193,3 +193,16 @@ module CloudFileStoreUtils =
             let dir = cfs.GetRootDirectory()
             return! cfs.EnumerateDirectories(dir)
         }
+
+        /// Combines two strings into a single path.
+        member cfs.Combine(path1 : string, path2 : string) = cfs.Combine [| path1 ; path2 |]
+        /// Combines two strings into a single path.
+        member cfs.Combine(path1 : string, path2 : string, path3 : string) = cfs.Combine [| path1 ; path2 ; path3 |]
+
+        /// <summary>
+        ///     Combines a collection of file names with a given path prefix.
+        /// </summary>
+        /// <param name="container">Path prefix.</param>
+        /// <param name="fileNames">File name collections.</param>
+        member cfs.Combine(container : string, fileNames : seq<string>) =
+            fileNames |> Seq.map (fun f -> cfs.Combine [|container ; f |]) |> Seq.toArray

@@ -24,7 +24,7 @@ type InMemoryCancellationTokenSource() =
         member __.Cancel() = cts.Cancel()
 
 type ``ThreadPool Parallelism Tests`` () =
-    inherit ``Parallelism Tests``(100)
+    inherit ``Parallelism Tests``(nParallel = 100)
 
     let logger = InMemoryLogger()
     let imem = InMemoryRuntime.Create(logger = logger)
@@ -56,13 +56,13 @@ type ``InMemory CloudAtom Tests`` () =
 
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow
-    override __.AtomClient = imem.StoreClient.CloudAtom
+    override __.AtomClient = imem.StoreClient.Atom
 
 type ``InMemory CloudChannel Tests`` () =
-    inherit ``CloudChannel Tests`` ()
+    inherit ``CloudChannel Tests`` (nParallel = 100)
 
     let imem = InMemoryRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow
-    override __.ChannelClient = imem.StoreClient.CloudChannel
+    override __.ChannelClient = imem.StoreClient.Channel

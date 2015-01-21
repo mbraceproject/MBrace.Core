@@ -8,7 +8,7 @@ open MBrace.Store
 open NUnit.Framework
 
 [<TestFixture; AbstractClass>]
-type ``CloudChannel Tests`` () as self =
+type ``CloudChannel Tests`` (nParallel : int) as self =
 
     let runRemote wf = self.Run wf 
     let runLocal wf = self.RunLocal wf
@@ -28,17 +28,15 @@ type ``CloudChannel Tests`` () as self =
     [<Test>]
     member __.``Local StoreClient`` () =
         let cc = __.ChannelClient
-        let sp, rp = cc.New() |> Async.RunSynchronously
-        cc.Send 42 sp |> Async.RunSynchronously
-        cc.Receive rp
-        |> Async.RunSynchronously
-        |> shouldEqual 42
+        let sp, rp = cc.Create()
+        cc.Send (sp, 42)
+        cc.Receive rp |> shouldEqual 42
 
     [<Test>]
     member __.``Channels: simple send/receive`` () =
         cloud {
             let! send,recv = CloudChannel.New<int> ()
-            let! _,value = CloudChannel.Send 42 send <||> CloudChannel.Receive recv
+            let! _,value = CloudChannel.Send(send, 42) <||> CloudChannel.Receive recv
             return value
         } |> runRemote |> shouldEqual 42
 
@@ -48,9 +46,9 @@ type ``CloudChannel Tests`` () as self =
             let! sp,rp = CloudChannel.New<int option> ()
             let rec sender n = cloud {
                 if n = 0 then
-                    do! CloudChannel.Send None sp
+                    do! CloudChannel.Send(sp, None)
                 else
-                    do! CloudChannel.Send (Some n) sp
+                    do! CloudChannel.Send(sp, Some n)
                     return! sender (n-1)
             }
 
@@ -67,21 +65,22 @@ type ``CloudChannel Tests`` () as self =
 
     [<Test>]
     member __.``Channels: multiple senders`` () =
+        let nParallel = nParallel
         cloud {
             let! sp, rp = CloudChannel.New<int> ()
             let sender n = cloud {
                 for i in 1 .. n do
-                    do! CloudChannel.Send i sp
+                    do! CloudChannel.Send(sp, i)
             }
 
             let rec receiver c n = cloud {
                 if n = 0 then return c
                 else
                     let! i = CloudChannel.Receive rp
-                    return! receiver (c + i) (n - 1)
+                    return! receiver (c + 1) (n - 1)
             }
 
-            let senders = Seq.init 10 (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
-            let! _,result = senders <||> receiver 0 100
+            let senders = Seq.init nParallel (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
+            let! _,result = senders <||> receiver 0 (nParallel * 10)
             return result
-        } |> runRemote |> shouldEqual 550
+        } |> runRemote |> shouldEqual (nParallel * 10)

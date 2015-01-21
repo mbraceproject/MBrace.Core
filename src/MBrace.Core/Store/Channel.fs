@@ -83,10 +83,14 @@ open MBrace.Store
 /// Channel methods for MBrace
 type CloudChannel =
 
-    /// Creates a new channel instance.
-    static member New<'T>() = cloud {
+    /// <summary>
+    ///     Creates a new channel instance.
+    /// </summary>
+    /// <param name="container">Container to channel. Defaults to process default.</param>
+    static member New<'T>(?container : string) = cloud {
         let! config = Cloud.GetResource<CloudChannelConfiguration> ()
-        return! Cloud.OfAsync <| config.ChannelProvider.CreateChannel<'T> (config.DefaultContainer)
+        let container = defaultArg container config.DefaultContainer
+        return! Cloud.OfAsync <| config.ChannelProvider.CreateChannel<'T> (container)
     }
 
     /// <summary>
@@ -94,7 +98,7 @@ type CloudChannel =
     /// </summary>
     /// <param name="message">Message to send.</param>
     /// <param name="channel">Target channel.</param>
-    static member Send<'T> (message : 'T) (channel : ISendPort<'T>) = cloud {
+    static member Send<'T> (channel : ISendPort<'T>, message : 'T)  = cloud {
         return! channel.Send message
     }
 
@@ -105,4 +109,25 @@ type CloudChannel =
     /// <param name="timeout">Timeout in milliseconds.</param>
     static member Receive<'T> (channel : IReceivePort<'T>, ?timeout : int) = cloud {
         return! channel.Receive (?timeout = timeout)
+    }
+
+    /// <summary>
+    ///     Deletes cloud channel instance.
+    /// </summary>
+    /// <param name="channel">Channel to be disposed.</param>
+    static member Delete(channel : IReceivePort<'T>) = Cloud.Dispose channel
+
+    /// <summary>
+    ///     Deletes container and all its contained channels.
+    /// </summary>
+    /// <param name="container"></param>
+    static member DeleteContainer (container : string) = cloud {
+        let! config = Cloud.GetResource<CloudChannelConfiguration> ()
+        return! Cloud.OfAsync <| config.ChannelProvider.DisposeContainer container
+    }
+
+    /// Generates a unique container name.
+    static member CreateContainerName() = cloud {
+        let! config = Cloud.GetResource<CloudChannelConfiguration> ()
+        return config.ChannelProvider.CreateUniqueContainerName()
     }

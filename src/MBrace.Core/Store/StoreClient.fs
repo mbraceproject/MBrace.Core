@@ -1,231 +1,339 @@
-﻿namespace MBrace
+﻿namespace MBrace.Store
 
 #nowarn "0444"
+
+open System.IO
+open System.Text
 
 open MBrace
 open MBrace.Store
 open MBrace.Continuation
-open System.IO
-open System.Text
 
-[<Sealed>]
-/// Atom methods for MBrace.
+[<Sealed; AutoSerializable(false)>]
+/// Collection of client methods for CloudAtom API
 type CloudAtomClient internal (registry : ResourceRegistry) =
-    do registry.Resolve<CloudAtomConfiguration>()
-       |> ignore
+    // force exception in event of missing resource
+    let config = registry.Resolve<CloudAtomConfiguration>()
+
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
-
-    let toSync (wf : Cloud<'T>) : 'T = wf |> toAsync |> Async.RunSynchronously
-
-    /// <summary>
-    ///     Creates a new cloud atom instance with given value.
-    /// </summary>
-    /// <param name="initial">Initial value.</param>
-    member __.NewAsync<'T>(initial : 'T) : Async<ICloudAtom<'T>> =
-        CloudAtom.New(initial) |> toAsync
+    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    member __.New<'T>(initial : 'T) : ICloudAtom<'T> =
-        CloudAtom.New(initial) |> toSync
+    member c.CreateAsync<'T>(initial : 'T, ?container : string) : Async<ICloudAtom<'T>> =
+        CloudAtom.New(initial, ?container = container) |> toAsync
+
+    /// <summary>
+    ///     Creates a new cloud atom instance with given value.
+    /// </summary>
+    /// <param name="initial">Initial value.</param>
+    member c.Create<'T>(initial : 'T, ?container : string) : ICloudAtom<'T> =
+        c.CreateAsync(initial, ?container = container) |> toSync
        
     /// <summary>
     ///     Dereferences a cloud atom.
     /// </summary>
     /// <param name="atom">Atom instance.</param>
-    member __.ReadAsync(atom : ICloudAtom<'T>) : Async<'T> = 
+    member c.ReadAsync(atom : ICloudAtom<'T>) : Async<'T> = 
         CloudAtom.Read(atom) |> toAsync
 
     /// <summary>
     ///     Dereferences a cloud atom.
     /// </summary>
     /// <param name="atom">Atom instance.</param>
-    member __.Read(atom : ICloudAtom<'T>) : 'T = 
-        CloudAtom.Read(atom) |> toSync
+    member c.Read(atom : ICloudAtom<'T>) : 'T = 
+        c.ReadAsync(atom) |> toSync
 
     /// <summary>
     ///     Atomically updates the contained value.
     /// </summary>
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member __.UpdateAsync (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : Async<unit> = 
-        atom.Update updateF |> toAsync
+    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+    member c.UpdateAsync (atom : ICloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int): Async<unit> =
+        CloudAtom.Update(atom, updater, ?maxRetries = maxRetries) |> toAsync
 
     /// <summary>
     ///     Atomically updates the contained value.
     /// </summary>
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member __.Update (updateF : 'T -> 'T) (atom : ICloudAtom<'T>) : unit = 
-        atom.Update updateF |> toSync
+    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+    member c.Update (atom : ICloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int): unit = 
+        c.UpdateAsync (atom, updater, ?maxRetries = maxRetries) |> toSync
 
     /// <summary>
     ///     Forces the contained value to provided argument.
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member __.ForceAsync (value : 'T) (atom : ICloudAtom<'T>) : Async<unit> = 
-        atom.Force value |> toAsync
+    member c.ForceAsync (atom : ICloudAtom<'T>, value : 'T) : Async<unit> =
+        CloudAtom.Force(atom, value) |> toAsync
 
     /// <summary>
     ///     Forces the contained value to provided argument.
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member __.Force (value : 'T) (atom : ICloudAtom<'T>) : unit = 
-        atom.Force value |> toSync
+    member c.Force (atom : ICloudAtom<'T>, value : 'T) : unit = 
+        c.ForceAsync(atom, value) |> toSync
 
     /// <summary>
     ///     Transactionally updates the contained value.
     /// </summary>
-    /// <param name="trasactF"></param>
-    /// <param name="atom"></param>
-    member __.TransactAsync (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : Async<'R> = 
-        atom.Transact trasactF |> toAsync
+    /// <param name="atom">Atom instance to be updated.</param>
+    /// <param name="trasactF">Transaction function.</param>
+    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+    member c.TransactAsync (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Async<'R> =
+        CloudAtom.Transact(atom, transactF, ?maxRetries = maxRetries) |> toAsync
 
     /// <summary>
     ///     Transactionally updates the contained value.
     /// </summary>
-    /// <param name="trasactF"></param>
-    /// <param name="atom"></param>
-    member __.Transact (trasactF : 'T -> 'R * 'T) (atom : ICloudAtom<'T>) : 'R = 
-        atom.Transact trasactF |> toSync
-
+    /// <param name="atom">Atom instance to be updated.</param>
+    /// <param name="trasactF">Transaction function.</param>
+    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+    member c.Transact (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : 'R = 
+        c.TransactAsync(atom, transactF, ?maxRetries = maxRetries) |> toSync
 
     /// <summary>
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    member __.DeleteAsync (atom : ICloudAtom<'T>) = 
-        Cloud.Dispose atom |> toAsync
-
+    member c.DeleteAsync (atom : ICloudAtom<'T>) : Async<unit> = 
+        CloudAtom.Delete atom |> toAsync
 
     /// <summary>
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    member __.Delete (atom : ICloudAtom<'T>) = 
-        Cloud.Dispose atom |> toSync
+    member c.Delete (atom : ICloudAtom<'T>) : unit = 
+        c.DeleteAsync atom |> toSync
 
+    /// <summary>
+    ///     Deletes the provided atom container and all its contents.
+    /// </summary>
+    /// <param name="container">Container name.</param>
+    member c.DeleteContainerAsync (container : string) : Async<unit> = 
+        CloudAtom.DeleteContainer container |> toAsync
+
+    /// <summary>
+    ///     Deletes the provided atom container and all its contents.
+    /// </summary>
+    /// <param name="container">Container name.</param>
+    member c.DeleteContainer (container : string) : unit = 
+        c.DeleteContainerAsync container |> toSync
 
     /// <summary>
     ///     Checks if value is supported by current table store.
     /// </summary>
     /// <param name="value">Value to be checked.</param>
-    member __.IsSupportedValueAsync(value : 'T) = 
-        CloudAtom.IsSupportedValue value |> toAsync
+    member __.IsSupportedValue(value : 'T) : bool = 
+        config.AtomProvider.IsSupportedValue value
 
     /// <summary>
-    ///     Checks if value is supported by current table store.
+    /// Create a new FileStoreClient instance from given resources.
+    /// Resources must contain CloudAtomConfiguration value.
     /// </summary>
-    /// <param name="value">Value to be checked.</param>
-    member __.IsSupportedValue(value : 'T) = 
-        CloudAtom.IsSupportedValue value |> toSync
+    /// <param name="resources"></param>
+    static member CreateFromResources(resources : ResourceRegistry) =
+        new CloudAtomClient(resources)
 
 
-[<Sealed>]
-/// Channel methods for MBrace.
+[<Sealed; AutoSerializable(false)>]
+/// Collection of client methods for CloudAtom API
 type CloudChannelClient internal (registry : ResourceRegistry) =
-    do registry.Resolve<CloudChannelConfiguration>()
-       |> ignore
+    // force exception in event of missing resource
+    let config = registry.Resolve<CloudChannelConfiguration>()
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
+    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
-    /// Creates a new channel instance.
-    member __.New<'T>() = MBrace.CloudChannel.New<'T>() |> toAsync
+    /// <summary>
+    ///     Creates a new channel instance.
+    /// </summary>
+    /// <param name="container">Container for cloud channel.</param>
+    member c.CreateAsync<'T>(?container : string) : Async<ISendPort<'T> * IReceivePort<'T>> = 
+        CloudChannel.New<'T>(?container = container) |> toAsync
+
+    /// <summary>
+    ///     Creates a new channel instance.
+    /// </summary>
+    /// <param name="container">Container for cloud channel.</param>
+    member c.Create<'T>(?container : string) : ISendPort<'T> * IReceivePort<'T> = 
+        c.CreateAsync<'T>(?container = container) |> toSync
 
     /// <summary>
     ///     Send message to the channel.
     /// </summary>
-    /// <param name="message">Message to send.</param>
     /// <param name="channel">Target channel.</param>
-    member __.Send<'T> (message : 'T) (channel : ISendPort<'T>) = MBrace.CloudChannel.Send<'T> message channel |> toAsync
+    /// <param name="message">Message to send.</param>
+    member c.SendAsync<'T> (channel : ISendPort<'T>, message : 'T) : Async<unit> = 
+        CloudChannel.Send<'T> (channel, message) |> toAsync
+
+    /// <summary>
+    ///     Send message to the channel.
+    /// </summary>
+    /// <param name="channel">Target channel.</param>
+    /// <param name="message">Message to send.</param>
+    member c.Send<'T> (channel : ISendPort<'T>, message : 'T) : unit = 
+        c.SendAsync<'T>(channel, message) |> toSync
 
     /// <summary>
     ///     Receive message from channel.
     /// </summary>
     /// <param name="channel">Source channel.</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    member __.Receive<'T> (channel : IReceivePort<'T>, ?timeout : int) =  MBrace.CloudChannel.Receive(channel, ?timeout = timeout) |> toAsync
+    member c.ReceiveAsync<'T> (channel : IReceivePort<'T>, ?timeout : int) : Async<'T> = 
+        CloudChannel.Receive(channel, ?timeout = timeout) |> toAsync
 
-[<Sealed>]
-/// Collection of file store operations
-type CloudPathClient internal (registry : ResourceRegistry) =
-    let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
-    
+    /// <summary>
+    ///     Receive message from channel.
+    /// </summary>
+    /// <param name="channel">Source channel.</param>
+    /// <param name="timeout">Timeout in milliseconds.</param>
+    member c.Receive<'T> (channel : IReceivePort<'T>, ?timeout : int) : 'T = 
+        c.ReceiveAsync(channel, ?timeout = timeout) |> toSync
+
+    /// <summary>
+    ///     Deletes the provided channel instance.
+    /// </summary>
+    /// <param name="channel">Channel to be deleted.</param>
+    member c.DeleteAsync(channel : IReceivePort<'T>) : Async<unit> = 
+        CloudChannel.Delete channel |> toAsync
+
+    /// <summary>
+    ///     Deletes the provided channel instance.
+    /// </summary>
+    /// <param name="channel">Channel to be deleted.</param>    
+    member c.Delete(channel : IReceivePort<'T>) : unit = c.DeleteAsync channel |> toSync
+
+    /// <summary>
+    ///     Deletes the provided channel container and all its contents.
+    /// </summary>
+    /// <param name="container">Container name.</param>
+    member c.DeleteContainerAsync (container : string): Async<unit> = 
+        CloudChannel.DeleteContainer container |> toAsync
+
+    /// <summary>
+    ///     Deletes the provided channel container and all its contents.
+    /// </summary>
+    /// <param name="container">Container name.</param>
+    member c.DeleteContainer (container : string) : unit = 
+        c.DeleteContainerAsync container |> toSync
+
+    /// <summary>
+    /// Create a new FileStoreClient instance from given resources.
+    /// Resources must contain CloudChannelConfiguration value.
+    /// </summary>
+    /// <param name="resources"></param>
+    static member CreateFromResources(resources : ResourceRegistry) =
+        new CloudChannelClient(resources)
+
+
+[<Sealed; AutoSerializable(false)>]
+/// Collection of path-related file store methods.
+type CloudPathClient internal (config : CloudFileStoreConfiguration) =
+
     /// <summary>
     ///     Returns the directory name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
-    member __.GetDirectoryName(path : string) = MBrace.FileStore.GetDirectoryName(path) |> toAsync
+    member __.GetDirectoryName(path : string) = config.FileStore.GetDirectoryName path
 
     /// <summary>
     ///     Returns the file name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
-    member __.GetFileName(path : string) = MBrace.FileStore.GetFileName(path) |> toAsync
+    member __.GetFileName(path : string) = config.FileStore.GetFileName path
 
     /// <summary>
     ///     Combines two strings into one path.
     /// </summary>
     /// <param name="path1">First path.</param>
     /// <param name="path2">Second path.</param>
-    member __.Combine(path1 : string, path2 : string) = MBrace.FileStore.Combine(path1, path2) |> toAsync
+    member __.Combine(path1 : string, path2 : string) = config.FileStore.Combine [| path1 ; path2 |]
+
+    /// <summary>
+    ///     Combines three strings into one path.
+    /// </summary>
+    /// <param name="path1">First path.</param>
+    /// <param name="path2">Second path.</param>
+    /// <param name="path3">Third path.</param>
+    member __.Combine(path1 : string, path2 : string, path3 : string) = config.FileStore.Combine [| path1 ; path2 ; path3 |]
 
     /// <summary>
     ///     Combines an array of paths into a path.
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
-    member __.Combine(paths : string []) = MBrace.FileStore.Combine(paths) |> toAsync
+    member __.Combine(paths : string []) = config.FileStore.Combine paths
 
     /// <summary>
     ///     Combines a collection of file names with provided directory prefix.
     /// </summary>
     /// <param name="directory">Directory prefix path.</param>
     /// <param name="fileNames">File names to be combined.</param>
-    member __.Combine(directory : string, fileNames : seq<string>) = MBrace.FileStore.Combine(directory, fileNames) |> toAsync
-
-    /// <summary>
-    /// Returns current ICloudFileStore instance.
-    /// </summary>
-//    member __.Current : Async<ICloudFileStore> = FileStore.Current |> toAsync
+    member __.Combine(directory : string, fileNames : seq<string>) = config.FileStore.Combine(directory, fileNames)
                    
     /// Generates a random, uniquely specified path to directory
-    member __.GetRandomDirectoryName() = MBrace.FileStore.GetRandomDirectoryName() |> toAsync
+    member __.GetRandomDirectoryName() = config.FileStore.GetRandomDirectoryName()
 
-[<Sealed>]
+[<Sealed; AutoSerializable(false)>]
 /// Collection of file store operations
 type CloudDirectoryClient internal (registry : ResourceRegistry) =
+
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
+    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
     
     /// <summary>
     ///     Checks if directory exists in given path
     /// </summary>
     /// <param name="directory">Path to directory.</param>
-    member __.Exists(directory : string) : Async<bool> = 
+    member c.ExistsAsync(directory : string) : Async<bool> = 
         CloudDirectory.Exists(directory) |> toAsync
 
     /// <summary>
     ///     Checks if directory exists in given path
     /// </summary>
     /// <param name="directory">Path to directory.</param>
-    member __.Exists(directory : CloudDirectory) : Async<bool> =
-        __.Exists directory.Path 
+    member c.ExistsAsync(directory : CloudDirectory) : Async<bool> =
+        c.ExistsAsync directory.Path
+
+    /// <summary>
+    ///     Checks if directory exists in given path
+    /// </summary>
+    /// <param name="directory">Path to directory.</param>
+    member c.Exists(directory : string) : bool = 
+        c.ExistsAsync directory |> toSync
+
+    /// <summary>
+    ///     Checks if directory exists in given path
+    /// </summary>
+    /// <param name="directory">Path to directory.</param>
+    member c.Exists(directory : CloudDirectory) : bool =
+        c.Exists directory.Path
 
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
-    member __.Create(?directory : string) : Async<CloudDirectory> =
+    member c.CreateAsync(?directory : string) : Async<CloudDirectory> =
         CloudDirectory.Create(?directory = directory) |> toAsync
+
+    /// <summary>
+    ///     Creates a new directory in store.
+    /// </summary>
+    /// <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
+    member c.Create(?directory : string) : CloudDirectory =
+        c.CreateAsync(?directory = directory) |> toSync
 
     /// <summary>
     ///     Deletes directory from store.
     /// </summary>
     /// <param name="directory">Directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member __.Delete(directory : string, ?recursiveDelete : bool) : Async<unit> = 
+    member c.DeleteAsync(directory : string, ?recursiveDelete : bool) : Async<unit> = 
         CloudDirectory.Delete(directory, ?recursiveDelete = recursiveDelete) |> toAsync
 
     /// <summary>
@@ -233,68 +341,136 @@ type CloudDirectoryClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="directory">Directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member __.Delete(directory : CloudDirectory, ?recursiveDelete : bool) =
-        __.Delete(directory.Path, ?recursiveDelete = recursiveDelete)
+    member c.DeleteAsync(directory : CloudDirectory, ?recursiveDelete : bool) : Async<unit> =
+        c.DeleteAsync(directory.Path, ?recursiveDelete = recursiveDelete)
+
+    /// <summary>
+    ///     Deletes directory from store.
+    /// </summary>
+    /// <param name="directory">Directory to be deleted.</param>
+    /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+    member c.Delete(directory : string, ?recursiveDelete : bool) : unit = 
+        c.DeleteAsync(directory, ?recursiveDelete = recursiveDelete) |> toSync
+
+    /// <summary>
+    ///     Deletes directory from store.
+    /// </summary>
+    /// <param name="directory">Directory to be deleted.</param>
+    /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+    member c.Delete(directory : CloudDirectory, ?recursiveDelete : bool) : unit = 
+        c.DeleteAsync(directory, ?recursiveDelete = recursiveDelete) |> toSync
 
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
     /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
-    member __.Enumerate(?directory : string) : Async<CloudDirectory []> = 
+    member c.EnumerateAsync(?directory : string) : Async<CloudDirectory []> = 
         CloudDirectory.Enumerate(?directory = directory) |> toAsync
 
-[<Sealed>]
+    /// <summary>
+    ///     Enumerates all directories contained in path.
+    /// </summary>
+    /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
+    member c.Enumerate(?directory : string) : CloudDirectory [] = 
+        c.EnumerateAsync(?directory = directory) |> toSync
+
+[<Sealed; AutoSerializable(false)>]
+/// Collection of file store operations
 type CloudFileClient internal (registry : ResourceRegistry) =
+
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
+    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
     ///     Gets the size of provided file, in bytes.
     /// </summary>
     /// <param name="path">Input file.</param>
-    member __.GetSize(path : string) : Async<int64> = 
+    member c.GetSizeAsync(path : string) : Async<int64> = 
         CloudFile.GetSize(path) |> toAsync
 
     /// <summary>
     ///     Gets the size of provided file, in bytes.
     /// </summary>
     /// <param name="file">Input file.</param>
-    member __.GetSize(file : CloudFile) =
-        __.GetSize(file.Path)
+    member c.GetSizeAsync(file : CloudFile) : Async<int64> =
+        CloudFile.GetSize(file.Path) |> toAsync
+
+    /// <summary>
+    ///     Gets the size of provided file, in bytes.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    member c.GetSize(path : string) : int64 = 
+        c.GetSizeAsync(path) |> toSync
+
+    /// <summary>
+    ///     Gets the size of provided file, in bytes.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    member c.GetSize(file : CloudFile) : int64 = 
+        c.GetSizeAsync(file) |> toSync
 
     /// <summary>
     ///     Checks if file exists in store.
     /// </summary>
     /// <param name="path">Input file.</param>
-    member __.Exists(path : string) = 
+    member c.ExistsAsync(path : string) : Async<bool> = 
         CloudFile.Exists(path) |> toAsync
 
     /// <summary>
     ///     Checks if file exists in store.
     /// </summary>
     /// <param name="file">Input file.</param>
-    member __.Exists(file : CloudFile) =
-        __.Exists(file.Path)
+    member c.ExistsAsync(file : CloudFile) : Async<bool> =
+        CloudFile.Exists(file) |> toAsync
+
+    /// <summary>
+    ///     Checks if file exists in store.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    member c.Exists(path : string) : bool = 
+        c.ExistsAsync(path) |> toSync
+
+    /// <summary>
+    ///     Checks if file exists in store.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    member c.Exists(file : CloudFile) : bool =
+        c.ExistsAsync(file) |> toSync
 
     /// <summary>
     ///     Deletes file in given path.
     /// </summary>
     /// <param name="path">Input file.</param>
-    member __.Delete(path : string) = 
+    member c.DeleteAsync(path : string) : Async<unit> = 
         CloudFile.Delete(path) |> toAsync
 
     /// <summary>
     ///     Deletes file in given path.
     /// </summary>
     /// <param name="file">Input file.</param>
-    member __.Delete(file : CloudFile) =
-        __.Delete(file.Path)
+    member c.DeleteAsync(file : CloudFile) : Async<unit> =
+        CloudFile.Delete(file) |> toAsync
+
+    /// <summary>
+    ///     Deletes file in given path.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    member c.Delete(path : string) : unit = 
+        c.DeleteAsync(path) |> toSync
+
+    /// <summary>
+    ///     Deletes file in given path.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    member c.Delete(file : CloudFile) : unit =
+        c.DeleteAsync(file) |> toSync
 
     /// <summary>
     ///     Creates a new file in store with provided serializer function.
     /// </summary>
     /// <param name="serializer">Serializer function.</param>
     /// <param name="path">Path to file. Defaults to auto-generated path.</param>
-    member __.Create(serializer : Stream -> Async<unit>, ?path : string) : Async<CloudFile> = 
+    member c.CreateAsync(serializer : Stream -> Async<unit>, ?path : string) : Async<CloudFile> = 
         CloudFile.Create(serializer, ?path = path) |> toAsync
 
     /// <summary>
@@ -303,15 +479,32 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <param name="serializer">Serializer function.</param>
     /// <param name="directory">Containing directory.</param>
     /// <param name="fileName">File name.</param>
-    member __.Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Async<CloudFile> = 
+    member c.CreateAsync(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Async<CloudFile> = 
         CloudFile.Create(serializer, directory, fileName) |> toAsync
+
+    /// <summary>
+    ///     Creates a new file in store with provided serializer function.
+    /// </summary>
+    /// <param name="serializer">Serializer function.</param>
+    /// <param name="path">Path to file. Defaults to auto-generated path.</param>
+    member c.Create(serializer : Stream -> Async<unit>, ?path : string) : CloudFile = 
+        c.CreateAsync(serializer, ?path = path) |> toSync
+
+    /// <summary>
+    ///     Creates a new file in store with provided serializer function.
+    /// </summary>
+    /// <param name="serializer">Serializer function.</param>
+    /// <param name="directory">Containing directory.</param>
+    /// <param name="fileName">File name.</param>
+    member c.Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : CloudFile = 
+        c.CreateAsync(serializer, directory, fileName) |> toSync
 
     /// <summary>
     ///     Reads file in store with provided deserializer function.
     /// </summary>
     /// <param name="path">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    member __.Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Async<'T> = 
+    member c.ReadAsync<'T>(path : string, deserializer : Stream -> Async<'T>) : Async<'T> = 
         CloudFile.Read<'T>(path, deserializer) |> toAsync
 
     /// <summary>
@@ -319,15 +512,38 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    member __.Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>) : Async<'T> = 
-        __.Read(file.Path, deserializer)
+    member c.ReadAsync<'T>(file : CloudFile, deserializer : Stream -> Async<'T>) : Async<'T> = 
+        c.ReadAsync(file.Path, deserializer)
+
+    /// <summary>
+    ///     Reads file in store with provided deserializer function.
+    /// </summary>
+    /// <param name="path">Input file.</param>
+    /// <param name="deserializer">Deserializer function.</param>
+    member c.Read<'T>(path : string, deserializer : Stream -> Async<'T>) : 'T = 
+        c.ReadAsync<'T>(path, deserializer) |> toSync
+
+    /// <summary>
+    ///     Reads file in store with provided deserializer function.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="deserializer">Deserializer function.</param>
+    member c.Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>) : 'T = 
+        c.ReadAsync<'T>(file.Path, deserializer) |> toSync
 
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to the process directory.</param>
-    member __.Enumerate(?directory : string) : Async<CloudFile []> = 
+    member c.EnumerateAsync(?directory : string) : Async<CloudFile []> = 
         CloudFile.Enumerate(?directory = directory) |> toAsync
+
+    /// <summary>
+    ///     Gets all files that exist in given container.
+    /// </summary>
+    /// <param name="directory">Path to directory. Defaults to the process directory.</param>
+    member c.Enumerate(?directory : string) : CloudFile [] = 
+        c.EnumerateAsync(?directory = directory) |> toSync
 
     //
     //  Cloud file text utilities
@@ -355,7 +571,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member __.ReadLines(file : CloudFile, ?encoding : Encoding) = 
+    member __.ReadLines(file : CloudFile, ?encoding : Encoding) : Async<string []> = 
         __.ReadLines(file.Path, ?encoding = encoding)
 
     /// <summary>
@@ -372,7 +588,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member __.ReadAllText(file : string, ?encoding : Encoding) =
+    member __.ReadAllText(file : string, ?encoding : Encoding) : Async<string> =
         CloudFile.ReadAllText(file, ?encoding = encoding) |> toAsync
 
     /// <summary>
@@ -380,7 +596,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member __.ReadAllText(file : CloudFile, ?encoding : Encoding) =
+    member __.ReadAllText(file : CloudFile, ?encoding : Encoding) : Async<string> =
         __.ReadAllText(file.Path, ?encoding = encoding)
 
     /// <summary>
@@ -405,11 +621,13 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     member __.ReadAllBytes(file : CloudFile) : Async<byte []> =
         __.ReadAllBytes(file.Path)
 
-[<Sealed>]
+
+[<Sealed; AutoSerializable(false)>]
 type FileStoreClient internal (registry : ResourceRegistry) =
-    do registry.Resolve<CloudFileStoreConfiguration>()
-       |> ignore
-    let pathClient = new CloudPathClient(registry)
+    let config = registry.Resolve<CloudFileStoreConfiguration>()
+
+    // TODO : CloudFile & CloudSeq clients
+    let pathClient = new CloudPathClient(config)
     let directoryClient = new CloudDirectoryClient(registry)
     let fileClient = new CloudFileClient(registry)
 
@@ -420,7 +638,16 @@ type FileStoreClient internal (registry : ResourceRegistry) =
     /// CloudFile client.
     member __.Path = pathClient 
 
-[<Sealed>]
+
+    /// <summary>
+    /// Create a new FileStoreClient instance from given resources.
+    /// Resources must contain CloudFileStoreConfiguration value.
+    /// </summary>
+    /// <param name="resources"></param>
+    static member CreateFromResources(resources : ResourceRegistry) =
+        new FileStoreClient(resources)
+
+[<Sealed; AutoSerializable(false)>]
 /// Common client operations on CloudAtom, CloudChannel and CloudFile primitives.
 type StoreClient internal (registry : ResourceRegistry) =
     let atomClient    = lazy CloudAtomClient(registry)
@@ -428,13 +655,16 @@ type StoreClient internal (registry : ResourceRegistry) =
     let fileStore     = lazy FileStoreClient(registry)
 
     /// CloudAtom client.
-    member __.CloudAtom = atomClient.Value
+    member __.Atom = atomClient.Value
     /// CloudChannel client.
-    member __.CloudChannel = channelClient.Value
+    member __.Channel = channelClient.Value
     /// CloudFileStore client.
     member __.FileStore = fileStore.Value
 
+    /// <summary>
     /// Create a new StoreClient instance from given resources.
-    /// Resources must contain CloudFileStoreConfiguration, CloudAtomConfiguration and CloudChannelConfiguration values.
+    /// Resources must contain CloudFileStoreConfiguration value.
+    /// </summary>
+    /// <param name="resources"></param>
     static member CreateFromResources(resources : ResourceRegistry) =
         new StoreClient(resources)

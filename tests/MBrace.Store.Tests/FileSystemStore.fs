@@ -14,27 +14,21 @@ open MBrace.Tests
 module private Config =
     do VagrantRegistry.Initialize(throwOnError = false)
 
-    let atomProvider = FileSystemAtomProvider.Create(create = true, cleanup = false)
     let fsStore = FileSystemStore.CreateSharedLocal()
-    let serializer = VagrantRegistry.Serializer
-    let config = CloudFileStoreConfiguration.Create(fsStore, serializer, cache = InMemoryCache.Create())
+    let fsConfig = CloudFileStoreConfiguration.Create(fsStore, VagrantRegistry.Serializer, cache = InMemoryCache.Create())
+
+    let atomProvider = FileSystemAtomProvider.Create(create = true, cleanup = false) 
+    let atomConfig = CloudAtomConfiguration.Create(atomProvider)
 
 [<TestFixture>]
-type ``FileSystem File store tests`` () =
-    inherit  ``FileStore Tests``(fsStore, serializer, 100)
-
-    let imem = InMemoryRuntime.Create(fileConfig = config)
-
-    override __.Run wf = imem.Run wf
-    override __.RunLocal wf = imem.Run wf
-    override __.FileStoreClient = imem.StoreClient.FileStore
+type ``FileSystemStore Tests`` () =
+    inherit  ``Local FileStore Tests``(fsConfig)
 
 [<TestFixture>]
 type ``FileSystem Atom tests`` () =
-    inherit  ``CloudAtom Tests``(100)
-
-    let imem = InMemoryRuntime.Create(fileConfig = config)
+    inherit  ``CloudAtom Tests``(nParallel = 20)
+    let imem = InMemoryRuntime.Create(atomConfig = atomConfig)
 
     override __.Run wf = imem.Run wf
     override __.RunLocal wf = imem.Run wf
-    override __.AtomClient = imem.StoreClient.CloudAtom
+    override __.AtomClient = imem.StoreClient.Atom
