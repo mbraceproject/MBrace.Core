@@ -108,8 +108,8 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
         // avoid capturing test fixture class in closures
         let nParallel = nParallel
         cloud {
-            let! a = CloudAtom.New -1
-            do! Seq.init nParallel (fun i -> CloudAtom.Force(a, i)) |> Cloud.Parallel |> Cloud.Ignore
+            let! a = CloudAtom.New 0
+            do! Seq.init nParallel (fun i -> CloudAtom.Force(a, i + 1)) |> Cloud.Parallel |> Cloud.Ignore
             return! a.Value
         } |> runRemote |> shouldBe (fun i -> i > 0)
 
