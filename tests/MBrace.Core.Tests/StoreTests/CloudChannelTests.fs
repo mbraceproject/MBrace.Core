@@ -22,15 +22,15 @@ type ``CloudChannel Tests`` () as self =
     /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
     /// Local store client instance
-    abstract StoreClient : StoreClient
+    abstract ChannelClient : CloudChannelClient
 
 
     [<Test>]
     member __.``Local StoreClient`` () =
-        let sc = __.StoreClient
-        let sp, rp = sc.CloudChannel.New() |> Async.RunSynchronously
-        sc.CloudChannel.Send 42 sp |> Async.RunSynchronously
-        sc.CloudChannel.Receive rp
+        let cc = __.ChannelClient
+        let sp, rp = cc.New() |> Async.RunSynchronously
+        cc.Send 42 sp |> Async.RunSynchronously
+        cc.Receive rp
         |> Async.RunSynchronously
         |> shouldEqual 42
 

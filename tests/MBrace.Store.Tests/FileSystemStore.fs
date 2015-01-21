@@ -27,7 +27,7 @@ type ``FileSystem File store tests`` () =
 
     override __.Run wf = imem.Run wf
     override __.RunLocal wf = imem.Run wf
-    override __.StoreClient = imem.StoreClient
+    override __.FileStoreClient = imem.StoreClient.FileStore
 
 [<TestFixture>]
 type ``FileSystem Atom tests`` () =
@@ -37,4 +37,4 @@ type ``FileSystem Atom tests`` () =
 
     override __.Run wf = imem.Run wf
     override __.RunLocal wf = imem.Run wf
-    override __.StoreClient = imem.StoreClient
+    override __.AtomClient = imem.StoreClient.CloudAtom

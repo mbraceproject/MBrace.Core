@@ -27,7 +27,7 @@ type ``FileStore Tests`` (fileStore : ICloudFileStore, serializer : ISerializer,
     /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
     /// Store client to be tested
-    abstract StoreClient : StoreClient
+    abstract FileStoreClient : FileStoreClient
 
     //
     //  Section 1: Local raw fileStore tests
@@ -138,10 +138,10 @@ type ``FileStore Tests`` (fileStore : ICloudFileStore, serializer : ISerializer,
 
     [<Test>]
     member __.``1. FileStore : StoreClient - CloudFile`` () =
-        let sc = __.StoreClient.CloudFile
+        let sc = __.FileStoreClient
         let lines = Array.init 10 string
-        let file = sc.WriteLines(lines) |> Async.RunSynchronously
-        sc.ReadLines(file)
+        let file = sc.File.WriteLines(lines) |> Async.RunSynchronously
+        sc.File.ReadLines(file)
         |> Async.RunSynchronously
         |> shouldEqual lines
 

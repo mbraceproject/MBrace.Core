@@ -56,7 +56,7 @@ type ``InMemory CloudAtom Tests`` () =
 
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow
-    override __.StoreClient = imem.StoreClient
+    override __.AtomClient = imem.StoreClient.CloudAtom
 
 type ``InMemory CloudChannel Tests`` () =
     inherit ``CloudChannel Tests`` ()
@@ -65,4 +65,4 @@ type ``InMemory CloudChannel Tests`` () =
 
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow
-    override __.StoreClient = imem.StoreClient
+    override __.ChannelClient = imem.StoreClient.CloudChannel

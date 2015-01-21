@@ -24,15 +24,14 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
     /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
     /// Local store client instance
-    abstract StoreClient : StoreClient
-
+    abstract AtomClient : CloudAtomClient
 
     [<Test>]
     member __.``Local StoreClient`` () =
-        let sc = __.StoreClient
-        let atom = sc.CloudAtom.New(41) |> Async.RunSynchronously
-        sc.CloudAtom.Update((+) 1) atom |> Async.RunSynchronously
-        sc.CloudAtom.Read atom
+        let ac = __.AtomClient
+        let atom = ac.New(41) |> Async.RunSynchronously
+        ac.Update((+) 1) atom |> Async.RunSynchronously
+        ac.Read atom
         |> Async.RunSynchronously
         |> shouldEqual 42
 
