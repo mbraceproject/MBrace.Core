@@ -364,9 +364,8 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
     member __.``1. FileStore : StoreClient - CloudFile`` () =
         let sc = __.FileStoreClient
         let lines = Array.init 10 string
-        let file = sc.File.WriteLines(lines) |> Async.RunSynchronously
+        let file = sc.File.WriteLines(lines)
         sc.File.ReadLines(file)
-        |> Async.RunSynchronously
         |> shouldEqual lines
 
     [<TestFixtureTearDown>]
