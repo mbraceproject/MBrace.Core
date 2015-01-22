@@ -6,7 +6,18 @@ open System.Runtime.Serialization
 [<AutoOpen>]
 module private ResourceRegistryUtils =
 
-    let inline key<'T> = typeof<'T>.AssemblyQualifiedName
+    // ResourceRegistry indexes by Type.AssemblyQualifiedName which is expensive to obtain.
+    // Memoize for better resolution performance.
+    let dict = new System.Collections.Generic.Dictionary<Type, string>()
+    let inline key<'T> : string =
+        let t = typeof<'T>
+        let mutable k = null
+        if dict.TryGetValue(typeof<'T>, &k) then k
+        else
+            lock dict (fun () ->
+                let k = t.AssemblyQualifiedName
+                dict.Add(t, k)
+                k)
 
 /// Immutable dependency container used for pushing
 /// runtime resources to the continuation monad.
@@ -27,7 +38,10 @@ type ResourceRegistry private (index : Map<string, obj>) =
         new ResourceRegistry(Map.add key<'TResource> (box resource) index)
 
     /// Try Resolving resource of given type
-    member __.TryResolve<'TResource> () = index.TryFind key<'TResource> |> Option.map unbox<'TResource>
+    member __.TryResolve<'TResource> () = 
+        match index.TryFind key<'TResource> with
+        | Some boxedResource -> Some (unbox<'TResource> boxedResource)
+        | None -> None
 
     /// Resolves resource of given type
     member __.Resolve<'TResource> () =
@@ -57,8 +71,7 @@ type ResourceRegistry private (index : Map<string, obj>) =
     /// <summary>
     ///     Combines two resource registries into one.
     /// </summary>
-    /// <param name="resources1">First resource registry.</param>
-    /// <param name="resources2">Second resource registry.</param>
+    /// <param name="resources">Resources to be combined.</param>
     static member Combine(resources : seq<ResourceRegistry>) =
         let mutable index = Map.empty
         for r in resources do
