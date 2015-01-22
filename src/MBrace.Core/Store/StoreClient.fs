@@ -729,6 +729,82 @@ type FileStoreClient internal (registry : ResourceRegistry) =
         new FileStoreClient(resources)
 
 [<Sealed; AutoSerializable(false)>]
+/// Collection of CloudRef operations.
+type CloudRefClient internal (registry : ResourceRegistry) =
+    let config = registry.Resolve<CloudFileStoreConfiguration>()
+    
+    let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
+    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
+
+    /// <summary>
+    ///     Creates a new cloud reference to the underlying store with provided value.
+    ///     Cloud references are immutable and cached locally for performance.
+    /// </summary>
+    /// <param name="value">Cloud reference value.</param>
+    /// <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+    /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
+    member __.NewAsync(value : 'T, ?directory : string, ?serializer : ISerializer) =
+        CloudRef.New(value, ?directory = directory, ?serializer = serializer) |> toAsync
+
+    /// <summary>
+    ///     Creates a new cloud reference to the underlying store with provided value.
+    ///     Cloud references are immutable and cached locally for performance.
+    /// </summary>
+    /// <param name="value">Cloud reference value.</param>
+    /// <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+    /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
+    member __.New(value : 'T, ?directory : string, ?serializer : ISerializer) =
+        __.NewAsync(value, ?directory = directory, ?serializer = serializer) |> toSync
+
+
+    /// <summary>
+    ///     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+    /// </summary>
+    /// <param name="path">Path to cloud ref.</param>
+    /// <param name="serializer">Serializer for cloud ref.</param>
+    member __.ParseAsync<'T>(path : string, ?serializer : ISerializer) = 
+        CloudRef.Parse(path, ?serializer = serializer) |> toAsync
+
+    /// <summary>
+    ///     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+    /// </summary>
+    /// <param name="path">Path to cloud ref.</param>
+    /// <param name="serializer">Serializer for cloud ref.</param>
+    member __.Parse<'T>(path : string, ?serializer : ISerializer) = 
+        __.ParseAsync(path, ?serializer = serializer) |> toSync
+
+
+    /// <summary>
+    ///     Dereference a Cloud reference.
+    /// </summary>
+    /// <param name="cloudRef">CloudRef to be dereferenced.</param>
+    member __.ReadAsync(cloudRef : CloudRef<'T>) : Async<'T> = 
+        CloudRef.Read(cloudRef) |> toAsync
+
+    /// <summary>
+    ///     Dereference a Cloud reference.
+    /// </summary>
+    /// <param name="cloudRef">CloudRef to be dereferenced.</param>
+    member __.Read(cloudRef : CloudRef<'T>) : 'T = 
+        __.ReadAsync(cloudRef) |> toSync
+
+
+    /// <summary>
+    ///     Cache a cloud reference to local execution context
+    /// </summary>
+    /// <param name="cloudRef">Cloud ref input</param>
+    member __.CacheAsync(cloudRef : CloudRef<'T>) : Async<bool> = 
+        CloudRef.Cache(cloudRef) |> toAsync
+
+    /// <summary>
+    ///     Cache a cloud reference to local execution context
+    /// </summary>
+    /// <param name="cloudRef">Cloud ref input</param>
+    member __.Cache(cloudRef : CloudRef<'T>) : bool = 
+        __.CacheAsync(cloudRef) |> toSync
+
+
+[<Sealed; AutoSerializable(false)>]
 /// Common client operations on CloudAtom, CloudChannel and CloudFile primitives.
 type StoreClient internal (registry : ResourceRegistry) =
     let atomClient    = lazy CloudAtomClient(registry)
