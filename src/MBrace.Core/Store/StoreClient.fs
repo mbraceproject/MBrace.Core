@@ -805,11 +805,143 @@ type CloudRefClient internal (registry : ResourceRegistry) =
 
 
 [<Sealed; AutoSerializable(false)>]
+/// Collection of CloudRef operations.
+type CloudSequenceClient internal (registry : ResourceRegistry) =
+    let config = registry.Resolve<CloudFileStoreConfiguration>()
+    
+    let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
+    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
+
+    /// <summary>
+    ///     Creates a new Cloud sequence with given values in the underlying store.
+    ///     Cloud sequences are cached locally for performance.
+    /// </summary>
+    /// <param name="values">Input sequence.</param>
+    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    member __.NewAsync(values : seq<'T>, ?directory, ?serializer) : Async<CloudSequence<'T>> = 
+        CloudSequence.New(values, ?directory = directory, ?serializer = serializer) |> toAsync
+
+    /// <summary>
+    ///     Creates a new Cloud sequence with given values in the underlying store.
+    ///     Cloud sequences are cached locally for performance.
+    /// </summary>
+    /// <param name="values">Input sequence.</param>
+    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    member __.New(values : seq<'T>, ?directory, ?serializer) : CloudSequence<'T> = 
+        __.NewAsync(values, ?directory = directory, ?serializer = serializer) |> toSync
+
+
+    /// <summary>
+    ///     Creates a collection of Cloud sequences partitioned by file size.
+    /// </summary>
+    /// <param name="values">Input sequence./param>
+    /// <param name="maxPartitionSize">Maximum size in bytes per Cloud sequence partition.</param>
+    /// <param name="directory"></param>
+    /// <param name="serializer"></param>
+    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    member __.NewPartitionedAsync(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : Async<CloudSequence<'T> []> =
+        CloudSequence.NewPartitioned(values, maxPartitionSize, ?directory = directory, ?serializer = serializer) |> toAsync
+
+    /// <summary>
+    ///     Creates a collection of Cloud sequences partitioned by file size.
+    /// </summary>
+    /// <param name="values">Input sequence./param>
+    /// <param name="maxPartitionSize">Maximum size in bytes per Cloud sequence partition.</param>
+    /// <param name="directory"></param>
+    /// <param name="serializer"></param>
+    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    member __.NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : CloudSequence<'T> [] =
+        __.NewPartitionedAsync(values, maxPartitionSize, ?directory = directory, ?serializer = serializer) |> toSync
+
+
+    /// <summary>
+    ///     Parses an already existing sequence of given type in provided file store.
+    /// </summary>
+    /// <param name="path">Path to Cloud sequence.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.ParseAsync<'T>(path : string, ?serializer, ?force) : Async<CloudSequence<'T>> = 
+        CloudSequence.Parse<'T>(path, ?serializer = serializer, ?force = force) |> toAsync
+
+    /// <summary>
+    ///     Parses an already existing sequence of given type in provided file store.
+    /// </summary>
+    /// <param name="path">Path to Cloud sequence.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.Parse<'T>(path : string, ?serializer, ?force) : CloudSequence<'T> = 
+        __.ParseAsync<'T>(path, ?serializer = serializer, ?force = force) |> toSync
+
+
+    /// <summary>
+    ///     Parses an already existing sequence of given type in provided file store.
+    /// </summary>
+    /// <param name="file">Target cloud file.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.ParseAsync<'T>(file : CloudFile, ?serializer, ?force) : Async<CloudSequence<'T>> =
+        CloudSequence.Parse<'T>(file, ?serializer = serializer, ?force = force) |> toAsync
+
+    /// <summary>
+    ///     Parses an already existing sequence of given type in provided file store.
+    /// </summary>
+    /// <param name="file">Target cloud file.</param>
+    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.Parse<'T>(file : CloudFile, ?serializer, ?force) : CloudSequence<'T> =
+        __.ParseAsync<'T>(file, ?serializer = serializer, ?force = force) |> toSync
+
+
+    /// <summary>
+    ///     Creates a CloudSequence from file path with user-provided deserialization function.
+    /// </summary>
+    /// <param name="path">Path to file.</param>
+    /// <param name="deserializer">Sequence deserializer function.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.FromFileAsync<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : Async<CloudSequence<'T>> = 
+        CloudSequence.FromFile<'T>(path, deserializer, ?force = force) |> toAsync
+
+    /// <summary>
+    ///     Creates a CloudSequence from file path with user-provided deserialization function.
+    /// </summary>
+    /// <param name="path">Path to file.</param>
+    /// <param name="deserializer">Sequence deserializer function.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : CloudSequence<'T> = 
+        __.FromFileAsync<'T>(path, deserializer, ?force = force) |> toSync
+
+
+    /// <summary>
+    ///     Creates a CloudSequence from file path with user-provided deserialization function.
+    /// </summary>
+    /// <param name="file">Target cloud file.</param>
+    /// <param name="deserializer">Sequence deserializer function.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.FromFileAsync<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force) =
+        CloudSequence.FromFile<'T>(file.Path, deserializer = deserializer, ?force = force) |> toAsync
+
+    /// <summary>
+    ///     Creates a CloudSequence from file path with user-provided deserialization function.
+    /// </summary>
+    /// <param name="file">Target cloud file.</param>
+    /// <param name="deserializer">Sequence deserializer function.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    member __.FromFile<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force) =
+        __.FromFileAsync<'T>(file.Path, deserializer = deserializer, ?force = force) |> toSync
+
+
+[<Sealed; AutoSerializable(false)>]
 /// Common client operations on CloudAtom, CloudChannel and CloudFile primitives.
 type StoreClient internal (registry : ResourceRegistry) =
-    let atomClient    = lazy CloudAtomClient(registry)
-    let channelClient = lazy CloudChannelClient(registry)
-    let fileStore     = lazy FileStoreClient(registry)
+    let atomClient     = lazy CloudAtomClient(registry)
+    let channelClient  = lazy CloudChannelClient(registry)
+    let fileStore      = lazy FileStoreClient(registry)
+    let cloudrefClient = lazy CloudRefClient(registry)
+    let cloudseqClient = lazy CloudSequenceClient(registry)
 
     /// CloudAtom client.
     member __.Atom = atomClient.Value
@@ -817,6 +949,10 @@ type StoreClient internal (registry : ResourceRegistry) =
     member __.Channel = channelClient.Value
     /// CloudFileStore client.
     member __.FileStore = fileStore.Value
+    /// CloudRef client.
+    member __.CloudRef = cloudrefClient.Value
+    /// CloudSequence client.
+    member __.CloudSequence = cloudseqClient.Value
 
     /// <summary>
     /// Create a new StoreClient instance from given resources.
