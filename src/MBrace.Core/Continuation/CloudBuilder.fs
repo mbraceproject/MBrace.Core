@@ -12,7 +12,7 @@ module internal CloudBuilderUtils =
 
     let inline capture (e : 'exn) = ExceptionDispatchInfo.Capture e
     let inline extract (edi : ExceptionDispatchInfo) = edi.Reify(false, false)
-    let protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
+    let inline protect f s = try Choice1Of2 <| f s with e -> Choice2Of2 e
     let inline getMetadata (t : 'T) = t.GetType().FullName
     let inline appendToStacktrace functionName (edi : ExceptionDispatchInfo) =
         let entry = sprintf "   at %s" functionName

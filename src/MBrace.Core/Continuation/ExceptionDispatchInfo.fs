@@ -74,7 +74,11 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
     /// </summary>
     /// <param name="line">Line to be appended.</param>
     member __.AppendToStackTrace(line : string) = 
-        let newTrace = sourceStackTrace + Environment.NewLine + line
+        let newTrace =
+            if String.IsNullOrWhiteSpace sourceStackTrace then line
+            else
+                sourceStackTrace + Environment.NewLine + line
+
         new ExceptionDispatchInfo(sourceExn, newTrace)
 
     /// <summary>
