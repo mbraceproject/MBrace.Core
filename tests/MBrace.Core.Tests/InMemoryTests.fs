@@ -42,7 +42,7 @@ type ``ThreadPool Parallelism Tests`` () =
     member __.``InMemory Logging`` () =
         logger.Clear()
         cloud {
-            for i in 1 .. 100 do
+            for i in [1 .. 100] do
                 do! Cloud.Logf "message %d" i
         } |> __.Run |> ignore
         

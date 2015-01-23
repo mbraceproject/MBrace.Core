@@ -69,7 +69,7 @@ type ``CloudChannel Tests`` (nParallel : int) as self =
         cloud {
             let! sp, rp = CloudChannel.New<int> ()
             let sender n = cloud {
-                for i in 1 .. n do
+                for i in [1 .. n] do
                     do! CloudChannel.Send(sp, i)
             }
 

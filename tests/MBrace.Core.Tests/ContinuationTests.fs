@@ -222,7 +222,7 @@ module ``Continuation Tests`` =
         cloud {
             for i in Unchecked.defaultof<int list> do
                 do! cloud { return () }
-        } |> run |> Choice.shouldFailwith<_, ArgumentNullException>
+        } |> run |> Choice.shouldFailwith<_, NullReferenceException>
 
     [<Test>]
     let ``for loop with exception`` () =

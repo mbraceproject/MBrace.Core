@@ -1,7 +1,8 @@
 ﻿namespace MBrace
 
-//  Cloud builder implementations
+//  Cloud builder implementation
 
+open System
 open MBrace.Continuation
 
 [<AutoOpen>]
@@ -137,10 +138,14 @@ module internal CloudBuilderUtils =
 
     let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
     let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
-    let inline using<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
+
+    let inline usingIDisposable<'T, 'S when 'T :> IDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
+        tryFinally (bind (ret t) g) (delay (fun () -> t.Dispose() ; zero))
+
+    let inline usingICloudDisposable<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
         tryFinally (bind (ret t) g) (delay t.Dispose)
 
-    let inline forM (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =
+    let inline forArray (body : 'T -> Cloud<unit>) (ts : 'T []) : Cloud<unit> =
         let rec loop i () =
             if i = ts.Length then zero
             else
@@ -149,6 +154,30 @@ module internal CloudBuilderUtils =
                 | Choice2Of2 e -> raiseM e
 
         delay (loop 0)
+
+    let inline forList (body : 'T -> Cloud<unit>) (ts : 'T list) : Cloud<unit> =
+        let rec loop ts () =
+            match ts with
+            | [] -> zero
+            | t :: ts ->
+                match protect body t with
+                | Choice1Of2 b -> bind b (loop ts)
+                | Choice2Of2 e -> raiseM e
+
+        delay (loop ts)
+
+    let inline forSeq (body : 'T -> Cloud<unit>) (ts : seq<'T>) : Cloud<unit> =
+        delay(fun () ->
+            use e = ts.GetEnumerator()
+            let rec aux () =
+                if e.MoveNext() then
+                    match protect body e.Current with
+                    | Choice1Of2 b -> bind b aux
+                    | Choice2Of2 e -> raiseM e
+                else
+                    zero
+
+            aux ())
 
     let inline whileM (pred : unit -> bool) (body : Cloud<unit>) : Cloud<unit> =
         let rec loop () =
@@ -167,14 +196,19 @@ type CloudBuilder () =
     member __.ReturnFrom (c : Cloud<'T>) = c
     member __.Combine(f : Cloud<unit>, g : Cloud<'T>) = combine f g
     member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = bind f g
-    member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = using value bindF
+
+    [<CompilerMessage("IDisposable objects in distributed computation not recommended; consider using async workflows instead.", 444)>]
+    member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = usingIDisposable value bindF
+    member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = usingICloudDisposable value bindF
 
     member __.TryWith(f : Cloud<'T>, handler : exn -> Cloud<'T>) : Cloud<'T> = tryWith f handler
     member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = 
         tryFinally f (delay (fun () -> ret (finalizer ())))
 
-    member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forM body ts
-    member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = forM body (Seq.toArray ts)
+    member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forArray body ts
+    member __.For(ts : 'T list, body : 'T -> Cloud<unit>) : Cloud<unit> = forList body ts
+    [<CompilerMessage("For loops indexed on IEnumerable not recommended; consider explicitly converting to list or array instead.", 444)>]
+    member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = forSeq body ts
 
     [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 444)>]
     member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = whileM pred body

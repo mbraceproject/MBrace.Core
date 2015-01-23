@@ -39,7 +39,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
         cloud {
             let! atom = CloudAtom.New 0
             let updater _ = cloud {
-                for i in 1 .. nSequential do
+                for i in [1 .. nSequential] do
                     do! CloudAtom.Update (atom, (+) 1)
             }
 
@@ -54,7 +54,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
         let atom =
             cloud {
                 let! a = CloudAtom.New 0
-                for i in 1 .. nSequential do
+                for i in [1 .. nSequential] do
                     do! CloudAtom.Incr a
 
                 return a
@@ -70,7 +70,7 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
             cloud {
                 let! a = CloudAtom.New 0
                 let worker _ = cloud {
-                    for _ in 1 .. nSequential do
+                    for _ in [1 .. nSequential] do
                         do! CloudAtom.Incr a
                 }
                 do! Seq.init nParallel worker |> Cloud.Parallel |> Cloud.Ignore
