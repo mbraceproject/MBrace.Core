@@ -7,33 +7,22 @@ open System.Threading
 open MBrace
 open MBrace.Continuation
 
-[<AutoOpen>]
-module private SchedulerInternals =
+/// Collection of workflows that provide parallelism
+/// using the .NET thread pool
+type ThreadPool private () =
 
-    type Latch (init : int) =
-        [<VolatileField>]
-        let mutable value = init
+    static let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
 
-        member __.Increment() = Interlocked.Increment &value
-        member __.Value = value
-
-    let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
-
-    let scheduleTask res ct sc ec cc wf =
+    static let scheduleTask res ct sc ec cc wf =
         Trampoline.QueueWorkItem(fun () ->
             let ctx = { Resources = res ; CancellationToken = ct }
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartWithContinuations(wf, cont, ctx))
 
-/// Collection of context-less combinators for 
-/// execution within local thread context.
-type ThreadPool =
-
     /// <summary>
-    ///     Provides a context-less Cloud.Parallel implementation
-    ///     for execution within the thread pool.
+    ///     A Cloud.Parallel implementation executed using the thread pool.
     /// </summary>
-    /// <param name="computations">Input computations</param>
+    /// <param name="computations">Input computations.</param>
     static member Parallel (computations : seq<Cloud<'T>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -73,10 +62,9 @@ type ThreadPool =
                     scheduleTask ctx.Resources innerCts.Token (onSuccess i) onException onCancellation computations.[i])
 
     /// <summary>
-    ///     Provides a context-less Cloud.Choice implementation
-    ///     for execution within the thread pool.
+    ///     A Cloud.Choice implementation executed using the thread pool.
     /// </summary>
-    /// <param name="computations">Input computations</param>
+    /// <param name="computations">Input computations.</param>
     static member Choice(computations : seq<Cloud<'T option>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -116,8 +104,7 @@ type ThreadPool =
 
 
     /// <summary>
-    ///     Provides a context-less Cloud.StartChild implementation
-    ///     for execution within the thread pool.
+    ///     A Cloud.StartChild implementation executed using the thread pool.
     /// </summary>
     /// <param name="computation">Input computation.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>

@@ -2,6 +2,9 @@
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Workflows
+
+#nowarn "444"
 
 /// .NET ThreadPool runtime provider
 [<Sealed; AutoSerializable(false)>]
@@ -58,7 +61,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
                 |> Seq.toArray
 
             match context with
-            | Sequential -> Sequential.Parallel computations
+            | Sequential -> Sequential.map id computations
             | _ -> ThreadPool.Parallel computations
 
         member __.ScheduleChoice computations = 
@@ -72,10 +75,10 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
                 |> Seq.toArray
 
             match context with
-            | Sequential -> Sequential.Choice computations
+            | Sequential -> Sequential.tryPick id computations
             | _ -> ThreadPool.Choice computations
 
         member __.ScheduleStartChild (workflow, ?target:IWorkerRef, ?timeoutMilliseconds:int) = 
             match context with
-            | Sequential -> Sequential.StartChild workflow
+            | Sequential -> Sequential.startChild workflow
             | _ -> ThreadPool.StartChild(workflow, ?timeoutMilliseconds = timeoutMilliseconds)

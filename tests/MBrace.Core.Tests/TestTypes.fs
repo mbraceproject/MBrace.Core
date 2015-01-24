@@ -38,12 +38,12 @@ module WordCount =
         let mapF (text : string) = cloud { return text.Split(' ').Length }
         let reduceF i i' = cloud { return i + i' }
         let inputs = Array.init size (fun i -> "lorem ipsum dolor sit amet")
-        mapReduceAlgorithm mapF 0 reduceF inputs
+        mapReduceAlgorithm mapF reduceF 0 inputs
 
     // naive, binary recursive mapreduce implementation
     let rec mapReduceRec (mapF : 'T -> Cloud<'S>) 
-                            (id : 'S) (reduceF : 'S -> 'S -> Cloud<'S>)
-                            (inputs : 'T []) =
+                            (reduceF : 'S -> 'S -> Cloud<'S>) 
+                            (id : 'S) (inputs : 'T []) =
         cloud {
             match inputs with
             | [||] -> return id
@@ -51,6 +51,6 @@ module WordCount =
             | _ ->
                 let left = inputs.[.. inputs.Length / 2 - 1]
                 let right = inputs.[inputs.Length / 2 ..]
-                let! s,s' = (mapReduceRec mapF id reduceF left) <||> (mapReduceRec mapF id reduceF right)
+                let! s,s' = (mapReduceRec mapF reduceF id left) <||> (mapReduceRec mapF reduceF id right)
                 return! reduceF s s'
         }

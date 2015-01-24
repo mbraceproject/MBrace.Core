@@ -6,7 +6,7 @@ open System
 open MBrace.Continuation
 
 [<AutoOpen>]
-module internal CloudBuilderUtils =
+module internal CloudBuilderImpl =
 
     let inline Body f = new Cloud<_>(f)
     let inline (|Body|) (f : Cloud<_>) = f.Body
@@ -197,7 +197,7 @@ type CloudBuilder () =
     member __.Combine(f : Cloud<unit>, g : Cloud<'T>) = combine f g
     member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = bind f g
 
-    [<CompilerMessage("IDisposable objects in distributed computation not recommended; consider using async workflows instead.", 444)>]
+    [<CompilerMessage("IDisposable objects in distributed computation not recommended; consider warpping in async workflows instead.", 444)>]
     member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = usingIDisposable value bindF
     member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = usingICloudDisposable value bindF
 

@@ -1,4 +1,4 @@
-﻿namespace MBrace.InMemory
+﻿namespace MBrace.Store
 
 open MBrace
 

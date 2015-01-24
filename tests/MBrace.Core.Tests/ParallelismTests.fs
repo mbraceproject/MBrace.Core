@@ -7,6 +7,7 @@ open NUnit.Framework
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Workflows
 open MBrace.InMemory
 
 /// Distributed Cancellation token source abstraction
@@ -219,7 +220,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     [<Repeat(Config.repeats)>]
     member __.``1. Parallel : MapReduce balanced`` () =
         // balanced, core implemented MapReduce algorithm
-        WordCount.run 1000 MapReduce.mapReduce |> run |> Choice.shouldEqual 5000
+        WordCount.run 1000 Distributed.mapReduce |> run |> Choice.shouldEqual 5000
 
     [<Test>]
     [<Repeat(Config.repeats)>]
