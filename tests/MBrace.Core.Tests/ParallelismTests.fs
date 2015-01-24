@@ -14,6 +14,11 @@ open MBrace.InMemory
 type ICancellationTokenSource =
     abstract Cancel : unit -> unit
 
+/// Logging tester abstraction
+type ILogTester =
+    abstract Clear : unit -> unit
+    abstract GetLogs : unit -> string []
+
 /// Suite for testing MBrace parallelism & distribution
 [<TestFixture>]
 [<AbstractClass>]
@@ -33,6 +38,8 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     abstract RunLocal : workflow:Cloud<'T> -> 'T
     /// Enables targeted worker tests
     abstract IsTargetWorkerSupported : bool
+    /// Log tester
+    abstract Logs : ILogTester
 
     [<Test>]
     member __.``1. Parallel : empty input`` () =
@@ -514,3 +521,19 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                 let! result = ch
                 return result = currentWorker
             } |> run |> Choice.shouldEqual true
+
+
+    [<Test>]
+    member __.``4. Logging`` () =
+        __.Logs.Clear()
+        cloud {
+            let logSeq _ = cloud {
+                for i in [1 .. 100] do
+                    do! Cloud.Logf "message %d" i
+            }
+
+            do! Seq.init 20 logSeq |> Cloud.Parallel |> Cloud.Ignore
+            do! Cloud.Sleep 1000
+        } |> __.Run |> ignore
+        
+        __.Logs.GetLogs().Length |> shouldEqual 2000

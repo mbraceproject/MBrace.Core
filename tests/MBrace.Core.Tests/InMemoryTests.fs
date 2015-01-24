@@ -11,8 +11,9 @@ open NUnit.Framework
 type InMemoryLogger () =
     let logs = new ResizeArray<string>()
 
-    member __.Logs = logs.ToArray()
-    member __.Clear () = lock logs (fun () -> logs.Clear())
+    interface ILogTester with
+        member __.GetLogs () = logs.ToArray()
+        member __.Clear () = lock logs (fun () -> logs.Clear())
 
     interface ICloudLogger with
         member __.Log msg = lock logs (fun () -> logs.Add msg)
@@ -37,16 +38,7 @@ type ``ThreadPool Parallelism Tests`` () =
 
     override __.RunLocal(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
-
-    [<Test>]
-    member __.``InMemory Logging`` () =
-        logger.Clear()
-        cloud {
-            for i in [1 .. 100] do
-                do! Cloud.Logf "message %d" i
-        } |> __.Run |> ignore
-        
-        logger.Logs.Length |> shouldEqual 100
+    override __.Logs = logger :> _
 
 
 type ``InMemory CloudAtom Tests`` () =

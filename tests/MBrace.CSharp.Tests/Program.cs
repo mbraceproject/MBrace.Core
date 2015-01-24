@@ -67,7 +67,7 @@ namespace MBrace.CSharp.Tests
                 );
 
             MBraceRuntime.WorkerExecutable = Path.Combine(Directory.GetCurrentDirectory(), "MBrace.SampleRuntime.exe");
-            var rt = MBraceRuntime.InitLocal(3, null);
+            var rt = MBraceRuntime.InitLocal(3);
 
             var w = Cloud.New(() =>
                 Cloud.Choice(

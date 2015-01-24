@@ -30,7 +30,7 @@ module internal Argument =
         VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
 
 /// MBrace Sample runtime client instance.
-type MBraceRuntime private (logger : string -> unit) =
+type MBraceRuntime private () =
     static let mutable exe = None
     static let initWorkers (target : RuntimeState) (count : int) =
         if count < 1 then invalidArg "workerCount" "must be positive."
@@ -46,7 +46,9 @@ type MBraceRuntime private (logger : string -> unit) =
     let getWorkerRefs () =
         if procs.Length > 0 then procs |> Array.map (fun (p: Process) -> new Worker(p.Id.ToString()) :> IWorkerRef)
         else workerManagers |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
-    let state = RuntimeState.InitLocal logger getWorkerRefs
+
+    let logEvent = new Event<string> ()
+    let state = RuntimeState.InitLocal logEvent.Trigger getWorkerRefs
     let atomProvider = new ActorAtomProvider(state) :> ICloudAtomProvider
     let channelProvider = new ActorChannelProvider(state) :> ICloudChannelProvider
 
@@ -149,16 +151,16 @@ type MBraceRuntime private (logger : string -> unit) =
     member __.AppendWorkers (addresses: string[]) =
         lock workerManagers (fun () -> workerManagers <- addresses |> Array.map appendWorker)
 
-    static member Init(workers: string[], ?logger: string -> unit) =
-        let logger = defaultArg logger ignore
-        let client = new MBraceRuntime(logger)
+    member __.Logs = logEvent.Publish
+
+    static member Init(workers: string[]) =
+        let client = new MBraceRuntime()
         client.AppendWorkers workers
         client
 
     /// Initialize a new local rutime instance with supplied worker count.
-    static member InitLocal(workerCount : int, ?logger : string -> unit) =
-        let logger = defaultArg logger ignore
-        let client = new MBraceRuntime(logger)
+    static member InitLocal(workerCount : int) =
+        let client = new MBraceRuntime()
         client.AppendWorkers(workerCount)
         client
 
