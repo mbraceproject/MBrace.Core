@@ -204,7 +204,7 @@ type ``FileStore Tests`` (nParallel : int) as self =
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
-    member __.``2. MBrace : CloudDirectory - Create, populate, delete`` () =
+    member __.``2. MBrace : CloudDirectory - Create; populate; delete`` () =
         cloud {
             let! dir = CloudDirectory.Create ()
             let! exists = CloudDirectory.Exists dir
