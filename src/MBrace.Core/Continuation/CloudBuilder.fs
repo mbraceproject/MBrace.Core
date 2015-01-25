@@ -38,6 +38,13 @@ module internal CloudBuilderImpl =
 
 
     let inline ret t = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Success ctx t)
+    let inline retFunc (f : unit -> 'T) : Cloud<'T> = 
+        Body(fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx else
+            match protect f () with
+            | Choice1Of2 t -> cont.Success ctx t
+            | Choice2Of2 e -> cont.Exception ctx (capture e))
+
     let inline raiseM<'T> e : Cloud<'T> = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx (capture e))
     let inline ofAsync (asyncWorkflow : Async<'T>) = 
         Body(fun ctx cont ->
@@ -140,7 +147,7 @@ module internal CloudBuilderImpl =
     let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
 
     let inline usingIDisposable<'T, 'S when 'T :> IDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
-        tryFinally (bind (ret t) g) (delay (fun () -> t.Dispose() ; zero))
+        tryFinally (bind (ret t) g) (retFunc t.Dispose)
 
     let inline usingICloudDisposable<'T, 'S when 'T :> ICloudDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
         tryFinally (bind (ret t) g) (delay t.Dispose)
@@ -168,16 +175,16 @@ module internal CloudBuilderImpl =
 
     let inline forSeq (body : 'T -> Cloud<unit>) (ts : seq<'T>) : Cloud<unit> =
         delay(fun () ->
-            use e = ts.GetEnumerator()
-            let rec aux () =
-                if e.MoveNext() then
-                    match protect body e.Current with
-                    | Choice1Of2 b -> bind b aux
+            let enum = ts.GetEnumerator()
+            let rec loop () =
+                if enum.MoveNext() then
+                    match protect body enum.Current with
+                    | Choice1Of2 b -> bind b loop
                     | Choice2Of2 e -> raiseM e
                 else
                     zero
 
-            aux ())
+            tryFinally (loop ()) (retFunc enum.Dispose))
 
     let inline whileM (pred : unit -> bool) (body : Cloud<unit>) : Cloud<unit> =
         let rec loop () =
@@ -203,12 +210,16 @@ type CloudBuilder () =
 
     member __.TryWith(f : Cloud<'T>, handler : exn -> Cloud<'T>) : Cloud<'T> = tryWith f handler
     member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = 
-        tryFinally f (delay (fun () -> ret (finalizer ())))
+        tryFinally f (retFunc finalizer)
 
     member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forArray body ts
     member __.For(ts : 'T list, body : 'T -> Cloud<unit>) : Cloud<unit> = forList body ts
     [<CompilerMessage("For loops indexed on IEnumerable not recommended; consider explicitly converting to list or array instead.", 444)>]
-    member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = forSeq body ts
+    member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = 
+        match ts with
+        | :? ('T []) as ts -> forArray body ts
+        | :? ('T list) as ts -> forList body ts
+        | _ -> forSeq body ts
 
     [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 444)>]
     member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = whileM pred body

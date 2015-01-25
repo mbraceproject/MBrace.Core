@@ -196,15 +196,40 @@ module ``Continuation Tests`` =
         !n |> shouldEqual 0
 
     [<Test>]
-    let ``for loop`` () =
+    let ``for loop over array`` () =
         let cell = ref 0
         let comp = cloud {
-            for i in 1 .. 100 do
+            for i in [| 1 .. 100 |] do
                 do! cloud { cell := !cell + i }
         }
         !cell |> shouldEqual 0
         run comp |> Choice.shouldEqual ()
         !cell |> shouldEqual 5050
+
+    [<Test>]
+    let ``for loop over list`` () =
+        let cell = ref 0
+        let comp = cloud {
+            for i in [ 1 .. 100 ] do
+                do! cloud { cell := !cell + i }
+        }
+        !cell |> shouldEqual 0
+        run comp |> Choice.shouldEqual ()
+        !cell |> shouldEqual 5050
+
+    [<Test>]
+    let ``for loop over sequence`` () =
+        let cell = ref 0
+        let range = new DisposableRange(1, 100)
+        let comp = cloud {
+            for i in range do
+                do! cloud { cell := !cell + i }
+        }
+
+        !cell |> shouldEqual 0
+        run comp |> Choice.shouldEqual ()
+        !cell |> shouldEqual 5050
+        range.IsDisposed |> shouldEqual true
 
     [<Test>]
     let ``for loop on empty inputs`` () =

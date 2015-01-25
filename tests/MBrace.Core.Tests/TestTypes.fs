@@ -1,5 +1,7 @@
 ﻿namespace MBrace.Tests
 
+open System.Collections.Generic
+
 open MBrace
 open MBrace.Continuation
 
@@ -54,3 +56,31 @@ module WordCount =
                 let! s,s' = (mapReduceRec mapF reduceF id left) <||> (mapReduceRec mapF reduceF id right)
                 return! reduceF s s'
         }
+
+
+type DisposableRange (start : int, stop : int) =
+    let isDisposed = ref false
+    let getEnumerator () =
+        let count = ref (start - 1)
+        let check() = if !isDisposed then raise <| new System.ObjectDisposedException("enumerator")
+        {
+            new IEnumerator<int> with
+                member __.Current = check () ; !count
+                member __.Current = check () ; box !count
+                member __.MoveNext () =
+                    check ()
+                    if !count < stop then
+                        incr count
+                        true
+                    else
+                        false
+
+                member __.Dispose () = isDisposed := true
+                member __.Reset () = raise <| System.NotSupportedException()
+        }
+
+    member __.IsDisposed = !isDisposed
+
+    interface seq<int> with
+        member __.GetEnumerator() = getEnumerator()
+        member __.GetEnumerator() = getEnumerator() :> System.Collections.IEnumerator
