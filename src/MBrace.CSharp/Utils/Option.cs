@@ -53,9 +53,8 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        /// Creates a new Option with the given value.
+        ///     Creates a new Option with the given value.
         /// </summary>
-        /// <typeparam name="TValue"></typeparam>
         /// <param name="value"></param>
         /// <returns></returns>
         public static Option<TValue> Some(TValue value)
