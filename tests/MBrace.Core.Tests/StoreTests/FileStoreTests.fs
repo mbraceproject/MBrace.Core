@@ -8,7 +8,7 @@ open NUnit.Framework
 open MBrace
 open MBrace.Continuation
 open MBrace.Store
-open MBrace.InMemory
+open MBrace.Runtime.InMemory
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]

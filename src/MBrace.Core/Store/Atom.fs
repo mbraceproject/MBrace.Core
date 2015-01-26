@@ -114,7 +114,7 @@ type CloudAtom =
     static member New<'T>(initial : 'T, ?container : string) : Cloud<ICloudAtom<'T>> = cloud {
         let! config = Cloud.GetResource<CloudAtomConfiguration> ()
         let container = defaultArg container config.DefaultContainer
-        return! Cloud.OfAsync <| config.AtomProvider.CreateAtom(container, initial)
+        return! ofAsync <| config.AtomProvider.CreateAtom(container, initial)
     }
 
     /// <summary>
@@ -158,7 +158,7 @@ type CloudAtom =
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (atom : ICloudAtom<'T>) = Cloud.Dispose atom
+    static member Delete (atom : ICloudAtom<'T>) = dispose atom
 
     /// <summary>
     ///     Deletes container and all its contained atoms.
@@ -166,7 +166,7 @@ type CloudAtom =
     /// <param name="container"></param>
     static member DeleteContainer (container : string) = cloud {
         let! config = Cloud.GetResource<CloudAtomConfiguration> ()
-        return! Cloud.OfAsync <| config.AtomProvider.DisposeContainer container
+        return! ofAsync <| config.AtomProvider.DisposeContainer container
     }
 
     /// Generates a unique container name.

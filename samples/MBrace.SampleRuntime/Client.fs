@@ -10,8 +10,8 @@ open Nessos.Thespian.Remote
 open MBrace
 open MBrace.Store
 open MBrace.Continuation
-open MBrace.InMemory
 open MBrace.Runtime
+open MBrace.Runtime.InMemory
 open MBrace.Runtime.Vagrant
 open MBrace.Runtime.Compiler
 open MBrace.SampleRuntime.Tasks

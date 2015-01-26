@@ -8,7 +8,7 @@ open NUnit.Framework
 open MBrace
 open MBrace.Continuation
 open MBrace.Workflows
-open MBrace.InMemory
+open MBrace.Runtime.InMemory
 
 /// Distributed Cancellation token source abstraction
 type ICancellationTokenSource =

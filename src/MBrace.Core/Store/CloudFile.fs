@@ -136,7 +136,7 @@ and [<DataContract; Sealed>] CloudDirectory =
     /// <param name="directory">Path to directory.</param>
     static member Exists(directory : string) : Cloud<bool> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| config.FileStore.DirectoryExists directory
+        return! ofAsync <| config.FileStore.DirectoryExists directory
     }
 
     /// <summary>
@@ -157,7 +157,7 @@ and [<DataContract; Sealed>] CloudDirectory =
             | Some d -> d
             | None -> config.FileStore.GetRandomDirectoryName()
 
-        do! Cloud.OfAsync <| config.FileStore.CreateDirectory(directory)
+        do! ofAsync <| config.FileStore.CreateDirectory(directory)
         return new CloudDirectory(directory)
     }
 
@@ -169,7 +169,7 @@ and [<DataContract; Sealed>] CloudDirectory =
     static member Delete(directory : string, ?recursiveDelete : bool) : Cloud<unit> = cloud {
         let recursiveDelete = defaultArg recursiveDelete false
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| config.FileStore.DeleteDirectory(directory, recursiveDelete = recursiveDelete)
+        return! ofAsync <| config.FileStore.DeleteDirectory(directory, recursiveDelete = recursiveDelete)
     }
 
     /// <summary>
@@ -191,7 +191,7 @@ and [<DataContract; Sealed>] CloudDirectory =
             | Some d -> d
             | None -> config.FileStore.GetRootDirectory()
 
-        let! dirs = Cloud.OfAsync <| config.FileStore.EnumerateDirectories(directory)
+        let! dirs = ofAsync <| config.FileStore.EnumerateDirectories(directory)
         return dirs |> Array.map (fun d -> new CloudDirectory(d))
     }
 
@@ -226,7 +226,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="path">Input file.</param>
     static member GetSize(path : string) : Cloud<int64> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| config.FileStore.GetFileSize path
+        return! ofAsync <| config.FileStore.GetFileSize path
     }
 
     /// <summary>
@@ -242,7 +242,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="path">Input file.</param>
     static member Exists(path : string) = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| config.FileStore.FileExists path
+        return! ofAsync <| config.FileStore.FileExists path
     }
 
     /// <summary>
@@ -258,7 +258,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="path">Input file.</param>
     static member Delete(path : string) = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| config.FileStore.DeleteFile path
+        return! ofAsync <| config.FileStore.DeleteFile path
     }
 
     /// <summary>
@@ -276,7 +276,7 @@ and [<DataContract; Sealed>] CloudFile =
     static member Create(serializer : Stream -> Async<unit>, ?path : string) : Cloud<CloudFile> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let path = match path with Some p -> p | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
-        do! Cloud.OfAsync <| config.FileStore.Write(path, serializer)
+        do! ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
     }
 
@@ -289,7 +289,7 @@ and [<DataContract; Sealed>] CloudFile =
     static member Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Cloud<CloudFile> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let path = config.FileStore.Combine [|directory ; fileName|]
-        do! Cloud.OfAsync <| config.FileStore.Write(path, serializer)
+        do! ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
     }
 
@@ -300,7 +300,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="deserializer">Deserializer function.</param>
     static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Cloud<'T> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| config.FileStore.Read(deserializer, path)
+        return! ofAsync <| config.FileStore.Read(deserializer, path)
     }
 
     /// <summary>
@@ -322,7 +322,7 @@ and [<DataContract; Sealed>] CloudFile =
             | Some d -> d
             | None -> config.DefaultDirectory
 
-        let! paths = Cloud.OfAsync <| config.FileStore.EnumerateFiles(directory)
+        let! paths = ofAsync <| config.FileStore.EnumerateFiles(directory)
         return paths |> Array.map (fun path -> new CloudFile(path))
     }
 

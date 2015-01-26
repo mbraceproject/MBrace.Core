@@ -90,7 +90,7 @@ type CloudChannel =
     static member New<'T>(?container : string) = cloud {
         let! config = Cloud.GetResource<CloudChannelConfiguration> ()
         let container = defaultArg container config.DefaultContainer
-        return! Cloud.OfAsync <| config.ChannelProvider.CreateChannel<'T> (container)
+        return! ofAsync <| config.ChannelProvider.CreateChannel<'T> (container)
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ type CloudChannel =
     ///     Deletes cloud channel instance.
     /// </summary>
     /// <param name="channel">Channel to be disposed.</param>
-    static member Delete(channel : IReceivePort<'T>) = Cloud.Dispose channel
+    static member Delete(channel : IReceivePort<'T>) = dispose channel
 
     /// <summary>
     ///     Deletes container and all its contained channels.
@@ -123,7 +123,7 @@ type CloudChannel =
     /// <param name="container"></param>
     static member DeleteContainer (container : string) = cloud {
         let! config = Cloud.GetResource<CloudChannelConfiguration> ()
-        return! Cloud.OfAsync <| config.ChannelProvider.DisposeContainer container
+        return! ofAsync <| config.ChannelProvider.DisposeContainer container
     }
 
     /// Generates a unique container name.

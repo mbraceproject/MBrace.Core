@@ -43,7 +43,7 @@ type CloudRef<'T> =
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
         | Some v -> return v :?> 'T
-        | None -> return! Cloud.OfAsync <| r.GetValueFromStore(config)
+        | None -> return! ofAsync <| r.GetValueFromStore(config)
     }
 
     /// Caches the cloud ref value to the local execution contexts. Returns true iff successful.
@@ -54,7 +54,7 @@ type CloudRef<'T> =
         | Some c ->
             if c.ContainsKey r.uuid then return true
             else
-                let! v = Cloud.OfAsync <| r.GetValueFromStore(config)
+                let! v = ofAsync <| r.GetValueFromStore(config)
                 return c.Add(r.uuid, v)
     }
 
@@ -67,7 +67,7 @@ type CloudRef<'T> =
     /// Gets the size of cloud ref in bytes
     member r.Size = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        return! Cloud.OfAsync <| config.FileStore.GetFileSize r.path
+        return! ofAsync <| config.FileStore.GetFileSize r.path
     }
 
     override r.ToString() = sprintf "CloudRef[%O] at %s" typeof<'T> r.path
@@ -76,7 +76,7 @@ type CloudRef<'T> =
     interface ICloudDisposable with
         member r.Dispose () = cloud {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            return! Cloud.OfAsync <| config.FileStore.DeleteFile r.path
+            return! ofAsync <| config.FileStore.DeleteFile r.path
         }
 
     interface ICloudStorageEntity with
@@ -98,7 +98,7 @@ type CloudRef =
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
-        return! Cloud.OfAsync <| async {
+        return! ofAsync <| async {
             let uuid = Guid.NewGuid().ToString()
             let path = config.FileStore.GetRandomFilePath directory
             let writer (stream : Stream) = async {
@@ -120,7 +120,7 @@ type CloudRef =
     static member Parse<'T>(path : string, ?serializer : ISerializer) = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
-        return! Cloud.OfAsync <| async {
+        return! ofAsync <| async {
             use! stream = config.FileStore.BeginRead path
             let header = 
                 try _serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = false)

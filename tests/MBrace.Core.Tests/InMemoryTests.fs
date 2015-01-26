@@ -4,11 +4,12 @@ open System.Threading
 
 open MBrace
 open MBrace.Continuation
-open MBrace.InMemory
+open MBrace.Runtime
+open MBrace.Runtime.InMemory
 
 open NUnit.Framework
 
-type InMemoryLogger () =
+type InMemoryLogTester () =
     let logs = new ResizeArray<string>()
 
     interface ILogTester with
@@ -27,7 +28,7 @@ type InMemoryCancellationTokenSource() =
 type ``ThreadPool Parallelism Tests`` () =
     inherit ``Parallelism Tests``(nParallel = 100)
 
-    let logger = InMemoryLogger()
+    let logger = InMemoryLogTester()
     let imem = InMemoryRuntime.Create(logger = logger)
 
     override __.Run(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.Run(workflow))

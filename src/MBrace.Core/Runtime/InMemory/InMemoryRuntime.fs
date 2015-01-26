@@ -1,80 +1,69 @@
-﻿namespace MBrace.InMemory
+﻿namespace MBrace.Runtime.InMemory
+
+open System.Threading
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Runtime
+open MBrace.Store
 
-/// In-Memory runtime provider
-type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =
+/// Defines a general-purpose client object for use with in-memory cloud execution.
+[<Sealed; AutoSerializable(false)>]
+type InMemoryRuntime private (resources : ResourceRegistry) =
 
-    let taskId = sprintf "task:%O" <| System.Guid.NewGuid()
+    let storeClient = StoreClient.CreateFromResources(resources)
+
+    /// Store client instance for in memory runtime instance.
+    member r.StoreClient = storeClient
+    
+    /// <summary>
+    ///     Asynchronously executes a cloud computation in the local process,
+    ///     with parallelism provided by the .NET thread pool.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    member r.RunAsync(workflow : Cloud<'T>) : Async<'T> =
+        Cloud.ToAsync(workflow, resources = resources)
 
     /// <summary>
-    ///     Creates a new threadpool runtime instance.
+    ///     Executes a cloud computation in the local process,
+    ///     with parallelism provided by the .NET thread pool.
     /// </summary>
-    /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
-    /// <param name="faultPolicy">Fault policy for runtime. Defaults to no retries.</param>
-    static member Create (?logger : ICloudLogger, ?faultPolicy : FaultPolicy) = 
-        let logger =
-            match logger with 
-            | Some l -> l 
-            | None -> { new ICloudLogger with member __.Log _ = () }
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token passed to computation.</param>
+    member r.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : 'T =
+        Cloud.RunSynchronously(workflow, resources = resources, ?cancellationToken = cancellationToken)
 
-        let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.NoRetry
-        new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger)
-        
-    interface IRuntimeProvider with
-        member __.ProcessId = sprintf "In-Memory cloud process (pid:%d)" <| System.Diagnostics.Process.GetCurrentProcess().Id
-        member __.TaskId = taskId
-        member __.Logger = logger
-        member __.IsTargetedWorkerSupported = false
-        member __.GetAvailableWorkers () = async {
-            return raise <| new System.NotSupportedException("'GetAvailableWorkers' not supported in InMemory runtime.")
+    /// <summary>
+    ///     Creates a copy of In-Memory runtime with updated resource registry.
+    /// </summary>
+    /// <param name="resource">Resource to be appended.</param>
+    member r.WithResource(resource : 'TResource) : InMemoryRuntime = 
+        new InMemoryRuntime(resources.Register<'TResource> resource)
+
+    /// <summary>
+    ///     Creates an InMemory runtime instance with provided store components.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="logger">Logger abstraction. Defaults to no logging.</param>
+    /// <param name="fileConfig">File store configuration. Defaults to no file store.</param>
+    /// <param name="atomConfig">Cloud atom configuration. Defaults to in-memory atoms.</param>
+    /// <param name="channelConfig">Cloud channel configuration. Defaults to in-memory channels.</param>
+    /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
+    static member Create(?logger : ICloudLogger,
+                            ?fileConfig : CloudFileStoreConfiguration,
+                            ?atomConfig : CloudAtomConfiguration,
+                            ?channelConfig : CloudChannelConfiguration,
+                            ?resources : ResourceRegistry) : InMemoryRuntime =
+
+        let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration()
+        let channelConfig = match channelConfig with Some cc -> cc | None -> InMemoryChannelProvider.CreateConfiguration()
+
+        let resources = resource {
+            yield ThreadPoolRuntime.Create(?logger = logger) :> ICloudRuntimeProvider
+            yield atomConfig
+            yield channelConfig
+            match fileConfig with Some fc -> yield fc | None -> ()
+            match resources with Some r -> yield! r | None -> ()
         }
 
-        member __.CurrentWorker = raise <| new System.NotSupportedException("'CurrentWorker' not supported in InMemory runtime.")
-
-        member __.SchedulingContext = context
-        member __.WithSchedulingContext newContext = 
-            let newContext =
-                match context, newContext with
-                | Sequential, ThreadParallel -> invalidOp <| sprintf "Cannot set scheduling context from '%A' to '%A'." Sequential ThreadParallel
-                | _, Distributed -> ThreadParallel
-                | _, c -> c
-
-            new ThreadPoolRuntime(newContext, faultPolicy, logger) :> IRuntimeProvider
-
-        member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(context, newFp, logger) :> IRuntimeProvider
-
-        member __.ScheduleParallel computations = 
-            let computations =
-                computations
-                |> Seq.map (fun (c,w) ->
-                    if Option.isSome w then
-                        raise <| new System.NotSupportedException("Targeted workers not supported in InMemory runtime.")
-                    else
-                        c)
-                |> Seq.toArray
-
-            match context with
-            | Sequential -> Sequential.Parallel computations
-            | _ -> ThreadPool.Parallel computations
-
-        member __.ScheduleChoice computations = 
-            let computations =
-                computations
-                |> Seq.map (fun (c,w) ->
-                    if Option.isSome w then
-                        raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime.")
-                    else
-                        c)
-                |> Seq.toArray
-
-            match context with
-            | Sequential -> Sequential.Choice computations
-            | _ -> ThreadPool.Choice computations
-
-        member __.ScheduleStartChild (workflow, ?target:IWorkerRef, ?timeoutMilliseconds:int) = 
-            match context with
-            | Sequential -> Sequential.StartChild workflow
-            | _ -> ThreadPool.StartChild(workflow, ?timeoutMilliseconds = timeoutMilliseconds)
+        new InMemoryRuntime(resources)

@@ -57,32 +57,34 @@
   -->
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
-    <Compile Include="Utils.fs" />
+    <Compile Include="Continuation\Utils.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\Trampoline.fs" />
     <Compile Include="Continuation\ExceptionDispatchInfo.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\CloudBuilder.fs" />
-    <Compile Include="Runtime\RuntimeTypes.fs" />
-    <Compile Include="Runtime\RuntimeProvider.fs" />
-    <Compile Include="Runtime\CloudCombinators.fs" />
+    <Compile Include="Continuation\Combinators.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\Cache.fs" />
     <Compile Include="Store\FileStore.fs" />
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Channel.fs" />
-    <Compile Include="Store\Entities\CloudFile.fs" />
-    <Compile Include="Store\Entities\CloudRef.fs" />
-    <Compile Include="Store\Entities\CloudSequence.fs" />
+    <Compile Include="Store\CloudFile.fs" />
+    <Compile Include="Store\CloudRef.fs" />
+    <Compile Include="Store\CloudSequence.fs" />
     <Compile Include="Store\StoreClient.fs" />
+    <Compile Include="Runtime\Logging.fs" />
+    <Compile Include="Runtime\FaultPolicy.fs" />
+    <Compile Include="Runtime\RuntimeProvider.fs" />
+    <Compile Include="Runtime\RuntimeCombinators.fs" />
+    <Compile Include="Runtime\InMemory\InMemoryCombinators.fs" />
+    <Compile Include="Runtime\InMemory\InMemoryRuntimeProvider.fs" />
+    <Compile Include="Runtime\InMemory\InMemoryStore.fs" />
+    <Compile Include="Runtime\InMemory\InMemoryRuntime.fs" />
     <Compile Include="Workflows\Common.fs" />
     <Compile Include="Workflows\Sequential.fs" />
     <Compile Include="Workflows\Distributed.fs" />
-    <Compile Include="InMemory\InMemoryStore.fs" />
-    <Compile Include="InMemory\ThreadPool.fs" />
-    <Compile Include="InMemory\InMemoryRuntimeProvider.fs" />
-    <Compile Include="InMemory\InMemoryRuntime.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

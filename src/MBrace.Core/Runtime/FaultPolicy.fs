@@ -3,23 +3,6 @@
 open System
 open System.Runtime.Serialization
 
-/// Scheduling context for currently executing cloud process.
-type SchedulingContext =
-    /// Current thread scheduling context
-    | Sequential
-    /// Thread pool scheduling context
-    | ThreadParallel
-    /// Distributed scheduling context
-    | Distributed
-
-/// Denotes a reference to a worker node in the cluster
-type IWorkerRef =
-    inherit IComparable
-    /// Worker type identifier
-    abstract Type : string
-    /// Worker unique identifier
-    abstract Id : string
-
 /// Exception indicating fault in MBrace runtime
 [<AutoSerializable(true)>]
 type FaultException =

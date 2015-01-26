@@ -1,8 +1,8 @@
-﻿namespace MBrace.InMemory
+﻿namespace MBrace.Runtime.InMemory
 
 open MBrace
+open MBrace.Runtime
 open MBrace.Continuation
-open MBrace.Workflows
 
 #nowarn "444"
 
@@ -61,7 +61,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
                 |> Seq.toArray
 
             match context with
-            | Sequential -> Sequential.map id computations
+            | Sequential -> Sequential.Parallel computations
             | _ -> ThreadPool.Parallel computations
 
         member __.ScheduleChoice computations = 
@@ -75,10 +75,10 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
                 |> Seq.toArray
 
             match context with
-            | Sequential -> Sequential.tryPick id computations
+            | Sequential -> Sequential.Choice computations
             | _ -> ThreadPool.Choice computations
 
         member __.ScheduleStartChild (workflow, ?target:IWorkerRef, ?timeoutMilliseconds:int) = 
             match context with
-            | Sequential -> Sequential.startChild workflow
+            | Sequential -> Sequential.StartChild workflow
             | _ -> ThreadPool.StartChild(workflow, ?timeoutMilliseconds = timeoutMilliseconds)

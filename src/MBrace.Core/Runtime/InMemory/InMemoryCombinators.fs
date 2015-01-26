@@ -1,4 +1,4 @@
-﻿namespace MBrace.InMemory
+﻿namespace MBrace.Runtime.InMemory
 
 #nowarn "444"
 
@@ -7,8 +7,56 @@ open System.Threading
 open MBrace
 open MBrace.Continuation
 
+/// Collection of workflows that emulate execute
+/// the parallelism primitives sequentially.
+[<CompilerMessage("Use of this API restricted to runtime implementers.", 444)>]
+type Sequential =
+
+    /// <summary>
+    ///     A Cloud.Parallel implementation executed sequentially.
+    /// </summary>
+    /// <param name="computations">Input computations.</param>
+    static member Parallel(computations : seq<Cloud<'T>>) : Cloud<'T []> = cloud {
+        let arr = ResizeArray<'T> ()
+        for comp in Seq.toArray computations do
+            let! r = comp in arr.Add r
+        return arr.ToArray()
+    }
+
+    /// <summary>
+    ///     A Cloud.Choice implementation executed sequentially.
+    /// </summary>
+    /// <param name="computations">Input computations.</param>
+    static member Choice(computations : seq<Cloud<'T option>>) : Cloud<'T option> = cloud {
+        let computations = Seq.toArray computations
+        let rec aux i = cloud {
+            if i = computations.Length then return None
+            else
+                let! r = computations.[i]
+                match r with
+                | None -> return! aux (i+1)
+                | Some _ -> return r
+        }
+
+        return! aux 0
+    }
+
+    /// <summary>
+    ///     Sequential Cloud.StartChild implementation.
+    /// </summary>
+    /// <param name="computation">Input computation.</param>
+    static member StartChild (computation : Cloud<'T>) = cloud {
+        let! result = computation |> Cloud.Catch
+        return cloud {  
+            match result with 
+            | Choice1Of2 t -> return t
+            | Choice2Of2 e -> return! Cloud.Raise e
+        }
+    }
+
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool
+[<CompilerMessage("Use of this API restricted to runtime implementers.", 444)>]
 type ThreadPool private () =
 
     static let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]

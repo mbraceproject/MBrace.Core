@@ -3,7 +3,7 @@
 open NUnit.Framework
 
 open MBrace
-open MBrace.InMemory
+open MBrace.Runtime.InMemory
 open MBrace.Runtime.Vagrant
 open MBrace.Runtime.Store
 open MBrace.Store

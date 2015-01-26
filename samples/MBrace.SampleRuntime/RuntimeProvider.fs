@@ -14,7 +14,7 @@ open Nessos.Thespian.Remote
 open MBrace
 open MBrace.Continuation
 open MBrace.Workflows
-open MBrace.InMemory
+open MBrace.Runtime.InMemory
 open MBrace.Store
 open MBrace.Runtime
 
@@ -121,20 +121,20 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
             match context with
             | Distributed -> Combinators.Parallel state procInfo dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Parallel (extractComputations computations)
-            | Sequential -> Sequential.map id (extractComputations computations)
+            | Sequential -> Sequential.Parallel (extractComputations computations)
 
         member __.ScheduleChoice computations = 
             match context with
             | Distributed -> Combinators.Choice state procInfo dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Choice (extractComputations computations)
-            | Sequential -> Sequential.tryPick id (extractComputations computations)
+            | Sequential -> Sequential.Choice (extractComputations computations)
 
         member __.ScheduleStartChild(computation,worker,_) =
             match context with
             | Distributed -> Combinators.StartChild state procInfo dependencies faultPolicy worker computation
             | _ when Option.isSome worker -> failTargetWorker ()
             | ThreadParallel -> ThreadPool.StartChild computation
-            | Sequential -> Sequential.startChild computation
+            | Sequential -> Sequential.StartChild computation
 
         member __.GetAvailableWorkers () = state.Workers.GetValue()
         member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef

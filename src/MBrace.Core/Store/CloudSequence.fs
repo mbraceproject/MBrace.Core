@@ -72,7 +72,7 @@ type CloudSequence<'T> =
 
     member private c.GetSequenceFromStore(config : CloudFileStoreConfiguration) = cloud {
         let serializer = match c.serializer with Some c -> c | None -> config.Serializer
-        let! stream = Cloud.OfAsync <| config.FileStore.BeginRead(c.path)
+        let! stream = ofAsync <| config.FileStore.BeginRead(c.path)
         return serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
     }
 
@@ -130,7 +130,7 @@ type CloudSequence<'T> =
     /// Underlying sequence size in bytes
     member c.Size = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! Cloud.OfAsync <| config.FileStore.GetFileSize c.path
+        return! ofAsync <| config.FileStore.GetFileSize c.path
     }
 
     interface ICloudStorageEntity with
@@ -140,7 +140,7 @@ type CloudSequence<'T> =
     interface ICloudDisposable with
         member c.Dispose () = cloud {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-            return! Cloud.OfAsync <| config.FileStore.DeleteFile c.path
+            return! ofAsync <| config.FileStore.DeleteFile c.path
         }
 
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
@@ -161,7 +161,7 @@ type CloudSequence =
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = defaultArg serializer config.Serializer
-        return! Cloud.OfAsync <| async {
+        return! ofAsync <| async {
             let path = config.FileStore.GetRandomFilePath directory
             let writer (stream : Stream) = async {
                 return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false)
@@ -184,7 +184,7 @@ type CloudSequence =
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = defaultArg serializer config.Serializer
-        return! Cloud.OfAsync <| async {
+        return! ofAsync <| async {
             if maxPartitionSize <= 0L then return invalidArg "maxPartitionSize" "Must be greater that 0."
 
             let seqs = new ResizeArray<CloudSequence<'T>>()
@@ -217,7 +217,7 @@ type CloudSequence =
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         let cseq = new CloudSequence<'T>(path, None, serializer)
         // force sequence traversal
-        if force then do! cseq.Count |> Cloud.Ignore
+        if force then let! _ = cseq.Count in ()
         return cseq
     }
 

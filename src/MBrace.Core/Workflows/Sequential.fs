@@ -104,16 +104,3 @@ module Sequential =
 
         return! aux ()
     }
-
-    /// <summary>
-    ///     Sequential Cloud.StartChild implementation.
-    /// </summary>
-    /// <param name="computation">Input computation.</param>
-    let startChild (computation : Cloud<'T>) = cloud {
-        let! result = computation |> Cloud.Catch
-        return cloud {  
-            match result with 
-            | Choice1Of2 t -> return t
-            | Choice2Of2 e -> return! Cloud.Raise e
-        }
-    }

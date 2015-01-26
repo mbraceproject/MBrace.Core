@@ -145,6 +145,7 @@ module internal CloudBuilderImpl =
 
     let inline combine (f : Cloud<unit>) (g : Cloud<'T>) : Cloud<'T> = bind f (fun () -> g)
     let inline delay (f : unit -> Cloud<'T>) : Cloud<'T> = bind zero f
+    let inline dispose (d : ICloudDisposable) = delay d.Dispose
 
     let inline usingIDisposable<'T, 'S when 'T :> IDisposable> (t : 'T) (g : 'T -> Cloud<'S>) : Cloud<'S> =
         tryFinally (bind (ret t) g) (retFunc t.Dispose)
