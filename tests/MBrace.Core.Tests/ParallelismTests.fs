@@ -36,6 +36,8 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     abstract Run : workflow:(ICancellationTokenSource -> Cloud<'T>) -> Choice<'T, exn>
     /// Evaluate workflow in the local test process
     abstract RunLocal : workflow:Cloud<'T> -> 'T
+    /// Maximum number of tests to be run by FsCheck
+    abstract FsCheckMaxTests : int
     /// Enables targeted worker tests
     abstract IsTargetWorkerSupported : bool
     /// Log tester
@@ -230,6 +232,50 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         WordCount.run 1000 Distributed.mapReduce |> run |> Choice.shouldEqual 5000
 
     [<Test>]
+    member __.``1. Parallel : Distributed.map`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
+            ints
+            |> Distributed.map (fun i -> cloud { return i + 1})
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Distributed.filter`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
+            ints
+            |> Distributed.filter (fun i -> cloud { return i % 5 = 0 || i % 7 = 0 })
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Distributed.choose`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
+            ints
+            |> Distributed.choose (fun i -> cloud { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Distributed.fold`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.fold (fun s i -> s + i) 0
+            ints
+            |> Distributed.fold (Cloud.lift2 (fun s i -> s + i)) (Cloud.lift2 (fun s i -> s + i)) 0
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
     [<Repeat(Config.repeats)>]
     member __.``1. Parallel : to all workers`` () =
         if __.IsTargetWorkerSupported then
@@ -416,6 +462,28 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             let! result = Array.init 20 seqWorker |> Cloud.Choice |> Cloud.ToSequential
             return result, !counter
         } |> run |> Choice.shouldEqual (Some(), 17)
+
+    [<Test>]
+    member __.``2. Choice : Distributed.tryFind`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
+            ints
+            |> Distributed.tryFind (fun i -> cloud { return i % 7 = 0 && i % 5 = 0 })
+            |> run
+            |> Choice.shouldBe(function None -> Set.isEmpty expected | Some r -> expected.Contains r)
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``2. Choice : Distributed.tryPick`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
+            ints
+            |> Distributed.tryPick (fun i -> cloud { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
+            |> run
+            |> Choice.shouldBe (function None -> Set.isEmpty expected | Some r -> expected.Contains r)
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
     [<Repeat(Config.repeats)>]

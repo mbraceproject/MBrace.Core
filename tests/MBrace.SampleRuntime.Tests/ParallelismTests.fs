@@ -54,6 +54,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
     override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
 
     override __.Logs = session.Logger :> _
+    override __.FsCheckMaxTests = 10
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =

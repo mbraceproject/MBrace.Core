@@ -19,7 +19,11 @@ module Distributed =
                         (init : 'State) (source : seq<'T>) : Cloud<'State> =
 
         let rec aux (inputs : 'T []) = cloud {
-            if inputs.Length = 0 then return init else
+            match inputs.Length with
+            | 0 -> return init
+            | 1 -> return! reducer inputs
+            | _ ->
+
             let! ctx = Cloud.GetSchedulingContext()
             match ctx with
             | Sequential -> return! reducer inputs
@@ -118,7 +122,11 @@ module Distributed =
     /// <param name="source">Input data.</param>
     let tryPick (chooser : 'T -> Cloud<'S option>) (source : seq<'T>) : Cloud<'S option> =
         let rec aux (inputs : 'T []) = cloud {
-            if inputs.Length = 0 then return None else
+            match inputs.Length with
+            | 0 -> return None
+            | 1 -> return! chooser inputs.[0]
+            | _ ->
+
             let! ctx = Cloud.GetSchedulingContext()
             match ctx with
             | Sequential -> return! Sequential.tryPick chooser inputs

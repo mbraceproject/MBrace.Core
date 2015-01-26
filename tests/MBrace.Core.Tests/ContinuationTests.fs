@@ -4,10 +4,10 @@ open System
 open System.Threading
 
 open NUnit.Framework
-//open FsUnit
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Workflows
 
 #nowarn "444"
 
@@ -197,50 +197,45 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``for loop over array`` () =
-        let cell = ref 0
-        let comp = cloud {
-            for i in [| 1 .. 100 |] do
-                do! cloud { cell := !cell + i }
-        }
-        !cell |> shouldEqual 0
-        run comp |> Choice.shouldEqual ()
-        !cell |> shouldEqual 5050
+        Check.QuickThrowOnFail<int []>(fun (ints : int[]) ->
+            if ints = null then () else
+            let arr = new ResizeArray<int> ()
+            let comp = cloud {
+                for i in ints do
+                    do! cloud { arr.Add i }
+            }
+            arr.Count |> shouldEqual 0
+            run comp |> Choice.shouldEqual ()
+            arr.ToArray() |> shouldEqual ints)
 
     [<Test>]
     let ``for loop over list`` () =
-        let cell = ref 0
-        let comp = cloud {
-            for i in [ 1 .. 100 ] do
-                do! cloud { cell := !cell + i }
-        }
-        !cell |> shouldEqual 0
-        run comp |> Choice.shouldEqual ()
-        !cell |> shouldEqual 5050
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let arr = new ResizeArray<int> ()
+            let comp = cloud {
+                for i in ints do
+                    do! cloud { arr.Add i }
+            }
+
+            arr.Count |> shouldEqual 0
+            run comp |> Choice.shouldEqual ()
+            arr.ToArray() |> shouldEqual (List.toArray ints))
 
     [<Test>]
     let ``for loop over sequence`` () =
-        let cell = ref 0
-        let range = new DisposableRange(1, 100)
-        let comp = cloud {
-            for i in range do
-                do! cloud { cell := !cell + i }
-        }
+        Check.QuickThrowOnFail<int []>(fun (ints : int []) ->
+            if ints = null then () else
+            let dseq = dseq ints
+            let arr = new ResizeArray<int> ()
+            let comp = cloud {
+                for i in dseq do
+                    do! cloud { arr.Add i }
+            }
 
-        !cell |> shouldEqual 0
-        run comp |> Choice.shouldEqual ()
-        !cell |> shouldEqual 5050
-        range.IsDisposed |> shouldEqual true
-
-    [<Test>]
-    let ``for loop on empty inputs`` () =
-        let cell = ref 0
-        let comp = cloud {
-            for i in (incr cell ; []) do
-                do! cloud { cell := !cell + i }
-        }
-        !cell |> shouldEqual 0
-        run comp |> Choice.shouldEqual ()
-        !cell |> shouldEqual 1
+            arr.Count |> shouldEqual 0
+            run comp |> Choice.shouldEqual ()
+            arr.ToArray() |> shouldEqual ints
+            dseq.IsDisposed |> shouldEqual true)
 
     [<Test>]
     let ``for loop on null inputs`` () =
@@ -489,3 +484,68 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``storage resouces`` () =
         run(CloudRef.New 0) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
+
+
+    //
+    //  Sequential workflow tests
+    //
+
+    [<Test>]
+    let ``Sequential.map`` () =
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
+            ints 
+            |> dseq 
+            |> Sequential.map (fun i -> cloud { return i + 1 }) 
+            |> run
+            |> Choice.shouldEqual expected)
+
+    [<Test>]
+    let ``Sequential.filter`` () =
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
+            ints 
+            |> dseq 
+            |> Sequential.filter (fun i -> cloud { return i % 5 = 0 || i % 7 = 0 }) 
+            |> run
+            |> Choice.shouldEqual expected)
+
+    [<Test>]
+    let ``Sequential.choose`` () =
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let expected = ints |> List.choose (fun i -> if i % 5 = 0 then Some i else None) |> List.toArray
+            ints 
+            |> dseq 
+            |> Sequential.choose (fun i -> cloud { return if i % 5 = 0 then Some i else None }) 
+            |> run
+            |> Choice.shouldEqual expected)
+
+    [<Test>]
+    let ``Sequential.fold`` () =
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let expected = ints |> List.fold (fun s i -> i + s) 0
+            ints 
+            |> dseq 
+            |> Sequential.fold (fun s i -> cloud { return s + i }) 0
+            |> run
+            |> Choice.shouldEqual expected)
+
+    [<Test>]
+    let ``Sequential.tryFind`` () =
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let expected = ints |> List.tryFind (fun i -> i % 13 = 0 || i % 7 = 0)
+            ints 
+            |> dseq 
+            |> Sequential.tryFind (fun i -> cloud { return i % 13 = 0 || i % 7 = 0 })
+            |> run
+            |> Choice.shouldEqual expected)
+
+    [<Test>]
+    let ``Sequential.tryPick`` () =
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let expected = ints |> List.tryPick (fun i -> if i % 13 = 0 || i % 7 = 0 then Some i else None)
+            ints 
+            |> dseq 
+            |> Sequential.tryPick (fun i -> cloud { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
+            |> run
+            |> Choice.shouldEqual expected)

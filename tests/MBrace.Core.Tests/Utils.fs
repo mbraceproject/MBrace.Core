@@ -1,5 +1,8 @@
 ﻿namespace MBrace.Tests
 
+open FsCheck
+
+open System.Collections.Generic
 open System.IO
 open System.Threading
 
@@ -68,3 +71,40 @@ module Utils =
             | Choice1Of2 t -> raise <| new AssertionException(sprintf "Expected exception, but was value '%A'." t)
             | Choice2Of2 (:? 'Exn) -> ()
             | Choice2Of2 e -> raise e
+
+    type Check =
+        /// quick check methods with explicit type annotation
+        static member QuickThrowOnFail<'T> (f : 'T -> unit, ?maxRuns) = 
+            match maxRuns with
+            | None -> Check.QuickThrowOnFailure f
+            | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
+
+        /// quick check methods with explicit type annotation
+        static member QuickThrowOnFail<'T> (f : 'T -> bool, ?maxRuns) = 
+            match maxRuns with
+            | None -> Check.QuickThrowOnFailure f
+            | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
+
+
+    [<AutoSerializable(false)>]
+    type private DisposableEnumerable<'T>(isDisposed : bool ref, ts : seq<'T>) =
+        let check() = if !isDisposed then raise <| new System.ObjectDisposedException("enumerator")
+        let e = ts.GetEnumerator()
+        interface IEnumerator<'T> with
+            member __.Current = check () ; e.Current
+            member __.Current = check () ; box e.Current
+            member __.MoveNext () = check () ; e.MoveNext()
+            member __.Dispose () = check () ; isDisposed := true ; e.Dispose()
+            member __.Reset () = check () ; e.Reset()
+            
+    [<AutoSerializable(true)>]
+    type DisposableSeq<'T> (ts : seq<'T>) =
+        let isDisposed = ref false
+
+        member __.IsDisposed = !isDisposed
+
+        interface seq<'T> with
+            member __.GetEnumerator() = new DisposableEnumerable<'T>(isDisposed, ts) :> IEnumerator<'T>
+            member __.GetEnumerator() = new DisposableEnumerable<'T>(isDisposed, ts) :> System.Collections.IEnumerator
+
+    let dseq ts = new DisposableSeq<'T>(ts)

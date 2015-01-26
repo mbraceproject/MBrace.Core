@@ -32,7 +32,8 @@ module internal Utils =
         let splitByPartitionCount partitions (ts : 'T []) =
             if partitions < 1 then invalidArg "partitions" "invalid number of partitions."
             elif partitions = 1 then [| ts |]
-            elif partitions > ts.Length then invalidArg "partitions" "partitions exceed array length."
+            elif partitions > ts.Length then
+                [| for t in ts -> [| t |] |]
             else
                 let chunkSize = ts.Length / partitions
                 let r = ts.Length % partitions

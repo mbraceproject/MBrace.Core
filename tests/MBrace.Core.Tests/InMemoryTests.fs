@@ -40,6 +40,7 @@ type ``ThreadPool Parallelism Tests`` () =
     override __.RunLocal(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
     override __.Logs = logger :> _
+    override __.FsCheckMaxTests = 100
 
 
 type ``InMemory CloudAtom Tests`` () =

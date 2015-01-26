@@ -16,6 +16,7 @@ type Sequential =
     ///     A Cloud.Parallel implementation executed sequentially.
     /// </summary>
     /// <param name="computations">Input computations.</param>
+    [<CompilerMessage("Use of Sequential.Parallel restricted to runtime implementers.", 444)>]
     static member Parallel(computations : seq<Cloud<'T>>) : Cloud<'T []> = cloud {
         let arr = ResizeArray<'T> ()
         for comp in Seq.toArray computations do
@@ -27,6 +28,7 @@ type Sequential =
     ///     A Cloud.Choice implementation executed sequentially.
     /// </summary>
     /// <param name="computations">Input computations.</param>
+    [<CompilerMessage("Use of Sequential.Choice restricted to runtime implementers.", 444)>]
     static member Choice(computations : seq<Cloud<'T option>>) : Cloud<'T option> = cloud {
         let computations = Seq.toArray computations
         let rec aux i = cloud {
@@ -45,6 +47,7 @@ type Sequential =
     ///     Sequential Cloud.StartChild implementation.
     /// </summary>
     /// <param name="computation">Input computation.</param>
+    [<CompilerMessage("Use of Sequential.StartChild restricted to runtime implementers.", 444)>]
     static member StartChild (computation : Cloud<'T>) = cloud {
         let! result = computation |> Cloud.Catch
         return cloud {  
@@ -56,7 +59,6 @@ type Sequential =
 
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool
-[<CompilerMessage("Use of this API restricted to runtime implementers.", 444)>]
 type ThreadPool private () =
 
     static let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
@@ -71,6 +73,7 @@ type ThreadPool private () =
     ///     A Cloud.Parallel implementation executed using the thread pool.
     /// </summary>
     /// <param name="computations">Input computations.</param>
+    [<CompilerMessage("Use of ThreadPool.Parallel restricted to runtime implementers.", 444)>]
     static member Parallel (computations : seq<Cloud<'T>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -79,7 +82,7 @@ type ThreadPool private () =
             // pass continuation directly to child, if singular
             | Choice1Of2 [| comp |] ->
                 let cont' = Continuation.map (fun t -> [| t |]) cont
-                Cloud.StartWithContinuations(comp, cont')
+                Cloud.StartWithContinuations(comp, cont', ctx)
 
             | Choice1Of2 computations ->                    
                 let results = Array.zeroCreate<'T> computations.Length
@@ -113,6 +116,7 @@ type ThreadPool private () =
     ///     A Cloud.Choice implementation executed using the thread pool.
     /// </summary>
     /// <param name="computations">Input computations.</param>
+    [<CompilerMessage("Use of ThreadPool.Choice restricted to runtime implementers.", 444)>]
     static member Choice(computations : seq<Cloud<'T option>>) =
         Cloud.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -156,6 +160,7 @@ type ThreadPool private () =
     /// </summary>
     /// <param name="computation">Input computation.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
+    [<CompilerMessage("Use of ThreadPool.StartChild restricted to runtime implementers.", 444)>]
     static member StartChild (computation : Cloud<'T>, ?timeoutMilliseconds) : Cloud<Cloud<'T>> = cloud {
         let! resource = Cloud.GetResourceRegistry()
         let asyncWorkflow = Cloud.ToAsync(computation, resources = resource)
