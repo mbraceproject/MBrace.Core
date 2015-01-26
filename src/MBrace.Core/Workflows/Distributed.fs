@@ -6,23 +6,23 @@ open MBrace
 module Distributed =
 
     /// <summary>
-    ///     Distributed mapCombine combinator. Input data is partitioned according to cluster size
+    ///     Distributed reduceCombine combinator. Input data is partitioned according to cluster size
     ///     and distributed to worker nodes accordingly. It is then further partitioned
     ///     according to the processor count of each worker.
     /// </summary>
-    /// <param name="mapper">Map function that performs a local computation on a set of inputs.</param>
-    /// <param name="combiner">Combiner function that composes two results.</param>
+    /// <param name="reducer">Sequential reducer workflow.</param>
+    /// <param name="combiner">Combiner function that sequentially composes a collection of results.</param>
     /// <param name="init">Initial state and identity element of result space.</param>
     /// <param name="source">Input data.</param>
-    let mapCombine (mapper : 'T [] -> Cloud<'State>) 
-                    (combiner : 'State [] -> Cloud<'State>)
-                    (init : 'State) (source : seq<'T>) : Cloud<'State> =
+    let reduceCombine (reducer : 'T [] -> Cloud<'State>) 
+                        (combiner : 'State [] -> Cloud<'State>)
+                        (init : 'State) (source : seq<'T>) : Cloud<'State> =
 
         let rec aux (inputs : 'T []) = cloud {
             if inputs.Length = 0 then return init else
             let! ctx = Cloud.GetSchedulingContext()
             match ctx with
-            | Sequential -> return! mapper inputs
+            | Sequential -> return! reducer inputs
             | ThreadParallel ->
                 let cores = System.Environment.ProcessorCount
                 let chunks = Array.splitByPartitionCount cores inputs
@@ -54,7 +54,7 @@ module Distributed =
     /// <param name="mapper">Mapper function.</param>
     /// <param name="source">Input data.</param>
     let map (mapper : 'T -> Cloud<'S>) (source : seq<'T>) : Cloud<'S []> = 
-        mapCombine (Sequential.map mapper) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Sequential.map mapper) (Cloud.lift Array.concat) [||] source
 
     /// <summary>
     ///     Distributed filter combinator. Input data is partitioned according to cluster size
@@ -64,7 +64,7 @@ module Distributed =
     /// <param name="predicate">Predicate function.</param>
     /// <param name="source">Input data.</param>
     let filter (predicate : 'T -> Cloud<bool>) (source : seq<'T>) : Cloud<'T []> =
-        mapCombine (Sequential.filter predicate) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Sequential.filter predicate) (Cloud.lift Array.concat) [||] source
 
     /// <summary>
     ///     Distributed choose combinator. Input data is partitioned according to cluster size
@@ -74,7 +74,7 @@ module Distributed =
     /// <param name="chooser">Chooser function.</param>
     /// <param name="source">Input data.</param>
     let choose (chooser : 'T -> Cloud<'S option>) (source : seq<'T>) : Cloud<'S []> =
-        mapCombine (Sequential.choose chooser) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Sequential.choose chooser) (Cloud.lift Array.concat) [||] source
 
     /// <summary>
     ///     Distributed fold combinator. Input data is partitioned according to cluster size
@@ -89,7 +89,7 @@ module Distributed =
                 (reducer : 'State -> 'State -> Cloud<'State>)
                 (init : 'State) (source : seq<'T>) : Cloud<'State> =
 
-        mapCombine (Sequential.fold folder init) (Sequential.fold reducer init) init source
+        reduceCombine (Sequential.fold folder init) (Sequential.fold reducer init) init source
 
     /// <summary>
     ///     Distributed Map/Reduce workflow with cluster balancing.
