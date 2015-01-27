@@ -56,6 +56,7 @@
   </Target>
   -->
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\String.fs" />
     <Compile Include="Utils\Retry.fs" />

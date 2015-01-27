@@ -57,6 +57,7 @@
   -->
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Continuation\Utils.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\Trampoline.fs" />

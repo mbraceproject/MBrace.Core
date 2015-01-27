@@ -17,9 +17,23 @@ open System.IO
 let project = "MBrace.Core"
 let authors = [ "Eirik Tsarpalis" ]
 
-let description = """ MBrace cloud workflows core libraries. """
+let description = """Cloud workflow core libraries."""
 
 let tags = "F# cloud mapreduce distributed"
+
+let coreSummary = """
+    The MBrace core library contains all cloud workflow essentials,
+    libraries and local testing tools for authoring distributed code.
+"""
+
+let csharpSummary = """
+    MBrace programming model API for C#.
+"""
+
+let runtimeSummary = """
+    The MBrace runtime core library contains the foundations for implementing
+    distributed runtime that support cloud workflows.
+"""
 
 // --------------------------------------------------------------------------------------
 // Read release notes & version info from RELEASE_NOTES.md
@@ -98,7 +112,8 @@ FinalTarget "CloseTestRunner" (fun _ ->
     ProcessHelper.killProcess "nunit-agent.exe"
 )
 
-// Nuget packages
+//// --------------------------------------------------------------------------------------
+//// Build a NuGet package
 
 let addFile (target : string) (file : string) =
     if File.Exists (Path.Combine("nuget", file)) then (file, Some target, None)
@@ -117,6 +132,84 @@ let addAssembly (target : string) assembly =
         yield! includeFile false <| Path.ChangeExtension(assembly, "xml")
         yield! includeFile false <| assembly + ".config"
     }
+
+Target "NuGet.Core" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.Core"
+            Summary = coreSummary
+            Description = description
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            ToolPath = "nuget/NuGet.exe"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = []
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Core.dll"
+                ]
+        })
+        ("nuget/MBrace.nuspec")
+)
+
+Target "NuGet.CSharp" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.CSharp"
+            Summary = csharpSummary
+            Description = description
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            ToolPath = "nuget/NuGet.exe"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = 
+                [
+                    ("MBrace.Core", RequireExactly release.NugetVersion)
+                ]
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.CSharp.dll"
+                ]
+        })
+        ("nuget/MBrace.nuspec")
+)
+
+Target "NuGet.Runtime.Core" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.Runtime.Core"
+            Summary = runtimeSummary
+            Description = description
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            ToolPath = "nuget/NuGet.exe"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = 
+                [
+                    ("MBrace.Core", RequireExactly release.NugetVersion)
+                    ("FsPickler", "1.0.7")
+                    ("Vagrant", "0.2.9")
+                    ("Unquote", "2.2.2")
+                ]
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
+                ]
+        })
+        ("nuget/MBrace.nuspec")
+)
 
 // --------------------------------------------------------------------------------------
 // documentation
@@ -142,8 +235,8 @@ Target "ReleaseDocs" (fun _ ->
 
 Target "Default" DoNothing
 Target "Release" DoNothing
-Target "PrepareRelease" DoNothing
 Target "NuGet" DoNothing
+Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
@@ -154,9 +247,10 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Build"
   ==> "PrepareRelease"
+  ==> "NuGet.Core"
+  ==> "NuGet.CSharp"
+  ==> "NuGet.Runtime.Core"
   ==> "Nuget"
-//  ==> "GenerateDocs"
-//  ==> "ReleaseDocs"
   ==> "Release"
 
 //// start build
