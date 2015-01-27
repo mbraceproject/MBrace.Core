@@ -19,9 +19,6 @@ module private Config =
     let fsStore = FileSystemStore.CreateSharedLocal()
     let fsConfig = CloudFileStoreConfiguration.Create(fsStore, VagrantRegistry.Serializer, cache = InMemoryCache.Create())
 
-    let atomProvider = FileSystemAtomProvider.Create(create = true, cleanup = false) 
-    let atomConfig = CloudAtomConfiguration.Create(atomProvider)
-
 [<TestFixture>]
 type ``FileSystemStore Tests`` () =
     inherit  ``Local FileStore Tests``({ fsConfig with Cache = None })
@@ -31,17 +28,3 @@ type ``FileSystemStore Tests`` () =
 type ``FileSystemStore Tests (cached)`` () =
     inherit  ``Local FileStore Tests``(fsConfig)
     override __.IsCachingStore = true
-
-[<TestFixture>]
-type ``FileSystem Atom tests`` () =
-    inherit  ``CloudAtom Tests``(nParallel = 20)
-    let imem = InMemoryRuntime.Create(atomConfig = atomConfig)
-
-    override __.Run wf = imem.Run wf
-    override __.RunLocal wf = imem.Run wf
-    override __.AtomClient = imem.StoreClient.Atom
-#if DEBUG
-    override __.Repeats = 10
-#else
-    override __.Repeats = 3
-#endif
