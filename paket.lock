@@ -11,5 +11,6 @@ NUGET
     NUnit.Runners (2.6.4)
     Thespian.Core (0.1.1-alpha)
       FsPickler (>= 1.0.2)
+    Unquote (2.2.2)
     Vagrant (0.2.9)
       FsPickler (>= 1.0.2)

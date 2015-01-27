@@ -8,3 +8,4 @@ nuget Thespian.Core 0.1.1-alpha
 nuget Vagrant
 nuget FSharp.Core
 nuget FsCheck
+nuget Unquote
