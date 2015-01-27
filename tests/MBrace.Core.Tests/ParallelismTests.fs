@@ -49,7 +49,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
 
     [<Test>]
     member __.``1. Parallel : empty input`` () =
-        run (Cloud.Parallel Array.empty<Cloud<int>> ) |> Choice.shouldEqual [||]
+        Array.empty<Cloud<int>> |> Cloud.Parallel |> run |> Choice.shouldEqual [||]
 
     [<Test>]
     member __.``1. Parallel : simple inputs`` () =
@@ -59,6 +59,19 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             let! results = Seq.init nParallel f |> Cloud.Parallel
             return Array.sum results
         } |> run |> Choice.shouldEqual (Seq.init nParallel (fun i -> i + 1) |> Seq.sum)
+
+    [<Test>]
+    member __.``1. Parallel : random inputs`` () =
+        let checker (ints:int[]) =
+            if ints = null then () else
+            let maxSize = 5 * nParallel
+            let ints = if ints.Length <= maxSize then ints else ints.[..maxSize]
+            cloud {
+                let f i = cloud { return ints.[i] }
+                return! Seq.init ints.Length f |> Cloud.Parallel
+            } |> run |> Choice.shouldEqual ints
+
+        Check.QuickThrowOnFail(checker, maxRuns = self.FsCheckMaxTests)
 
     [<Test>]
     member __.``1. Parallel : use binding`` () =
@@ -310,6 +323,19 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     [<Test>]
     member __.``2. Choice : empty input`` () =
         Cloud.Choice List.empty<Cloud<int option>> |> run |> Choice.shouldEqual None
+
+    [<Test>]
+    member __.``2. Choice : random inputs`` () =
+        let checker (size : bool list) =
+            let expected = size |> Seq.mapi (fun i b -> (i,b)) |> Seq.filter snd |> Seq.map fst |> set
+            let worker i b = cloud { return if b then Some i else None }
+            size 
+            |> Seq.mapi worker 
+            |> Cloud.Choice
+            |> run 
+            |> Choice.shouldBe (function Some r -> expected.Contains r | None -> Set.isEmpty expected)
+
+        Check.QuickThrowOnFail(checker, maxRuns = self.FsCheckMaxTests)
 
     [<Test>]
     member __.``2. Choice : all inputs 'None'`` () =
