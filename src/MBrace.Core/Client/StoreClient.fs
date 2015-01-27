@@ -1,4 +1,4 @@
-﻿namespace MBrace.Store
+﻿namespace MBrace.Client
 
 #nowarn "0444"
 

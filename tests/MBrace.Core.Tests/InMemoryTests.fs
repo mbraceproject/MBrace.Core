@@ -5,7 +5,7 @@ open System.Threading
 open MBrace
 open MBrace.Continuation
 open MBrace.Runtime
-open MBrace.Runtime.InMemory
+open MBrace.Client
 
 open NUnit.Framework
 
@@ -29,7 +29,7 @@ type ``ThreadPool Parallelism Tests`` () =
     inherit ``Parallelism Tests``(nParallel = 100)
 
     let logger = InMemoryLogTester()
-    let imem = InMemoryRuntime.Create(logger = logger)
+    let imem = LocalRuntime.Create(logger = logger)
 
     override __.Run(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.Run(workflow))
     override __.Run(workflow : ICancellationTokenSource -> Cloud<'T>) =
@@ -51,7 +51,7 @@ type ``ThreadPool Parallelism Tests`` () =
 type ``InMemory CloudAtom Tests`` () =
     inherit ``CloudAtom Tests`` (nParallel = 100)
 
-    let imem = InMemoryRuntime.Create()
+    let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow
@@ -65,7 +65,7 @@ type ``InMemory CloudAtom Tests`` () =
 type ``InMemory CloudChannel Tests`` () =
     inherit ``CloudChannel Tests`` (nParallel = 100)
 
-    let imem = InMemoryRuntime.Create()
+    let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow

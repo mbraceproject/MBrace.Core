@@ -1,15 +1,16 @@
-﻿namespace MBrace.Runtime.InMemory
+﻿namespace MBrace.Client
 
 open System.Threading
 
 open MBrace
 open MBrace.Continuation
-open MBrace.Runtime
 open MBrace.Store
+open MBrace.Runtime
+open MBrace.Runtime.InMemory
 
-/// Defines a general-purpose client object for use with in-memory cloud execution.
+/// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
-type InMemoryRuntime private (resources : ResourceRegistry) =
+type LocalRuntime private (resources : ResourceRegistry) =
 
     let storeClient = StoreClient.CreateFromResources(resources)
 
@@ -34,13 +35,6 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
         Cloud.RunSynchronously(workflow, resources = resources, ?cancellationToken = cancellationToken)
 
     /// <summary>
-    ///     Creates a copy of In-Memory runtime with updated resource registry.
-    /// </summary>
-    /// <param name="resource">Resource to be appended.</param>
-    member r.WithResource(resource : 'TResource) : InMemoryRuntime = 
-        new InMemoryRuntime(resources.Register<'TResource> resource)
-
-    /// <summary>
     ///     Creates an InMemory runtime instance with provided store components.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
@@ -53,7 +47,7 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
                             ?fileConfig : CloudFileStoreConfiguration,
                             ?atomConfig : CloudAtomConfiguration,
                             ?channelConfig : CloudChannelConfiguration,
-                            ?resources : ResourceRegistry) : InMemoryRuntime =
+                            ?resources : ResourceRegistry) : LocalRuntime =
 
         let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration()
         let channelConfig = match channelConfig with Some cc -> cc | None -> InMemoryChannelProvider.CreateConfiguration()
@@ -66,4 +60,4 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
             match resources with Some r -> yield! r | None -> ()
         }
 
-        new InMemoryRuntime(resources)
+        new LocalRuntime(resources)

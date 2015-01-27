@@ -9,9 +9,9 @@ open Nessos.Thespian.Remote
 
 open MBrace
 open MBrace.Store
+open MBrace.Client
 open MBrace.Continuation
 open MBrace.Runtime
-open MBrace.Runtime.InMemory
 open MBrace.Runtime.Vagrant
 open MBrace.Runtime.Compiler
 open MBrace.SampleRuntime.Tasks
@@ -72,7 +72,7 @@ type MBraceRuntime private () =
         let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().GetRandomDirectoryName())
         let atomConfig    = CloudAtomConfiguration.Create(atomProvider, atomProvider.CreateUniqueContainerName())
         let channelConfig = CloudChannelConfiguration.Create(channelProvider, channelProvider.CreateUniqueContainerName())
-        InMemoryRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
+        LocalRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
 
     /// <summary>
     ///     Asynchronously execute a workflow on the distributed runtime.
