@@ -39,6 +39,11 @@ type ``SampleRuntime Atom Tests`` () =
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
     override __.AtomClient = session.Runtime.StoreClient.Atom
+#if DEBUG
+    override __.Repeats = 10
+#else
+    override __.Repeats = 3
+#endif
 
 type ``SampleRuntime Channel Tests`` () =
     inherit ``CloudChannel Tests``(nParallel = 10)

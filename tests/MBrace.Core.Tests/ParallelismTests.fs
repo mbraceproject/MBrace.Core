@@ -26,6 +26,8 @@ type ``Parallelism Tests`` (nParallel : int) as self =
 
     let nNested = nParallel |> float |> ceil |> int
 
+    let repeat f = repeat self.Repeats f
+
     let run (workflow : Cloud<'T>) = self.Run workflow
     let runCts (workflow : ICancellationTokenSource -> Cloud<'T>) = self.Run workflow
     let runLocal (workflow : Cloud<'T>) = self.RunLocal workflow
@@ -38,6 +40,8 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     abstract RunLocal : workflow:Cloud<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck
     abstract FsCheckMaxTests : int
+    /// Maximum number of repeats to run nondeterministic tests
+    abstract Repeats : int
     /// Enables targeted worker tests
     abstract IsTargetWorkerSupported : bool
     /// Log tester
@@ -109,127 +113,125 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : exception contention`` () =
-        let nParallel = nParallel
-        // test that exception continuation was fired precisely once
-        cloud {
-            let! atom = CloudAtom.New 0
-            try                    
-                let! _ = Array.init nParallel (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
-                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
-            with :? InvalidOperationException ->
-                do! CloudAtom.Incr atom
-                return ()
+        repeat(fun () ->
+            let nParallel = nParallel
+            // test that exception continuation was fired precisely once
+            cloud {
+                let! atom = CloudAtom.New 0
+                try                    
+                    let! _ = Array.init nParallel (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
+                    return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+                with :? InvalidOperationException ->
+                    do! CloudAtom.Incr atom
+                    return ()
 
-            do! Cloud.Sleep 500
-            return! CloudAtom.Read atom
-        } |> run |> Choice.shouldEqual 1
+                do! Cloud.Sleep 500
+                return! CloudAtom.Read atom
+            } |> run |> Choice.shouldEqual 1)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : exception cancellation`` () =
-        cloud {
-            let! counter = CloudAtom.New 0
-            let worker i = cloud { 
-                if i = 0 then
-                    invalidOp "failure"
-                else
-                    do! Cloud.Sleep 2000
-                    do! CloudAtom.Incr counter
-            }
+        repeat(fun () ->
+            cloud {
+                let! counter = CloudAtom.New 0
+                let worker i = cloud { 
+                    if i = 0 then
+                        invalidOp "failure"
+                    else
+                        do! Cloud.Sleep 2000
+                        do! CloudAtom.Incr counter
+                }
 
-            try
-                let! _ = Array.init 20 worker |> Cloud.Parallel
-                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
-            with :? InvalidOperationException ->
-                return! counter.Value
-        } |> run |> Choice.shouldEqual 0
+                try
+                    let! _ = Array.init 20 worker |> Cloud.Parallel
+                    return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+                with :? InvalidOperationException ->
+                    return! counter.Value
+            } |> run |> Choice.shouldEqual 0)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : nested exception cancellation`` () =
-        cloud {
-            let! counter = CloudAtom.New 0
-            let worker i j = cloud {
-                if i = 0 && j = 0 then
-                    invalidOp "failure"
-                else
-                    do! Cloud.Sleep 3000
-                    do! CloudAtom.Incr counter
-            }
+        repeat(fun () ->
+            cloud {
+                let! counter = CloudAtom.New 0
+                let worker i j = cloud {
+                    if i = 0 && j = 0 then
+                        invalidOp "failure"
+                    else
+                        do! Cloud.Sleep 3000
+                        do! CloudAtom.Incr counter
+                }
 
-            let cluster i = Array.init 10 (worker i) |> Cloud.Parallel |> Cloud.Ignore
-            try
-                do! Array.init 10 cluster |> Cloud.Parallel |> Cloud.Ignore
-                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
-            with :? InvalidOperationException ->
-                return! counter.Value
+                let cluster i = Array.init 10 (worker i) |> Cloud.Parallel |> Cloud.Ignore
+                try
+                    do! Array.init 10 cluster |> Cloud.Parallel |> Cloud.Ignore
+                    return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+                with :? InvalidOperationException ->
+                    return! counter.Value
 
-        } |> run |> Choice.shouldEqual 0
+            } |> run |> Choice.shouldEqual 0)
             
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : simple cancellation`` () =
-        let counter = CloudAtom.New 0 |> runLocal
-        runCts(fun cts -> cloud {
-            let f i = cloud {
-                if i = 0 then cts.Cancel() 
-                do! Cloud.Sleep 3000 
-                do! CloudAtom.Incr counter
-            }
+        repeat(fun () ->
+            let counter = CloudAtom.New 0 |> runLocal
+            runCts(fun cts -> cloud {
+                let f i = cloud {
+                    if i = 0 then cts.Cancel() 
+                    do! Cloud.Sleep 3000 
+                    do! CloudAtom.Incr counter
+                }
 
-            let! _ = Array.init 10 f |> Cloud.Parallel
+                let! _ = Array.init 10 f |> Cloud.Parallel
 
-            return ()
-        }) |> Choice.shouldFailwith<_, OperationCanceledException>
+                return ()
+            }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-        counter.Value |> runLocal |> shouldEqual 0
+            counter.Value |> runLocal |> shouldEqual 0)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : to local`` () =
-        // check local semantics are forced by using ref cells.
-        cloud {
-            let counter = ref 0
-            let seqWorker _ = cloud {
-                do! Cloud.Sleep 10
-                Interlocked.Increment counter |> ignore
-            }
+        repeat(fun () ->
+            // check local semantics are forced by using ref cells.
+            cloud {
+                let counter = ref 0
+                let seqWorker _ = cloud {
+                    do! Cloud.Sleep 10
+                    Interlocked.Increment counter |> ignore
+                }
 
-            let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.ToLocal
-            return counter.Value
-        } |> run |> Choice.shouldEqual 100
+                let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.ToLocal
+                return counter.Value
+            } |> run |> Choice.shouldEqual 100)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : to sequential`` () =
-        // check sequential semantics are forced by deliberately
-        // making use of code that is not thread-safe.
-        cloud {
-            let counter = ref 0
-            let seqWorker _ = cloud {
-                let init = !counter + 1
-                counter := init
-                return !counter = init
-            }
+        repeat(fun () ->
+            // check sequential semantics are forced by deliberately
+            // making use of code that is not thread-safe.
+            cloud {
+                let counter = ref 0
+                let seqWorker _ = cloud {
+                    let init = !counter + 1
+                    counter := init
+                    return !counter = init
+                }
 
-            let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.ToSequential
-            return Array.forall id results
-        } |> run |> Choice.shouldEqual true
+                let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.ToSequential
+                return Array.forall id results
+            } |> run |> Choice.shouldEqual true)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : MapReduce recursive`` () =
         // naive, binary recursive mapreduce implementation
-        WordCount.run 20 WordCount.mapReduceRec |> run |> Choice.shouldEqual 100
+        repeat(fun () -> WordCount.run 20 WordCount.mapReduceRec |> run |> Choice.shouldEqual 100)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : MapReduce balanced`` () =
         // balanced, core implemented MapReduce algorithm
-        WordCount.run 1000 Distributed.mapReduce |> run |> Choice.shouldEqual 5000
+        repeat(fun () -> WordCount.run 1000 Distributed.mapReduce |> run |> Choice.shouldEqual 5000)
 
     [<Test>]
     member __.``1. Parallel : Distributed.map`` () =
@@ -276,24 +278,24 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : to all workers`` () =
         if __.IsTargetWorkerSupported then
-            cloud {
-                let! workers = Cloud.GetAvailableWorkers()
-                let! results = Cloud.Parallel Cloud.CurrentWorker
-                return set results = set workers
-            } |> run |> Choice.shouldEqual true
+            repeat(fun () ->
+                cloud {
+                    let! workers = Cloud.GetAvailableWorkers()
+                    let! results = Cloud.Parallel Cloud.CurrentWorker
+                    return set results = set workers
+                } |> run |> Choice.shouldEqual true)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``1. Parallel : to current worker`` () =
         if __.IsTargetWorkerSupported then
-            cloud {
-                let! thisWorker = Cloud.CurrentWorker
-                let! results = Cloud.Parallel [(Cloud.CurrentWorker, thisWorker)]
-                return results.[0] = thisWorker
-            } |> run |> Choice.shouldEqual true
+            repeat(fun () ->
+                cloud {
+                    let! thisWorker = Cloud.CurrentWorker
+                    let! results = Cloud.Parallel [(Cloud.CurrentWorker, thisWorker)]
+                    return results.[0] = thisWorker
+                } |> run |> Choice.shouldEqual true)
 
     [<Test>]
     member __.``1. Parallel : to all workers in local semantics`` () =
@@ -310,158 +312,158 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         Cloud.Choice List.empty<Cloud<int option>> |> run |> Choice.shouldEqual None
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``2. Choice : all inputs 'None'`` () =
-        let nParallel = nParallel
-        let count = CloudAtom.New 0 |> runLocal
-        cloud {
-            let worker _ = cloud {
-                do! CloudAtom.Incr count
-                return None
-            }
-
-            return! Array.init nParallel worker |> Cloud.Choice
-        } |> run |> Choice.shouldEqual None
-
-        count.Value |> runLocal |> shouldEqual nParallel
-
-    [<Test>]
-    [<Repeat(Config.repeats)>]
-    member __.``2. Choice : one input 'Some'`` () =
-        let nParallel = nParallel
-        let count = CloudAtom.New 0 |> runLocal
-        cloud {
-            let worker i = cloud {
-                if i = 0 then return Some i
-                else
-                    do! Cloud.Sleep 3000
-                    // check proper cancellation while we're at it.
+        repeat(fun () ->
+            let nParallel = nParallel
+            let count = CloudAtom.New 0 |> runLocal
+            cloud {
+                let worker _ = cloud {
                     do! CloudAtom.Incr count
                     return None
-            }
-
-            return! Array.init nParallel worker |> Cloud.Choice
-        } |> run |> Choice.shouldEqual (Some 0)
-        count.Value |> runLocal |> shouldEqual 0
-
-    [<Test>]
-    [<Repeat(Config.repeats)>]
-    member __.``2. Choice : all inputs 'Some'`` () =
-        let successcounter = CloudAtom.New 0 |> runLocal
-        cloud {
-            let worker _ = cloud { return Some 42 }
-            let! result = Array.init 100 worker |> Cloud.Choice
-            do! CloudAtom.Incr successcounter
-            return result
-        } |> run |> Choice.shouldEqual (Some 42)
-
-        // ensure only one success continuation call
-        successcounter.Value |> runLocal |> shouldEqual 1
-
-    [<Test>]
-    [<Repeat(Config.repeats)>]
-    member __.``2. Choice : simple nested`` () =
-        let nParallel = nParallel
-        let nNested = nNested
-        let counter = CloudAtom.New 0 |> runLocal
-        cloud {
-            let worker i j = cloud {
-                if i = 0 && j = 0 then
-                    return Some(i,j)
-                else
-                    do! Cloud.Sleep 3000
-                    do! CloudAtom.Incr counter
-                    return None
-            }
-
-            let cluster i = Array.init nNested (worker i) |> Cloud.Choice
-            return! Array.init nNested cluster |> Cloud.Choice
-        } |> run |> Choice.shouldEqual (Some(0,0))
-
-        counter.Value |> runLocal |> shouldBe (fun i ->  i < nParallel / 2)
-
-    [<Test>]
-    [<Repeat(Config.repeats)>]
-    member __.``2. Choice : nested exception cancellation`` () =
-        let nNested = nNested
-        let counter = CloudAtom.New 0 |> runLocal
-        cloud {
-            let worker i j = cloud {
-                if i = 0 && j = 0 then
-                    return invalidOp "failure"
-                else
-                    do! Cloud.Sleep 3000
-                    do! CloudAtom.Incr counter
-                    return Some 42
-            }
-
-            let cluster i = Array.init nNested (worker i) |> Cloud.Choice
-            return! Array.init nNested cluster |> Cloud.Choice
-        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
-
-        counter.Value |> runLocal |> shouldEqual 0
-
-    [<Test>]
-    [<Repeat(Config.repeats)>]
-    member __.``2. Choice : simple cancellation`` () =
-        let nParallel = nParallel
-        let counter = CloudAtom.New 0 |> runLocal
-        runCts(fun cts ->
-            cloud {
-                let worker i = cloud {
-                    if i = 0 then cts.Cancel()
-                    do! Cloud.Sleep 3000
-                    do! CloudAtom.Incr counter
-                    return Some 42
                 }
 
                 return! Array.init nParallel worker |> Cloud.Choice
-        }) |> Choice.shouldFailwith<_, OperationCanceledException>
+            } |> run |> Choice.shouldEqual None
 
-        counter.Value |> runLocal |> shouldEqual 0
+            count.Value |> runLocal |> shouldEqual nParallel)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
+    member __.``2. Choice : one input 'Some'`` () =
+        repeat(fun () ->
+            let nParallel = nParallel
+            let count = CloudAtom.New 0 |> runLocal
+            cloud {
+                let worker i = cloud {
+                    if i = 0 then return Some i
+                    else
+                        do! Cloud.Sleep 3000
+                        // check proper cancellation while we're at it.
+                        do! CloudAtom.Incr count
+                        return None
+                }
+
+                return! Array.init nParallel worker |> Cloud.Choice
+            } |> run |> Choice.shouldEqual (Some 0)
+            count.Value |> runLocal |> shouldEqual 0)
+
+    [<Test>]
+    member __.``2. Choice : all inputs 'Some'`` () =
+        repeat(fun () ->
+            let successcounter = CloudAtom.New 0 |> runLocal
+            cloud {
+                let worker _ = cloud { return Some 42 }
+                let! result = Array.init 100 worker |> Cloud.Choice
+                do! CloudAtom.Incr successcounter
+                return result
+            } |> run |> Choice.shouldEqual (Some 42)
+
+            // ensure only one success continuation call
+            successcounter.Value |> runLocal |> shouldEqual 1)
+
+    [<Test>]
+    member __.``2. Choice : simple nested`` () =
+        repeat(fun () ->
+            let nParallel = nParallel
+            let nNested = nNested
+            let counter = CloudAtom.New 0 |> runLocal
+            cloud {
+                let worker i j = cloud {
+                    if i = 0 && j = 0 then
+                        return Some(i,j)
+                    else
+                        do! Cloud.Sleep 3000
+                        do! CloudAtom.Incr counter
+                        return None
+                }
+
+                let cluster i = Array.init nNested (worker i) |> Cloud.Choice
+                return! Array.init nNested cluster |> Cloud.Choice
+            } |> run |> Choice.shouldEqual (Some(0,0))
+
+            counter.Value |> runLocal |> shouldBe (fun i ->  i < nParallel / 2))
+
+    [<Test>]
+    member __.``2. Choice : nested exception cancellation`` () =
+        repeat(fun () ->
+            let nNested = nNested
+            let counter = CloudAtom.New 0 |> runLocal
+            cloud {
+                let worker i j = cloud {
+                    if i = 0 && j = 0 then
+                        return invalidOp "failure"
+                    else
+                        do! Cloud.Sleep 3000
+                        do! CloudAtom.Incr counter
+                        return Some 42
+                }
+
+                let cluster i = Array.init nNested (worker i) |> Cloud.Choice
+                return! Array.init nNested cluster |> Cloud.Choice
+            } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
+
+            counter.Value |> runLocal |> shouldEqual 0)
+
+    [<Test>]
+    member __.``2. Choice : simple cancellation`` () =
+        repeat(fun () ->
+            let nParallel = nParallel
+            let counter = CloudAtom.New 0 |> runLocal
+            runCts(fun cts ->
+                cloud {
+                    let worker i = cloud {
+                        if i = 0 then cts.Cancel()
+                        do! Cloud.Sleep 3000
+                        do! CloudAtom.Incr counter
+                        return Some 42
+                    }
+
+                    return! Array.init nParallel worker |> Cloud.Choice
+            }) |> Choice.shouldFailwith<_, OperationCanceledException>
+
+            counter.Value |> runLocal |> shouldEqual 0)
+
+    [<Test>]
     member __.``2. Choice : to local`` () =
-        let nParallel = nParallel
-        // check local semantics are forced by using ref cells.
-        cloud {
-            let counter = ref 0
-            let seqWorker i = cloud {
-                if i = nParallel / 2 then
-                    do! Cloud.Sleep 100
-                    return Some i
-                else
-                    let _ = Interlocked.Increment counter
-                    return None
-            }
+        repeat(fun () ->
+            let nParallel = nParallel
+            // check local semantics are forced by using ref cells.
+            cloud {
+                let counter = ref 0
+                let seqWorker i = cloud {
+                    if i = nParallel / 2 then
+                        do! Cloud.Sleep 100
+                        return Some i
+                    else
+                        let _ = Interlocked.Increment counter
+                        return None
+                }
 
-            let! result = Array.init nParallel seqWorker |> Cloud.Choice |> Cloud.ToLocal
-            counter.Value |> shouldEqual (nParallel - 1)
-            return result
-        } |> run |> Choice.shouldEqual (Some (nParallel / 2))
+                let! result = Array.init nParallel seqWorker |> Cloud.Choice |> Cloud.ToLocal
+                counter.Value |> shouldEqual (nParallel - 1)
+                return result
+            } |> run |> Choice.shouldEqual (Some (nParallel / 2)))
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``2. Choice : to Sequential`` () =
-        // check sequential semantics are forced by deliberately
-        // making use of code that is not thread-safe.
-        cloud {
-            let counter = ref 0
-            let seqWorker i = cloud {
-                let init = !counter + 1
-                counter := init
-                do! Cloud.Sleep 10
-                !counter |> shouldEqual init
-                if i = 16 then
-                    return Some ()
-                else
-                    return None
-            }
+        repeat(fun () ->
+            // check sequential semantics are forced by deliberately
+            // making use of code that is not thread-safe.
+            cloud {
+                let counter = ref 0
+                let seqWorker i = cloud {
+                    let init = !counter + 1
+                    counter := init
+                    do! Cloud.Sleep 10
+                    !counter |> shouldEqual init
+                    if i = 16 then
+                        return Some ()
+                    else
+                        return None
+                }
 
-            let! result = Array.init 20 seqWorker |> Cloud.Choice |> Cloud.ToSequential
-            return result, !counter
-        } |> run |> Choice.shouldEqual (Some(), 17)
+                let! result = Array.init 20 seqWorker |> Cloud.Choice |> Cloud.ToSequential
+                return result, !counter
+            } |> run |> Choice.shouldEqual (Some(), 17))
 
     [<Test>]
     member __.``2. Choice : Distributed.tryFind`` () =
@@ -486,26 +488,26 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``2. Choice : to all workers`` () =
         if __.IsTargetWorkerSupported then
-            cloud {
-                let! workers = Cloud.GetAvailableWorkers()
-                let! counter = CloudAtom.New 0
-                let! _ = Cloud.Choice (cloud { let! _ = CloudAtom.Incr counter in return Option<int>.None })
-                let! value = counter.Value
-                return value = workers.Length
-            } |> run |> Choice.shouldEqual true
+            repeat(fun () ->
+                cloud {
+                    let! workers = Cloud.GetAvailableWorkers()
+                    let! counter = CloudAtom.New 0
+                    let! _ = Cloud.Choice (cloud { let! _ = CloudAtom.Incr counter in return Option<int>.None })
+                    let! value = counter.Value
+                    return value = workers.Length
+                } |> run |> Choice.shouldEqual true)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``2. Choice : to current worker`` () =
         if __.IsTargetWorkerSupported then
-            cloud {
-                let! thisWorker = Cloud.CurrentWorker
-                let! results = Cloud.Choice [(cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
-                return results.Value = thisWorker
-            } |> run |> Choice.shouldEqual true
+            repeat(fun () ->
+                cloud {
+                    let! thisWorker = Cloud.CurrentWorker
+                    let! results = Cloud.Choice [(cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
+                    return results.Value = thisWorker
+                } |> run |> Choice.shouldEqual true)
 
     [<Test>]
     member __.``2. Choice : to all workers in local semantics`` () =
@@ -517,78 +519,78 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``3. StartChild: task with success`` () =
-        cloud {
-            use! count = CloudAtom.New 0
-            let task = cloud {
-                do! Cloud.Sleep 1000
-                do! CloudAtom.Incr count
-                return! count.Value
-            }
-
-            let! ch = Cloud.StartChild(task)
-            let! value = count.Value
-            value |> shouldEqual 0
-            return! ch
-        } |> run |> Choice.shouldEqual 1
-
-    [<Test>]
-    [<Repeat(Config.repeats)>]
-    member __.``3. StartChild: task with exception`` () =
-        let count = CloudAtom.New 0 |> runLocal
-        cloud {
-            let task = cloud {
-                do! Cloud.Sleep 1000
-                do! CloudAtom.Incr count
-                return invalidOp "failure"
-            }
-
-            let! ch = Cloud.StartChild(task)
-            let! value = count.Value
-            value |> shouldEqual 0
-            do! Cloud.Sleep 100
-            // ensure no exception is raised in parent workflow
-            // before the child workflow is properly evaluated
-            do! CloudAtom.Incr count
-            return! ch
-        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
-
-        count.Value |> runLocal |> shouldEqual 2
-
-    [<Test>]
-    [<Repeat(Config.repeats)>]
-    member __.``3. StartChild: task with cancellation`` () =
-        let count = CloudAtom.New 0 |> runLocal
-        runCts(fun cts ->
+        repeat(fun () ->
             cloud {
+                use! count = CloudAtom.New 0
                 let task = cloud {
+                    do! Cloud.Sleep 1000
                     do! CloudAtom.Incr count
-                    do! Cloud.Sleep 3000
-                    do! CloudAtom.Incr count
+                    return! count.Value
                 }
 
                 let! ch = Cloud.StartChild(task)
-                do! Cloud.Sleep 1000
                 let! value = count.Value
-                value |> shouldEqual 1
-                cts.Cancel ()
+                value |> shouldEqual 0
                 return! ch
-        }) |> Choice.shouldFailwith<_, OperationCanceledException>
-
-        // ensure final increment was cancelled.
-        count.Value |> runLocal |> shouldEqual 1
+            } |> run |> Choice.shouldEqual 1)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
+    member __.``3. StartChild: task with exception`` () =
+        repeat(fun () ->
+            let count = CloudAtom.New 0 |> runLocal
+            cloud {
+                let task = cloud {
+                    do! Cloud.Sleep 1000
+                    do! CloudAtom.Incr count
+                    return invalidOp "failure"
+                }
+
+                let! ch = Cloud.StartChild(task)
+                let! value = count.Value
+                value |> shouldEqual 0
+                do! Cloud.Sleep 100
+                // ensure no exception is raised in parent workflow
+                // before the child workflow is properly evaluated
+                do! CloudAtom.Incr count
+                return! ch
+            } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
+
+            count.Value |> runLocal |> shouldEqual 2)
+
+    [<Test>]
+    member __.``3. StartChild: task with cancellation`` () =
+        repeat(fun () ->
+            let count = CloudAtom.New 0 |> runLocal
+            runCts(fun cts ->
+                cloud {
+                    let task = cloud {
+                        do! CloudAtom.Incr count
+                        do! Cloud.Sleep 3000
+                        do! CloudAtom.Incr count
+                    }
+
+                    let! ch = Cloud.StartChild(task)
+                    do! Cloud.Sleep 1000
+                    let! value = count.Value
+                    value |> shouldEqual 1
+                    cts.Cancel ()
+                    return! ch
+            }) |> Choice.shouldFailwith<_, OperationCanceledException>
+
+            // ensure final increment was cancelled.
+            count.Value |> runLocal |> shouldEqual 1)
+
+    [<Test>]
     member __.``3. StartChild: to current worker`` () =
         if __.IsTargetWorkerSupported then
-            cloud {
-                let! currentWorker = Cloud.CurrentWorker
-                let! ch = Cloud.StartChild(Cloud.CurrentWorker, target = currentWorker)
-                let! result = ch
-                return result = currentWorker
-            } |> run |> Choice.shouldEqual true
+            repeat(fun () ->
+                cloud {
+                    let! currentWorker = Cloud.CurrentWorker
+                    let! ch = Cloud.StartChild(Cloud.CurrentWorker, target = currentWorker)
+                    let! result = ch
+                    return result = currentWorker
+                } |> run |> Choice.shouldEqual true)
 
 
     [<Test>]

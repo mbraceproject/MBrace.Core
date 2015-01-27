@@ -28,6 +28,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
     let session = new RuntimeSession(nodes = 4)
 
     let run (wf : Cloud<'T>) = self.Run wf
+    let repeat f = repeat self.Repeats f
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -55,6 +56,11 @@ type ``SampleRuntime Parallelism Tests`` () as self =
 
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10
+#if DEBUG
+    override __.Repeats = 10
+#else
+    override __.Repeats = 3
+#endif
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
@@ -73,31 +79,31 @@ type ``SampleRuntime Parallelism Tests`` () as self =
         run (Cloud.GetTaskId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``Z5. Fault Tolerance : map/reduce`` () =
-        let runtime = session.Runtime
-        let t = runtime.RunAsTask(WordCount.run 20 WordCount.mapReduceRec)
-        do Thread.Sleep 4000
-        runtime.KillAllWorkers()
-        runtime.AppendWorkers 4
-        t.Result |> shouldEqual 100
+        repeat(fun () ->
+            let runtime = session.Runtime
+            let t = runtime.RunAsTask(WordCount.run 20 WordCount.mapReduceRec)
+            do Thread.Sleep 4000
+            runtime.KillAllWorkers()
+            runtime.AppendWorkers 4
+            t.Result |> shouldEqual 100)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``Z5. Fault Tolerance : Custom fault policy 1`` () =
-        let runtime = session.Runtime
-        let t = runtime.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
-        do Thread.Sleep 4000
-        runtime.KillAllWorkers()
-        runtime.AppendWorkers 4
-        Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>
+        repeat(fun () ->
+            let runtime = session.Runtime
+            let t = runtime.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+            do Thread.Sleep 4000
+            runtime.KillAllWorkers()
+            runtime.AppendWorkers 4
+            Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    [<Repeat(Config.repeats)>]
     member __.``Z5. Fault Tolerance : Custom fault policy 2`` () =
-        let runtime = session.Runtime
-        let t = runtime.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
-        do Thread.Sleep 4000
-        runtime.KillAllWorkers()
-        runtime.AppendWorkers 4
-        Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>
+        repeat(fun () ->
+            let runtime = session.Runtime
+            let t = runtime.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+            do Thread.Sleep 4000
+            runtime.KillAllWorkers()
+            runtime.AppendWorkers 4
+            Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>)

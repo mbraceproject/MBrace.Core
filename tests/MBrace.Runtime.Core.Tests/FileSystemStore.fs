@@ -40,3 +40,8 @@ type ``FileSystem Atom tests`` () =
     override __.Run wf = imem.Run wf
     override __.RunLocal wf = imem.Run wf
     override __.AtomClient = imem.StoreClient.Atom
+#if DEBUG
+    override __.Repeats = 10
+#else
+    override __.Repeats = 3
+#endif

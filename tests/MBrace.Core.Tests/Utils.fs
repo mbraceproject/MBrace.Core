@@ -11,15 +11,6 @@ open NUnit.Framework
 open MBrace.Continuation
 open MBrace.Store
 
-module Config =
-
-    [<Literal>]
-#if DEBUG
-    let repeats = 10
-#else
-    let repeats = 3
-#endif
-
 [<AutoOpen>]
 module Utils =
 
@@ -72,6 +63,10 @@ module Utils =
             | Choice2Of2 (:? 'Exn) -> ()
             | Choice2Of2 e -> raise e
 
+    /// repeats computation (test) for a given number of times
+    let repeat (maxRepeats : int) (f : unit -> unit) : unit =
+        for _ in 1 .. maxRepeats do f ()
+
     type Check =
         /// quick check methods with explicit type annotation
         static member QuickThrowOnFail<'T> (f : 'T -> unit, ?maxRuns) = 
@@ -84,7 +79,6 @@ module Utils =
             match maxRuns with
             | None -> Check.QuickThrowOnFailure f
             | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
-
 
     [<AutoSerializable(false)>]
     type private DisposableEnumerable<'T>(isDisposed : bool ref, ts : seq<'T>) =

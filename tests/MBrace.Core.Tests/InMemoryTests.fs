@@ -41,6 +41,11 @@ type ``ThreadPool Parallelism Tests`` () =
     override __.IsTargetWorkerSupported = false
     override __.Logs = logger :> _
     override __.FsCheckMaxTests = 100
+#if DEBUG
+    override __.Repeats = 10
+#else
+    override __.Repeats = 3
+#endif
 
 
 type ``InMemory CloudAtom Tests`` () =
@@ -51,6 +56,11 @@ type ``InMemory CloudAtom Tests`` () =
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow
     override __.AtomClient = imem.StoreClient.Atom
+#if DEBUG
+    override __.Repeats = 10
+#else
+    override __.Repeats = 3
+#endif
 
 type ``InMemory CloudChannel Tests`` () =
     inherit ``CloudChannel Tests`` (nParallel = 100)
