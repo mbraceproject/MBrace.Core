@@ -31,8 +31,8 @@ let csharpSummary = """
 """
 
 let runtimeSummary = """
-    The MBrace runtime core library contains the foundations for implementing
-    distributed runtime that support cloud workflows.
+    The MBrace runtime core library contains the foundations and test suites 
+    for implementing distributed runtime that support cloud workflows.
 """
 
 // --------------------------------------------------------------------------------------
@@ -201,11 +201,14 @@ Target "NuGet.Runtime.Core" (fun _ ->
                     ("FsPickler", "1.0.7")
                     ("Vagrant", "0.2.9")
                     ("Unquote", "2.2.2")
+                    ("NUnit", "2.6.3")
+                    ("FsCheck", "1.0.4")
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
                     yield! addAssembly @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
