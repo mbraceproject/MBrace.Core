@@ -7,8 +7,6 @@ open System.Runtime.Serialization
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
-open Swensen.Unquote
-
 open Nessos.Vagrant
 open Nessos.FsPickler
 
@@ -96,6 +94,10 @@ type CloudComputation internal () =
 and ICloudComputationConsumer<'R> =
     abstract Consume<'T> : Cloud<'T> -> 'R
 
+/// Abstract quotation evaluator library. Should be serializable.
+type IQuotationEvaluator =
+    abstract Eval : Quotations.Expr<'T> -> 'T
+
 /// Defines a typed container for a cloud workflow
 /// and related metadata.
 [<AbstractClass>]
@@ -118,13 +120,13 @@ type internal BareCloudComputation<'T> (name : string, workflow : Cloud<'T>, war
     override __.Expr = None
     override __.Functions = []
 
-type internal QuotedCloudComputation<'T>(name : string, expr : Expr<Cloud<'T>>, warnings, dependencies, functions) =
+type internal QuotedCloudComputation<'T>(name : string, expr : Expr<Cloud<'T>>, warnings, dependencies, functions, evaluator : IQuotationEvaluator) =
     inherit CloudComputation<'T> ()
 
     override __.Name = name
     override __.Dependencies = dependencies
     override __.Warnings = warnings
-    override __.Workflow = eval expr
+    override __.Workflow = evaluator.Eval expr
     override __.Expr = Some expr.Raw
     override __.Functions = functions
 

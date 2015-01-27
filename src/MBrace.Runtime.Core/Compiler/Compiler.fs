@@ -186,24 +186,34 @@ module private CompilerImpl =
 
 
 /// Provides methods for static checks and metadata gathering on cloud computations.
-type CloudCompiler =
+[<Sealed; AutoSerializable(false)>]
+type CloudCompiler private (quotationEvaluator : IQuotationEvaluator option) =
+
+    /// <summary>
+    ///     Initializes a cloud workflow compiler instance.
+    /// </summary>
+    /// <param name="quotationEvaluator">Quotation evaluator implementation. Defaults to no implementation used.</param>
+    static member Init(?quotationEvaluator) = new CloudCompiler(quotationEvaluator)
 
     /// <summary>
     ///     Compiles a quoted cloud computation into a cloud computation package.
     /// </summary>
     /// <param name="expr">Quoted cloud computation.</param>
     /// <param name="name">Optional computation name.</param>
-    static member Compile(expr : Expr<Cloud<'T>>, ?name : string) : CloudComputation<'T> =
-        let dependencies = VagrantRegistry.ComputeObjectDependencies expr
-        let name, functions, warnings = compile name expr
-        new QuotedCloudComputation<'T>(name, expr, warnings, dependencies, functions) :> CloudComputation<'T>
+    member __.Compile(expr : Expr<Cloud<'T>>, ?name : string) : CloudComputation<'T> =
+        match quotationEvaluator with
+        | None -> invalidOp "Compiler instance does not support compilation of quotations."
+        | Some qe ->
+            let dependencies = VagrantRegistry.ComputeObjectDependencies expr
+            let name, functions, warnings = compile name expr
+            new QuotedCloudComputation<'T>(name, expr, warnings, dependencies, functions, qe) :> CloudComputation<'T>
 
     /// <summary>
     ///     Compiles a cloud computation into a cloud computation package.
     /// </summary>
     /// <param name="workflow">Cloud workflow.</param>
     /// <param name="name">Optional computation name.</param>
-    static member Compile(workflow : Cloud<'T>, ?name : string) =
+    member __.Compile(workflow : Cloud<'T>, ?name : string) =
         let name = defaultArg name ""
         let dependencies = VagrantRegistry.ComputeObjectDependencies workflow
         new BareCloudComputation<'T>(name, workflow, [], dependencies) :> CloudComputation<'T>
