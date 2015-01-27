@@ -25,11 +25,11 @@ namespace MBrace.CSharp
     }
 
     /// <summary>
-    /// Cloud Unit.
+    /// Encapsulates a Cloud workflow that does not return a value.
     /// </summary>
-    public class CloudUnit : Cloud<Unit>
+    public class CloudAction : Cloud<Unit>
     {
-        internal CloudUnit(MBrace.Cloud<Unit> cloud) : base(cloud)
+        internal CloudAction(MBrace.Cloud<Unit> cloud) : base(cloud)
         {
             
         }

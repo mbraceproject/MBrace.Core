@@ -64,9 +64,9 @@ namespace MBrace.CSharp
         /// </summary>
         /// <param name="delay">Function to be wrapped.</param>
         /// <returns>A cloud workflow that will call the function once executed.</returns>
-        public static CloudUnit New(Func<CloudUnit> delay)
+        public static CloudAction New(Func<CloudAction> delay)
         {
-            return new CloudUnit(Builder.Delay(delay.AsFSharpFunc()));
+            return new CloudAction(Builder.Delay(delay.AsFSharpFunc()));
         }
 
         /// <summary>
@@ -103,7 +103,7 @@ namespace MBrace.CSharp
         /// <param name="workflow">Initial workflow to be executed.</param>
         /// <param name="continuation">Callback workflow to be executed on completion of the former.</param>
         /// <returns>A combined workflow.</returns>
-        public static Cloud<TResult> Then<TResult>(this CloudUnit workflow, Func<TResult> continuation)
+        public static Cloud<TResult> Then<TResult>(this CloudAction workflow, Func<TResult> continuation)
         {
             Func<Cloud<TResult>> f = () => continuation().AsCloud();
             return new Cloud<TResult>(Builder.Bind<Unit, TResult>(workflow.Computation, f.AsFSharpFunc()));
@@ -116,7 +116,7 @@ namespace MBrace.CSharp
         /// <param name="workflow">Initial workflow to be executed.</param>
         /// <param name="continuation">Callback workflow to be executed on completion of the former.</param>
         /// <returns>A combined workflow.</returns>
-        public static Cloud<TResult> Then<TResult>(this CloudUnit workflow, Func<Cloud<TResult>> continuation)
+        public static Cloud<TResult> Then<TResult>(this CloudAction workflow, Func<Cloud<TResult>> continuation)
         {
             return new Cloud<TResult>(Builder.Bind<Unit, TResult>(workflow.Computation, continuation.AsFSharpFunc()));
         }
