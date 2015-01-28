@@ -1,7 +1,7 @@
 ﻿namespace MBrace.Runtime.Tests
 
 open MBrace
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Compiler
 open MBrace.Tests
 
@@ -14,7 +14,7 @@ type UnquoteEvaluator () =
 [<TestFixture>]
 module ``Cloud Compiler Tests`` =
 
-    do VagrantRegistry.Initialize()
+    do VagabondRegistry.Initialize()
 
     let compiler = CloudCompiler.Init(new UnquoteEvaluator())
 

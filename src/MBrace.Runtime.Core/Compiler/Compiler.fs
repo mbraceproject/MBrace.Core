@@ -10,7 +10,7 @@ open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.ExprShape
 
 open Nessos.FsPickler
-open Nessos.Vagrant
+open Nessos.Vagabond
 
 open MBrace
 
@@ -18,7 +18,7 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Reflection
 open MBrace.Runtime.Utils.PrettyPrinters
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Compiler.Utils
 
 [<AutoOpen>]
@@ -204,7 +204,7 @@ type CloudCompiler private (quotationEvaluator : IQuotationEvaluator option) =
         match quotationEvaluator with
         | None -> invalidOp "Compiler instance does not support compilation of quotations."
         | Some qe ->
-            let dependencies = VagrantRegistry.ComputeObjectDependencies expr
+            let dependencies = VagabondRegistry.ComputeObjectDependencies expr
             let name, functions, warnings = compile name expr
             new QuotedCloudComputation<'T>(name, expr, warnings, dependencies, functions, qe) :> CloudComputation<'T>
 
@@ -215,5 +215,5 @@ type CloudCompiler private (quotationEvaluator : IQuotationEvaluator option) =
     /// <param name="name">Optional computation name.</param>
     member __.Compile(workflow : Cloud<'T>, ?name : string) =
         let name = defaultArg name ""
-        let dependencies = VagrantRegistry.ComputeObjectDependencies workflow
+        let dependencies = VagabondRegistry.ComputeObjectDependencies workflow
         new BareCloudComputation<'T>(name, workflow, [], dependencies) :> CloudComputation<'T>

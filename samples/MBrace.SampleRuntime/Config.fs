@@ -9,14 +9,14 @@ open Nessos.Thespian.Serialization
 open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
 
-open Nessos.Vagrant
+open Nessos.Vagabond
 
 open MBrace.Continuation
 open MBrace.Store
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
 
 let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
@@ -30,10 +30,10 @@ let private _initRuntimeState () =
     let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
     // vagrant initialization
-    VagrantRegistry.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
+    VagabondRegistry.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
 
     // thespian initialization
-    Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagrantRegistry.Pickler)
+    Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Pickler)
     Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
     TcpListenerPool.RegisterListener(IPEndPoint.any)
 
@@ -56,7 +56,7 @@ let getFileStoreConfiguration defaultDirectory =
     { 
         FileStore = fileStore ; 
         DefaultDirectory = defaultDirectory ; 
-        Serializer = VagrantRegistry.Serializer ; 
+        Serializer = VagabondRegistry.Serializer ; 
         Cache = Some inMemoryCache
     }
 

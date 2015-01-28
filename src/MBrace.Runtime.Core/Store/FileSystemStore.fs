@@ -11,7 +11,7 @@ open MBrace.Store
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 
 /// Store implementation that uses a filesystem as backend.
 [<Sealed; DataContract>]

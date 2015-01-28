@@ -200,7 +200,7 @@ Target "NuGet.Runtime.Core" (fun _ ->
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
                     ("FsPickler", "1.0.7")
-                    ("Vagrant", "0.2.9")
+                    ("Vagabond", "0.2.9")
                     ("NUnit", "2.6.3")
                     ("FsCheck", "1.0.4")
                 ]

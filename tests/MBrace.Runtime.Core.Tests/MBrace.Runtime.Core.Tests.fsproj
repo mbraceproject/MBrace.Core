@@ -135,8 +135,8 @@
   <Choose>
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
       <ItemGroup>
-        <Reference Include="Vagrant">
-          <HintPath>..\..\packages\Vagrant\lib\net45\Vagrant.dll</HintPath>
+        <Reference Include="Vagabond">
+          <HintPath>..\..\packages\Vagabond\lib\net45\Vagabond.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

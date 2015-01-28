@@ -1,31 +1,31 @@
-﻿namespace MBrace.Runtime.Vagrant
+﻿namespace MBrace.Runtime.Vagabond
 
 open System
 open System.Reflection
 open System.IO
 
 open Nessos.FsPickler
-open Nessos.Vagrant
+open Nessos.Vagabond
 
 open MBrace.Store
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
 open MBrace.Runtime.Serialization
 
-/// Vagrant state container
-type VagrantRegistry private () =
+/// Vagabond state container
+type VagabondRegistry private () =
 
-    static let vagrantInstance : Vagrant option ref = ref None
+    static let vagrantInstance : Vagabond option ref = ref None
     static let serializer : ISerializer option ref = ref None
 
     /// Gets the registered vagrant instance.
-    static member Vagrant =
+    static member Vagabond =
         match vagrantInstance.Value with
         | None -> invalidOp "No instance of vagrant has been registered."
         | Some instance -> instance
 
     /// Gets the registered FsPickler serializer instance.
-    static member Pickler = VagrantRegistry.Vagrant.Pickler
+    static member Pickler = VagabondRegistry.Vagabond.Pickler
 
     static member Serializer =
         match serializer.Value with
@@ -37,15 +37,15 @@ type VagrantRegistry private () =
     /// </summary>
     /// <param name="graph">Object graph.</param>
     static member ComputeObjectDependencies(graph : obj) =
-        VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true)
+        VagabondRegistry.Vagabond.ComputeObjectDependencies(graph, permitCompilation = true)
         |> List.map Utilities.ComputeAssemblyId
 
     /// <summary>
     ///     Initializes the registry using provided factory.
     /// </summary>
-    /// <param name="factory">Vagrant instance factory.</param>
+    /// <param name="factory">Vagabond instance factory.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
-    static member Initialize(factory : unit -> Vagrant, ?throwOnError) =
+    static member Initialize(factory : unit -> Vagabond, ?throwOnError) =
         lock vagrantInstance (fun () ->
             match vagrantInstance.Value with
             | None -> 
@@ -53,11 +53,11 @@ type VagrantRegistry private () =
                 vagrantInstance := Some v
                 serializer := Some (
                     { new FsPicklerStoreSerializer () with
-                        member __.Id = "VagrantSerializer"
-                        member __.Serializer = VagrantRegistry.Pickler :> _
+                        member __.Id = "VagabondSerializer"
+                        member __.Serializer = VagabondRegistry.Pickler :> _
                     } :> ISerializer)
 
-            | Some _ when defaultArg throwOnError true -> invalidOp "An instance of Vagrant has already been registered."
+            | Some _ when defaultArg throwOnError true -> invalidOp "An instance of Vagabond has already been registered."
             | Some _ -> ())
 
     /// <summary>
@@ -74,7 +74,7 @@ type VagrantRegistry private () =
             | Some ias -> yield! ias
         }
 
-        VagrantRegistry.Initialize((fun () ->
+        VagabondRegistry.Initialize((fun () ->
             let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| Guid.NewGuid())
             let dir = retry (RetryPolicy.Retry(3, delay = 0.2<sec>)) (fun () -> Directory.CreateDirectory cachePath)
-            Vagrant.Initialize(cacheDirectory = cachePath, ignoredAssemblies = ignoredAssemblies, ?loadPolicy = loadPolicy)), ?throwOnError = throwOnError)
+            Vagabond.Initialize(cacheDirectory = cachePath, ignoredAssemblies = ignoredAssemblies, ?loadPolicy = loadPolicy)), ?throwOnError = throwOnError)

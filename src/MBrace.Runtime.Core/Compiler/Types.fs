@@ -7,12 +7,12 @@ open System.Runtime.Serialization
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
-open Nessos.Vagrant
+open Nessos.Vagabond
 open Nessos.FsPickler
 
 open MBrace
 open MBrace.Runtime.Utils.PrettyPrinters
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
 
 /// Parsed version of Expr.CustomAttributes
@@ -88,7 +88,7 @@ type CloudComputation internal () =
     abstract Consume : ICloudComputationConsumer<'R> -> 'R
     
     /// Creates a typed serialization for the cloud computation
-    member self.GetPickle () = VagrantRegistry.Pickler.PickleTyped self
+    member self.GetPickle () = VagabondRegistry.Pickler.PickleTyped self
 
 /// Abstract cloud computation unpacker
 and ICloudComputationConsumer<'R> =

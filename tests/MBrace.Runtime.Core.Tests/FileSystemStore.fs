@@ -4,7 +4,7 @@ open NUnit.Framework
 
 open MBrace
 open MBrace.Runtime.InMemory
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
 open MBrace.Store
 open MBrace.Continuation
@@ -14,10 +14,10 @@ open MBrace.Tests
 
 [<AutoOpen>]
 module private Config =
-    do VagrantRegistry.Initialize(throwOnError = false)
+    do VagabondRegistry.Initialize(throwOnError = false)
 
     let fsStore = FileSystemStore.CreateSharedLocal()
-    let fsConfig = CloudFileStoreConfiguration.Create(fsStore, VagrantRegistry.Serializer, cache = InMemoryCache.Create())
+    let fsConfig = CloudFileStoreConfiguration.Create(fsStore, VagabondRegistry.Serializer, cache = InMemoryCache.Create())
 
 [<TestFixture>]
 type ``FileSystemStore Tests`` () =

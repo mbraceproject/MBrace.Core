@@ -13,12 +13,12 @@ open System.Threading
 open Nessos.Thespian
 open Nessos.Thespian.Remote.Protocols
 
-open Nessos.Vagrant
+open Nessos.Vagabond
 
 open MBrace
 open MBrace.Continuation
 open MBrace.Runtime
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.SampleRuntime
 
 /// Actor publication utilities
@@ -602,17 +602,17 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
         new ResourceFactory(ref)
 
 //
-// Assembly exporter : provides assembly uploading facility for Vagrant
+// Assembly exporter : provides assembly uploading facility for Vagabond
 //
 
 type private AssemblyExporterMsg =
     | RequestAssemblies of AssemblyId list * IReplyChannel<AssemblyPackage list> 
 
-/// Provides assembly uploading facility for Vagrant.
+/// Provides assembly uploading facility for Vagabond.
 type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     static member Init() =
         let behaviour (RequestAssemblies(ids, ch)) = async {
-            let packages = VagrantRegistry.Vagrant.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            let packages = VagabondRegistry.Vagabond.CreateAssemblyPackages(ids, includeAssemblyImage = true)
             do! ch.Reply packages
         }
 
@@ -636,7 +636,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
                     member __.PullAssemblies ids = exporter <!- fun ch -> RequestAssemblies(ids, ch)
             }
 
-        do! VagrantRegistry.Vagrant.ReceiveDependencies publisher
+        do! VagabondRegistry.Vagabond.ReceiveDependencies publisher
     }
 
     /// <summary>
@@ -644,7 +644,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     /// </summary>
     /// <param name="graph">Object graph to be analyzed</param>
     member __.ComputeDependencies (graph:'T) =
-        VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true)
+        VagabondRegistry.Vagabond.ComputeObjectDependencies(graph, permitCompilation = true)
         |> List.map Utilities.ComputeAssemblyId
 
 
