@@ -189,7 +189,7 @@ type RuntimeState =
         /// TCP endpoint used by the runtime state container
         IPEndPoint : System.Net.IPEndPoint
         /// Reference to the global task queue employed by the runtime
-        /// Queue contains pickled task and its vagrant dependency manifest
+        /// Queue contains pickled task and its vagabond dependency manifest
         TaskQueue : Queue<PickledTask, IWorkerRef>
         /// Reference to a Vagabond assembly exporting actor.
         AssemblyExporter : AssemblyExporter

@@ -25,11 +25,11 @@ let mutable private localCacheStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private fileStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private inMemoryCache = Unchecked.defaultof<IObjectCache>
 
-/// vagrant, fspickler and thespian state initializations
+/// vagabond, fspickler and thespian state initializations
 let private _initRuntimeState () =
     let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
-    // vagrant initialization
+    // vagabond initialization
     VagabondRegistry.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
 
     // thespian initialization

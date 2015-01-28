@@ -15,13 +15,13 @@ open MBrace.Runtime.Serialization
 /// Vagabond state container
 type VagabondRegistry private () =
 
-    static let vagrantInstance : Vagabond option ref = ref None
+    static let vagabondInstance : Vagabond option ref = ref None
     static let serializer : ISerializer option ref = ref None
 
-    /// Gets the registered vagrant instance.
+    /// Gets the registered vagabond instance.
     static member Vagabond =
-        match vagrantInstance.Value with
-        | None -> invalidOp "No instance of vagrant has been registered."
+        match vagabondInstance.Value with
+        | None -> invalidOp "No instance of vagabond has been registered."
         | Some instance -> instance
 
     /// Gets the registered FsPickler serializer instance.
@@ -29,7 +29,7 @@ type VagabondRegistry private () =
 
     static member Serializer =
         match serializer.Value with
-        | None -> invalidOp "No instance of vagrant has been registered."
+        | None -> invalidOp "No instance of vagabond has been registered."
         | Some s -> s
 
     /// <summary>
@@ -46,11 +46,11 @@ type VagabondRegistry private () =
     /// <param name="factory">Vagabond instance factory.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
     static member Initialize(factory : unit -> Vagabond, ?throwOnError) =
-        lock vagrantInstance (fun () ->
-            match vagrantInstance.Value with
+        lock vagabondInstance (fun () ->
+            match vagabondInstance.Value with
             | None -> 
                 let v = factory ()
-                vagrantInstance := Some v
+                vagabondInstance := Some v
                 serializer := Some (
                     { new FsPicklerStoreSerializer () with
                         member __.Id = "VagabondSerializer"
@@ -61,7 +61,7 @@ type VagabondRegistry private () =
             | Some _ -> ())
 
     /// <summary>
-    ///     Initializes vagrant using default settings.
+    ///     Initializes vagabond using default settings.
     /// </summary>
     /// <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
     /// <param name="loadPolicy">Specify a default assembly load policy.</param>
