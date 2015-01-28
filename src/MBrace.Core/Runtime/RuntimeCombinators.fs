@@ -162,7 +162,7 @@ type Cloud =
     }
 
     /// <summary>
-    ///     Returns a cloud computation that will execute the given computation on every available worker
+    ///     Returns a cloud computation that will execute the given computation on the corresponding worker,
     ///     possibly in parallel and will return when any of the supplied computations
     ///     have returned a successful value or if all of them fail to succeed. 
     ///     If a computation succeeds the rest of them are canceled.
