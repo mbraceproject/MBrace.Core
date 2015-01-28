@@ -57,6 +57,7 @@
   -->
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Continuation\Utils.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\Trampoline.fs" />
@@ -73,7 +74,6 @@
     <Compile Include="Store\CloudFile.fs" />
     <Compile Include="Store\CloudRef.fs" />
     <Compile Include="Store\CloudSequence.fs" />
-    <Compile Include="Store\StoreClient.fs" />
     <Compile Include="Runtime\Logging.fs" />
     <Compile Include="Runtime\FaultPolicy.fs" />
     <Compile Include="Runtime\RuntimeProvider.fs" />
@@ -81,10 +81,11 @@
     <Compile Include="Runtime\InMemory\InMemoryStore.fs" />
     <Compile Include="Runtime\InMemory\InMemoryCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryRuntimeProvider.fs" />
-    <Compile Include="Runtime\InMemory\InMemoryRuntime.fs" />
     <Compile Include="Workflows\Common.fs" />
     <Compile Include="Workflows\Sequential.fs" />
     <Compile Include="Workflows\Distributed.fs" />
+    <Compile Include="Client\StoreClient.fs" />
+    <Compile Include="Client\LocalRuntime.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

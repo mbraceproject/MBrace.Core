@@ -9,10 +9,10 @@ open Nessos.Thespian.Remote
 
 open MBrace
 open MBrace.Store
+open MBrace.Client
 open MBrace.Continuation
 open MBrace.Runtime
-open MBrace.Runtime.InMemory
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Compiler
 open MBrace.SampleRuntime.Tasks
 open MBrace.SampleRuntime.RuntimeProvider
@@ -22,15 +22,16 @@ open MBrace.SampleRuntime.RuntimeProvider
 /// BASE64 serialized argument parsing schema
 module internal Argument =
     let ofRuntime (runtime : RuntimeState) =
-        let pickle = VagrantRegistry.Pickler.Pickle(runtime)
+        let pickle = VagabondRegistry.Pickler.Pickle(runtime)
         System.Convert.ToBase64String pickle
 
     let toRuntime (args : string []) =
         let bytes = System.Convert.FromBase64String(args.[0])
-        VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
+        VagabondRegistry.Pickler.UnPickle<RuntimeState> bytes
 
 /// MBrace Sample runtime client instance.
 type MBraceRuntime private () =
+    static let compiler = CloudCompiler.Init()
     static let mutable exe = None
     static let initWorkers (target : RuntimeState) (count : int) =
         if count < 1 then invalidArg "workerCount" "must be positive."
@@ -71,7 +72,7 @@ type MBraceRuntime private () =
         let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().GetRandomDirectoryName())
         let atomConfig    = CloudAtomConfiguration.Create(atomProvider, atomProvider.CreateUniqueContainerName())
         let channelConfig = CloudChannelConfiguration.Create(channelProvider, channelProvider.CreateUniqueContainerName())
-        InMemoryRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
+        LocalRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
 
     /// <summary>
     ///     Asynchronously execute a workflow on the distributed runtime.
@@ -81,7 +82,7 @@ type MBraceRuntime private () =
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
-        let computation = CloudCompiler.Compile workflow
+        let computation = compiler.Compile workflow
         let processInfo = createProcessInfo ()
 
         let! cts = state.ResourceFactory.RequestCancellationTokenSource()

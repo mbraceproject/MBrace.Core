@@ -8,7 +8,7 @@ open NUnit.Framework
 open MBrace
 open MBrace.Continuation
 open MBrace.Store
-open MBrace.Runtime.InMemory
+open MBrace.Client
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
@@ -243,7 +243,7 @@ type ``FileStore Tests`` (nParallel : int) as self =
 type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
     inherit ``FileStore Tests`` (nParallel = 100)
 
-    let imem = InMemoryRuntime.Create(fileConfig = config)
+    let imem = LocalRuntime.Create(fileConfig = config)
 
     let fileStore = config.FileStore
     let testDirectory = fileStore.GetRandomDirectoryName()

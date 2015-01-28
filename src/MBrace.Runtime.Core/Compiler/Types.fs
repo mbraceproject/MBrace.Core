@@ -7,14 +7,12 @@ open System.Runtime.Serialization
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
-open Swensen.Unquote
-
-open Nessos.Vagrant
+open Nessos.Vagabond
 open Nessos.FsPickler
 
 open MBrace
 open MBrace.Runtime.Utils.PrettyPrinters
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
 
 /// Parsed version of Expr.CustomAttributes
@@ -90,11 +88,15 @@ type CloudComputation internal () =
     abstract Consume : ICloudComputationConsumer<'R> -> 'R
     
     /// Creates a typed serialization for the cloud computation
-    member self.GetPickle () = VagrantRegistry.Pickler.PickleTyped self
+    member self.GetPickle () = VagabondRegistry.Pickler.PickleTyped self
 
 /// Abstract cloud computation unpacker
 and ICloudComputationConsumer<'R> =
     abstract Consume<'T> : Cloud<'T> -> 'R
+
+/// Abstract quotation evaluator library. Should be serializable.
+type IQuotationEvaluator =
+    abstract Eval : Quotations.Expr<'T> -> 'T
 
 /// Defines a typed container for a cloud workflow
 /// and related metadata.
@@ -118,13 +120,13 @@ type internal BareCloudComputation<'T> (name : string, workflow : Cloud<'T>, war
     override __.Expr = None
     override __.Functions = []
 
-type internal QuotedCloudComputation<'T>(name : string, expr : Expr<Cloud<'T>>, warnings, dependencies, functions) =
+type internal QuotedCloudComputation<'T>(name : string, expr : Expr<Cloud<'T>>, warnings, dependencies, functions, evaluator : IQuotationEvaluator) =
     inherit CloudComputation<'T> ()
 
     override __.Name = name
     override __.Dependencies = dependencies
     override __.Warnings = warnings
-    override __.Workflow = eval expr
+    override __.Workflow = evaluator.Eval expr
     override __.Expr = Some expr.Raw
     override __.Functions = functions
 

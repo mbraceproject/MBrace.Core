@@ -6,6 +6,7 @@ open NUnit.Framework
 
 open MBrace
 open MBrace.Store
+open MBrace.Client
 
 [<TestFixture; AbstractClass>]
 type ``CloudAtom Tests`` (nParallel : int) as self =

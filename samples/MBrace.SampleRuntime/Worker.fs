@@ -4,7 +4,7 @@ open System.Diagnostics
 open System.Threading
 
 open MBrace.Runtime
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.SampleRuntime.Actors
 open MBrace.SampleRuntime.Tasks
 open MBrace.SampleRuntime.RuntimeProvider
@@ -86,7 +86,7 @@ let workerManager (cts: CancellationTokenSource) (msg: WorkerManager) =
         | SubscribeToRuntime(rc, runtimeStateStr, maxConcurrentTasks) ->
             let runtimeState =
                 let bytes = System.Convert.FromBase64String(runtimeStateStr)
-                VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
+                VagabondRegistry.Pickler.UnPickle<RuntimeState> bytes
 
             Async.Start(initWorker runtimeState maxConcurrentTasks, cts.Token)
             try do! rc.Reply() with e -> printfn "Failed to confirm worker subscription to client: %O" e

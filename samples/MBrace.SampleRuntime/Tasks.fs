@@ -10,14 +10,14 @@ open System
 open System.Threading.Tasks
 
 open Nessos.FsPickler
-open Nessos.Vagrant
+open Nessos.Vagabond
 
 open MBrace
 open MBrace.Continuation
 open MBrace.Store
 open MBrace.Runtime
 open MBrace.Runtime.Serialization
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.SampleRuntime.Actors
 
 // Tasks are cloud workflows that have been attached to continuations.
@@ -154,7 +154,7 @@ with
     /// <summary>
     ///     Create a pickled task out of given cloud workflow and continuations
     /// </summary>
-    /// <param name="dependencies">Vagrant dependency manifest.</param>
+    /// <param name="dependencies">Vagabond dependency manifest.</param>
     /// <param name="cts">Distributed cancellation token source.</param>
     /// <param name="sc">Success continuation</param>
     /// <param name="ec">Exception continuation</param>
@@ -177,7 +177,7 @@ with
                 CancellationTokenSource = cts
             }
 
-        let taskp = VagrantRegistry.Pickler.PickleTyped task
+        let taskp = VagabondRegistry.Pickler.PickleTyped task
 
         { Task = taskp ; Dependencies = dependencies ; Target = worker }
 
@@ -189,9 +189,9 @@ type RuntimeState =
         /// TCP endpoint used by the runtime state container
         IPEndPoint : System.Net.IPEndPoint
         /// Reference to the global task queue employed by the runtime
-        /// Queue contains pickled task and its vagrant dependency manifest
+        /// Queue contains pickled task and its vagabond dependency manifest
         TaskQueue : Queue<PickledTask, IWorkerRef>
-        /// Reference to a Vagrant assembly exporting actor.
+        /// Reference to a Vagabond assembly exporting actor.
         AssemblyExporter : AssemblyExporter
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
@@ -228,7 +228,7 @@ with
     /// <summary>
     ///     Create a pickled task out of given cloud workflow and continuations
     /// </summary>
-    /// <param name="dependencies">Vagrant dependency manifest.</param>
+    /// <param name="dependencies">Vagabond dependency manifest.</param>
     /// <param name="cts">Distributed cancellation token source.</param>
     /// <param name="sc">Success continuation</param>
     /// <param name="ec">Exception continuation</param>
@@ -272,6 +272,6 @@ with
         | None -> return None
         | Some (pt, faultCount, leaseMonitor) -> 
             do! rt.AssemblyExporter.LoadDependencies pt.Dependencies
-            let task = VagrantRegistry.Pickler.UnPickleTyped pt.Task
+            let task = VagabondRegistry.Pickler.UnPickleTyped pt.Task
             return Some (task, pt.Dependencies, faultCount, leaseMonitor)
     }

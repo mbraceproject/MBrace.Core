@@ -1,2 +1,2 @@
-#### 0.0.1-prerelease
-* experimental pre-release.
+#### 0.9.0-alpha
+* MBrace.Core initial prerelease.
