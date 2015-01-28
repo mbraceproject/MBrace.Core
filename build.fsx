@@ -23,7 +23,7 @@ let tags = "F# cloud mapreduce distributed"
 
 let coreSummary = """
     The MBrace core library contains all cloud workflow essentials,
-    libraries and local testing tools for authoring distributed code.
+    libraries and local execution tools for authoring distributed code.
 """
 
 let csharpSummary = """
