@@ -1,6 +1,8 @@
 ## MBrace.Core
 
-This repository contains the foundations for the MBrace programming model and runtimes:
+This repository contains the foundations for the MBrace programming model and runtimes.
+
+Packages of the library are available on Nuget [[1](http://www.nuget.org/packages/MBrace.Core),[2](http://www.nuget.org/packages/MBrace.Runtime.Core)].
 
 ### Contents
 
