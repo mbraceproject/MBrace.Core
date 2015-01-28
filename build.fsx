@@ -139,7 +139,7 @@ Target "NuGet.Core" (fun _ ->
             Authors = authors
             Project = "MBrace.Core"
             Summary = coreSummary
-            Description = description
+            Description = coreSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -162,7 +162,7 @@ Target "NuGet.CSharp" (fun _ ->
             Authors = authors
             Project = "MBrace.CSharp"
             Summary = csharpSummary
-            Description = description
+            Description = csharpSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -189,7 +189,7 @@ Target "NuGet.Runtime.Core" (fun _ ->
             Authors = authors
             Project = "MBrace.Runtime.Core"
             Summary = runtimeSummary
-            Description = description
+            Description = runtimeSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -200,7 +200,7 @@ Target "NuGet.Runtime.Core" (fun _ ->
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
                     ("FsPickler", "1.0.7")
-                    ("Vagabond", "0.2.9")
+                    ("Vagabond", "0.3.0")
                     ("NUnit", "2.6.3")
                     ("FsCheck", "1.0.4")
                 ]
@@ -251,7 +251,7 @@ Target "Help" (fun _ -> PrintTargets() )
 "Build"
   ==> "PrepareRelease"
   ==> "NuGet.Core"
-  ==> "NuGet.CSharp"
+//  ==> "NuGet.CSharp" // disable for now
   ==> "NuGet.Runtime.Core"
   ==> "Nuget"
   ==> "Release"
