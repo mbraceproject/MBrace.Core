@@ -237,7 +237,9 @@ type Cloud =
     }
 
     /// <summary>
-    ///     Gets the current scheduling context.
+    ///     Gets the current scheduling context for the workflow
+    ///     which indicates if parallel jobs are scheduled using
+    ///     Distribution, Thread parallelism or Sequentially.
     /// </summary>
     static member GetSchedulingContext () = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
@@ -286,42 +288,3 @@ type Cloud =
         let runtime' = runtime.WithFaultPolicy policy
         return! Cloud.SetResource(workflow, runtime')
     }
-
-
-[<AutoOpen>]
-module CloudCombinators =
-        
-    /// <summary>
-    ///     Combines two cloud computations into one that executes them in parallel.
-    /// </summary>
-    /// <param name="left">The first cloud computation.</param>
-    /// <param name="right">The second cloud computation.</param>
-    let (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
-        cloud { 
-            let! result = 
-                    Cloud.Parallel<obj> [| cloud { let! value = left in return value :> obj }; 
-                                            cloud { let! value = right in return value :> obj } |]
-            return (result.[0] :?> 'a, result.[1] :?> 'b) 
-        }
-
-    /// <summary>
-    ///     Combines two cloud computations into one that executes them in parallel and returns the
-    ///     result of the first computation that completes and cancels the other.
-    /// </summary>
-    /// <param name="left">The first cloud computation.</param>
-    /// <param name="right">The second cloud computation.</param>
-    let (<|>) (left : Cloud<'a>) (right : Cloud<'a>) : Cloud<'a> =
-        cloud {
-            let! result = 
-                Cloud.Choice [| cloud { let! value = left  in return Some (value) }
-                                cloud { let! value = right in return Some (value) }  |]
-
-            return result.Value
-        }
-
-    /// <summary>
-    ///     Combines two cloud computations into one that executes them sequentially.
-    /// </summary>
-    /// <param name="left">The first cloud computation.</param>
-    /// <param name="right">The second cloud computation.</param>
-    let (<.>) first second = cloud { let! v1 = first in let! v2 = second in return (v1, v2) }
