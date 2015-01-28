@@ -171,6 +171,7 @@ Target "NuGet.CSharp" (fun _ ->
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = 
                 [
+                    ("FSharp.Core", "3.1.2.1")
                     ("MBrace.Core", RequireExactly release.NugetVersion)
                 ]
             Publish = hasBuildParam "nugetkey" 
