@@ -7,6 +7,7 @@ open NUnit.Framework
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Workflows
 open MBrace.Store
 open MBrace.Client
 

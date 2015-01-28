@@ -8,6 +8,7 @@ open NUnit.Framework
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Workflows
 open MBrace.Runtime
 open MBrace.Tests
 open MBrace.SampleRuntime

@@ -3,7 +3,7 @@
 open System.Collections.Generic
 
 open MBrace
-open MBrace.Continuation
+open MBrace.Workflows
 
 type DummyDisposable() =
     let isDisposed = ref false
