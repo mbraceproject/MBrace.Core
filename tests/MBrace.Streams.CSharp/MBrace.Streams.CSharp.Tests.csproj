@@ -7,8 +7,8 @@
     <ProjectGuid>{82E2F911-4563-4F05-9451-F2DD73622BE1}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>MBrace.Streams.CSharp</RootNamespace>
-    <AssemblyName>MBrace.Streams.CSharp</AssemblyName>
+    <RootNamespace>MBrace.Streams.CSharp.Tests</RootNamespace>
+    <AssemblyName>MBrace.Streams.CSharp.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

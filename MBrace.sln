@@ -58,7 +58,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Streams.CSharp", "sr
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Streams.Tests", "tests\MBrace.Streams.Tests\MBrace.Streams.Tests.fsproj", "{7D520BCA-F23A-498D-A49B-8E42AB6C60F3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Streams.CSharp", "tests\MBrace.Streams.CSharp\MBrace.Streams.CSharp.csproj", "{82E2F911-4563-4F05-9451-F2DD73622BE1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Streams.CSharp.Tests", "tests\MBrace.Streams.CSharp\MBrace.Streams.CSharp.Tests.csproj", "{82E2F911-4563-4F05-9451-F2DD73622BE1}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Streams.Samples", "samples\MBrace.Streams.Samples\MBrace.Streams.Samples.fsproj", "{9120EEF1-157A-4780-8BDF-DDE836B29DE9}"
 EndProject
