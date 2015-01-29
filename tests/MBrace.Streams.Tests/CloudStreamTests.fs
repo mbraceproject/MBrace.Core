@@ -14,6 +14,8 @@ open MBrace.Client
 
 
 type Check =
+    static member QuickThrowOnFailureConfig(maxNumber) = { Config.QuickThrowOnFailure with MaxTest = maxNumber }
+
     /// quick check methods with explicit type annotation
     static member QuickThrowOnFail<'T> (f : 'T -> unit, ?maxNumber) = 
         match maxNumber with
