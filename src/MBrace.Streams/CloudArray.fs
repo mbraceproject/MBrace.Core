@@ -182,13 +182,8 @@ type CloudArray =
     /// <param name="partitionSize">Approximate partition size in bytes.</param>
     static member New(values : seq<'T> , ?directory : string, ?partitionSize, ?serializer : ISerializer) = cloud {
         let! fs = Cloud.GetResource<CloudFileStoreConfiguration>()
-        let! serializer = cloud {
-            match serializer with
-            | None -> return! Cloud.GetResource<ISerializer> ()
-            | Some s -> return s
-        }
-
+        
         let directory = match directory with None -> fs.DefaultDirectory | Some d -> d
 
-        return! Cloud.OfAsync <| CloudArray<'T>.CreateAsync(values, directory, fs.FileStore, serializer, ?partitionSize = partitionSize)
+        return! Cloud.OfAsync <| CloudArray<'T>.CreateAsync(values, directory, fs.FileStore, fs.Serializer, ?partitionSize = partitionSize)
     }

@@ -1,12 +1,14 @@
 ﻿namespace System
 open System.Reflection
 
-[<assembly: AssemblyTitleAttribute("MBrace.Streams")>]
-[<assembly: AssemblyProductAttribute("MBrace.Streams")>]
+[<assembly: AssemblyTitleAttribute("MBrace.Core")>]
+[<assembly: AssemblyProductAttribute("MBrace.Core")>]
 [<assembly: AssemblyCompanyAttribute("Nessos Information Technologies")>]
-[<assembly: AssemblyVersionAttribute("0.3.0")>]
-[<assembly: AssemblyFileVersionAttribute("0.3.0")>]
+[<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")>]
+[<assembly: AssemblyTrademarkAttribute("MBrace")>]
+[<assembly: AssemblyVersionAttribute("0.9.0")>]
+[<assembly: AssemblyFileVersionAttribute("0.9.0")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "0.3.0"
+    let [<Literal>] Version = "0.9.0"
