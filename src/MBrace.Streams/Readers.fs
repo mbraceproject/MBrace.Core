@@ -2,7 +2,7 @@
     open System
     open System.IO
 
-    [<AbstractClass; Sealed>]
+    [<AbstractClass; Sealed; CompiledName("FSharpCloudFileReader")>]
     /// Common readers for a CloudFile.
     type CloudFile =
         /// Read lazily the given stream as a sequence of lines.
