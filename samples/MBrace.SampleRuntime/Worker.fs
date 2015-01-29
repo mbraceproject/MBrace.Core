@@ -86,7 +86,7 @@ let workerManager (cts: CancellationTokenSource) (msg: WorkerManager) =
         | SubscribeToRuntime(rc, runtimeStateStr, maxConcurrentTasks) ->
             let runtimeState =
                 let bytes = System.Convert.FromBase64String(runtimeStateStr)
-                VagabondRegistry.Pickler.UnPickle<RuntimeState> bytes
+                Config.getSerializer().Pickler.UnPickle<RuntimeState> bytes
 
             Async.Start(initWorker runtimeState maxConcurrentTasks, cts.Token)
             try do! rc.Reply() with e -> printfn "Failed to confirm worker subscription to client: %O" e

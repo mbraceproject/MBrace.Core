@@ -177,7 +177,7 @@ with
                 CancellationTokenSource = cts
             }
 
-        let taskp = VagabondRegistry.Pickler.PickleTyped task
+        let taskp = Config.getSerializer().Pickler.PickleTyped task
 
         { Task = taskp ; Dependencies = dependencies ; Target = worker }
 
@@ -272,6 +272,6 @@ with
         | None -> return None
         | Some (pt, faultCount, leaseMonitor) -> 
             do! rt.AssemblyExporter.LoadDependencies pt.Dependencies
-            let task = VagabondRegistry.Pickler.UnPickleTyped pt.Task
+            let task = Config.getSerializer().Pickler.UnPickleTyped pt.Task
             return Some (task, pt.Dependencies, faultCount, leaseMonitor)
     }

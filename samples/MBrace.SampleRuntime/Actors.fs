@@ -612,7 +612,7 @@ type private AssemblyExporterMsg =
 type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     static member Init() =
         let behaviour (RequestAssemblies(ids, ch)) = async {
-            let packages = VagabondRegistry.Vagabond.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            let packages = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
             do! ch.Reply packages
         }
 
@@ -636,7 +636,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
                     member __.PullAssemblies ids = exporter <!- fun ch -> RequestAssemblies(ids, ch)
             }
 
-        do! VagabondRegistry.Vagabond.ReceiveDependencies publisher
+        do! VagabondRegistry.Instance.ReceiveDependencies publisher
     }
 
     /// <summary>
@@ -644,7 +644,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     /// </summary>
     /// <param name="graph">Object graph to be analyzed</param>
     member __.ComputeDependencies (graph:'T) =
-        VagabondRegistry.Vagabond.ComputeObjectDependencies(graph, permitCompilation = true)
+        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true)
         |> List.map Utilities.ComputeAssemblyId
 
 

@@ -86,9 +86,6 @@ type CloudComputation internal () =
     abstract Functions : FunctionInfo list
     /// Exitentially unpack the cloud contents.
     abstract Consume : ICloudComputationConsumer<'R> -> 'R
-    
-    /// Creates a typed serialization for the cloud computation
-    member self.GetPickle () = VagabondRegistry.Pickler.PickleTyped self
 
 /// Abstract cloud computation unpacker
 and ICloudComputationConsumer<'R> =

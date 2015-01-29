@@ -5,6 +5,7 @@ open NUnit.Framework
 open MBrace
 open MBrace.Runtime.InMemory
 open MBrace.Runtime.Vagabond
+open MBrace.Runtime.Serialization
 open MBrace.Runtime.Store
 open MBrace.Store
 open MBrace.Continuation
@@ -17,7 +18,8 @@ module private Config =
     do VagabondRegistry.Initialize(throwOnError = false)
 
     let fsStore = FileSystemStore.CreateSharedLocal()
-    let fsConfig = CloudFileStoreConfiguration.Create(fsStore, VagabondRegistry.Serializer, cache = InMemoryCache.Create())
+    let serializer = new FsPicklerBinaryStoreSerializer()
+    let fsConfig = CloudFileStoreConfiguration.Create(fsStore, serializer, cache = InMemoryCache.Create())
 
 [<TestFixture>]
 type ``FileSystemStore Tests`` () =

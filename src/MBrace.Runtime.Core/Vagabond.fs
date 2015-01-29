@@ -7,37 +7,26 @@ open System.IO
 open Nessos.FsPickler
 open Nessos.Vagabond
 
-open MBrace.Store
-open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
-open MBrace.Runtime.Serialization
 
 /// Vagabond state container
 type VagabondRegistry private () =
 
-    static let vagabondInstance : Vagabond option ref = ref None
-    static let serializer : ISerializer option ref = ref None
+    static let lockObj = obj()
+    static let mutable instance : Vagabond option = None
 
     /// Gets the registered vagabond instance.
-    static member Vagabond =
-        match vagabondInstance.Value with
+    static member Instance =
+        match instance with
         | None -> invalidOp "No instance of vagabond has been registered."
         | Some instance -> instance
-
-    /// Gets the registered FsPickler serializer instance.
-    static member Pickler = VagabondRegistry.Vagabond.Pickler
-
-    static member Serializer =
-        match serializer.Value with
-        | None -> invalidOp "No instance of vagabond has been registered."
-        | Some s -> s
 
     /// <summary>
     ///     Computes assembly dependencies for given serializable object graph.
     /// </summary>
     /// <param name="graph">Object graph.</param>
     static member ComputeObjectDependencies(graph : obj) =
-        VagabondRegistry.Vagabond.ComputeObjectDependencies(graph, permitCompilation = true)
+        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true)
         |> List.map Utilities.ComputeAssemblyId
 
     /// <summary>
@@ -46,17 +35,9 @@ type VagabondRegistry private () =
     /// <param name="factory">Vagabond instance factory.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
     static member Initialize(factory : unit -> Vagabond, ?throwOnError) =
-        lock vagabondInstance (fun () ->
-            match vagabondInstance.Value with
-            | None -> 
-                let v = factory ()
-                vagabondInstance := Some v
-                serializer := Some (
-                    { new FsPicklerStoreSerializer () with
-                        member __.Id = "VagabondSerializer"
-                        member __.Serializer = VagabondRegistry.Pickler :> _
-                    } :> ISerializer)
-
+        lock lockObj (fun () ->
+            match instance with
+            | None -> instance <- Some <| factory ()
             | Some _ when defaultArg throwOnError true -> invalidOp "An instance of Vagabond has already been registered."
             | Some _ -> ())
 

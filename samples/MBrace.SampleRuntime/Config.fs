@@ -24,6 +24,7 @@ let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 let mutable private localCacheStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private fileStore = Unchecked.defaultof<ICloudFileStore>
 let mutable private inMemoryCache = Unchecked.defaultof<IObjectCache>
+let mutable private serializer = Unchecked.defaultof<FsPicklerStoreSerializer>
 
 /// vagabond, fspickler and thespian state initializations
 let private _initRuntimeState () =
@@ -31,9 +32,10 @@ let private _initRuntimeState () =
 
     // vagabond initialization
     VagabondRegistry.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
+    serializer <- new FsPicklerBinaryStoreSerializer()
 
     // thespian initialization
-    Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Pickler)
+    Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(serializer.Pickler)
     Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
     TcpListenerPool.RegisterListener(IPEndPoint.any)
 
@@ -48,6 +50,7 @@ let private _initRuntimeState () =
 let initRuntimeState = runOnce _initRuntimeState
 /// returns the local ip endpoint used by Thespian
 let getLocalEndpoint () = initRuntimeState () ; TcpListenerPool.GetListener().LocalEndPoint
+let getSerializer () = initRuntimeState () ; serializer
 let getAddress() = initRuntimeState () ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
 
 /// initializes store configuration for runtime
@@ -56,7 +59,7 @@ let getFileStoreConfiguration defaultDirectory =
     { 
         FileStore = fileStore ; 
         DefaultDirectory = defaultDirectory ; 
-        Serializer = VagabondRegistry.Serializer ; 
+        Serializer = serializer :> ISerializer ; 
         Cache = Some inMemoryCache
     }
 

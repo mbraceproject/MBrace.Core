@@ -9,3 +9,4 @@ nuget FSharp.Core
 nuget FsCheck
 nuget Unquote
 nuget Vagabond
+nuget FsPickler.Json
