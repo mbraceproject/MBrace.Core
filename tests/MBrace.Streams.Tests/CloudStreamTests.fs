@@ -186,7 +186,7 @@
                 | None -> ()
             
                 //let ver = typeof<MBrace>.Assembly.GetName().Version.ToString(3)
-                MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../lib/MBrace.SampleRuntime.exe")
+                MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.SampleRuntime.exe")
                 let runtime = MBraceRuntime.InitLocal(4)
                 currentRuntime := Some runtime)
 

@@ -30,7 +30,7 @@ namespace MBrace.Streams.CSharp.Tests
         public void SetUp()
         { 
             var path = Path.GetDirectoryName(this.GetFileDir());
-            MBraceRuntime.WorkerExecutable = Path.Combine(path, "../../lib/MBrace.SampleRuntime.exe");
+            MBraceRuntime.WorkerExecutable = Path.Combine(path, "../../bin/MBrace.SampleRuntime.exe");
             rt = MBraceRuntime.InitLocal(3);
         }
 
