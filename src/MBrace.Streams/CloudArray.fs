@@ -10,6 +10,8 @@ open MBrace
 open Nessos.Streams
 open System.Runtime.Serialization
 
+#nowarn "0444"
+
 // TODO : Persist CloudArray Descriptor in store.
 // TODO : Implement CloudArray.FromPath
 // TODO : Implement proper dispose.
@@ -25,25 +27,23 @@ type internal Partition<'T> =
     val mutable private startIndex : int64
     [<DataMember(Name = "EndIndex")>]
     val mutable private endIndex : int64
-    [<DataMember(Name = "FileStore")>]
-    val mutable private fileStore : ICloudFileStore
     [<DataMember(Name = "Serializer")>]
-    val mutable private serializer : ISerializer
+    val mutable private serializer : ISerializer option
 
-    internal new (path, startIndex, endIndex, fileStore, serializer) =
-        { path = path ; startIndex = startIndex ; endIndex = endIndex ; serializer = serializer ; fileStore = fileStore }
+    internal new (path, startIndex, endIndex, serializer) =
+        { path = path ; startIndex = startIndex ; endIndex = endIndex ; serializer = serializer }
     
-    member private p.GetSequence() = 
+    member private p.GetValueFromStore(config : CloudFileStoreConfiguration) = 
         async {
-            let! stream = p.fileStore.BeginRead p.path
-            return p.serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
-        } |> Async.RunSync
+            let serializer = match p.serializer with Some s -> s | None -> config.Serializer
+            let! stream = config.FileStore.BeginRead p.path
+            return serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
+        } 
 
     override p.ToString () = sprintf "Partition[%d,%d] %s" p.startIndex p.endIndex p.path
     member private p.StructuredFormatDisplay = p.ToString()
 
     member internal p.Serializer = p.serializer
-    member internal p.FileStore  = p.fileStore
 
     /// Path to Partition in store.
     member p.Path = p.path
@@ -54,25 +54,35 @@ type internal Partition<'T> =
     /// Index of the last element.
     member p.EndIndex = p.endIndex
     /// Read the entire partition.
-    member p.ToArray() =
+    member p.ToArray() = cloud {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let array = Array.zeroCreate<'T> p.Length
-        let mutable i = 0
-        for item in p.GetSequence() do
-            array.[i] <- item
-            i <- i + 1
-        array
+        let i = ref 0
+        let! s = Cloud.OfAsync <| p.GetValueFromStore(config)
+        for item in s do
+            array.[!i] <- item
+            incr i
+        return array
+    }
+    /// Lazily read the partition.
+    member p.ToEnumerable() = cloud {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        return! Cloud.OfAsync <| p.GetValueFromStore(config)
+    }
 
     member internal p.OffsetBy(offset : int64) =
-        new Partition<'T>(p.Path, p.StartIndex + offset, p.EndIndex + offset, p.FileStore, p.Serializer)
+        new Partition<'T>(p.Path, p.StartIndex + offset, p.EndIndex + offset, p.Serializer)
 
     interface ICloudDisposable with
-        member p.Dispose() = 
-            p.fileStore.DeleteFile p.path
-            |> Cloud.OfAsync
+        member p.Dispose() =  cloud {
+            let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+            return! config.FileStore.DeleteFile p.path
+                    |> Cloud.OfAsync
+        }
 
-    interface IEnumerable<'T> with
-        member p.GetEnumerator() = (p.GetSequence() :> IEnumerable).GetEnumerator()
-        member p.GetEnumerator() = p.GetSequence().GetEnumerator()
+//    interface IEnumerable<'T> with
+//        member p.GetEnumerator() = (p.GetSequence() :> IEnumerable).GetEnumerator()
+//        member p.GetEnumerator() = p.GetSequence().GetEnumerator()
 
 
 /// CloudArray description.
@@ -112,16 +122,19 @@ type CloudArray<'T> internal (root : Descriptor<'T>) =
         new CloudArray<'T>(root)
 
     /// Fetch nth partition as an array.
-    member this.GetPartition(index : int) : 'T [] = root.Partitions.[index].ToArray()
+    member this.GetPartition(index : int) : Cloud<'T []> = root.Partitions.[index].ToArray()
 
     member this.Item
-        with get (index : int64) : 'T =
-            let i, partition = 
-                root.Partitions
-                |> Seq.mapi (fun i e -> i,e)
-                |> Seq.find (fun (_,p) -> p.StartIndex <= index && index <= p.EndIndex) 
-            let relativeIndex = int (index - partition.StartIndex)
-            Seq.nth relativeIndex partition
+        with get (index : int64) : Cloud<'T> =
+            cloud {
+                let i, partition = 
+                    root.Partitions
+                    |> Seq.mapi (fun i e -> i,e)
+                    |> Seq.find (fun (_,p) -> p.StartIndex <= index && index <= p.EndIndex) 
+                let relativeIndex = int (index - partition.StartIndex)
+                let! s = partition.ToEnumerable()
+                return Seq.nth relativeIndex s
+            }
 
     interface ICloudDisposable with
         member __.Dispose() = 
@@ -131,17 +144,17 @@ type CloudArray<'T> internal (root : Descriptor<'T>) =
                     |> Cloud.Parallel
                     |> Cloud.Ignore 
             } 
+    member p.ToEnumerable() =
+        cloud {
+            let! resources = Cloud.GetResourceRegistry()
+            return root.Partitions |> Seq.collect (fun p -> Cloud.RunSynchronously(p.ToEnumerable(), resources))
+        }
 
-    interface IEnumerable<'T> with
-        member __.GetEnumerator() = 
-            (__ :> IEnumerable<'T>).GetEnumerator() :> IEnumerator
-        member __.GetEnumerator() = 
-           (root.Partitions |> Seq.collect id).GetEnumerator()
-
-    static member CreateAsync (values : seq<'T>, directory : string, fileStore : ICloudFileStore, serializer : ISerializer, ?partitionSize) = async {
+    static member CreateAsync (values : seq<'T>, directory : string, config : CloudFileStoreConfiguration, ?serializer : ISerializer, ?partitionSize) = async {
         let maxPartitionSize = defaultArg partitionSize (1024L * 1024L * 1024L) 
         if maxPartitionSize <= 0L then return invalidArg "partitionSize" "Must be greater that 0."
 
+        let _serializer = defaultArg serializer config.Serializer
         let currentStream = ref Unchecked.defaultof<System.IO.Stream>
         let pred () = currentStream.Value.Position < maxPartitionSize
         
@@ -150,15 +163,15 @@ type CloudArray<'T> internal (root : Descriptor<'T>) =
         let partitions = new ResizeArray<Partition<'T>>()
         let index = ref 0L
         for partition in partitioned do
-            let fileName = fileStore.GetRandomFilePath directory
-            let! length = fileStore.Write(fileName, fun stream -> async {
+            let fileName = config.FileStore.GetRandomFilePath directory
+            let! length = config.FileStore.Write(fileName, fun stream -> async {
                     currentStream := stream
-                    return serializer.SeqSerialize(stream, partition, leaveOpen = false) 
+                    return _serializer.SeqSerialize(stream, partition, leaveOpen = false) 
                 })
             
             let length = int64 length
 
-            let partition = new Partition<'T>(fileName, !index, !index + length - 1L, fileStore, serializer)
+            let partition = new Partition<'T>(fileName, !index, !index + length - 1L, serializer)
             partitions.Add(partition)
             index := !index + length 
 
@@ -181,9 +194,9 @@ type CloudArray =
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="partitionSize">Approximate partition size in bytes.</param>
     static member New(values : seq<'T> , ?directory : string, ?partitionSize, ?serializer : ISerializer) = cloud {
-        let! fs = Cloud.GetResource<CloudFileStoreConfiguration>()
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         
-        let directory = match directory with None -> fs.DefaultDirectory | Some d -> d
+        let directory = match directory with None -> config.DefaultDirectory | Some d -> d
 
-        return! Cloud.OfAsync <| CloudArray<'T>.CreateAsync(values, directory, fs.FileStore, fs.Serializer, ?partitionSize = partitionSize)
+        return! Cloud.OfAsync <| CloudArray<'T>.CreateAsync(values, directory, config, ?serializer = serializer, ?partitionSize = partitionSize)
     }

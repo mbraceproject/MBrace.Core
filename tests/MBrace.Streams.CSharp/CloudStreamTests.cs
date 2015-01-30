@@ -56,6 +56,11 @@ namespace MBrace.Streams.CSharp.Tests
             return rt.Run(c, null, FSharpOption<FaultPolicy>.Some(FaultPolicy.NoRetry));
         }
 
+        internal override T RunLocal<T>(Cloud<T> c)
+        {
+            return rt.RunLocal(c, null);
+        }
+
         internal override int MaxNumberOfTests
         {
             get { return 10; }
@@ -67,6 +72,7 @@ namespace MBrace.Streams.CSharp.Tests
     abstract public class CloudStreamsTests
     {
         abstract internal T Run<T>(MBrace.Cloud<T> c);
+        abstract internal T RunLocal<T>(MBrace.Cloud<T> c);
         abstract internal int MaxNumberOfTests { get; }
 
         internal T[] Run<T>(IEnumerable<Cloud<T>> wfs)
@@ -92,7 +98,7 @@ namespace MBrace.Streams.CSharp.Tests
             {
                 var ca = this.Run(CloudArray.New(xs, null, null, null));
                 var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
-                var y = ca.Select(i => i + 1).ToArray();
+                var y = xs.Select(i => i + 1).ToArray();
                 return this.Run(x).SequenceEqual(y);
             }).QuickThrowOnFail(this.MaxNumberOfTests);
         }
@@ -104,7 +110,8 @@ namespace MBrace.Streams.CSharp.Tests
             {
                 var x = xs.AsCloudStream().Select(i => i + 1).ToCloudArray();
                 var y = xs.Select(i => i + 1).ToArray();
-                return this.Run(x).SequenceEqual(y);
+                var r = this.RunLocal(this.Run(x).ToEnumerable());
+                return r.SequenceEqual(y);
             }).QuickThrowOnFail(this.MaxNumberOfTests);
         }
 

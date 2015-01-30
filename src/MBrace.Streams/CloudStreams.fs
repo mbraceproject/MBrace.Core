@@ -128,7 +128,7 @@ module CloudStream =
                     
                     let createTask (partitionId : int) (collector : Collector<'T, 'S>) = 
                         cloud {
-                            let array = source.GetPartition(partitionId) 
+                            let! array = source.GetPartition(partitionId) 
                             let parStream = ParStream.ofArray array 
                             let collectorResult = parStream.Apply collector
                             return! projection collectorResult
@@ -200,7 +200,7 @@ module CloudStream =
             let! workerCount = Cloud.GetWorkerCount()
             let createTask (pid : int) (cached : CachedCloudArray<'T>) = 
                 cloud {
-                    let slice = (cached :> CloudArray<'T>).GetPartition(pid)
+                    let! slice = (cached :> CloudArray<'T>).GetPartition(pid)
                     CloudArrayCache.Add(cached, pid, slice)
                 }
             let taskId = Guid.NewGuid().ToString()
@@ -376,9 +376,10 @@ module CloudStream =
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value))
                                                         return! CloudArray.New(values) }) combiner'
                 
+                let! kva = keyValueArray.ToEnumerable()
                 let dict = 
                     let dict = new Dictionary<int, CloudArray<'Key * 'State>>()
-                    for (key, value) in keyValueArray do
+                    for (key, value) in kva do
                         let mutable grouping = Unchecked.defaultof<_>
                         if dict.TryGetValue(key, &grouping) then
                             dict.[key] <- grouping.Append(value)
@@ -395,18 +396,22 @@ module CloudStream =
                     {   Index = ref -1; 
                         Func =
                             (fun (_, keyValues) ->
-                                    for (key, value) in keyValues do 
-                                        let mutable grouping = Unchecked.defaultof<_>
-                                        if dict.TryGetValue(key, &grouping) then
-                                            let acc = grouping
-                                            lock grouping (fun () -> acc := combiner !acc value) 
-                                        else
-                                            grouping <- ref <| state ()
-                                            if not <| dict.TryAdd(key, grouping) then
-                                                dict.TryGetValue(key, &grouping) |> ignore
-                                            let acc = grouping
-                                            lock grouping (fun () -> acc := combiner !acc value) 
-                                    ());
+                                // TODO : temp build fix, does not work.
+                                let keyValues = 
+                                    Cloud.ToAsync(keyValues.ToEnumerable())
+                                    |> Async.RunSynchronously
+                                for (key, value) in keyValues do 
+                                    let mutable grouping = Unchecked.defaultof<_>
+                                    if dict.TryGetValue(key, &grouping) then
+                                        let acc = grouping
+                                        lock grouping (fun () -> acc := combiner !acc value) 
+                                    else
+                                        grouping <- ref <| state ()
+                                        if not <| dict.TryAdd(key, grouping) then
+                                            dict.TryGetValue(key, &grouping) |> ignore
+                                        let acc = grouping
+                                        lock grouping (fun () -> acc := combiner !acc value) 
+                                ());
                         Cts = new CancellationTokenSource() }
                 member self.Result =
                     dict
@@ -416,10 +421,8 @@ module CloudStream =
             cloud {
                 let combiner' (left : CloudArray<_>) (right : CloudArray<_>) = 
                     left.Append(right)
-                let! keyValueArray = stream.Apply reducerf (fun keyValues -> 
-                                                                cloud { 
-                                                                    return! CloudArray.New(keyValues) 
-                                                                }) combiner'
+
+                let! keyValueArray = stream.Apply reducerf (fun keyValues -> CloudArray.New(keyValues)) combiner'
                 return keyValueArray
             }
         { new CloudStream<'Key * 'State> with

@@ -67,7 +67,10 @@ let getTop count =
     |> CloudStream.toCloudArray
 
              
-runtime.Run(getTop 20)
+let cloudArray = runtime.Run(getTop 20)
+
+cloudArray.ToEnumerable()
+|> runtime.RunLocal
 |> Seq.iter (printfn "%A")
 
 
@@ -91,5 +94,8 @@ let getTop' count =
     |> CloudStream.sortBy (fun (_,c) -> -c) count
     |> CloudStream.toCloudArray
 
-runtime.Run(getTop' 20)
+let cloudArray' = runtime.Run(getTop' 20)
+
+cloudArray'.ToEnumerable()
+|> runtime.RunLocal
 |> Seq.iter (printfn "%A")

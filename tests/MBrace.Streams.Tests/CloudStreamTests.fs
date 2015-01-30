@@ -31,9 +31,10 @@ type Check =
 [<TestFixture; AbstractClass>]
 type ``CloudStreams tests`` () as self =
     let run (workflow : Cloud<'T>) = self.Run(workflow)
-    
-    abstract Run : Cloud<'T> -> 'T
+    let runLocal (workflow : Cloud<'T>) = self.RunLocal(workflow)
 
+    abstract Run : Cloud<'T> -> 'T
+    abstract RunLocal : Cloud<'T> -> 'T
     abstract FsCheckMaxNumberOfTests : int
 
     [<Test>]
@@ -59,7 +60,7 @@ type ``CloudStreams tests`` () as self =
         let f(xs : int[]) =            
             let x = xs |> CloudStream.ofArray |> CloudStream.map ((+)1) |> CloudStream.toCloudArray |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
-            Assert.AreEqual(y, x.ToArray())
+            Assert.AreEqual(y, x.ToEnumerable() |> runLocal)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
@@ -70,8 +71,12 @@ type ``CloudStreams tests`` () as self =
             let x = cached |> CloudStream.ofCloudArray |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
             let x' = cached |> CloudStream.ofCloudArray |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
-            Assert.AreEqual(y, x.ToArray())
-            Assert.AreEqual(x'.ToArray(), x.ToArray())
+            
+            let _x = x.ToEnumerable() |> runLocal |> Seq.toArray
+            let _x' = x'.ToEnumerable() |> runLocal |> Seq.toArray
+            
+            Assert.AreEqual(y, _x)
+            Assert.AreEqual(_x', _x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
@@ -83,8 +88,12 @@ type ``CloudStreams tests`` () as self =
             let x = cached |> CloudStream.ofCloudArray |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
             let x' = cached |> CloudStream.ofCloudArray |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
-            Assert.AreEqual(y, x.ToArray())
-            Assert.AreEqual(x'.ToArray(), x.ToArray())
+            
+            let _x = x.ToEnumerable() |> runLocal |> Seq.toArray
+            let _x' = x'.ToEnumerable() |> runLocal |> Seq.toArray
+            
+            Assert.AreEqual(y, _x)
+            Assert.AreEqual(_x', _x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
@@ -215,6 +224,7 @@ type ``SampleRuntime Streams Tests`` () =
       
     override __.FsCheckMaxNumberOfTests = 10  
     override __.Run(expr : Cloud<'T>) : 'T = currentRuntime.Value.Run(expr, faultPolicy = FaultPolicy.NoRetry)
+    override __.RunLocal(expr : Cloud<'T>) : 'T = currentRuntime.Value.RunLocal(expr)
 
     [<TestFixtureSetUp>]
     member __.InitRuntime() =
