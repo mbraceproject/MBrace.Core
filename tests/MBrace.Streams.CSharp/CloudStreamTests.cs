@@ -169,10 +169,10 @@ namespace MBrace.Streams.CSharp.Tests
         [Test]
         public void OfCloudFilesWithReadLines()
         {
-            FSharpFunc<string[], bool>.FromConverter(xs =>
+            FSharpFunc<string[][], bool>.FromConverter(xs =>
             {
                 var cfiles =
-                    this.Run(xs.Select(text => MBrace.CloudFile.WriteLines(text.Split('\n'), null, null)));
+                    this.Run(xs.Select(text => MBrace.CloudFile.WriteLines(text, null, null)));
 
                 var x =
                     this.Run(cfiles
@@ -192,10 +192,10 @@ namespace MBrace.Streams.CSharp.Tests
         [Test]
         public void OfCloudFilesWithReadAllLines()
         {
-            FSharpFunc<string[], bool>.FromConverter(xs =>
+            FSharpFunc<string[][], bool>.FromConverter(xs =>
             {
                 var cfiles =
-                    this.Run(xs.Select(text => MBrace.CloudFile.WriteLines(text.Split('\n'), null, null)));
+                    this.Run(xs.Select(text => MBrace.CloudFile.WriteLines(text, null, null)));
 
                 var x =
                     this.Run(cfiles

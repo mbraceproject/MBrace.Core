@@ -99,15 +99,10 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``ofCloudFiles`` () =
         let f(xs : string []) =
-            let cfs = 
-                xs |> Array.map(fun text -> 
-                        CloudFile.Create(
-                            (fun (stream : Stream) -> 
-                                        async {
-                                            use sw = new StreamWriter(stream)
-                                            sw.Write(text) })))
-                |> Cloud.Parallel
-                |> run
+            let cfs = xs 
+                     |> Array.map(fun text -> CloudFile.WriteAllText(text))
+                     |> Cloud.Parallel
+                     |> run
 
             let x = cfs |> CloudStream.ofCloudFiles CloudFileReader.ReadAllText
                         |> CloudStream.toArray
@@ -121,6 +116,53 @@ type ``CloudStreams tests`` () as self =
 
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``ofCloudFiles with ReadLines`` () =
+        let f(xs : string [][]) =
+            let cfs = xs 
+                     |> Array.map(fun text -> CloudFile.WriteLines(text))
+                     |> Cloud.Parallel
+                     |> run
+
+            let x = cfs |> CloudStream.ofCloudFiles CloudFileReader.ReadLines
+                        |> CloudStream.collect Stream.ofSeq
+                        |> CloudStream.toArray
+                        |> run
+                        |> Set.ofArray
+
+            let y = cfs |> Array.map (fun cf -> CloudFile.ReadLines(cf))
+                        |> Cloud.Parallel
+                        |> run
+                        |> Seq.collect id
+                        |> Set.ofSeq
+
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``ofCloudFiles with ReadAllLines`` () =
+        let f(xs : string [][]) =
+            let cfs = xs 
+                     |> Array.map(fun text -> CloudFile.WriteLines(text))
+                     |> Cloud.Parallel
+                     |> run
+
+            let x = cfs |> CloudStream.ofCloudFiles CloudFileReader.ReadAllLines
+                        |> CloudStream.collect Stream.ofArray
+                        |> CloudStream.toArray
+                        |> run
+                        |> Set.ofArray
+
+            let y = cfs |> Array.map (fun cf -> CloudFile.ReadLines(cf))
+                        |> Cloud.Parallel
+                        |> run
+                        |> Seq.collect id
+                        |> Set.ofSeq
+
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
 
     [<Test>]
     member __.``map`` () =
