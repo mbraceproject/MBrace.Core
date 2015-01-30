@@ -86,7 +86,7 @@ let cfiles =
 [<Cloud>]
 let getTop' count =
     cfiles
-    |> CloudStream.ofCloudFiles CloudFile.ReadLines
+    |> CloudStream.ofCloudFiles CloudFileReader.ReadLines
     |> CloudStream.collect Stream.ofSeq 
     |> CloudStream.collect (fun line -> splitWords line |> Stream.ofArray |> Stream.map wordTransform)
     |> CloudStream.filter wordFilter

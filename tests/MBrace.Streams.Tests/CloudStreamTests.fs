@@ -109,7 +109,7 @@ type ``CloudStreams tests`` () as self =
                 |> Cloud.Parallel
                 |> run
 
-            let x = cfs |> CloudStream.ofCloudFiles MBrace.Streams.CloudFile.ReadAllText
+            let x = cfs |> CloudStream.ofCloudFiles CloudFileReader.ReadAllText
                         |> CloudStream.toArray
                         |> run
                         |> Set.ofArray

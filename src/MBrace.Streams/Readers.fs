@@ -4,7 +4,7 @@
 
     [<AbstractClass; Sealed; CompiledName("FSharpCloudFileReader")>]
     /// Common readers for a CloudFile.
-    type CloudFile =
+    type CloudFileReader =
         /// Read lazily the given stream as a sequence of lines.
         static member ReadLines : Stream -> Async<seq<string>> =
             fun stream -> 
