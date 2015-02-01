@@ -108,6 +108,8 @@ namespace MBrace.CSharp
         /// <returns>The result of the first computation to complete.</returns>
         public static Cloud<TResult> Choice<TResult>(this IEnumerable<Cloud<TResult>> workflows)
         {
+            if (!workflows.Any()) throw new ArgumentException("Workflows sequence is empty.");
+
             return workflows
                     .Select(wf => wf.Then(w => Option<TResult>.Some(w).AsCloud()))
                     .Choice()

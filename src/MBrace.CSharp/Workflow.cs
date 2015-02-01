@@ -37,6 +37,18 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
+        /// Creates a cloud workflow that throws an exception.
+        /// </summary>
+        /// <typeparam name="TResult">Computation return type.</typeparam>
+        /// <param name="ex">The exception to throw.</param>
+        /// <returns>Throws given exception.</returns>
+        public static Cloud<TResult> Throw<TResult>(Exception ex)
+        {
+            Func<TResult> f = () => { throw ex; };
+            return Cloud.New<TResult>(f);
+        }
+
+        /// <summary>
         ///     Wraps a delayed cloud workflow in a containing workflow.
         /// </summary>
         /// <typeparam name="TResult">Function return type.</typeparam>
@@ -120,6 +132,7 @@ namespace MBrace.CSharp
         {
             return new Cloud<TResult>(Builder.Bind<Unit, TResult>(workflow.Computation, continuation.AsFSharpFunc()));
         }
+
 
 
         // Linq comprehension syntax friendly methods.

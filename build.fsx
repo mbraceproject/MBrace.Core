@@ -95,6 +95,7 @@ Target "Build" (fun _ ->
 let testAssemblies = 
     [
         yield "bin/MBrace.Core.Tests.dll"
+        yield "bin/MBrace/CSharp.Tests.exe"
         yield "bin/MBrace.Runtime.Core.Tests.dll"
         if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
     ]
