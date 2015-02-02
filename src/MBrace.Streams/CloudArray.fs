@@ -200,3 +200,41 @@ type CloudArray =
 
         return! Cloud.OfAsync <| CloudArray<'T>.CreateAsync(values, directory, config, ?serializer = serializer, ?partitionSize = partitionSize)
     }
+
+
+[<AutoOpen>]
+module StoreClientExtensions =
+    open System.Runtime.CompilerServices
+    
+    /// Common operations on CloudArrays.
+    type CloudArrayClient internal (resources : ResourceRegistry) =
+        let toAsync wf = Cloud.ToAsync(wf, resources)
+        let toSync wf = Cloud.RunSynchronously(wf, resources)
+
+        /// <summary>
+        /// Create a new cloud array.
+        /// </summary>
+        /// <param name="values">Collection to populate the cloud array with.</param>
+        /// <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
+        /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+        /// <param name="partitionSize">Approximate partition size in bytes.</param>
+        member __.NewAsync(values : seq<'T> , ?directory : string, ?partitionSize, ?serializer : ISerializer) =
+            CloudArray.New(values, ?directory = directory, ?partitionSize = partitionSize, ?serializer = serializer)
+            |> toAsync
+    
+        /// <summary>
+        /// Create a new cloud array.
+        /// </summary>
+        /// <param name="values">Collection to populate the cloud array with.</param>
+        /// <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
+        /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+        /// <param name="partitionSize">Approximate partition size in bytes.</param>
+        member __.New(values : seq<'T> , ?directory : string, ?partitionSize, ?serializer : ISerializer) =
+            CloudArray.New(values, ?directory = directory, ?partitionSize = partitionSize, ?serializer = serializer)
+            |> toSync
+    
+    [<Extension>]
+    type MBrace.Client.StoreClient with
+        [<Extension>]
+        /// CloudArray client.
+        member this.CloudArray = new CloudArrayClient(this.Resources)

@@ -953,6 +953,8 @@ type StoreClient internal (registry : ResourceRegistry) =
     member __.CloudRef = cloudrefClient.Value
     /// CloudSequence client.
     member __.CloudSequence = cloudseqClient.Value
+    /// Gets the associated ResourceRegistry.
+    member __.Resources = registry
 
     /// <summary>
     /// Create a new StoreClient instance from given resources.
