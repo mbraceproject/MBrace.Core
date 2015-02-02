@@ -35,7 +35,7 @@ namespace MBrace.CSharp.Tests
 
         public override T Run<T>(Cloud<T> c)
         {
-            return rt.Run(c.Computation, null, FSharpOption<FaultPolicy>.Some(FaultPolicy.NoRetry));
+            return rt.Run(c, null, FSharpOption<FaultPolicy>.Some(FaultPolicy.NoRetry));
         }
 
     }

@@ -19,8 +19,8 @@ namespace MBrace.CSharp
         /// <returns>Array of aggregated results.</returns>
         public static Cloud<TResult[]> Parallel<TResult>(this IEnumerable<Cloud<TResult>> workflows)
         {
-            var wfs = workflows.Select(w => w.Computation).ToArray();
-            return new Cloud<TResult[]>(MCloud.Parallel(wfs));
+            var wfs = workflows.Select(w => w).ToArray();
+            return MCloud.Parallel(wfs);
         }
 
         /// <summary>
@@ -45,7 +45,7 @@ namespace MBrace.CSharp
         /// <returns>Array of the aggregated results.</returns>
         public static Cloud<TResult[]> Parallel<TResult>(Cloud<TResult> workflow)
         {
-            return new Cloud<TResult[]>(MCloud.Parallel(workflow.Computation));
+            return MCloud.Parallel(workflow);
         }
 
         /// <summary>
@@ -59,8 +59,8 @@ namespace MBrace.CSharp
         /// <returns>Array of the aggregated results.</returns>
         public static Cloud<TResult []> Parallel<TResult>(this IEnumerable<Tuple<Cloud<TResult>, IWorkerRef>> workflows) 
         {
-            var wfs = workflows.Select(t => Tuple.Create(t.Item1.Computation, t.Item2)).ToArray();
-            return new Cloud<TResult[]>(MCloud.Parallel(wfs));
+            var wfs = workflows.ToArray();
+            return MCloud.Parallel(wfs);
         }
 
         #endregion
@@ -78,7 +78,7 @@ namespace MBrace.CSharp
             var fsTransform = transform.AsFSharpFunc();
 
             var wfs = workflows
-                        .Select(wf => Builder.Bind(wf.Computation, fsTransform))
+                        .Select(wf => Builder.Bind(wf, fsTransform))
                         .ToArray();
             var choice = MCloud.Choice<TResult>(wfs);
 
@@ -86,7 +86,7 @@ namespace MBrace.CSharp
             var fsTransformRev = transformRev.AsFSharpFunc();
             var result = Builder.Bind(choice, fsTransformRev);
 
-            return new Cloud<Option<TResult>>(result);
+            return result;
         }
 
         /// <summary>
@@ -142,7 +142,7 @@ namespace MBrace.CSharp
         {
             Func<Option<TResult>, MBrace.Cloud<FSharpOption<TResult>>> transform = option => Builder.Return(option.AsFSharpOption());
             var fsTransform = transform.AsFSharpFunc();
-            var x = Builder.Bind(workflow.Computation, fsTransform);
+            var x = Builder.Bind(workflow, fsTransform);
             
             var choice = MCloud.Choice(x);
             
@@ -150,7 +150,7 @@ namespace MBrace.CSharp
             var fsTransformRev = transformRev.AsFSharpFunc();
             var result = Builder.Bind(choice, fsTransformRev);
 
-            return new Cloud<Option<TResult>>(result);
+            return result;
         }
 
         /// <summary>
@@ -170,7 +170,7 @@ namespace MBrace.CSharp
             var fsTransform = transform.AsFSharpFunc();
 
             var wfs = workflows
-                        .Select(wf => Tuple.Create(Builder.Bind(wf.Item1.Computation, fsTransform), wf.Item2))
+                        .Select(wf => Tuple.Create(Builder.Bind(wf.Item1, fsTransform), wf.Item2))
                         .ToArray();
             var choice = MCloud.Choice<TResult>(wfs);
 
@@ -178,7 +178,7 @@ namespace MBrace.CSharp
             var fsTransformRev = transformRev.AsFSharpFunc();
             var result = Builder.Bind(choice, fsTransformRev);
 
-            return new Cloud<Option<TResult>>(result);
+            return result;
         }
         #endregion
     }

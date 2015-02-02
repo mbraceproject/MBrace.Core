@@ -74,7 +74,7 @@ namespace MBrace.CSharp.Tests
 					Cloud.Sleep(2000).Then(() => 1),
 					Cloud.Sleep(1000).Then(() => 2))
 				);
-			var x = rt.Run(w.Computation, null, null);
+			var x = rt.Run(w, null, null);
 
 		    var mm = Cloud.Parallel(Cloud.FromValue(42));
 

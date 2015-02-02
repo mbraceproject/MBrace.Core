@@ -34,7 +34,7 @@ namespace MBrace.CSharp
         /// <returns>The number of workers.</returns>
         public static Cloud<int> GetWorkerCount()
         {
-            return new Cloud<int>(MCloud.GetWorkerCount());
+            return MCloud.GetWorkerCount();
         }
     }
 }

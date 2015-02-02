@@ -11,12 +11,12 @@ namespace MBrace.CSharp
     {
         internal static FSharpFunc<T,MBrace.Cloud<U>> AsFSharpFunc<T,U> (this Func<T,Cloud<U>> f)
         {
-            return FSharpFunc<T, MBrace.Cloud<U>>.FromConverter(t => f(t).Computation);
+            return FSharpFunc<T, MBrace.Cloud<U>>.FromConverter(t => f(t));
         }
 
         internal static FSharpFunc<Unit, MBrace.Cloud<T>> AsFSharpFunc<T>(this Func<Cloud<T>> f)
         {
-            return FSharpFunc<Unit, MBrace.Cloud<T>>.FromConverter(_ => f().Computation);
+            return FSharpFunc<Unit, MBrace.Cloud<T>>.FromConverter(_ => f());
         }
 
         internal static FSharpFunc<T, U> AsFSharpFunc<T, U>(this Func<T,U> f)
