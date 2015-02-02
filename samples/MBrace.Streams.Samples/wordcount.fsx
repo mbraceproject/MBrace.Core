@@ -1,11 +1,8 @@
-﻿#if INTERACTIVE
-#I "../../bin/"
+﻿#I "../../bin/"
+#r "MBrace.Core"
 #r "Streams.Core"
 #r "MBrace.Streams"
 #r "MBrace.SampleRuntime"
-#else 
-module MBrace.Streams.Samples.WordCount
-#endif
 
 open System
 open System.IO
@@ -41,7 +38,7 @@ let wordTransform (word : string) = word.Trim().ToLower()
 
 let wordFilter (word : string) = word.Length > 3 && not <| noiseWords.Contains(word)
 
-let files = Directory.GetFiles "path to your files"
+let files = Directory.GetFiles @"path to files"
 
 MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.SampleRuntime.exe")
 let runtime = MBraceRuntime.InitLocal(4)
@@ -55,7 +52,6 @@ let storeClient = runtime.StoreClient
 
 let lines = runtime.StoreClient.CloudArray.New(files |> Seq.collect(fun f -> File.ReadLines(f)))
 
-[<Cloud>]
 let getTop count =
     lines
     |> CloudStream.ofCloudArray
@@ -82,7 +78,6 @@ let cfiles =
     |> Array.map (File.ReadLines >> storeClient.FileStore.File.WriteLines)
 
 
-[<Cloud>]
 let getTop' count =
     cfiles
     |> CloudStream.ofCloudFiles CloudFileReader.ReadLines

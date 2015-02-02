@@ -49,7 +49,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="wordcount.fs" />
+    <None Include="wordcount.fsx" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
