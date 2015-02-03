@@ -177,15 +177,26 @@ type Cloud =
     }
 
     /// <summary>
-    ///     Start cloud computation as child. Returns a cloud workflow that queries the result.
+    ///     Start cloud computation as a task. Returns a cloud workflow that queries the result.
+    /// </summary>
+    /// <param name="computation">Computation to be executed.</param>
+    /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
+    /// <param name="cancellationToken">Timeout in milliseconds; defaults to infinite.</param>
+    static member StartAsTask(computation : Cloud<'T>, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken) : Cloud<ICloudTask<'T>> = cloud {
+        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        return! runtime.ScheduleStartAsTask(computation, ?target = target, ?cancellationToken = cancellationToken)
+    }
+
+    /// <summary>
+    ///     Start cloud computation as child process. Returns a cloud workflow that queries the result.
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
     static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int) : Cloud<Cloud<'T>> = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
-        let! receiver = runtime.ScheduleStartChild(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
-        return Cloud.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" receiver
+        let! task = runtime.ScheduleStartAsTask(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
+        return Cloud.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" (cloud { return! task.AwaitResult() })
     }
 
     /// <summary>

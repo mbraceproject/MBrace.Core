@@ -76,6 +76,7 @@
     <Compile Include="Store\CloudSequence.fs" />
     <Compile Include="Runtime\Logging.fs" />
     <Compile Include="Runtime\FaultPolicy.fs" />
+    <Compile Include="Runtime\RuntimeTypes.fs" />
     <Compile Include="Runtime\RuntimeProvider.fs" />
     <Compile Include="Runtime\RuntimeCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryStore.fs" />

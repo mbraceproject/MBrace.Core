@@ -118,18 +118,18 @@ type Cloud =
         let asyncWorkflow = Cloud.ToAsync(cloudWorkflow, ?resources = resources)
         Async.Start(asyncWorkflow, ?cancellationToken = cancellationToken)
 
-    /// <summary>
-    ///     Starts given workflow as a separate, locally executing task.
-    /// </summary>
-    /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
-    /// <param name="resources">Resource registry used with workflows.</param>
-    /// <param name="taskCreationOptions">Resource registry used with workflows.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    static member StartAsTask(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry, 
-                                ?taskCreationOptions : TaskCreationOptions, ?cancellationToken : CancellationToken) : Task<'T> =
-
-        let asyncWorkflow = Cloud.ToAsync(cloudWorkflow, ?resources = resources)
-        Async.StartAsTask(asyncWorkflow, ?taskCreationOptions = taskCreationOptions, ?cancellationToken = cancellationToken)
+//    /// <summary>
+//    ///     Starts given workflow as a separate, locally executing task.
+//    /// </summary>
+//    /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
+//    /// <param name="resources">Resource registry used with workflows.</param>
+//    /// <param name="taskCreationOptions">Resource registry used with workflows.</param>
+//    /// <param name="cancellationToken">Cancellation token.</param>
+//    static member StartAsTask(cloudWorkflow : Cloud<'T>, ?resources : ResourceRegistry, 
+//                                ?taskCreationOptions : TaskCreationOptions, ?cancellationToken : CancellationToken) : Task<'T> =
+//
+//        let asyncWorkflow = Cloud.ToAsync(cloudWorkflow, ?resources = resources)
+//        Async.StartAsTask(asyncWorkflow, ?taskCreationOptions = taskCreationOptions, ?cancellationToken = cancellationToken)
 
     /// <summary>
     ///     Synchronously await a locally executing workflow.
