@@ -11,25 +11,15 @@ open MBrace.SampleRuntime
 [<Category("CloudStreams.Cluster")>]
 type ``SampleRuntime Streams Tests`` () =
     inherit ``CloudStreams tests`` ()
-        
-    let mutable currentRuntime : MBraceRuntime option = None
-      
-    override __.FsCheckMaxNumberOfTests = 10  
-    override __.Run(expr : Cloud<'T>) : 'T = currentRuntime.Value.Run(expr, faultPolicy = FaultPolicy.NoRetry)
-    override __.RunLocal(expr : Cloud<'T>) : 'T = currentRuntime.Value.RunLocal(expr)
+
+    let session = new RuntimeSession(nodes = 4)
 
     [<TestFixtureSetUp>]
-    member __.InitRuntime() =
-        match currentRuntime with
-        | Some runtime -> runtime.KillAllWorkers()
-        | None -> ()
-            
-        MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.SampleRuntime.exe")
-        let runtime = MBraceRuntime.InitLocal(4)
-        currentRuntime <- Some runtime
+    member __.Init () = session.Start()
 
     [<TestFixtureTearDown>]
-    member __.FiniRuntime() =
-        match currentRuntime with
-        | None -> invalidOp "No runtime specified in test fixture."
-        | Some r -> r.KillAllWorkers() ; currentRuntime <- None
+    member __.Fini () = session.Stop()
+      
+    override __.FsCheckMaxNumberOfTests = 10  
+    override __.Run(expr : Cloud<'T>) : 'T = session.Runtime.Run(expr, faultPolicy = FaultPolicy.NoRetry)
+    override __.RunLocal(expr : Cloud<'T>) : 'T = session.Runtime.RunLocal(expr)

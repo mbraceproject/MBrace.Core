@@ -5,4 +5,7 @@ configuration: Release
 test:
   assemblies:
     - MBrace.Core.Tests.dll
-    - MBrace.Store.Tests.dll
+    - MBrace.CSharp.Tests.dll
+    - MBrace.Runtime.Core.Tests.dll
+    - MBrace.Streams.Tests.dll
+    - MBrace.Streams.CSharp.Tests.dll

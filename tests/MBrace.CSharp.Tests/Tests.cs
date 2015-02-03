@@ -1,5 +1,4 @@
-﻿using MBrace.SampleRuntime;
-using Microsoft.FSharp.Core;
+﻿using Microsoft.FSharp.Core;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -11,34 +10,6 @@ using System.Threading.Tasks;
 
 namespace MBrace.CSharp.Tests
 {
-    [TestFixture]
-    public class SampleRuntimeTests : SimpleTests
-    {
-
-        MBraceRuntime rt;
-
-        string GetFileDir([CallerFilePath]string file = "") { return file; }
-
-        [TestFixtureSetUp]
-        public void SetUp()
-        {
-            var path = Path.GetDirectoryName(this.GetFileDir());
-            MBraceRuntime.WorkerExecutable = Path.Combine(path, "../../bin/MBrace.SampleRuntime.exe");
-            rt = MBraceRuntime.InitLocal(3, null, null);
-        }
-
-        [TestFixtureTearDown]
-        public void TearDown()
-        {
-            rt.KillAllWorkers();
-        }
-
-        public override T Run<T>(Cloud<T> c)
-        {
-            return rt.Run(c, null, FSharpOption<FaultPolicy>.Some(FaultPolicy.NoRetry));
-        }
-
-    }
 
     [TestFixture]
     public abstract class SimpleTests

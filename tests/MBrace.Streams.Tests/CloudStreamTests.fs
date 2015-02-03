@@ -243,3 +243,13 @@ type ``CloudStreams tests`` () as self =
             if xs.Length = 0 then x = 0
             else x = 1
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+//type ``InMemory CloudStreams tests`` () =
+//    inherit ``CloudStreams tests`` ()
+//
+//    let imem = MBrace.Client.LocalRuntime.Create()
+//
+//    override __.Run(workflow : Cloud<'T>) = imem.Run workflow
+//    override __.RunLocal(workflow : Cloud<'T>) = imem.Run workflow
+//    override __.FsCheckMaxNumberOfTests = 100
