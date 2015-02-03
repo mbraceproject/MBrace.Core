@@ -15,7 +15,6 @@ open MBrace.Runtime
 open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
-open MBrace.Runtime.Compiler
 open MBrace.SampleRuntime.Tasks
 open MBrace.SampleRuntime.RuntimeProvider
 
@@ -34,7 +33,6 @@ module internal Argument =
 /// MBrace Sample runtime client instance.
 type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISerializer) =
     static do Config.Init()
-    static let compiler = CloudCompiler.Init()
     static let mutable exe = None
     static let initWorkers (target : RuntimeState) (count : int) =
         if count < 1 then invalidArg "workerCount" "must be positive."
@@ -88,13 +86,13 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
-        let computation = compiler.Compile workflow
+        let dependencies = VagabondRegistry.ComputeObjectDependencies ((workflow, fileStore, serializer))
         let processInfo = createProcessInfo ()
 
         let! cts = state.ResourceFactory.RequestCancellationTokenSource()
         try
             cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-            let! resultCell = state.StartAsCell processInfo (List.toArray computation.Dependencies) cts faultPolicy None computation.Workflow
+            let! resultCell = state.StartAsCell processInfo (List.toArray dependencies) cts faultPolicy None workflow
             let! result = resultCell.AwaitResult()
             return result.Value
         finally
