@@ -7,7 +7,6 @@
 // been passed continuations is a typical example of such a task.
 
 open System
-open System.Threading.Tasks
 
 open Nessos.FsPickler
 open Nessos.Vagabond
@@ -15,75 +14,33 @@ open Nessos.Vagabond
 open MBrace
 open MBrace.Continuation
 open MBrace.Store
+
 open MBrace.Runtime
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Serialization
 open MBrace.Runtime.Vagabond
 open MBrace.SampleRuntime.Actors
 
-// Tasks are cloud workflows that have been attached to continuations.
-// In that sense they are 'closed' multi-threaded computations that
-// are difficult to reason about from a worker node's point of view.
-// TaskExecutionMonitor provides a way to cooperatively track execution
-// of such 'closed' computations.
-
-/// Provides a mechanism for cooperative task execution monitoring.
-[<AutoSerializable(false)>]
-type TaskExecutionMonitor () =
-    let tcs = TaskCompletionSource<unit> ()
-    static let fromContext (ctx : ExecutionContext) = ctx.Resources.Resolve<TaskExecutionMonitor> ()
-
-    member __.Task = tcs.Task
-    member __.TriggerFault (e : exn) = tcs.TrySetException e |> ignore
-    member __.TriggerCompletion () = tcs.TrySetResult () |> ignore
-
-    /// Runs a single threaded, synchronous computation,
-    /// triggering the contextual TaskExecutionMonitor on uncaught exception
-    static member ProtectSync ctx (f : unit -> unit) : unit =
-        let tem = fromContext ctx
-        try f () with e -> tem.TriggerFault e |> ignore
-
-    /// Runs an asynchronous computation,
-    /// triggering the contextual TaskExecutionMonitor on uncaught exception
-    static member ProtectAsync ctx (f : Async<unit>) : unit =
-        let tem = fromContext ctx
-        Async.StartWithContinuations(f, ignore, tem.TriggerFault, ignore)   
-
-    /// Triggers task completion on the contextual TaskExecutionMonitor
-    static member TriggerCompletion ctx =
-        let tem = fromContext ctx in tem.TriggerCompletion () |> ignore
-
-    /// Triggers task fault on the contextual TaskExecutionMonitor
-    static member TriggerFault (ctx, e) =
-        let tem = fromContext ctx in tem.TriggerFault e |> ignore
-
-    /// Asynchronously await completion of provided TaskExecutionMonitor
-    static member AwaitCompletion (tem : TaskExecutionMonitor) = async {
-        try
-            return! Async.AwaitTask tem.Task
-        with :? System.AggregateException as e when e.InnerException <> null ->
-            return! Async.Raise e.InnerException
-    }
-
-/// Process information record
 type ProcessInfo =
     {
         /// Cloud process unique identifier
         ProcessId : string
-        /// Default file store container for process
-        DefaultDirectory : string
-        /// Default atom container for process
-        DefaultAtomContainer : string
-        /// Default channel container for process
-        DefaultChannelContainer : string
+        /// Cloud file store configuration
+        FileStoreConfig : CloudFileStoreConfiguration
+        /// Cloud atom configuration
+        AtomConfig : CloudAtomConfiguration
+        /// Cloud channel configuration
+        ChannelConfig : CloudChannelConfiguration
     }
 
 /// Defines a task to be executed in a worker node
 type Task = 
     {
+        /// Process info
+        ProcessInfo : ProcessInfo
         /// Return type of the defining cloud workflow.
         Type : Type
-        /// Cloud process information
-        ProcessInfo : ProcessInfo
         /// Task unique identifier
         TaskId : string
         /// Triggers task execution with worker-provided execution context
@@ -102,11 +59,7 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Task dependent assemblies.</param>
     /// <param name="task">Task to be executed.</param>
-    static member RunAsync (runtimeProvider : ICloudRuntimeProvider)
-                            (atomProvider : ICloudAtomProvider)
-                            (channelProvider : ICloudChannelProvider) 
-                            (dependencies : AssemblyId list) (faultCount : int)
-                            (task : Task) = 
+    static member RunAsync (runtimeProvider : ICloudRuntimeProvider) (faultCount : int) (task : Task) = 
         async {
             let tem = new TaskExecutionMonitor()
             let ctx =
@@ -114,10 +67,8 @@ with
                     Resources = 
                         resource { 
                             yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; 
-                            yield Config.getFileStoreConfiguration task.ProcessInfo.DefaultDirectory ;
-                            yield { AtomProvider = atomProvider ; DefaultContainer = task.ProcessInfo.DefaultAtomContainer } ;
-                            yield { ChannelProvider = channelProvider ; DefaultContainer = task.ProcessInfo.DefaultChannelContainer } ;
-                            yield channelProvider ; yield dependencies 
+                            yield Config.WithCachedFileStore task.ProcessInfo.FileStoreConfig
+                            yield task.ProcessInfo.AtomConfig ; yield task.ProcessInfo.ChannelConfig
                         }
 
                     CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
@@ -146,8 +97,11 @@ with
 /// Type of pickled task as represented in the task queue
 type PickledTask = 
     {
+        TaskId : string
+        TypeName : string
+
         Task : Pickle<Task> 
-        Dependencies : AssemblyId list 
+        Dependencies : AssemblyId [] 
         Target : IWorkerRef option
     }
 with
@@ -177,9 +131,15 @@ with
                 CancellationTokenSource = cts
             }
 
-        let taskp = Config.getSerializer().Pickler.PickleTyped task
+        let taskp = Config.Pickler.PickleTyped task
 
-        { Task = taskp ; Dependencies = dependencies ; Target = worker }
+        { 
+            TaskId = taskId ;
+            TypeName = Type.prettyPrint typeof<'T> ;
+            Task = taskp ; 
+            Dependencies = dependencies ; 
+            Target = worker ;
+        }
 
 /// Defines a handle to the state of a runtime instance
 /// All information pertaining to the runtime execution state
@@ -217,7 +177,7 @@ with
                     getWorkers () |> Array.forall ((<>) dequeueingWorker)
 
         {
-            IPEndPoint = MBrace.SampleRuntime.Config.getLocalEndpoint()
+            IPEndPoint = MBrace.SampleRuntime.Config.LocalEndPoint
             Workers = Cell.Init getWorkers
             Logger = Logger.Init logger
             TaskQueue = Queue<_,_>.Init shouldDequeue
@@ -265,13 +225,11 @@ with
         return resultCell
     }
 
-    /// Attempt to dequeue a task from the runtime task queue
-    member rt.TryDequeue (dequeueingWorker : IWorkerRef) = async {
-        let! item =  rt.TaskQueue.TryDequeue dequeueingWorker
-        match item with
-        | None -> return None
-        | Some (pt, faultCount, leaseMonitor) -> 
-            do! rt.AssemblyExporter.LoadDependencies pt.Dependencies
-            let task = Config.getSerializer().Pickler.UnPickleTyped pt.Task
-            return Some (task, pt.Dependencies, faultCount, leaseMonitor)
+    /// <summary>
+    ///     Load Vagrant dependencies and unpickle task.
+    /// </summary>
+    /// <param name="ptask">Task to unpickle.</param>
+    member rt.UnPickle(ptask : PickledTask) = async {
+        do! rt.AssemblyExporter.LoadDependencies (Array.toList ptask.Dependencies)
+        return Config.Pickler.UnPickleTyped ptask.Task
     }

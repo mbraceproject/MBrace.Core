@@ -24,7 +24,7 @@ namespace MBrace.CSharp.Tests
         {
             var path = Path.GetDirectoryName(this.GetFileDir());
             MBraceRuntime.WorkerExecutable = Path.Combine(path, "../../bin/MBrace.SampleRuntime.exe");
-            rt = MBraceRuntime.InitLocal(3);
+            rt = MBraceRuntime.InitLocal(3, null, null);
         }
 
         [TestFixtureTearDown]

@@ -44,11 +44,15 @@ type ``FileStore Tests`` (nParallel : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudRef - caching`` () = 
         if __.IsCachingStore then
-            let b = runRemote <| CloudRef.New [1..10000]
-            b.Cache() |> runLocal |> shouldEqual true
-            let a1 = b.Value |> runLocal
-            let a2 = b.Value |> runLocal
-            obj.ReferenceEquals(a1, a2) |> shouldEqual true
+            cloud {
+                let! c = CloudRef.New [1..10000]
+                let! r = c.Cache()
+                r |> shouldEqual true
+                let! v1 = c.Value
+                let! v2 = c.Value
+                obj.ReferenceEquals(v1,v2) |> shouldEqual true
+                return ()
+            } |> runRemote
 
     [<Test>]
     member __.``2. MBrace : CloudRef - Parallel`` () =
@@ -74,11 +78,15 @@ type ``FileStore Tests`` (nParallel : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - caching`` () = 
         if __.IsCachingStore then
-            let b = runRemote <| CloudSequence.New [1..10000]
-            b.Cache() |> runLocal |> shouldEqual true
-            let a1 = b.ToArray() |> runLocal
-            let a2 = b.ToArray() |> runLocal
-            obj.ReferenceEquals(a1, a2) |> shouldEqual true
+            cloud {
+                let! c = CloudSequence.New [1..10000]
+                let! success = c.Cache()
+                success |> shouldEqual true
+                let! v1 = c.ToArray()
+                let! v2 = c.ToArray()
+                obj.ReferenceEquals(v1, v2) |> shouldEqual true
+                return ()
+            } |> runRemote
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - parallel`` () =
@@ -153,19 +161,16 @@ type ``FileStore Tests`` (nParallel : int) as self =
                     stream.Flush()
                     stream.Dispose() })
 
-            let! bytes = CloudFile.ReadAllBytes(f)
-            return bytes
+            return! CloudFile.ReadAllBytes f
         } |> runRemote |> shouldEqual (mk n)
 
     [<Test>]
     member __.``2. MBrace : CloudFile - get by name`` () =
         cloud {
             use! f = CloudFile.WriteAllBytes([|1uy..100uy|])
-            let! t = Cloud.StartChild(cloud { 
-                return! CloudFile.ReadAllBytes f.Path
-            })
-
-            return! t
+            let! t = Cloud.StartChild(CloudFile.ReadAllBytes f.Path)
+            let! bytes = t
+            return bytes
         } |> runRemote |> shouldEqual [|1uy .. 100uy|]
 
     [<Test>]

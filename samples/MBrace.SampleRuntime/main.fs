@@ -5,21 +5,27 @@
     open MBrace.Continuation
     open MBrace.Runtime
     open MBrace.SampleRuntime.Actors
+    open MBrace.SampleRuntime.Worker
 
     let maxConcurrentTasks = 10
 
     [<EntryPoint>]
     let main (args : string []) =
         try
-            MBrace.SampleRuntime.Config.initRuntimeState()
-            let address = MBrace.SampleRuntime.Config.getAddress()
-            printfn "MBrace worker initialized on %O." address
+            do Config.Init()
+            let logger = new ConsoleTaskLogger()
+            let evaluator =
+#if APPDOMAIN_ISOLATION
+                new AppDomainTaskEvaluator() :> ITaskEvaluator
+#else
+                new LocalTaskEvaluator() :> ITaskEvaluator
+#endif
             if args.Length > 0 then
                 let runtime = Argument.toRuntime args
-                Async.RunSync (Worker.initWorker runtime maxConcurrentTasks)
+                Async.RunSync (Worker.initWorker runtime logger maxConcurrentTasks evaluator)
                 0
             else
-                Actor.Stateful (new System.Threading.CancellationTokenSource()) Worker.workerManager
+                Actor.Stateful (new System.Threading.CancellationTokenSource()) (Worker.workerManager logger evaluator)
                 |> Actor.rename "workerManager"
                 |> Actor.publish [ Protocols.utcp() ]
                 |> Actor.start

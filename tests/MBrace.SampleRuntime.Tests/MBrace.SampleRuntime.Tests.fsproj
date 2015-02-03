@@ -59,6 +59,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="ParallelismTests.fs" />
     <Compile Include="StoreTests.fs" />
+    <Compile Include="StreamsTests.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -66,6 +67,11 @@
     <ProjectReference Include="..\MBrace.Runtime.Core.Tests\MBrace.Runtime.Core.Tests.fsproj">
       <Name>MBrace.Runtime.Core.Tests</Name>
       <Project>{b04b2ab2-eb56-4236-aa8e-8a4f9a3ab488}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Streams.Tests.fsproj">
+      <Name>MBrace.Streams.Tests</Name>
+      <Project>{7d520bca-f23a-498d-a49b-8e42ab6c60f3}</Project>
       <Private>True</Private>
     </ProjectReference>
     <Reference Include="FSharp.Data.TypeProviders" />
@@ -99,6 +105,17 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
+      <ItemGroup>
+        <Reference Include="FsCheck">
+          <HintPath>..\..\packages\FsCheck\lib\net45\FsCheck.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0')">
       <ItemGroup>

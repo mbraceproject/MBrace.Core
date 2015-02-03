@@ -22,8 +22,7 @@ open MBrace.Runtime.Vagabond
 open MBrace.SampleRuntime
 
 /// Actor publication utilities
-type Actor private () =
-    static do Config.initRuntimeState()
+type Actor =
 
     /// Publishes an actor instance to the default TCP protocol
     static member Publish(actor : Actor<'T>) =

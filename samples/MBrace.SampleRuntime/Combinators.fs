@@ -7,6 +7,7 @@
 open MBrace
 open MBrace.Continuation
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.SampleRuntime.Actors
 open MBrace.SampleRuntime.Tasks
 
