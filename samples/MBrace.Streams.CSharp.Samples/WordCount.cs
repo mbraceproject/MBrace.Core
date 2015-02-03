@@ -72,30 +72,29 @@ namespace MBrace.Streams.CSharp.Samples
                             .OrderBy(t => -t.Item2, count) 
                             .ToArray();
 
+            // Temporary : No C# API for Standalone runtime and StoreClient.
             var result = runtime.Run(query, null, null);
             return result;
         }
 
-        //public static IEnumerable<Tuple<string, long>> RunWithCloudArray(MBraceRuntime runtime)
-        //{
-        //    var clines = files.Select(path =>
-        //    {
-        //        var text = File.ReadLines(path);
-        //        return CloudArray.
-        //    }).ToArray();
+        public static IEnumerable<Tuple<string, long>> RunWithCloudArray(MBraceRuntime runtime)
+        {
+            var lines = files.SelectMany(path => File.ReadLines(path));
+            // Temporary : No C# API for Standalone runtime and StoreClient.
+            var cloudarray = runtime.RunLocal(CloudArray.New(lines, null, null, null), null);
 
-        //    var count = 20;
+            var count = 20;
 
-        //    var query = clines
-        //                    .AsCloudStream()
-        //                    .SelectMany(line => line.SplitWords().AsStream().Select(WordTransform))
-        //                    .Where(WordFilter)
-        //                    .CountBy(w => w)
-        //                    .OrderBy(t => -t.Item2, count)
-        //                    .ToArray();
+            var query = cloudarray
+                            .AsCloudStream()
+                            .SelectMany(line => line.SplitWords().AsStream().Select(WordTransform))
+                            .Where(WordFilter)
+                            .CountBy(w => w)
+                            .OrderBy(t => -t.Item2, count)
+                            .ToArray();
 
-        //    var result = runtime.Run(query);
-        //    return result;
-        //}
+            var result = runtime.Run(query, null, null);
+            return result;
+        }
     }
 }
