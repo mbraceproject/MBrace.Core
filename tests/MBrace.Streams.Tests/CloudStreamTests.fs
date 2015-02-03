@@ -8,6 +8,7 @@ open NUnit.Framework
 open Nessos.Streams
 open MBrace.Streams
 open MBrace
+open MBrace.Store
 open System.IO
 
 type Check =
@@ -245,11 +246,22 @@ type ``CloudStreams tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
-//type ``InMemory CloudStreams tests`` () =
-//    inherit ``CloudStreams tests`` ()
-//
-//    let imem = MBrace.Client.LocalRuntime.Create()
-//
-//    override __.Run(workflow : Cloud<'T>) = imem.Run workflow
-//    override __.RunLocal(workflow : Cloud<'T>) = imem.Run workflow
-//    override __.FsCheckMaxNumberOfTests = 100
+open MBrace.Runtime.Vagabond
+open MBrace.Runtime.Serialization
+open MBrace.Runtime.Store
+
+
+type ``InMemory CloudStreams tests`` () =
+    inherit ``CloudStreams tests`` ()
+
+    static do VagabondRegistry.Initialize()
+
+    let fileStore = FileSystemStore.CreateUniqueLocal()
+    let serializer = new FsPicklerBinaryStoreSerializer()
+    let objcache = InMemoryCache.Create()
+    let fsConfig = CloudFileStoreConfiguration.Create(fileStore, serializer, cache = objcache)
+    let imem = MBrace.Client.LocalRuntime.Create(fileConfig = fsConfig)
+
+    override __.Run(workflow : Cloud<'T>) = imem.Run workflow
+    override __.RunLocal(workflow : Cloud<'T>) = imem.Run workflow
+    override __.FsCheckMaxNumberOfTests = 100

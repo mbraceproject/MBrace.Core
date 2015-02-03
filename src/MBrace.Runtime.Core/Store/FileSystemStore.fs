@@ -63,7 +63,7 @@ type FileSystemStore private (rootPath : string) =
     /// </summary>
     static member CreateUniqueLocal() =
         let path = Path.Combine(WorkingDirectory.GetDefaultWorkingDirectoryForProcess(), "localStore")
-        FileSystemStore.Create(path)
+        FileSystemStore.Create(path, create = true, cleanup = true)
 
     /// FileSystemStore root path
     member __.RootPath = rootPath
