@@ -19,7 +19,7 @@
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
     <OutputPath>..\..\bin</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;APPDOMAIN_ISOLATION</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.SampleRuntime.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
@@ -29,7 +29,7 @@
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
     <OutputPath>..\..\bin</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;APPDOMAIN_ISOLATION</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.SampleRuntime.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>

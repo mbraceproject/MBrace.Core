@@ -11,7 +11,6 @@ open MBrace.Store
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
-open MBrace.Runtime.Vagabond
 
 /// Store implementation that uses a filesystem as backend.
 [<Sealed; DataContract>]
@@ -44,20 +43,10 @@ type FileSystemStore private (rootPath : string) =
     /// <param name="cleanup">Cleanup directory if it exists. Defaults to false.</param>
     static member Create(path : string, ?create, ?cleanup) =
         let create = defaultArg create false
-        let cleanup = defaultArg cleanup false
         let rootPath = Path.GetFullPath path
-
-        if Directory.Exists rootPath then
-            if cleanup then
-                let cleanup () =
-                    Directory.EnumerateDirectories rootPath |> Seq.iter (fun d -> Directory.Delete(d, true))
-                    Directory.EnumerateFiles rootPath |> Seq.iter File.Delete
-                        
-                retry (RetryPolicy.Retry(2, 0.5<sec>)) cleanup
-
-        elif create then
-            retry (RetryPolicy.Retry(2, 0.5<sec>)) (fun () -> Directory.CreateDirectory rootPath |> ignore)
-        else
+        if create then
+            WorkingDirectory.CreateWorkingDirectory(rootPath, ?cleanup = cleanup)
+        elif not <| Directory.Exists rootPath then
             raise <| new DirectoryNotFoundException(rootPath)
 
         new FileSystemStore(rootPath)
@@ -66,15 +55,18 @@ type FileSystemStore private (rootPath : string) =
     ///     Creates a local file system store that can be shared between local processes.
     /// </summary>
     static member CreateSharedLocal() =
-        let path = Path.Combine(Path.GetTempPath(), "mbrace-local-fs")
+        let path = Path.Combine(Path.GetTempPath(), "mbrace-shared", "fileStore")
         FileSystemStore.Create(path, create = true, cleanup = false)
 
     /// <summary>
     ///     Creates a local file system store that is unique to the current process.
     /// </summary>
     static member CreateUniqueLocal() =
-        let path = Path.Combine(Path.GetTempPath(), sprintf "mbrace-cache-%d" <| System.Diagnostics.Process.GetCurrentProcess().Id)
-        FileSystemStore.Create(path, create = true, cleanup = true)
+        let path = Path.Combine(WorkingDirectory.GetDefaultWorkingDirectoryForProcess(), "localStore")
+        FileSystemStore.Create(path)
+
+    /// FileSystemStore root path
+    member __.RootPath = rootPath
 
     interface ICloudFileStore with
         member __.Name = "FileSystemStore"

@@ -1,7 +1,11 @@
 ﻿namespace MBrace.Runtime.Utils
 
+open System.IO
+open System.Diagnostics
 open System.Collections.Concurrent
 open System.Threading.Tasks
+
+open MBrace.Runtime.Utils.Retry
 
 [<AutoOpen>]
 module Utils =
@@ -33,3 +37,28 @@ module Utils =
     type Event<'T> with
         member e.TriggerAsTask(t : 'T) =
             System.Threading.Tasks.Task.Factory.StartNew(fun () -> e.Trigger t)
+
+    
+    type WorkingDirectory =
+        /// Generates a working directory path that is unique to the current process
+        static member GetDefaultWorkingDirectoryForProcess() : string =
+            Path.Combine(Path.GetTempPath(), sprintf "mbrace-process-%d" <| Process.GetCurrentProcess().Id)
+
+        /// <summary>
+        ///     Creates a working directory suitable for the current process.
+        /// </summary>
+        /// <param name="path">Path to working directory. Defaults to default process-bound working directory.</param>
+        /// <param name="retries">Retries on creating directory. Defaults to 3.</param>
+        /// <param name="cleanup">Cleanup the working directory if it exists. Defaults to true.</param>
+        static member CreateWorkingDirectory(?path : string, ?retries : int, ?cleanup : bool) =
+            let path = match path with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
+            let retries = defaultArg retries 2
+            let cleanup = defaultArg cleanup true
+            retry (RetryPolicy.Retry(retries, 0.2<sec>)) 
+                (fun () ->
+                    if Directory.Exists path then
+                        if cleanup then 
+                            Directory.Delete(path, true)
+                            ignore <| Directory.CreateDirectory path
+                    else
+                        ignore <| Directory.CreateDirectory path)

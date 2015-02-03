@@ -57,18 +57,19 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\String.fs" />
-    <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Reflection.fs" />
     <Compile Include="Utils\TypePrinter.fs" />
     <Compile Include="Utils\RecordPrinter.fs" />
-    <Compile Include="Vagabond.fs" />
-    <Compile Include="Serialization.fs" />
+    <Compile Include="Utils\TaskExecutionMonitor.fs" />
     <Compile Include="Store\InMemoryCache.fs" />
     <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
+    <Compile Include="Vagabond\Vagabond.fs" />
+    <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="Compiler\Types.fs" />
     <Compile Include="Compiler\CloudUtils.fs" />
     <Compile Include="Compiler\Compiler.fs" />

@@ -1,13 +1,14 @@
 ﻿namespace MBrace.Runtime.Vagabond
 
 open System
+open System.Diagnostics
 open System.Reflection
 open System.IO
 
 open Nessos.FsPickler
 open Nessos.Vagabond
 
-open MBrace.Runtime.Utils.Retry
+open MBrace.Runtime.Utils
 
 /// Vagabond state container
 type VagabondRegistry private () =
@@ -44,10 +45,12 @@ type VagabondRegistry private () =
     /// <summary>
     ///     Initializes vagabond using default settings.
     /// </summary>
+    /// <param name="cachePath">Vagrant cache path.</param>
     /// <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
     /// <param name="loadPolicy">Specify a default assembly load policy.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
-    static member Initialize (?ignoredAssemblies : seq<Assembly>, ?loadPolicy, ?throwOnError) =
+    /// <param name="cleanup">Cleanup vagrant cache directory. Defaults to false.</param>
+    static member Initialize (?cachePath : string, ?ignoredAssemblies : seq<Assembly>, ?loadPolicy, ?throwOnError, ?cleanup) =
         let ignoredAssemblies = seq { 
             yield Assembly.GetExecutingAssembly() 
             match ignoredAssemblies with 
@@ -55,7 +58,11 @@ type VagabondRegistry private () =
             | Some ias -> yield! ias
         }
 
+        let cachePath =
+            match cachePath with
+            | Some cp -> cp
+            | None -> Path.Combine(WorkingDirectory.GetDefaultWorkingDirectoryForProcess(), "vagabond")
+
         VagabondRegistry.Initialize((fun () ->
-            let cachePath = Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" <| Guid.NewGuid())
-            let dir = retry (RetryPolicy.Retry(3, delay = 0.2<sec>)) (fun () -> Directory.CreateDirectory cachePath)
+            WorkingDirectory.CreateWorkingDirectory(cachePath, cleanup = defaultArg cleanup false)
             Vagabond.Initialize(cacheDirectory = cachePath, ignoredAssemblies = ignoredAssemblies, ?loadPolicy = loadPolicy)), ?throwOnError = throwOnError)

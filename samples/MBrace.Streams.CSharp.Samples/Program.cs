@@ -19,7 +19,7 @@ namespace MBrace.Streams.CSharp.Samples
             var path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             var mbraced = Path.Combine(path, @"./MBrace.SampleRuntime.exe");
             MBraceRuntime.WorkerExecutable = mbraced;
-            var runtime = MBraceRuntime.InitLocal(4);
+            var runtime = MBraceRuntime.InitLocal(4, null, null);
 
             
             WordCount.FilesPath = @"path to your files";

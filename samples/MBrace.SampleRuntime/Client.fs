@@ -12,8 +12,9 @@ open MBrace.Store
 open MBrace.Client
 open MBrace.Continuation
 open MBrace.Runtime
+open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond
-open MBrace.Runtime.Compiler
+open MBrace.Runtime.Serialization
 open MBrace.SampleRuntime.Tasks
 open MBrace.SampleRuntime.RuntimeProvider
 
@@ -22,16 +23,16 @@ open MBrace.SampleRuntime.RuntimeProvider
 /// BASE64 serialized argument parsing schema
 module internal Argument =
     let ofRuntime (runtime : RuntimeState) =
-        let pickle = Config.getSerializer().Pickler.Pickle(runtime)
+        let pickle = Config.Pickler.Pickle(runtime)
         System.Convert.ToBase64String pickle
 
     let toRuntime (args : string []) =
         let bytes = System.Convert.FromBase64String(args.[0])
-        Config.getSerializer().Pickler.UnPickle<RuntimeState> bytes
+        Config.Pickler.UnPickle<RuntimeState> bytes
 
 /// MBrace Sample runtime client instance.
-type MBraceRuntime private () =
-    static let compiler = CloudCompiler.Init()
+type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISerializer) =
+    static do Config.Init()
     static let mutable exe = None
     static let initWorkers (target : RuntimeState) (count : int) =
         if count < 1 then invalidArg "workerCount" "must be positive."
@@ -44,12 +45,15 @@ type MBraceRuntime private () =
 
     let mutable procs = [||]
     let mutable workerManagers = Array.empty
+
     let getWorkerRefs () =
         if procs.Length > 0 then procs |> Array.map (fun (p: Process) -> new Worker(p.Id.ToString()) :> IWorkerRef)
         else workerManagers |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
 
     let logEvent = new Event<string> ()
     let state = RuntimeState.InitLocal logEvent.Trigger getWorkerRefs
+    let fileStore = match fileStore with Some f -> f | None -> FileSystemStore.CreateSharedLocal() :> _
+    let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> _
     let atomProvider = new ActorAtomProvider(state) :> ICloudAtomProvider
     let channelProvider = new ActorChannelProvider(state) :> ICloudChannelProvider
 
@@ -63,15 +67,15 @@ type MBraceRuntime private () =
     let createProcessInfo () =
         {
             ProcessId = System.Guid.NewGuid().ToString()
-            DefaultDirectory = Config.getFileStore().GetRandomDirectoryName()
-            DefaultAtomContainer = atomProvider.CreateUniqueContainerName()
-            DefaultChannelContainer = channelProvider.CreateUniqueContainerName()
+            FileStoreConfig = CloudFileStoreConfiguration.Create(fileStore, serializer)
+            AtomConfig = CloudAtomConfiguration.Create(atomProvider)
+            ChannelConfig = CloudChannelConfiguration.Create(channelProvider)
         }
         
     let imem =
-        let fileConfig    = Config.getFileStoreConfiguration(Config.getFileStore().GetRandomDirectoryName())
-        let atomConfig    = CloudAtomConfiguration.Create(atomProvider, atomProvider.CreateUniqueContainerName())
-        let channelConfig = CloudChannelConfiguration.Create(channelProvider, channelProvider.CreateUniqueContainerName())
+        let fileConfig    = CloudFileStoreConfiguration.Create(fileStore, serializer)
+        let atomConfig    = CloudAtomConfiguration.Create(atomProvider)
+        let channelConfig = CloudChannelConfiguration.Create(channelProvider)
         LocalRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
 
     /// <summary>
@@ -82,13 +86,13 @@ type MBraceRuntime private () =
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
-        let computation = compiler.Compile workflow
+        let dependencies = VagabondRegistry.ComputeObjectDependencies ((workflow, fileStore, serializer))
         let processInfo = createProcessInfo ()
 
         let! cts = state.ResourceFactory.RequestCancellationTokenSource()
         try
             cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-            let! resultCell = state.StartAsCell processInfo computation.Dependencies cts faultPolicy None computation.Workflow
+            let! resultCell = state.StartAsCell processInfo (List.toArray dependencies) cts faultPolicy None workflow
             let! result = resultCell.AwaitResult()
             return result.Value
         finally
@@ -118,17 +122,7 @@ type MBraceRuntime private () =
     ///     Run workflow as local, in-memory computation
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
-    member __.RunLocalAsync(workflow : Cloud<'T>) : Async<'T> =
-        let procInfo = createProcessInfo ()
-        let runtimeP = RuntimeProvider.RuntimeProvider.CreateInMemoryRuntime(state, procInfo)
-        let resources = resource {
-            yield Config.getFileStoreConfiguration procInfo.DefaultDirectory
-            yield atomProvider
-            yield channelProvider
-            yield runtimeP :> ICloudRuntimeProvider
-        }
-
-        Cloud.ToAsync(workflow, resources = resources)
+    member __.RunLocalAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
 
     /// Returns the store client for provided runtime
     member __.StoreClient = imem.StoreClient
@@ -160,8 +154,8 @@ type MBraceRuntime private () =
         client
 
     /// Initialize a new local rutime instance with supplied worker count.
-    static member InitLocal(workerCount : int) =
-        let client = new MBraceRuntime()
+    static member InitLocal(workerCount : int, ?fileStore : ICloudFileStore, ?serializer : ISerializer) =
+        let client = new MBraceRuntime(?fileStore = fileStore, ?serializer = serializer)
         client.AppendWorkers(workerCount)
         client
 

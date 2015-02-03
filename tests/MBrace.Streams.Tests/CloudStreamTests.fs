@@ -9,9 +9,6 @@ open Nessos.Streams
 open MBrace.Streams
 open MBrace
 open System.IO
-open MBrace.SampleRuntime
-open MBrace.Client
-
 
 type Check =
     static member QuickThrowOnFailureConfig(maxNumber) = { Config.QuickThrowOnFailure with MaxTest = maxNumber }
@@ -248,38 +245,11 @@ type ``CloudStreams tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
-//type ``LocalRuntime Streams Tests`` () =
+//type ``InMemory CloudStreams tests`` () =
 //    inherit ``CloudStreams tests`` ()
 //
-//    let inmem = LocalRuntime.Create()
+//    let imem = MBrace.Client.LocalRuntime.Create()
 //
-//    override __.FsCheckMaxNumberOfTests = 10  
-//    override __.Run(expr : Cloud<'T>) : 'T = inmem.Run expr
-
-
-[<Category("CloudStreams.Cluster")>]
-
-type ``SampleRuntime Streams Tests`` () =
-    inherit ``CloudStreams tests`` ()
-        
-    let mutable currentRuntime : MBraceRuntime option = None
-      
-    override __.FsCheckMaxNumberOfTests = 10  
-    override __.Run(expr : Cloud<'T>) : 'T = currentRuntime.Value.Run(expr, faultPolicy = FaultPolicy.NoRetry)
-    override __.RunLocal(expr : Cloud<'T>) : 'T = currentRuntime.Value.RunLocal(expr)
-
-    [<TestFixtureSetUp>]
-    member __.InitRuntime() =
-        match currentRuntime with
-        | Some runtime -> runtime.KillAllWorkers()
-        | None -> ()
-            
-        MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.SampleRuntime.exe")
-        let runtime = MBraceRuntime.InitLocal(4)
-        currentRuntime <- Some runtime
-
-    [<TestFixtureTearDown>]
-    member __.FiniRuntime() =
-        match currentRuntime with
-        | None -> invalidOp "No runtime specified in test fixture."
-        | Some r -> r.KillAllWorkers() ; currentRuntime <- None
+//    override __.Run(workflow : Cloud<'T>) = imem.Run workflow
+//    override __.RunLocal(workflow : Cloud<'T>) = imem.Run workflow
+//    override __.FsCheckMaxNumberOfTests = 100

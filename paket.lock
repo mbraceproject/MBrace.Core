@@ -19,5 +19,5 @@ NUGET
     Thespian.Core (0.1.1-alpha)
       FsPickler (>= 1.0.2)
     Unquote (2.2.2)
-    Vagabond (0.3.1)
+    Vagabond (0.3.2)
       FsPickler (>= 1.0.8)

@@ -16,7 +16,7 @@ module private ResourceRegistryUtils =
         else
             lock dict (fun () ->
                 let k = t.AssemblyQualifiedName
-                dict.Add(t, k)
+                dict.[t] <- k
                 k)
 
 /// Immutable dependency container used for pushing

@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{902BED62-CD5F-4E1D-BC70-B1D83722084B}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MBrace.CSharp.Tests</RootNamespace>
     <AssemblyName>MBrace.CSharp.Tests</AssemblyName>
@@ -31,6 +31,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core, Version=4.3.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="System" />
@@ -51,10 +54,6 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\samples\MBrace.SampleRuntime\MBrace.SampleRuntime.fsproj">
-      <Project>{f95ea755-fbe4-44fc-8945-313b46bf6920}</Project>
-      <Name>MBrace.SampleRuntime</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.CSharp\MBrace.CSharp.csproj">
       <Project>{9f535680-053f-4514-91fa-472b82646b15}</Project>
       <Name>MBrace.CSharp</Name>

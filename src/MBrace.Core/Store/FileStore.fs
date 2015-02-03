@@ -172,12 +172,11 @@ module CloudFileStoreUtils =
 
         /// <summary>
         ///     Reads file in store with provided deserializer function.
-        ///     The provided function is responsible for releasing the stream.
         /// </summary>
         /// <param name="deserializer">Deserializer function.</param>
         /// <param name="path">Path to file.</param>
         member cfs.Read<'T>(deserializer : Stream -> Async<'T>, path : string) = async {
-            let! stream = cfs.BeginRead path
+            use! stream = cfs.BeginRead path
             return! deserializer stream
         }
 

@@ -1,66 +1,65 @@
-﻿module internal MBrace.SampleRuntime.Config
+﻿namespace MBrace.SampleRuntime
 
 open System
+open System.IO
 open System.Reflection
 open System.Threading
+
+open Nessos.Vagabond
 
 open Nessos.Thespian
 open Nessos.Thespian.Serialization
 open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
 
-open Nessos.Vagabond
-
-open MBrace.Continuation
 open MBrace.Store
-open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond
-open MBrace.Runtime.Serialization
 
-let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
+type Config private () =
 
-let mutable private localCacheStore = Unchecked.defaultof<ICloudFileStore>
-let mutable private fileStore = Unchecked.defaultof<ICloudFileStore>
-let mutable private inMemoryCache = Unchecked.defaultof<IObjectCache>
-let mutable private serializer = Unchecked.defaultof<FsPicklerStoreSerializer>
+    static let isInitialized = ref false
+    static let mutable workingDirectory = Unchecked.defaultof<string>
+    static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
+    static let mutable fileCache = Unchecked.defaultof<FileSystemStore>
 
-/// vagabond, fspickler and thespian state initializations
-let private _initRuntimeState () =
-    let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
+    static let checkInitialized () =
+        if not isInitialized.Value then
+            invalidOp "Runtime configuration has not been initialized."
 
-    // vagabond initialization
-    VagabondRegistry.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
-    serializer <- new FsPicklerBinaryStoreSerializer()
+    static let init (workDir : string option) (createDir : bool option) =
+        if isInitialized.Value then invalidOp "Runtime configuration has already been initialized."
+        let wd = match workDir with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
+        let createDir = defaultArg createDir true
+        let vagrantPath = Path.Combine(wd, "vagrant")
+        let fileCachePath = Path.Combine(wd, "fileCache")
 
-    // thespian initialization
-    Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(serializer.Pickler)
-    Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
-    TcpListenerPool.RegisterListener(IPEndPoint.any)
+        let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
-    // store initialization
-    // TODO : implement task-parametric store configuration
-    let globalStore = FileSystemStore.CreateSharedLocal()
-    localCacheStore <- FileSystemStore.CreateUniqueLocal() :> ICloudFileStore
-    inMemoryCache <- InMemoryCache.Create()
-    fileStore <- FileStoreCache.Create(globalStore, localCacheStore, localCacheContainer = "cache")
+        objectCache <- InMemoryCache.Create()
+        fileCache <- FileSystemStore.Create(fileCachePath, create = createDir, cleanup = createDir)
+        workingDirectory <- wd
 
-/// runtime configuration initializer function
-let initRuntimeState = runOnce _initRuntimeState
-/// returns the local ip endpoint used by Thespian
-let getLocalEndpoint () = initRuntimeState () ; TcpListenerPool.GetListener().LocalEndPoint
-let getSerializer () = initRuntimeState () ; serializer
-let getAddress() = initRuntimeState () ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
+        // vagabond initialization
+        VagabondRegistry.Initialize(cachePath = vagrantPath, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
 
-/// initializes store configuration for runtime
-let getFileStoreConfiguration defaultDirectory = 
-    initRuntimeState ()
-    { 
-        FileStore = fileStore ; 
-        DefaultDirectory = defaultDirectory ; 
-        Serializer = serializer :> ISerializer ; 
-        Cache = Some inMemoryCache
-    }
+        // thespian initialization
+        Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Pickler)
+        Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
+        TcpListenerPool.RegisterListener(IPEndPoint.any)
+        isInitialized := true
 
-let getFileStore () = initRuntimeState () ; fileStore
+    static member Init(?workDir : string, ?cleanup : bool) = lock isInitialized (fun () -> init workDir cleanup)
+
+    static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Pickler
+    static member WorkingDirectory = checkInitialized() ; workingDirectory
+    static member FileStoreCache = checkInitialized() ; fileCache
+    static member ObjectCache = checkInitialized() ; objectCache
+    static member LocalEndPoint = checkInitialized() ; TcpListenerPool.GetListener().LocalEndPoint
+    static member LocalAddress = 
+        checkInitialized() ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
+
+    static member WithCachedFileStore(config : CloudFileStoreConfiguration) =
+        let cacheStore = FileStoreCache.Create(config.FileStore, Config.FileStoreCache, localCacheContainer = "cache") :> ICloudFileStore
+        { config with FileStore = cacheStore ; Cache = Some (Config.ObjectCache :> _) }
