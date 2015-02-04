@@ -61,6 +61,24 @@ type Cloud =
     static member SetResource(workflow : Cloud<'T>, resource : 'Resource) : Cloud<'T> =
         Cloud.FromContinuations(fun ctx cont -> let (Body f) = workflow in f { ctx with Resources = ctx.Resources.Register resource } cont)
 
+
+    /// <summary>
+    ///     Asynchronously awaits a System.Threading.Task for completion.
+    /// </summary>
+    /// <param name="task">Awaited task.</param>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    static member AwaitTask(task : Task<'T>, ?timeoutMilliseconds) : Cloud<'T> =
+        Cloud.FromContinuations(fun ctx cont ->
+            let onCompletion (t : Task<'T>) =
+                let task = match timeoutMilliseconds with None -> task | Some ms -> task.WithTimeout ms
+                match t.Status with
+                | TaskStatus.RanToCompletion -> cont.Success ctx t.Result
+                | TaskStatus.Faulted -> cont.Exception ctx (capture t.InnerException)
+                | TaskStatus.Canceled -> cont.Cancellation ctx (new System.OperationCanceledException())
+                | _ -> ()
+
+            let _ = task.ContinueWith onCompletion in ())
+
     /// <summary>
     ///     Wraps a cloud workflow into an asynchronous workflow.
     /// </summary>

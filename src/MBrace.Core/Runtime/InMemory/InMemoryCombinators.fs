@@ -3,6 +3,7 @@
 #nowarn "444"
 
 open System.Threading
+open System.Threading.Tasks
 
 open MBrace
 open MBrace.Continuation
@@ -44,17 +45,18 @@ type Sequential =
     }
 
     /// <summary>
-    ///     Sequential Cloud.StartChild implementation.
+    ///     Sequential Cloud.StartAsTask implementation.
     /// </summary>
     /// <param name="computation">Input computation.</param>
     [<CompilerMessage("Use of Sequential.StartChild restricted to runtime implementers.", 444)>]
-    static member StartChild (computation : Cloud<'T>) = cloud {
-        let! result = computation |> Cloud.Catch
-        return cloud {  
-            match result with 
-            | Choice1Of2 t -> return t
-            | Choice2Of2 e -> return! Cloud.Raise e
-        }
+    static member StartAsTask (computation : Cloud<'T>, cancellationToken : CancellationToken) : Task<'T> = cloud {
+        
+//        let! result = computation |> Cloud.Catch
+//        return cloud {  
+//            match result with 
+//            | Choice1Of2 t -> return t
+//            | Choice2Of2 e -> return! Cloud.Raise e
+//        }
     }
 
 /// Collection of workflows that provide parallelism
@@ -155,15 +157,15 @@ type ThreadPool private () =
                     scheduleTask ctx.Resources innerCts.Token onSuccess onException onCancellation computations.[i])
 
 
-    /// <summary>
-    ///     A Cloud.StartChild implementation executed using the thread pool.
-    /// </summary>
-    /// <param name="computation">Input computation.</param>
-    /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
-    [<CompilerMessage("Use of ThreadPool.StartChild restricted to runtime implementers.", 444)>]
-    static member StartChild (computation : Cloud<'T>, ?timeoutMilliseconds) : Cloud<Cloud<'T>> = cloud {
-        let! resource = Cloud.GetResourceRegistry()
-        let asyncWorkflow = Cloud.ToAsync(computation, resources = resource)
-        let! chWorkflow = Cloud.OfAsync <| Async.StartChild(asyncWorkflow, ?millisecondsTimeout = timeoutMilliseconds)
-        return Cloud.OfAsync chWorkflow
-    }
+//    /// <summary>
+//    ///     A Cloud.StartChild implementation executed using the thread pool.
+//    /// </summary>
+//    /// <param name="computation">Input computation.</param>
+//    /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
+//    [<CompilerMessage("Use of ThreadPool.StartChild restricted to runtime implementers.", 444)>]
+//    static member StartChild (computation : Cloud<'T>, ?timeoutMilliseconds) : Cloud<Cloud<'T>> = cloud {
+//        let! resource = Cloud.GetResourceRegistry()
+//        let asyncWorkflow = Cloud.ToAsync(computation, resources = resource)
+//        let! chWorkflow = Cloud.OfAsync <| Async.StartChild(asyncWorkflow, ?millisecondsTimeout = timeoutMilliseconds)
+//        return Cloud.OfAsync chWorkflow
+//    }

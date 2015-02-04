@@ -181,10 +181,11 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
-    /// <param name="cancellationToken">Timeout in milliseconds; defaults to infinite.</param>
+    /// <param name="cancellationToken">Cancellation token for task. Defaults to current cancellation token.</param>
     static member StartAsTask(computation : Cloud<'T>, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken) : Cloud<ICloudTask<'T>> = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
-        return! runtime.ScheduleStartAsTask(computation, ?target = target, ?cancellationToken = cancellationToken)
+        let cancellationToken = defaultArg cancellationToken runtime.CancellationToken
+        return! runtime.ScheduleStartAsTask(computation, ?target = target, cancellationToken = cancellationToken)
     }
 
     /// <summary>
@@ -192,10 +193,9 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
-    /// <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
-    static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef, ?timeoutMilliseconds:int) : Cloud<Cloud<'T>> = cloud {
+    static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef) : Cloud<Cloud<'T>> = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
-        let! task = runtime.ScheduleStartAsTask(computation, ?target = target, ?timeoutMilliseconds = timeoutMilliseconds)
+        let! task = runtime.ScheduleStartAsTask(computation, ?target = target, cancellationToken = runtime.CancellationToken)
         return Cloud.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" (cloud { return! task.AwaitResult() })
     }
 
@@ -298,4 +298,45 @@ type Cloud =
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
         let runtime' = runtime.WithFaultPolicy policy
         return! Cloud.SetResource(workflow, runtime')
+    }
+
+    /// Gets the cloud cancellation token for the current task.
+    static member CloudCancellationToken = cloud {
+        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        return runtime.CancellationToken
+    }
+
+    /// Creates a new cloud cancellation token source
+    static member CreateCloudCancellationTokenSource () = cloud {
+        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        return runtime.CreateLinkedCancellationTokenSource [||]
+    }
+
+    /// <summary>
+    ///     Creates a linked cloud cancellation token source.
+    /// </summary>
+    /// <param name="parent">Parent cancellation token. Defaults to the current process cancellation token.</param>
+    static member CreateLinkedCancellationTokenSource(?parent : ICloudCancellationToken) = cloud {
+        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        let parent = defaultArg parent runtime.CancellationToken
+        return runtime.CreateLinkedCancellationTokenSource [| parent |]
+    }
+
+    /// <summary>
+    ///     Creates a linked cloud cancellation token source.
+    /// </summary>
+    /// <param name="token1">First parent cancellation token.</param>
+    /// <param name="token2">Second parent cancellation token.</param>s
+    static member CreateLinkedCancellationTokenSource(token1 : ICloudCancellationToken, token2 : ICloudCancellationToken) = cloud {
+        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        return runtime.CreateLinkedCancellationTokenSource [|token1 ; token2|]
+    }
+
+    /// <summary>
+    ///     Creates a linked cloud cancellation token source.
+    /// </summary>
+    /// <param name="tokens">Parent cancellation tokens.</param>
+    static member CreateLinkedCancellationTokenSource(tokens : seq<ICloudCancellationToken>) = cloud {
+        let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
+        return runtime.CreateLinkedCancellationTokenSource (Seq.toArray tokens)
     }

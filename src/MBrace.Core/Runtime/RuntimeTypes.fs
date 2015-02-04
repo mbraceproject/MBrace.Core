@@ -29,6 +29,8 @@ type ICloudCancellationToken =
 type ICloudCancellationTokenSource =
     /// Cancel the cancellation token source.
     abstract Cancel : unit -> unit
+    /// Gets a cancellation token instance.
+    abstract Token : ICloudCancellationToken
 
 /// Denotes a task that is being executed in the cluster.
 type ICloudTask<'T> =

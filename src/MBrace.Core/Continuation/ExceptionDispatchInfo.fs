@@ -137,3 +137,31 @@ module ExceptionDispatchInfoUtils =
             | Choice1Of3 t -> t
             | Choice2Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
             | Choice3Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
+
+    open System.Threading.Tasks
+
+    type Task<'T> with
+
+        /// Returns the inner exception of the faulted task.
+        member t.InnerException =
+            match t.Exception with
+            | e when Seq.length e.InnerExceptions = 1 -> Seq.head e.InnerExceptions
+            | e -> e :> exn
+
+        /// <summary>
+        ///     Returns Some result if completed, None if pending, exception if faulted.
+        /// </summary>
+        member t.TryGetResult () =
+            match t.Status with
+            | TaskStatus.RanToCompletion -> Some t.Result
+            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
+            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
+            | _ -> None
+
+        member t.GetResult () =
+            do t.Wait()
+            match t.Status with
+            | TaskStatus.RanToCompletion -> t.Result
+            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
+            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
+            | _ -> invalidOp "internal error"

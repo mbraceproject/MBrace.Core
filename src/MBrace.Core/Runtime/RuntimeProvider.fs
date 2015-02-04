@@ -73,7 +73,6 @@ type ICloudRuntimeProvider =
     ///     Start a new computation as a task. 
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>
-    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite.</param>
-    /// <param name="cancellationToken">Cancellation token for task.</param>
-    abstract ScheduleStartAsTask : workflow:Cloud<'T> * ?target:IWorkerRef * ?timeoutMilliseconds:int * ?cancellationToken:ICloudCancellationToken -> Cloud<ICloudTask<'T>>
+    abstract ScheduleStartAsTask : workflow:Cloud<'T> * cancellationToken:ICloudCancellationToken * ?target:IWorkerRef -> Cloud<ICloudTask<'T>>
