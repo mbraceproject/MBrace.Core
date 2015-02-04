@@ -25,6 +25,16 @@ module CloudStream =
     /// Maximum combined stream length used in ofCloudFiles.
     let private maxCloudFileCombinedLength = 1024L * 1024L * 1024L
 
+    /// If local context then returns number of cores instead of throwing exception
+    /// else returns number of workers.
+    let inline private getWorkerCount() = cloud {
+        let! ctx = Cloud.GetSchedulingContext()
+        match ctx with
+        | Sequential  -> return failwith "Invalid CloudStream context : %A" ctx
+        | ThreadParallel -> return 1
+        | Distributed -> return! Cloud.GetWorkerCount()
+    }
+
     /// <summary>Wraps array as a CloudStream.</summary>
     /// <param name="source">The input array.</param>
     /// <returns>The result CloudStream.</returns>
@@ -37,7 +47,7 @@ module CloudStream =
                     let! workerCount = 
                         match !self.DegreeOfParallelism with
                         | Some n -> cloud { return n }
-                        | None -> Cloud.GetWorkerCount()
+                        | None -> getWorkerCount()
 
                     let createTask array (collector : Cloud<Collector<'T, 'S>>) = 
                         cloud {
@@ -76,7 +86,7 @@ module CloudStream =
                         let! workerCount = 
                             match !self.DegreeOfParallelism with
                             | Some n -> cloud { return n }
-                            | None -> Cloud.GetWorkerCount()
+                            | None -> getWorkerCount()
 
                         let createTask (files : CloudFile []) (collectorf : Cloud<Collector<'T, 'S>>) : Cloud<'R> = 
                             cloud {
@@ -131,7 +141,7 @@ module CloudStream =
                     let! workerCount = 
                         match !self.DegreeOfParallelism with
                         | Some n -> cloud { return n }
-                        | None -> Cloud.GetWorkerCount()
+                        | None -> getWorkerCount()
                     
                     let createTask (partitionId : int) (collector : Cloud<Collector<'T, 'S>>) = 
                         cloud {
@@ -206,7 +216,7 @@ module CloudStream =
     /// <param name="source">The input CloudArray.</param>
     let cache (source : CloudArray<'T>) : Cloud<CloudArray<'T>> = 
         cloud {
-            let! workerCount = Cloud.GetWorkerCount()
+            let! workerCount = getWorkerCount()
             let createTask (pid : int) (cached : CachedCloudArray<'T>) = 
                 cloud {
                     let! slice = (cached :> CloudArray<'T>).GetPartition(pid)
@@ -384,7 +394,7 @@ module CloudStream =
             cloud {
                 let combiner' (left : CloudArray<_>) (right : CloudArray<_>) = 
                     left.Append(right)
-                let! totalWorkers = match !stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> Cloud.GetWorkerCount()
+                let! totalWorkers = match !stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
                                                   (fun keyValues -> cloud {
                                                         let dict = new Dictionary<int, CloudArray<'Key * 'State>>() 
