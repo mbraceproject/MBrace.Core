@@ -178,14 +178,14 @@ with
         match r with
         | Completed t -> t
         | Exception edi -> ExceptionDispatchInfo.raise true edi
-        | Cancelled edi -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true edi
+        | Cancelled e -> raise e
 
 type private ResultCellMsg<'T> =
     | SetResult of Result<'T> * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<Result<'T> option>
 
 /// Defines a reference to a distributed result cell instance.
-type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
+type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) =
     /// Try setting the result
     member c.SetResult result = source <!- fun ch -> SetResult(result, ch)
     /// Try getting the result
@@ -199,6 +199,23 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
             return! c.AwaitResult()
         | Some r -> return r
     }
+
+    interface ICloudTask<'T> with
+        member c.Id = id
+        member c.AwaitResult(?timeout:int) = cloud {
+            let! r = Cloud.OfAsync <| c.AwaitResult()
+            return r.Value
+        }
+
+        member c.TryGetResult() = cloud {
+            let! r = Cloud.OfAsync <| c.TryGetResult()
+            return r |> Option.map (fun r -> r.Value)
+        }
+
+        member c.IsCompleted = raise <| new NotImplementedException()
+        member c.IsFaulted = raise <| new NotImplementedException()
+        member c.IsCanceled = raise <| new NotImplementedException()
+        member c.Status = raise <| new NotImplementedException()
 
     /// Initialize a new result cell in the local process
     static member Init() : ResultCell<'T> =
@@ -221,7 +238,8 @@ type ResultCell<'T> private (source : ActorRef<ResultCellMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResultCell<'T>(ref)
+        let id = Guid.NewGuid().ToString()
+        new ResultCell<'T>(id, ref)
 
 //
 //  Distributed Cancellation token sources
@@ -237,12 +255,11 @@ type private CancellationTokenMsg =
 /// Defines a distributed cancellation token source that can be cancelled
 /// in the context of a distributed runtime.
 and DistributedCancellationTokenSource private (source : ActorRef<CancellationTokenMsg>) =
-    member __.Cancel () = source <-- Cancel
-    member __.IsCancellationRequested () = source <!- IsCancellationRequested
-    member private __.RegisterChild ch = source <-- RegisterChild ch
-    /// Creates a System.Threading.CancellationToken that is linked
-    /// to the distributed cancellation token.
-    member __.GetLocalCancellationToken() =
+
+    [<NonSerialized>]
+    let mutable localToken : CancellationToken option ref = ref None
+
+    let createLocalCancellationToken () =
         let cts = new System.Threading.CancellationTokenSource()
 
         let rec checkCancellation () = async {
@@ -259,6 +276,28 @@ and DistributedCancellationTokenSource private (source : ActorRef<CancellationTo
 
         do Async.Start(checkCancellation())
         cts.Token
+
+    member __.Cancel () = source <-- Cancel
+    member __.IsCancellationRequested () = source <!- IsCancellationRequested
+    member private __.RegisterChild ch = source <-- RegisterChild ch
+    /// Creates a System.Threading.CancellationToken that is linked
+    /// to the distributed cancellation token.
+    member __.Token =
+        match localToken.Value with
+        | Some lt -> lt
+        | None ->
+            lock localToken (fun () -> 
+                let lt = createLocalCancellationToken()
+                localToken := Some lt
+                lt)
+
+    interface ICloudCancellationToken with
+        member __.IsCancellationRequested = __.IsCancellationRequested ()
+        member __.LocalToken = __.Token
+
+    interface ICloudCancellationTokenSource with
+        member __.Cancel () = source <-- Cancel
+        member __.Token = __ :> ICloudCancellationToken
 
     /// <summary>
     ///     Initializes a new distributed cancellation token source in the current process

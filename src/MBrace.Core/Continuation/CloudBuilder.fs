@@ -38,7 +38,7 @@ module internal CloudBuilderImpl =
             | Choice2Of2 e -> c.Exception ctx (capture e)
 
     type ExecutionContext with
-        member inline ctx.IsCancellationRequested = ctx.CancellationToken.IsCancellationRequested
+        member inline ctx.IsCancellationRequested = ctx.CancellationToken.LocalToken.IsCancellationRequested
 
     let inline ret t = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Success ctx t)
     let inline retFunc (f : unit -> 'T) : Cloud<'T> = 

@@ -36,6 +36,7 @@ type ProcessInfo =
         ChannelConfig : CloudChannelConfiguration
     }
 
+// TODO : rename to job
 /// Defines a task to be executed in a worker node
 type Task = 
     {
@@ -73,7 +74,7 @@ with
                             yield task.ProcessInfo.AtomConfig ; yield task.ProcessInfo.ChannelConfig
                         }
 
-                    CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
+                    CancellationToken = task.CancellationTokenSource :> ICloudCancellationToken
                 }
 
             if faultCount > 0 then

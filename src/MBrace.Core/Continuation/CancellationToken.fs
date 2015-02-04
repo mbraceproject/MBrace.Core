@@ -5,7 +5,7 @@ open System.Threading
 /// Distributed cancellation token abstraction.
 type ICloudCancellationToken =
     /// Gets the cancellation status for the token.
-    abstract IsCancellationRequested : bool
+    abstract IsCancellationRequested : Async<bool>
     /// Gets a System.Threading.CancellationToken instance
     /// that is subscribed to the distributed cancellation token.
     abstract LocalToken : CancellationToken
@@ -25,7 +25,7 @@ type ICloudCancellationTokenSource =
 [<AutoSerializable(false)>]
 type internal InMemoryCancellationToken (token : CancellationToken) =
     interface ICloudCancellationToken with
-        member __.IsCancellationRequested = token.IsCancellationRequested
+        member __.IsCancellationRequested = async { return token.IsCancellationRequested }
         member __.LocalToken = token
 
 [<AutoSerializable(false)>]

@@ -129,12 +129,16 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
             | ThreadParallel -> ThreadPool.Choice (extractComputations computations)
             | Sequential -> Sequential.Choice (extractComputations computations)
 
-        member __.ScheduleStartChild(computation,worker,_) =
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, cancellationToken : ICloudCancellationToken, ?target:IWorkerRef) =
             match context with
-            | Distributed -> Combinators.StartChild state procInfo dependencies faultPolicy worker computation
-            | _ when Option.isSome worker -> failTargetWorker ()
-            | ThreadParallel -> ThreadPool.StartChild computation
-            | Sequential -> Sequential.StartChild computation
+            | Distributed -> Combinators.StartAsCloudTask
+        
+//        (computation,worker,_) =
+//            match context with
+//            | Distributed -> Combinators.StartChild state procInfo dependencies faultPolicy worker computation
+//            | _ when Option.isSome worker -> failTargetWorker ()
+//            | ThreadParallel -> ThreadPool.StartChild computation
+//            | Sequential -> Sequential.StartChild computation
 
         member __.GetAvailableWorkers () = state.Workers.GetValue()
         member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef
