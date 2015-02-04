@@ -298,9 +298,17 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="path">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Cloud<'T> = cloud {
+    /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
+    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Cloud<'T> = cloud {
+        let leaveOpen = defaultArg leaveOpen false
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.Read(deserializer, path)
+        return! ofAsync <| async {
+            if leaveOpen then
+                let! stream = config.FileStore.BeginRead(path)
+                return! deserializer stream
+            else
+                return! config.FileStore.Read(deserializer, path)
+        }
     }
 
     /// <summary>
@@ -308,8 +316,9 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    static member Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>) : Cloud<'T> = 
-        CloudFile.Read(file.Path, deserializer)
+    /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
+    static member Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Cloud<'T> = 
+        CloudFile.Read(file.Path, deserializer, ?leaveOpen = leaveOpen)
 
     /// <summary>
     ///     Gets all files that exist in given container.
@@ -343,7 +352,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
     /// <param name="path">Path to CloudFile.</param>
-    static member WriteLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
+    static member WriteAllLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
         let writer (stream : Stream) = async {
             use sw = 
                 match encoding with
@@ -362,7 +371,36 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadLines(file : string, ?encoding : Encoding) : Cloud<string []> = cloud {
+    static member ReadLines(file : string, ?encoding : Encoding) : Cloud<seq<string>> = cloud {
+        let reader (stream : Stream) = async {
+            return seq { 
+                use sr = 
+                    match encoding with
+                    | None -> new StreamReader(stream)
+                    | Some e -> new StreamReader(stream, e)
+                while not sr.EndOfStream do
+                    yield sr.ReadLine()
+            }
+        }
+
+        return! CloudFile.Read(file, reader, leaveOpen = true)
+    }
+
+    /// <summary>
+    ///     Reads a file as a sequence of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadLines(file : CloudFile, ?encoding : Encoding) = 
+        CloudFile.ReadLines(file.Path, ?encoding = encoding)
+
+
+    /// <summary>
+    ///     Reads a file as an array of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadAllLines(file : string, ?encoding : Encoding) : Cloud<string []> = cloud {
         let reader (stream : Stream) = async {
             let ra = new ResizeArray<string> ()
             use sr = 
@@ -380,12 +418,12 @@ and [<DataContract; Sealed>] CloudFile =
     }
 
     /// <summary>
-    ///     Reads a file as a sequence of lines.
+    ///     Reads a file as an array of lines.
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadLines(file : CloudFile, ?encoding : Encoding) = 
-        CloudFile.ReadLines(file.Path, ?encoding = encoding)
+    static member ReadAllLines(file : CloudFile, ?encoding : Encoding) = 
+        CloudFile.ReadAllLines(file.Path, ?encoding = encoding)
 
     /// <summary>
     ///     Writes string contents to given CloudFile.

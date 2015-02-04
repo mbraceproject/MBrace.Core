@@ -111,7 +111,7 @@ module CloudStream =
                                     let parStream = 
                                         fs
                                         |> ParStream.ofSeq 
-                                        |> ParStream.map (fun file -> CloudFile.Read(file, reader))
+                                        |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
                                         |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources))
                                     let collectorResult = parStream.Apply collector
                                     let! partial = projection collectorResult
