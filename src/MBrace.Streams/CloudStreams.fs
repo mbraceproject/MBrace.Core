@@ -175,9 +175,7 @@ module CloudStream =
                         | :? CachedCloudArray<'T> as cached -> 
                             // round 1
                             let taskId = Guid.NewGuid().ToString() //Cloud.GetTaskId()
-                            let! partial = 
-                                Array.init partitions.Length (fun _ -> createTaskCached cached taskId collectorf) 
-                                |> Cloud.Parallel
+                            let! partial = Cloud.Parallel(createTaskCached cached taskId collectorf)
                             let results1 = Seq.concat partial 
                                            |> Seq.toArray 
                             let completedPartitions = 
@@ -216,7 +214,6 @@ module CloudStream =
     /// <param name="source">The input CloudArray.</param>
     let cache (source : CloudArray<'T>) : Cloud<CloudArray<'T>> = 
         cloud {
-            let! workerCount = getWorkerCount()
             let createTask (pid : int) (cached : CachedCloudArray<'T>) = 
                 cloud {
                     let! slice = (cached :> CloudArray<'T>).GetPartition(pid)
