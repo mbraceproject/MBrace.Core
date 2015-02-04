@@ -202,9 +202,14 @@ module CloudStream =
                                             |> Seq.map (fun (_,r) -> r)
                                             |> Seq.toArray
                                 return Array.reduce combiner final
-                        | source -> 
-                            let! results = partitions |> Array.map (fun partitionId -> createTask partitionId collectorf) |> Cloud.Parallel
-                            return Array.reduce combiner results
+                        | _ -> 
+                            let! results = 
+                                partitions 
+                                |> Array.map (fun partitionId -> createTask partitionId collectorf) 
+                                |> Partitions.ofArray workerCount
+                                |> Array.map (fun wfs -> wfs |> Cloud.Parallel |> Cloud.ToSequential )
+                                |> Cloud.Parallel
+                            return Array.reduce combiner (Array.concat results)
                             
                 } }
 
