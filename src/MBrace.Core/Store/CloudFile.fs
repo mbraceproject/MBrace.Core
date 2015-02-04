@@ -383,7 +383,7 @@ and [<DataContract; Sealed>] CloudFile =
             }
         }
 
-        return! CloudFile.Read(file, reader)
+        return! CloudFile.Read(file, reader, leaveOpen = true)
     }
 
     /// <summary>
