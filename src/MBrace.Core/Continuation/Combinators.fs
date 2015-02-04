@@ -59,7 +59,16 @@ type Cloud =
     /// <param name="resource">Resource to be installed.</param>
     [<CompilerMessage("'SetResource' only intended for runtime implementers.", 444)>]
     static member SetResource(workflow : Cloud<'T>, resource : 'Resource) : Cloud<'T> =
-        Cloud.FromContinuations(fun ctx cont -> let (Body f) = workflow in f { ctx with Resources = ctx.Resources.Register resource } cont)
+        Cloud.FromContinuations(fun ctx cont -> 
+            let (Body f) = workflow 
+            let cont' = 
+                { 
+                    Success = fun _ t -> cont.Success ctx t
+                    Exception = fun _ e -> cont.Exception ctx e
+                    Cancellation = fun _ c -> cont.Cancellation ctx c
+                }
+
+            f { ctx with Resources = ctx.Resources.Register resource } cont')
 
     /// <summary>
     ///     Wraps a cloud workflow into an asynchronous workflow.

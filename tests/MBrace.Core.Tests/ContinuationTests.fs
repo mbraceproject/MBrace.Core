@@ -420,7 +420,6 @@ module ``Continuation Tests`` =
         for i in 0 .. 3 do
             run(ackermannC i i) |> Choice.shouldEqual (ackermann i i)
 
-
     type N = Z | S of N
     with
         member n.Value =
@@ -485,6 +484,12 @@ module ``Continuation Tests`` =
     let ``storage resouces`` () =
         run(CloudRef.New 0) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
 
+    [<Test>]
+    let ``test correct scoping in resource updates`` () =
+        cloud {
+            do! Cloud.SetResource(cloud.Zero(), 42)
+            return! Cloud.TryGetResource<int> ()
+        } |> run |> Choice.shouldEqual None
 
     //
     //  Sequential workflow tests
