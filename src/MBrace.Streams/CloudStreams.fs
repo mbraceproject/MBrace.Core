@@ -1,4 +1,5 @@
 ﻿namespace MBrace.Streams
+#nowarn "0443"
 #nowarn "0444"
 
 open System

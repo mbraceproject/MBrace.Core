@@ -1,6 +1,7 @@
 ﻿namespace MBrace
 
 open System
+open System.Threading
 open System.Threading.Tasks
 
 /// Scheduling context for currently executing cloud process.
@@ -19,18 +20,6 @@ type IWorkerRef =
     abstract Type : string
     /// Worker unique identifier
     abstract Id : string
-
-/// Distributed cancellation token abstraction.
-type ICloudCancellationToken =
-    /// Gets the cancellation status for the token.
-    abstract IsCancellationRequested : bool
-
-/// Distributed cancellation token source abstraction.
-type ICloudCancellationTokenSource =
-    /// Cancel the cancellation token source.
-    abstract Cancel : unit -> unit
-    /// Gets a cancellation token instance.
-    abstract Token : ICloudCancellationToken
 
 /// Denotes a task that is being executed in the cluster.
 type ICloudTask<'T> =

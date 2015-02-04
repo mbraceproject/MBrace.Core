@@ -19,12 +19,6 @@ type InMemoryLogTester () =
     interface ICloudLogger with
         member __.Log msg = lock logs (fun () -> logs.Add msg)
 
-type InMemoryCancellationTokenSource() =
-    let cts = new CancellationTokenSource()
-    member __.Token = cts.Token
-    interface ICancellationTokenSource with
-        member __.Cancel() = cts.Cancel()
-
 type ``ThreadPool Parallelism Tests`` () =
     inherit ``Parallelism Tests``(nParallel = 100)
 
@@ -32,8 +26,8 @@ type ``ThreadPool Parallelism Tests`` () =
     let imem = LocalRuntime.Create(logger = logger)
 
     override __.Run(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.Run(workflow))
-    override __.Run(workflow : ICancellationTokenSource -> Cloud<'T>) =
-        let cts = new InMemoryCancellationTokenSource()
+    override __.Run(workflow : ICloudCancellationTokenSource -> Cloud<'T>) =
+        let cts = imem.CreateCancellationTokenSource()
         Choice.protect(fun () ->
             imem.Run(workflow cts, cancellationToken = cts.Token))
 

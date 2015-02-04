@@ -8,10 +8,13 @@ open MBrace.Store
 open MBrace.Runtime
 open MBrace.Runtime.InMemory
 
+#nowarn "444"
+
 /// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
 type LocalRuntime private (resources : ResourceRegistry) =
 
+    let runtimeProvider = resources.Resolve<ICloudRuntimeProvider> ()
     let storeClient = StoreClient.CreateFromResources(resources)
 
     /// Store client instance for in memory runtime instance.
@@ -31,8 +34,11 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token passed to computation.</param>
-    member r.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : 'T =
+    member r.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken) : 'T =
         Cloud.RunSynchronously(workflow, resources = resources, ?cancellationToken = cancellationToken)
+
+    /// Creates a new cancellation token source
+    member r.CreateCancellationTokenSource() = Async.RunSync(runtimeProvider.CreateLinkedCancellationTokenSource [||])
 
     /// <summary>
     ///     Creates an InMemory runtime instance with provided store components.

@@ -6,6 +6,8 @@
 // but are bound to a single process. A cloud workflow that has
 // been passed continuations is a typical example of such a task.
 
+#nowarn "444"
+
 open System
 
 open Nessos.FsPickler

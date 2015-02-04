@@ -28,9 +28,6 @@ type ICloudRuntimeProvider =
     /// </summary>
     abstract FaultPolicy : FaultPolicy
 
-    /// Gets the current cloud cancellation token for runtime instance.
-    abstract CancellationToken : ICloudCancellationToken
-
     /// <summary>
     ///     Creates a linked cancellation token source given collection of cloud cancellation tokens.
     /// </summary>
