@@ -372,7 +372,12 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
         let lines = Array.init 10 string
         let file = sc.File.WriteAllLines(lines)
         sc.File.ReadLines(file)
+        |> Seq.toArray
         |> shouldEqual lines
+
+        sc.File.ReadAllLines(file)
+        |> shouldEqual lines
+
 
     [<TestFixtureTearDown>]
     member test.``FileStore Cleanup`` () =

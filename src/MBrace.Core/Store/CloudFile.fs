@@ -371,7 +371,36 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadLines(file : string, ?encoding : Encoding) : Cloud<string []> = cloud {
+    static member ReadLines(file : string, ?encoding : Encoding) : Cloud<seq<string>> = cloud {
+        let reader (stream : Stream) = async {
+            return seq { 
+                use sr = 
+                    match encoding with
+                    | None -> new StreamReader(stream)
+                    | Some e -> new StreamReader(stream, e)
+                while not sr.EndOfStream do
+                    yield sr.ReadLine()
+            }
+        }
+
+        return! CloudFile.Read(file, reader)
+    }
+
+    /// <summary>
+    ///     Reads a file as a sequence of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadLines(file : CloudFile, ?encoding : Encoding) = 
+        CloudFile.ReadLines(file.Path, ?encoding = encoding)
+
+
+    /// <summary>
+    ///     Reads a file as an array of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    static member ReadAllLines(file : string, ?encoding : Encoding) : Cloud<string []> = cloud {
         let reader (stream : Stream) = async {
             let ra = new ResizeArray<string> ()
             use sr = 
@@ -389,12 +418,12 @@ and [<DataContract; Sealed>] CloudFile =
     }
 
     /// <summary>
-    ///     Reads a file as a sequence of lines.
+    ///     Reads a file as an array of lines.
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadLines(file : CloudFile, ?encoding : Encoding) = 
-        CloudFile.ReadLines(file.Path, ?encoding = encoding)
+    static member ReadAllLines(file : CloudFile, ?encoding : Encoding) = 
+        CloudFile.ReadAllLines(file.Path, ?encoding = encoding)
 
     /// <summary>
     ///     Writes string contents to given CloudFile.

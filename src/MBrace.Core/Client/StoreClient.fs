@@ -577,7 +577,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLinesAsync(file : string, ?encoding : Encoding) : Async<string []> =
+    member c.ReadLinesAsync(file : string, ?encoding : Encoding) : Async<string seq> =
         CloudFile.ReadLines(file, ?encoding = encoding) |> toAsync
 
     /// <summary>
@@ -585,7 +585,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLines(file : string, ?encoding : Encoding) : string [] =
+    member c.ReadLines(file : string, ?encoding : Encoding) : string seq =
         c.ReadLinesAsync(file, ?encoding = encoding) |> toSync
 
     /// <summary>
@@ -593,7 +593,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLinesAsync(file : CloudFile, ?encoding : Encoding) : Async<string []> = 
+    member c.ReadLinesAsync(file : CloudFile, ?encoding : Encoding) : Async<string seq> = 
         c.ReadLinesAsync(file.Path, ?encoding = encoding)
 
     /// <summary>
@@ -601,8 +601,43 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLines(file : CloudFile, ?encoding : Encoding) : string [] = 
+    member c.ReadLines(file : CloudFile, ?encoding : Encoding) : string seq = 
         c.ReadLines(file.Path, ?encoding = encoding)
+
+
+
+    /// <summary>
+    ///     Reads a file as an array of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    member c.ReadAllLinesAsync(file : string, ?encoding : Encoding) : Async<string []> =
+        CloudFile.ReadAllLines(file, ?encoding = encoding) |> toAsync
+
+    /// <summary>
+    ///     Reads a file as an array of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    member c.ReadAllLines(file : string, ?encoding : Encoding) : string [] =
+        c.ReadAllLinesAsync(file, ?encoding = encoding) |> toSync
+
+    /// <summary>
+    ///     Reads a file as an array of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    member c.ReadAllLinesAsync(file : CloudFile, ?encoding : Encoding) : Async<string []> = 
+        c.ReadAllLinesAsync(file.Path, ?encoding = encoding)
+
+    /// <summary>
+    ///     Reads a file as an array of lines.
+    /// </summary>
+    /// <param name="file">Input file.</param>
+    /// <param name="encoding">Text encoding.</param>
+    member c.ReadAllLines(file : CloudFile, ?encoding : Encoding) : string [] = 
+        c.ReadAllLines(file.Path, ?encoding = encoding)
+
 
 
     /// <summary>
