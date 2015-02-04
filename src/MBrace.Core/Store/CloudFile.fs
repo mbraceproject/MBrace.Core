@@ -298,9 +298,17 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="path">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Cloud<'T> = cloud {
+    /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
+    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Cloud<'T> = cloud {
+        let leaveOpen = defaultArg leaveOpen false
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.Read(deserializer, path)
+        return! ofAsync <| async {
+            if leaveOpen then
+                let! stream = config.FileStore.BeginRead(path)
+                return! deserializer stream
+            else
+                return! config.FileStore.Read(deserializer, path)
+        }
     }
 
     /// <summary>
@@ -308,8 +316,9 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    static member Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>) : Cloud<'T> = 
-        CloudFile.Read(file.Path, deserializer)
+    /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
+    static member Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Cloud<'T> = 
+        CloudFile.Read(file.Path, deserializer, ?leaveOpen = leaveOpen)
 
     /// <summary>
     ///     Gets all files that exist in given container.
