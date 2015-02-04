@@ -59,7 +59,27 @@ type Cloud =
     /// <param name="resource">Resource to be installed.</param>
     [<CompilerMessage("'SetResource' only intended for runtime implementers.", 444)>]
     static member SetResource(workflow : Cloud<'T>, resource : 'Resource) : Cloud<'T> =
-        Cloud.FromContinuations(fun ctx cont -> let (Body f) = workflow in f { ctx with Resources = ctx.Resources.Register resource } cont)
+        Cloud.FromContinuations(fun ctx cont -> 
+            let (Body f) = workflow
+            // Augment the continuation with undo logic so that resource
+            // updates only hold within scope.
+            let parentResource = ctx.Resources.TryResolve<'Resource>()
+            let inline revertCtx (ctx : ExecutionContext) =
+                let resources =
+                    match parentResource with
+                    | None -> ctx.Resources.Remove<'Resource> ()
+                    | Some pr -> ctx.Resources.Register<'Resource> pr
+
+                { ctx with Resources = resources }
+
+            let cont' = 
+                { 
+                    Success = fun ctx t -> cont.Success (revertCtx ctx) t
+                    Exception = fun ctx e -> cont.Exception (revertCtx ctx) e
+                    Cancellation = fun ctx c -> cont.Cancellation (revertCtx ctx) c
+                }
+
+            f { ctx with Resources = ctx.Resources.Register resource } cont')
 
 
     /// <summary>

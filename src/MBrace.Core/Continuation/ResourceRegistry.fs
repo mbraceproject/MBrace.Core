@@ -34,17 +34,23 @@ type ResourceRegistry private (index : Map<string, obj>) =
     ///     Any existing resources of the same type will be overwritten.
     /// </summary>
     /// <param name="resource">input resource.</param>
-    member __.Register<'TResource>(resource : 'TResource) = 
+    member __.Register<'TResource>(resource : 'TResource) : ResourceRegistry = 
         new ResourceRegistry(Map.add key<'TResource> (box resource) index)
 
+    /// <summary>
+    ///     Creates a new resource registry by removing resource of given key.
+    /// </summary>
+    member __.Remove<'TResource> () : ResourceRegistry =
+        new ResourceRegistry(Map.remove key<'TResource> index)
+
     /// Try Resolving resource of given type
-    member __.TryResolve<'TResource> () = 
+    member __.TryResolve<'TResource> () : 'TResource option = 
         match index.TryFind key<'TResource> with
         | Some boxedResource -> Some (unbox<'TResource> boxedResource)
         | None -> None
 
     /// Resolves resource of given type
-    member __.Resolve<'TResource> () =
+    member __.Resolve<'TResource> () : 'TResource =
         match index.TryFind key<'TResource> with
         | Some boxedResource -> unbox<'TResource> boxedResource
         | None -> 
