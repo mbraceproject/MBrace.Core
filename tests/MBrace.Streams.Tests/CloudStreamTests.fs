@@ -119,7 +119,7 @@ type ``CloudStreams tests`` () as self =
     member __.``ofCloudFiles with ReadLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
-                     |> Array.map(fun text -> CloudFile.WriteLines(text))
+                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
                      |> Cloud.Parallel
                      |> run
 
@@ -142,7 +142,7 @@ type ``CloudStreams tests`` () as self =
     member __.``ofCloudFiles with ReadAllLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
-                     |> Array.map(fun text -> CloudFile.WriteLines(text))
+                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
                      |> Cloud.Parallel
                      |> run
 

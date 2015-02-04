@@ -352,7 +352,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
     /// <param name="path">Path to CloudFile.</param>
-    static member WriteLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
+    static member WriteAllLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
         let writer (stream : Stream) = async {
             use sw = 
                 match encoding with

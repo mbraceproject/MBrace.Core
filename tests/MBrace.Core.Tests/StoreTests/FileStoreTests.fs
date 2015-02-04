@@ -114,7 +114,7 @@ type ``FileStore Tests`` (nParallel : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - of deserializer`` () =
         cloud {
-            use! file = CloudFile.WriteLines([1..100] |> List.map (fun i -> string i))
+            use! file = CloudFile.WriteAllLines([1..100] |> List.map (fun i -> string i))
             let deserializer (s : System.IO.Stream) =
                 seq {
                     use textReader = new System.IO.StreamReader(s)
@@ -141,7 +141,7 @@ type ``FileStore Tests`` (nParallel : int) as self =
         let file =
             cloud {
                 let text = Seq.init 1000 (fun _ -> "lorem ipsum dolor sit amet")
-                return! CloudFile.WriteLines(text)
+                return! CloudFile.WriteAllLines(text)
             } |> runRemote
 
         cloud {
@@ -370,7 +370,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
     member __.``1. FileStore : StoreClient - CloudFile`` () =
         let sc = __.FileStoreClient
         let lines = Array.init 10 string
-        let file = sc.File.WriteLines(lines)
+        let file = sc.File.WriteAllLines(lines)
         sc.File.ReadLines(file)
         |> shouldEqual lines
 

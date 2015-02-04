@@ -134,7 +134,7 @@ namespace MBrace.Streams.CSharp.Tests
             FSharpFunc<string[][], bool>.FromConverter(xs =>
             {
                 var cfiles =
-                    this.Run(xs.Select(text => MBrace.CloudFile.WriteLines(text, null, null)));
+                    this.Run(xs.Select(text => MBrace.CloudFile.WriteAllLines(text, null, null)));
 
                 var x =
                     this.Run(cfiles
@@ -157,7 +157,7 @@ namespace MBrace.Streams.CSharp.Tests
             FSharpFunc<string[][], bool>.FromConverter(xs =>
             {
                 var cfiles =
-                    this.Run(xs.Select(text => MBrace.CloudFile.WriteLines(text, null, null)));
+                    this.Run(xs.Select(text => MBrace.CloudFile.WriteAllLines(text, null, null)));
 
                 var x =
                     this.Run(cfiles
