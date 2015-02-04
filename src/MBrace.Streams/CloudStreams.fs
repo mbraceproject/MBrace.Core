@@ -30,8 +30,8 @@ module CloudStream =
     let inline private getWorkerCount() = cloud {
         let! ctx = Cloud.GetSchedulingContext()
         match ctx with
-        | ThreadParallel
-        | Sequential  -> return  Environment.ProcessorCount
+        | Sequential  -> return failwith "Invalid CloudStream context : %A" ctx
+        | ThreadParallel -> return 1
         | Distributed -> return! Cloud.GetWorkerCount()
     }
 
