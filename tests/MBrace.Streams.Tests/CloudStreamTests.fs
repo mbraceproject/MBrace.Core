@@ -95,7 +95,7 @@ type ``CloudStreams tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
-    member __.``ofCloudFiles`` () =
+    member __.``ofCloudFiles with ReadAllText`` () =
         let f(xs : string []) =
             let cfs = xs 
                      |> Array.map(fun text -> CloudFile.WriteAllText(text))
@@ -107,10 +107,8 @@ type ``CloudStreams tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun cf -> CloudFile.ReadAllText(cf))
-                        |> Cloud.Parallel
-                        |> run
-                        |> Set.ofArray
+            let y = cfs |> Array.map (fun f -> __.RunLocal(CloudFile.ReadAllText(f)))
+                        |> Set.ofSeq
 
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -128,10 +126,8 @@ type ``CloudStreams tests`` () as self =
                         |> CloudStream.toArray
                         |> run
                         |> Set.ofArray
-
-            let y = cfs |> Array.map (fun cf -> CloudFile.ReadLines(cf))
-                        |> Cloud.Parallel
-                        |> run
+            
+            let y = cfs |> Array.map (fun f -> __.RunLocal(CloudFile.ReadAllLines(f)))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -152,9 +148,7 @@ type ``CloudStreams tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun cf -> CloudFile.ReadLines(cf))
-                        |> Cloud.Parallel
-                        |> run
+            let y = cfs |> Array.map (fun f -> __.RunLocal(CloudFile.ReadAllLines(f)))
                         |> Seq.collect id
                         |> Set.ofSeq
 

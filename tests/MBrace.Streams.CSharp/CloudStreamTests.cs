@@ -120,7 +120,7 @@ namespace MBrace.Streams.CSharp.Tests
                     this.Run(cfiles
                         .AsCloudStream<string>(CloudFileReader.ReadAllText)
                         .ToArray());
-                var y = this.Run(cfiles.Select(cf => MBrace.CloudFile.ReadAllText(cf, null)));
+                var y = cfiles.Select(f => this.RunLocal(CloudFile.ReadAllText(f, null)));
 
                 var s1 = new HashSet<string>(x);
                 var s2 = new HashSet<string>(y);
@@ -141,9 +141,8 @@ namespace MBrace.Streams.CSharp.Tests
                         .AsCloudStream(CloudFileReader.ReadLines)
                         .SelectMany(l => l.AsStream())
                         .ToArray());
-                var y = this.Run(cfiles
-                        .Select(cf => MBrace.CloudFile.ReadLines(cf, null))
-                        ).SelectMany(l => l);
+                var y = cfiles.Select(f => this.RunLocal(CloudFile.ReadAllLines(f,null)))
+                        .SelectMany(id => id);
 
                 var s1 = new HashSet<string>(x);
                 var s2 = new HashSet<string>(y);
@@ -164,9 +163,9 @@ namespace MBrace.Streams.CSharp.Tests
                         .AsCloudStream(CloudFileReader.ReadAllLines)
                         .SelectMany(l => l.AsStream())
                         .ToArray());
-                var y = this.Run(cfiles
-                        .Select(cf => MBrace.CloudFile.ReadLines(cf, null))
-                        ).SelectMany(l => l);
+
+                var y = cfiles.Select(f => this.RunLocal(CloudFile.ReadAllLines(f, null)))
+                        .SelectMany(id => id);
 
                 var s1 = new HashSet<string>(x);
                 var s2 = new HashSet<string>(y);
