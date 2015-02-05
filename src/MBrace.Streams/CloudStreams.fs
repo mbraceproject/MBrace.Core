@@ -36,6 +36,16 @@ module CloudStream =
         | Distributed -> return! Cloud.GetWorkerCount()
     }
 
+    /// Flat map/reduce with sequential execution on leafs.
+    let inline private parallelInChunks (npar : int) (workflows : Cloud<'T> []) = cloud {
+        let! partials = 
+            workflows 
+            |> Partitions.ofArray npar
+            |> Array.map (fun wfs -> wfs |> Cloud.Parallel |> Cloud.ToSequential)
+            |> Cloud.Parallel
+        return Array.concat partials
+    }
+
     /// <summary>Wraps array as a CloudStream.</summary>
     /// <param name="source">The input array.</param>
     /// <returns>The result CloudStream.</returns>
@@ -176,9 +186,17 @@ module CloudStream =
                         | :? CachedCloudArray<'T> as cached -> 
                             // round 1
                             let taskId = Guid.NewGuid().ToString() //Cloud.GetTaskId()
+                            
+                            let! ctx = Cloud.GetSchedulingContext()
                             let! partial = 
-                                Array.init partitions.Length (fun _ -> createTaskCached cached taskId collectorf) 
-                                |> Cloud.Parallel
+                                match ctx with
+                                | Distributed ->
+                                    Cloud.Parallel (createTaskCached cached taskId collectorf)
+                                | ThreadParallel ->
+                                    Cloud.Parallel [createTaskCached cached taskId collectorf]
+                                | Sequential ->
+                                    failwith "Scheduling context %A not supported." ctx
+
                             let results1 = Seq.concat partial 
                                            |> Seq.toArray 
                             let completedPartitions = 
@@ -199,14 +217,17 @@ module CloudStream =
                                 let! results2 = restPartitions 
                                                 |> Set.toArray 
                                                 |> Array.map (fun pid -> cloud { let! r = createTask pid collectorf in return pid,r }) 
-                                                |> Cloud.Parallel
+                                                |> parallelInChunks workerCount
                                 let final = Seq.append results1 results2
                                             |> Seq.sortBy (fun (p,_) -> p)
                                             |> Seq.map (fun (_,r) -> r)
                                             |> Seq.toArray
                                 return Array.reduce combiner final
-                        | source -> 
-                            let! results = partitions |> Array.map (fun partitionId -> createTask partitionId collectorf) |> Cloud.Parallel
+                        | _ -> 
+                            let! results = 
+                                partitions 
+                                |> Array.map (fun partitionId -> createTask partitionId collectorf) 
+                                |> parallelInChunks workerCount
                             return Array.reduce combiner results
                             
                 } }
@@ -217,19 +238,19 @@ module CloudStream =
     /// <param name="source">The input CloudArray.</param>
     let cache (source : CloudArray<'T>) : Cloud<CloudArray<'T>> = 
         cloud {
-            let! workerCount = getWorkerCount()
             let createTask (pid : int) (cached : CachedCloudArray<'T>) = 
                 cloud {
                     let! slice = (cached :> CloudArray<'T>).GetPartition(pid)
                     CloudArrayCache.Add(cached, pid, slice)
                 }
+            let! workerCount = getWorkerCount()
             let taskId = Guid.NewGuid().ToString()
             let cached = new CachedCloudArray<'T>(source, taskId)
             if source.Length > 0L then
                 let partitions = [|0..source.PartitionCount-1|]
                 do! partitions 
                     |> Array.map (fun pid -> createTask pid cached) 
-                    |> Cloud.Parallel
+                    |> parallelInChunks workerCount
                     |> Cloud.Ignore
             return cached :> _
         }
