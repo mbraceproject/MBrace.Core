@@ -59,7 +59,7 @@ namespace MBrace.CSharp
         /// Disposes of a distributed resource.
         /// </summary>
         /// <param name="disposable">The resource to be disposed.</param>
-        public static CloudAction Dispose<Disposable>(Disposable disposable) where Disposable : ICloudDisposable
+        public static CloudAction Dispose<Disposable>(this Disposable disposable) where Disposable : ICloudDisposable
         {
             return new CloudAction(MCloud.Dispose(disposable));
         }
@@ -93,7 +93,7 @@ namespace MBrace.CSharp
         /// </summary>
         /// <typeparam name="TResult">Return type of the given workflow.</typeparam>
         /// <param name="workflow">The workflow to ignore.</param>
-        public static CloudAction Ignore<TResult>(Cloud<TResult> workflow)
+        public static CloudAction Ignore<TResult>(this Cloud<TResult> workflow)
         {
             return new CloudAction(MCloud.Ignore(workflow));
         }
