@@ -147,7 +147,6 @@ Target "NuGet.Core" (fun _ ->
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
             OutputPath = "bin"
-            ToolPath = "nuget/NuGet.exe"
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = []
             Publish = hasBuildParam "nugetkey" 
@@ -170,7 +169,6 @@ Target "NuGet.CSharp" (fun _ ->
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
             OutputPath = "bin"
-            ToolPath = "nuget/NuGet.exe"
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = 
                 [
@@ -197,7 +195,6 @@ Target "NuGet.Runtime.Core" (fun _ ->
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
             OutputPath = "bin"
-            ToolPath = "nuget/NuGet.exe"
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = 
                 [

@@ -13,3 +13,4 @@ nuget Streams
 nuget Streams.CSharp
 nuget Streams
 nuget FsPickler.Json
+nuget NuGet.CommandLine
