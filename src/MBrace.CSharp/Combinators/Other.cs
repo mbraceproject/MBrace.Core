@@ -36,5 +36,66 @@ namespace MBrace.CSharp
         {
             return MCloud.GetWorkerCount();
         }
+
+        /// <summary>
+        /// Await for task completion.
+        /// </summary>
+        /// <typeparam name="TResult">Return type of task.</typeparam>
+        /// <param name="task">Task to be awaited.</param>
+        public static Cloud<TResult> AwaitTask<TResult>(Task<TResult> task)
+        {
+            return MCloud.AwaitTask(task); 
+        }
+
+        /// <summary>
+        /// Gets current worker.
+        /// </summary>
+        public static Cloud<IWorkerRef> CurrentWorker
+        {
+            get { return MCloud.CurrentWorker; }
+        }
+
+        /// <summary>
+        /// Disposes of a distributed resource.
+        /// </summary>
+        /// <param name="disposable">The resource to be disposed.</param>
+        public static CloudAction Dispose<Disposable>(Disposable disposable) where Disposable : ICloudDisposable
+        {
+            return new CloudAction(MCloud.Dispose(disposable));
+        }
+
+        /// <summary>
+        /// Get all workers in currently running cluster context.
+        /// </summary>
+        public static Cloud<IWorkerRef []> GetAvailableWorkers()
+        {
+            return MCloud.GetAvailableWorkers(); 
+        }
+
+        /// <summary>
+        /// Gets the assigned id of the currently running cloud process.
+        /// </summary>
+        public static Cloud<string> GetProcessId()
+        {
+            return MCloud.GetProcessId(); 
+        }
+
+        /// <summary>
+        /// Gets the assigned id of the currently running cloud task.
+        /// </summary>
+        public static Cloud<string> GetTaskId()
+        {
+            return MCloud.GetTaskId(); 
+        }
+
+        /// <summary>
+        /// Performs cloud computation discarding its result.
+        /// </summary>
+        /// <typeparam name="TResult">Return type of the given workflow.</typeparam>
+        /// <param name="workflow">The workflow to ignore.</param>
+        public static CloudAction Ignore<TResult>(Cloud<TResult> workflow)
+        {
+            return new CloudAction(MCloud.Ignore(workflow));
+        }
     }
 }
