@@ -185,7 +185,17 @@ module CloudStream =
                         | :? CachedCloudArray<'T> as cached -> 
                             // round 1
                             let taskId = Guid.NewGuid().ToString() //Cloud.GetTaskId()
-                            let! partial = Cloud.Parallel(createTaskCached cached taskId collectorf)
+                            
+                            let! ctx = Cloud.GetSchedulingContext()
+                            let! partial = 
+                                match ctx with
+                                | Distributed ->
+                                    Cloud.Parallel (createTaskCached cached taskId collectorf)
+                                | ThreadParallel ->
+                                    Cloud.Parallel [createTaskCached cached taskId collectorf]
+                                | Sequential ->
+                                    failwith "Scheduling context %A not supported." ctx
+
                             let results1 = Seq.concat partial 
                                            |> Seq.toArray 
                             let completedPartitions = 
