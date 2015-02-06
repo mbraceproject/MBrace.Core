@@ -60,6 +60,7 @@
     <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\String.fs" />
+    <Compile Include="Utils\Concurrency.fs" />
     <Compile Include="Utils\Reflection.fs" />
     <Compile Include="Utils\TypePrinter.fs" />
     <Compile Include="Utils\RecordPrinter.fs" />
