@@ -22,6 +22,7 @@ open MBrace.Runtime.Vagabond
 open MBrace.Store
 open MBrace.Runtime
 
+open MBrace.SampleRuntime.Actors
 open MBrace.SampleRuntime.Tasks
 
 /// IWorkerRef implementation for the runtime
@@ -112,6 +113,13 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         member __.WithFaultPolicy newPolicy = 
             new RuntimeProvider(state, procInfo, dependencies, newPolicy, taskId, context) :> ICloudRuntimeProvider
 
+        member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = async {
+            match parents with
+            | [||] -> let! cts = state.ResourceFactory.RequestCancellationTokenSource() in return cts :> _
+            | [| p |] -> let! cts = state.ResourceFactory.RequestCancellationTokenSource(p :?> DistributedCancellationTokenSource) in return cts :> _
+            | _ -> return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
+        }
+
         member __.IsTargetedWorkerSupported = 
             match context with
             | Distributed -> true
@@ -129,12 +137,10 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
             | ThreadParallel -> ThreadPool.Choice (extractComputations computations)
             | Sequential -> Sequential.Choice (extractComputations computations)
 
-        member __.ScheduleStartChild(computation,worker,_) =
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
             match context with
-            | Distributed -> Combinators.StartChild state procInfo dependencies faultPolicy worker computation
-            | _ when Option.isSome worker -> failTargetWorker ()
-            | ThreadParallel -> ThreadPool.StartChild computation
-            | Sequential -> Sequential.StartChild computation
+            | Distributed -> Combinators.StartAsCloudTask state procInfo dependencies cancellationToken faultPolicy target workflow
+            | _ -> invalidOp <| sprintf "Cannot schedule tasks in %A scheduling context." context
 
         member __.GetAvailableWorkers () = state.Workers.GetValue()
         member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef

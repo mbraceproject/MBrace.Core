@@ -14,7 +14,7 @@ type UnquoteEvaluator () =
 [<TestFixture>]
 module ``Cloud Compiler Tests`` =
 
-    do VagabondRegistry.Initialize()
+    do VagabondRegistry.Initialize(throwOnError = false)
 
     let compiler = CloudCompiler.Init(new UnquoteEvaluator())
 

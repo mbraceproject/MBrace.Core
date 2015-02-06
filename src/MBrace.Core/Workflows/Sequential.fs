@@ -2,7 +2,7 @@
 
 open MBrace
 
-#nowarn "444"
+#nowarn "443"
 
 /// Collection of cloud combinators with sequential execution semantics.
 [<RequireQualifiedAccess>]

@@ -10,6 +10,7 @@ open MBrace
 open Nessos.Streams
 open System.Runtime.Serialization
 
+#nowarn "0443"
 #nowarn "0444"
 
 // TODO : Persist CloudArray Descriptor in store.
@@ -146,8 +147,9 @@ type CloudArray<'T> internal (root : Descriptor<'T>) =
             } 
     member p.ToEnumerable() =
         cloud {
+            let! ct = Cloud.CancellationToken
             let! resources = Cloud.GetResourceRegistry()
-            return root.Partitions |> Seq.collect (fun p -> Cloud.RunSynchronously(p.ToEnumerable(), resources))
+            return root.Partitions |> Seq.collect (fun p -> Cloud.RunSynchronously(p.ToEnumerable(), resources, ct))
         }
 
     static member CreateAsync (values : seq<'T>, directory : string, config : CloudFileStoreConfiguration, ?serializer : ISerializer, ?partitionSize) = async {
@@ -208,8 +210,9 @@ module StoreClientExtensions =
     
     /// Common operations on CloudArrays.
     type CloudArrayClient internal (resources : ResourceRegistry) =
-        let toAsync wf = Cloud.ToAsync(wf, resources)
-        let toSync wf = Cloud.RunSynchronously(wf, resources)
+        let imem = MBrace.Client.LocalRuntime.Create()
+        let toAsync wf = imem.RunAsync wf
+        let toSync wf = imem.Run wf
 
         /// <summary>
         /// Create a new cloud array.

@@ -8,6 +8,15 @@ open MBrace.Store
 open MBrace.Runtime
 open MBrace.Runtime.InMemory
 
+#nowarn "444"
+
+/// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
+type InMemoryCancellationToken = MBrace.Runtime.InMemory.InMemoryCancellationToken
+/// Cloud cancellation token source implementation that wraps around System.Threading.CancellationTokenSource
+type InMemoryCancellationTokenSource = MBrace.Runtime.InMemory.InMemoryCancellationTokenSource
+/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
+type InMemoryTask<'T> = MBrace.Runtime.InMemory.InMemoryTask<'T>
+
 /// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
 type LocalRuntime private (resources : ResourceRegistry) =
@@ -23,7 +32,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     member r.RunAsync(workflow : Cloud<'T>) : Async<'T> =
-        Cloud.ToAsync(workflow, resources = resources)
+        toLocalAsync resources workflow
 
     /// <summary>
     ///     Executes a cloud computation in the local process,
@@ -31,8 +40,30 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token passed to computation.</param>
-    member r.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : 'T =
-        Cloud.RunSynchronously(workflow, resources = resources, ?cancellationToken = cancellationToken)
+    member r.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken) : 'T =
+        let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
+        Cloud.RunSynchronously(workflow, resources, cancellationToken)
+
+    /// <summary>
+    ///     Executes a cloud computation in the local process,
+    ///     with parallelism provided by the .NET thread pool.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token passed to computation.</param>
+    member r.Run(workflow : Cloud<'T>, cancellationToken : CancellationToken) : 'T =
+        let cancellationToken = new InMemoryCancellationToken(cancellationToken)
+        Cloud.RunSynchronously(workflow, resources, cancellationToken)
+
+    /// Creates a new cancellation token source
+    member r.CreateCancellationTokenSource() = 
+        InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [||] :> ICloudCancellationTokenSource
+
+    /// <summary>
+    ///     Creates an InMemory runtime instance with provided resources.
+    /// </summary>
+    /// <param name="resources"></param>
+    static member Create(resources : ResourceRegistry) =
+        new LocalRuntime(resources)
 
     /// <summary>
     ///     Creates an InMemory runtime instance with provided store components.

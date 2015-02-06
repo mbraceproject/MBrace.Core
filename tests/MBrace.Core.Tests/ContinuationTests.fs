@@ -8,7 +8,9 @@ open NUnit.Framework
 open MBrace
 open MBrace.Continuation
 open MBrace.Workflows
+open MBrace.Client
 
+#nowarn "443"
 #nowarn "444"
 
 /// Core tests for the continuation monad
@@ -20,10 +22,11 @@ module ``Continuation Tests`` =
     //  Simple expression execution
     //
 
-    let run (wf : Cloud<'T>) = Choice.protect(fun () -> Cloud.RunSynchronously(wf))
-    let runCts (wf : CancellationTokenSource -> Cloud<'T>) =
-        let cts = new CancellationTokenSource()
-        Choice.protect(fun () -> Cloud.RunSynchronously(wf cts, cancellationToken = cts.Token))
+    let imem = LocalRuntime.Create(ResourceRegistry.Empty)
+    let run (wf : Cloud<'T>) = Choice.protect(fun () -> imem.Run wf)
+    let runCts (wf : ICloudCancellationTokenSource -> Cloud<'T>) =
+        let cts = new InMemoryCancellationTokenSource ()
+        Choice.protect(fun () -> imem.Run(wf cts, cts.Token))
 
     [<Test>]
     let ``return value`` () =
@@ -466,7 +469,7 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``deep cancellation`` () =
-        let rec diveRaise n (cts : CancellationTokenSource) = cloud {
+        let rec diveRaise n (cts : ICloudCancellationTokenSource) = cloud {
             if n = 0 then cts.Cancel() ; return 0
             else
                 let! r = diveRaise (n-1) cts
@@ -487,7 +490,7 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``test correct scoping in resource updates`` () =
         cloud {
-            do! Cloud.SetResource(cloud.Zero(), 42)
+            do! Cloud.WithResource(cloud.Zero(), 42)
             return! Cloud.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 

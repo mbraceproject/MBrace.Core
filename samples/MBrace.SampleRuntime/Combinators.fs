@@ -13,9 +13,8 @@ open MBrace.SampleRuntime.Tasks
 
 #nowarn "444"
 
-let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
-    let token = cts.GetLocalCancellationToken()
-    { Resources = ctx.Resources.Register(cts) ; CancellationToken = token }
+let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
+    { ctx with CancellationToken = cts }
 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
@@ -26,14 +25,15 @@ let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [| |] -> cont.Success ctx [||]
         // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
+        // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
+            let (comp, cont) = Config.Pickler.Clone (comp, cont)
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
-            let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
+            let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parent = currentCts)
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length)
             let! cancellationLatch = state.ResourceFactory.RequestLatch(0)
@@ -83,12 +83,15 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<C
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
         // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| (comp, None) |] -> Cloud.StartWithContinuations(comp, cont, ctx)
+        // force copy semantics by cloning the workflow
+        | Choice1Of2 [| (comp, None) |] -> 
+            let (comp, cont) = Config.Pickler.Clone (comp, cont)
+            Cloud.StartWithContinuations(comp, cont, ctx)
+
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in cont closures
-            let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
+            let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource currentCts
             let! completionLatch = state.ResourceFactory.RequestLatch(0)
             let! cancellationLatch = state.ResourceFactory.RequestLatch(0)
@@ -144,11 +147,8 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<C
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartChild (state : RuntimeState) procInfo dependencies fp worker (computation : Cloud<'T>) = cloud {
-    let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell procInfo dependencies cts fp worker computation
-    return cloud { 
-        let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
-        return result.Value
-    }
+let StartAsCloudTask (state : RuntimeState) procInfo dependencies (ct : ICloudCancellationToken) fp worker (computation : Cloud<'T>) = cloud {
+    let dcts = ct :?> DistributedCancellationTokenSource
+    let! resultCell = Cloud.OfAsync <| state.StartAsCell procInfo dependencies dcts fp worker computation
+    return resultCell :> ICloudTask<'T>
 }

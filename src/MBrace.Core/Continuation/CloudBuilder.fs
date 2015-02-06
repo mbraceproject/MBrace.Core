@@ -18,7 +18,11 @@ module internal CloudBuilderImpl =
     let inline appendToStacktrace functionName (edi : ExceptionDispatchInfo) =
         let entry = sprintf "   at %s" functionName
         edi.AppendToStackTrace entry
-        
+
+    let inline getLocalToken (ctopt : ICloudCancellationToken option) =
+        match ctopt with
+        | None -> None
+        | Some ct -> Some ct.LocalToken
 
     type Continuation<'T> with
         member inline c.Cancel ctx = c.Cancellation ctx (new System.OperationCanceledException())
@@ -36,7 +40,6 @@ module internal CloudBuilderImpl =
     type ExecutionContext with
         member inline ctx.IsCancellationRequested = ctx.CancellationToken.IsCancellationRequested
 
-
     let inline ret t = Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Success ctx t)
     let inline retFunc (f : unit -> 'T) : Cloud<'T> = 
         Body(fun ctx cont ->
@@ -49,7 +52,7 @@ module internal CloudBuilderImpl =
     let inline ofAsync (asyncWorkflow : Async<'T>) = 
         Body(fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
-            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken))
+            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken))
 
     let zero = ret ()
 
@@ -205,7 +208,7 @@ type CloudBuilder () =
     member __.Combine(f : Cloud<unit>, g : Cloud<'T>) = combine f g
     member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = bind f g
 
-    [<CompilerMessage("IDisposable objects in distributed computation not recommended; consider warpping in async workflows instead.", 444)>]
+    [<CompilerMessage("IDisposable objects in distributed computation not recommended; consider warpping in async workflows instead.", 443)>]
     member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = usingIDisposable value bindF
     member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = usingICloudDisposable value bindF
 
@@ -215,14 +218,14 @@ type CloudBuilder () =
 
     member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = forArray body ts
     member __.For(ts : 'T list, body : 'T -> Cloud<unit>) : Cloud<unit> = forList body ts
-    [<CompilerMessage("For loops indexed on IEnumerable not recommended; consider explicitly converting to list or array instead.", 444)>]
+    [<CompilerMessage("For loops indexed on IEnumerable not recommended; consider explicitly converting to list or array instead.", 443)>]
     member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = 
         match ts with
         | :? ('T []) as ts -> forArray body ts
         | :? ('T list) as ts -> forList body ts
         | _ -> forSeq body ts
 
-    [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 444)>]
+    [<CompilerMessage("While loops in distributed computation not recommended; consider using an accumulator pattern instead.", 443)>]
     member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = whileM pred body
 
 /// Cloud builder module

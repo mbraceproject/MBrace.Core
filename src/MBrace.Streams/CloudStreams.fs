@@ -1,4 +1,5 @@
 ﻿namespace MBrace.Streams
+#nowarn "0443"
 #nowarn "0444"
 
 open System
@@ -134,11 +135,12 @@ module CloudStream =
                                 let! resources = Cloud.GetResourceRegistry()
                                 for fs in partitions do
                                     let! collector = collectorf
+                                    let! ct = Cloud.CancellationToken
                                     let parStream = 
                                         fs
                                         |> ParStream.ofSeq 
                                         |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
-                                        |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources))
+                                        |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources, ct))
                                     let collectorResult = parStream.Apply (toParStreamCollector collector)
                                     let! partial = projection collectorResult
                                     result.Add(partial)
@@ -168,7 +170,7 @@ module CloudStream =
                         match collector.DegreeOfParallelism with
                         | Some n -> cloud { return n }
                         | _ -> getWorkerCount() 
-                                            
+                    
                     let createTask (partitionId : int) (collector : Cloud<Collector<'T, 'S>>) = 
                         cloud {
                             let! collector = collector
@@ -461,13 +463,14 @@ module CloudStream =
         let reducerf = cloud {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! resources = Cloud.GetResourceRegistry()
+            let! ct = Cloud.CancellationToken
             return { new Collector<int * CloudArray<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
                         Func =
                             (fun (_, keyValues) ->
-                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), resources)
+                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), resources, ct)
                                    
                                 for (key, value) in keyValues do 
                                     let mutable grouping = Unchecked.defaultof<_>

@@ -6,6 +6,8 @@
 // but are bound to a single process. A cloud workflow that has
 // been passed continuations is a typical example of such a task.
 
+#nowarn "444"
+
 open System
 
 open Nessos.FsPickler
@@ -34,6 +36,7 @@ type ProcessInfo =
         ChannelConfig : CloudChannelConfiguration
     }
 
+// TODO : rename to job
 /// Defines a task to be executed in a worker node
 type Task = 
     {
@@ -71,7 +74,7 @@ with
                             yield task.ProcessInfo.AtomConfig ; yield task.ProcessInfo.ChannelConfig
                         }
 
-                    CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
+                    CancellationToken = task.CancellationTokenSource :> ICloudCancellationToken
                 }
 
             if faultCount > 0 then

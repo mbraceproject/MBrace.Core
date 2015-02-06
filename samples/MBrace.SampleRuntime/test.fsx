@@ -64,3 +64,11 @@ let rec test () = cloud {
 }
 
 runtime.Run(test(), faultPolicy = FaultPolicy.NoRetry)
+
+
+let foo = cloud {
+    let! x = Cloud.ToLocal(cloud { return 42})
+    return! Seq.init 1000 (fun i -> cloud { return i}) |> Cloud.Parallel
+}
+
+runtime.Run foo
