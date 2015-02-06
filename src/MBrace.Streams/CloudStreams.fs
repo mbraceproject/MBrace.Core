@@ -119,11 +119,12 @@ module CloudStream =
                                 let! resources = Cloud.GetResourceRegistry()
                                 for fs in partitions do
                                     let! collector = collectorf
+                                    let! ct = Cloud.CancellationToken
                                     let parStream = 
                                         fs
                                         |> ParStream.ofSeq 
                                         |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
-                                        |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources, new MBrace.Runtime.InMemory.InMemoryCancellationToken()))
+                                        |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources, ct))
                                     let collectorResult = parStream.Apply collector
                                     let! partial = projection collectorResult
                                     result.Add(partial)
@@ -442,12 +443,13 @@ module CloudStream =
         let reducerf = cloud {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! resources = Cloud.GetResourceRegistry()
+            let! ct = Cloud.CancellationToken
             return { new Collector<int * CloudArray<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.Iterator() = 
                     {   Index = ref -1; 
                         Func =
                             (fun (_, keyValues) ->
-                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), resources, new MBrace.Runtime.InMemory.InMemoryCancellationToken())
+                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), resources, ct)
                                    
                                 for (key, value) in keyValues do 
                                     let mutable grouping = Unchecked.defaultof<_>

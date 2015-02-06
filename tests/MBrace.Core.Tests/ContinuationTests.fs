@@ -8,7 +8,7 @@ open NUnit.Framework
 open MBrace
 open MBrace.Continuation
 open MBrace.Workflows
-open MBrace.Runtime.InMemory
+open MBrace.Client
 
 #nowarn "443"
 #nowarn "444"
@@ -22,10 +22,11 @@ module ``Continuation Tests`` =
     //  Simple expression execution
     //
 
-    let run (wf : Cloud<'T>) = Choice.protect(fun () -> Cloud.RunSynchronously(wf, ResourceRegistry.Empty, new InMemoryCancellationToken()))
+    let imem = LocalRuntime.Create(ResourceRegistry.Empty)
+    let run (wf : Cloud<'T>) = Choice.protect(fun () -> imem.Run wf)
     let runCts (wf : ICloudCancellationTokenSource -> Cloud<'T>) =
         let cts = new InMemoryCancellationTokenSource ()
-        Choice.protect(fun () -> Cloud.RunSynchronously(wf cts, ResourceRegistry.Empty, cts.Token))
+        Choice.protect(fun () -> imem.Run(wf cts, cts.Token))
 
     [<Test>]
     let ``return value`` () =

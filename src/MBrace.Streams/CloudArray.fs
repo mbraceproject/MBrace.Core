@@ -147,8 +147,9 @@ type CloudArray<'T> internal (root : Descriptor<'T>) =
             } 
     member p.ToEnumerable() =
         cloud {
+            let! ct = Cloud.CancellationToken
             let! resources = Cloud.GetResourceRegistry()
-            return root.Partitions |> Seq.collect (fun p -> Cloud.RunSynchronously(p.ToEnumerable(), resources, new MBrace.Runtime.InMemory.InMemoryCancellationToken()))
+            return root.Partitions |> Seq.collect (fun p -> Cloud.RunSynchronously(p.ToEnumerable(), resources, ct))
         }
 
     static member CreateAsync (values : seq<'T>, directory : string, config : CloudFileStoreConfiguration, ?serializer : ISerializer, ?partitionSize) = async {
@@ -209,8 +210,9 @@ module StoreClientExtensions =
     
     /// Common operations on CloudArrays.
     type CloudArrayClient internal (resources : ResourceRegistry) =
-        let toAsync wf = Cloud.ToAsync(wf, resources)
-        let toSync wf = Cloud.RunSynchronously(wf, resources, new MBrace.Runtime.InMemory.InMemoryCancellationToken())
+        let imem = MBrace.Client.LocalRuntime.Create()
+        let toAsync wf = imem.RunAsync wf
+        let toSync wf = imem.Run wf
 
         /// <summary>
         /// Create a new cloud array.

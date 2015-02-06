@@ -125,17 +125,6 @@ type Cloud =
             Cloud.StartWithContinuations(cloudWorkflow, cont, resources, cancellationToken))
 
     /// <summary>
-    ///     Wraps a cloud workflow into an asynchronous workflow.
-    /// </summary>
-    /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
-    /// <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
-    [<CompilerMessage("'ToAsync' only intended for runtime implementers.", 444)>]
-    static member ToAsync(cloudWorkflow : Cloud<'T>, resources : ResourceRegistry) : Async<'T> = async {
-        let! ct = Async.CancellationToken
-        return! Cloud.ToAsync(cloudWorkflow, resources, new MBrace.Runtime.InMemory.InMemoryCancellationToken(ct))
-    }
-
-    /// <summary>
     ///     Starts a cloud workflow with given execution context in the current thread.
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>

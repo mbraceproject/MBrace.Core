@@ -81,6 +81,7 @@
     <Compile Include="Runtime\RuntimeProvider.fs" />
     <Compile Include="Runtime\RuntimeCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryStore.fs" />
+    <Compile Include="Runtime\InMemory\InMemoryCancellationToken.fs" />
     <Compile Include="Runtime\InMemory\InMemoryCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryRuntimeProvider.fs" />
     <Compile Include="Workflows\Common.fs" />

@@ -18,6 +18,7 @@ open Nessos.Vagabond
 open MBrace
 open MBrace.Continuation
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
 open MBrace.SampleRuntime
 
@@ -165,83 +166,6 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
         new ResultAggregator<'T>(ref)
 
 //
-//  Distributed result cell
-//
-
-/// Result value
-type Result<'T> =
-    | Completed of 'T
-    | Exception of ExceptionDispatchInfo
-    | Cancelled of OperationCanceledException
-with
-    member inline r.Value =
-        match r with
-        | Completed t -> t
-        | Exception edi -> ExceptionDispatchInfo.raise true edi
-        | Cancelled e -> raise e
-
-type private ResultCellMsg<'T> =
-    | SetResult of Result<'T> * IReplyChannel<bool>
-    | TryGetResult of IReplyChannel<Result<'T> option>
-
-/// Defines a reference to a distributed result cell instance.
-type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) =
-    /// Try setting the result
-    member c.SetResult result = source <!- fun ch -> SetResult(result, ch)
-    /// Try getting the result
-    member c.TryGetResult () = source <!- TryGetResult
-    /// Asynchronously poll for result
-    member c.AwaitResult() = async {
-        let! result = source <!- TryGetResult
-        match result with
-        | None -> 
-            do! Async.Sleep 500
-            return! c.AwaitResult()
-        | Some r -> return r
-    }
-
-    interface ICloudTask<'T> with
-        member c.Id = id
-        member c.AwaitResult(?timeout:int) = cloud {
-            let! r = Cloud.OfAsync <| c.AwaitResult()
-            return r.Value
-        }
-
-        member c.TryGetResult() = cloud {
-            let! r = Cloud.OfAsync <| c.TryGetResult()
-            return r |> Option.map (fun r -> r.Value)
-        }
-
-        member c.IsCompleted = raise <| new NotImplementedException()
-        member c.IsFaulted = raise <| new NotImplementedException()
-        member c.IsCanceled = raise <| new NotImplementedException()
-        member c.Status = raise <| new NotImplementedException()
-
-    /// Initialize a new result cell in the local process
-    static member Init() : ResultCell<'T> =
-        let behavior state msg = async {
-            match msg with
-            | SetResult (_, rc) when Option.isSome state -> 
-                do! rc.Reply false
-                return state
-            | SetResult (result, rc) ->
-                do! rc.Reply true
-                return (Some result)
-
-            | TryGetResult rc ->
-                do! rc.Reply state
-                return state
-        }
-
-        let ref =
-            Actor.Stateful None behavior
-            |> Actor.Publish
-            |> Actor.ref
-
-        let id = Guid.NewGuid().ToString()
-        new ResultCell<'T>(id, ref)
-
-//
 //  Distributed Cancellation token sources
 //
 
@@ -257,7 +181,7 @@ type private CancellationTokenMsg =
 and DistributedCancellationTokenSource private (source : ActorRef<CancellationTokenMsg>) =
 
     [<NonSerialized>]
-    let mutable localToken : CancellationToken option ref = ref None
+    let mutable localToken : CancellationToken option = None
 
     let createLocalCancellationToken () =
         let cts = new System.Threading.CancellationTokenSource()
@@ -278,21 +202,21 @@ and DistributedCancellationTokenSource private (source : ActorRef<CancellationTo
         cts.Token
 
     member __.Cancel () = source <-- Cancel
-    member __.IsCancellationRequested () = source <!- IsCancellationRequested
     member private __.RegisterChild ch = source <-- RegisterChild ch
+
     /// Creates a System.Threading.CancellationToken that is linked
     /// to the distributed cancellation token.
     member __.Token =
-        match localToken.Value with
+        match localToken with
         | Some lt -> lt
         | None ->
-            lock localToken (fun () -> 
+            lock __ (fun () -> 
                 let lt = createLocalCancellationToken()
-                localToken := Some lt
+                localToken <- Some lt
                 lt)
 
     interface ICloudCancellationToken with
-        member __.IsCancellationRequested = __.IsCancellationRequested ()
+        member __.IsCancellationRequested = __.Token.IsCancellationRequested
         member __.LocalToken = __.Token
 
     interface ICloudCancellationTokenSource with
@@ -331,6 +255,118 @@ and DistributedCancellationTokenSource private (source : ActorRef<CancellationTo
         | Some p -> p.RegisterChild dcts
 
         dcts
+
+
+//
+//  Distributed result cell
+//
+
+/// Result value
+type Result<'T> =
+    | Completed of 'T
+    | Exception of ExceptionDispatchInfo
+    | Cancelled of OperationCanceledException
+with
+    member inline r.Value =
+        match r with
+        | Completed t -> t
+        | Exception edi -> ExceptionDispatchInfo.raise true edi
+        | Cancelled e -> raise e
+
+type private ResultCellMsg<'T> =
+    | SetResult of Result<'T> * IReplyChannel<bool>
+    | TryGetResult of IReplyChannel<Result<'T> option>
+
+/// Defines a reference to a distributed result cell instance.
+type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) as self =
+    [<NonSerialized>]
+    let mutable localCell : CacheAtom<Result<'T> option> option = None
+    let getLocalCell() =
+        match localCell with
+        | Some c -> c
+        | None ->
+            lock self (fun () ->
+                let cell = CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
+                localCell <- Some cell
+                cell)
+
+    /// Try setting the result
+    member c.SetResult result = source <!- fun ch -> SetResult(result, ch)
+    /// Try getting the result
+    member c.TryGetResult () = source <!- TryGetResult
+    /// Asynchronously poll for result
+    member c.AwaitResult() = async {
+        let! result = source <!- TryGetResult
+        match result with
+        | None -> 
+            do! Async.Sleep 500
+            return! c.AwaitResult()
+        | Some r -> return r
+    }
+
+    interface ICloudTask<'T> with
+        member c.Id = id
+        member c.AwaitResult(?timeout:int) = cloud {
+            let! r = Cloud.OfAsync <| c.AwaitResult()
+            return r.Value
+        }
+
+        member c.TryGetResult() = cloud {
+            let! r = Cloud.OfAsync <| c.TryGetResult()
+            return r |> Option.map (fun r -> r.Value)
+        }
+
+        member c.IsCompleted = 
+            match getLocalCell().Value with
+            | Some(Completed _) -> true
+            | _ -> false
+
+        member c.IsFaulted =
+            match getLocalCell().Value with
+            | Some(Exception _) -> true
+            | _ -> false
+
+        member c.IsCanceled =
+            match getLocalCell().Value with
+            | Some(Cancelled _) -> true
+            | _ -> false
+
+        member c.Status =
+            match getLocalCell().Value with
+            | Some (Completed _) -> Tasks.TaskStatus.RanToCompletion
+            | Some (Exception _) -> Tasks.TaskStatus.Faulted
+            | Some (Cancelled _) -> Tasks.TaskStatus.Canceled
+            | None -> Tasks.TaskStatus.Running
+
+        member c.Result = 
+            async {
+                let! r = c.AwaitResult()
+                return r.Value
+            } |> Async.RunSync
+
+    /// Initialize a new result cell in the local process
+    static member Init() : ResultCell<'T> =
+        let behavior state msg = async {
+            match msg with
+            | SetResult (_, rc) when Option.isSome state -> 
+                do! rc.Reply false
+                return state
+            | SetResult (result, rc) ->
+                do! rc.Reply true
+                return (Some result)
+
+            | TryGetResult rc ->
+                do! rc.Reply state
+                return state
+        }
+
+        let ref =
+            Actor.Stateful None behavior
+            |> Actor.Publish
+            |> Actor.ref
+
+        let id = Guid.NewGuid().ToString()
+        new ResultCell<'T>(id, ref)
 
 //
 //  Distributed lease monitor. Tracks progress of dequeued tasks by 

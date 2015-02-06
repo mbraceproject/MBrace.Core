@@ -25,8 +25,9 @@ let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [| |] -> cont.Success ctx [||]
         // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
+        // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
+            let (comp, cont) = Config.Pickler.Clone (comp, cont)
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
@@ -82,8 +83,11 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<C
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
         // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| (comp, None) |] -> Cloud.StartWithContinuations(comp, cont, ctx)
+        // force copy semantics by cloning the workflow
+        | Choice1Of2 [| (comp, None) |] -> 
+            let (comp, cont) = Config.Pickler.Clone (comp, cont)
+            Cloud.StartWithContinuations(comp, cont, ctx)
+
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in cont closures
@@ -143,12 +147,8 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<C
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartAsCloudTask (state : RuntimeState) procInfo dependencies fp worker (computation : Cloud<'T>) = cloud {
-    let! ct = Cloud.CancellationToken
+let StartAsCloudTask (state : RuntimeState) procInfo dependencies (ct : ICloudCancellationToken) fp worker (computation : Cloud<'T>) = cloud {
     let dcts = ct :?> DistributedCancellationTokenSource
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell procInfo dependencies cts fp worker computation
-    return cloud { 
-        let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
-        return result.Value
-    }
+    let! resultCell = Cloud.OfAsync <| state.StartAsCell procInfo dependencies dcts fp worker computation
+    return resultCell :> ICloudTask<'T>
 }

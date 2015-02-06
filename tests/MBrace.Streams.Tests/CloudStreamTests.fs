@@ -248,7 +248,7 @@ open MBrace.Runtime.Store
 type ``InMemory CloudStreams tests`` () =
     inherit ``CloudStreams tests`` ()
 
-    static do VagabondRegistry.Initialize()
+    do VagabondRegistry.Initialize(throwOnError = false)
 
     let fileStore = FileSystemStore.CreateUniqueLocal()
     let serializer = new FsPicklerBinaryStoreSerializer()

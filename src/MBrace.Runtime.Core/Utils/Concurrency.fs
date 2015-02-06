@@ -74,6 +74,7 @@ module Atom =
 
 
 /// thread safe cache with expiry semantics
+[<AutoSerializable(false)>]
 type CacheAtom<'T> internal (provider : 'T option -> 'T, interval : TimeSpan, initial : 'T option) =
     let initial = match initial with None -> Undefined | Some t -> Success(t, DateTime.Now)
     let container = Atom.create<CacheState<'T>> initial

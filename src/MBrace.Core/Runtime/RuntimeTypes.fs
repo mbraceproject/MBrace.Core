@@ -26,14 +26,16 @@ type ICloudTask<'T> =
     /// Unique task identifier
     abstract Id : string
     /// Gets a TaskStatus enumeration indicating the current task state.
-    abstract Status : Cloud<TaskStatus>
+    abstract Status : TaskStatus
     /// Gets a boolean indicating that the task has completed successfully.
-    abstract IsCompleted : Cloud<bool>
+    abstract IsCompleted : bool
     /// Gets a boolean indicating that the task has completed with fault.
-    abstract IsFaulted : Cloud<bool>
+    abstract IsFaulted : bool
     /// Gets a boolean indicating that the task has been canceled.
-    abstract IsCanceled : Cloud<bool>
+    abstract IsCanceled : bool
     /// Awaits task for completion, returning its eventual result
     abstract AwaitResult : ?timeoutMilliseconds:int -> Cloud<'T>
     /// Returns the task result result if completed or None if still pending.
     abstract TryGetResult : unit -> Cloud<'T option>
+    /// Synchronously gets the task result.
+    abstract Result : 'T

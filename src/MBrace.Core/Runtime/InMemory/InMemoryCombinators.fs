@@ -10,7 +10,6 @@ open MBrace.Continuation
 
 /// Collection of workflows that emulate execute
 /// the parallelism primitives sequentially.
-[<CompilerMessage("Use of this API restricted to runtime implementers.", 444)>]
 type Sequential =
 
     /// <summary>
@@ -44,19 +43,6 @@ type Sequential =
         return! aux 0
     }
 
-//    /// <summary>
-//    ///     Sequential Cloud.StartAsTask implementation.
-//    /// </summary>
-//    /// <param name="computation">Input computation.</param>
-//    [<CompilerMessage("Use of Sequential.StartChild restricted to runtime implementers.", 444)>]
-//    static member StartAsTask (computation : Cloud<'T>, cancellationToken : ICloudCancellationToken) : Cloud<Task<'T>> = cloud {
-//        let! resources = Cloud.GetResourceRegistry()
-//        let task = Cloud.StartAsTask(computation, resources, cancellationToken)
-//        // force sequential semantics by awaiting task completion
-//        let! _ = task |> Cloud.AwaitTask |> Cloud.Catch
-//        return task
-//    }
-
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool
 type ThreadPool private () =
@@ -89,7 +75,6 @@ type ThreadPool private () =
                 let results = Array.zeroCreate<'T> computations.Length
                 let parentCt = ctx.CancellationToken
                 let innerCts = mkLinkedCts parentCt
-                //mkLinkedCts ctx.CancellationToken.LocalToken
                 let exceptionLatch = new Latch(0)
                 let completionLatch = new Latch(0)
 
@@ -153,15 +138,3 @@ type ThreadPool private () =
 
                 for i = 0 to computations.Length - 1 do
                     scheduleTask ctx.Resources innerCts.Token onSuccess onException onCancellation computations.[i])
-
-
-//    /// <summary>
-//    ///     A Cloud.StartAsTask implementation executed using the thread pool.
-//    /// </summary>
-//    /// <param name="computation">Input computation.</param>
-//    /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
-//    [<CompilerMessage("Use of ThreadPool.StartChild restricted to runtime implementers.", 444)>]
-//    static member StartAsTask (computation : Cloud<'T>, cancellationToken : ICloudCancellationToken) : Cloud<Task<'T>> = cloud {
-//        let! resources = Cloud.GetResourceRegistry()
-//        return Cloud.StartAsTask(computation, resources = resources, cancellationToken = cancellationToken)
-//    }
