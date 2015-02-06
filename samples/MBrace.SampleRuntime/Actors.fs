@@ -307,7 +307,7 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
     interface ICloudTask<'T> with
         member c.Id = id
         member c.AwaitResult(?timeout:int) = cloud {
-            let! r = Cloud.OfAsync <| c.AwaitResult()
+            let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
             return r.Value
         }
 
