@@ -26,7 +26,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     member r.RunAsync(workflow : Cloud<'T>) : Async<'T> =
-        Cloud.ToAsync(workflow, resources = resources)
+        Cloud.ToAsync(workflow, resources)
 
     /// <summary>
     ///     Executes a cloud computation in the local process,
@@ -35,10 +35,12 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token passed to computation.</param>
     member r.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken) : 'T =
-        Cloud.RunSynchronously(workflow, resources = resources, ?cancellationToken = cancellationToken)
+        let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
+        Cloud.RunSynchronously(workflow, resources, cancellationToken)
 
     /// Creates a new cancellation token source
-    member r.CreateCancellationTokenSource() = Async.RunSync(runtimeProvider.CreateLinkedCancellationTokenSource [||])
+    member r.CreateCancellationTokenSource() = 
+        InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [||] :> ICloudCancellationTokenSource
 
     /// <summary>
     ///     Creates an InMemory runtime instance with provided store components.

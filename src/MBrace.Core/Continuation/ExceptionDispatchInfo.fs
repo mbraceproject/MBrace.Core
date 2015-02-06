@@ -144,9 +144,10 @@ module ExceptionDispatchInfoUtils =
 
         /// Returns the inner exception of the faulted task.
         member t.InnerException =
-            match t.Exception with
-            | e when Seq.length e.InnerExceptions = 1 -> Seq.head e.InnerExceptions
-            | e -> e :> exn
+            let e = t.Exception
+            if e.InnerExceptions.Count = 1 then e.InnerExceptions.[0]
+            else
+                e :> exn
 
         /// <summary>
         ///     Returns Some result if completed, None if pending, exception if faulted.
@@ -158,8 +159,10 @@ module ExceptionDispatchInfoUtils =
             | TaskStatus.Canceled -> raise <| new OperationCanceledException()
             | _ -> None
 
+        /// Returns the task result
         member t.GetResult () =
-            do t.Wait()
+            let awaiter = t.GetAwaiter()
+            while not awaiter.IsCompleted do ()
             match t.Status with
             | TaskStatus.RanToCompletion -> t.Result
             | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException

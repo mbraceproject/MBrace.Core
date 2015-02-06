@@ -97,12 +97,13 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
             | Sequential -> Sequential.Choice computations
             | _ -> ThreadPool.Choice computations
 
-        member __.ScheduleStartAsTask (workflow:Cloud<'T>, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
+        member __.ScheduleStartAsTask (workflow:Cloud<'T>, faultPolicy:FaultPolicy, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
             match context with
-            | Sequential ->
-                let! task = Sequential.StartAsTask(workflow, cancellationToken)
-                return new InMemoryCloudTask<'T>(task) :> _
+            | Sequential -> return invalidOp "Starting Cloud tasks not permitted in Sequential execution contexts."
             | _ ->
-                let! task = ThreadPool.StartAsTask(workflow, cancellationToken)
+                let! resources = Cloud.GetResourceRegistry()
+                let runtimeP = new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger) 
+                let resources' = resources.Register (runtimeP :> ICloudRuntimeProvider)
+                let task = Cloud.StartAsTask(workflow, resources', cancellationToken)
                 return new InMemoryCloudTask<'T>(task) :> _
         }

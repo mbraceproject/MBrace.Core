@@ -191,11 +191,12 @@ type Cloud =
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Cancellation token for task. Defaults to current cancellation token.</param>
-    static member StartAsCloudTask(computation : Cloud<'T>, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken) : Cloud<ICloudTask<'T>> = cloud {
+    static member StartAsCloudTask(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken) : Cloud<ICloudTask<'T>> = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
         let! defaultToken = Cloud.CancellationToken
         let cancellationToken = defaultArg cancellationToken defaultToken
-        return! runtime.ScheduleStartAsTask(computation, ?target = target, cancellationToken = cancellationToken)
+        let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
+        return! runtime.ScheduleStartAsTask(computation, faultPolicy, cancellationToken, ?target = target)
     }
 
     /// <summary>
@@ -206,7 +207,7 @@ type Cloud =
     static member StartChild(computation : Cloud<'T>, ?target : IWorkerRef) : Cloud<Cloud<'T>> = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
         let! cancellationToken = Cloud.CancellationToken
-        let! task = runtime.ScheduleStartAsTask(computation, ?target = target, cancellationToken = cancellationToken)
+        let! task = runtime.ScheduleStartAsTask(computation, runtime.FaultPolicy, cancellationToken, ?target = target)
         return Cloud.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" (cloud { return! task.AwaitResult() })
     }
 

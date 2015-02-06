@@ -67,9 +67,10 @@ type ICloudRuntimeProvider =
     abstract ScheduleChoice : computations:seq<Cloud<'T option> * IWorkerRef option> -> Cloud<'T option>
 
     /// <summary>
-    ///     Start a new computation as a task. 
+    ///     Start a new computation as a cloud task. 
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="faultPolicy">Fault policy for new task.</param>
     /// <param name="cancellationToken">Cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>
-    abstract ScheduleStartAsTask : workflow:Cloud<'T> * cancellationToken:ICloudCancellationToken * ?target:IWorkerRef -> Cloud<ICloudTask<'T>>
+    abstract ScheduleStartAsTask : workflow:Cloud<'T> * faultPolicy:FaultPolicy * cancellationToken:ICloudCancellationToken * ?target:IWorkerRef -> Cloud<ICloudTask<'T>>
