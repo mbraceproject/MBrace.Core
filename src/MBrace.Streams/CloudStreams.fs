@@ -123,7 +123,7 @@ module CloudStream =
                                         fs
                                         |> ParStream.ofSeq 
                                         |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
-                                        |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources))
+                                        |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources, new MBrace.Runtime.InMemory.InMemoryCancellationToken()))
                                     let collectorResult = parStream.Apply collector
                                     let! partial = projection collectorResult
                                     result.Add(partial)
@@ -447,7 +447,7 @@ module CloudStream =
                     {   Index = ref -1; 
                         Func =
                             (fun (_, keyValues) ->
-                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), resources)
+                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), resources, new MBrace.Runtime.InMemory.InMemoryCancellationToken())
                                    
                                 for (key, value) in keyValues do 
                                     let mutable grouping = Unchecked.defaultof<_>
