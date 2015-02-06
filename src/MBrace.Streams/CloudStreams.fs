@@ -11,10 +11,20 @@ open MBrace.Continuation
 open Nessos.Streams
 open Nessos.Streams.Internals
 
+
+/// Collects elements into a mutable result container.
+type Collector<'T, 'R> = 
+    /// The number of concurrently executing tasks
+    abstract DegreeOfParallelism : int option
+    /// Gets an iterator over the elements.
+    abstract Iterator : unit -> ParIterator<'T>
+    /// The result of the collector.
+    abstract Result : 'R
+
 /// Represents a distributed Stream of values.
 type CloudStream<'T> = 
     /// The number of concurrently executing tasks
-    abstract DegreeOfParallelism : int option ref
+    abstract DegreeOfParallelism : int option
     /// Applies the given collector to the CloudStream.
     abstract Apply<'S, 'R> : Cloud<Collector<'T, 'S>> -> ('S -> Cloud<'R>) -> ('R -> 'R -> 'R) -> Cloud<'R>
 
@@ -45,25 +55,32 @@ module CloudStream =
         return Array.concat partials
     }
 
+    /// Converts MBrace.Streams.Collector to Nessos.Streams.Collector
+    let inline private toParStreamCollector (collector : Collector<'T, 'S>) =
+        { new Nessos.Streams.Collector<'T, 'S> with
+            member self.DegreeOfParallelism = match collector.DegreeOfParallelism with Some n -> n | None -> Environment.ProcessorCount
+            member self.Iterator() = collector.Iterator()
+            member self.Result = collector.Result  }
+
     /// <summary>Wraps array as a CloudStream.</summary>
     /// <param name="source">The input array.</param>
     /// <returns>The result CloudStream.</returns>
     let ofArray (source : 'T []) : CloudStream<'T> =
-        let degreeOfParallelism = ref None
         { new CloudStream<'T> with
-            member self.DegreeOfParallelism = degreeOfParallelism
+            member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
                 cloud {
+                    let! collector = collectorf 
                     let! workerCount = 
-                        match !self.DegreeOfParallelism with
+                        match collector.DegreeOfParallelism with
                         | Some n -> cloud { return n }
-                        | None -> getWorkerCount()
+                        | _ -> getWorkerCount() 
 
                     let createTask array (collector : Cloud<Collector<'T, 'S>>) = 
                         cloud {
                             let! collector = collector
                             let parStream = ParStream.ofArray array 
-                            let collectorResult = parStream.Apply collector
+                            let collectorResult = parStream.Apply (toParStreamCollector collector)
                             return! projection collectorResult
                         }
                     if not (source.Length = 0) then 
@@ -74,7 +91,6 @@ module CloudStream =
                             |> Cloud.Parallel
                         return Array.reduce combiner results
                     else
-                        let! collector = collectorf
                         return! projection collector.Result
                 } }
 
@@ -84,19 +100,19 @@ module CloudStream =
     /// <param name="reader">A function to transform the contents of a CloudFile to an object.</param>
     /// <param name="sources">The collection of CloudFiles.</param>
     let ofCloudFiles (reader : System.IO.Stream -> Async<'T>) (sources : seq<CloudFile>) : CloudStream<'T> =
-        let degreeOfParallelism = ref None
         { new CloudStream<'T> with
-            member self.DegreeOfParallelism = degreeOfParallelism
+            member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
                 cloud { 
                     if Seq.isEmpty sources then 
                         let! collector = collectorf
                         return! projection collector.Result
                     else
+                        let! collector = collectorf
                         let! workerCount = 
-                            match !self.DegreeOfParallelism with
+                            match collector.DegreeOfParallelism with
                             | Some n -> cloud { return n }
-                            | None -> getWorkerCount()
+                            | _ -> getWorkerCount() 
 
                         let createTask (files : CloudFile []) (collectorf : Cloud<Collector<'T, 'S>>) : Cloud<'R> = 
                             cloud {
@@ -123,7 +139,7 @@ module CloudStream =
                                         |> ParStream.ofSeq 
                                         |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
                                         |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources))
-                                    let collectorResult = parStream.Apply collector
+                                    let collectorResult = parStream.Apply (toParStreamCollector collector)
                                     let! partial = projection collectorResult
                                     result.Add(partial)
                                 if result.Count = 0 then
@@ -143,22 +159,22 @@ module CloudStream =
     /// </summary>
     /// <param name="source">The input CloudArray.</param>
     let ofCloudArray (source : CloudArray<'T>) : CloudStream<'T> =
-        let degreeOfParallelism = ref None
         { new CloudStream<'T> with
-            member self.DegreeOfParallelism = degreeOfParallelism
+            member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
                 cloud {
+                    let! collector = collectorf
                     let! workerCount = 
-                        match !self.DegreeOfParallelism with
+                        match collector.DegreeOfParallelism with
                         | Some n -> cloud { return n }
-                        | None -> getWorkerCount()
-                    
+                        | _ -> getWorkerCount() 
+                                            
                     let createTask (partitionId : int) (collector : Cloud<Collector<'T, 'S>>) = 
                         cloud {
                             let! collector = collector
                             let! array = source.GetPartition(partitionId) 
                             let parStream = ParStream.ofArray array 
-                            let collectorResult = parStream.Apply collector
+                            let collectorResult = parStream.Apply (toParStreamCollector collector)
                             return! projection collectorResult
                         }
 
@@ -170,7 +186,7 @@ module CloudStream =
                                 let array = CloudArrayCache.GetPartition(cached, pid)
                                 let parStream = ParStream.ofArray array
                                 let! collector = collectorf
-                                let collectorResult = parStream.Apply collector
+                                let collectorResult = parStream.Apply (toParStreamCollector collector)
                                 let! partial = projection collectorResult
                                 completed.Add(pid, partial)
                             return completed 
@@ -268,6 +284,7 @@ module CloudStream =
                     let! collector = collectorf
                     return 
                       { new Collector<'T, 'S> with
+                        member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() = 
                             let { Func = iter } as iterator = collector.Iterator()
                             {   Index = iterator.Index; 
@@ -289,6 +306,7 @@ module CloudStream =
                     let! collector = collectorf
                     return 
                       { new Collector<'T, 'S> with
+                        member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() = 
                             let { Func = iter } as iterator = collector.Iterator()
                             {   Index = iterator.Index; 
@@ -320,6 +338,7 @@ module CloudStream =
                 let collectorf' = cloud {
                     let! collector = collectorf
                     return { new Collector<'T, 'S> with
+                        member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() = 
                             let { Func = iter } as iterator = collector.Iterator()
                             {   Index = iterator.Index; 
@@ -338,9 +357,8 @@ module CloudStream =
         if degreeOfParallelism < 1 then
             raise <| new ArgumentOutOfRangeException("degreeOfParallelism")
         else
-            stream.DegreeOfParallelism := Some degreeOfParallelism
             { new CloudStream<'T> with
-                    member self.DegreeOfParallelism = stream.DegreeOfParallelism
+                    member self.DegreeOfParallelism = Some degreeOfParallelism
                     member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) combiner =
                         stream.Apply collectorf projection combiner }
 
@@ -358,6 +376,7 @@ module CloudStream =
             let results = new List<'State ref>()
             return
               { new Collector<'T, 'State> with
+                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     let accRef = ref <| state ()
                     results.Add(accRef)
@@ -387,6 +406,7 @@ module CloudStream =
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             return
               { new Collector<'T,  seq<int * seq<'Key * 'State>>> with
+                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
                         Func =
@@ -415,7 +435,7 @@ module CloudStream =
             cloud {
                 let combiner' (left : CloudArray<_>) (right : CloudArray<_>) = 
                     left.Append(right)
-                let! totalWorkers = match !stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
+                let! totalWorkers = match stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
                                                   (fun keyValues -> cloud {
                                                         let dict = new Dictionary<int, CloudArray<'Key * 'State>>() 
@@ -442,6 +462,7 @@ module CloudStream =
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! resources = Cloud.GetResourceRegistry()
             return { new Collector<int * CloudArray<'Key * 'State>,  seq<'Key * 'State>> with
+                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
                         Func =
@@ -526,6 +547,7 @@ module CloudStream =
             let results = new List<List<'T>>()
             return 
               { new Collector<'T, 'T []> with
+                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     let list = new List<'T>()
                     results.Add(list)
@@ -558,6 +580,7 @@ module CloudStream =
             let results = new List<List<'T>>()
             return 
               { new Collector<'T, List<'Key[] * 'T []>> with
+                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     let list = new List<'T>()
                     results.Add(list)
