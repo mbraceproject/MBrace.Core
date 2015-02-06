@@ -49,9 +49,9 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Readers.fs" />
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Partitioning.fs" />
     <Compile Include="CloudArray.fs" />
     <Compile Include="Caching.fs" />
