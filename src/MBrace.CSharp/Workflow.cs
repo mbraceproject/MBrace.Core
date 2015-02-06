@@ -43,8 +43,18 @@ namespace MBrace.CSharp
         /// <returns>Throws given exception.</returns>
         public static Cloud<TResult> Throw<TResult>(Exception ex)
         {
-            Func<TResult> f = () => { throw ex; };
-            return Cloud.New<TResult>(f);
+            return MBrace.Cloud.Raise<TResult>(ex);
+        }
+
+        /// <summary>
+        /// Try/Finally workflow.
+        /// </summary>
+        /// <typeparam name="TResult">Computation return type.</typeparam>
+        /// <param name="body">The computation to execute.</param>
+        /// <param name="finally">Finalizer.</param>
+        public static Cloud<TResult> TryFinally<TResult>(Cloud<TResult> body, CloudAction @finally)
+        {
+            return MBrace.Cloud.TryFinally(body, @finally.Body);
         }
 
         /// <summary>

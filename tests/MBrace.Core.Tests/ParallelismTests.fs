@@ -44,6 +44,10 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     abstract Logs : ILogTester
 
     [<Test>]
+    member __.``0. IsTargetWorkerSupported`` () =
+        Cloud.IsTargetedWorkerSupported |> run |> Choice.shouldEqual __.IsTargetWorkerSupported
+
+    [<Test>]
     member __.``1. Parallel : empty input`` () =
         Array.empty<Cloud<int>> |> Cloud.Parallel |> run |> Choice.shouldEqual [||]
 

@@ -99,6 +99,13 @@ type Cloud =
     /// <param name="logEntry">Added log entry.</param>
     static member Logf fmt = Printf.ksprintf Cloud.Log fmt
 
+    /// Returns true iff runtime supports executing workflows in specific worker.
+    /// Should be used with combinators that support worker targeting like Cloud.Parallel/Choice/StartChild.
+    static member IsTargetedWorkerSupported : Cloud<bool> = cloud {
+        let! runtime = Cloud.GetResource<ICloudRuntimeProvider>()
+        return runtime.IsTargetedWorkerSupported
+    }
+
     /// <summary>
     ///     Creates a cloud computation that will execute the given computations
     ///     possibly in parallel and if successful returns the array of gathered results.

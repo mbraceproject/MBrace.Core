@@ -13,7 +13,10 @@ namespace MBrace.CSharp
     [Serializable]
     public class CloudAction 
     {
-        internal Cloud<Unit> Body { get; private set; }
+        /// <summary>
+        /// For internal use only. Gets encapsulated workflow.
+        /// </summary>
+        public Cloud<Unit> Body { get; private set; }
 
         internal CloudAction(MBrace.Cloud<Unit> body) 
         {
