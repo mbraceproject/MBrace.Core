@@ -42,10 +42,14 @@ namespace MBrace.CSharp.Tests
         [Test]
         public void ParallelAll()
         {
-            var x = Cloud.Parallel(Cloud.FromValue(1));
-            var y = Cloud.GetWorkerCount();
+            var isSupported = this.Run(Cloud.IsTargetedWorkerSupported);
+            if (isSupported)
+            {
+                var x = Cloud.Parallel(Cloud.FromValue(1));
+                var y = Cloud.GetWorkerCount();
 
-            Assert.AreEqual(this.Run(x).Sum(), this.Run(y));
+                Assert.AreEqual(this.Run(x).Sum(), this.Run(y));
+            }
         }
 
         [Test]
@@ -100,6 +104,17 @@ namespace MBrace.CSharp.Tests
                         .Choice();
             Assert.AreEqual(1, this.Run(x).Value);
         } 
+
+        [Test]
+        public void ChoiceAll()
+        {
+            var isSupported = this.Run(Cloud.IsTargetedWorkerSupported);
+            if(isSupported)
+            {
+                var x = Cloud.Choice(Cloud.FromValue(1));
+                Assert.AreEqual(1, this.Run(x));
+            }
+        }
         #endregion
 
         #region Other

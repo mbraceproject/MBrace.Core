@@ -97,5 +97,14 @@ namespace MBrace.CSharp
         {
             return new CloudAction(MCloud.Ignore(workflow));
         }
+
+        /// <summary>
+        /// Returns true iff runtime supports executing workflows in specific worker.
+        /// Should be used with combinators that support worker targeting like Cloud.Parallel/Choice/StartChild.
+        /// </summary>
+        public static Cloud<bool> IsTargetedWorkerSupported
+        {
+            get { return MCloud.IsTargetedWorkerSupported; }
+        }
     }
 }
