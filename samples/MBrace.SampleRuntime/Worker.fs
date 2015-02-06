@@ -10,17 +10,17 @@ open MBrace.Runtime
 open MBrace.Runtime.Vagabond
 
 open MBrace.SampleRuntime.Actors
-open MBrace.SampleRuntime.Tasks
+open MBrace.SampleRuntime.Types
 open MBrace.SampleRuntime.RuntimeProvider
 
 type IWorkerLogger =
     abstract Log : string -> unit
 
-type ITaskEvaluator =
+type IJobEvaluator =
     abstract Id : string
-    abstract Evaluate : state:RuntimeState * logger:IWorkerLogger * ptask:PickledTask * leaseMonitor:LeaseMonitor * faultCount:int -> Async<unit>
+    abstract Evaluate : state:RuntimeState * logger:IWorkerLogger * pjob:PickledJob * leaseMonitor:LeaseMonitor * faultCount:int -> Async<unit>
 
-type ConsoleTaskLogger () =
+type ConsoleJobLogger () =
     interface IWorkerLogger with
         member __.Log msg = System.Console.WriteLine msg
 
@@ -30,33 +30,33 @@ module LogUtils =
         member l.Logf fmt = Printf.ksprintf l.Log fmt
 
 /// <summary>
-///     Initializes a worker loop. Worker polls task queue of supplied
-///     runtime for available tasks and executes as appropriate.
+///     Initializes a worker loop. Worker polls job queue of supplied
+///     runtime for available jobs and executes as appropriate.
 /// </summary>
 /// <param name="runtime">Runtime to subscribe to.</param>
-/// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
-let initWorker (runtime : RuntimeState) (logger : IWorkerLogger) (maxConcurrentTasks : int) (evaluator : ITaskEvaluator) = async {
+/// <param name="maxConcurrentJobs">Maximum jobs to be executed concurrently by worker.</param>
+let initWorker (runtime : RuntimeState) (logger : IWorkerLogger) (maxConcurrentJobs : int) (evaluator : IJobEvaluator) = async {
 
     let localEndPoint = MBrace.SampleRuntime.Config.LocalEndPoint
     logger.Logf "MBrace worker (%s) initialized on %O." evaluator.Id localEndPoint
-    logger.Logf "Listening to task queue at %O." runtime.IPEndPoint
+    logger.Logf "Listening to job queue at %O." runtime.IPEndPoint
 
-    let currentTaskCount = ref 0
+    let currentJobCount = ref 0
 
     let rec loop () = async {
-        if !currentTaskCount >= maxConcurrentTasks then
+        if !currentJobCount >= maxConcurrentJobs then
             do! Async.Sleep 500
             return! loop ()
         else
             try
-                let! task = runtime.TaskQueue.TryDequeue Worker.LocalWorker
-                match task with
+                let! result = runtime.JobQueue.TryDequeue Worker.LocalWorker
+                match result with
                 | None -> do! Async.Sleep 500
-                | Some (ptask, faultCount, leaseMonitor) ->
-                    let _ = Interlocked.Increment currentTaskCount
+                | Some (pjob, faultCount, leaseMonitor) ->
+                    let _ = Interlocked.Increment currentJobCount
                     let! _ =  Async.StartChild <| async {
-                        try do! evaluator.Evaluate(runtime, logger, ptask, leaseMonitor, faultCount)
-                        finally let _ = Interlocked.Decrement currentTaskCount in ()
+                        try do! evaluator.Evaluate(runtime, logger, pjob, leaseMonitor, faultCount)
+                        finally let _ = Interlocked.Decrement currentJobCount in ()
                     }
 
                     do! Async.Sleep 200
@@ -71,26 +71,26 @@ let initWorker (runtime : RuntimeState) (logger : IWorkerLogger) (maxConcurrentT
 }
 
 
-type LocalTaskEvaluator(?showAppDomain : bool) =
+type LocalJobEvaluator(?showAppDomain : bool) =
     let appDomainPrefix =
         if defaultArg showAppDomain false then
             sprintf "AppDomain[%s]: " System.AppDomain.CurrentDomain.FriendlyName
         else
             ""
 
-    interface ITaskEvaluator with
+    interface IJobEvaluator with
         member __.Id = "InDomain"
-        member __.Evaluate(runtime : RuntimeState, logger : IWorkerLogger, ptask : PickledTask, leaseMonitor : LeaseMonitor, faultCount : int) = async {
-            logger.Logf "%sStarting task %s of type '%s'." appDomainPrefix ptask.TaskId ptask.TypeName
+        member __.Evaluate(runtime : RuntimeState, logger : IWorkerLogger, pjob : PickledJob, leaseMonitor : LeaseMonitor, faultCount : int) = async {
+            logger.Logf "%sStarting job %s of type '%s'." appDomainPrefix pjob.JobId pjob.TypeName
 
             use! hb = leaseMonitor.InitHeartBeat()
             let sw = Stopwatch.StartNew()
 
             let! fault = 
                 async {
-                    let! task = runtime.UnPickle ptask
-                    let runtimeP = RuntimeProvider.FromTask runtime ptask.Dependencies task
-                    do! Task.RunAsync runtimeP faultCount task
+                    let! job = runtime.UnPickle pjob
+                    let runtimeP = RuntimeProvider.FromJob runtime pjob.Dependencies job
+                    do! Job.RunAsync runtimeP faultCount job
                 } |> Async.Catch
 
             do sw.Stop()
@@ -98,14 +98,14 @@ type LocalTaskEvaluator(?showAppDomain : bool) =
             match fault with
             | Choice1Of2 () -> 
                 leaseMonitor.Release()
-                printfn "%sTask %s completed after %O." appDomainPrefix ptask.TaskId sw.Elapsed
+                printfn "%sJob %s completed after %O." appDomainPrefix pjob.JobId sw.Elapsed
                                 
             | Choice2Of2 e -> 
                 leaseMonitor.DeclareFault()
-                printfn "%sTask %s faulted with:\n %O." appDomainPrefix ptask.TaskId e
+                printfn "%sJob %s faulted with:\n %O." appDomainPrefix pjob.JobId e
         }
 
-type AppDomainTaskEvaluator() =
+type AppDomainJobEvaluator() =
 
     static let mkAppDomainInitializer () =
         let wd = Config.WorkingDirectory
@@ -113,31 +113,31 @@ type AppDomainTaskEvaluator() =
 
     let pool = AppDomainEvaluatorPool.Create(mkAppDomainInitializer(), threshold = TimeSpan.FromHours 2.)
 
-    interface ITaskEvaluator with
+    interface IJobEvaluator with
         member __.Id = "AppDomain isolated"
-        member __.Evaluate(runtime : RuntimeState, logger : IWorkerLogger, ptask : PickledTask, leaseMonitor : LeaseMonitor, faultCount : int) = async {
+        member __.Evaluate(runtime : RuntimeState, logger : IWorkerLogger, pjob : PickledJob, leaseMonitor : LeaseMonitor, faultCount : int) = async {
             let eval() = async {
-                let local = new LocalTaskEvaluator(showAppDomain = true) :> ITaskEvaluator
-                return! local.Evaluate(runtime, logger, ptask, leaseMonitor, faultCount)
+                let local = new LocalJobEvaluator(showAppDomain = true) :> IJobEvaluator
+                return! local.Evaluate(runtime, logger, pjob, leaseMonitor, faultCount)
             }
 
-            return! pool.EvaluateAsync(ptask.Dependencies, eval ())
+            return! pool.EvaluateAsync(pjob.Dependencies, eval ())
         }
 
 
 
 open Nessos.Thespian
 
-let workerManager (logger : IWorkerLogger) (evaluator : ITaskEvaluator) (cts: CancellationTokenSource) (msg: WorkerManager) =
+let workerManager (logger : IWorkerLogger) (evaluator : IJobEvaluator) (cts: CancellationTokenSource) (msg: WorkerManager) =
     async {
         match msg with
-        | SubscribeToRuntime(rc, runtimeStateStr, maxConcurrentTasks) ->
+        | SubscribeToRuntime(rc, runtimeStateStr, maxConcurrentJobs) ->
             let runtimeState =
                 let bytes = System.Convert.FromBase64String(runtimeStateStr)
 
                 Config.Pickler.UnPickle<RuntimeState> bytes
 
-            Async.Start(initWorker runtimeState logger maxConcurrentTasks evaluator, cts.Token)
+            Async.Start(initWorker runtimeState logger maxConcurrentJobs evaluator, cts.Token)
             try do! rc.Reply() with e -> printfn "Failed to confirm worker subscription to client: %O" e
             return cts
         | Unsubscribe rc ->

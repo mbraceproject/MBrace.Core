@@ -27,8 +27,6 @@ type InMemoryTask<'T> internal (task : Task<'T>) =
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =
 
-    let taskId = System.Guid.NewGuid().ToString()
-
     /// <summary>
     ///     Creates a new threadpool runtime instance.
     /// </summary>
@@ -49,7 +47,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
         }
 
         member __.ProcessId = sprintf "In-Memory cloud process (pid:%d)" <| System.Diagnostics.Process.GetCurrentProcess().Id
-        member __.TaskId = taskId
+        member __.JobId = sprintf "TheadId %d" <| System.Threading.Thread.CurrentThread.ManagedThreadId
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false
         member __.GetAvailableWorkers () = async {

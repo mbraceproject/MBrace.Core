@@ -16,7 +16,7 @@ open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
 open MBrace.SampleRuntime.Actors
-open MBrace.SampleRuntime.Tasks
+open MBrace.SampleRuntime.Types
 open MBrace.SampleRuntime.RuntimeProvider
 
 #nowarn "40"
@@ -101,8 +101,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
             | None -> return! state.ResourceFactory.RequestCancellationTokenSource()
         }
 
-        let! resultCell = state.StartAsCell processInfo (List.toArray dependencies) cts faultPolicy None workflow
-        return resultCell :> ICloudTask<'T>
+        return! state.StartAsTask processInfo (List.toArray dependencies) cts faultPolicy None workflow
     }
 
     /// <summary>
@@ -132,7 +131,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
             let! task = __.StartAsTaskAsync(workflow, cancellationToken = cts, ?faultPolicy = faultPolicy)
             return task.Result
         finally
-            cancellationToken |> Option.iter (fun _ -> cts.Cancel())
+            if Option.isNone cancellationToken then cts.Cancel()
     }
 
     /// <summary>

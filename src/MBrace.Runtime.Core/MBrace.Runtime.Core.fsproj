@@ -66,7 +66,7 @@
     <Compile Include="Utils\Reflection.fs" />
     <Compile Include="Utils\TypePrinter.fs" />
     <Compile Include="Utils\RecordPrinter.fs" />
-    <Compile Include="Utils\TaskExecutionMonitor.fs" />
+    <Compile Include="Utils\JobExecutionMonitor.fs" />
     <Compile Include="Store\InMemoryCache.fs" />
     <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />

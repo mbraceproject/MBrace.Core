@@ -259,11 +259,11 @@ type Cloud =
     }
 
     /// <summary>
-    ///     Gets the assigned id of the currently running cloud task.
+    ///     Gets the assigned id of the currently running cloud job.
     /// </summary>
-    static member GetTaskId () : Cloud<string> = cloud {
+    static member GetJobId () : Cloud<string> = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
-        return runtime.TaskId
+        return runtime.JobId
     }
 
     /// <summary>

@@ -66,7 +66,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
 
     [<Test>]
     member __.``Z4. Runtime : Get task id`` () =
-        run (Cloud.GetTaskId()) |> Choice.shouldBe (fun _ -> true)
+        run (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z5. Fault Tolerance : map/reduce`` () =

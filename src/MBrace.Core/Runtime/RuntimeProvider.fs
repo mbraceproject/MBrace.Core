@@ -14,8 +14,8 @@ type ICloudRuntimeProvider =
 
     /// Get cloud process identifier
     abstract ProcessId : string
-    /// Get cloud task identifier
-    abstract TaskId : string
+    /// Get cloud job identifier
+    abstract JobId : string
     /// Get all available workers in cluster
     abstract GetAvailableWorkers : unit -> Async<IWorkerRef []>
     /// Gets currently running worker
