@@ -3,12 +3,14 @@
 open System
 open System.Collections
 open System.Collections.Generic
+open System.Runtime.Serialization
 
+open Nessos.Streams
+
+open MBrace
 open MBrace.Store
 open MBrace.Continuation
-open MBrace
-open Nessos.Streams
-open System.Runtime.Serialization
+open MBrace.Workflows
 
 #nowarn "0443"
 #nowarn "0444"
@@ -145,11 +147,10 @@ type CloudArray<'T> internal (root : Descriptor<'T>) =
                     |> Cloud.Parallel
                     |> Cloud.Ignore 
             } 
+
     member p.ToEnumerable() =
         cloud {
-            let! ct = Cloud.CancellationToken
-            let! resources = Cloud.GetResourceRegistry()
-            return root.Partitions |> Seq.collect (fun p -> Cloud.RunSynchronously(p.ToEnumerable(), resources, ct))
+            return! root.Partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
         }
 
     static member CreateAsync (values : seq<'T>, directory : string, config : CloudFileStoreConfiguration, ?serializer : ISerializer, ?partitionSize) = async {

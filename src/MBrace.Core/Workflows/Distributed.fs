@@ -141,6 +141,26 @@ module Distributed =
         reduceCombine (Cloud.lift <| Array.fold folder init) (Cloud.lift <| Array.reduce reducer) init source
 
     /// <summary>
+    ///     Distrbuted collect combinator. Input data is partitioned according to cluster size
+    ///     and distributed to worker nodes accordingly. It is then further partitioned
+    ///     according to the processor count of each worker.
+    /// </summary>
+    /// <param name="collector">Collector function.</param>
+    /// <param name="source">Input data.</param>
+    let collect (collector : 'T -> Cloud<#seq<'S>>) (source : seq<'T>) =
+        reduceCombine (Sequential.collect collector) (Cloud.lift Array.concat) [||] source
+
+    /// <summary>
+    ///     Distrbuted collect combinator. Input data is partitioned according to cluster size
+    ///     and distributed to worker nodes accordingly. It is then further partitioned
+    ///     according to the processor count of each worker.
+    /// </summary>
+    /// <param name="collector">Collector function.</param>
+    /// <param name="source">Input data.</param>
+    let collect2 (collector : 'T -> #seq<'S>) (source : seq<'T>) =
+        reduceCombine (Cloud.lift <| Array.collect (Seq.toArray << collector)) (Cloud.lift Array.concat) [||] source
+
+    /// <summary>
     ///     Distributed Map/Reduce workflow with cluster balancing.
     /// </summary>
     /// <param name="mapper">Mapper workflow.</param>

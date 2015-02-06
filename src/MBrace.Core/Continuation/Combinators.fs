@@ -18,6 +18,13 @@ type Cloud =
     [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
     static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> = 
         Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
+
+    /// <summary>
+    ///     Returns the execution context of current computation.
+    /// </summary>
+    [<CompilerMessage("'GetExecutionContext' only intended for runtime implementers.", 444)>]
+    static member GetExecutionContext () : Cloud<ExecutionContext> =
+        Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx)
         
     /// <summary>
     ///     Returns the resource registry for current execution context.

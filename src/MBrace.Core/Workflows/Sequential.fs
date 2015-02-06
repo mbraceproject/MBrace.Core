@@ -1,8 +1,10 @@
 ﻿namespace MBrace.Workflows
 
 open MBrace
+open MBrace.Continuation
 
 #nowarn "443"
+#nowarn "444"
 
 /// Collection of cloud combinators with sequential execution semantics.
 [<RequireQualifiedAccess>]
@@ -63,6 +65,32 @@ module Sequential =
             state := state'
 
         return !state
+    }
+
+    /// <summary>
+    ///     Sequential eager collect combinator.
+    /// </summary>
+    /// <param name="collector">Collector function.</param>
+    /// <param name="source">Source data.</param>
+    let collect (collector : 'T -> Cloud<#seq<'S>>) (source : seq<'T>) : Cloud<'S []> = cloud {
+        let ra = new ResizeArray<'S> ()
+        for t in source do
+            let! ss = collector t
+            do for s in ss do ra.Add(s)
+
+        return ra.ToArray()
+    }
+
+    /// <summary>
+    ///     Sequential lazy collect combinator.
+    /// </summary>
+    /// <param name="collector">Collector function.</param>
+    /// <param name="source">Source data.</param>
+    let lazyCollect (collector : 'T -> Cloud<#seq<'S>>) (source : seq<'T>) : Cloud<seq<'S>> = cloud {
+        let! ctx = Cloud.GetExecutionContext()
+        return seq {
+            for t in source do yield! Cloud.RunSynchronously(collector t, ctx.Resources, ctx.CancellationToken)
+        }
     }
 
     /// <summary>

@@ -133,13 +133,14 @@ module CloudStream =
 
                                 let result = new ResizeArray<'R>(partitions.Length)
                                 let! resources = Cloud.GetResourceRegistry()
+                                let! ct = Cloud.CancellationToken
                                 for fs in partitions do
                                     let! collector = collectorf
-                                    let! ct = Cloud.CancellationToken
                                     let parStream = 
                                         fs
                                         |> ParStream.ofSeq 
                                         |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
+                                        // should not IO be performed asynchronously?
                                         |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, resources, ct))
                                     let collectorResult = parStream.Apply (toParStreamCollector collector)
                                     let! partial = projection collectorResult

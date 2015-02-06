@@ -284,9 +284,20 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             ints
-            |> Distributed.fold (Cloud.lift2 (fun s i -> s + i)) (Cloud.lift2 (fun s i -> s + i)) 0
+            |> Distributed.fold2 (fun s i -> s + i) (fun s i -> s + i) 0
             |> run
             |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Distributed.collect`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> set
+            ints
+            |> Distributed.collect (fun i -> cloud { return [(i,1) ; (i,2) ; (i,3)] })
+            |> run
+            |> Choice.shouldBe (fun r -> set r = expected)
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 

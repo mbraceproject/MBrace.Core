@@ -539,6 +539,16 @@ module ``Continuation Tests`` =
             |> Choice.shouldEqual expected)
 
     [<Test>]
+    let ``Sequential.collect`` () =
+        Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
+            let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> List.toArray
+            ints 
+            |> dseq 
+            |> Sequential.collect (fun i -> cloud { return [(i,1) ; (i,2) ; (i,3)] })
+            |> run
+            |> Choice.shouldEqual expected)
+
+    [<Test>]
     let ``Sequential.tryFind`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.tryFind (fun i -> i % 13 = 0 || i % 7 = 0)
