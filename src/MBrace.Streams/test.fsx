@@ -25,13 +25,13 @@ let query1 =
     runtime.Run (
         CloudStream.ofArray [|1 .. 1000|]
         |> CloudStream.flatMap(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
-        |> CloudStream.toCloudArray)
+        |> CloudStream.toCloudVector)
 
 let cached = runtime.Run <| CloudStream.cache(query1)
 
 let query2 = runtime.Run (
                 cached
-                |> CloudStream.ofCloudArray
+                |> CloudStream.ofCloudVector
                 |> CloudStream.sortBy snd 100
                 |> CloudStream.toArray )
 
@@ -47,7 +47,7 @@ runtime.Run(
         let! workers = Cloud.GetAvailableWorkers()
         let! handles = 
             workers 
-            |> Seq.map (fun w -> Cloud.StartChild(cloud { return printfn "%A" CloudArrayCache.State },w))
+            |> Seq.map (fun w -> Cloud.StartChild(cloud { return printfn "%A" CloudVectorCache.State },w))
             |> Cloud.Parallel  
         return! handles |> Cloud.Parallel |> Cloud.Ignore              
     })
@@ -57,7 +57,7 @@ runtime.Run(
 //let serializer = VagrantRegistry.Serializer
 // 
 //let array = Array.init (10) (fun i -> String.init 1024 (fun _ -> string i))
-//let ca = CloudArray.CreateAsync(array, "foobar", fsStore, serializer, 1024L * 1024L)
+//let ca = CloudVector.CreateAsync(array, "foobar", fsStore, serializer, 1024L * 1024L)
 //         |> Async.RunSync
 //
 //ca.Length

@@ -47,7 +47,7 @@ type ``CloudStreams tests`` () as self =
     member __.``ofCloudArray`` () =
         let f(xs : int []) =
             let cloudArray = run <| CloudArray.New(xs) 
-            let x = cloudArray |> CloudStream.ofCloudArray |> CloudStream.length |> run
+            let x = cloudArray |> CloudStream.ofCloudVector |> CloudStream.length |> run
             let y = xs |> Seq.map ((+)1) |> Seq.length
             Assert.AreEqual(y, int x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -66,8 +66,8 @@ type ``CloudStreams tests`` () as self =
         let f(xs : int[]) =
             let cloudArray = run <| CloudArray.New(xs) 
             let cached = CloudStream.cache cloudArray |> run 
-            let x = cached |> CloudStream.ofCloudArray |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
-            let x' = cached |> CloudStream.ofCloudArray |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
+            let x = cached |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
+            let x' = cached |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
             
             let _x = x.ToEnumerable() |> runLocal |> Seq.toArray
@@ -83,8 +83,8 @@ type ``CloudStreams tests`` () as self =
             let cloudArray = run <| CloudArray.New(xs) 
             let _ = CloudStream.cache cloudArray |> run 
             let cached = CloudStream.cache cloudArray |> run 
-            let x = cached |> CloudStream.ofCloudArray |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
-            let x' = cached |> CloudStream.ofCloudArray |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
+            let x = cached |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
+            let x' = cached |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
             
             let _x = x.ToEnumerable() |> runLocal |> Seq.toArray

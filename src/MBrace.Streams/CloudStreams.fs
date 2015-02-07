@@ -8,6 +8,7 @@ open System.Collections.Generic
 open System.Linq
 open MBrace
 open MBrace.Continuation
+open MBrace.Workflows
 open Nessos.Streams
 open Nessos.Streams.Internals
 
@@ -31,9 +32,14 @@ type CloudStream<'T> =
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Provides basic operations on CloudStreams.
 module CloudStream =
+    open MBrace.Store
+
+    //#region Helpers
 
     /// Maximum combined stream length used in ofCloudFiles.
     let private maxCloudFileCombinedLength = 1024L * 1024L * 1024L
+    /// Maximum CloudVector partition size used in CloudVector.New.
+    let private maxCloudVectorPartitionSize = 1024L * 1024L * 1024L
 
     /// If local context then returns number of cores instead of throwing exception
     /// else returns number of workers.
@@ -61,6 +67,10 @@ module CloudStream =
             member self.DegreeOfParallelism = match collector.DegreeOfParallelism with Some n -> n | None -> Environment.ProcessorCount
             member self.Iterator() = collector.Iterator()
             member self.Result = collector.Result  }
+
+    //#endregion
+
+    //#region Driver functions
 
     /// <summary>Wraps array as a CloudStream.</summary>
     /// <param name="source">The input array.</param>
@@ -155,10 +165,10 @@ module CloudStream =
                 } }
 
     /// <summary>
-    /// Constructs a CloudStream from a CloudArray.
+    /// Constructs a CloudStream from a CloudVector.
     /// </summary>
-    /// <param name="source">The input CloudArray.</param>
-    let ofCloudArray (source : CloudArray<'T>) : CloudStream<'T> =
+    /// <param name="source">The input CloudVector.</param>
+    let ofCloudVector (source : CloudVector<'T>) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
@@ -169,108 +179,71 @@ module CloudStream =
                         | Some n -> cloud { return n }
                         | _ -> getWorkerCount() 
                                             
-                    let createTask (partitionId : int) (collector : Cloud<Collector<'T, 'S>>) = 
+                    let createTask (partitions : CloudSequence<'T> []) useCache (collector : Cloud<Collector<'T, 'S>>)  = 
                         cloud {
-                            let! collector = collector
-                            let! array = source.GetPartition(partitionId) 
-                            let parStream = ParStream.ofArray array 
-                            let collectorResult = parStream.Apply (toParStreamCollector collector)
-                            return! projection collectorResult
-                        }
-
-                    let createTaskCached (cached : CachedCloudArray<'T>) (taskId : string) (collectorf : Cloud<Collector<'T, 'S>>) = 
-                        cloud { 
-                            let partitions = CloudArrayCache.Get(cached, taskId) |> Seq.toArray
-                            let completed = new ResizeArray<int * 'R>()
-                            for pid in partitions do
-                                let array = CloudArrayCache.GetPartition(cached, pid)
-                                let parStream = ParStream.ofArray array
-                                let! collector = collectorf
+                            let results = Array.zeroCreate partitions.Length
+                            let i = ref 0
+                            for partition in partitions do
+                                let! collector = collector
+                                if useCache then
+                                    do! partition.Cache() |> Cloud.Ignore
+                                let! array = partition.ToArray()
+                                let parStream = ParStream.ofArray array 
                                 let collectorResult = parStream.Apply (toParStreamCollector collector)
                                 let! partial = projection collectorResult
-                                completed.Add(pid, partial)
-                            return completed 
+                                results.[i.Value] <- partial
+                                incr i
+                            return results
                         }
-                    
-                    if source.Length = 0L then
+                        
+                    if source.Count = 0L then
                         let! collector = collectorf
                         return! projection collector.Result;
                     else
-                        let partitions = [|0..source.PartitionCount-1|]
-                        match source with
-                        | :? CachedCloudArray<'T> as cached -> 
-                            // round 1
-                            let taskId = Guid.NewGuid().ToString() //Cloud.GetTaskId()
+                        let! cacheMap = source.CacheMap.Value
+                        match cacheMap with
+                        | None ->
+                            let! results = source.Partitions
+                                           |> Partitions.ofArray workerCount
+                                           |> Seq.map (fun ps -> createTask ps false collectorf)
+                                           |> Cloud.Parallel
+                            return results |> Seq.concat
+                                           |> Seq.reduce combiner
+                        | Some cacheMap ->
+                            // Compare IWorkerRefs contained in cacheMap with current workers.
+                            // If sets are not equal re-assign cacheMap.
+                            let! currentWorkers = Cloud.GetAvailableWorkers()
+                                                  |> Cloud.map Set.ofArray
+                            let cacheMapWorkers = cacheMap.Keys |> Set.ofSeq
                             
-                            let! ctx = Cloud.GetSchedulingContext()
-                            let! partial = 
-                                match ctx with
-                                | Distributed ->
-                                    Cloud.Parallel (createTaskCached cached taskId collectorf)
-                                | ThreadParallel ->
-                                    Cloud.Parallel [createTaskCached cached taskId collectorf]
-                                | Sequential ->
-                                    failwith "Scheduling context %A not supported." ctx
+                            let! cacheMap = cloud { 
+                                if cacheMapWorkers <> currentWorkers then
+                                    return! CloudVector.Cache(source, currentWorkers)
+                                else 
+                                    return cacheMap
+                            }
+                            
+                            let partitions = 
+                                source.Partitions 
+                                |> Seq.map (fun p -> (p :> ICloudStorageEntity).Id, p)
+                                |> Map.ofSeq
 
-                            let results1 = Seq.concat partial 
-                                           |> Seq.toArray 
-                            let completedPartitions = 
-                                results1
-                                |> Seq.map (fun (p, _) -> p)
-                                |> Set.ofSeq
-                            let allPartitions = partitions |> Set.ofSeq
-                            // round 2
-                            let restPartitions = allPartitions - completedPartitions
-                            
-                            if Seq.isEmpty restPartitions then
-                                let final = results1 
-                                            |> Seq.sortBy (fun (p,_) -> p)
-                                            |> Seq.map (fun (_,r) -> r) 
-                                            |> Seq.toArray
-                                return Array.reduce combiner final
-                            else
-                                let! results2 = restPartitions 
-                                                |> Set.toArray 
-                                                |> Array.map (fun pid -> cloud { let! r = createTask pid collectorf in return pid,r }) 
-                                                |> parallelInChunks workerCount
-                                let final = Seq.append results1 results2
-                                            |> Seq.sortBy (fun (p,_) -> p)
-                                            |> Seq.map (fun (_,r) -> r)
-                                            |> Seq.toArray
-                                return Array.reduce combiner final
-                        | _ -> 
+                            let pairs =
+                                cacheMap 
+                                |> Seq.map (function KeyValue(k,vs) -> k, vs |> Array.map (fun pid -> partitions.[pid]))
+
                             let! results = 
-                                partitions 
-                                |> Array.map (fun partitionId -> createTask partitionId collectorf) 
-                                |> parallelInChunks workerCount
-                            return Array.reduce combiner results
-                            
+                                pairs
+                                |> Seq.map (fun (wr,ps) -> createTask ps true collectorf, wr)
+                                |> Cloud.Parallel
+
+                            return results |> Seq.concat
+                                           |> Seq.reduce combiner
                 } }
 
-    /// <summary>
-    /// Returns a cached version of the given CloudArray.
-    /// </summary>
-    /// <param name="source">The input CloudArray.</param>
-    let cache (source : CloudArray<'T>) : Cloud<CloudArray<'T>> = 
-        cloud {
-            let createTask (pid : int) (cached : CachedCloudArray<'T>) = 
-                cloud {
-                    let! slice = (cached :> CloudArray<'T>).GetPartition(pid)
-                    CloudArrayCache.Add(cached, pid, slice)
-                }
-            let! workerCount = getWorkerCount()
-            let taskId = Guid.NewGuid().ToString()
-            let cached = new CachedCloudArray<'T>(source, taskId)
-            if source.Length > 0L then
-                let partitions = [|0..source.PartitionCount-1|]
-                do! partitions 
-                    |> Array.map (fun pid -> createTask pid cached) 
-                    |> parallelInChunks workerCount
-                    |> Cloud.Ignore
-            return cached :> _
-        }
+    //#endregion
 
-    // intermediate functions
+    //#region Intermediate functions
 
     /// <summary>Transforms each element of the input CloudStream.</summary>
     /// <param name="f">A function to transform items from the input CloudStream.</param>
@@ -433,21 +406,21 @@ module CloudStream =
         // Phase 1
         let shuffling = 
             cloud {
-                let combiner' (left : CloudArray<_>) (right : CloudArray<_>) = 
-                    left.Append(right)
+                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) = 
+                    CloudVector.Merge(left, right)
                 let! totalWorkers = match stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
                                                   (fun keyValues -> cloud {
-                                                        let dict = new Dictionary<int, CloudArray<'Key * 'State>>() 
+                                                        let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
-                                                            let! values = CloudArray.New(value)
+                                                            let! values = CloudVector.New(value, maxCloudVectorPartitionSize)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value))
-                                                        return! CloudArray.New(values) }) combiner'
+                                                        return! CloudVector.New(values, maxCloudVectorPartitionSize) }) combiner'
                 
                 let! kva = keyValueArray.ToEnumerable()
                 let dict = 
-                    let dict = new Dictionary<int, CloudArray<'Key * 'State>>()
+                    let dict = new Dictionary<int, CloudVector<'Key * 'State>>()
                     for (key, value) in kva do
                         let mutable grouping = Unchecked.defaultof<_>
                         if dict.TryGetValue(key, &grouping) then
@@ -461,7 +434,7 @@ module CloudStream =
         let reducerf = cloud {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! resources = Cloud.GetResourceRegistry()
-            return { new Collector<int * CloudArray<'Key * 'State>,  seq<'Key * 'State>> with
+            return { new Collector<int * CloudVector<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
@@ -487,12 +460,12 @@ module CloudStream =
                     |> Seq.map (fun keyValue -> (keyValue.Key, !keyValue.Value)) }
         }
         // Phase 2
-        let reducer (stream : CloudStream<int * CloudArray<'Key * 'State>>) : Cloud<CloudArray<'Key * 'State>> = 
+        let reducer (stream : CloudStream<int * CloudVector<'Key * 'State>>) : Cloud<CloudVector<'Key * 'State>> = 
             cloud {
-                let combiner' (left : CloudArray<_>) (right : CloudArray<_>) = 
+                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) = 
                     left.Append(right)
 
-                let! keyValueArray = stream.Apply reducerf (fun keyValues -> CloudArray.New(keyValues)) combiner'
+                let! keyValueArray = stream.Apply reducerf (fun keyValues -> CloudVector.New(keyValues)) combiner'
                 return keyValueArray
             }
         { new CloudStream<'Key * 'State> with
@@ -501,7 +474,7 @@ module CloudStream =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (ofArray result)
-                    return! (ofCloudArray result').Apply collectorf projection combiner
+                    return! (ofCloudVector result').Apply collectorf projection combiner
                 }  }
 
 
@@ -539,10 +512,10 @@ module CloudStream =
             return arrayCollector.ToArray()
         }
 
-    /// <summary>Creates a CloudArray from the given CloudStream.</summary>
+    /// <summary>Creates a CloudVector from the given CloudStream.</summary>
     /// <param name="stream">The input CloudStream.</param>
-    /// <returns>The result CloudArray.</returns>    
-    let inline toCloudArray (stream : CloudStream<'T>) : Cloud<CloudArray<'T>> =
+    /// <returns>The result CloudVector.</returns>    
+    let inline toCloudVector (stream : CloudStream<'T>) : Cloud<CloudVector<'T>> =
         let collectorf = cloud { 
             let results = new List<List<'T>>()
             return 
@@ -567,7 +540,7 @@ module CloudStream =
         }
         stream.Apply collectorf (fun array -> cloud { 
                                                 let! processId = Cloud.GetProcessId() 
-                                                return! CloudArray.New(array) }) 
+                                                return! CloudVector.New(array) }) 
                                 (fun left right -> left.Append(right))
 
     /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>

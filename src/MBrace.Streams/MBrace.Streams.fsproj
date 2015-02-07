@@ -53,8 +53,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Readers.fs" />
     <Compile Include="Partitioning.fs" />
-    <Compile Include="CloudArray.fs" />
-    <Compile Include="Caching.fs" />
+    <Compile Include="CloudVector.fs" />
     <Compile Include="CloudStreams.fs" />
     <Compile Include="CSharpProxy.fs" />
     <None Include="test.fsx" />
