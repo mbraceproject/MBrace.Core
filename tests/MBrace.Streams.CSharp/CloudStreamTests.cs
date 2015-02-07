@@ -125,7 +125,7 @@ namespace MBrace.Streams.CSharp.Tests
                 var s1 = new HashSet<string>(x);
                 var s2 = new HashSet<string>(y);
                 return s1.SetEquals(s2);
-            }).QuickThrowOnFail(this.MaxNumberOfTests);
+            }).QuickThrowOnFail(10);
         }
 
         [Test]
@@ -147,7 +147,7 @@ namespace MBrace.Streams.CSharp.Tests
                 var s1 = new HashSet<string>(x);
                 var s2 = new HashSet<string>(y);
                 return s1.SetEquals(s2);
-            }).QuickThrowOnFail(this.MaxNumberOfTests);
+            }).QuickThrowOnFail(10);
         }
 
         [Test]
@@ -170,7 +170,7 @@ namespace MBrace.Streams.CSharp.Tests
                 var s1 = new HashSet<string>(x);
                 var s2 = new HashSet<string>(y);
                 return s1.SetEquals(s2);
-            }).QuickThrowOnFail(this.MaxNumberOfTests);
+            }).QuickThrowOnFail(10);
         }
 
         [Test]

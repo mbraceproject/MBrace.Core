@@ -111,7 +111,7 @@ type ``CloudStreams tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+        Check.QuickThrowOnFail(f, 10)
 
     [<Test>]
     member __.``ofCloudFiles with ReadLines`` () =
@@ -132,7 +132,7 @@ type ``CloudStreams tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+        Check.QuickThrowOnFail(f, 10)
 
     [<Test>]
     member __.``ofCloudFiles with ReadAllLines`` () =
@@ -153,7 +153,7 @@ type ``CloudStreams tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+        Check.QuickThrowOnFail(f, 10)
 
 
     [<Test>]
