@@ -33,6 +33,8 @@ type CloudStream<'T> =
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Provides basic operations on CloudStreams.
 module CloudStream =
+    open MBrace.Streams.Internals
+
     //#region Helpers
 
     /// Maximum combined stream length used in ofCloudFiles.

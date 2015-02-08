@@ -1,20 +1,13 @@
 ﻿namespace MBrace.Streams
 
-open MBrace
-
-open MBrace
-
-open System
-open System.Collections
 open System.Collections.Generic
-open MBrace.Store
 open MBrace
+open MBrace.Store
 open MBrace.Workflows
-open MBrace.Continuation
 
 #nowarn "444"
 
-type CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
+type internal CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
 
 type CloudVector<'T> (count : int64, partitions : CloudSequence<'T> [], cacheMap) = 
     interface ICloudDisposable with
@@ -31,15 +24,15 @@ type CloudVector<'T> (count : int64, partitions : CloudSequence<'T> [], cacheMap
     member val Partitions = partitions
     member val PartitionCount = partitions.Length
 
-    member val CacheMap : ICloudAtom<CacheMap<'T>> = cacheMap
+    member val internal CacheMap : ICloudAtom<CacheMap<'T>> = cacheMap
 
-    member this.ToEnumerable () : Cloud<IEnumerable<'T>> =
+    member __.ToEnumerable () : Cloud<IEnumerable<'T>> =
         cloud {
             return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
         }
 
 
-type CacheState = 
+type internal CacheState = 
     static member Create(vector : CloudVector<'T>, workers : IWorkerRef seq) : CacheMap<'T> = 
         let workers = workers |> Seq.sort |> Seq.toArray
         let workerCount = workers.Length
@@ -58,50 +51,6 @@ type CacheState =
 
     static member Combine(state1 : CacheMap<'T>, state2 : CacheMap<'T>) : CacheMap<'T> =
         None
-
-type VectorCollector<'T> (count, partitions, cacheMap) =
-    member val Count = count
-    member val Partitions = partitions
-    member val CacheMap = cacheMap
-
-    member __.ToCloudVector () = 
-        cloud {
-            let! map = CloudAtom.New(cacheMap)
-            return new CloudVector<'T>(count, partitions, map)
-        }
-
-    member __.ToEnumerable () : Cloud<IEnumerable<'T>> =
-        cloud {
-            return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
-        }
-
-    member v1.Merge(v2 : VectorCollector<'T>) =
-        let count = v1.Count + v2.Count
-        let partitions = Array.append v1.Partitions v2.Partitions
-        let cache = CacheState.Combine(v1.CacheMap, v2.CacheMap)
-        new VectorCollector<'T>(count, partitions, cache)
-
-    static member New(values : seq<'T>, maxPartitionSize : int64) =
-        cloud {
-            let! partitions = CloudSequence.NewPartitioned(values, maxPartitionSize)
-            let count = ref 0L
-            for p in partitions do 
-                let! c = p.Count
-                count := !count + int64 c
-            let! context = Cloud.GetSchedulingContext()
-            let! map  = 
-                match context with
-                | ThreadParallel
-                | Sequential -> cloud.Return None
-                | Distributed -> cloud { 
-                    let! w = Cloud.CurrentWorker
-                    return (w, partitions)
-                            |> Seq.singleton
-                            |> Map.ofSeq :> IDictionary<_, _>
-                            |> Some 
-                }
-            return new VectorCollector<'T>(count.Value, partitions, map)
-        }
 
 type CloudVector =
     static member Merge(v1 : CloudVector<'T>, v2 : CloudVector<'T>) : Cloud<CloudVector<'T>> = 
@@ -129,7 +78,7 @@ type CloudVector =
             return! vector.CacheMap.Force(None)
         }
 
-    static member Cache(vector : CloudVector<'T>, workers : IWorkerRef seq) : Cloud<CacheMap<'T>> =
+    static member internal Cache(vector : CloudVector<'T>, workers : IWorkerRef seq) : Cloud<CacheMap<'T>> =
         cloud {
             let cacheMap = CacheState.Create(vector, workers)
             do! vector.CacheMap.Force(cacheMap)
