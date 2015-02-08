@@ -14,7 +14,7 @@ open MBrace.Continuation
 
 #nowarn "444"
 
-type CacheMap = IDictionary<IWorkerRef, ICloudStorageEntity []> option
+type CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
 
 type CloudVector<'T> (count : int64, partitions : CloudSequence<'T> [], cacheMap) = 
     interface ICloudDisposable with
@@ -31,26 +31,22 @@ type CloudVector<'T> (count : int64, partitions : CloudSequence<'T> [], cacheMap
     member val Partitions = partitions
     member val PartitionCount = partitions.Length
 
-    member val CacheMap : ICloudAtom<CacheMap> = cacheMap
+    member val CacheMap : ICloudAtom<CacheMap<'T>> = cacheMap
 
     member this.ToEnumerable () : Cloud<IEnumerable<'T>> =
         cloud {
-            // TODO : Replace with Sequential.lazyCollector
-            let! ctx = Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx)
-            return seq {
-                for t in this.Partitions do yield! Cloud.RunSynchronously(t.ToEnumerable(), ctx.Resources, ctx.CancellationToken)
-            }
+            return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
         }
 
 
-type Cache = 
-    static member CreateMap(vector : CloudVector<'T>, workers : IWorkerRef seq) : CacheMap = 
+type CacheState = 
+    static member Create(vector : CloudVector<'T>, workers : IWorkerRef seq) : CacheMap<'T> = 
         let workers = workers |> Seq.sort |> Seq.toArray
         let workerCount = workers.Length
         
         let map = 
             vector.Partitions
-            |> Seq.mapi (fun i p -> i, p :> ICloudStorageEntity)
+            |> Seq.mapi (fun i p -> i, p)
             |> Seq.groupBy (fun (i, _) -> i % workerCount)
             |> Seq.map (fun (key, values) -> 
                     workers.[key], 
@@ -60,7 +56,7 @@ type Cache =
             |> Map.ofSeq
         Some(map :> _)
 
-    static member Combine(state1 : CacheMap, state2 : CacheMap) : CacheMap =
+    static member Combine(state1 : CacheMap<'T>, state2 : CacheMap<'T>) : CacheMap<'T> =
         None
 
 type VectorCollector<'T> (count, partitions, cacheMap) =
@@ -76,17 +72,13 @@ type VectorCollector<'T> (count, partitions, cacheMap) =
 
     member __.ToEnumerable () : Cloud<IEnumerable<'T>> =
         cloud {
-            // TODO : Replace with Sequential.lazyCollector
-            let! ctx = Cloud.FromContinuations(fun ctx cont -> cont.Success ctx ctx)
-            return seq {
-                for t in partitions do yield! Cloud.RunSynchronously(t.ToEnumerable(), ctx.Resources, ctx.CancellationToken)
-            }
+            return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
         }
 
     member v1.Merge(v2 : VectorCollector<'T>) =
         let count = v1.Count + v2.Count
         let partitions = Array.append v1.Partitions v2.Partitions
-        let cache = Cache.Combine(v1.CacheMap, v2.CacheMap)
+        let cache = CacheState.Combine(v1.CacheMap, v2.CacheMap)
         new VectorCollector<'T>(count, partitions, cache)
 
     static member New(values : seq<'T>, maxPartitionSize : int64) =
@@ -103,8 +95,7 @@ type VectorCollector<'T> (count, partitions, cacheMap) =
                 | Sequential -> cloud.Return None
                 | Distributed -> cloud { 
                     let! w = Cloud.CurrentWorker
-                    let ps = partitions |> Array.map (fun p -> p :> ICloudStorageEntity) 
-                    return (w, ps)
+                    return (w, partitions)
                             |> Seq.singleton
                             |> Map.ofSeq :> IDictionary<_, _>
                             |> Some 
@@ -118,7 +109,7 @@ type CloudVector =
             let count = v1.Count + v2.Count
             let partitions = Array.append v1.Partitions v2.Partitions
             let! map1, map2 = v1.CacheMap.Value <||> v2.CacheMap.Value
-            let! map = CloudAtom.New(Cache.Combine(map1, map2))
+            let! map = CloudAtom.New(CacheState.Combine(map1, map2))
             return new CloudVector<'T>(count, partitions, map) 
         }
 
@@ -138,9 +129,9 @@ type CloudVector =
             return! vector.CacheMap.Force(None)
         }
 
-    static member Cache(vector : CloudVector<'T>, workers : IWorkerRef seq) : Cloud<CacheMap> =
+    static member Cache(vector : CloudVector<'T>, workers : IWorkerRef seq) : Cloud<CacheMap<'T>> =
         cloud {
-            let cacheMap = Cache.CreateMap(vector, workers)
+            let cacheMap = CacheState.Create(vector, workers)
             do! vector.CacheMap.Force(cacheMap)
             return cacheMap
         }
