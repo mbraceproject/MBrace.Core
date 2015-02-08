@@ -91,7 +91,8 @@ type CloudVector =
             let! isTargetSupported = Cloud.IsTargetedWorkerSupported
             match context with
             | Sequential | ThreadParallel -> 
-                return failwith "Cannot Cache in context %A. Only %A context is supported." context Distributed
+                do! vector.CacheMap.Force(None)
+                return ()
             | Distributed when not isTargetSupported ->
                 return failwith "Cannot Cache in runtimes not supporting worker targeting."
             | Distributed ->
