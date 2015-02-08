@@ -44,7 +44,7 @@ namespace MBrace.CSharp
         /// <param name="task">Task to be awaited.</param>
         public static Cloud<TResult> AwaitTask<TResult>(Task<TResult> task)
         {
-            return MCloud.AwaitTask(task); 
+            return MCloud.AwaitTask(task, null); 
         }
 
         /// <summary>
@@ -83,9 +83,9 @@ namespace MBrace.CSharp
         /// <summary>
         /// Gets the assigned id of the currently running cloud task.
         /// </summary>
-        public static Cloud<string> GetTaskId()
+        public static Cloud<string> GetJobId()
         {
-            return MCloud.GetTaskId(); 
+            return MCloud.GetJobId(); 
         }
 
         /// <summary>

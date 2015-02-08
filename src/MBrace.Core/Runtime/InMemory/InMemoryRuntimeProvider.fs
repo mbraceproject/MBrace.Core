@@ -1,16 +1,31 @@
 ﻿namespace MBrace.Runtime.InMemory
 
+open System
+open System.Threading
+open System.Threading.Tasks
+
 open MBrace
 open MBrace.Runtime
 open MBrace.Continuation
 
 #nowarn "444"
 
+/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
+[<AutoSerializable(false)>]
+type InMemoryTask<'T> internal (task : Task<'T>) =
+    interface ICloudTask<'T> with
+        member __.Id = sprintf ".NET task %d" task.Id
+        member __.AwaitResult(?timeoutMilliseconds:int) = Cloud.AwaitTask(task, ?timeoutMilliseconds = timeoutMilliseconds)
+        member __.TryGetResult () = cloud { return task.TryGetResult() }
+        member __.Status = task.Status
+        member __.IsCompleted = task.IsCompleted
+        member __.IsFaulted = task.IsFaulted
+        member __.IsCanceled = task.IsCanceled
+        member __.Result = task.GetResult()
+
 /// .NET ThreadPool runtime provider
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =
-
-    let taskId = System.Guid.NewGuid().ToString()
 
     /// <summary>
     ///     Creates a new threadpool runtime instance.
@@ -27,8 +42,12 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
         new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger)
         
     interface ICloudRuntimeProvider with
+        member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
+            return InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
+        }
+
         member __.ProcessId = sprintf "In-Memory cloud process (pid:%d)" <| System.Diagnostics.Process.GetCurrentProcess().Id
-        member __.TaskId = taskId
+        member __.JobId = sprintf "TheadId %d" <| System.Threading.Thread.CurrentThread.ManagedThreadId
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false
         member __.GetAvailableWorkers () = async {
@@ -78,7 +97,13 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
             | Sequential -> Sequential.Choice computations
             | _ -> ThreadPool.Choice computations
 
-        member __.ScheduleStartChild (workflow, ?target:IWorkerRef, ?timeoutMilliseconds:int) = 
+        member __.ScheduleStartAsTask (workflow:Cloud<'T>, faultPolicy:FaultPolicy, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
             match context with
-            | Sequential -> Sequential.StartChild workflow
-            | _ -> ThreadPool.StartChild(workflow, ?timeoutMilliseconds = timeoutMilliseconds)
+            | Sequential -> return raise <| invalidOp "Cannot schedule tasks in Sequential execution context."
+            | _ ->
+                let! resources = Cloud.GetResourceRegistry()
+                let runtimeP = new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger) 
+                let resources' = resources.Register (runtimeP :> ICloudRuntimeProvider)
+                let task = Cloud.StartAsTask(workflow, resources', cancellationToken)
+                return new InMemoryTask<'T>(task) :> _
+        }

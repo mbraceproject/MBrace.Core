@@ -7,17 +7,17 @@ open MBrace.Continuation
 
 #nowarn "444"
 
-// Tasks are cloud workflows that have been attached to continuations.
+// Jobs are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
 // are difficult to reason about from a worker node's point of view.
-// TaskExecutionMonitor provides a way to cooperatively track execution
+// JobExecutionMonitor provides a way to cooperatively track execution
 // of such 'closed' computations.
 
 /// Provides a mechanism for cooperative task execution monitoring.
 [<AutoSerializable(false)>]
-type TaskExecutionMonitor () =
+type JobExecutionMonitor () =
     let tcs = TaskCompletionSource<unit> ()
-    static let fromContext (ctx : ExecutionContext) = ctx.Resources.Resolve<TaskExecutionMonitor> ()
+    static let fromContext (ctx : ExecutionContext) = ctx.Resources.Resolve<JobExecutionMonitor> ()
 
     member __.Task = tcs.Task
     member __.TriggerFault (e : exn) = tcs.TrySetException e |> ignore
@@ -44,7 +44,7 @@ type TaskExecutionMonitor () =
         let tem = fromContext ctx in tem.TriggerFault e |> ignore
 
     /// Asynchronously await completion of provided TaskExecutionMonitor
-    static member AwaitCompletion (tem : TaskExecutionMonitor) = async {
+    static member AwaitCompletion (tem : JobExecutionMonitor) = async {
         try
             return! Async.AwaitTask tem.Task
         with :? System.AggregateException as e when e.InnerException <> null ->
@@ -56,4 +56,4 @@ type TaskExecutionMonitor () =
     /// </summary>
     /// <param name="body">Computation body</param>
     static member ProtectFromContinuations(body : ExecutionContext -> Continuation<'T> -> Async<unit>) : Cloud<'T>=
-        Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (body ctx cont))
+        Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (body ctx cont))

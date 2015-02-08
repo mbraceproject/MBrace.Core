@@ -3,13 +3,13 @@
 #nowarn "444"
 
 open System.Threading
+open System.Threading.Tasks
 
 open MBrace
 open MBrace.Continuation
 
 /// Collection of workflows that emulate execute
 /// the parallelism primitives sequentially.
-[<CompilerMessage("Use of this API restricted to runtime implementers.", 444)>]
 type Sequential =
 
     /// <summary>
@@ -43,25 +43,12 @@ type Sequential =
         return! aux 0
     }
 
-    /// <summary>
-    ///     Sequential Cloud.StartChild implementation.
-    /// </summary>
-    /// <param name="computation">Input computation.</param>
-    [<CompilerMessage("Use of Sequential.StartChild restricted to runtime implementers.", 444)>]
-    static member StartChild (computation : Cloud<'T>) = cloud {
-        let! result = computation |> Cloud.Catch
-        return cloud {  
-            match result with 
-            | Choice1Of2 t -> return t
-            | Choice2Of2 e -> return! Cloud.Raise e
-        }
-    }
-
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool
 type ThreadPool private () =
 
-    static let mkLinkedCts (parent : CancellationToken) = CancellationTokenSource.CreateLinkedTokenSource [| parent |]
+    static let mkLinkedCts (parent : ICloudCancellationToken) =
+        InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [| parent |] :> ICloudCancellationTokenSource
 
     static let scheduleTask res ct sc ec cc wf =
         Trampoline.QueueWorkItem(fun () ->
@@ -86,28 +73,27 @@ type ThreadPool private () =
 
             | Choice1Of2 computations ->                    
                 let results = Array.zeroCreate<'T> computations.Length
-                let innerCts = mkLinkedCts ctx.CancellationToken
+                let parentCt = ctx.CancellationToken
+                let innerCts = mkLinkedCts parentCt
                 let exceptionLatch = new Latch(0)
                 let completionLatch = new Latch(0)
 
-                // success continuations of a completed parallel workflow
-                // are passed the original context. This is not
-                // a problem since execution takes place in-memory.
+                let inline revertCtx (ctx : ExecutionContext) = { ctx with CancellationToken = parentCt }
 
-                let onSuccess i _ (t : 'T) =
+                let onSuccess i ctx (t : 'T) =
                     results.[i] <- t
                     if completionLatch.Increment() = results.Length then
-                        cont.Success ctx results
+                        cont.Success (revertCtx ctx) results
 
-                let onException _ edi =
+                let onException ctx edi =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Exception ctx edi
+                        cont.Exception (revertCtx ctx) edi
 
-                let onCancellation _ c =
+                let onCancellation ctx c =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Cancellation ctx c
+                        cont.Cancellation (revertCtx ctx) c
 
                 for i = 0 to computations.Length - 1 do
                     scheduleTask ctx.Resources innerCts.Token (onSuccess i) onException onCancellation computations.[i])
@@ -125,45 +111,30 @@ type ThreadPool private () =
             // pass continuation directly to child, if singular
             | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
             | Choice1Of2 computations ->
-                let innerCts = mkLinkedCts ctx.CancellationToken
+                let parentCt = ctx.CancellationToken
+                let innerCts = mkLinkedCts parentCt
                 let completionLatch = new Latch(0)
                 let exceptionLatch = new Latch(0)
 
-                // success continuations of a completed parallel workflow
-                // are passed the original context, which is not serializable. 
-                // This is not a problem since execution takes place in-memory.
+                let inline revertCtx (ctx : ExecutionContext) = { ctx with CancellationToken = parentCt }
 
-                let onSuccess _ (topt : 'T option) =
+                let onSuccess ctx (topt : 'T option) =
                     if Option.isSome topt then
                         if exceptionLatch.Increment() = 1 then
-                            cont.Success ctx topt
+                            cont.Success (revertCtx ctx) topt
                     else
                         if completionLatch.Increment () = computations.Length then
-                            cont.Success ctx None
+                            cont.Success (revertCtx ctx) None
 
-                let onException _ edi =
+                let onException ctx edi =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Exception ctx edi
+                        cont.Exception (revertCtx ctx) edi
 
-                let onCancellation _ cdi =
+                let onCancellation ctx cdi =
                     if exceptionLatch.Increment() = 1 then
                         innerCts.Cancel ()
-                        cont.Cancellation ctx cdi
+                        cont.Cancellation (revertCtx ctx) cdi
 
                 for i = 0 to computations.Length - 1 do
                     scheduleTask ctx.Resources innerCts.Token onSuccess onException onCancellation computations.[i])
-
-
-    /// <summary>
-    ///     A Cloud.StartChild implementation executed using the thread pool.
-    /// </summary>
-    /// <param name="computation">Input computation.</param>
-    /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
-    [<CompilerMessage("Use of ThreadPool.StartChild restricted to runtime implementers.", 444)>]
-    static member StartChild (computation : Cloud<'T>, ?timeoutMilliseconds) : Cloud<Cloud<'T>> = cloud {
-        let! resource = Cloud.GetResourceRegistry()
-        let asyncWorkflow = Cloud.ToAsync(computation, resources = resource)
-        let! chWorkflow = Cloud.OfAsync <| Async.StartChild(asyncWorkflow, ?millisecondsTimeout = timeoutMilliseconds)
-        return Cloud.OfAsync chWorkflow
-    }

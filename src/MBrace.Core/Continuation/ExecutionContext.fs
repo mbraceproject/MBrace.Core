@@ -3,25 +3,27 @@
 open System
 open System.Threading
 
+open MBrace
+
 /// Local, non-distributable continuation execution context.
 [<AutoSerializable(false)>]
 type ExecutionContext =
     {
+        /// Cloud cancellation token of the current context
+        CancellationToken : ICloudCancellationToken
+
         /// Runtime cloud resource resolver
         Resources : ResourceRegistry
-
-        /// Local cancellation token
-        CancellationToken : CancellationToken
     }
 with
     /// <summary>
     ///     Initializes an empty execution context.  
     /// </summary>
     /// <param name="cancellationToken">Optional cancellation token.</param>
-    static member Empty(?cancellationToken : CancellationToken) =
+    static member Empty(cancellationToken : ICloudCancellationToken) =
         {
             Resources = ResourceRegistry.Empty
-            CancellationToken = match cancellationToken with Some ct -> ct | None -> new CancellationToken()
+            CancellationToken = cancellationToken
         }
 
 /// Distributable continuation context.

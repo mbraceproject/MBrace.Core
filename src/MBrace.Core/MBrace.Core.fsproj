@@ -62,6 +62,7 @@
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\Trampoline.fs" />
     <Compile Include="Continuation\ExceptionDispatchInfo.fs" />
+    <Compile Include="Continuation\CancellationToken.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\CloudBuilder.fs" />
@@ -76,9 +77,11 @@
     <Compile Include="Store\CloudSequence.fs" />
     <Compile Include="Runtime\Logging.fs" />
     <Compile Include="Runtime\FaultPolicy.fs" />
+    <Compile Include="Runtime\RuntimeTypes.fs" />
     <Compile Include="Runtime\RuntimeProvider.fs" />
     <Compile Include="Runtime\RuntimeCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryStore.fs" />
+    <Compile Include="Runtime\InMemory\InMemoryCancellationToken.fs" />
     <Compile Include="Runtime\InMemory\InMemoryCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryRuntimeProvider.fs" />
     <Compile Include="Workflows\Common.fs" />

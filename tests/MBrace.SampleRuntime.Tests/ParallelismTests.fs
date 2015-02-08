@@ -14,15 +14,6 @@ open MBrace.Tests
 open MBrace.SampleRuntime
 open MBrace.SampleRuntime.Actors
 
-[<AutoOpen>]
-module Utils =
-
-    type System.Threading.Tasks.Task<'T> with
-        member t.CorrectResult =
-            try t.Result
-            with :? AggregateException as e -> 
-                raise e.InnerException
-
 type ``SampleRuntime Parallelism Tests`` () as self =
     inherit ``Parallelism Tests`` (nParallel = 20)
 
@@ -44,13 +35,11 @@ type ``SampleRuntime Parallelism Tests`` () as self =
         |> Async.Catch
         |> Async.RunSync
 
-    override __.Run (workflow : ICancellationTokenSource -> Cloud<'T>) = 
+    override __.Run (workflow : ICloudCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = session.Runtime
-            let dcts = DistributedCancellationTokenSource.Init()
-            let icts = { new ICancellationTokenSource with member __.Cancel() = dcts.Cancel () }
-            let ct = dcts.GetLocalCancellationToken()
-            return! runtime.RunAsync(workflow icts, cancellationToken = ct) |> Async.Catch
+            let cts = runtime.CreateCancellationTokenSource()
+            return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
         } |> Async.RunSync
 
     override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
@@ -77,13 +66,13 @@ type ``SampleRuntime Parallelism Tests`` () as self =
 
     [<Test>]
     member __.``Z4. Runtime : Get task id`` () =
-        run (Cloud.GetTaskId()) |> Choice.shouldBe (fun _ -> true)
+        run (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z5. Fault Tolerance : map/reduce`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.RunAsTask(WordCount.run 20 WordCount.mapReduceRec)
+            let t = runtime.StartAsTask(WordCount.run 20 WordCount.mapReduceRec)
             do Thread.Sleep 4000
             runtime.KillAllWorkers()
             runtime.AppendWorkers 4
@@ -93,18 +82,18 @@ type ``SampleRuntime Parallelism Tests`` () as self =
     member __.``Z5. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+            let t = runtime.StartAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
             do Thread.Sleep 4000
             runtime.KillAllWorkers()
             runtime.AppendWorkers 4
-            Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>)
+            Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
     member __.``Z5. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+            let t = runtime.StartAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
             do Thread.Sleep 4000
             runtime.KillAllWorkers()
             runtime.AppendWorkers 4
-            Choice.protect (fun () -> t.CorrectResult) |> Choice.shouldFailwith<_, FaultException>)
+            Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

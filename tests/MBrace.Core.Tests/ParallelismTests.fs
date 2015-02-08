@@ -10,10 +10,6 @@ open MBrace.Continuation
 open MBrace.Workflows
 open MBrace.Runtime.InMemory
 
-/// Distributed Cancellation token source abstraction
-type ICancellationTokenSource =
-    abstract Cancel : unit -> unit
-
 /// Logging tester abstraction
 type ILogTester =
     abstract Clear : unit -> unit
@@ -29,13 +25,13 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     let repeat f = repeat self.Repeats f
 
     let run (workflow : Cloud<'T>) = self.Run workflow
-    let runCts (workflow : ICancellationTokenSource -> Cloud<'T>) = self.Run workflow
+    let runCts (workflow : ICloudCancellationTokenSource -> Cloud<'T>) = self.Run workflow
     let runLocal (workflow : Cloud<'T>) = self.RunLocal workflow
     
     /// Run workflow in the runtime under test
     abstract Run : workflow:Cloud<'T> -> Choice<'T, exn>
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
-    abstract Run : workflow:(ICancellationTokenSource -> Cloud<'T>) -> Choice<'T, exn>
+    abstract Run : workflow:(ICloudCancellationTokenSource -> Cloud<'T>) -> Choice<'T, exn>
     /// Evaluate workflow in the local test process
     abstract RunLocal : workflow:Cloud<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck
@@ -288,9 +284,20 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             ints
-            |> Distributed.fold (Cloud.lift2 (fun s i -> s + i)) (Cloud.lift2 (fun s i -> s + i)) 0
+            |> Distributed.fold2 (fun s i -> s + i) (fun s i -> s + i) 0
             |> run
             |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Distributed.collect`` () =
+        let checker (ints : int list) =
+            let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> set
+            ints
+            |> Distributed.collect (fun i -> cloud { return [(i,1) ; (i,2) ; (i,3)] })
+            |> run
+            |> Choice.shouldBe (fun r -> set r = expected)
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 

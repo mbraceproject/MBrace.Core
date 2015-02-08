@@ -137,3 +137,46 @@ module ExceptionDispatchInfoUtils =
             | Choice1Of3 t -> t
             | Choice2Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
             | Choice3Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
+
+
+
+    open System.Threading.Tasks
+
+    type Task<'T> with
+
+        /// Returns the inner exception of the faulted task.
+        member t.InnerException =
+            let e = t.Exception
+            if e.InnerExceptions.Count = 1 then e.InnerExceptions.[0]
+            else
+                e :> exn
+
+        /// <summary>
+        ///     Returns Some result if completed, None if pending, exception if faulted.
+        /// </summary>
+        member t.TryGetResult () =
+            match t.Status with
+            | TaskStatus.RanToCompletion -> Some t.Result
+            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
+            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
+            | _ -> None
+
+        /// Returns the task result
+        member t.GetResult () =
+            let awaiter = t.GetAwaiter()
+            while not awaiter.IsCompleted do ()
+            match t.Status with
+            | TaskStatus.RanToCompletion -> t.Result
+            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
+            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
+            | _ -> invalidOp "internal error"
+
+        /// Asynchronously awaits task completion
+        member t.AwaitResultAsync() = async {
+            let! _ = Async.AwaitTask t |> Async.Catch
+            match t.Status with
+            | TaskStatus.RanToCompletion -> return t.Result
+            | TaskStatus.Faulted -> return! Async.Raise t.InnerException
+            | TaskStatus.Canceled -> return raise <| new InvalidOperationException()
+            | _ -> return invalidOp "internal error"
+        }

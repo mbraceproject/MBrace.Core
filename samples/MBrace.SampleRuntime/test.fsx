@@ -45,9 +45,9 @@ runtime.Run (getWordCount 1000)
 runtime.KillAllWorkers()
 runtime.AppendWorkers 4
 
-let t1 = runtime.RunAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
-let t2 = runtime.RunAsTask(Cloud.Sleep 20000)
-let t3 = runtime.RunAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+let t1 = runtime.StartAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+let t2 = runtime.StartAsTask(Cloud.Sleep 20000)
+let t3 = runtime.StartAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
 
 t1.Result
 
@@ -64,3 +64,17 @@ let rec test () = cloud {
 }
 
 runtime.Run(test(), faultPolicy = FaultPolicy.NoRetry)
+
+
+let foo = cloud {
+    let! x = Cloud.ToLocal(cloud { return 42})
+    return! Seq.init 1000 (fun i -> cloud { return i}) |> Cloud.Parallel
+}
+
+runtime.Run foo
+
+let t = runtime.Run(Cloud.StartAsCloudTask(cloud { let! _ = Cloud.Sleep 60000 in return 42}))
+
+t.AwaitResult(50000) |> runtime.RunLocal
+
+t.Status

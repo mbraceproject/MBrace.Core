@@ -13,10 +13,10 @@
     let main (args : string []) =
         try
             do Config.Init()
-            let logger = new ConsoleTaskLogger()
+            let logger = new ConsoleJobLogger()
             let evaluator =
 #if APPDOMAIN_ISOLATION
-                new AppDomainTaskEvaluator() :> ITaskEvaluator
+                new AppDomainJobEvaluator() :> IJobEvaluator
 #else
                 new LocalTaskEvaluator() :> ITaskEvaluator
 #endif

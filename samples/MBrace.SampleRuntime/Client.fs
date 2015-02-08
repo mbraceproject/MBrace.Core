@@ -15,10 +15,12 @@ open MBrace.Runtime
 open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
-open MBrace.SampleRuntime.Tasks
+open MBrace.SampleRuntime.Actors
+open MBrace.SampleRuntime.Types
 open MBrace.SampleRuntime.RuntimeProvider
 
 #nowarn "40"
+#nowarn "444"
 
 /// BASE64 serialized argument parsing schema
 module internal Argument =
@@ -78,25 +80,28 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
         let channelConfig = CloudChannelConfiguration.Create(channelProvider)
         LocalRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
 
+    /// Creates a fresh cloud cancellation token source for this runtime
+    member __.CreateCancellationTokenSource () =
+        state.ResourceFactory.RequestCancellationTokenSource() |> Async.RunSync :> ICloudCancellationTokenSource
+
     /// <summary>
-    ///     Asynchronously execute a workflow on the distributed runtime.
+    ///     Asynchronously execute a workflow on the distributed runtime as task.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
+    member __.StartAsTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : Async<ICloudTask<'T>> = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
         let dependencies = VagabondRegistry.ComputeObjectDependencies ((workflow, fileStore, serializer))
         let processInfo = createProcessInfo ()
+        let! cts = async {
+            match cancellationToken with 
+            | Some ct -> return ct :?> DistributedCancellationTokenSource
+            // NB : currently this results in the cts never being disposed
+            | None -> return! state.ResourceFactory.RequestCancellationTokenSource()
+        }
 
-        let! cts = state.ResourceFactory.RequestCancellationTokenSource()
-        try
-            cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-            let! resultCell = state.StartAsCell processInfo (List.toArray dependencies) cts faultPolicy None workflow
-            let! result = resultCell.AwaitResult()
-            return result.Value
-        finally
-            cts.Cancel ()
+        return! state.StartAsTask processInfo (List.toArray dependencies) cts faultPolicy None workflow
     }
 
     /// <summary>
@@ -105,9 +110,29 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-    member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
-        let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
-        Async.StartAsTask(asyncwf)
+    member __.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : ICloudTask<'T> =
+        __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
+
+
+    /// <summary>
+    ///     Asynchronously execute a workflow on the distributed runtime.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token for computation.</param>
+    /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
+    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
+        let! cts = async {
+            match cancellationToken with 
+            | Some ct -> return ct :?> DistributedCancellationTokenSource
+            | None -> return! state.ResourceFactory.RequestCancellationTokenSource()
+        }
+
+        try
+            let! task = __.StartAsTaskAsync(workflow, cancellationToken = cts, ?faultPolicy = faultPolicy)
+            return task.Result
+        finally
+            if Option.isNone cancellationToken then cts.Cancel()
+    }
 
     /// <summary>
     ///     Execute a workflow on the distributed runtime synchronously
@@ -115,7 +140,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-    member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
+    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
     /// <summary>
@@ -148,12 +173,21 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
 
     member __.Logs = logEvent.Publish
 
+    /// <summary>
+    ///     Creates a new runtime instance with provided worker addresses.
+    /// </summary>
+    /// <param name="workers">Worker inputs.</param>
     static member Init(workers: string[]) =
         let client = new MBraceRuntime()
         client.AppendWorkers workers
         client
 
-    /// Initialize a new local rutime instance with supplied worker count.
+    /// <summary>
+    ///     Initialize a new local rutime instance with supplied worker count.
+    /// </summary>
+    /// <param name="workerCount"></param>
+    /// <param name="fileStore"></param>
+    /// <param name="serializer"></param>
     static member InitLocal(workerCount : int, ?fileStore : ICloudFileStore, ?serializer : ISerializer) =
         let client = new MBraceRuntime(?fileStore = fileStore, ?serializer = serializer)
         client.AppendWorkers(workerCount)

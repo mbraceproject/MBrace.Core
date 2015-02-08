@@ -157,9 +157,9 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
-        public void GetTaskId()
+        public void GetJobId()
         {
-            var result = this.Run(Cloud.GetTaskId());
+            var result = this.Run(Cloud.GetJobId());
             Assert.True(!String.IsNullOrEmpty(result));
         }
 
