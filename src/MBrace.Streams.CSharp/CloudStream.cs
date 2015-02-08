@@ -7,6 +7,7 @@ using Nessos.Streams;
 using MBrace.Streams.Internals;
 using System.IO;
 using CFile = MBrace.CloudFile;
+using MBrace.CSharp;
 
 namespace MBrace.Streams.CSharp
 {
@@ -24,12 +25,12 @@ namespace MBrace.Streams.CSharp
             return CloudStreamModule.ofArray<TSource>(source);
         }
 
-        /// <summary>Constructs a CloudStream from a CloudArray.</summary>
+        /// <summary>Constructs a CloudStream from a CloudVector.</summary>
         /// <param name="source">The input array.</param>
         /// <returns>The result CloudStream.</returns>
-        public static CloudStream<TSource> AsCloudStream<TSource>(this CloudArray<TSource> source)
+        public static CloudStream<TSource> AsCloudStream<TSource>(this CloudVector<TSource> source)
         {
-            return CloudStreamModule.ofCloudArray<TSource>(source);
+            return CloudStreamModule.ofCloudVector<TSource>(source);
         }
 
         /// <summary>Constructs a CloudStream from a collection of CloudFiles using the given reader.</summary>
@@ -42,12 +43,12 @@ namespace MBrace.Streams.CSharp
         }
 
         /// <summary>
-        /// Returns a cached version of the given CloudArray.
+        /// Returns a cached version of the given CloudVector.
         /// </summary>
-        /// <param name="source">The input CloudArray.</param>
-        public static Cloud<CloudArray<TSource>> Cache<TSource>(this CloudArray<TSource> source)
+        /// <param name="source">The input CloudVector.</param>
+        public static CloudAction Cache<TSource>(this CloudVector<TSource> source)
         {
-            return CloudStreamModule.cache(source);
+            return new CloudAction(CloudStreamModule.cache(source));
         }
 
         /// <summary>Transforms each element of the input CloudStream.</summary>
@@ -186,12 +187,12 @@ namespace MBrace.Streams.CSharp
             return CloudStreamModule.toArray(stream);
         }
 
-        /// <summary>Creates a CloudArray from the given CloudStream.</summary>
+        /// <summary>Creates a CloudVector from the given CloudStream.</summary>
         /// <param name="stream">The input CloudStream.</param>
-        /// <returns>The result CloudArray.</returns>    
-        public static Cloud<CloudArray<TSource>> ToCloudArray<TSource>(this CloudStream<TSource> stream)
+        /// <returns>The result CloudVector.</returns>    
+        public static Cloud<CloudVector<TSource>> ToCloudVector<TSource>(this CloudStream<TSource> stream)
         {
-            return CloudStreamModule.toCloudArray(stream);
+            return CloudStreamModule.toCloudVector(stream);
         }
 
     }

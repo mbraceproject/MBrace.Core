@@ -37,6 +37,11 @@ namespace MBrace.Streams.CSharp.Tests
         abstract public T RunLocal<T>(MBrace.Cloud<T> c);
         abstract public int MaxNumberOfTests { get; }
 
+        internal void Run(MBrace.CSharp.CloudAction c)
+        {
+            this.Run(c.Body);
+        }
+
         internal T[] Run<T>(IEnumerable<Cloud<T>> wfs)
         {
             return wfs.Select(wf => this.Run(wf)).ToArray();
@@ -58,7 +63,7 @@ namespace MBrace.Streams.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var ca = this.Run(CloudArray.New(xs, null, null, null));
+                var ca = this.Run(CloudVector.New(xs, 100, null, null));
                 var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();
                 return this.Run(x).SequenceEqual(y);
@@ -70,7 +75,7 @@ namespace MBrace.Streams.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var x = xs.AsCloudStream().Select(i => i + 1).ToCloudArray();
+                var x = xs.AsCloudStream().Select(i => i + 1).ToCloudVector();
                 var y = xs.Select(i => i + 1).ToArray();
                 var r = this.RunLocal(this.Run(x).ToEnumerable());
                 return r.SequenceEqual(y);
@@ -82,9 +87,9 @@ namespace MBrace.Streams.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var ca = this.Run(CloudArray.New(xs, null, null, null));
-                var cached = this.Run(ca.Cache());
-                var x = cached.AsCloudStream().Select(i => i + 1).ToArray();
+                var ca = this.Run(CloudVector.New(xs, 100L, null, null));
+                this.Run(ca.Cache());
+                var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();
                 var z = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 return this.Run(x).SequenceEqual(y) &&
@@ -97,10 +102,10 @@ namespace MBrace.Streams.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var ca = this.Run(CloudArray.New(xs, null, null, null));
-                var _ = this.Run(ca.Cache());
-                var cached = this.Run(ca.Cache());
-                var x = cached.AsCloudStream().Select(i => i + 1).ToArray();
+                var ca = this.Run(CloudVector.New(xs, 100L, null, null));
+                this.Run(ca.Cache());
+                this.Run(ca.Cache());
+                var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();
                 var z = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 return this.Run(x).SequenceEqual(y) &&

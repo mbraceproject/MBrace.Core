@@ -1,14 +1,13 @@
-﻿#I "../../lib/"
+﻿#I "../../bin/"
 
 #r "MBrace.Core.dll"
-#r "MBrace.Library.dll"
 #r "MBrace.SampleRuntime.exe"
 
 open System
 open MBrace
 open MBrace.SampleRuntime
 
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../lib/MBrace.SampleRuntime.exe"
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
 let runtime = MBraceRuntime.InitLocal(4)
 
@@ -27,10 +26,16 @@ let query1 =
         |> CloudStream.flatMap(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
         |> CloudStream.toCloudVector)
 
-let cached = runtime.Run <| CloudStream.cache(query1)
+
+runtime.Run <| CloudStream.cache(query1)
+
+query1.CacheMap.Value |> runtime.RunLocal
+
+runtime.RunLocal(query1.ToEnumerable())
+|> Seq.toArray
 
 let query2 = runtime.Run (
-                cached
+                query1
                 |> CloudStream.ofCloudVector
                 |> CloudStream.sortBy snd 100
                 |> CloudStream.toArray )
@@ -42,26 +47,5 @@ let query3 =
         |> CloudStream.sortBy snd 100
         |> CloudStream.toArray)
 
-runtime.Run(
-    cloud {
-        let! workers = Cloud.GetAvailableWorkers()
-        let! handles = 
-            workers 
-            |> Seq.map (fun w -> Cloud.StartChild(cloud { return printfn "%A" CloudVectorCache.State },w))
-            |> Cloud.Parallel  
-        return! handles |> Cloud.Parallel |> Cloud.Ignore              
-    })
 
-//VagrantRegistry.Initialize(throwOnError = false)
-//let fsStore = FileSystemStore.LocalTemp :> ICloudFileStore
-//let serializer = VagrantRegistry.Serializer
-// 
-//let array = Array.init (10) (fun i -> String.init 1024 (fun _ -> string i))
-//let ca = CloudVector.CreateAsync(array, "foobar", fsStore, serializer, 1024L * 1024L)
-//         |> Async.RunSync
-//
-//ca.Length
-//ca.PartitionCount
-//ca.GetPartition(0)
-//ca.[7L]
-//ca |> Seq.toArray
+

@@ -178,7 +178,7 @@ module CloudStream =
                         match collector.DegreeOfParallelism with
                         | Some n -> cloud { return n }
                         | _ -> getWorkerCount() 
-                                            
+           
                     let createTask (partitions : CloudSequence<'T> []) useCache (collector : Cloud<Collector<'T, 'S>>)  = 
                         cloud {
                             let results = Array.zeroCreate partitions.Length
@@ -216,21 +216,16 @@ module CloudStream =
                                                   |> Cloud.map Set.ofArray
                             let cacheMapWorkers = cacheMap.Keys |> Set.ofSeq
                             
-                            let! cacheMap = cloud { 
+                            let! cacheMap = Cloud.map Option.get <| cloud { 
                                 if cacheMapWorkers <> currentWorkers then
                                     return! CloudVector.Cache(source, currentWorkers)
                                 else 
-                                    return cacheMap
-                            }
+                                    return Some cacheMap
+                            } 
                             
-                            let partitions = 
-                                source.Partitions 
-                                |> Seq.map (fun p -> (p :> ICloudStorageEntity).Id, p)
-                                |> Map.ofSeq
-
                             let pairs =
                                 cacheMap 
-                                |> Seq.map (function KeyValue(k,vs) -> k, vs |> Array.map (fun pid -> partitions.[pid]))
+                                |> Seq.map (function KeyValue(k,vs) -> k, vs |> Seq.cast<CloudSequence<'T>> |> Seq.toArray)
 
                             let! results = 
                                 pairs
@@ -240,6 +235,16 @@ module CloudStream =
                             return results |> Seq.concat
                                            |> Seq.reduce combiner
                 } }
+
+
+    /// <summary>
+    /// Returns a cached version of the given CloudArray.
+    /// </summary>
+    /// <param name="source">The input CloudArray.</param>
+    let cache (source : CloudVector<'T>) : Cloud<unit> = 
+        cloud {
+            return! CloudVector.Cache(source)
+        }
 
     //#endregion
 
@@ -406,25 +411,25 @@ module CloudStream =
         // Phase 1
         let shuffling = 
             cloud {
-                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) = 
-                    CloudVector.Merge(left, right)
+                let combiner' (left : VectorCollector<_>) (right : VectorCollector<_>) = 
+                    left.Merge(right)
                 let! totalWorkers = match stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
                                                   (fun keyValues -> cloud {
-                                                        let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
+                                                        let dict = new Dictionary<int, VectorCollector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
-                                                            let! values = CloudVector.New(value, maxCloudVectorPartitionSize)
+                                                            let! values = VectorCollector.New(value, maxCloudVectorPartitionSize)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value))
-                                                        return! CloudVector.New(values, maxCloudVectorPartitionSize) }) combiner'
+                                                        return! VectorCollector.New(values, maxCloudVectorPartitionSize) }) combiner'
                 
                 let! kva = keyValueArray.ToEnumerable()
                 let dict = 
-                    let dict = new Dictionary<int, CloudVector<'Key * 'State>>()
+                    let dict = new Dictionary<int, VectorCollector<'Key * 'State>>()
                     for (key, value) in kva do
                         let mutable grouping = Unchecked.defaultof<_>
                         if dict.TryGetValue(key, &grouping) then
-                            dict.[key] <- grouping.Append(value)
+                            dict.[key] <- grouping.Merge(value)
                         else
                              dict.[key] <- value
                     dict
@@ -434,7 +439,7 @@ module CloudStream =
         let reducerf = cloud {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! resources = Cloud.GetResourceRegistry()
-            return { new Collector<int * CloudVector<'Key * 'State>,  seq<'Key * 'State>> with
+            return { new Collector<int * VectorCollector<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
@@ -460,12 +465,12 @@ module CloudStream =
                     |> Seq.map (fun keyValue -> (keyValue.Key, !keyValue.Value)) }
         }
         // Phase 2
-        let reducer (stream : CloudStream<int * CloudVector<'Key * 'State>>) : Cloud<CloudVector<'Key * 'State>> = 
+        let reducer (stream : CloudStream<int * VectorCollector<'Key * 'State>>) : Cloud<VectorCollector<'Key * 'State>> = 
             cloud {
-                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) = 
-                    left.Append(right)
+                let combiner' (left : VectorCollector<_>) (right : VectorCollector<_>) = 
+                    left.Merge(right)
 
-                let! keyValueArray = stream.Apply reducerf (fun keyValues -> CloudVector.New(keyValues)) combiner'
+                let! keyValueArray = stream.Apply reducerf (fun keyValues -> VectorCollector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
                 return keyValueArray
             }
         { new CloudStream<'Key * 'State> with
@@ -474,7 +479,8 @@ module CloudStream =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (ofArray result)
-                    return! (ofCloudVector result').Apply collectorf projection combiner
+                    let! vector = result'.ToCloudVector()
+                    return! (ofCloudVector vector).Apply collectorf projection combiner
                 }  }
 
 
@@ -516,33 +522,36 @@ module CloudStream =
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudVector.</returns>    
     let inline toCloudVector (stream : CloudStream<'T>) : Cloud<CloudVector<'T>> =
-        let collectorf = cloud { 
-            let results = new List<List<'T>>()
-            return 
-              { new Collector<'T, 'T []> with
-                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
-                member self.Iterator() = 
-                    let list = new List<'T>()
-                    results.Add(list)
-                    {   Index = ref -1; 
-                        Func = (fun value -> list.Add(value));
-                        Cts = new CancellationTokenSource() }
-                member self.Result = 
-                    let count = results |> Seq.sumBy (fun list -> list.Count)
-                    let values = Array.zeroCreate<'T> count
-                    let mutable counter = -1
-                    for list in results do
-                        for i = 0 to list.Count - 1 do
-                            let value = list.[i]
-                            counter <- counter + 1
-                            values.[counter] <- value
-                    values }
-        }
-        stream.Apply collectorf (fun array -> cloud { 
-                                                let! processId = Cloud.GetProcessId() 
-                                                return! CloudVector.New(array) }) 
-                                (fun left right -> left.Append(right))
+        cloud {
+            let collectorf = cloud { 
+                let results = new List<List<'T>>()
+                return 
+                  { new Collector<'T, 'T []> with
+                    member self.DegreeOfParallelism = stream.DegreeOfParallelism 
+                    member self.Iterator() = 
+                        let list = new List<'T>()
+                        results.Add(list)
+                        {   Index = ref -1; 
+                            Func = (fun value -> list.Add(value));
+                            Cts = new CancellationTokenSource() }
+                    member self.Result = 
+                        let count = results |> Seq.sumBy (fun list -> list.Count)
+                        let values = Array.zeroCreate<'T> count
+                        let mutable counter = -1
+                        for list in results do
+                            for i = 0 to list.Count - 1 do
+                                let value = list.[i]
+                                counter <- counter + 1
+                                values.[counter] <- value
+                        values }
+            }
 
+            let! vc =
+                stream.Apply collectorf 
+                    (fun array -> cloud { return! VectorCollector.New(array, maxCloudVectorPartitionSize) }) 
+                    (fun left right -> left.Merge(right))
+            return! vc.ToCloudVector()
+        }
     /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>
     /// <param name="stream">The input CloudStream.</param>

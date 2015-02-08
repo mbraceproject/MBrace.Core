@@ -18,7 +18,11 @@ namespace MBrace.CSharp
         /// </summary>
         public Cloud<Unit> Body { get; private set; }
 
-        internal CloudAction(MBrace.Cloud<Unit> body) 
+        /// <summary>
+        /// For internal use only. Encapsulate workflow.
+        /// </summary>
+        /// <param name="body"></param>
+        public CloudAction(MBrace.Cloud<Unit> body) 
         {
             this.Body = body;
         }

@@ -81,7 +81,7 @@ namespace MBrace.Streams.CSharp.Samples
         {
             var lines = files.SelectMany(path => File.ReadLines(path));
             // Temporary : No C# API for Standalone runtime and StoreClient.
-            var cloudarray = runtime.RunLocal(CloudArray.New(lines, null, null, null), null);
+            var cloudarray = runtime.RunLocal(CloudVector.New(lines, 100L, null, null), null);
 
             var count = 20;
 

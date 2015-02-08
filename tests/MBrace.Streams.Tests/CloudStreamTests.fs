@@ -44,19 +44,19 @@ type ``CloudStreams tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
-    member __.``ofCloudArray`` () =
+    member __.``ofCloudVector`` () =
         let f(xs : int []) =
-            let cloudArray = run <| CloudArray.New(xs) 
-            let x = cloudArray |> CloudStream.ofCloudVector |> CloudStream.length |> run
+            let CloudVector = run <| CloudVector.New(xs, 100L) 
+            let x = CloudVector |> CloudStream.ofCloudVector |> CloudStream.length |> run
             let y = xs |> Seq.map ((+)1) |> Seq.length
             Assert.AreEqual(y, int x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
     [<Test>]
-    member __.``toCloudArray`` () =
+    member __.``toCloudVector`` () =
         let f(xs : int[]) =            
-            let x = xs |> CloudStream.ofArray |> CloudStream.map ((+)1) |> CloudStream.toCloudArray |> run
+            let x = xs |> CloudStream.ofArray |> CloudStream.map ((+)1) |> CloudStream.toCloudVector |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
             Assert.AreEqual(y, x.ToEnumerable() |> runLocal)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -64,10 +64,10 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``cache`` () =
         let f(xs : int[]) =
-            let cloudArray = run <| CloudArray.New(xs) 
-            let cached = CloudStream.cache cloudArray |> run 
-            let x = cached |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
-            let x' = cached |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
+            let v = run <| CloudVector.New(xs, 100L) 
+            CloudStream.cache v |> run 
+            let x = v |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudVector |> run
+            let x' = v |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
             
             let _x = x.ToEnumerable() |> runLocal |> Seq.toArray
@@ -80,11 +80,11 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``subsequent caching`` () =
         let f(xs : int[]) =
-            let cloudArray = run <| CloudArray.New(xs) 
-            let _ = CloudStream.cache cloudArray |> run 
-            let cached = CloudStream.cache cloudArray |> run 
-            let x = cached |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudArray |> run
-            let x' = cached |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudArray |> run
+            let v = run <| CloudVector.New(xs, 100L) 
+            CloudStream.cache v |> run 
+            CloudStream.cache v |> run 
+            let x = v |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudVector |> run
+            let x' = v |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
             
             let _x = x.ToEnumerable() |> runLocal |> Seq.toArray
