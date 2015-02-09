@@ -44,10 +44,6 @@ type ``Parallelism Tests`` (nParallel : int) as self =
     abstract Logs : ILogTester
 
     [<Test>]
-    member __.``0. IsTargetWorkerSupported`` () =
-        Cloud.IsTargetedWorkerSupported |> run |> Choice.shouldEqual __.IsTargetWorkerSupported
-
-    [<Test>]
     member __.``1. Parallel : empty input`` () =
         Array.empty<Cloud<int>> |> Cloud.Parallel |> run |> Choice.shouldEqual [||]
 
@@ -556,79 +552,98 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
-    member __.``3. StartChild: task with success`` () =
+    member __.``3. StartAsTask: task with success`` () =
         repeat(fun () ->
             cloud {
                 use! count = CloudAtom.New 0
-                let task = cloud {
+                let tworkflow = cloud {
                     do! Cloud.Sleep 1000
                     do! CloudAtom.Incr count
                     return! count.Value
                 }
 
-                let! ch = Cloud.StartChild(task)
+                let! task = Cloud.StartAsCloudTask(tworkflow)
                 let! value = count.Value
                 value |> shouldEqual 0
-                return! ch
+                return! Cloud.AwaitCloudTask task
             } |> run |> Choice.shouldEqual 1)
 
     [<Test>]
-    member __.``3. StartChild: task with exception`` () =
+    member __.``3. StartAsTask: task with exception`` () =
         repeat(fun () ->
             let count = CloudAtom.New 0 |> runLocal
             cloud {
-                let task = cloud {
+                let tworkflow = cloud {
                     do! Cloud.Sleep 1000
                     do! CloudAtom.Incr count
                     return invalidOp "failure"
                 }
 
-                let! ch = Cloud.StartChild(task)
+                let! task = Cloud.StartAsCloudTask(tworkflow)
                 let! value = count.Value
                 value |> shouldEqual 0
                 do! Cloud.Sleep 100
                 // ensure no exception is raised in parent workflow
                 // before the child workflow is properly evaluated
                 do! CloudAtom.Incr count
-                return! ch
+                return! Cloud.AwaitCloudTask task
             } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
             count.Value |> runLocal |> shouldEqual 2)
 
     [<Test>]
-    member __.``3. StartChild: task with cancellation`` () =
+    member __.``3. StartAsTask: with cancellation token`` () =
         repeat(fun () ->
             let count = CloudAtom.New 0 |> runLocal
-            runCts(fun cts ->
-                cloud {
-                    let task = cloud {
-                        do! CloudAtom.Incr count
-                        do! Cloud.Sleep 3000
-                        do! CloudAtom.Incr count
-                    }
-
-                    let! ch = Cloud.StartChild(task)
-                    do! Cloud.Sleep 1000
-                    let! value = count.Value
-                    value |> shouldEqual 1
-                    cts.Cancel ()
-                    return! ch
-            }) |> Choice.shouldFailwith<_, OperationCanceledException>
-
+            cloud {
+                let! cts = Cloud.CreateCancellationTokenSource()
+                let tworkflow = cloud {
+                    do! CloudAtom.Incr count
+                    do! Cloud.Sleep 3000
+                    do! CloudAtom.Incr count
+                }
+                let! task = Cloud.StartAsCloudTask(tworkflow, cancellationToken = cts.Token)
+                do! Cloud.Sleep 1000
+                let! value = count.Value
+                value |> shouldEqual 1
+                cts.Cancel()
+                return! Cloud.AwaitCloudTask task
+            } |> run |> Choice.shouldFailwith<_, OperationCanceledException>
+            
             // ensure final increment was cancelled.
             count.Value |> runLocal |> shouldEqual 1)
 
     [<Test>]
-    member __.``3. StartChild: to current worker`` () =
+    member __.``3. StartAsTask: to current worker`` () =
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
                 cloud {
                     let! currentWorker = Cloud.CurrentWorker
-                    let! ch = Cloud.StartChild(Cloud.CurrentWorker, target = currentWorker)
-                    let! result = ch
+                    let! task = Cloud.StartAsCloudTask(Cloud.CurrentWorker, target = currentWorker)
+                    let! result = Cloud.AwaitCloudTask task
                     return result = currentWorker
                 } |> run |> Choice.shouldEqual true)
 
+    [<Test>]
+    member __.``3. StartAsTask: in local semantics`` () =
+        cloud {
+            let tworkflow = cloud {
+                do! Cloud.Sleep 3000
+                return 42
+            }
+            let! cts = Cloud.CreateCancellationTokenSource()
+            let! ttask,_ = Cloud.ToLocal(Cloud.StartAsCloudTask(tworkflow, cancellationToken = cts.Token)) <||> cloud.Zero()
+            return! Cloud.AwaitCloudTask ttask
+        } |> run |> Choice.shouldEqual 42
+
+    [<Test>]
+    member __.``3. StartAsTask: await with timeout`` () =
+        repeat(fun () ->
+            cloud {
+                let! task = Cloud.StartAsCloudTask(Cloud.Sleep 3000)
+                return! Cloud.AwaitCloudTask(task, timeoutMilliseconds = 1)
+            } |> run |> Choice.shouldFailwith<_, TimeoutException>)
+        
 
     [<Test>]
     member __.``4. Logging`` () =
@@ -644,3 +659,61 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         } |> __.Run |> ignore
         
         __.Logs.GetLogs().Length |> shouldEqual 2000
+
+    [<Test>]
+    member __.``4. IsTargetWorkerSupported`` () =
+        Cloud.IsTargetedWorkerSupported |> run |> Choice.shouldEqual __.IsTargetWorkerSupported
+
+    [<Test>]
+    member __.``4. Cancellation token: simple cancellation`` () =
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            cts.Cancel()
+            do! Cloud.Sleep 1000
+            cts.Token.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. Cancellation token: distributed cancellation`` () =
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            let! _ = Cloud.StartAsCloudTask(cloud { cts.Cancel() })
+            do! Cloud.Sleep 3000
+            cts.Token.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. Cancellation token: simple child cancellation`` () =
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            let! cts0 = Cloud.CreateLinkedCancellationTokenSource(cts.Token)
+            cts.Token.IsCancellationRequested |> shouldEqual false
+            cts0.Token.IsCancellationRequested |> shouldEqual false
+            do cts0.Cancel()
+            do! Cloud.Sleep 1000
+            cts.Token.IsCancellationRequested |> shouldEqual false
+            cts0.Token.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. Cancellation token: distributed child cancellation`` () =
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            let! cts0, cts1 = Cloud.CreateLinkedCancellationTokenSource() <||> Cloud.CreateLinkedCancellationTokenSource()
+            cts.Cancel()
+            do! Cloud.Sleep 3000
+            cts0.Token.IsCancellationRequested |> shouldEqual true
+            cts1.Token.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. Cancellation token: distributed with local semantics`` () =
+        cloud {
+            let! (ct0, _), (ct1, _) = 
+                Cloud.ToLocal(Cloud.CancellationToken <||> cloud.Zero()) 
+                    <||> 
+                Cloud.ToLocal(Cloud.CancellationToken <||> cloud.Zero())
+
+            ct0.IsCancellationRequested |> shouldEqual true
+            ct1.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()

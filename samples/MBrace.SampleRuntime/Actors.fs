@@ -9,6 +9,7 @@
 
 open System
 open System.Threading
+open System.Runtime.Serialization
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote.Protocols
@@ -169,92 +170,207 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
 //  Distributed Cancellation token sources
 //
 
-type private CancellationTokenId = string
+[<AutoOpen>]
+module private CancellationTokenActor =
 
-type private CancellationTokenMsg =
-    | IsCancellationRequested of IReplyChannel<bool>
-    | RegisterChild of DistributedCancellationTokenSource
-    | Cancel
+    type CancellationTokenSourceMsg =
+        | IsCancellationRequested of IReplyChannel<bool>
+        | RequestChild of childId:string * IReplyChannel<ActorRef<CancellationTokenSourceMsg> option>
+        | Cancel
 
-/// Defines a distributed cancellation token source that can be cancelled
-/// in the context of a distributed runtime.
-and DistributedCancellationTokenSource private (source : ActorRef<CancellationTokenMsg>) =
+    let rec behaviour (state : Map<string, ActorRef<CancellationTokenSourceMsg>> option) (msg : CancellationTokenSourceMsg) = 
+        async {
+            match msg, state with
+            | IsCancellationRequested rc, _ ->
+                do! rc.Reply (Option.isNone state)
+                return state
+            // has been cancelled, do not return a child actor
+            | RequestChild(id, rc), None ->
+                return! rc.Reply None
+                return state
+            // cancellation token active, create a child actor
+            | RequestChild(id, rc), Some children ->
+                match children.TryFind id with
+                | Some child -> 
+                    // child with provided id alread exists, return that
+                    do! rc.Reply (Some child)
+                    return state
+                | None ->
+                    // child with provided id does not exist, create it
+                    let newChild = createCancellationTokenActor()
+                    do! rc.Reply (Some newChild)
+                    let children2 = children.Add(id, newChild)
+                    return (Some children2)
+            // token is already canceled, nothing to do
+            | Cancel, None -> return None
+            // token canceled, cancel children and update state
+            | Cancel, Some children ->
+                for KeyValue(_,child) in children do
+                    child <-- Cancel
 
+                return None
+        }
+
+    and createCancellationTokenActor () =
+        Actor.Stateful (Some Map.empty) behaviour
+        |> Actor.Publish
+        |> Actor.ref
+
+type private CancellationTokenState =
+    | Distributed of ActorRef<CancellationTokenSourceMsg> option // 'None' denotes a canceled token
+    | Localized of parent:DistributedCancellationTokenSource
+
+/// Defines a distributed cancellation token source that can be cancelled in the context of a distributed runtime.
+and DistributedCancellationTokenSource private (id : string, state : CancellationTokenState) =
+
+    // Distributed cancellation tokens can be initialized either as global actors or used for consumption within a local process
+    // Local cancellation tokens still carry global semantics since they enforce a lazy 'globalization' scheme.
+    // Attempting to serialize an instance will trigger this elevation mechanism and will result in an actor being created.
+
+    static let localTokens = new System.Collections.Concurrent.ConcurrentDictionary<string, CancellationToken> ()
+    /// creates a cancellation token that is updated by polling the cancellation token actor
+    static let createLocalCancellationToken id (source : ActorRef<CancellationTokenSourceMsg>) =
+        let ok, t = localTokens.TryGetValue id
+        if ok then t
+        elif source <!= IsCancellationRequested then
+            new CancellationToken(canceled = true)
+        else
+            let createToken _ =
+                let cts = new System.Threading.CancellationTokenSource()
+
+                let rec checkCancellation () = async {
+                    let! isCancelled = Async.Catch(source <!- IsCancellationRequested)
+                    match isCancelled with
+                    | Choice1Of2 true -> 
+                        cts.Cancel()
+                        localTokens.TryRemove id |> ignore
+                    | Choice1Of2 false ->
+                        do! Async.Sleep 200
+                        return! checkCancellation ()
+                    | Choice2Of2 e ->
+                        do! Async.Sleep 1000
+                        return! checkCancellation ()
+                }
+
+                do Async.Start(checkCancellation())
+                cts.Token
+
+            localTokens.AddOrUpdate(id, createToken, fun _ t -> t)
+
+    // serializable state for the cancellatoin token
+    let mutable state = state
+
+    // nonserializable cancellation token source that is initialized only in case
+    // of localized semantics
+    [<NonSerialized>]
+    let localCancellationTokenSource =
+        match state with
+        | Localized parentCts -> CancellationTokenSource.CreateLinkedTokenSource [| parentCts.LocalToken |]
+        | _ -> null
+
+    // nonserializable cancellation token bound to local process
+    // can either be bound to local cancellation token source or remote actor polling loop
     [<NonSerialized>]
     let mutable localToken : CancellationToken option = None
 
-    let createLocalCancellationToken () =
-        let cts = new System.Threading.CancellationTokenSource()
+    // lazily initializes the local cancellatoin token
+    let getLocalCancellationToken () =
+        match localToken with
+        | Some ct -> ct
+        | None ->
+            lock state (fun () ->
+                match state with
+                | Localized parentCts ->
+                    let ct = localCancellationTokenSource.Token
+                    localToken <- Some ct
+                    ct
+                | Distributed None ->
+                    let ct = new CancellationToken(canceled = true)
+                    localToken <- Some ct
+                    ct
+                | Distributed (Some source) ->
+                    let ct = createLocalCancellationToken id source
+                    localToken <- Some ct
+                    ct)
+    
+    /// Gets distributed actor cancellation token, elevating to distributed cts if necessary
+    member private c.GetDistributedSource() =
+        match state with
+        | Distributed source -> source
+        | Localized dcts ->
+            // elevate parent to distributed source
+            lock state (fun () ->
+                let parentSource = dcts.GetDistributedSource()
+                let source =
+                    match parentSource with
+                    | Some ps -> ps <!= fun ch -> RequestChild(id, ch)
+                    | None -> None
 
-        let rec checkCancellation () = async {
-            let! isCancelled = Async.Catch(source <!- IsCancellationRequested)
-            match isCancelled with
-            | Choice1Of2 true -> cts.Cancel()
-            | Choice1Of2 false ->
-                do! Async.Sleep 500
-                return! checkCancellation ()
-            | Choice2Of2 e ->
-                do! Async.Sleep 1000
-                return! checkCancellation ()
-        }
+                state <- Distributed source
+                localToken <- None
+                source)
 
-        do Async.Start(checkCancellation())
-        cts.Token
+    /// Triggers elevation in event of serialization
+    [<OnSerializing>]
+    member private c.ElevateCancellationToken (_ : StreamingContext) =
+        c.GetDistributedSource() |> ignore
 
-    member __.Cancel () = source <-- Cancel
-    member private __.RegisterChild ch = source <-- RegisterChild ch
+    /// Returns an actor ref that is subscribed to current parent actor
+    member private c.RequestNewChildActor(childId : string) =
+        let _ = c.GetDistributedSource() // elevate
+        match state with
+        | Distributed None -> None
+        | Distributed (Some source) -> source <!= fun ch -> RequestChild(childId, ch)
+        | Localized _ -> invalidOp "DistributedCancellationTokenSource : internal error."
 
     /// Creates a System.Threading.CancellationToken that is linked
     /// to the distributed cancellation token.
-    member __.Token =
-        match localToken with
-        | Some lt -> lt
-        | None ->
-            lock __ (fun () -> 
-                let lt = createLocalCancellationToken()
-                localToken <- Some lt
-                lt)
+    member __.LocalToken = getLocalCancellationToken ()
+
+    /// Force cancellation of the CTS
+    member __.Cancel () = 
+        lock state (fun () ->
+            match state with
+            | Localized _ -> 
+                localCancellationTokenSource.Cancel()
+                state <- Distributed None
+            | Distributed (Some source) ->
+                source <-- Cancel
+                state <- Distributed None
+            | Distributed None -> ())
 
     interface ICloudCancellationToken with
-        member __.IsCancellationRequested = __.Token.IsCancellationRequested
-        member __.LocalToken = __.Token
+        member __.IsCancellationRequested = getLocalCancellationToken().IsCancellationRequested
+        member __.LocalToken = getLocalCancellationToken()
 
     interface ICloudCancellationTokenSource with
-        member __.Cancel () = source <-- Cancel
+        member __.Cancel () = __.Cancel()
         member __.Token = __ :> ICloudCancellationToken
 
+
     /// <summary>
-    ///     Initializes a new distributed cancellation token source in the current process
+    ///     Initializes a new distributed cancellation token source in the current process.
     /// </summary>
-    /// <param name="parent">Linked parent cancellation token source</param>
-    static member Init(?parent : DistributedCancellationTokenSource) =
-        let behavior ((isCancelled, children) as state) msg = async {
-            match msg with
-            | IsCancellationRequested rc ->
-                do! rc.Reply isCancelled
-                return state
-            | RegisterChild child when isCancelled ->
-                try child.Cancel() with _ -> ()
-                return state
-            | RegisterChild child ->
-                return (isCancelled, child :: children)
-            | Cancel ->
-                for ch in children do try ch.Cancel() with _ -> ()
-                return (true, [])
-        }
+    /// <param name="parent">Linked parent cancellation token source.</param>
+    static member Init() =
+        let id = Guid.NewGuid().ToString()
+        let actor = Some <| createCancellationTokenActor ()
+        new DistributedCancellationTokenSource(id, Distributed actor)
 
-        let ref =
-            Actor.Stateful (false, []) behavior
-            |> Actor.Publish
-            |> Actor.ref
+    /// <summary>
+    ///     Creates a linked cancellation token source with localized semantics.
+    /// </summary>
+    /// <param name="parent">Parent cancellation token source.</param>
+    /// <param name="forceElevation">Force immediate elevation of cancellation token source. Defaults to false.</param>
+    static member CreateLinkedCancellationTokenSource(parent : DistributedCancellationTokenSource, ?forceElevation : bool) =
+        let id = Guid.NewGuid().ToString()
+        let state =
+            if defaultArg forceElevation false then
+                Distributed <| parent.RequestNewChildActor id
+            else
+                Localized parent
 
-        let dcts = new DistributedCancellationTokenSource(ref)
-
-        match parent with
-        | None -> ()
-        | Some p -> p.RegisterChild dcts
-
-        dcts
+        new DistributedCancellationTokenSource(id, state)
 
 
 //
@@ -655,7 +771,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 
     member __.RequestLatch(count) = __.RequestResource(fun () -> Latch.Init(count))
     member __.RequestResultAggregator<'T>(count : int) = __.RequestResource(fun () -> ResultAggregator<'T>.Init(count))
-    member __.RequestCancellationTokenSource(?parent) = __.RequestResource(fun () -> DistributedCancellationTokenSource.Init(?parent = parent))
+    member __.RequestCancellationTokenSource() = __.RequestResource(fun () -> DistributedCancellationTokenSource.Init())
     member __.RequestResultCell<'T>() = __.RequestResource(fun () -> ResultCell<'T>.Init())
     member __.RequestChannel<'T>(id) = __.RequestResource(fun () -> Channel<'T>.Init(id))
     member __.RequestAtom<'T>(id, init) = __.RequestResource(fun () -> Atom<'T>.Init(id, init))

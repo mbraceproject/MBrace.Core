@@ -494,6 +494,18 @@ module ``Continuation Tests`` =
             return! Cloud.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 
+
+    [<Test>]
+    let ``await task`` () =
+        let mkTask (t:int) = Tasks.Task.Factory.StartNew(fun () -> Thread.Sleep t ; 42)
+        Cloud.AwaitTask (mkTask 0) |> run |> Choice.shouldEqual 42
+        Cloud.AwaitTask (mkTask 500) |> run |> Choice.shouldEqual 42
+
+    [<Test>]
+    let ``start as task`` () =
+        let t = Cloud.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
+        t.Result |> shouldEqual 42
+
     //
     //  Sequential workflow tests
     //

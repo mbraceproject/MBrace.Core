@@ -72,12 +72,11 @@ type Cloud =
             let task = match timeoutMilliseconds with None -> task | Some ms -> task.WithTimeout ms
             let onCompletion (t : Task<'T>) =
                 match t.Status with
-                | TaskStatus.RanToCompletion -> cont.Success ctx t.Result
                 | TaskStatus.Faulted -> cont.Exception ctx (capture t.InnerException)
                 | TaskStatus.Canceled -> cont.Cancellation ctx (new System.OperationCanceledException())
-                | _ -> ()
+                | _ -> cont.Success ctx t.Result
 
-            let _ = task.ContinueWith onCompletion in ())
+            let _ = task.ContinueWith(onCompletion, TaskContinuationOptions.None) in ())
 
     // region : runtime API
 
@@ -207,6 +206,15 @@ type Cloud =
     }
 
     /// <summary>
+    ///     Asynchronously awaits cloud task for completion and returns its result.
+    /// </summary>
+    /// <param name="task">Task to be awaited.</param>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
+    static member AwaitCloudTask(task : ICloudTask<'T>, ?timeoutMilliseconds:int) : Cloud<'T> = cloud {
+        return! task.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
+    }
+
+    /// <summary>
     ///     Start cloud computation as child process. Returns a cloud workflow that queries the result.
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
@@ -322,7 +330,7 @@ type Cloud =
     /// Creates a new cloud cancellation token source
     static member CreateCancellationTokenSource () = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
-        return runtime.CreateLinkedCancellationTokenSource [||]
+        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [||]
     }
 
     /// <summary>
@@ -333,7 +341,7 @@ type Cloud =
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
         let! currentCt = Cloud.CancellationToken
         let parent = defaultArg parent currentCt
-        return runtime.CreateLinkedCancellationTokenSource [| parent |]
+        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [| parent |]
     }
 
     /// <summary>
@@ -343,7 +351,7 @@ type Cloud =
     /// <param name="token2">Second parent cancellation token.</param>s
     static member CreateLinkedCancellationTokenSource(token1 : ICloudCancellationToken, token2 : ICloudCancellationToken) = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
-        return runtime.CreateLinkedCancellationTokenSource [|token1 ; token2|]
+        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [|token1 ; token2|]
     }
 
     /// <summary>
@@ -352,5 +360,5 @@ type Cloud =
     /// <param name="tokens">Parent cancellation tokens.</param>
     static member CreateLinkedCancellationTokenSource(tokens : seq<ICloudCancellationToken>) = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
-        return runtime.CreateLinkedCancellationTokenSource (Seq.toArray tokens)
+        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource (Seq.toArray tokens)
     }

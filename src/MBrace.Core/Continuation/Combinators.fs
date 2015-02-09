@@ -110,8 +110,17 @@ type Cloud =
     static member StartAsTask(cloudWorkflow : Cloud<'T>, resources : ResourceRegistry, 
                                 cancellationToken : ICloudCancellationToken, ?taskCreationOptions : TaskCreationOptions) : Task<'T> =
 
-        let asyncWorkflow = Cloud.ToAsync(cloudWorkflow, resources, cancellationToken)
-        Async.StartAsTask(asyncWorkflow, ?taskCreationOptions = taskCreationOptions)
+        let taskCreationOptions = defaultArg taskCreationOptions TaskCreationOptions.None
+        let tcs = new TaskCompletionSource<'T>(taskCreationOptions)
+        let cont = 
+            {
+                Success = fun _ t -> tcs.TrySetResult t |> ignore
+                Exception = fun _ edi -> tcs.TrySetException (extract edi) |> ignore
+                Cancellation = fun _ _ -> tcs.TrySetCanceled() |> ignore
+            }
+
+        Trampoline.QueueWorkItem(fun () -> Cloud.StartWithContinuations(cloudWorkflow, cont, resources, cancellationToken))
+        tcs.Task
 
     /// <summary>
     ///     Wraps a cloud workflow into an asynchronous workflow.
@@ -189,13 +198,4 @@ type Cloud =
     /// <param name="cancellationToken">Cancellation token to be used.</param>
     [<CompilerMessage("'RunSynchronously' only intended for runtime implementers.", 444)>]
     static member RunSynchronously(cloudWorkflow : Cloud<'T>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : 'T =
-        let tcs = new TaskCompletionSource<'T>()
-        let cont = 
-            {
-                Success = fun _ t -> tcs.TrySetResult t |> ignore
-                Exception = fun _ edi -> tcs.TrySetException (extract edi) |> ignore
-                Cancellation = fun _ _ -> tcs.TrySetCanceled() |> ignore
-            }
-
-        Trampoline.QueueWorkItem(fun () -> Cloud.StartWithContinuations(cloudWorkflow, cont, resources, cancellationToken))
-        tcs.Task.GetResult()
+        Cloud.StartAsTask(cloudWorkflow, resources, cancellationToken).GetResult()

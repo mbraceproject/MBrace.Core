@@ -99,14 +99,13 @@ module internal Utils =
                 let tcs = new TaskCompletionSource<'T>()
                 let onCompletion (t : Task<'T>) =
                     match t.Status with
-                    | TaskStatus.RanToCompletion -> tcs.TrySetResult t.Result |> ignore
                     | TaskStatus.Faulted -> tcs.TrySetException t.Exception.InnerExceptions |> ignore
                     | TaskStatus.Canceled -> tcs.TrySetCanceled () |> ignore
-                    | _ -> ()
+                    | _ -> tcs.TrySetResult t.Result |> ignore
 
                 let timerCallBack _ = tcs.TrySetException(new TimeoutException() :> exn) |> ignore
 
-                let _ = t.ContinueWith onCompletion
+                let _ = t.ContinueWith(onCompletion, TaskContinuationOptions.None)
                 let timer = new Timer(timerCallBack, null, timeoutMilliseconds, Timeout.Infinite)
                 tcs.Task
 
