@@ -9,7 +9,9 @@ open MBrace.Workflows
 
 type internal CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
 
-type CloudVector<'T> (count : int64, partitions : CloudSequence<'T> [], cacheMap) = 
+/// Represents an ordered collection of values stored in CloudSequence partitions.
+[<Sealed>]
+type CloudVector<'T> internal (count : int64, partitions : CloudSequence<'T> [], cacheMap) = 
     interface ICloudDisposable with
         member this.Dispose(): Cloud<unit> = 
             cloud {
@@ -20,12 +22,16 @@ type CloudVector<'T> (count : int64, partitions : CloudSequence<'T> [], cacheMap
                 do! cacheMap.Dispose()
             }
          
+    /// Total number of values stored.
     member val Count = count
+    /// Get CloudVector's partitions.
     member val Partitions = partitions
+    /// Number of partitions.
     member val PartitionCount = partitions.Length
 
     member val internal CacheMap : ICloudAtom<CacheMap<'T>> = cacheMap
 
+    /// Returns an enumeration of CloudVector's values.
     member __.ToEnumerable () : Cloud<IEnumerable<'T>> =
         cloud {
             return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
@@ -52,7 +58,14 @@ type internal CacheState =
     static member Combine(state1 : CacheMap<'T>, state2 : CacheMap<'T>) : CacheMap<'T> =
         None
 
+/// Common operations on CloudVectors.
 type CloudVector =
+    /// <summary>
+    /// Merge two CloudVectors. This operation returns a new CloudVector that contains the partitions
+    /// of the first CloudVector followed by the partitions of the second CloudVector.
+    /// </summary>
+    /// <param name="v1">First CloudVector.</param>
+    /// <param name="v2">Second CloudVector.</param>
     static member Merge(v1 : CloudVector<'T>, v2 : CloudVector<'T>) : Cloud<CloudVector<'T>> = 
         cloud {
             let count = v1.Count + v2.Count
@@ -62,6 +75,13 @@ type CloudVector =
             return new CloudVector<'T>(count, partitions, map) 
         }
 
+    /// <summary>
+    /// Create a new CloudVector from the given input.
+    /// </summary>
+    /// <param name="values">Input sequence.</param>
+    /// <param name="maxPartitionSize">Max partition size.</param>
+    /// <param name="directory">Optional store directory.</param>
+    /// <param name="serializer">Optional serializer.</param>
     static member New<'T>(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer) : Cloud<CloudVector<'T>> =
         cloud {
             let! partitions = CloudSequence.NewPartitioned(values, maxPartitionSize, ?directory = directory, ?serializer = serializer)
@@ -73,6 +93,10 @@ type CloudVector =
             return new CloudVector<'T>(count.Value, partitions, map) 
         }
 
+    /// <summary>
+    /// Reset CloudVector's cache state.
+    /// </summary>
+    /// <param name="vector">Input CloudVector.</param>
     static member NoCache(vector : CloudVector<'T>) = 
         cloud {
             return! vector.CacheMap.Force(None)
@@ -85,6 +109,10 @@ type CloudVector =
             return cacheMap
         }
 
+    /// <summary>
+    /// Calculate a cache state for the given CloudVector, based on available runtime workers.
+    /// </summary>
+    /// <param name="vector">Input CloudVector.</param>
     static member Cache(vector : CloudVector<'T>) : Cloud<unit> =
         cloud {
             let! context = Cloud.GetSchedulingContext()
@@ -102,39 +130,45 @@ type CloudVector =
         }
 
 
-//[<AutoOpen>]
-//module StoreClientExtensions =
-//    open System.Runtime.CompilerServices
-//    
-//    /// Common operations on CloudVectors.
-//    type CloudVectorClient internal (resources : ResourceRegistry) =
-//        let toAsync wf = Cloud.ToAsync(wf, resources)
-//        let toSync wf = Cloud.RunSynchronously(wf, resources)
-//
-//        /// <summary>
-//        /// Create a new cloud array.
-//        /// </summary>
-//        /// <param name="values">Collection to populate the cloud array with.</param>
-//        /// <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
-//        /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-//        /// <param name="partitionSize">Approximate partition size in bytes.</param>
-//        member __.NewAsync(values : seq<'T> , ?directory : string, ?partitionSize, ?serializer : ISerializer) =
-//            CloudVector.New(values, ?directory = directory, ?partitionSize = partitionSize, ?serializer = serializer)
-//            |> toAsync
-//    
-//        /// <summary>
-//        /// Create a new cloud array.
-//        /// </summary>
-//        /// <param name="values">Collection to populate the cloud array with.</param>
-//        /// <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
-//        /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-//        /// <param name="partitionSize">Approximate partition size in bytes.</param>
-//        member __.New(values : seq<'T> , ?directory : string, ?partitionSize, ?serializer : ISerializer) =
-//            CloudVector.New(values, ?directory = directory, ?partitionSize = partitionSize, ?serializer = serializer)
-//            |> toSync
-//    
-//    [<Extension>]
-//    type MBrace.Client.StoreClient with
-//        [<Extension>]
-//        /// CloudVector client.
-//        member this.CloudVector = new CloudVectorClient(this.Resources)
+[<AutoOpen>]
+module StoreClientExtensions =
+    open System.Runtime.CompilerServices
+    open MBrace.Continuation
+    open MBrace.Runtime.InMemory
+    
+    /// Common operations on CloudVectors.
+    type CloudVectorClient internal (resources : ResourceRegistry) =
+        let toAsync wf =
+            async {
+                let! ct = Async.CancellationToken
+                return! Cloud.ToAsync(wf, resources, new InMemoryCancellationToken(ct))
+            }
+        let toSync wf = Async.RunSync wf
+
+        /// <summary>
+        /// Create a new cloud array.
+        /// </summary>
+        /// <param name="values">Collection to populate the cloud array with.</param>
+        /// <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
+        /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+        /// <param name="partitionSize">Approximate partition size in bytes.</param>
+        member __.NewAsync(values : seq<'T> , partitionSize, ?directory : string, ?serializer : ISerializer) : Async<CloudVector<'T>> =
+            CloudVector.New(values, partitionSize, ?directory = directory, ?serializer = serializer)
+            |> toAsync
+    
+        /// <summary>
+        /// Create a new cloud array.
+        /// </summary>
+        /// <param name="values">Collection to populate the cloud array with.</param>
+        /// <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
+        /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+        /// <param name="partitionSize">Approximate partition size in bytes.</param>
+        member __.New(values : seq<'T>, partitionSize,  ?directory : string, ?serializer : ISerializer) : CloudVector<'T> =
+            __.NewAsync(values, partitionSize, ?directory = directory, ?serializer = serializer)
+            |> toSync
+    
+    [<Extension>]
+    type MBrace.Client.StoreClient with
+        [<Extension>]
+        /// CloudVector client.
+        member this.CloudVector = new CloudVectorClient(this.Resources)

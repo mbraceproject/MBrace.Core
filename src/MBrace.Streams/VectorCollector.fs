@@ -5,6 +5,7 @@ open MBrace.Streams
 open MBrace.Workflows
 open System.Collections.Generic
     
+/// [omit] For internal use only. CloudVector with in-memory cachemap and non-monadic merge.
 type VectorCollector<'T> (count, partitions, cacheMap) =
     member val Count = count
     member val Partitions = partitions
