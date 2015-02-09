@@ -1,4 +1,5 @@
 ﻿namespace MBrace.Streams
+
 #nowarn "0443"
 #nowarn "0444"
 
@@ -41,7 +42,8 @@ module CloudStream =
     let private maxCloudFileCombinedLength = 1024L * 1024L * 1024L
     
     /// Maximum CloudVector partition size used in CloudVector.New.
-    let inline private maxCloudVectorPartitionSize () = 1024L * 1024L * 1024L
+    [<Literal>]
+    let private maxCloudVectorPartitionSize = 1073741824L // 1GB
 
     /// If local context then returns number of cores instead of throwing exception
     /// else returns number of workers.
@@ -420,10 +422,10 @@ module CloudStream =
                                                   (fun keyValues -> cloud {
                                                         let dict = new Dictionary<int, VectorCollector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
-                                                            let! values = VectorCollector.New(value, maxCloudVectorPartitionSize())
+                                                            let! values = VectorCollector.New(value, maxCloudVectorPartitionSize)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value))
-                                                        return! VectorCollector.New(values, maxCloudVectorPartitionSize()) }) combiner'
+                                                        return! VectorCollector.New(values, maxCloudVectorPartitionSize) }) combiner'
                 
                 let! kva = keyValueArray.ToEnumerable()
                 let dict = 
@@ -472,7 +474,7 @@ module CloudStream =
                 let combiner' (left : VectorCollector<_>) (right : VectorCollector<_>) = 
                     left.Merge(right)
 
-                let! keyValueArray = stream.Apply reducerf (fun keyValues -> VectorCollector.New(keyValues, maxCloudVectorPartitionSize())) combiner'
+                let! keyValueArray = stream.Apply reducerf (fun keyValues -> VectorCollector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
                 return keyValueArray
             }
         { new CloudStream<'Key * 'State> with
@@ -550,7 +552,7 @@ module CloudStream =
 
             let! vc =
                 stream.Apply collectorf 
-                    (fun array -> cloud { return! VectorCollector.New(array, maxCloudVectorPartitionSize()) }) 
+                    (fun array -> cloud { return! VectorCollector.New(array, maxCloudVectorPartitionSize) }) 
                     (fun left right -> left.Merge(right))
             return! vc.ToCloudVector()
         }
