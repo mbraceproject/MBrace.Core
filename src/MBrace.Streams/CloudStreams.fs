@@ -222,14 +222,13 @@ module CloudStream =
                             
                             let! cacheMap = Cloud.map Option.get <| cloud { 
                                 if cacheMapWorkers <> currentWorkers then
-                                    return! CloudVector.Cache(source, currentWorkers)
-                                else 
-                                    return Some cacheMap
+                                    do! source.Cache()
+                                return! source.CacheMap.Value
                             } 
                             
                             let pairs =
                                 cacheMap 
-                                |> Seq.map (function KeyValue(k,vs) -> k, vs |> Seq.cast<CloudSequence<'T>> |> Seq.toArray)
+                                |> Seq.map (function KeyValue(k,vs) -> k, vs)
 
                             let! results = 
                                 pairs
@@ -239,16 +238,6 @@ module CloudStream =
                             return results |> Seq.concat
                                            |> Seq.reduce combiner
                 } }
-
-
-    /// <summary>
-    /// Returns a cached version of the given CloudArray.
-    /// </summary>
-    /// <param name="source">The input CloudArray.</param>
-    let cache (source : CloudVector<'T>) : Cloud<unit> = 
-        cloud {
-            return! CloudVector.Cache(source)
-        }
 
     //#endregion
 

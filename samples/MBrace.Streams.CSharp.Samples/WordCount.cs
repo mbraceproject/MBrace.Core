@@ -77,15 +77,15 @@ namespace MBrace.Streams.CSharp.Samples
             return result;
         }
 
-        public static IEnumerable<Tuple<string, long>> RunWithCloudArray(MBraceRuntime runtime)
+        public static IEnumerable<Tuple<string, long>> RunWithCloudVector(MBraceRuntime runtime)
         {
             var lines = files.SelectMany(path => File.ReadLines(path));
             // Temporary : No C# API for Standalone runtime and StoreClient.
-            var cloudarray = runtime.RunLocal(CloudVector.New(lines, 100L, null, null), null);
-
+            var vector = runtime.RunLocal(CloudVector.New(lines, 100L), null);
+            
             var count = 20;
 
-            var query = cloudarray
+            var query = vector
                             .AsCloudStream()
                             .SelectMany(line => line.SplitWords().AsStream().Select(WordTransform))
                             .Where(WordFilter)

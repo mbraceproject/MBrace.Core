@@ -64,25 +64,8 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``cache`` () =
         let f(xs : int[]) =
-            let v = run <| CloudVector.New(xs, 100L) 
-            CloudStream.cache v |> run 
-            let x = v |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudVector |> run
-            let x' = v |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudVector |> run
-            let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
-            
-            let _x = x.ToEnumerable() |> runLocal |> Seq.toArray
-            let _x' = x'.ToEnumerable() |> runLocal |> Seq.toArray
-            
-            Assert.AreEqual(y, _x)
-            Assert.AreEqual(_x', _x)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-    [<Test>]
-    member __.``subsequent caching`` () =
-        let f(xs : int[]) =
-            let v = run <| CloudVector.New(xs, 100L) 
-            CloudStream.cache v |> run 
-            CloudStream.cache v |> run 
+            let v = run <| CloudVector.New(xs, 1024L) 
+            v.Cache() |> run 
             let x = v |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let x' = v |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray

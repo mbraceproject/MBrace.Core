@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="CloudFile.cs" />
     <Compile Include="CloudStream.cs" />
+    <Compile Include="CloudVector.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

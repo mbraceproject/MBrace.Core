@@ -5,11 +5,18 @@ open MBrace.Streams
 open MBrace.Workflows
 open System.Collections.Generic
     
-/// [omit] For internal use only. CloudVector with in-memory cachemap and non-monadic merge.
-type VectorCollector<'T> (count, partitions, cacheMap) =
+/// [omit] For internal use only. CloudVector with in-memory cache-map and non-monadic merge.
+type VectorCollector<'T> (count : int64, partitions : CloudSequence<'T> [], cacheMap : CacheMap<'T>) =
+
+    member v1.Merge(v2 : VectorCollector<'T>) : VectorCollector<'T> =
+        let count = v1.Count + v2.Count
+        let partitions = Array.append v1.Partitions v2.Partitions
+        let cache = CacheState.Combine(v1.CacheMap, v2.CacheMap)
+        new VectorCollector<'T>(count, partitions, cache)
+
     member val Count = count
     member val Partitions = partitions
-    member val internal CacheMap = cacheMap
+    member val CacheMap = cacheMap
 
     member __.ToCloudVector () = 
         cloud {
@@ -22,13 +29,7 @@ type VectorCollector<'T> (count, partitions, cacheMap) =
             return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
         }
 
-    member v1.Merge(v2 : VectorCollector<'T>) =
-        let count = v1.Count + v2.Count
-        let partitions = Array.append v1.Partitions v2.Partitions
-        let cache = CacheState.Combine(v1.CacheMap, v2.CacheMap)
-        new VectorCollector<'T>(count, partitions, cache)
-
-    static member New(values : seq<'T>, maxPartitionSize : int64) =
+    static member New<'T>(values : seq<'T>, maxPartitionSize : int64) =
         cloud {
             let! partitions = CloudSequence.NewPartitioned(values, maxPartitionSize)
             let count = ref 0L

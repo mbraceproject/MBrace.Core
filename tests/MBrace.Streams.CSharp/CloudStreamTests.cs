@@ -63,7 +63,7 @@ namespace MBrace.Streams.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var ca = this.Run(CloudVector.New(xs, 100, null, null));
+                var ca = this.Run(CloudVector.New(xs, 100));
                 var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();
                 return this.Run(x).SequenceEqual(y);
@@ -87,23 +87,7 @@ namespace MBrace.Streams.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var ca = this.Run(CloudVector.New(xs, 100L, null, null));
-                this.Run(ca.Cache());
-                var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
-                var y = xs.Select(i => i + 1).ToArray();
-                var z = ca.AsCloudStream().Select(i => i + 1).ToArray();
-                return this.Run(x).SequenceEqual(y) &&
-                       this.Run(z).SequenceEqual(y);
-            }).QuickThrowOnFail(this.MaxNumberOfTests);
-        }
-
-        [Test]
-        public void SubsequentCache()
-        {
-            FSharpFunc<int[], bool>.FromConverter(xs =>
-            {
-                var ca = this.Run(CloudVector.New(xs, 100L, null, null));
-                this.Run(ca.Cache());
+                var ca = this.Run(CloudVector.New(xs, 1024L));
                 this.Run(ca.Cache());
                 var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();

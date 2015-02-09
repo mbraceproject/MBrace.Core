@@ -11,7 +11,6 @@ using MBrace.CSharp;
 
 namespace MBrace.Streams.CSharp
 {
-
     /// <summary>
     /// CloudStream operations
     /// </summary>
@@ -40,15 +39,6 @@ namespace MBrace.Streams.CSharp
         public static CloudStream<TResult> AsCloudStream<TResult>(this IEnumerable<CFile> sources, Func<System.IO.Stream, Task<TResult>> reader)
         {
             return CSharpProxy.OfCloudFiles<TResult>(sources, reader);
-        }
-
-        /// <summary>
-        /// Returns a cached version of the given CloudVector.
-        /// </summary>
-        /// <param name="source">The input CloudVector.</param>
-        public static CloudAction Cache<TSource>(this CloudVector<TSource> source)
-        {
-            return new CloudAction(CloudStreamModule.cache(source));
         }
 
         /// <summary>Transforms each element of the input CloudStream.</summary>

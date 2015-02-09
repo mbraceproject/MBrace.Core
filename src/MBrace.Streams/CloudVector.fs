@@ -7,10 +7,10 @@ open MBrace.Workflows
 
 #nowarn "444"
 
-type internal CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
+/// WorkerRef to cached partitions mappings.
+type CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
 
 /// Represents an ordered collection of values stored in CloudSequence partitions.
-[<Sealed>]
 type CloudVector<'T> internal (count : int64, partitions : CloudSequence<'T> [], cacheMap) = 
     interface ICloudDisposable with
         member this.Dispose(): Cloud<unit> = 
@@ -28,8 +28,8 @@ type CloudVector<'T> internal (count : int64, partitions : CloudSequence<'T> [],
     member val Partitions = partitions
     /// Number of partitions.
     member val PartitionCount = partitions.Length
-
-    member val internal CacheMap : ICloudAtom<CacheMap<'T>> = cacheMap
+    /// Get current CacheMap.
+    member val CacheMap : ICloudAtom<CacheMap<'T>> = cacheMap
 
     /// Returns an enumeration of CloudVector's values.
     member __.ToEnumerable () : Cloud<IEnumerable<'T>> =
@@ -37,9 +37,57 @@ type CloudVector<'T> internal (count : int64, partitions : CloudSequence<'T> [],
             return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
         }
 
+    /// <summary>
+    /// Reset CloudVector's cache-map.
+    /// </summary>
+    /// <param name="vector">Input CloudVector.</param>
+    abstract NoCache : unit -> Cloud<unit>
+    default vector.NoCache() = 
+        cloud {
+            return! vector.CacheMap.Force(None)
+        }
 
-type internal CacheState = 
-    static member Create(vector : CloudVector<'T>, workers : IWorkerRef seq) : CacheMap<'T> = 
+    /// <summary>
+    /// Calculate a cache-map for the given CloudVector, based on available runtime workers.
+    /// This method does not affect InMemory runtimes and is not supported in distributed runtimes 
+    /// without worker targeting.
+    /// </summary>
+    /// <param name="vector">Input CloudVector.</param>
+    abstract Cache : unit -> Cloud<unit>
+    default vector.Cache() : Cloud<unit> =
+        cloud {
+            let! context = Cloud.GetSchedulingContext()
+            let! isTargetSupported = Cloud.IsTargetedWorkerSupported
+            match context with
+            | Sequential | ThreadParallel -> 
+                do! vector.CacheMap.Force(None)
+                return ()
+            | Distributed when not isTargetSupported ->
+                return failwith "Cannot Cache in runtimes not supporting worker targeting."
+            | Distributed ->
+                let! workers = Cloud.GetAvailableWorkers()
+                let cacheMap = CacheState.Create(vector, workers)
+                do! vector.CacheMap.Force(cacheMap)
+        }
+
+    /// <summary>
+    /// Merge two CloudVectors. This operation returns a new CloudVector that contains the partitions
+    /// of the first CloudVector followed by the partitions of the second CloudVector.
+    /// CacheMaps are combined.
+    /// </summary>
+    /// <param name="v1">First CloudVector.</param>
+    /// <param name="v2">Second CloudVector.</param>
+    member v1.Merge(v2 : CloudVector<'T>) : Cloud<CloudVector<'T>> = 
+        cloud {
+            let count = v1.Count + v2.Count
+            let partitions = Array.append v1.Partitions v2.Partitions
+            let! map1, map2 = v1.CacheMap.Value <||> v2.CacheMap.Value
+            let! map = CloudAtom.New(CacheState.Combine(map1, map2))
+            return new CloudVector<'T>(count, partitions, map) 
+        }
+
+and internal CacheState = 
+    static member Create<'T>(vector : CloudVector<'T>, workers : IWorkerRef seq) : CacheMap<'T> = 
         let workers = workers |> Seq.sort |> Seq.toArray
         let workerCount = workers.Length
         
@@ -55,26 +103,11 @@ type internal CacheState =
             |> Map.ofSeq
         Some(map :> _)
 
-    static member Combine(state1 : CacheMap<'T>, state2 : CacheMap<'T>) : CacheMap<'T> =
+    static member Combine<'T>(state1 : CacheMap<'T>, state2 : CacheMap<'T>) : CacheMap<'T> =
         None
 
 /// Common operations on CloudVectors.
 type CloudVector =
-    /// <summary>
-    /// Merge two CloudVectors. This operation returns a new CloudVector that contains the partitions
-    /// of the first CloudVector followed by the partitions of the second CloudVector.
-    /// </summary>
-    /// <param name="v1">First CloudVector.</param>
-    /// <param name="v2">Second CloudVector.</param>
-    static member Merge(v1 : CloudVector<'T>, v2 : CloudVector<'T>) : Cloud<CloudVector<'T>> = 
-        cloud {
-            let count = v1.Count + v2.Count
-            let partitions = Array.append v1.Partitions v2.Partitions
-            let! map1, map2 = v1.CacheMap.Value <||> v2.CacheMap.Value
-            let! map = CloudAtom.New(CacheState.Combine(map1, map2))
-            return new CloudVector<'T>(count, partitions, map) 
-        }
-
     /// <summary>
     /// Create a new CloudVector from the given input.
     /// </summary>
@@ -91,42 +124,6 @@ type CloudVector =
                 count := !count + int64 c
             let! map = CloudAtom.New(None)
             return new CloudVector<'T>(count.Value, partitions, map) 
-        }
-
-    /// <summary>
-    /// Reset CloudVector's cache state.
-    /// </summary>
-    /// <param name="vector">Input CloudVector.</param>
-    static member NoCache(vector : CloudVector<'T>) = 
-        cloud {
-            return! vector.CacheMap.Force(None)
-        }
-
-    static member internal Cache(vector : CloudVector<'T>, workers : IWorkerRef seq) : Cloud<CacheMap<'T>> =
-        cloud {
-            let cacheMap = CacheState.Create(vector, workers)
-            do! vector.CacheMap.Force(cacheMap)
-            return cacheMap
-        }
-
-    /// <summary>
-    /// Calculate a cache state for the given CloudVector, based on available runtime workers.
-    /// </summary>
-    /// <param name="vector">Input CloudVector.</param>
-    static member Cache(vector : CloudVector<'T>) : Cloud<unit> =
-        cloud {
-            let! context = Cloud.GetSchedulingContext()
-            let! isTargetSupported = Cloud.IsTargetedWorkerSupported
-            match context with
-            | Sequential | ThreadParallel -> 
-                do! vector.CacheMap.Force(None)
-                return ()
-            | Distributed when not isTargetSupported ->
-                return failwith "Cannot Cache in runtimes not supporting worker targeting."
-            | Distributed ->
-                let! workers = Cloud.GetAvailableWorkers()
-                let! _ = CloudVector.Cache(vector, workers)
-                return ()
         }
 
 
