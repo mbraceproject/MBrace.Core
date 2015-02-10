@@ -288,11 +288,16 @@ type Cloud =
     ///     Sets a new scheduling context for target workflow.
     /// </summary>
     /// <param name="workflow">Target workflow.</param>
-    /// <param name="schedulingContext">Target scheduling context.</param>
+    /// <param name="newContext">Target scheduling context.</param>
     [<CompilerMessage("'SetSchedulingContext' only intended for runtime implementers.", 444)>]
-    static member WithSchedulingContext (schedulingContext : SchedulingContext) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
+    static member WithSchedulingContext (newContext : SchedulingContext) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider>()
-        let runtime' = runtime.WithSchedulingContext schedulingContext
+        match runtime.SchedulingContext, newContext with
+        | Sequential, (ThreadParallel | Distributed)
+        | ThreadParallel, Distributed -> 
+            invalidOp <| sprintf "Cannot elevate scheduling context from '%A' to '%A'." runtime.SchedulingContext newContext
+        | _ -> ()
+        let runtime' = runtime.WithSchedulingContext newContext
         return! Cloud.WithResource(workflow, runtime')
     }
 

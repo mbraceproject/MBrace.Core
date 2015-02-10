@@ -107,12 +107,7 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext ctx =
-            match ctx, context with
-            | Distributed, (ThreadParallel | Sequential)
-            | ThreadParallel, Sequential ->
-                invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
-            | _ ->
-                new RuntimeProvider(state, procInfo, dependencies, faultPolicy, jobId, ctx) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, procInfo, dependencies, faultPolicy, jobId, ctx) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 

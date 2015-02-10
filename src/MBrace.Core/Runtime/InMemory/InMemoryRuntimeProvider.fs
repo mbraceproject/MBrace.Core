@@ -98,13 +98,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
         member __.CurrentWorker = raise <| new System.NotSupportedException("'CurrentWorker' not supported in InMemory runtime.")
 
         member __.SchedulingContext = context
-        member __.WithSchedulingContext newContext = 
-            let newContext =
-                match context, newContext with
-                | Sequential, ThreadParallel -> invalidOp <| sprintf "Cannot set scheduling context from '%A' to '%A'." Sequential ThreadParallel
-                | _, Distributed -> ThreadParallel
-                | _, c -> c
-
+        member __.WithSchedulingContext newContext =
             new ThreadPoolRuntime(newContext, faultPolicy, logger) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
