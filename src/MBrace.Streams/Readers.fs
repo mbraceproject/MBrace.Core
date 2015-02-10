@@ -36,6 +36,6 @@
             fun stream -> 
                 async {
                         use ms = new MemoryStream()
-                        do! Async.AwaitTask(stream.CopyToAsync(ms).ContinueWith(ignore))
+                        do! Async.AwaitTask(stream.CopyToAsync(ms))
                         return ms.ToArray()
                 }

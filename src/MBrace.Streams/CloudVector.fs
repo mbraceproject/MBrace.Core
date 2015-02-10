@@ -8,10 +8,10 @@ open MBrace.Workflows
 #nowarn "444"
 
 /// WorkerRef to cached partitions mappings.
-type CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
+type internal CacheMap<'T> = IDictionary<IWorkerRef, CloudSequence<'T> []> option
 
 /// Represents an ordered collection of values stored in CloudSequence partitions.
-type CloudVector<'T> internal (count : int64, partitions : CloudSequence<'T> [], cacheMap) = 
+type CloudVector<'T> internal (count : int64, partitions : CloudSequence<'T> [], cacheMap : ICloudAtom<CacheMap<'T>>) = 
     interface ICloudDisposable with
         member this.Dispose(): Cloud<unit> = 
             cloud {
