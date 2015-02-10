@@ -92,9 +92,9 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         |> Seq.map (fun (c,w) -> if Option.isSome w then failTargetWorker () else c)
         |> Seq.toArray
 
-    static let mkNestedCts (ct : ICloudCancellationToken) =
+    static let mkNestedCts elevate (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
-        let dcts = DistributedCancellationTokenSource.CreateLinkedCancellationTokenSource(parentCts, forceElevation = false)
+        let dcts = DistributedCancellationTokenSource.CreateLinkedCancellationTokenSource(parentCts, forceElevation = elevate)
         dcts :> ICloudCancellationTokenSource
 
     /// Creates a runtime provider instance for a provided job
@@ -121,7 +121,7 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = async {
             match parents with
             | [||] -> let! cts = state.ResourceFactory.RequestCancellationTokenSource() in return cts :> _
-            | [| ct |] -> return mkNestedCts ct
+            | [| ct |] -> return mkNestedCts false ct
             | _ -> return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
         }
 
@@ -133,13 +133,13 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         member __.ScheduleParallel computations = 
             match context with
             | Distributed -> Combinators.Parallel state procInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Parallel (mkNestedCts, extractComputations computations)
+            | ThreadParallel -> ThreadPool.Parallel (mkNestedCts false, extractComputations computations)
             | Sequential -> Sequential.Parallel (extractComputations computations)
 
         member __.ScheduleChoice computations = 
             match context with
             | Distributed -> Combinators.Choice state procInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Choice (mkNestedCts, extractComputations computations)
+            | ThreadParallel -> ThreadPool.Choice (mkNestedCts false, extractComputations computations)
             | Sequential -> Sequential.Choice (extractComputations computations)
 
         member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =

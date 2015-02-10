@@ -707,7 +707,20 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         } |> run |> Choice.shouldEqual ()
 
     [<Test>]
-    member __.``4. Cancellation token: distributed with local semantics`` () =
+    member __.``4. Cancellation token: local semantics`` () =
+        cloud {
+            let! (ct0, _), (ct1, _) = 
+                Cloud.ToLocal(
+                    (Cloud.CancellationToken <||> cloud.Zero()) 
+                        <||> 
+                    (Cloud.CancellationToken <||> cloud.Zero()))
+
+            ct0.IsCancellationRequested |> shouldEqual true
+            ct1.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. Cancellation token: distributed cancellation created inside local semantics`` () =
         cloud {
             let! (ct0, _), (ct1, _) = 
                 Cloud.ToLocal(Cloud.CancellationToken <||> cloud.Zero()) 
