@@ -1,15 +1,17 @@
 ﻿namespace MBrace.Streams.Tests
 
 #nowarn "0444" // Disable mbrace warnings
-
+open System
 open System.Linq
+open System.Collections.Generic
+open System.IO
 open FsCheck
 open NUnit.Framework
 open Nessos.Streams
 open MBrace.Streams
 open MBrace
 open MBrace.Store
-open System.IO
+
 
 type Check =
     static member QuickThrowOnFailureConfig(maxNumber) = { Config.QuickThrowOnFailure with MaxTest = maxNumber }
@@ -221,6 +223,68 @@ type ``CloudStreams tests`` () as self =
             if xs.Length = 0 then x = 0
             else x = 1
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+        member __.``tryFind`` () =
+            let f(xs : int[]) =
+                let x = xs |> CloudStream.ofArray |> CloudStream.tryFind (fun n -> n = 0) |> run
+                let y = xs |> Seq.tryFind (fun n -> n = 0) 
+                x = y
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+        [<Test>]
+        member __.``find`` () =
+            let f(xs : int[]) =
+                let x = try xs |> CloudStream.ofArray |> CloudStream.find (fun n -> n = 0) |> run with | :? KeyNotFoundException -> -1
+                let y = try xs |> Seq.find (fun n -> n = 0) with | :? KeyNotFoundException -> -1
+                x = y
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+        [<Test>]
+        member __.``tryPick`` () =
+            let f(xs : int[]) =
+                let x = xs |> CloudStream.ofArray |> CloudStream.tryPick (fun n -> if n = 0 then Some n else None) |> run
+                let y = xs |> Seq.tryPick (fun n -> if n = 0 then Some n else None) 
+                x = y
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+        [<Test>]
+        member __.``pick`` () =
+            let f(xs : int[]) =
+                let x = try xs |> CloudStream.ofArray |> CloudStream.pick (fun n -> if n = 0 then Some n else None) |> run with | :? KeyNotFoundException -> -1
+                let y = try xs |> Seq.pick (fun n -> if n = 0 then Some n else None)  with | :? KeyNotFoundException -> -1
+                x = y
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+        [<Test>]
+        member __.``exists`` () =
+            let f(xs : int[]) =
+                let x = xs |> CloudStream.ofArray |> CloudStream.exists (fun n -> n = 0) |> run
+                let y = xs |> Seq.exists (fun n -> n = 0) 
+                x = y
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+        [<Test>]
+        member __.``forall`` () =
+            let f(xs : int[]) =
+                let x = xs |> CloudStream.ofArray |> CloudStream.forall (fun n -> n = 0) |> run
+                let y = xs |> Seq.forall (fun n -> n = 0) 
+                x = y
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+        [<Test>]
+        member __.``forall/CloudFiles`` () =
+            let f(xs : int []) =
+                let cfs = xs 
+                         |> Array.map (fun x -> CloudFile.WriteAllText(string x))
+                         |> Cloud.Parallel
+                         |> run
+                let x = cfs |> CloudStream.ofCloudFiles CloudFileReader.ReadAllText |> CloudStream.forall (fun x -> Int32.Parse(x) = 0) |> run
+                let y = xs |> Seq.forall (fun n -> n = 0) 
+                x = y
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
 open MBrace.Runtime.Vagabond

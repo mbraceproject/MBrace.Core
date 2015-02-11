@@ -605,3 +605,106 @@ module CloudStream =
         }
 
 
+
+    /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
+    /// <param name="predicate">A function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
+    let inline tryFind (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<'T option> =
+        let collectorf = 
+            cloud {
+                let resultRef = ref Unchecked.defaultof<'T option>
+                let cts =  new CancellationTokenSource()
+                return
+                    { new Collector<'T, 'T option> with
+                        member self.DegreeOfParallelism = stream.DegreeOfParallelism 
+                        member self.Iterator() = 
+                            {   Index = ref -1; 
+                                Func = (fun value -> if predicate value then resultRef := Some value; cts.Cancel() else ());
+                                Cts = cts }
+                        member self.Result = 
+                            !resultRef }
+            }
+        cloud {
+            return! stream.Apply collectorf (fun v -> cloud { return v }) (fun left right -> match left with Some _ -> left | None -> right)
+        }
+
+    /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
+    /// <param name="predicate">A function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the predicate returns true.</returns>
+    /// <exception cref="System.KeyNotFoundException">Thrown if the predicate evaluates to false for all the elements of the cloud stream.</exception>
+    let inline find (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<'T> = 
+        cloud {
+            let! result = tryFind predicate stream 
+            return
+                match result with
+                | Some value -> value 
+                | None -> raise <| new KeyNotFoundException()
+        }
+
+    /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.</summary>
+    /// <param name="chooser">A function that transforms items into options.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
+    let inline tryPick (chooser : 'T -> 'R option) (stream : CloudStream<'T>) : Cloud<'R option> = 
+        
+        let collectorf = 
+            cloud {
+                let resultRef = ref Unchecked.defaultof<'R option>
+                let cts = new CancellationTokenSource()
+                return 
+                    { new Collector<'T, 'R option> with
+                        member self.DegreeOfParallelism = stream.DegreeOfParallelism
+                        member self.Iterator() = 
+                            {   Index = ref -1; 
+                                Func = (fun value -> match chooser value with Some value' -> resultRef := Some value'; cts.Cancel() | None -> ());
+                                Cts = cts }
+                        member self.Result = 
+                            !resultRef }
+            }
+        cloud {
+            return! stream.Apply collectorf (fun v -> cloud { return v }) (fun left right -> match left with Some _ -> left | None -> right)
+        }
+
+
+    /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.
+    /// Raises KeyNotFoundException when every item of the cloud stream evaluates to None when the given function is applied.</summary>
+    /// <param name="chooser">A function that transforms items into options.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the chooser returns Some, or raises KeyNotFoundException if every element evaluates to None.</returns>
+    /// <exception cref="System.KeyNotFoundException">Thrown if every item of the cloud stream evaluates to None when the given function is applied.</exception>
+    let inline pick (chooser : 'T -> 'R option) (stream : CloudStream<'T>) : Cloud<'R> = 
+        cloud {
+            let! result = tryPick chooser stream 
+            return 
+                match result with
+                | Some value -> value 
+                | None -> raise <| new KeyNotFoundException()
+        }
+
+    /// <summary>Tests if any element of the stream satisfies the given predicate.</summary>
+    /// <param name="predicate">A function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>true if any element satisfies the predicate. Otherwise, returns false.</returns>
+    let inline exists (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<bool> = 
+        cloud {
+            let! result = tryFind predicate stream 
+            return 
+                match result with
+                | Some value -> true
+                | None -> false
+        }
+
+
+    /// <summary>Tests if all elements of the parallel stream satisfy the given predicate.</summary>
+    /// <param name="predicate">A function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>true if all of the elements satisfies the predicate. Otherwise, returns false.</returns>
+    let inline forall (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<bool> = 
+        cloud {
+            let! result = exists (fun x -> not <| predicate x) stream
+            return not result
+        }
+
+
