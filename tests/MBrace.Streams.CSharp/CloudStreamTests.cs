@@ -88,7 +88,7 @@ namespace MBrace.Streams.CSharp.Tests
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
                 var ca = this.Run(CloudVector.New(xs, 1024L));
-                //this.Run(ca.Cache());
+                this.Run(CloudVector.Cache(ca));
                 var x = ca.AsCloudStream().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();
                 var z = ca.AsCloudStream().Select(i => i + 1).ToArray();
