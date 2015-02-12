@@ -178,6 +178,7 @@ module CloudStream =
             member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
                 cloud {
                     let! collector = collectorf
+                    let! ctx = Cloud.GetSchedulingContext()
                     let! workerCount = 
                         match collector.DegreeOfParallelism with
                         | Some n -> cloud { return n }
@@ -206,7 +207,8 @@ module CloudStream =
                     if source.PartitionCount = 0 then
                         let! collector = collectorf
                         return! projection collector.Result;
-                    elif source.IsCachingSupported then
+                    // ctx = Distributed ; interim fix
+                    elif ctx = Distributed && source.IsCachingSupported then
 //                        let! cacheState = source.GetCacheState()
 //                        let! currentWorkers = Cloud.GetAvailableWorkers()
                         // TODO : need a scheduling algorithm to assign partition indices
