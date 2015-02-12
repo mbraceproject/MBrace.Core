@@ -34,7 +34,6 @@ type CloudStream<'T> =
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Provides basic operations on CloudStreams.
 module CloudStream =
-    open MBrace.Streams.Internals
 
     //#region Helpers
 
@@ -54,6 +53,9 @@ module CloudStream =
         | ThreadParallel -> return 1
         | Distributed -> return! Cloud.GetWorkerCount()
     }
+
+    /// gets all partition indices found in cloud vector
+    let inline private getPartitionIndices (v : CloudVector<'T>) = [| 0 .. v.PartitionCount - 1 |]
 
     /// Flat map/reduce with sequential execution on leafs.
     let inline private parallelInChunks (npar : int) (workflows : Cloud<'T> []) = cloud {
@@ -176,62 +178,60 @@ module CloudStream =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
-                cloud {
-                    let! collector = collectorf
+                let rec aux isTopLevelInvocation useCache (partitions : int[]) = cloud {
+                    if Array.isEmpty partitions then 
+                        let! collector = collectorf
+                        return! projection collector.Result 
+                    else
+
                     let! ctx = Cloud.GetSchedulingContext()
-                    let! workerCount = 
-                        match collector.DegreeOfParallelism with
-                        | Some n -> cloud { return n }
-                        | _ -> getWorkerCount() 
-           
-                    let processAsTask useCache (vector : CloudVector<'T>) (partitions : int []) = 
-                        cloud {
-                            let results = Array.zeroCreate partitions.Length
-                            for i in 0 .. partitions.Length - 1 do
-                                let partition = vector.GetPartition (partitions.[i])
-                                let! collector = collectorf
-                                if useCache then do! partition.Cache() |> Cloud.Ignore
-                                let! array = partition.ToArray()
-                                let parStream = ParStream.ofArray array 
-                                let collectorResult = parStream.Apply (toParStreamCollector collector)
-                                let! partial = projection collectorResult
-                                results.[i] <- partial
-
-                            if useCache then
-                                let! worker = Cloud.CurrentWorker
-                                do! vector.UpdateCacheState(worker, partitions)
-
-                            return Array.reduce combiner results
+                    match ctx with
+                    | Distributed when partitions.Length > 1 ->
+                        let! collector = collectorf
+                        let! workerCount = cloud {
+                            match collector.DegreeOfParallelism with
+                            | Some n -> return n
+                            | None -> return! Cloud.GetWorkerCount()
                         }
 
-                    if source.PartitionCount = 0 then
-                        let! collector = collectorf
-                        return! projection collector.Result;
-                    // ctx = Distributed ; interim fix
-                    elif ctx = Distributed && source.IsCachingSupported then
-//                        let! cacheState = source.GetCacheState()
-//                        let! currentWorkers = Cloud.GetAvailableWorkers()
                         // TODO : need a scheduling algorithm to assign partition indices
                         //        to workers according to current cache state.
                         //        for now blindly assign partitions among workers.
+
                         let! results =
-                            [| 0 .. source.PartitionCount - 1 |] 
+                            partitions
                             |> Partitions.ofArray workerCount
                             |> Seq.filter (not << Array.isEmpty)
-                            |> Seq.map (fun ps -> processAsTask true source ps)
+                            |> Seq.map (Cloud.ToLocal << aux false useCache)
                             |> Cloud.Parallel
 
                         return Array.reduce combiner results
-                    else
-                        let! results =
-                            [| 0 .. source.PartitionCount - 1 |] 
-                            |> Partitions.ofArray workerCount
-                            |> Seq.filter (not << Array.isEmpty)
-                            |> Seq.map (fun ps -> processAsTask false source ps)
-                            |> Cloud.Parallel
 
-                        return Array.reduce combiner results
-        }}
+                    | _ ->
+                        // computes a single partition using ParStreams
+                        let computePartition (pIndex : int) = cloud {
+                            let partition = source.GetPartition pIndex
+                            let! collector = collectorf
+                            if useCache then do! partition.Cache() |> Cloud.Ignore
+                            let! array = partition.ToArray()
+                            let parStream = ParStream.ofArray array 
+                            let collectorResult = parStream.Apply (toParStreamCollector collector)
+                            return! projection collectorResult
+                        }
+
+                        /// use sequential computation; should probably allow some degree of parallelization
+                        let! results = Sequential.map computePartition partitions
+
+                        // do not allow cache state updating in stream execution under local runtimes
+                        if ctx <> Distributed && not isTopLevelInvocation && useCache then
+                            let! worker = Cloud.CurrentWorker
+                            do! source.UpdateCacheState(worker, partitions)
+
+                        return Array.reduce combiner results                
+                }
+
+                aux true source.IsCachingSupported (getPartitionIndices source)
+        }
 
     //#endregion
 
