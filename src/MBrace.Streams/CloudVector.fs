@@ -41,10 +41,16 @@ type CloudVector<'T> () =
     interface ICloudDisposable with
         member __.Dispose () = __.Dispose()
 
-type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : CloudSequence<'T> [], cacheMap : ICloudAtom<Map<IWorkerRef, int[]>>) =
+type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : CloudSequence<'T> [], cacheMap : ICloudAtom<Map<IWorkerRef, int[]>> option) =
     inherit CloudVector<'T> ()
 
     let mutable elementCount = elementCount
+
+    let getCacheMap() =
+        match cacheMap with
+        | None -> raise <| new System.NotSupportedException("caching")
+        | Some cm -> cm
+        
 
     override __.Count = cloud {
         match elementCount with
@@ -69,9 +75,11 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
         return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
     }
 
-    override __.IsCachingSupported = true
-    override __.GetCacheState () = cacheMap.Value |> Cloud.map (fun m -> m |> Seq.map (function KeyValue(w,is) -> (w,is)) |> Seq.toArray)
+    override __.IsCachingSupported = Option.isSome cacheMap
+    override __.GetCacheState () = getCacheMap().Value |> Cloud.map (fun m -> m |> Seq.map (function KeyValue(w,is) -> (w,is)) |> Seq.toArray)
+
     override __.UpdateCacheState(worker : IWorkerRef, appendedIndices : int []) = cloud {
+        let cacheMap = getCacheMap()
         let updater (state : Map<IWorkerRef, int[]>) =
             let indices =
                 match state.TryFind worker with
@@ -182,10 +190,16 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
 
 type CloudVector =
 
-    static member OfPartitions(partitions : seq<CloudSequence<'T>>) : Cloud<CloudVector<'T>> = cloud {
+    static member OfPartitions(partitions : seq<CloudSequence<'T>>, ?enableCaching : bool) : Cloud<CloudVector<'T>> = cloud {
         let partitions = Seq.toArray partitions
         if Array.isEmpty partitions then invalidArg "partitions" "partitions must be non-empty sequence."
-        let! cacheAtom = CloudAtom.New Map.empty<IWorkerRef, int[]>
+        let! cacheAtom = cloud {
+            if defaultArg enableCaching true then 
+                let! ca = CloudAtom.New Map.empty<IWorkerRef, int[]>
+                return Some ca
+            else return None
+        }
+
         return new AtomCloudVector<'T>(None, partitions, cacheAtom) :> CloudVector<'T>
     }
 
@@ -196,6 +210,12 @@ type CloudVector =
             |> Seq.toArray
 
         new ConcatenatedCloudVector<'T>(components) :> CloudVector<'T>
+
+
+    static member New<'T>(values : seq<'T>, maxPartitionSize : int64, ?enableCaching:bool) : Cloud<CloudVector<'T>> = cloud {
+        let! partitions = CloudSequence.NewPartitioned(values, maxPartitionSize)
+        return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)
+    }
 
 
 //type CloudVector2<'T> internal (count : int64, partitions : CloudSequence<'T> [], cacheMap : ICloudAtom<CacheMap<'T>>) = 

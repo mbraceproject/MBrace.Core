@@ -19,7 +19,8 @@ namespace MBrace.Streams.CSharp
         /// <param name="vector">Input CloudVector.</param>
         public static CloudAction Cache<TValue>(CloudVector<TValue> vector)
         {
-            return new CloudAction(vector.Cache());
+            throw new System.NotImplementedException();
+            //return new CloudAction(vector.Cache());
         }
 
         /// <summary>
@@ -29,7 +30,8 @@ namespace MBrace.Streams.CSharp
         /// <param name="vector">Input CloudVector.</param>
         public static CloudAction NoCache<TValue>(CloudVector<TValue> vector)
         {
-            return new CloudAction(vector.NoCache());
+            throw new System.NotImplementedException();
+            //return new CloudAction(vector.NoCache());
         }
 
         /// <summary>
@@ -40,7 +42,7 @@ namespace MBrace.Streams.CSharp
         /// <param name="maxPartitionSize">Max partitions size in bytes.</param>
         public static Cloud<CloudVector<TValue>>New<TValue>(IEnumerable<TValue> source, long maxPartitionSize)
         {
-            return MBrace.Streams.CloudVector.New(source, maxPartitionSize, null, null);
+            return MBrace.Streams.CloudVector.New(source, maxPartitionSize, null);
         }
 
     }

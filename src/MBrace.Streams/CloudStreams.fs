@@ -183,61 +183,50 @@ module CloudStream =
                         | Some n -> cloud { return n }
                         | _ -> getWorkerCount() 
            
-                    let createTask (partitions : CloudSequence<'T> []) useCache (collector : Cloud<Collector<'T, 'S>>)  = 
+                    let processAsTask useCache (vector : CloudVector<'T>) (partitions : int []) = 
                         cloud {
                             let results = Array.zeroCreate partitions.Length
-                            let i = ref 0
-                            for partition in partitions do
-                                let! collector = collector
-                                if useCache then
-                                    do! partition.Cache() |> Cloud.Ignore
+                            for i in 0 .. partitions.Length - 1 do
+                                let partition = vector.GetPartition (partitions.[i])
+                                let! collector = collectorf
+                                if useCache then do! partition.Cache() |> Cloud.Ignore
                                 let! array = partition.ToArray()
                                 let parStream = ParStream.ofArray array 
                                 let collectorResult = parStream.Apply (toParStreamCollector collector)
                                 let! partial = projection collectorResult
-                                results.[i.Value] <- partial
-                                incr i
-                            return results
+                                results.[i] <- partial
+
+                            let! worker = Cloud.CurrentWorker
+                            do! vector.UpdateCacheState(worker, partitions)
+
+                            return Array.reduce combiner results
                         }
-                        
-                    if source.Count = 0L then
+
+                    if source.PartitionCount = 0 then
                         let! collector = collectorf
                         return! projection collector.Result;
+                    elif source.IsCachingSupported then
+//                        let! cacheState = source.GetCacheState()
+//                        let! currentWorkers = Cloud.GetAvailableWorkers()
+                        // TODO : need a scheduling algorithm to assign partition indices
+                        //        to workers according to current cache state.
+                        //        for now blindly assign partitions among workers.
+                        let! results =
+                            [| 0 .. source.PartitionCount - 1 |] 
+                            |> Partitions.ofArray workerCount
+                            |> Seq.map (fun ps -> processAsTask true source ps)
+                            |> Cloud.Parallel
+
+                        return Array.reduce combiner results
                     else
-                        let! cacheMap = source.CacheMap.Value
-                        match cacheMap with
-                        | None ->
-                            let! results = source.Partitions
-                                           |> Partitions.ofArray workerCount
-                                           |> Seq.map (fun ps -> createTask ps false collectorf)
-                                           |> Cloud.Parallel
-                            return results |> Seq.concat
-                                           |> Seq.reduce combiner
-                        | Some cacheMap ->
-                            // Compare IWorkerRefs contained in cacheMap with current workers.
-                            // If sets are not equal re-assign cacheMap.
-                            let! currentWorkers = Cloud.GetAvailableWorkers()
-                                                  |> Cloud.map Set.ofArray
-                            let cacheMapWorkers = cacheMap.Keys |> Set.ofSeq
-                            
-                            let! cacheMap = Cloud.map Option.get <| cloud { 
-                                if cacheMapWorkers <> currentWorkers then
-                                    do! source.Cache()
-                                return! source.CacheMap.Value
-                            } 
-                            
-                            let pairs =
-                                cacheMap 
-                                |> Seq.map (function KeyValue(k,vs) -> k, vs)
+                        let! results =
+                            [| 0 .. source.PartitionCount - 1 |] 
+                            |> Partitions.ofArray workerCount
+                            |> Seq.map (fun ps -> processAsTask false source ps)
+                            |> Cloud.Parallel
 
-                            let! results = 
-                                pairs
-                                |> Seq.map (fun (wr,ps) -> createTask ps true collectorf, wr)
-                                |> Cloud.Parallel
-
-                            return results |> Seq.concat
-                                           |> Seq.reduce combiner
-                } }
+                        return Array.reduce combiner results
+        }}
 
     //#endregion
 
@@ -404,35 +393,39 @@ module CloudStream =
         // Phase 1
         let shuffling = 
             cloud {
-                let combiner' (left : VectorCollector<_>) (right : VectorCollector<_>) = 
-                    left.Merge(right)
+                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) =  CloudVector.Merge [| left ; right |]
                 let! totalWorkers = match stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
                                                   (fun keyValues -> cloud {
-                                                        let dict = new Dictionary<int, VectorCollector<'Key * 'State>>() 
+                                                        let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
-                                                            let! values = VectorCollector.New(value, maxCloudVectorPartitionSize)
+                                                            let! values = CloudVector.New(value, maxCloudVectorPartitionSize, enableCaching = false)
                                                             dict.[key] <- values
-                                                        let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value))
-                                                        return! VectorCollector.New(values, maxCloudVectorPartitionSize) }) combiner'
+                                                        let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) 
+                                                        return! CloudVector.New(values, maxCloudVectorPartitionSize, enableCaching = false) }) combiner'
                 
                 let! kva = keyValueArray.ToEnumerable()
-                let dict = 
-                    let dict = new Dictionary<int, VectorCollector<'Key * 'State>>()
-                    for (key, value) in kva do
-                        let mutable grouping = Unchecked.defaultof<_>
-                        if dict.TryGetValue(key, &grouping) then
-                            dict.[key] <- grouping.Merge(value)
-                        else
-                             dict.[key] <- value
-                    dict
-                let keyValues = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) |> Seq.toArray 
-                return keyValues
+                let merged =
+                    kva
+                    |> Seq.groupBy fst
+                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> CloudVector.Merge)
+                    |> Seq.toArray
+//                let dict = 
+//                    let dict = new Dictionary<int, CloudVector<'Key * 'State>>()
+//                    for (key, value) in kva do
+//                        let mutable grouping = Unchecked.defaultof<_>
+//                        if dict.TryGetValue(key, &grouping) then
+//                            dict.[key] <- grouping.Merge(value)
+//                        else
+//                             dict.[key] <- value
+//                    dict
+//                let keyValues = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) |> Seq.toArray 
+                return merged
             }
         let reducerf = cloud {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! ctx = Cloud.GetExecutionContext()
-            return { new Collector<int * VectorCollector<'Key * 'State>,  seq<'Key * 'State>> with
+            return { new Collector<int * CloudVector<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
@@ -458,12 +451,11 @@ module CloudStream =
                     |> Seq.map (fun keyValue -> (keyValue.Key, !keyValue.Value)) }
         }
         // Phase 2
-        let reducer (stream : CloudStream<int * VectorCollector<'Key * 'State>>) : Cloud<VectorCollector<'Key * 'State>> = 
+        let reducer (stream : CloudStream<int * CloudVector<'Key * 'State>>) : Cloud<CloudVector<'Key * 'State>> = 
             cloud {
-                let combiner' (left : VectorCollector<_>) (right : VectorCollector<_>) = 
-                    left.Merge(right)
+                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) = CloudVector.Merge [| left ; right |]
 
-                let! keyValueArray = stream.Apply reducerf (fun keyValues -> VectorCollector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
+                let! keyValueArray = stream.Apply reducerf (fun keyValues -> CloudVector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
                 return keyValueArray
             }
         { new CloudStream<'Key * 'State> with
@@ -472,8 +464,7 @@ module CloudStream =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (ofArray result)
-                    let! vector = result'.ToCloudVector()
-                    return! (ofCloudVector vector).Apply collectorf projection combiner
+                    return! (ofCloudVector result').Apply collectorf projection combiner
                 }  }
 
 
@@ -541,9 +532,9 @@ module CloudStream =
 
             let! vc =
                 stream.Apply collectorf 
-                    (fun array -> cloud { return! VectorCollector.New(array, maxCloudVectorPartitionSize) }) 
-                    (fun left right -> left.Merge(right))
-            return! vc.ToCloudVector()
+                    (fun array -> cloud { return! CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = false) }) 
+                    (fun left right -> CloudVector.Merge [|left ; right|])
+            return vc
         }
     /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>

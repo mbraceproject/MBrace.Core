@@ -67,7 +67,7 @@ type ``CloudStreams tests`` () as self =
     member __.``cache`` () =
         let f(xs : int[]) =
             let v = run <| CloudVector.New(xs, 1024L) 
-            v.Cache() |> run 
+//            v.Cache() |> run 
             let x = v |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let x' = v |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
