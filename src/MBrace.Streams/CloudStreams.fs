@@ -196,8 +196,9 @@ module CloudStream =
                                 let! partial = projection collectorResult
                                 results.[i] <- partial
 
-                            let! worker = Cloud.CurrentWorker
-                            do! vector.UpdateCacheState(worker, partitions)
+                            if useCache then
+                                let! worker = Cloud.CurrentWorker
+                                do! vector.UpdateCacheState(worker, partitions)
 
                             return Array.reduce combiner results
                         }
@@ -214,6 +215,7 @@ module CloudStream =
                         let! results =
                             [| 0 .. source.PartitionCount - 1 |] 
                             |> Partitions.ofArray workerCount
+                            |> Seq.filter (not << Array.isEmpty)
                             |> Seq.map (fun ps -> processAsTask true source ps)
                             |> Cloud.Parallel
 
@@ -222,6 +224,7 @@ module CloudStream =
                         let! results =
                             [| 0 .. source.PartitionCount - 1 |] 
                             |> Partitions.ofArray workerCount
+                            |> Seq.filter (not << Array.isEmpty)
                             |> Seq.map (fun ps -> processAsTask false source ps)
                             |> Cloud.Parallel
 
@@ -536,6 +539,7 @@ module CloudStream =
                     (fun left right -> CloudVector.Merge [|left ; right|])
             return vc
         }
+
     /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>
     /// <param name="stream">The input CloudStream.</param>
