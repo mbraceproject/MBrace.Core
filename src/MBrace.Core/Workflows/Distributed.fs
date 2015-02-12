@@ -12,15 +12,14 @@ module Distributed =
     /// </summary>
     /// <param name="reducer">Sequential reducer workflow.</param>
     /// <param name="combiner">Combiner function that sequentially composes a collection of results.</param>
-    /// <param name="init">Initial state and identity element of result space.</param>
     /// <param name="source">Input data.</param>
     let reduceCombine (reducer : 'T [] -> Cloud<'State>) 
-                        (combiner : 'State [] -> Cloud<'State>)
-                        (init : 'State) (source : seq<'T>) : Cloud<'State> =
+                        (combiner : 'State [] -> Cloud<'State>) 
+                            (source : seq<'T>) : Cloud<'State> =
 
         let rec aux (inputs : 'T []) = cloud {
             match inputs.Length with
-            | 0 -> return init
+            | 0 -> return! combiner [||]
             | 1 -> return! reducer inputs
             | _ ->
 
@@ -58,7 +57,7 @@ module Distributed =
     /// <param name="mapper">Mapper function.</param>
     /// <param name="source">Input data.</param>
     let map (mapper : 'T -> Cloud<'S>) (source : seq<'T>) : Cloud<'S []> = 
-        reduceCombine (Sequential.map mapper) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Sequential.map mapper) (Cloud.lift Array.concat) source
 
     /// <summary>
     ///     Distributed map combinator. Input data is partitioned according to cluster size
@@ -68,7 +67,7 @@ module Distributed =
     /// <param name="mapper">Mapper function.</param>
     /// <param name="source">Input data.</param>
     let map2 (mapper : 'T -> 'S) (source : seq<'T>) : Cloud<'S []> = 
-        reduceCombine (Cloud.lift <| Array.map mapper) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Cloud.lift <| Array.map mapper) (Cloud.lift Array.concat) source
 
     /// <summary>
     ///     Distributed filter combinator. Input data is partitioned according to cluster size
@@ -78,7 +77,7 @@ module Distributed =
     /// <param name="predicate">Predicate function.</param>
     /// <param name="source">Input data.</param>
     let filter (predicate : 'T -> Cloud<bool>) (source : seq<'T>) : Cloud<'T []> =
-        reduceCombine (Sequential.filter predicate) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Sequential.filter predicate) (Cloud.lift Array.concat) source
 
     /// <summary>
     ///     Distributed filter combinator. Input data is partitioned according to cluster size
@@ -88,7 +87,7 @@ module Distributed =
     /// <param name="predicate">Predicate function.</param>
     /// <param name="source">Input data.</param>
     let filter2 (predicate : 'T -> bool) (source : seq<'T>) : Cloud<'T []> =
-        reduceCombine (Cloud.lift <| Array.filter predicate) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Cloud.lift <| Array.filter predicate) (Cloud.lift Array.concat) source
 
     /// <summary>
     ///     Distributed choose combinator. Input data is partitioned according to cluster size
@@ -98,7 +97,7 @@ module Distributed =
     /// <param name="chooser">Chooser function.</param>
     /// <param name="source">Input data.</param>
     let choose (chooser : 'T -> Cloud<'S option>) (source : seq<'T>) : Cloud<'S []> =
-        reduceCombine (Sequential.choose chooser) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Sequential.choose chooser) (Cloud.lift Array.concat) source
 
     /// <summary>
     ///     Distributed choose combinator. Input data is partitioned according to cluster size
@@ -108,7 +107,27 @@ module Distributed =
     /// <param name="chooser">Chooser function.</param>
     /// <param name="source">Input data.</param>
     let choose2 (chooser : 'T -> 'S option) (source : seq<'T>) : Cloud<'S []> =
-        reduceCombine (Cloud.lift <| Array.choose chooser) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Cloud.lift <| Array.choose chooser) (Cloud.lift Array.concat) source
+
+    /// <summary>
+    ///     Distrbuted collect combinator. Input data is partitioned according to cluster size
+    ///     and distributed to worker nodes accordingly. It is then further partitioned
+    ///     according to the processor count of each worker.
+    /// </summary>
+    /// <param name="collector">Collector function.</param>
+    /// <param name="source">Input data.</param>
+    let collect (collector : 'T -> Cloud<#seq<'S>>) (source : seq<'T>) =
+        reduceCombine (Sequential.collect collector) (Cloud.lift Array.concat) source
+
+    /// <summary>
+    ///     Distrbuted collect combinator. Input data is partitioned according to cluster size
+    ///     and distributed to worker nodes accordingly. It is then further partitioned
+    ///     according to the processor count of each worker.
+    /// </summary>
+    /// <param name="collector">Collector function.</param>
+    /// <param name="source">Input data.</param>
+    let collect2 (collector : 'T -> #seq<'S>) (source : seq<'T>) =
+        reduceCombine (Cloud.lift <| Array.collect (Seq.toArray << collector)) (Cloud.lift Array.concat) source
 
     /// <summary>
     ///     Distributed fold combinator. Input data is partitioned according to cluster size
@@ -123,7 +142,7 @@ module Distributed =
                 (reducer : 'State -> 'State -> Cloud<'State>)
                 (init : 'State) (source : seq<'T>) : Cloud<'State> =
 
-        reduceCombine (Sequential.fold folder init) (Sequential.fold reducer init) init source
+        reduceCombine (Sequential.fold folder init) (Sequential.fold reducer init) source
 
     /// <summary>
     ///     Distributed fold combinator. Input data is partitioned according to cluster size
@@ -138,27 +157,12 @@ module Distributed =
                 (reducer : 'State -> 'State -> 'State)
                 (init : 'State) (source : seq<'T>) : Cloud<'State> =
 
-        reduceCombine (Cloud.lift <| Array.fold folder init) (Cloud.lift <| Array.reduce reducer) init source
+        let reduce inputs =
+            if Array.isEmpty inputs then init
+            else
+                Array.reduce reducer inputs
 
-    /// <summary>
-    ///     Distrbuted collect combinator. Input data is partitioned according to cluster size
-    ///     and distributed to worker nodes accordingly. It is then further partitioned
-    ///     according to the processor count of each worker.
-    /// </summary>
-    /// <param name="collector">Collector function.</param>
-    /// <param name="source">Input data.</param>
-    let collect (collector : 'T -> Cloud<#seq<'S>>) (source : seq<'T>) =
-        reduceCombine (Sequential.collect collector) (Cloud.lift Array.concat) [||] source
-
-    /// <summary>
-    ///     Distrbuted collect combinator. Input data is partitioned according to cluster size
-    ///     and distributed to worker nodes accordingly. It is then further partitioned
-    ///     according to the processor count of each worker.
-    /// </summary>
-    /// <param name="collector">Collector function.</param>
-    /// <param name="source">Input data.</param>
-    let collect2 (collector : 'T -> #seq<'S>) (source : seq<'T>) =
-        reduceCombine (Cloud.lift <| Array.collect (Seq.toArray << collector)) (Cloud.lift Array.concat) [||] source
+        reduceCombine (Cloud.lift <| Array.fold folder init) (Cloud.lift reduce) source
 
     /// <summary>
     ///     Distributed Map/Reduce workflow with cluster balancing.
