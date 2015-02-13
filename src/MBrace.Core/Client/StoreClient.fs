@@ -24,7 +24,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
     let config = registry.Resolve<CloudAtomConfiguration>()
 
-    let toAsync (wf : Cloud<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -156,7 +156,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
 type CloudChannelClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
     let config = registry.Resolve<CloudChannelConfiguration>()
-    let toAsync (wf : Cloud<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -292,7 +292,7 @@ type CloudPathClient internal (config : CloudFileStoreConfiguration) =
 /// Collection of file store operations
 type CloudDirectoryClient internal (registry : ResourceRegistry) =
 
-    let toAsync (wf : Cloud<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
     
     /// <summary>
@@ -387,7 +387,7 @@ type CloudDirectoryClient internal (registry : ResourceRegistry) =
 /// Collection of file store operations
 type CloudFileClient internal (registry : ResourceRegistry) =
 
-    let toAsync (wf : Cloud<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -781,7 +781,7 @@ type FileStoreClient internal (registry : ResourceRegistry) =
 type CloudRefClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
     
-    let toAsync (wf : Cloud<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -857,7 +857,7 @@ type CloudRefClient internal (registry : ResourceRegistry) =
 type CloudSequenceClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
     
-    let toAsync (wf : Cloud<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>

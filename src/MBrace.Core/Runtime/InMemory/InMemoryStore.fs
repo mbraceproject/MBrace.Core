@@ -29,10 +29,10 @@ type private InMemoryAtom<'T> (initial : 'T) =
 
     interface ICloudAtom<'T> with
         member __.Id = id
-        member __.Value = cloud { return Option.get container.Value }
-        member __.Update(updater, ?maxRetries) = cloud { return swap updater }
-        member __.Force(value) = cloud { return force value }
-        member __.Dispose () = cloud { return container := None }
+        member __.Value = local { return Option.get container.Value }
+        member __.Update(updater, ?maxRetries) = local { return swap updater }
+        member __.Force(value) = local { return force value }
+        member __.Dispose () = local { return container := None }
 
 [<Sealed; AutoSerializable(false)>]
 type InMemoryAtomProvider () =
@@ -75,14 +75,14 @@ type InMemoryChannelProvider () =
                 {
                     new ISendPort<'T> with
                         member __.Id = id
-                        member __.Send(msg : 'T) = cloud { return mbox.Post msg }
+                        member __.Send(msg : 'T) = local { return mbox.Post msg }
                 }
 
             let receiver =
                 {
                     new IReceivePort<'T> with
                         member __.Id = id
-                        member __.Receive(?timeout : int) = cloud { return! Cloud.OfAsync <| mbox.Receive(?timeout = timeout) }
+                        member __.Receive(?timeout : int) = local { return! Cloud.OfAsync <| mbox.Receive(?timeout = timeout) }
                         member __.Dispose() = raise <| new NotSupportedException()
                 }
 

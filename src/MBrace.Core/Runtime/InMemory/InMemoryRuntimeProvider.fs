@@ -16,7 +16,7 @@ type InMemoryTask<'T> internal (task : Task<'T>) =
     interface ICloudTask<'T> with
         member __.Id = sprintf ".NET task %d" task.Id
         member __.AwaitResult(?timeoutMilliseconds:int) = Cloud.AwaitTask(task, ?timeoutMilliseconds = timeoutMilliseconds)
-        member __.TryGetResult () = cloud { return task.TryGetResult() }
+        member __.TryGetResult () = local { return task.TryGetResult() }
         member __.Status = task.Status
         member __.IsCompleted = task.IsCompleted
         member __.IsFaulted = task.IsFaulted
@@ -63,7 +63,7 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
 
 /// .NET ThreadPool runtime provider
 [<Sealed; AutoSerializable(false)>]
-type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : FaultPolicy, logger : ICloudLogger) =
+type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger) =
 
     static let mkNestedCts (ct : ICloudCancellationToken) = 
         InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
@@ -80,7 +80,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
             | None -> { new ICloudLogger with member __.Log _ = () }
 
         let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.NoRetry
-        new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger)
+        new ThreadPoolRuntime(faultPolicy, logger)
         
     interface ICloudRuntimeProvider with
         member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
@@ -97,12 +97,12 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
 
         member __.CurrentWorker = raise <| new System.NotSupportedException("'CurrentWorker' not supported in InMemory runtime.")
 
-        member __.SchedulingContext = context
-        member __.WithSchedulingContext newContext =
-            new ThreadPoolRuntime(newContext, faultPolicy, logger) :> ICloudRuntimeProvider
+//        member __.SchedulingContext = context
+//        member __.WithSchedulingContext newContext =
+//            new ThreadPoolRuntime(newContext, faultPolicy, logger) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(context, newFp, logger) :> ICloudRuntimeProvider
+        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, logger) :> ICloudRuntimeProvider
 
         member __.ScheduleParallel computations = 
             let computations =
@@ -114,9 +114,7 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
                         c)
                 |> Seq.toArray
 
-            match context with
-            | Sequential -> Sequential.Parallel computations
-            | _ -> ThreadPool.Parallel (mkNestedCts, computations)
+            ThreadPool.Parallel(mkNestedCts, computations)
 
         member __.ScheduleChoice computations = 
             let computations =
@@ -128,14 +126,15 @@ type ThreadPoolRuntime private (context : SchedulingContext, faultPolicy : Fault
                         c)
                 |> Seq.toArray
 
-            match context with
-            | Sequential -> Sequential.Choice computations
-            | _ -> ThreadPool.Choice (mkNestedCts, computations)
+            ThreadPool.Choice(mkNestedCts, computations)
 
-        member __.ScheduleStartAsTask (workflow:Cloud<'T>, faultPolicy:FaultPolicy, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
+        member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, computations)
+        member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts, computations)
+
+        member __.ScheduleStartAsTask (workflow:Workflow<'T>, faultPolicy:FaultPolicy, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
             let! resources = Cloud.GetResourceRegistry()
-            let runtimeP = new ThreadPoolRuntime(ThreadParallel, faultPolicy, logger) 
+            let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
             let resources' = resources.Register (runtimeP :> ICloudRuntimeProvider)
             let task = Cloud.StartAsTask(workflow, resources', cancellationToken)
             return new InMemoryTask<'T>(task) :> _

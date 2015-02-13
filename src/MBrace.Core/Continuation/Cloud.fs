@@ -15,11 +15,23 @@ open MBrace.Continuation
 // to avoid capturing local-only state in closures. In other words, this means that
 // cloud workflows form a continuation over reader monad.
 
+[<AbstractClass>] type SchedulingContext internal () = class end
+[<AbstractClass>] type Distributed private () = inherit SchedulingContext()
+[<AbstractClass>] type Local private () = inherit SchedulingContext()
+
+[<AbstractClass>]
+type Workflow<'T> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
+    member internal __.Body = body
+
+
+[<Sealed; AutoSerializable(true)>]
+type Workflow<'Ctx, 'T when 'Ctx :> SchedulingContext> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
+    inherit Workflow<'T>(body)
+
+type Local<'T> = Workflow<Local, 'T>
 /// Representation of a cloud computation, which, when run 
 /// will produce a value of type 'T, or raise an exception.
-[<Sealed; AutoSerializable(true)>]
-type Cloud<'T> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
-    member internal __.Body = body
+type Cloud<'T> = Workflow<Distributed, 'T>
 
 /// Adding this attribute to a let-binding marks that
 /// the value definition contains cloud expressions.
@@ -32,4 +44,4 @@ type NoWarnAttribute() = inherit System.Attribute()
 /// Denotes handle to a distributable resource that can be disposed of.
 type ICloudDisposable =
     /// Releases any storage resources used by this object.
-    abstract Dispose : unit -> Cloud<unit>
+    abstract Dispose : unit -> Local<unit>

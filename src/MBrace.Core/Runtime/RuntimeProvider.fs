@@ -40,16 +40,16 @@ type ICloudRuntimeProvider =
     /// <param name="newPolicy">new fault policy.</param>
     abstract WithFaultPolicy : newPolicy:FaultPolicy -> ICloudRuntimeProvider
 
-    /// <summary>
-    ///     Creates a new scheduler instance with updated scheduling context
-    /// </summary>
-    /// <param name="newContext">new scheduling context</param>
-    abstract WithSchedulingContext : newContext:SchedulingContext -> ICloudRuntimeProvider
-
-    /// <summary>
-    ///     Gets the current scheduling context.
-    /// </summary>
-    abstract SchedulingContext : SchedulingContext
+//    /// <summary>
+//    ///     Creates a new scheduler instance with updated scheduling context
+//    /// </summary>
+//    /// <param name="newContext">new scheduling context</param>
+//    abstract WithSchedulingContext : newContext:SchedulingContext -> ICloudRuntimeProvider
+//
+//    /// <summary>
+//    ///     Gets the current scheduling context.
+//    /// </summary>
+//    abstract SchedulingContext : SchedulingContext
 
     /// Specifies whether runtime supports submission of tasks to specific worker nodes
     abstract IsTargetedWorkerSupported : bool
@@ -58,13 +58,25 @@ type ICloudRuntimeProvider =
     ///     Parallel fork/join implementation.
     /// </summary>
     /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
-    abstract ScheduleParallel : computations:seq<Cloud<'T> * IWorkerRef option> -> Cloud<'T []>
+    abstract ScheduleParallel : computations:seq<#Workflow<'T> * IWorkerRef option> -> Cloud<'T []>
 
     /// <summary>
     ///     Parallel nondeterministic choice implementation.
     /// </summary>
     /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
-    abstract ScheduleChoice : computations:seq<Cloud<'T option> * IWorkerRef option> -> Cloud<'T option>
+    abstract ScheduleChoice : computations:seq<#Workflow<'T option> * IWorkerRef option> -> Cloud<'T option>
+
+    /// <summary>
+    ///     Parallel fork/join implementation.
+    /// </summary>
+    /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
+    abstract ScheduleLocalParallel : computations:seq<Local<'T>> -> Local<'T []>
+
+    /// <summary>
+    ///     Parallel nondeterministic choice implementation.
+    /// </summary>
+    /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
+    abstract ScheduleLocalChoice : computations:seq<Local<'T option>> -> Local<'T option>
 
     /// <summary>
     ///     Start a new computation as a cloud task. 
@@ -73,4 +85,4 @@ type ICloudRuntimeProvider =
     /// <param name="faultPolicy">Fault policy for new task.</param>
     /// <param name="cancellationToken">Cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>
-    abstract ScheduleStartAsTask : workflow:Cloud<'T> * faultPolicy:FaultPolicy * cancellationToken:ICloudCancellationToken * ?target:IWorkerRef -> Cloud<ICloudTask<'T>>
+    abstract ScheduleStartAsTask : workflow:Workflow<'T> * faultPolicy:FaultPolicy * cancellationToken:ICloudCancellationToken * ?target:IWorkerRef -> Cloud<ICloudTask<'T>>
