@@ -1,5 +1,7 @@
 ## MBrace.Core
 
+[![Join the chat at https://gitter.im/mbraceproject/MBrace.Core](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/mbraceproject/MBrace.Core?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 This repository contains the foundations for the MBrace programming model and runtimes.
 
 Prerelease packages are available on Nuget [[1](http://www.nuget.org/packages/MBrace.Core),[2](http://www.nuget.org/packages/MBrace.Runtime.Core)].
