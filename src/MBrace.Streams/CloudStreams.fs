@@ -398,7 +398,7 @@ module CloudStream =
         // Phase 1
         let shuffling = 
             cloud {
-                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) =  CloudVector.Merge [| left ; right |]
+                let combiner' (left : _ []) (right : _ []) =  Array.append left right 
                 let! totalWorkers = match stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
                                                   (fun keyValues -> cloud {
@@ -407,24 +407,13 @@ module CloudStream =
                                                             let! values = CloudVector.New(value, maxCloudVectorPartitionSize, enableCaching = false)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) 
-                                                        return! CloudVector.New(values, maxCloudVectorPartitionSize, enableCaching = false) }) combiner'
+                                                        return Seq.toArray values }) combiner'
                 
-                let! kva = keyValueArray.ToEnumerable()
                 let merged =
-                    kva
+                    keyValueArray
                     |> Seq.groupBy fst
                     |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> CloudVector.Merge)
                     |> Seq.toArray
-//                let dict = 
-//                    let dict = new Dictionary<int, CloudVector<'Key * 'State>>()
-//                    for (key, value) in kva do
-//                        let mutable grouping = Unchecked.defaultof<_>
-//                        if dict.TryGetValue(key, &grouping) then
-//                            dict.[key] <- grouping.Merge(value)
-//                        else
-//                             dict.[key] <- value
-//                    dict
-//                let keyValues = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) |> Seq.toArray 
                 return merged
             }
         let reducerf = cloud {
