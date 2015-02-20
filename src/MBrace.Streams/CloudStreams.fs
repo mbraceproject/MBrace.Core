@@ -415,16 +415,6 @@ module CloudStream =
                     |> Seq.groupBy fst
                     |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> CloudVector.Merge)
                     |> Seq.toArray
-//                let dict = 
-//                    let dict = new Dictionary<int, CloudVector<'Key * 'State>>()
-//                    for (key, value) in kva do
-//                        let mutable grouping = Unchecked.defaultof<_>
-//                        if dict.TryGetValue(key, &grouping) then
-//                            dict.[key] <- grouping.Merge(value)
-//                        else
-//                             dict.[key] <- value
-//                    dict
-//                let keyValues = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) |> Seq.toArray 
                 return merged
             }
         let reducerf = cloud {
