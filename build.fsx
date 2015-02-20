@@ -199,8 +199,8 @@ Target "NuGet.Runtime.Core" (fun _ ->
             Dependencies = 
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
-                    ("FsPickler", "1.0.7")
-                    ("Vagabond", "0.3.0")
+                    ("FsPickler", "1.0.11")
+                    ("Vagabond", "0.3.2")
                     ("NUnit", "2.6.3")
                     ("FsCheck", "1.0.4")
                 ]
