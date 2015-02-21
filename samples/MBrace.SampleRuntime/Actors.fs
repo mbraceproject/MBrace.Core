@@ -422,12 +422,12 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
 
     interface ICloudTask<'T> with
         member c.Id = id
-        member c.AwaitResult(?timeout:int) = cloud {
+        member c.AwaitResult(?timeout:int) = local {
             let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
             return r.Value
         }
 
-        member c.TryGetResult() = cloud {
+        member c.TryGetResult() = local {
             let! r = Cloud.OfAsync <| c.TryGetResult()
             return r |> Option.map (fun r -> r.Value)
         }
@@ -711,7 +711,7 @@ type Channel<'T> private (id : string, source : ActorRef<ChannelMsg<'T>>) =
     interface IReceivePort<'T> with
         member __.Id = id
         member __.Receive(?timeout : int) = Cloud.OfAsync <| async { return! source.PostWithReply(Receive, ?timeout = timeout) }
-        member __.Dispose () = cloud.Zero()
+        member __.Dispose () = local.Zero()
 
     interface ISendPort<'T> with
         member __.Id = id

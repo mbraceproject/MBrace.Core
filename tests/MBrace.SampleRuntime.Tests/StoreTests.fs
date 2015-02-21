@@ -19,8 +19,8 @@ type ``SampleRuntime FileStore Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.Run (workflow : Workflow<'T>) = session.Runtime.Run workflow
+    override __.RunLocal(workflow : Workflow<'T>) = session.Runtime.RunLocal workflow
     override __.FileStoreClient = session.Runtime.StoreClient.FileStore
     override __.IsCachingStore = true
 
@@ -36,8 +36,8 @@ type ``SampleRuntime Atom Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.Run (workflow : Workflow<'T>) = session.Runtime.Run workflow
+    override __.RunLocal(workflow : Workflow<'T>) = session.Runtime.RunLocal workflow
     override __.AtomClient = session.Runtime.StoreClient.Atom
 #if DEBUG
     override __.Repeats = 10
@@ -56,6 +56,6 @@ type ``SampleRuntime Channel Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.Run (workflow : Workflow<'T>) = session.Runtime.Run workflow
+    override __.RunLocal(workflow : Workflow<'T>) = session.Runtime.RunLocal workflow
     override __.ChannelClient = session.Runtime.StoreClient.Channel

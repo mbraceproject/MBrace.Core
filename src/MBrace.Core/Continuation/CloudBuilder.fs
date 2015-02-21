@@ -289,6 +289,7 @@ type LocalBuilder () =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module CloudBuilder =
 
+    /// workflow-invariant builder instance
     let internal wfb = new WorkflowBuilder()
         
     /// cloud builder instance

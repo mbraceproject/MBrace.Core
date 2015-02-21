@@ -17,7 +17,7 @@ type WorkerCacheState = IWorkerRef * int []
 [<AbstractClass>]
 type CloudVector<'T> () =
     /// Gets the total element count for the cloud vector.
-    abstract Count : Cloud<int64>
+    abstract Count : Local<int64>
     /// Gets the partition count for cloud vector.
     abstract PartitionCount : int
     /// Gets all partitions of contained in the vector.
@@ -28,15 +28,15 @@ type CloudVector<'T> () =
     abstract Item : int -> CloudSequence<'T> with get
     /// Returns a local enumerable that iterates through
     /// all elements of the cloud vector.
-    abstract ToEnumerable : unit -> Cloud<seq<'T>>
+    abstract ToEnumerable : unit -> Local<seq<'T>>
     /// Gets the cache support status for cloud vector instance.
     abstract IsCachingSupported : bool
     /// Gets the current cache state of the vector inside the cluster.
-    abstract GetCacheState : unit -> Cloud<WorkerCacheState []>
+    abstract GetCacheState : unit -> Local<WorkerCacheState []>
     /// Updates the cache state to include provided indices for given worker ref.
-    abstract UpdateCacheState : worker:IWorkerRef * appendedIndices:int[] -> Cloud<unit>
+    abstract UpdateCacheState : worker:IWorkerRef * appendedIndices:int[] -> Local<unit>
 
-    abstract Dispose : unit -> Cloud<unit>
+    abstract Dispose : unit -> Local<unit>
 
     interface ICloudDisposable with
         member __.Dispose () = __.Dispose()
@@ -52,15 +52,14 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
         | Some cm -> cm
         
 
-    override __.Count = cloud {
+    override __.Count = local {
         match elementCount with
         | Some c -> return c
         | None ->
             let! counts =
                 partitions
                 |> Seq.map (fun p -> p.Count)
-                |> Cloud.Parallel
-                |> Cloud.ToLocal
+                |> Cloud.LocalParallel
 
             let count = counts |> Array.sumBy int64
             elementCount <- Some count
@@ -71,14 +70,14 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
     override __.GetAllPartitions () = partitions
     override __.GetPartition i = partitions.[i]
     override __.Item with get i = partitions.[i]
-    override __.ToEnumerable() = cloud {
+    override __.ToEnumerable() = local {
         return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
     }
 
     override __.IsCachingSupported = Option.isSome cacheMap
     override __.GetCacheState () = getCacheMap().Value |> Cloud.map (fun m -> m |> Seq.map (function KeyValue(w,is) -> (w,is)) |> Seq.toArray)
 
-    override __.UpdateCacheState(worker : IWorkerRef, appendedIndices : int []) = cloud {
+    override __.UpdateCacheState(worker : IWorkerRef, appendedIndices : int []) = local {
         let cacheMap = getCacheMap()
         let updater (state : Map<IWorkerRef, int[]>) =
             let indices =
@@ -91,12 +90,11 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
         return! cacheMap.Update updater
     }
 
-    override __.Dispose() = cloud {
+    override __.Dispose() = local {
         return!
             partitions
             |> Array.map (fun p -> (p :> ICloudDisposable).Dispose())
-            |> Cloud.Parallel
-            |> Cloud.ToLocal
+            |> Cloud.LocalParallel
             |> Cloud.Ignore
     }
 
@@ -126,13 +124,13 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
 
     member internal __.Components = components
 
-    override __.Count = cloud {
+    override __.Count = local {
         let! counts = components |> Sequential.map (fun c -> c.Count)
         return Array.sum counts
     }
 
     override __.PartitionCount = components |> Array.sumBy(fun c -> c.PartitionCount)
-    override __.ToEnumerable() = cloud {
+    override __.ToEnumerable() = local {
         return! components |> Sequential.lazyCollect(fun p -> p.ToEnumerable())
     }
 
@@ -141,8 +139,8 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
     override __.Item with get i = let ci, pi = global2Local i in components.[ci].[pi]
 
     override __.IsCachingSupported = components |> Array.forall(fun c -> c.IsCachingSupported)
-    override __.GetCacheState() = cloud {
-        let getComponentCacheState (ci : int) (c : CloudVector<'T>) = cloud {
+    override __.GetCacheState() = local {
+        let getComponentCacheState (ci : int) (c : CloudVector<'T>) = local {
             let! state = c.GetCacheState()
             // transform indices before returning
             return state |> Array.map (fun (w,is) -> w, is |> Array.map (fun i -> local2Global (ci, i)))
@@ -151,8 +149,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
         let! states =
             components
             |> Seq.mapi getComponentCacheState
-            |> Cloud.Parallel
-            |> Cloud.ToLocal
+            |> Cloud.LocalParallel
 
         return
             states
@@ -162,7 +159,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
             |> Seq.toArray
     }
 
-    override __.UpdateCacheState(w : IWorkerRef, indices : int[]) = cloud {
+    override __.UpdateCacheState(w : IWorkerRef, indices : int[]) = local {
         let groupedIndices =
             indices
             |> Seq.map global2Local
@@ -173,17 +170,15 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
         do!
             groupedIndices
             |> Seq.map (fun (ci, iss) -> components.[ci].UpdateCacheState(w, iss))
-            |> Cloud.Parallel
-            |> Cloud.ToLocal
+            |> Cloud.LocalParallel
             |> Cloud.Ignore
     }
 
-    override __.Dispose () = cloud {
+    override __.Dispose () = local {
         do!
             components
             |> Seq.map (fun c -> c.Dispose())
-            |> Cloud.Parallel
-            |> Cloud.ToLocal
+            |> Cloud.LocalParallel
             |> Cloud.Ignore
     }
             

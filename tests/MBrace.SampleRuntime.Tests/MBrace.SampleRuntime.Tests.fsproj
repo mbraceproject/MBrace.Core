@@ -59,9 +59,9 @@
     <Compile Include="Utils.fs" />
     <Compile Include="ParallelismTests.fs" />
     <Compile Include="StoreTests.fs" />
-    <Compile Include="StreamsTests.fs" />
-    <Compile Include="CSharpTestsDriver.fs" />
-    <Compile Include="CSharpStreamsTestsDriver.fs" />
+    <None Include="StreamsTests.fs" />
+    <None Include="CSharpTestsDriver.fs" />
+    <None Include="CSharpStreamsTestsDriver.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>

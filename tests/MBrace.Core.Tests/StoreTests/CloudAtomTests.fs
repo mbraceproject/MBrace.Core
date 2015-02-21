@@ -23,9 +23,9 @@ type ``CloudAtom Tests`` (nParallel : int) as self =
         with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
-    abstract Run : Cloud<'T> -> 'T
+    abstract Run : Workflow<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocal : Cloud<'T> -> 'T
+    abstract RunLocal : Workflow<'T> -> 'T
     /// Local store client instance
     abstract AtomClient : CloudAtomClient
     /// Maximum number of repeats to run nondeterministic tests

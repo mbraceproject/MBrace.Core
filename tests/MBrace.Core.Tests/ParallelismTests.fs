@@ -24,16 +24,16 @@ type ``Parallelism Tests`` (nParallel : int) as self =
 
     let repeat f = repeat self.Repeats f
 
-    let run (workflow : Cloud<'T>) = self.Run workflow
-    let runCts (workflow : ICloudCancellationTokenSource -> Cloud<'T>) = self.Run workflow
-    let runLocal (workflow : Cloud<'T>) = self.RunLocal workflow
+    let run (workflow : Workflow<'T>) = self.Run workflow
+    let runCts (workflow : ICloudCancellationTokenSource -> #Workflow<'T>) = self.Run workflow
+    let runLocal (workflow : Workflow<'T>) = self.RunLocal workflow
     
     /// Run workflow in the runtime under test
-    abstract Run : workflow:Cloud<'T> -> Choice<'T, exn>
+    abstract Run : workflow:Workflow<'T> -> Choice<'T, exn>
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
-    abstract Run : workflow:(ICloudCancellationTokenSource -> Cloud<'T>) -> Choice<'T, exn>
+    abstract Run : workflow:(ICloudCancellationTokenSource -> #Workflow<'T>) -> Choice<'T, exn>
     /// Evaluate workflow in the local test process
-    abstract RunLocal : workflow:Cloud<'T> -> 'T
+    abstract RunLocal : workflow:Workflow<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck
     abstract FsCheckMaxTests : int
     /// Maximum number of repeats to run nondeterministic tests
@@ -201,36 +201,19 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             counter.Value |> runLocal |> shouldEqual 0)
 
     [<Test>]
-    member __.``1. Parallel : to local`` () =
+    member __.``1. Parallel : local`` () =
         repeat(fun () ->
             // check local semantics are forced by using ref cells.
-            cloud {
+            local {
                 let counter = ref 0
-                let seqWorker _ = cloud {
+                let seqWorker _ = local {
                     do! Cloud.Sleep 10
                     Interlocked.Increment counter |> ignore
                 }
 
-                let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.ToLocal
+                let! results = Array.init 100 seqWorker |> Cloud.LocalParallel
                 return counter.Value
             } |> run |> Choice.shouldEqual 100)
-
-    [<Test>]
-    member __.``1. Parallel : to sequential`` () =
-        repeat(fun () ->
-            // check sequential semantics are forced by deliberately
-            // making use of code that is not thread-safe.
-            cloud {
-                let counter = ref 0
-                let seqWorker _ = cloud {
-                    let init = !counter + 1
-                    counter := init
-                    return !counter = init
-                }
-
-                let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.ToSequential
-                return Array.forall id results
-            } |> run |> Choice.shouldEqual true)
 
     [<Test>]
     member __.``1. Parallel : MapReduce recursive`` () =
@@ -247,7 +230,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         let checker (ints : int list) =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints
-            |> Distributed.map (fun i -> cloud { return i + 1})
+            |> Distributed.map (fun i -> local { return i + 1})
             |> run
             |> Choice.shouldEqual expected
 
@@ -258,7 +241,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints
-            |> Distributed.filter (fun i -> cloud { return i % 5 = 0 || i % 7 = 0 })
+            |> Distributed.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 })
             |> run
             |> Choice.shouldEqual expected
 
@@ -269,7 +252,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
             ints
-            |> Distributed.choose (fun i -> cloud { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
+            |> Distributed.choose (fun i -> local { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected
 
@@ -291,7 +274,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         let checker (ints : int list) =
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> set
             ints
-            |> Distributed.collect (fun i -> cloud { return [(i,1) ; (i,2) ; (i,3)] })
+            |> Distributed.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
             |> run
             |> Choice.shouldBe (fun r -> set r = expected)
 
@@ -316,16 +299,6 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                     let! results = Cloud.Parallel [(Cloud.CurrentWorker, thisWorker)]
                     return results.[0] = thisWorker
                 } |> run |> Choice.shouldEqual true)
-
-    [<Test>]
-    member __.``1. Parallel : to all workers in local semantics`` () =
-        if __.IsTargetWorkerSupported then
-            Cloud.CurrentWorker
-            |> Cloud.Parallel
-            |> Cloud.ToLocal
-            |> run
-            |> Choice.shouldFailwith<_, InvalidOperationException>
-
 
     [<Test>]
     member __.``2. Choice : empty input`` () =
@@ -456,13 +429,13 @@ type ``Parallelism Tests`` (nParallel : int) as self =
             counter.Value |> runLocal |> shouldEqual 0)
 
     [<Test>]
-    member __.``2. Choice : to local`` () =
+    member __.``2. Choice : local`` () =
         repeat(fun () ->
             let nParallel = nParallel
             // check local semantics are forced by using ref cells.
-            cloud {
+            local {
                 let counter = ref 0
-                let seqWorker i = cloud {
+                let seqWorker i = local {
                     if i = nParallel / 2 then
                         do! Cloud.Sleep 100
                         return Some i
@@ -471,39 +444,17 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                         return None
                 }
 
-                let! result = Array.init nParallel seqWorker |> Cloud.Choice |> Cloud.ToLocal
+                let! result = Array.init nParallel seqWorker |> Cloud.LocalChoice
                 counter.Value |> shouldEqual (nParallel - 1)
                 return result
             } |> run |> Choice.shouldEqual (Some (nParallel / 2)))
-
-    [<Test>]
-    member __.``2. Choice : to Sequential`` () =
-        repeat(fun () ->
-            // check sequential semantics are forced by deliberately
-            // making use of code that is not thread-safe.
-            cloud {
-                let counter = ref 0
-                let seqWorker i = cloud {
-                    let init = !counter + 1
-                    counter := init
-                    do! Cloud.Sleep 10
-                    !counter |> shouldEqual init
-                    if i = 16 then
-                        return Some ()
-                    else
-                        return None
-                }
-
-                let! result = Array.init 20 seqWorker |> Cloud.Choice |> Cloud.ToSequential
-                return result, !counter
-            } |> run |> Choice.shouldEqual (Some(), 17))
 
     [<Test>]
     member __.``2. Choice : Distributed.tryFind`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
             ints
-            |> Distributed.tryFind (fun i -> cloud { return i % 7 = 0 && i % 5 = 0 })
+            |> Distributed.tryFind (fun i -> local { return i % 7 = 0 && i % 5 = 0 })
             |> run
             |> Choice.shouldBe(function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 
@@ -514,7 +465,7 @@ type ``Parallelism Tests`` (nParallel : int) as self =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
             ints
-            |> Distributed.tryPick (fun i -> cloud { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
+            |> Distributed.tryPick (fun i -> local { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
             |> run
             |> Choice.shouldBe (function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 
@@ -541,15 +492,6 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                     let! results = Cloud.Choice [(cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
                     return results.Value = thisWorker
                 } |> run |> Choice.shouldEqual true)
-
-    [<Test>]
-    member __.``2. Choice : to all workers in local semantics`` () =
-        if __.IsTargetWorkerSupported then
-            cloud { return Some 42 }
-            |> Cloud.Choice
-            |> Cloud.ToLocal
-            |> run
-            |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
     member __.``3. StartAsTask: task with success`` () =
@@ -625,18 +567,6 @@ type ``Parallelism Tests`` (nParallel : int) as self =
                 } |> run |> Choice.shouldEqual true)
 
     [<Test>]
-    member __.``3. StartAsTask: in local semantics`` () =
-        cloud {
-            let tworkflow = cloud {
-                do! Cloud.Sleep 3000
-                return 42
-            }
-            let! cts = Cloud.CreateCancellationTokenSource()
-            let! ttask,_ = Cloud.ToLocal(Cloud.StartAsCloudTask(tworkflow, cancellationToken = cts.Token)) <||> cloud.Zero()
-            return! Cloud.AwaitCloudTask ttask
-        } |> run |> Choice.shouldEqual 42
-
-    [<Test>]
     member __.``3. StartAsTask: await with timeout`` () =
         repeat(fun () ->
             cloud {
@@ -708,25 +638,13 @@ type ``Parallelism Tests`` (nParallel : int) as self =
 
     [<Test>]
     member __.``4. Cancellation token: local semantics`` () =
-        cloud {
-            let! (ct0, _), (ct1, _) = 
-                Cloud.ToLocal(
-                    (Cloud.CancellationToken <||> cloud.Zero()) 
-                        <||> 
-                    (Cloud.CancellationToken <||> cloud.Zero()))
+        local {
+            let! cts = 
+                let cp = Cloud.LocalParallel [ Cloud.CancellationToken ; Cloud.CancellationToken ]
+                Cloud.LocalParallel [cp ; cp]
 
-            ct0.IsCancellationRequested |> shouldEqual true
-            ct1.IsCancellationRequested |> shouldEqual true
-        } |> run |> Choice.shouldEqual ()
-
-    [<Test>]
-    member __.``4. Cancellation token: distributed cancellation created inside local semantics`` () =
-        cloud {
-            let! (ct0, _), (ct1, _) = 
-                Cloud.ToLocal(Cloud.CancellationToken <||> cloud.Zero()) 
-                    <||> 
-                Cloud.ToLocal(Cloud.CancellationToken <||> cloud.Zero())
-
-            ct0.IsCancellationRequested |> shouldEqual true
-            ct1.IsCancellationRequested |> shouldEqual true
+            cts
+            |> Array.concat
+            |> Array.forall (fun ct -> ct.IsCancellationRequested)
+            |> shouldEqual true
         } |> run |> Choice.shouldEqual ()

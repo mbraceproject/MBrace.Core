@@ -19,7 +19,7 @@ let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
+let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq<#Workflow<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -77,7 +77,7 @@ let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>) =
+let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<#Workflow<'T option> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -147,7 +147,7 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<C
             JobExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartAsCloudTask (state : RuntimeState) procInfo dependencies (ct : ICloudCancellationToken) fp worker (computation : Cloud<'T>) = cloud {
+let StartAsCloudTask (state : RuntimeState) procInfo dependencies (ct : ICloudCancellationToken) fp worker (computation : Workflow<'T>) = cloud {
     let dcts = ct :?> DistributedCancellationTokenSource
     return! Cloud.OfAsync <| state.StartAsTask procInfo dependencies dcts fp worker computation
 }

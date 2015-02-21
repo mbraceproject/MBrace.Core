@@ -61,6 +61,21 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
 
         new InMemoryCancellationTokenSource(lcts)
 
+[<AutoSerializable(false)>]
+type internal InMemoryWorker private () =
+    static let singleton = new InMemoryWorker()
+    let name = System.Net.Dns.GetHostName()
+    interface IWorkerRef with
+        member __.Type = "InMemory worker"
+        member __.Id = name
+        member __.CompareTo(other : obj) =
+            match other with
+            | :? InMemoryWorker -> 0
+            | :? IWorkerRef as wr -> compare name wr.Id
+            | _ -> invalidArg "other" "invalid comparand."
+
+    static member Instance = singleton
+
 /// .NET ThreadPool runtime provider
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger) =
@@ -92,14 +107,10 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false
         member __.GetAvailableWorkers () = async {
-            return raise <| new System.NotSupportedException("'GetAvailableWorkers' not supported in InMemory runtime.")
+            return [| InMemoryWorker.Instance :> IWorkerRef |]
         }
 
-        member __.CurrentWorker = raise <| new System.NotSupportedException("'CurrentWorker' not supported in InMemory runtime.")
-
-//        member __.SchedulingContext = context
-//        member __.WithSchedulingContext newContext =
-//            new ThreadPoolRuntime(newContext, faultPolicy, logger) :> ICloudRuntimeProvider
+        member __.CurrentWorker = InMemoryWorker.Instance :> IWorkerRef
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, logger) :> ICloudRuntimeProvider
