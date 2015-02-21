@@ -38,6 +38,9 @@ type CloudRef<'T> =
         return serializer.Deserialize<'T>(stream, leaveOpen = false)
     }
 
+    /// Path to cloud ref payload in store
+    member r.Path = r.path
+
     /// Dereference the cloud ref
     member r.Value = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
