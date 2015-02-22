@@ -211,7 +211,7 @@ type CloudSequence =
     /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member Parse<'T>(path : string, ?serializer, ?force) : Local<CloudSequence<'T>> = local {
+    static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool) : Cloud<CloudSequence<'T>> = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let force = defaultArg force false
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
@@ -227,7 +227,7 @@ type CloudSequence =
     /// <param name="file">Target local file.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member Parse<'T>(file : CloudFile, ?serializer, ?force) : Local<CloudSequence<'T>> =
+    static member Parse<'T>(file : CloudFile, ?serializer : ISerializer, ?force : bool) : Cloud<CloudSequence<'T>> =
         CloudSequence.Parse<'T>(file, ?serializer = serializer, ?force = force)
 
     /// <summary>
@@ -236,7 +236,7 @@ type CloudSequence =
     /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : Local<CloudSequence<'T>> = local {
+    static member FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force : bool) : Cloud<CloudSequence<'T>> = cloud {
         let serializer =
             {
                 new ISerializer with

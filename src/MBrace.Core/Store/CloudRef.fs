@@ -38,8 +38,11 @@ type CloudRef<'T> =
         return serializer.Deserialize<'T>(stream, leaveOpen = false)
     }
 
-    /// Dereference the local ref
-    member r.Value = local {
+    /// Path to cloud ref payload in store
+    member r.Path = r.path
+
+    /// Dereference the cloud ref
+    member r.Value = cloud {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
         | Some v -> return v :?> 'T
