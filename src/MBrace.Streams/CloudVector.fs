@@ -1,5 +1,6 @@
 ﻿namespace MBrace.Streams
 
+open System.IO
 open System.Collections.Generic
 
 open MBrace
@@ -38,6 +39,7 @@ type CloudVector<'T> () =
     interface ICloudDisposable with
         member __.Dispose () = __.Dispose()
 
+/// Cloud vector implementation that keeps cache information in a single cloud atom
 type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : CloudSequence<'T> [], cacheMap : ICloudAtom<Map<IWorkerRef, int[]>> option) =
     inherit CloudVector<'T> ()
 
@@ -97,6 +99,7 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
             |> Cloud.Ignore
     }
 
+/// Cloud vector implementation that results from concatennation of multiple cloudvectors
 type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
     inherit CloudVector<'T> ()
 
@@ -184,9 +187,14 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
             |> Cloud.Ignore
     }
             
-
+/// Cloud vector static API
 type CloudVector =
 
+    /// <summary>
+    ///     Creates a new CloudVector out of a collection of CloudSequence partitinons
+    /// </summary>
+    /// <param name="partitions">CloudSequences that constitute the vector.</param>
+    /// <param name="enableCaching">Enable in-memory caching of partitions in worker roles. Defaults to true.</param>
     static member OfPartitions(partitions : seq<CloudSequence<'T>>, ?enableCaching : bool) : Cloud<CloudVector<'T>> = cloud {
         let partitions = Seq.toArray partitions
         if Array.isEmpty partitions then invalidArg "partitions" "partitions must be non-empty sequence."
@@ -200,6 +208,26 @@ type CloudVector =
         return new AtomCloudVector<'T>(None, partitions, cacheAtom) :> CloudVector<'T>
     }
 
+    /// <summary>
+    ///     Creates a cloudvector instance using a collection of cloud files and provided deserializer method.
+    /// </summary>
+    /// <param name="files">Input file paths.</param>
+    /// <param name="deserializer">Deserializer lambda for given file.</param>
+    /// <param name="enableCaching">Enable in-memory caching for CloudVector instance. Defaults to true.</param>
+    static member OfCloudFiles(files : seq<string>, deserializer : Stream -> seq<'T>, ?enableCaching) = cloud {
+        let! partitions = 
+            files 
+            |> Seq.map (fun f -> CloudSequence.FromFile(f, deserializer, force = false))
+            |> Cloud.Parallel
+            |> Cloud.ToLocal
+
+        return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)
+    }
+
+    /// <summary>
+    ///     Merge a collection of cloud vectors into a single instance.
+    /// </summary>
+    /// <param name="components">CloudVector components.</param>
     static member Merge(components : seq<CloudVector<'T>>) : CloudVector<'T> =
         let components = 
             components
@@ -208,7 +236,13 @@ type CloudVector =
 
         new ConcatenatedCloudVector<'T>(components) :> CloudVector<'T>
 
-
+    
+    /// <summary>
+    ///     Creates a CloudVector in file store using a collection of sequences with specified partition size.
+    /// </summary>
+    /// <param name="values">Inputs values for cloud vector.</param>
+    /// <param name="maxPartitionSize">Maximum size in bytes for each vector partition in file store.</param>
+    /// <param name="enableCaching">Enable caching for cloud vector instance. Defaults to true.</param>
     static member New<'T>(values : seq<'T>, maxPartitionSize : int64, ?enableCaching:bool) : Cloud<CloudVector<'T>> = cloud {
         let! partitions = CloudSequence.NewPartitioned(values, maxPartitionSize)
         return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)
