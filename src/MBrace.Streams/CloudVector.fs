@@ -9,6 +9,7 @@ open MBrace.Workflows
 
 #nowarn "444"
 
+/// Represents the cached indices corresponding to each worker node of the cluster
 type WorkerCacheState = IWorkerRef * int []
 
 /// Represents an ordered collection of values stored in CloudSequence partitions.
@@ -33,7 +34,7 @@ type CloudVector<'T> () =
     abstract GetCacheState : unit -> Cloud<WorkerCacheState []>
     /// Updates the cache state to include provided indices for given worker ref.
     abstract UpdateCacheState : worker:IWorkerRef * appendedIndices:int[] -> Cloud<unit>
-
+    /// Disposes cloud vector from store.
     abstract Dispose : unit -> Cloud<unit>
 
     interface ICloudDisposable with
@@ -158,7 +159,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
             states
             |> Seq.concat
             |> Seq.groupBy fst
-            |> Seq.map (fun (w, css) -> w, css |> Seq.collect (fun (_, is) -> is) |> Seq.distinct |> Seq.toArray)
+            |> Seq.map (fun (w, css) -> w, css |> Seq.collect (fun (_, is) -> is) |> Seq.sort |> Seq.toArray)
             |> Seq.toArray
     }
 
