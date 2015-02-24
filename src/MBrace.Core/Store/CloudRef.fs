@@ -42,7 +42,7 @@ type CloudRef<'T> =
     member r.Path = r.path
 
     /// Dereference the cloud ref
-    member r.Value = cloud {
+    member r.Value = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
         | Some v -> return v :?> 'T

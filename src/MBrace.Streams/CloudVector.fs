@@ -33,9 +33,9 @@ type CloudVector<'T> () =
     /// Gets the current cache state of the vector inside the cluster.
     abstract GetCacheState : unit -> Local<WorkerCacheState []>
     /// Updates the cache state to include provided indices for given worker ref.
-    abstract UpdateCacheState : worker:IWorkerRef * appendedIndices:int[] -> Cloud<unit>
+    abstract UpdateCacheState : worker:IWorkerRef * appendedIndices:int[] -> Local<unit>
     /// Disposes cloud vector from store.
-    abstract Dispose : unit -> Cloud<unit>
+    abstract Dispose : unit -> Local<unit>
 
     interface ICloudDisposable with
         member __.Dispose () = __.Dispose()
@@ -191,10 +191,10 @@ type CloudVector =
     /// </summary>
     /// <param name="partitions">CloudSequences that constitute the vector.</param>
     /// <param name="enableCaching">Enable in-memory caching of partitions in worker roles. Defaults to true.</param>
-    static member OfPartitions(partitions : seq<CloudSequence<'T>>, ?enableCaching : bool) : Cloud<CloudVector<'T>> = cloud {
+    static member OfPartitions(partitions : seq<CloudSequence<'T>>, ?enableCaching : bool) : Local<CloudVector<'T>> = local {
         let partitions = Seq.toArray partitions
         if Array.isEmpty partitions then invalidArg "partitions" "partitions must be non-empty sequence."
-        let! cacheAtom = cloud {
+        let! cacheAtom = local {
             if defaultArg enableCaching true then 
                 let! ca = CloudAtom.New Map.empty<IWorkerRef, int[]>
                 return Some ca
@@ -210,12 +210,12 @@ type CloudVector =
     /// <param name="files">Input file paths.</param>
     /// <param name="deserializer">Deserializer lambda for given file.</param>
     /// <param name="enableCaching">Enable in-memory caching for CloudVector instance. Defaults to true.</param>
-    static member OfCloudFiles(files : seq<string>, deserializer : Stream -> seq<'T>, ?enableCaching) = cloud {
+    static member OfCloudFiles(files : seq<string>, deserializer : Stream -> seq<'T>, ?enableCaching) = local {
         let! partitions = 
             files 
             |> Seq.map (fun f -> CloudSequence.FromFile(f, deserializer, force = false))
-            |> Cloud.Parallel
-            |> Cloud.ToLocal
+            |> Cloud.LocalParallel
+//            |> Cloud.ToLocal
 
         return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)
     }
