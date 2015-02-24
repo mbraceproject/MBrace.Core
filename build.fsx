@@ -34,14 +34,14 @@ let csharpSummary = """
     MBrace programming model API for C#.
 """
 
+let testsSummary = """
+    A collection of abstract NUnit-based test suites for evaluating
+    MBrace runtime implementations.
+"""
+
 let runtimeSummary = """
     MBrace runtime core library containing the foundations
     for implementing distributed runtimes that support cloud workflows.
-"""
-
-let runtimeTestsSummary = """
-    A collection of abstract NUnit-based test suites for evaluating
-    runtime implementations.
 """
 
 // --------------------------------------------------------------------------------------
@@ -272,14 +272,13 @@ Target "NuGet.Runtime.Core" (fun _ ->
         ("nuget/MBrace.nuspec")
 )
 
-
-Target "NuGet.Runtime.Tests" (fun _ ->
+Target "NuGet.Tests" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Runtime.Tests"
-            Summary = runtimeTestsSummary
-            Description = runtimeTestsSummary
+            Project = "MBrace.Tests"
+            Summary = testsSummary
+            Description = testsSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -289,7 +288,6 @@ Target "NuGet.Runtime.Tests" (fun _ ->
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
                     ("MBrace.Streams", RequireExactly release.NugetVersion)
-                    ("MBrace.Runtime.Core", RequireExactly release.NugetVersion)
                     ("NUnit", "2.6.3")
                     ("FsCheck", "1.0.4")
                 ]
@@ -343,8 +341,8 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "NuGet.Streams"
 //  ==> "NuGet.CSharp" // disable for now
 //  ==> "NuGet.Streams.CSharp"
+  ==> "NuGet.Tests"
   ==> "NuGet.Runtime.Core"
-  ==> "NuGet.Runtime.Tests"
   ==> "NuGet"
   ==> "Release"
 

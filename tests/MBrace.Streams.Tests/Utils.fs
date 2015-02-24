@@ -1,6 +1,10 @@
 ﻿namespace MBrace.Streams.Tests
 
 open NUnit.Framework
+open FsCheck
+
+[<System.Runtime.CompilerServices.InternalsVisibleTo("MBrace.Streams.CSharp.Tests")>]
+do()
 
 [<AutoOpen>]
 module Utils =
@@ -46,3 +50,18 @@ module Utils =
             | Choice1Of2 t -> raise <| new AssertionException(sprintf "Expected exception, but was value '%A'." t)
             | Choice2Of2 (:? 'Exn) -> ()
             | Choice2Of2 e -> raise e
+
+type internal Check =
+    static member QuickThrowOnFailureConfig(maxNumber) = { Config.QuickThrowOnFailure with MaxTest = maxNumber }
+
+    /// quick check methods with explicit type annotation
+    static member QuickThrowOnFail<'T> (f : 'T -> unit, ?maxNumber) = 
+        match maxNumber with
+        | None -> Check.QuickThrowOnFailure f
+        | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
+
+    /// quick check methods with explicit type annotation
+    static member QuickThrowOnFail<'T> (f : 'T -> bool, ?maxNumber) = 
+        match maxNumber with
+        | None -> Check.QuickThrowOnFailure f
+        | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)

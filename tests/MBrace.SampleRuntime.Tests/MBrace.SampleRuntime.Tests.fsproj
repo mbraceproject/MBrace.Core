@@ -81,11 +81,6 @@
       <Project>{902bed62-cd5f-4e1d-bc70-b1d83722084b}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\MBrace.Runtime.Core.Tests\MBrace.Runtime.Core.Tests.fsproj">
-      <Name>MBrace.Runtime.Core.Tests</Name>
-      <Project>{b04b2ab2-eb56-4236-aa8e-8a4f9a3ab488}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\MBrace.Streams.CSharp\MBrace.Streams.CSharp.Tests.csproj">
       <Name>MBrace.Streams.CSharp.Tests</Name>
       <Project>{82e2f911-4563-4f05-9451-f2dd73622be1}</Project>
@@ -136,22 +131,6 @@
           <Paket>True</Paket>
         </Reference>
       </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3')">
-    </When>
-    <When Condition="$(TargetFrameworkIdentifier) == 'MonoAndroid'">
-    </When>
-    <When Condition="$(TargetFrameworkIdentifier) == 'MonoTouch'">
-    </When>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETCore') Or ($(TargetFrameworkProfile) == 'Profile7') Or ($(TargetFrameworkProfile) == 'Profile44')">
-    </When>
-    <When Condition="($(TargetFrameworkIdentifier) == 'Silverlight' And $(TargetFrameworkVersion) == 'v5.0') Or ($(TargetFrameworkProfile) == 'Profile24') Or ($(TargetFrameworkProfile) == 'Profile47')">
-    </When>
-    <When Condition="($(TargetFrameworkIdentifier) == 'WindowsPhone' And ($(TargetFrameworkVersion) == 'v8.0' Or $(TargetFrameworkVersion) == 'v8.1')) Or ($(TargetFrameworkProfile) == 'Profile31') Or ($(TargetFrameworkProfile) == 'Profile49') Or ($(TargetFrameworkProfile) == 'Profile78')">
-    </When>
-    <When Condition="($(TargetFrameworkIdentifier) == 'WindowsPhoneApp') Or ($(TargetFrameworkProfile) == 'Profile32') Or ($(TargetFrameworkProfile) == 'Profile84') Or ($(TargetFrameworkProfile) == 'Profile111') Or ($(TargetFrameworkProfile) == 'Profile151') Or ($(TargetFrameworkProfile) == 'Profile157') Or ($(TargetFrameworkProfile) == 'Profile259')">
     </When>
   </Choose>
   <Choose>
