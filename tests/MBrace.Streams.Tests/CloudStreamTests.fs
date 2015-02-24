@@ -12,22 +12,6 @@ open MBrace.Streams
 open MBrace
 open MBrace.Store
 
-
-type Check =
-    static member QuickThrowOnFailureConfig(maxNumber) = { Config.QuickThrowOnFailure with MaxTest = maxNumber }
-
-    /// quick check methods with explicit type annotation
-    static member QuickThrowOnFail<'T> (f : 'T -> unit, ?maxNumber) = 
-        match maxNumber with
-        | None -> Check.QuickThrowOnFailure f
-        | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
-
-    /// quick check methods with explicit type annotation
-    static member QuickThrowOnFail<'T> (f : 'T -> bool, ?maxNumber) = 
-        match maxNumber with
-        | None -> Check.QuickThrowOnFailure f
-        | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
-
 [<TestFixture; AbstractClass>]
 type ``CloudStreams tests`` () as self =
     let run (workflow : Cloud<'T>) = self.Run(workflow)
@@ -394,24 +378,3 @@ type ``CloudStreams tests`` () as self =
                 let y = xs |> Seq.forall (fun n -> n = 0) 
                 x = y
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-
-open MBrace.Runtime.Vagabond
-open MBrace.Runtime.Serialization
-open MBrace.Runtime.Store
-
-
-type ``InMemory CloudStreams tests`` () =
-    inherit ``CloudStreams tests`` ()
-
-    do VagabondRegistry.Initialize(throwOnError = false)
-
-    let fileStore = FileSystemStore.CreateUniqueLocal()
-    let serializer = new FsPicklerBinaryStoreSerializer()
-    let objcache = InMemoryCache.Create()
-    let fsConfig = CloudFileStoreConfiguration.Create(fileStore, serializer, cache = objcache)
-    let imem = MBrace.Client.LocalRuntime.Create(fileConfig = fsConfig)
-
-    override __.Run(workflow : Cloud<'T>) = imem.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = imem.Run workflow
-    override __.FsCheckMaxNumberOfTests = 100
