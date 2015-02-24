@@ -26,13 +26,22 @@ let coreSummary = """
     libraries and local execution tools for authoring distributed code.
 """
 
+let streamsSummary = """
+    MBrace library for distributing streaming computations.
+"""
+
 let csharpSummary = """
     MBrace programming model API for C#.
 """
 
 let runtimeSummary = """
-    The MBrace runtime core library contains the foundations and test suites 
-    for implementing distributed runtime that support cloud workflows.
+    MBrace runtime core library containing the foundations
+    for implementing distributed runtimes that support cloud workflows.
+"""
+
+let runtimeTestsSummary = """
+    A collection of abstract NUnit-based test suites for evaluating
+    runtime implementations.
 """
 
 // --------------------------------------------------------------------------------------
@@ -158,6 +167,32 @@ Target "NuGet.Core" (fun _ ->
         ("nuget/MBrace.nuspec")
 )
 
+Target "NuGet.Streams" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.Streams"
+            Summary = streamsSummary
+            Description = streamsSummary
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = 
+                [
+                    "MBrace.Core", RequireExactly nugetVersion
+                    "Streams", "0.2.9"
+                ]
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.dll"
+                ]
+        })
+        ("nuget/MBrace.nuspec")
+)
+
 Target "NuGet.CSharp" (fun _ ->
     NuGet (fun p -> 
         { p with   
@@ -184,6 +219,32 @@ Target "NuGet.CSharp" (fun _ ->
         ("nuget/MBrace.nuspec")
 )
 
+Target "NuGet.Streams.CSharp" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.Streams.CSharp"
+            Summary = streamsSummary
+            Description = streamsSummary
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = 
+                [
+                    "MBrace.CSharp", RequireExactly nugetVersion
+                    "MBrace.Streams", RequireExactly nugetVersion
+                ]
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.CSharp.dll"
+                ]
+        })
+        ("nuget/MBrace.nuspec")
+)
+
 Target "NuGet.Runtime.Core" (fun _ ->
     NuGet (fun p -> 
         { p with   
@@ -201,14 +262,42 @@ Target "NuGet.Runtime.Core" (fun _ ->
                     ("MBrace.Core", RequireExactly release.NugetVersion)
                     ("FsPickler", "1.0.11")
                     ("Vagabond", "0.3.2")
+                ]
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
+                ]
+        })
+        ("nuget/MBrace.nuspec")
+)
+
+
+Target "NuGet.Runtime.Tests" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.Runtime.Tests"
+            Summary = runtimeTestsSummary
+            Description = runtimeTestsSummary
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = 
+                [
+                    ("MBrace.Core", RequireExactly release.NugetVersion)
+                    ("MBrace.Streams", RequireExactly release.NugetVersion)
+                    ("MBrace.Runtime.Core", RequireExactly release.NugetVersion)
                     ("NUnit", "2.6.3")
                     ("FsCheck", "1.0.4")
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
                     yield! addAssembly @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.Tests.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -251,9 +340,12 @@ Target "Help" (fun _ -> PrintTargets() )
 "Build"
   ==> "PrepareRelease"
   ==> "NuGet.Core"
+  ==> "NuGet.Streams"
 //  ==> "NuGet.CSharp" // disable for now
+//  ==> "NuGet.Streams.CSharp"
   ==> "NuGet.Runtime.Core"
-  ==> "Nuget"
+  ==> "NuGet.Runtime.Tests"
+  ==> "NuGet"
   ==> "Release"
 
 //// start build
