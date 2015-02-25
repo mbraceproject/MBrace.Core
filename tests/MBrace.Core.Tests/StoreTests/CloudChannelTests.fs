@@ -10,7 +10,7 @@ open MBrace.Client
 open NUnit.Framework
 
 [<TestFixture; AbstractClass>]
-type ``CloudChannel Tests`` (nParallel : int) as self =
+type ``CloudChannel Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.Run wf 
     let runLocal wf = self.RunLocal wf
@@ -67,7 +67,7 @@ type ``CloudChannel Tests`` (nParallel : int) as self =
 
     [<Test>]
     member __.``Channels: multiple senders`` () =
-        let nParallel = nParallel
+        let parallelismFactor = parallelismFactor
         cloud {
             let! sp, rp = CloudChannel.New<int> ()
             let sender n = cloud {
@@ -82,7 +82,7 @@ type ``CloudChannel Tests`` (nParallel : int) as self =
                     return! receiver (c + 1) (n - 1)
             }
 
-            let senders = Seq.init nParallel (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
-            let! _,result = senders <||> receiver 0 (nParallel * 10)
+            let senders = Seq.init parallelismFactor (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
+            let! _,result = senders <||> receiver 0 (parallelismFactor * 10)
             return result
-        } |> runRemote |> shouldEqual (nParallel * 10)
+        } |> runRemote |> shouldEqual (parallelismFactor * 10)

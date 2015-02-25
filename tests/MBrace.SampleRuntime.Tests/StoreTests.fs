@@ -9,7 +9,7 @@ open MBrace.SampleRuntime
 open NUnit.Framework
 
 type ``SampleRuntime FileStore Tests`` () =
-    inherit ``FileStore Tests``(nParallel = 10)
+    inherit ``FileStore Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)
 
@@ -26,7 +26,7 @@ type ``SampleRuntime FileStore Tests`` () =
 
 
 type ``SampleRuntime Atom Tests`` () =
-    inherit ``CloudAtom Tests``(nParallel = 10)
+    inherit ``CloudAtom Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)
 
@@ -46,7 +46,7 @@ type ``SampleRuntime Atom Tests`` () =
 #endif
 
 type ``SampleRuntime Channel Tests`` () =
-    inherit ``CloudChannel Tests``(nParallel = 10)
+    inherit ``CloudChannel Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)
 

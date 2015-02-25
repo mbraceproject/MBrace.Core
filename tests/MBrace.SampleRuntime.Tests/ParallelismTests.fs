@@ -15,7 +15,7 @@ open MBrace.SampleRuntime
 open MBrace.SampleRuntime.Actors
 
 type ``SampleRuntime Parallelism Tests`` () as self =
-    inherit ``Parallelism Tests`` (nParallel = 20)
+    inherit ``Parallelism Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
     let session = new RuntimeSession(nodes = 4)
 

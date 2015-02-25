@@ -13,7 +13,7 @@ open MBrace.Client
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``FileStore Tests`` (nParallel : int) as self =
+type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.Run wf 
     let runLocal wf = self.RunLocal wf
@@ -247,7 +247,7 @@ type ``FileStore Tests`` (nParallel : int) as self =
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
 type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
-    inherit ``FileStore Tests`` (nParallel = 100)
+    inherit ``FileStore Tests`` (parallelismFactor = 100)
 
     let imem = LocalRuntime.Create(fileConfig = config)
 
