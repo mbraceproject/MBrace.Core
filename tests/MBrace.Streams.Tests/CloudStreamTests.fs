@@ -215,6 +215,7 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``2. CloudStream : ofCloudFiles with ReadAllLines`` () =
         let f(xs : string [][]) =
+            printfn "START TEST"
             let cfs = xs 
                      |> Array.map(fun text -> CloudFile.WriteAllLines(text))
                      |> Cloud.Parallel
@@ -230,6 +231,7 @@ type ``CloudStreams tests`` () as self =
                         |> Seq.collect id
                         |> Set.ofSeq
 
+            printfn "END TEST"
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, 10)
 
@@ -298,6 +300,15 @@ type ``CloudStreams tests`` () as self =
         let f(xs : int[]) =
             let x = xs |> CloudStream.ofArray |> CloudStream.sortBy id 10 |> CloudStream.toArray |> run
             let y = (xs |> Seq.sortBy id).Take(10).ToArray()
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudStream : take`` () =
+        let f (xs : int[], n : int) =
+            let n = System.Math.Abs(n)
+            let x = xs |> CloudStream.ofArray |> CloudStream.take n |> CloudStream.length |> run
+            let y = xs.Take(n).Count()
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
