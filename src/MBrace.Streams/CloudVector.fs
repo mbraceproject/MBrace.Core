@@ -239,7 +239,7 @@ type CloudVector =
     /// <param name="values">Inputs values for cloud vector.</param>
     /// <param name="maxPartitionSize">Maximum size in bytes for each vector partition in file store.</param>
     /// <param name="enableCaching">Enable caching for cloud vector instance. Defaults to true.</param>
-    static member New<'T>(values : seq<'T>, maxPartitionSize : int64, ?enableCaching:bool) : Cloud<CloudVector<'T>> = cloud {
+    static member New<'T>(values : seq<'T>, maxPartitionSize : int64, ?enableCaching:bool) : Local<CloudVector<'T>> = local {
         let! partitions = CloudSequence.NewPartitioned(values, maxPartitionSize)
         return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)
     }
