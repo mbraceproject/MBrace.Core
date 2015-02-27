@@ -20,7 +20,7 @@ type InMemoryLogTester () =
         member __.Log msg = lock logs (fun () -> logs.Add msg)
 
 type ``ThreadPool Parallelism Tests`` () =
-    inherit ``Parallelism Tests``(parallelismFactor = 100, delayFactor = 200)
+    inherit ``Parallelism Tests``(parallelismFactor = 100, delayFactor = 1000)
 
     let logger = InMemoryLogTester()
     let imem = LocalRuntime.Create(logger = logger)
