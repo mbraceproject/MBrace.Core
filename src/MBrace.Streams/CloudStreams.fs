@@ -549,6 +549,9 @@ module CloudStream =
                             counter <- counter + 1
                             keys.[counter] <- projection value
                             values.[counter] <- value
+                    if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                        Array.Sort(keys, values)
+                    else
                     Sort.parallelSort Environment.ProcessorCount keys values
                     new List<_>(Seq.singleton
                                     (keys.Take(takeCount).ToArray(), 
@@ -567,6 +570,9 @@ module CloudStream =
                             counter <- counter + 1
                             keys.[counter] <- keys'.[i]
                             values.[counter] <- values'.[i]
+                    if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                        Array.Sort(keys, values)
+                    else
                     Sort.parallelSort Environment.ProcessorCount keys values    
                     values.Take(takeCount).ToArray()
                 return result

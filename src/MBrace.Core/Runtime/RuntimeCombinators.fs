@@ -129,7 +129,7 @@ type Cloud =
         let! runtime = Cloud.GetResource<ICloudRuntimeProvider> ()
         let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
         let workflow = runtime.ScheduleParallel (workers |> Seq.map (fun w -> computation, Some w))
-        return! Cloud.WithAppendedStackTrace "Cloud.EveryWhere[T](Cloud<T> computation)" workflow
+        return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](Cloud<T> computation)" workflow
     }
 
     /// <summary>

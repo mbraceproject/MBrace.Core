@@ -20,7 +20,7 @@ type InMemoryLogTester () =
         member __.Log msg = lock logs (fun () -> logs.Add msg)
 
 type ``ThreadPool Parallelism Tests`` () =
-    inherit ``Parallelism Tests``(nParallel = 100)
+    inherit ``Parallelism Tests``(parallelismFactor = 100, delayFactor = 200)
 
     let logger = InMemoryLogTester()
     let imem = LocalRuntime.Create(logger = logger)
@@ -43,7 +43,7 @@ type ``ThreadPool Parallelism Tests`` () =
 
 
 type ``InMemory CloudAtom Tests`` () =
-    inherit ``CloudAtom Tests`` (nParallel = 100)
+    inherit ``CloudAtom Tests`` (parallelismFactor = 100)
 
     let imem = LocalRuntime.Create()
 
@@ -57,7 +57,7 @@ type ``InMemory CloudAtom Tests`` () =
 #endif
 
 type ``InMemory CloudChannel Tests`` () =
-    inherit ``CloudChannel Tests`` (nParallel = 100)
+    inherit ``CloudChannel Tests`` (parallelismFactor = 100)
 
     let imem = LocalRuntime.Create()
 

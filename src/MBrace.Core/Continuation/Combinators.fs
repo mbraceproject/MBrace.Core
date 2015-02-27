@@ -154,9 +154,9 @@ type Cloud =
     ///     Starts a cloud workflow with given execution context in the current thread.
     /// </summary>
     /// <param name="cloudWorkflow">Cloud workflow to be executed.</param>
-    /// <paran name"continuation">Root continuation for workflow.</param>
+    /// <param name="continuation">Root continuation for workflow.</param>
     /// <param name="resources">Resource registry for workflow.</param>
-    /// <param name="cancellationTokne">Cancellation token for workflow.</param>
+    /// <param name="cancellationToken">Cancellation token for workflow.</param>
     [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
     static member StartWithContinuations(workflow : Workflow<'T>, continuation : Continuation<'T>, 
                                             resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : unit =
