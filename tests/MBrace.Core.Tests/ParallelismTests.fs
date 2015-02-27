@@ -448,7 +448,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             // check local semantics are forced by using ref cells.
             local {
                 let counter = ref 0
-                let seqWorker i = cloud {
+                let seqWorker i = local {
                     if i = parallelismFactor / 2 then
                         do! Cloud.Sleep 100
                         return Some i
@@ -457,7 +457,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                         return None
                 }
 
-                let! result = Array.init parallelismFactor seqWorker |> Cloud.Choice |> Cloud.ToLocal
+                let! result = Array.init parallelismFactor seqWorker |> Cloud.LocalChoice
                 counter.Value |> shouldEqual (parallelismFactor - 1)
                 return result
             } |> run |> Choice.shouldEqual (Some (parallelismFactor / 2)))

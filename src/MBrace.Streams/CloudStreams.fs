@@ -552,7 +552,8 @@ module CloudStream =
                     if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
                         Array.Sort(keys, values)
                     else
-                    Sort.parallelSort Environment.ProcessorCount keys values
+                        Sort.parallelSort Environment.ProcessorCount keys values
+
                     new List<_>(Seq.singleton
                                     (keys.Take(takeCount).ToArray(), 
                                      values.Take(takeCount).ToArray())) }
@@ -573,7 +574,8 @@ module CloudStream =
                     if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
                         Array.Sort(keys, values)
                     else
-                    Sort.parallelSort Environment.ProcessorCount keys values    
+                        Sort.parallelSort Environment.ProcessorCount keys values
+
                     values.Take(takeCount).ToArray()
                 return result
             }
