@@ -29,7 +29,7 @@ type CloudStream<'T> =
     /// The number of concurrently executing tasks
     abstract DegreeOfParallelism : int option
     /// Applies the given collector to the CloudStream.
-    abstract Apply<'S, 'R> : Cloud<Collector<'T, 'S>> -> ('S -> Cloud<'R>) -> ('R -> 'R -> 'R) -> Cloud<'R>
+    abstract Apply<'S, 'R> : Local<Collector<'T, 'S>> -> ('S -> Local<'R>) -> ('R -> 'R -> 'R) -> Cloud<'R>
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Provides basic operations on CloudStreams.
@@ -44,25 +44,16 @@ module CloudStream =
     [<Literal>]
     let private maxCloudVectorPartitionSize = 1073741824L // 1GB
 
-    /// If local context then returns number of cores instead of throwing exception
-    /// else returns number of workers.
-    let inline private getWorkerCount() = cloud {
-        let! ctx = Cloud.GetSchedulingContext()
-        match ctx with
-        | Sequential  -> return failwith "Invalid CloudStream context : %A" ctx
-        | ThreadParallel -> return 1
-        | Distributed -> return! Cloud.GetWorkerCount()
-    }
 
     /// gets all partition indices found in cloud vector
     let inline private getPartitionIndices (v : CloudVector<'T>) = [| 0 .. v.PartitionCount - 1 |]
 
     /// Flat map/reduce with sequential execution on leafs.
-    let inline private parallelInChunks (npar : int) (workflows : Cloud<'T> []) = cloud {
+    let inline private parallelInChunks (npar : int) (workflows : Local<'T> []) = cloud {
         let! partials = 
             workflows 
             |> Partitions.ofArray npar
-            |> Array.map (fun wfs -> wfs |> Cloud.Parallel |> Cloud.ToSequential)
+            |> Array.map (fun wfs -> wfs |> Cloud.LocalParallel)
             |> Cloud.Parallel
         return Array.concat partials
     }
@@ -84,16 +75,16 @@ module CloudStream =
     let ofArray (source : 'T []) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R -> 'R -> 'R) =
                 cloud {
                     let! collector = collectorf 
                     let! workerCount = 
                         match collector.DegreeOfParallelism with
-                        | Some n -> cloud { return n }
-                        | _ -> getWorkerCount() 
+                        | Some n -> local { return n }
+                        | _ -> Cloud.GetWorkerCount()
 
-                    let createTask array (collector : Cloud<Collector<'T, 'S>>) = 
-                        cloud {
+                    let createTask array (collector : Local<Collector<'T, 'S>>) = 
+                        local {
                             let! collector = collector
                             let parStream = ParStream.ofArray array 
                             let collectorResult = parStream.Apply (toParStreamCollector collector)
@@ -118,7 +109,7 @@ module CloudStream =
     let ofCloudFiles (reader : System.IO.Stream -> Async<'T>) (sources : seq<CloudFile>) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R -> 'R -> 'R) =
                 cloud { 
                     if Seq.isEmpty sources then 
                         let! collector = collectorf
@@ -127,13 +118,13 @@ module CloudStream =
                         let! collector = collectorf
                         let! workerCount = 
                             match collector.DegreeOfParallelism with
-                            | Some n -> cloud { return n }
-                            | _ -> getWorkerCount() 
+                            | Some n -> local { return n }
+                            | _ -> Cloud.GetWorkerCount() 
 
-                        let createTask (files : CloudFile []) (collectorf : Cloud<Collector<'T, 'S>>) : Cloud<'R> = 
-                            cloud {
+                        let createTask (files : CloudFile []) (collectorf : Local<Collector<'T, 'S>>) : Local<'R> = 
+                            local {
                                 let rec partitionByLength (files : CloudFile []) index (currLength : int64) (currAcc : CloudFile list) (acc : CloudFile list list)=
-                                    cloud {
+                                    local {
                                         if index >= files.Length then return (currAcc :: acc) |> List.filter (not << List.isEmpty)
                                         else
                                             let! length = CloudFile.GetSize(files.[index])
@@ -177,39 +168,15 @@ module CloudStream =
     let ofCloudVector (source : CloudVector<'T>) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) (combiner : 'R -> 'R -> 'R) =
-                let rec aux isTopLevelInvocation useCache (partitions : int[]) = cloud {
-                    if Array.isEmpty partitions then 
-                        let! collector = collectorf
-                        return! projection collector.Result 
-                    else
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R -> 'R -> 'R) =
+                cloud {
+                    let useCache = source.IsCachingSupported
+                    let partitions = getPartitionIndices source
 
-                    let! ctx = Cloud.GetSchedulingContext()
-                    match ctx with
-                    | Distributed when partitions.Length > 1 ->
-                        let! collector = collectorf
-                        let! workerCount = cloud {
-                            match collector.DegreeOfParallelism with
-                            | Some n -> return n
-                            | None -> return! Cloud.GetWorkerCount()
-                        }
 
-                        // TODO : need a scheduling algorithm to assign partition indices
-                        //        to workers according to current cache state.
-                        //        for now blindly assign partitions among workers.
+                    let computePartitions (partitions : int []) = local {
 
-                        let! results =
-                            partitions
-                            |> Partitions.ofArray workerCount
-                            |> Seq.filter (not << Array.isEmpty)
-                            |> Seq.map (Cloud.ToLocal << aux false useCache)
-                            |> Cloud.Parallel
-
-                        return Array.reduce combiner results
-
-                    | _ ->
-                        // computes a single partition using ParStreams
-                        let computePartition (pIndex : int) = cloud {
+                        let computePartition (pIndex : int) = local {
                             let partition = source.GetPartition pIndex
                             let! collector = collectorf
                             if useCache then do! partition.Cache() |> Cloud.Ignore
@@ -223,14 +190,37 @@ module CloudStream =
                         let! results = Sequential.map computePartition partitions
 
                         // do not allow cache state updating in stream execution under local runtimes
-                        if ctx <> Distributed && not isTopLevelInvocation && useCache then
+                        if useCache then
                             let! worker = Cloud.CurrentWorker
                             do! source.UpdateCacheState(worker, partitions)
 
-                        return Array.reduce combiner results                
-                }
+                        return Array.reduce combiner results
+                    }
 
-                aux true source.IsCachingSupported (getPartitionIndices source)
+                    if Array.isEmpty partitions then 
+                        let! collector = collectorf
+                        return! projection collector.Result 
+                    else
+                        let! collector = collectorf
+                        let! workerCount = local {
+                            match collector.DegreeOfParallelism with
+                            | Some n -> return n
+                            | None -> return! Cloud.GetWorkerCount()
+                        }
+
+                        // TODO : need a scheduling algorithm to assign partition indices
+                        //        to workers according to current cache state.
+                        //        for now blindly assign partitions among workers.
+
+                        let! results =
+                            partitions
+                            |> Partitions.ofArray workerCount
+                            |> Seq.filter (not << Array.isEmpty)
+                            |> Seq.map computePartitions 
+                            |> Cloud.Parallel
+
+                        return Array.reduce combiner results
+                }
         }
 
     //#endregion
@@ -244,8 +234,8 @@ module CloudStream =
     let inline map (f : 'T -> 'R) (stream : CloudStream<'T>) : CloudStream<'R> =
         { new CloudStream<'R> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
-            member self.Apply<'S, 'Result> (collectorf : Cloud<Collector<'R, 'S>>) (projection : 'S -> Cloud<'Result>) combiner =
-                let collectorf' = cloud {
+            member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+                let collectorf' = local {
                     let! collector = collectorf
                     return 
                       { new Collector<'T, 'S> with
@@ -266,8 +256,8 @@ module CloudStream =
     let inline flatMap (f : 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
         { new CloudStream<'R> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
-            member self.Apply<'S, 'Result> (collectorf : Cloud<Collector<'R, 'S>>) (projection : 'S -> Cloud<'Result>) combiner =
-                let collectorf' = cloud {
+            member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+                let collectorf' = local {
                     let! collector = collectorf
                     return 
                       { new Collector<'T, 'S> with
@@ -299,8 +289,8 @@ module CloudStream =
     let inline filter (predicate : 'T -> bool) (stream : CloudStream<'T>) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) combiner =
-                let collectorf' = cloud {
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
+                let collectorf' = local {
                     let! collector = collectorf
                     return { new Collector<'T, 'S> with
                         member self.DegreeOfParallelism = collector.DegreeOfParallelism
@@ -324,7 +314,7 @@ module CloudStream =
         else
             { new CloudStream<'T> with
                     member self.DegreeOfParallelism = Some degreeOfParallelism
-                    member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) combiner =
+                    member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
                         stream.Apply collectorf projection combiner }
 
     // terminal functions
@@ -337,7 +327,7 @@ module CloudStream =
     /// <returns>The final result.</returns>
     let inline fold (folder : 'State -> 'T -> 'State) (combiner : 'State -> 'State -> 'State) 
                     (state : unit -> 'State) (stream : CloudStream<'T>) : Cloud<'State> =
-        let collectorf = cloud {  
+        let collectorf = local {  
             let results = new List<'State ref>()
             return
               { new Collector<'T, 'State> with
@@ -354,7 +344,7 @@ module CloudStream =
                             acc <- combiner acc !result 
                     acc }
         }
-        stream.Apply collectorf (fun x -> cloud { return x }) combiner
+        stream.Apply collectorf (fun x -> local { return x }) combiner
 
     /// <summary>Applies a key-generating function to each element of a CloudStream and return a CloudStream yielding unique keys and the result of the threading an accumulator.</summary>
     /// <param name="projection">A function to transform items from the input CloudStream to keys.</param>
@@ -367,7 +357,7 @@ module CloudStream =
                       (folder : 'State -> 'T -> 'State) 
                       (combiner : 'State -> 'State -> 'State) 
                       (state : unit -> 'State) (stream : CloudStream<'T>) : CloudStream<'Key * 'State> = 
-        let collectorf (totalWorkers : int) = cloud {
+        let collectorf (totalWorkers : int) = local {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             return
               { new Collector<'T,  seq<int * seq<'Key * 'State>>> with
@@ -399,9 +389,9 @@ module CloudStream =
         let shuffling = 
             cloud {
                 let combiner' (left : _ []) (right : _ []) =  Array.append left right 
-                let! totalWorkers = match stream.DegreeOfParallelism with Some n -> cloud { return n } | None -> getWorkerCount()
+                let! totalWorkers = match stream.DegreeOfParallelism with Some n -> local { return n } | None -> Cloud.GetWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
-                                                  (fun keyValues -> cloud {
+                                                  (fun keyValues -> local {
                                                         let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
                                                             let! values = CloudVector.New(value, maxCloudVectorPartitionSize, enableCaching = false)
@@ -416,7 +406,7 @@ module CloudStream =
                     |> Seq.toArray
                 return merged
             }
-        let reducerf = cloud {
+        let reducerf = local {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! ctx = Cloud.GetExecutionContext()
             return { new Collector<int * CloudVector<'Key * 'State>,  seq<'Key * 'State>> with
@@ -454,7 +444,7 @@ module CloudStream =
             }
         { new CloudStream<'Key * 'State> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'Key * 'State, 'S>>) (projection : 'S -> Cloud<'R>) combiner =
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'Key * 'State, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (ofArray result)
@@ -501,7 +491,7 @@ module CloudStream =
     /// <returns>The result CloudVector.</returns>    
     let inline toCloudVector (stream : CloudStream<'T>) : Cloud<CloudVector<'T>> =
         cloud {
-            let collectorf = cloud { 
+            let collectorf = local { 
                 let results = new List<List<'T>>()
                 return 
                   { new Collector<'T, 'T []> with
@@ -526,7 +516,7 @@ module CloudStream =
 
             let! vc =
                 stream.Apply collectorf 
-                    (fun array -> cloud { return! CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = false) }) 
+                    (fun array -> local { return! CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = false) }) 
                     (fun left right -> CloudVector.Merge [|left ; right|])
             return vc
         }
@@ -537,7 +527,7 @@ module CloudStream =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudStream.</returns>  
     let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
-        let collectorf = cloud {  
+        let collectorf = local {  
             let results = new List<List<'T>>()
             return 
               { new Collector<'T, List<'Key[] * 'T []>> with
@@ -566,7 +556,7 @@ module CloudStream =
         }
         let sortByComp = 
             cloud {
-                let! results = stream.Apply collectorf (fun x -> cloud { return x }) (fun left right -> left.AddRange(right); left)
+                let! results = stream.Apply collectorf (fun x -> local { return x }) (fun left right -> left.AddRange(right); left)
                 let result = 
                     let count = results |> Seq.sumBy (fun (keys, _) -> keys.Length)
                     let keys = Array.zeroCreate<'Key> count
@@ -583,7 +573,7 @@ module CloudStream =
             }
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Cloud<Collector<'T, 'S>>) (projection : 'S -> Cloud<'R>) combiner = 
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner = 
                 cloud {
                     let! result = sortByComp
                     return! (ofArray result).Apply collectorf projection combiner
@@ -598,7 +588,7 @@ module CloudStream =
     /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
     let inline tryFind (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<'T option> =
         let collectorf = 
-            cloud {
+            local {
                 let resultRef = ref Unchecked.defaultof<'T option>
                 let cts =  new CancellationTokenSource()
                 return
@@ -612,7 +602,7 @@ module CloudStream =
                             !resultRef }
             }
         cloud {
-            return! stream.Apply collectorf (fun v -> cloud { return v }) (fun left right -> match left with Some _ -> left | None -> right)
+            return! stream.Apply collectorf (fun v -> local { return v }) (fun left right -> match left with Some _ -> left | None -> right)
         }
 
     /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
@@ -636,7 +626,7 @@ module CloudStream =
     let inline tryPick (chooser : 'T -> 'R option) (stream : CloudStream<'T>) : Cloud<'R option> = 
         
         let collectorf = 
-            cloud {
+            local {
                 let resultRef = ref Unchecked.defaultof<'R option>
                 let cts = new CancellationTokenSource()
                 return 
@@ -650,7 +640,7 @@ module CloudStream =
                             !resultRef }
             }
         cloud {
-            return! stream.Apply collectorf (fun v -> cloud { return v }) (fun left right -> match left with Some _ -> left | None -> right)
+            return! stream.Apply collectorf (fun v -> local { return v }) (fun left right -> match left with Some _ -> left | None -> right)
         }
 
 

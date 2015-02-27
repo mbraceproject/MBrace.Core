@@ -66,24 +66,9 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.CSharp\MBrace.CSharp.csproj">
-      <Name>MBrace.CSharp</Name>
-      <Project>{9f535680-053f-4514-91fa-472b82646b15}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Streams\MBrace.Streams.fsproj">
       <Name>MBrace.Streams</Name>
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\MBrace.CSharp.Tests\MBrace.CSharp.Tests.csproj">
-      <Name>MBrace.CSharp.Tests</Name>
-      <Project>{902bed62-cd5f-4e1d-bc70-b1d83722084b}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\MBrace.Streams.CSharp\MBrace.Streams.CSharp.Tests.csproj">
-      <Name>MBrace.Streams.CSharp.Tests</Name>
-      <Project>{82e2f911-4563-4f05-9451-f2dd73622be1}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Streams.Tests.fsproj">

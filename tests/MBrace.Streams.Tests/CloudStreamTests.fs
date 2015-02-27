@@ -46,16 +46,16 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``1. CloudVector : simple cloudvector`` () =
         let inputs = [|1 .. 1000000|]
-        let vector = CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) |> run
+        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) } |> run
         vector.PartitionCount |> shouldBe (fun c -> c > 10)
         vector.IsCachingSupported |> shouldEqual false
         vector.GetAllPartitions().Length |> shouldEqual vector.PartitionCount
-        vector.ToEnumerable() |> runLocal |> Seq.toArray |> shouldEqual inputs
+        cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.toArray |> shouldEqual inputs
 
     [<Test>]
     member __.``1. CloudVector : caching`` () =
         let inputs = [|1 .. 1000000|]
-        let vector = CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) |> run
+        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) } |> run
         vector.PartitionCount |> shouldBe (fun c -> c > 10)
         vector.IsCachingSupported |> shouldEqual true
         vector.GetAllPartitions().Length |> shouldEqual vector.PartitionCount
@@ -68,22 +68,22 @@ type ``CloudStreams tests`` () as self =
         } |> run
 
 
-        let worker,indices = vector.GetCacheState() |> runLocal |> fun c -> c.[0]
+        let worker,indices = cloud { return! vector.GetCacheState() } |> runLocal |> fun c -> c.[0]
         worker |> shouldEqual dummyWorker
         indices |> shouldEqual [|0..4|]
 
     [<Test>]
     member __.``1. CloudVector : disposal`` () =
         let inputs = [|1 .. 1000000|]
-        let vector = CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) |> run
-        vector.Dispose() |> run
-        shouldfail(fun () -> vector.ToEnumerable() |> runLocal |> Seq.iter ignore)
+        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) } |> run
+        vector.Dispose() |> ignore
+        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.iter ignore)
 
     [<Test>]
     member __.``1. CloudVector : merging`` () =
         let inputs = [|1 .. 1000000|]
         let N = 10
-        let vector = CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) |> run
+        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) } |> run
         let merged = CloudVector.Merge(Array.init N (fun _ -> vector))
         merged.PartitionCount |> shouldEqual (N * vector.PartitionCount)
         merged.IsCachingSupported |> shouldEqual false
@@ -96,7 +96,7 @@ type ``CloudStreams tests`` () as self =
         for i = 0 to merged.PartitionCount - 1 do
             merged.[i].Path |> shouldEqual (vector.[i % vector.PartitionCount].Path)
 
-        merged.ToEnumerable()
+        cloud { return! merged.ToEnumerable() }
         |> runLocal
         |> Seq.toArray
         |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
@@ -105,7 +105,7 @@ type ``CloudStreams tests`` () as self =
     member __.``1. CloudVector : merged caching`` () =
         let inputs = [|1 .. 1000000|]
         let N = 10
-        let vector = CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) |> run
+        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) } |> run
         let merged = CloudVector.Merge(Array.init N (fun _ -> vector))
 
         let dummyWorker = mkDummyWorker()
@@ -114,7 +114,7 @@ type ``CloudStreams tests`` () as self =
             do! vector.UpdateCacheState(dummyWorker, [|0 .. vector.PartitionCount - 1|])
         } |> run
 
-        let cState = merged.GetCacheState() |> runLocal //|> fun c -> c.[0]
+        let cState = cloud { return! merged.GetCacheState() } |> runLocal //|> fun c -> c.[0]
         let worker, partitions = cState.[0]
         worker |> shouldEqual dummyWorker
         partitions |> shouldEqual [|0 .. merged.PartitionCount - 1|]
@@ -123,10 +123,10 @@ type ``CloudStreams tests`` () as self =
     member __.``1. CloudVector : merged disposal`` () =
         let inputs = [|1 .. 1000000|]
         let N = 10
-        let vector = CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) |> run
+        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) } |> run
         let merged = CloudVector.Merge(Array.init N (fun _ -> vector))
-        merged.Dispose() |> run
-        shouldfail(fun () -> vector.ToEnumerable() |> runLocal |> Seq.iter ignore)
+        merged.Dispose() |> ignore
+        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.iter ignore)
 
     // #region Streams tests
 
@@ -141,7 +141,7 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``2. CloudStream : ofCloudVector`` () =
         let f(xs : int []) =
-            let CloudVector = run <| CloudVector.New(xs, 100L) 
+            let CloudVector = cloud { return! CloudVector.New(xs, 100L) } |> run
             let x = CloudVector |> CloudStream.ofCloudVector |> CloudStream.length |> run
             let y = xs |> Seq.map ((+)1) |> Seq.length
             Assert.AreEqual(y, int x)
@@ -153,20 +153,20 @@ type ``CloudStreams tests`` () as self =
         let f(xs : int[]) =            
             let x = xs |> CloudStream.ofArray |> CloudStream.map ((+)1) |> CloudStream.toCloudVector |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
-            Assert.AreEqual(y, x.ToEnumerable() |> runLocal)
+            Assert.AreEqual(y, cloud { return! x.ToEnumerable() } |> runLocal)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
     member __.``2. CloudStream : cache`` () =
         let f(xs : int[]) =
-            let v = run <| CloudVector.New(xs, 1024L) 
+            let v = cloud { return! CloudVector.New(xs, 1024L) } |> run
 //            v.Cache() |> run 
             let x = v |> CloudStream.ofCloudVector |> CloudStream.map  (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let x' = v |> CloudStream.ofCloudVector |> CloudStream.map (fun x -> x * x) |> CloudStream.toCloudVector |> run
             let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
             
-            let _x = x.ToEnumerable() |> runLocal |> Seq.toArray
-            let _x' = x'.ToEnumerable() |> runLocal |> Seq.toArray
+            let _x = cloud { return! x.ToEnumerable() } |> runLocal |> Seq.toArray
+            let _x' = cloud { return! x'.ToEnumerable() } |> runLocal |> Seq.toArray
             
             Assert.AreEqual(y, _x)
             Assert.AreEqual(_x', _x)
@@ -185,7 +185,7 @@ type ``CloudStreams tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunLocal(CloudFile.ReadAllText(f)))
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllText(f) }))
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
@@ -205,7 +205,7 @@ type ``CloudStreams tests`` () as self =
                         |> run
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunLocal(CloudFile.ReadAllLines(f)))
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines(f) }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -226,7 +226,7 @@ type ``CloudStreams tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunLocal(CloudFile.ReadAllLines(f)))
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines(f) }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
