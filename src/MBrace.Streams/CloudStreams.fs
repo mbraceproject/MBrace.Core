@@ -537,7 +537,7 @@ module CloudStream =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudStream.</returns>  
     let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
-        let collectorf = cloud {  
+        let collectorf = cloud {
             let results = new List<List<'T>>()
             return 
               { new Collector<'T, List<'Key[] * 'T []>> with
@@ -559,7 +559,10 @@ module CloudStream =
                             counter <- counter + 1
                             keys.[counter] <- projection value
                             values.[counter] <- value
-                    Sort.parallelSort Environment.ProcessorCount keys values
+                    if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                        Array.Sort(keys, values)
+                    else
+                        Sort.parallelSort Environment.ProcessorCount keys values
                     new List<_>(Seq.singleton
                                     (keys.Take(takeCount).ToArray(), 
                                      values.Take(takeCount).ToArray())) }
@@ -577,7 +580,10 @@ module CloudStream =
                             counter <- counter + 1
                             keys.[counter] <- keys'.[i]
                             values.[counter] <- values'.[i]
-                    Sort.parallelSort Environment.ProcessorCount keys values    
+                    if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                        Array.Sort(keys, values)
+                    else
+                        Sort.parallelSort Environment.ProcessorCount keys values
                     values.Take(takeCount).ToArray()
                 return result
             }

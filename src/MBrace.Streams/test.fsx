@@ -20,6 +20,11 @@ let runtime = MBraceRuntime.InitLocal(4)
 open Nessos.Streams
 open MBrace.Streams
 
+for i in 1..100 do
+    let source = [| 1..10 |]
+    let q = source |> CloudStream.ofArray |> CloudStream.sortBy id 10 |> CloudStream.toArray
+    printfn "%A" <| runtime.Run q
+
 let query1 = 
     runtime.Run (
         CloudStream.ofArray [|1 .. 1000|]
