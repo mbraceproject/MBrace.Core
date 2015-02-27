@@ -31,12 +31,6 @@ let query1 =
         |> CloudStream.flatMap(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
         |> CloudStream.toCloudVector)
 
-let takeQuery s n =
-    let source = [| 1..s |]
-    runtime.Run (source |> CloudStream.ofArray |> CloudStream.take n |> CloudStream.toArray)
-
-takeQuery 10 6
-
 
 runtime.Run <| CloudStream.cache(query1)
 

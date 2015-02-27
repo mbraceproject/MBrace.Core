@@ -596,42 +596,6 @@ module CloudStream =
                 }  
         }
 
-    /// <summary> Returns the elements of a CloudStream up to a specified count. </summary>
-    /// <param name="n">The maximum number of items to take.</param>
-    /// <param name="stream">The input CloudStream.</param>
-    /// <returns>The resulting CloudStream.</returns>
-    let inline take (n : int) (stream: CloudStream<'T>) : CloudStream<'T> =
-        let collectorF =
-            cloud {
-                let results = new List<List<'T>>()
-                let cts = new CancellationTokenSource()
-                return
-                    { new Collector<'T, List<'T>> with
-                      member __.DegreeOfParallelism = stream.DegreeOfParallelism
-                      member __.Iterator() =
-                          let list = new List<'T>()
-                          results.Add(list)
-                          { Index = ref -1
-                            Func = (fun value -> if list.Count < n then list.Add(value) else cts.Cancel())
-                            Cts = cts }
-                      member __.Result =
-                          results |> Stream.ofResizeArray |> Stream.flatMap Stream.ofResizeArray |> Stream.take n |> Stream.toResizeArray
-                     }
-            }
-        let gather =
-            cloud {
-                let! results = stream.Apply collectorF (cloud.Return) (fun l r -> l.AddRange(r); l)
-                return results.Take(n).ToArray()
-            }
-        { new CloudStream<'T> with
-              member __.DegreeOfParallelism = stream.DegreeOfParallelism
-              member __.Apply<'S, 'R>(collectorF: Cloud<Collector<'T, 'S>>) (projection: 'S -> Cloud<'R>) combiner =
-                  cloud {
-                      let! result = gather
-                      return! (ofArray result).Apply collectorF projection combiner
-                  }
-        }
-
 
 
     /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
