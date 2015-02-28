@@ -76,3 +76,9 @@ module CloudOperators =
     /// <param name="channel">Target channel.</param>
     /// <param name="msg">Input message.</param>
     let inline (<--) (channel : ISendPort<'T>) (message : 'T) : Cloud<unit> = channel.Send message
+
+    /// <summary>
+    ///     Awaits a message from cloud channel.
+    /// </summary>
+    /// <param name="channel">Source channel.</param>
+    let inline (?) (channel : IReceivePort<'T>) : Cloud<'T> = channel.Receive()

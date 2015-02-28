@@ -113,7 +113,7 @@ type FileStore =
         FileStore.GetRandomFileName(?container = container)
 
 /// Represents a directory found in the cloud store
-and [<DataContract; Sealed>] CloudDirectory =
+and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] CloudDirectory =
 
     [<DataMember(Name = "Path")>]
     val mutable private path : string
@@ -129,6 +129,9 @@ and [<DataContract; Sealed>] CloudDirectory =
 
     interface ICloudDisposable with
         member d.Dispose () = CloudDirectory.Delete(d, recursiveDelete = true)
+
+    override __.ToString() = __.path
+    member private r.StructuredFormatDisplay = r.ToString()
 
     /// <summary>
     ///     Checks if directory exists in given path
@@ -202,23 +205,26 @@ and [<DataContract; Sealed>] CloudDirectory =
     static member Enumerate(?directory : CloudDirectory) : Cloud<CloudDirectory []> =
         CloudDirectory.Enumerate(?directory = (directory |> Option.map (fun d -> d.Path)))
 
-/// Represents a file found in the cloud store
-and [<DataContract; Sealed>] CloudFile =
+/// Represents a file found in the local store
+and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] CloudFile =
 
     [<DataMember(Name = "Path")>]
     val mutable private path : string
 
     /// <summary>
-    ///     Defines a reference to a cloud file. This will not create a file in the cloud store.
+    ///     Defines a reference to a local file. This will not create a file in the local store.
     /// </summary>
     /// <param name="path">Path to file.</param>
     new (path : string) = { path = path }
     
-    /// Path to cloud file
+    /// Path to local file
     member f.Path = f.path
 
     interface ICloudDisposable with
         member f.Dispose () = CloudFile.Delete f
+
+    override __.ToString() = __.path
+    member private r.StructuredFormatDisplay = r.ToString()
 
     /// <summary>
     ///     Gets the size of provided file, in bytes.
