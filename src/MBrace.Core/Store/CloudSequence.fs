@@ -78,7 +78,7 @@ type CloudSequence<'T> =
 
     /// Returns an enumerable that lazily fetches elements of the local sequence from store.
     member c.ToEnumerable () = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
         | Some v -> return v :?> seq<'T>
         | None -> return! c.GetSequenceFromStore(config)
@@ -86,7 +86,7 @@ type CloudSequence<'T> =
 
     /// Fetches all elements of the local sequence and returns them as a local array.
     member c.ToArray () : Local<'T []> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
         | Some v -> return v :?> 'T []
         | None ->
@@ -96,7 +96,7 @@ type CloudSequence<'T> =
 
     /// Cache contents to local execution context. Returns true iff succesful.
     member c.Cache () = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         match config.Cache with
         | None -> return false
         | Some ch when ch.ContainsKey c.uuid -> return true
@@ -108,7 +108,7 @@ type CloudSequence<'T> =
 
     /// Indicates if array is cached in local execution context
     member c.IsCachedLocally = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.Cache |> Option.exists(fun ch -> ch.ContainsKey c.uuid)
     }
 
@@ -129,7 +129,7 @@ type CloudSequence<'T> =
 
     /// Underlying sequence size in bytes
     member c.Size = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.GetFileSize c.path
     }
 
@@ -139,7 +139,7 @@ type CloudSequence<'T> =
 
     interface ICloudDisposable with
         member c.Dispose () = local {
-            let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+            let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
             return! ofAsync <| config.FileStore.DeleteFile c.path
         }
 
@@ -158,7 +158,7 @@ type CloudSequence =
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     static member New(values : seq<'T>, ?directory, ?serializer) : Local<CloudSequence<'T>> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = defaultArg serializer config.Serializer
         return! ofAsync <| async {
@@ -181,7 +181,7 @@ type CloudSequence =
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     static member NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : Local<CloudSequence<'T> []> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = defaultArg serializer config.Serializer
         return! ofAsync <| async {
@@ -212,7 +212,7 @@ type CloudSequence =
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
     static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool) : Local<CloudSequence<'T>> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let force = defaultArg force false
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         let cseq = new CloudSequence<'T>(path, None, serializer)

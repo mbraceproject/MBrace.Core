@@ -64,3 +64,9 @@ let rec test () = cloud {
 }
 
 runtime.Run(test(), faultPolicy = FaultPolicy.NoRetry)
+
+
+local {
+    let! x = Cloud.Parallel [ cloud { return 42 }]
+    return x
+}

@@ -220,7 +220,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     Interlocked.Increment counter |> ignore
                 }
 
-                let! results = Array.init 100 seqWorker |> Cloud.LocalParallel
+                let! results = Array.init 100 seqWorker |> Local.Parallel
                 return counter.Value
             } |> run |> Choice.shouldEqual 100)
 
@@ -457,7 +457,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                         return None
                 }
 
-                let! result = Array.init parallelismFactor seqWorker |> Cloud.LocalChoice
+                let! result = Array.init parallelismFactor seqWorker |> Local.Choice
                 counter.Value |> shouldEqual (parallelismFactor - 1)
                 return result
             } |> run |> Choice.shouldEqual (Some (parallelismFactor / 2)))
@@ -663,8 +663,8 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     member __.``4. Cancellation token: local semantics`` () =
         local {
             let! cts = 
-                let cp = Cloud.LocalParallel [ Cloud.CancellationToken ; Cloud.CancellationToken ]
-                Cloud.LocalParallel [cp ; cp]
+                let cp = Local.Parallel [ Cloud.CancellationToken ; Cloud.CancellationToken ]
+                Local.Parallel [cp ; cp]
 
             cts
             |> Array.concat

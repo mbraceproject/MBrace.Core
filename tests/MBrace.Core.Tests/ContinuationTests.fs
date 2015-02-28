@@ -490,8 +490,8 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``test correct scoping in resource updates`` () =
         cloud {
-            do! Cloud.WithResource(cloud.Zero(), 42)
-            return! Cloud.TryGetResource<int> ()
+            do! Workflow.WithResource(cloud.Zero(), 42)
+            return! Workflow.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 
 
@@ -503,7 +503,7 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``start as task`` () =
-        let t = Cloud.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
+        let t = Workflow.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
         t.Result |> shouldEqual 42
 
     //

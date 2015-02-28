@@ -87,9 +87,9 @@ module Sequential =
     /// <param name="collector">Collector function.</param>
     /// <param name="source">Source data.</param>
     let lazyCollect (collector : 'T -> Local<#seq<'S>>) (source : seq<'T>) : Workflow<_, seq<'S>> = local {
-        let! ctx = Cloud.GetExecutionContext()
+        let! ctx = Workflow.GetExecutionContext()
         return seq {
-            for t in source do yield! Cloud.RunSynchronously(collector t, ctx.Resources, ctx.CancellationToken)
+            for t in source do yield! Workflow.RunSynchronously(collector t, ctx.Resources, ctx.CancellationToken)
         }
     }
 

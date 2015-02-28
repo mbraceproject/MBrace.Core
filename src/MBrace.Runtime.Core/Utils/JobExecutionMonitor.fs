@@ -56,4 +56,4 @@ type JobExecutionMonitor () =
     /// </summary>
     /// <param name="body">Computation body</param>
     static member ProtectFromContinuations(body : ExecutionContext -> Continuation<'T> -> Async<unit>) : Cloud<'T>=
-        Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (body ctx cont))
+        Workflow.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (body ctx cont))

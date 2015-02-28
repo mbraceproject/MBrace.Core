@@ -17,7 +17,7 @@ let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : 
     { ctx with CancellationToken = cts }
 
 let private asyncFromContinuations f =
-    Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
+    Workflow.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
 let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq<#Workflow<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
@@ -29,7 +29,7 @@ let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq
         | Choice1Of2 [| (comp, None) |] ->
             let (comp, cont) = Config.Pickler.Clone (comp, cont)
             let cont' = Continuation.map (fun t -> [| t |]) cont
-            Cloud.StartWithContinuations(comp, cont', ctx)
+            Workflow.StartWithContinuations(comp, cont', ctx)
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
@@ -86,7 +86,7 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<#
         // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] -> 
             let (comp, cont) = Config.Pickler.Clone (comp, cont)
-            Cloud.StartWithContinuations(comp, cont, ctx)
+            Workflow.StartWithContinuations(comp, cont, ctx)
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination

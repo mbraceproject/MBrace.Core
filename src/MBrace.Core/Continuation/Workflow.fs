@@ -15,23 +15,35 @@ open MBrace.Continuation
 // to avoid capturing local-only state in closures. In other words, this means that
 // cloud workflows form a continuation over reader monad.
 
-[<AbstractClass>] type SchedulingContext internal () = class end
-[<AbstractClass>] type Distributed private () = inherit SchedulingContext()
-[<AbstractClass>] type Local private () = inherit SchedulingContext()
+/// Scheduling Context annotation
+[<AbstractClass>] type SchedulingContext () = class end
 
+[<RequireQualifiedAccess>]
+module Context =
+    /// Annotates an MBrace workflow with cloud semantics
+    [<AbstractClass>] type Cloud private () = inherit SchedulingContext()
+    /// Annotates an MBrace workflow with in-memory semantics
+    [<AbstractClass>] type Local private () = inherit SchedulingContext()
+
+/// Representation of an MBrace workflow, which, when run 
+/// will produce a value of type 'T, or raise an exception.
 [<AbstractClass>]
 type Workflow<'T> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
     member internal __.Body = body
 
-
+/// Representation of an MBrace workflow, which, when run 
+/// will produce a value of type 'T, or raise an exception.
 [<Sealed; AutoSerializable(true)>]
 type Workflow<'Ctx, 'T when 'Ctx :> SchedulingContext> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
     inherit Workflow<'T>(body)
 
-type Local<'T> = Workflow<Local, 'T>
+/// Representation of an in-memory computation, which, when run 
+/// will produce a value of type 'T, or raise an exception.
+type Local<'T> = Workflow<Context.Local, 'T>
+
 /// Representation of a cloud computation, which, when run 
 /// will produce a value of type 'T, or raise an exception.
-type Cloud<'T> = Workflow<Distributed, 'T>
+type Cloud<'T> = Workflow<Context.Cloud, 'T>
 
 /// Adding this attribute to a let-binding marks that
 /// the value definition contains cloud expressions.

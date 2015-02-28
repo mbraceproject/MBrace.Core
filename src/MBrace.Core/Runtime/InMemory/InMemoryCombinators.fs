@@ -51,7 +51,7 @@ type ThreadPool private () =
         Trampoline.QueueWorkItem(fun () ->
             let ctx = { Resources = res ; CancellationToken = ct }
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartWithContinuations(wf, cont, ctx))
+            Workflow.StartWithContinuations(wf, cont, ctx))
 
     /// <summary>
     ///     A Cloud.Parallel implementation executed using the thread pool.
@@ -60,14 +60,14 @@ type ThreadPool private () =
     /// <param name="computations">Input computations.</param>
     [<CompilerMessage("Use of ThreadPool.Parallel restricted to runtime implementers.", 444)>]
     static member Parallel (mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, computations : seq<#Workflow<'T>>) : Workflow<_, 'T []> =
-        Cloud.FromContinuations(fun ctx cont ->
+        Workflow.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             | Choice1Of2 [||] -> cont.Success ctx [||]
             // pass continuation directly to child, if singular
             | Choice1Of2 [| comp |] ->
                 let cont' = Continuation.map (fun t -> [| t |]) cont
-                Cloud.StartWithContinuations(comp, cont', ctx)
+                Workflow.StartWithContinuations(comp, cont', ctx)
 
             | Choice1Of2 computations ->                    
                 let results = Array.zeroCreate<'T> computations.Length
@@ -104,12 +104,12 @@ type ThreadPool private () =
     /// <param name="computations">Input computations.</param>
     [<CompilerMessage("Use of ThreadPool.Choice restricted to runtime implementers.", 444)>]
     static member Choice(mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, computations : seq<#Workflow<'T option>>) : Workflow<_, 'T option> =
-        Cloud.FromContinuations(fun ctx cont ->
+        Workflow.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             | Choice1Of2 [||] -> cont.Success ctx None
             // pass continuation directly to child, if singular
-            | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
+            | Choice1Of2 [| comp |] -> Workflow.StartWithContinuations(comp, cont, ctx)
             | Choice1Of2 computations ->
                 let parentCt = ctx.CancellationToken
                 let innerCts = mkNestedCts parentCt

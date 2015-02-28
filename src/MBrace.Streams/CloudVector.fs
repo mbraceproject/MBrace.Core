@@ -59,7 +59,7 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
             let! counts =
                 partitions
                 |> Seq.map (fun p -> p.Count)
-                |> Cloud.LocalParallel
+                |> Local.Parallel
 
             let count = counts |> Array.sumBy int64
             elementCount <- Some count
@@ -94,7 +94,7 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
         return!
             partitions
             |> Array.map (fun p -> (p :> ICloudDisposable).Dispose())
-            |> Cloud.LocalParallel
+            |> Local.Parallel
             |> Cloud.Ignore
     }
 
@@ -150,7 +150,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
         let! states =
             components
             |> Seq.mapi getComponentCacheState
-            |> Cloud.LocalParallel
+            |> Local.Parallel
 
         return
             states
@@ -171,7 +171,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
         do!
             groupedIndices
             |> Seq.map (fun (ci, iss) -> components.[ci].UpdateCacheState(w, iss))
-            |> Cloud.LocalParallel
+            |> Local.Parallel
             |> Cloud.Ignore
     }
 
@@ -179,7 +179,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
         do!
             components
             |> Seq.map (fun c -> c.Dispose())
-            |> Cloud.LocalParallel
+            |> Local.Parallel
             |> Cloud.Ignore
     }
             
@@ -214,7 +214,7 @@ type CloudVector =
         let! partitions = 
             files 
             |> Seq.map (fun f -> CloudSequence.FromFile(f, deserializer, force = false))
-            |> Cloud.LocalParallel
+            |> Local.Parallel
 //            |> Cloud.ToLocal
 
         return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)

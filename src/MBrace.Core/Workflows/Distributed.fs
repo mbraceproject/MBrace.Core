@@ -25,7 +25,7 @@ module Distributed =
                 let! results =
                     chunks
                     |> Array.map reducer
-                    |> Cloud.LocalParallel
+                    |> Local.Parallel
 
                 return! combiner results
         }
@@ -207,7 +207,7 @@ module Distributed =
                 return!
                     chunks
                     |> Array.map chooser
-                    |> Cloud.LocalChoice
+                    |> Local.Choice
         }
 
         cloud {

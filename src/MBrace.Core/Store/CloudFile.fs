@@ -26,7 +26,7 @@ type FileStore =
 
     /// Returns the file store instance carried in current execution context.
     static member Current = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore
     }
 
@@ -35,7 +35,7 @@ type FileStore =
     /// </summary>
     /// <param name="path">Input file path.</param>
     static member GetDirectoryName(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.GetDirectoryName path
     }
 
@@ -44,7 +44,7 @@ type FileStore =
     /// </summary>
     /// <param name="path">Input file path.</param>
     static member GetFileName(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.GetFileName path
     }
 
@@ -54,7 +54,7 @@ type FileStore =
     /// <param name="path1">First path.</param>
     /// <param name="path2">Second path.</param>
     static member Combine(path1 : string, path2 : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine [| path1 ; path2 |]
     }
 
@@ -65,7 +65,7 @@ type FileStore =
     /// <param name="path2">Second path.</param>
     /// <param name="path3">Third path.</param>
     static member Combine(path1 : string, path2 : string, path3 : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine [| path1 ; path2 ; path3 |]
     }
 
@@ -74,7 +74,7 @@ type FileStore =
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
     static member Combine(paths : string []) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine paths
     }
 
@@ -84,13 +84,13 @@ type FileStore =
     /// <param name="directory">Directory prefix path.</param>
     /// <param name="fileNames">File names to be combined.</param>
     static member Combine(directory : string, fileNames : seq<string>) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine(directory, fileNames)
     }
 
     /// Generates a random, uniquely specified path to directory
     static member GetRandomDirectoryName() = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.GetRandomDirectoryName()
     }
 
@@ -99,7 +99,7 @@ type FileStore =
     /// </summary>
     /// <param name="container">Path to containing directory. Defaults to process directory.</param>
     static member GetRandomFileName(?container : string) : Local<string> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let container = match container with Some c -> c | None -> config.DefaultDirectory
         return config.FileStore.GetRandomFilePath(container)
     }
@@ -135,7 +135,7 @@ and [<DataContract; Sealed>] CloudDirectory =
     /// </summary>
     /// <param name="directory">Path to directory.</param>
     static member Exists(directory : string) : Local<bool> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.DirectoryExists directory
     }
 
@@ -151,7 +151,7 @@ and [<DataContract; Sealed>] CloudDirectory =
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
     static member Create(?directory : string) : Local<CloudDirectory> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory =
             match directory with
             | Some d -> d
@@ -168,7 +168,7 @@ and [<DataContract; Sealed>] CloudDirectory =
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
     static member Delete(directory : string, ?recursiveDelete : bool) : Local<unit> = local {
         let recursiveDelete = defaultArg recursiveDelete false
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.DeleteDirectory(directory, recursiveDelete = recursiveDelete)
     }
 
@@ -185,7 +185,7 @@ and [<DataContract; Sealed>] CloudDirectory =
     /// </summary>
     /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
     static member Enumerate(?directory : string) : Local<CloudDirectory []> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory =
             match directory with
             | Some d -> d
@@ -225,7 +225,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="path">Input file.</param>
     static member GetSize(path : string) : Local<int64> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.GetFileSize path
     }
 
@@ -241,7 +241,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="path">Input file.</param>
     static member Exists(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.FileExists path
     }
 
@@ -257,7 +257,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="path">Input file.</param>
     static member Delete(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.DeleteFile path
     }
 
@@ -274,7 +274,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="serializer">Serializer function.</param>
     /// <param name="path">Path to file. Defaults to auto-generated path.</param>
     static member Create(serializer : Stream -> Async<unit>, ?path : string) : Local<CloudFile> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let path = match path with Some p -> p | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
         do! ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
@@ -287,7 +287,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="directory">Containing directory.</param>
     /// <param name="fileName">File name.</param>
     static member Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Local<CloudFile> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let path = config.FileStore.Combine [|directory ; fileName|]
         do! ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
@@ -301,7 +301,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
     static member Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Local<'T> = local {
         let leaveOpen = defaultArg leaveOpen false
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| async {
             if leaveOpen then
                 let! stream = config.FileStore.BeginRead(path)
@@ -325,7 +325,7 @@ and [<DataContract; Sealed>] CloudFile =
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to the process directory.</param>
     static member Enumerate(?directory : string) : Local<CloudFile []> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory =
             match directory with
             | Some d -> d

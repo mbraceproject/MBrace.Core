@@ -88,7 +88,7 @@ type CloudChannel =
     /// </summary>
     /// <param name="container">Container to channel. Defaults to process default.</param>
     static member New<'T>(?container : string) = local {
-        let! config = Cloud.GetResource<CloudChannelConfiguration> ()
+        let! config = Workflow.GetResource<CloudChannelConfiguration> ()
         let container = defaultArg container config.DefaultContainer
         return! ofAsync <| config.ChannelProvider.CreateChannel<'T> (container)
     }
@@ -122,12 +122,12 @@ type CloudChannel =
     /// </summary>
     /// <param name="container"></param>
     static member DeleteContainer (container : string) = local {
-        let! config = Cloud.GetResource<CloudChannelConfiguration> ()
+        let! config = Workflow.GetResource<CloudChannelConfiguration> ()
         return! ofAsync <| config.ChannelProvider.DisposeContainer container
     }
 
     /// Generates a unique container name.
     static member CreateContainerName() = local {
-        let! config = Cloud.GetResource<CloudChannelConfiguration> ()
+        let! config = Workflow.GetResource<CloudChannelConfiguration> ()
         return config.ChannelProvider.CreateUniqueContainerName()
     }

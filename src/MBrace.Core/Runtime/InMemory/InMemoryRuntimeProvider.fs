@@ -144,9 +144,9 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
 
         member __.ScheduleStartAsTask (workflow:Workflow<'T>, faultPolicy:FaultPolicy, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
-            let! resources = Cloud.GetResourceRegistry()
+            let! resources = Workflow.GetResourceRegistry()
             let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
             let resources' = resources.Register (runtimeP :> ICloudRuntimeProvider)
-            let task = Cloud.StartAsTask(workflow, resources', cancellationToken)
+            let task = Workflow.StartAsTask(workflow, resources', cancellationToken)
             return new InMemoryTask<'T>(task) :> _
         }

@@ -127,7 +127,7 @@ with
         let jobId = System.Guid.NewGuid().ToString()
         let runJob ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartWithContinuations(wf, cont, ctx)
+            Workflow.StartWithContinuations(wf, cont, ctx)
 
         let job = 
             { 
