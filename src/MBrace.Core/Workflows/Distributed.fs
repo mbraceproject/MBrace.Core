@@ -166,8 +166,8 @@ module Distributed =
     /// </summary>
     /// <param name="body">Iterator body.</param>
     /// <param name="source">Input sequence.</param>
-    let iter (body : 'T -> Cloud<unit>) (source : seq<'T>) : Cloud<unit> =
-        reduceCombine (Sequential.iter body) (fun _ -> cloud.Zero()) source
+    let iter (body : 'T -> Local<unit>) (source : seq<'T>) : Cloud<unit> =
+        reduceCombine (Sequential.iter body) (fun _ -> local.Zero()) source
 
     /// <summary>
     ///     Distributed Map/Reduce workflow with cluster balancing.

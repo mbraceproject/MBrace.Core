@@ -138,6 +138,6 @@ module Sequential =
     /// </summary>
     /// <param name="body">Iterator body.</param>
     /// <param name="source">Input sequence.</param>
-    let iter (body : 'T -> Cloud<unit>) (source : seq<'T>) : Cloud<unit> = cloud {
+    let iter (body : 'T -> Local<unit>) (source : seq<'T>) : Local<unit> = local {
         for t in source do do! body t
     }

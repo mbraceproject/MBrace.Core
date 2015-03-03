@@ -74,10 +74,10 @@ module CloudOperators =
     /// </summary>
     /// <param name="channel">Target channel.</param>
     /// <param name="msg">Input message.</param>
-    let inline (<--) (channel : ISendPort<'T>) (message : 'T) : Cloud<unit> = channel.Send message
+    let inline (<--) (channel : ISendPort<'T>) (message : 'T) : Local<unit> = local { return! channel.Send message }
 
     /// <summary>
     ///     Awaits a message from cloud channel.
     /// </summary>
     /// <param name="channel">Source channel.</param>
-    let inline (?) (channel : IReceivePort<'T>) : Cloud<'T> = channel.Receive()
+    let inline (?) (channel : IReceivePort<'T>) : Local<'T> = local { return! channel.Receive() }
