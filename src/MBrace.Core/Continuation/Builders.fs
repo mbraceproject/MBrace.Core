@@ -6,7 +6,7 @@ open System
 open MBrace.Continuation
 
 [<AutoOpen>]
-module internal CloudBuilderImpl =
+module internal BuilderImpl =
 
     // Implementation of expression builder combinators over Body<'T>
 
@@ -257,6 +257,7 @@ module internal CloudBuilderImpl =
         delay' loop
 
 /// A collection of builder implementations for MBrace workflows
+[<AutoOpen>]
 module Builders =
 
     /// Cloud workflow expression builder
@@ -318,15 +319,10 @@ module Builders =
             | _ -> mkLocal <| forSeq body ts
 
         member __.While(pred : unit -> bool, body : Local<unit>) : Local<unit> = mkLocal <| whileM pred body.Body
-    
 
-/// Cloud builder module
-[<AutoOpen>]
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module CloudBuilder =
-        
-    /// cloud builder instance
-    let cloud = new Builders.CloudBuilder ()
 
     /// local builder instance
-    let local = new Builders.LocalBuilder ()
+    let local = new LocalBuilder ()
+
+    /// cloud builder instance
+    let cloud = new CloudBuilder ()
