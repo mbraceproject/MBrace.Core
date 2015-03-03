@@ -2,7 +2,7 @@
 
 open MBrace.Continuation
 
-// Cloud<'T> is a continuation-based computation that can be distributed.
+// Workflow<'T> is a continuation-based computation that can be distributed.
 // It takes two parameters, an ExecutionContext and a continuation triple.
 // Importantly, the two values must remain distinct in order for distribution
 // to be actuated effectively. ExecutionContext contains resources specific
@@ -14,36 +14,25 @@ open MBrace.Continuation
 //
 // to avoid capturing local-only state in closures. In other words, this means that
 // cloud workflows form a continuation over reader monad.
-
-/// Scheduling Context annotation
-[<AbstractClass>] type SchedulingContext () = class end
-
-[<RequireQualifiedAccess>]
-module Context =
-    /// Annotates an MBrace workflow with cloud semantics
-    [<AbstractClass>] type Cloud private () = inherit SchedulingContext()
-    /// Annotates an MBrace workflow with in-memory semantics
-    [<AbstractClass>] type Local private () = inherit SchedulingContext()
+type internal Body<'T> = ExecutionContext -> Continuation<'T> -> unit
 
 /// Representation of an MBrace workflow, which, when run 
 /// will produce a value of type 'T, or raise an exception.
 [<AbstractClass>]
-type Workflow<'T> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
+type Workflow<'T> internal (body : Body<'T>) =
     member internal __.Body = body
-
-/// Representation of an MBrace workflow, which, when run 
-/// will produce a value of type 'T, or raise an exception.
-[<Sealed; AutoSerializable(true)>]
-type Workflow<'Ctx, 'T when 'Ctx :> SchedulingContext> internal (body : ExecutionContext -> Continuation<'T> -> unit) =
-    inherit Workflow<'T>(body)
 
 /// Representation of an in-memory computation, which, when run 
 /// will produce a value of type 'T, or raise an exception.
-type Local<'T> = Workflow<Context.Local, 'T>
+[<Sealed; AutoSerializable(true)>]
+type Local<'T> internal (body : Body<'T>) = 
+    inherit Workflow<'T>(body)
 
 /// Representation of a cloud computation, which, when run 
 /// will produce a value of type 'T, or raise an exception.
-type Cloud<'T> = Workflow<Context.Cloud, 'T>
+[<Sealed; AutoSerializable(true)>]
+type Cloud<'T> internal (body : Body<'T>) = 
+    inherit Workflow<'T>(body)
 
 /// Adding this attribute to a let-binding marks that
 /// the value definition contains cloud expressions.

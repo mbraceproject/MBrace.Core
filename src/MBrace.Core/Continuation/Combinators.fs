@@ -8,46 +8,15 @@ open MBrace.Continuation
 
 #nowarn "444"
 
-/// Cloud workflows core continuation API
-type Workflow =
+type Cloud =
         
     /// <summary>
     ///     Creates a cloud workflow that captures the current execution context.
     /// </summary>
     /// <param name="body">Execution body.</param>
     [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
-    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Workflow<_,'T> = 
-        Body(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
-
-    /// <summary>
-    ///     Returns the execution context of current computation.
-    /// </summary>
-    [<CompilerMessage("'GetExecutionContext' only intended for runtime implementers.", 444)>]
-    static member GetExecutionContext () : Local<ExecutionContext> =
-        Workflow.FromContinuations(fun ctx cont -> cont.Success ctx ctx)
-        
-    /// <summary>
-    ///     Returns the resource registry for current execution context.
-    /// </summary>
-    [<CompilerMessage("'GetResourceRegistry' only intended for runtime implementers.", 444)>]
-    static member GetResourceRegistry () : Local<ResourceRegistry> =
-        Workflow.FromContinuations(fun ctx cont -> cont.Success ctx ctx.Resources)
-
-    /// <summary>
-    ///     Gets resource from current execution context.
-    /// </summary>
-    [<CompilerMessage("'GetResource' only intended for runtime implementers.", 444)>]
-    static member GetResource<'TResource> () : Local<'TResource> =
-        Workflow.FromContinuations(fun ctx cont ->
-            let res = protect (fun () -> ctx.Resources.Resolve<'TResource> ()) ()
-            cont.Choice(ctx, res))
-
-    /// <summary>
-    ///     Try Getting resource from current execution context.
-    /// </summary>
-    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
-    static member TryGetResource<'TResource> () : Local<'TResource option> =
-        Workflow.FromContinuations(fun ctx cont -> cont.Success ctx <| ctx.Resources.TryResolve<'TResource> ())
+    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> = 
+        mkCloud(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
 
     /// <summary>
     ///     Installs provided resource to the scoped computation.
@@ -55,9 +24,8 @@ type Workflow =
     /// <param name="workflow">Workflow to be wrapped.</param>
     /// <param name="resource">Resource to be installed.</param>
     [<CompilerMessage("'WithResource' only intended for runtime implementers.", 444)>]
-    static member WithResource(workflow : Workflow<'C, 'T>, resource : 'Resource) : Workflow<'C, 'T> =
-        Workflow.FromContinuations(fun ctx cont ->
-            let (Body f) = workflow
+    static member WithResource(workflow : Workflow<'T>, resource : 'Resource) : Cloud<'T> =
+        Cloud.FromContinuations(fun ctx cont ->
             // Augment the continuation with undo logic so that resource
             // updates only hold within scope.
             let parentResource = ctx.Resources.TryResolve<'Resource>()
@@ -76,7 +44,7 @@ type Workflow =
                     Cancellation = fun ctx c -> cont.Cancellation (revertCtx ctx) c
                 }
 
-            f { ctx with Resources = ctx.Resources.Register resource } cont')
+            workflow.Body { ctx with Resources = ctx.Resources.Register resource } cont')
 
     /// <summary>
     ///     Wraps a workflow with a mapped continuation.
@@ -84,8 +52,8 @@ type Workflow =
     /// <param name="mapper">Continuation mapping function.</param>
     /// <param name="workflow">Input workflow.</param>
     [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
-    static member WithMappedContinuation (mapper : Continuation<'T> -> Continuation<'S>) (workflow : Workflow<'C, 'S>) : Workflow<'C, 'T> =
-        Body(fun ctx cont -> let (Body f) = workflow in f ctx (mapper cont))
+    static member WithMappedContinuation (mapper : Continuation<'T> -> Continuation<'S>) (workflow : #Workflow<'S>) : Cloud<'T> =
+        mkCloud (fun ctx cont -> workflow.Body ctx (mapper cont))
 
     /// <summary>
     ///     Appends a function information entry to the symbolic stacktrace in the exception continuation.
@@ -93,11 +61,102 @@ type Workflow =
     /// <param name="functionName">Function info string to be appended.</param>
     /// <param name="workflow">Workflow to be wrapped.</param>
     [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
-    static member WithAppendedStackTrace (functionName : string) (workflow : Workflow<'C, 'T>) : Workflow<'C, 'T> =
-        Body(fun ctx cont ->
+    static member WithAppendedStackTrace (functionName : string) (workflow : #Workflow<'T>) : Cloud<'T> =
+        mkCloud (fun ctx cont ->
             let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
-            let (Body f) = workflow
-            f ctx cont')
+            workflow.Body ctx cont')
+
+type Local =
+        
+    /// <summary>
+    ///     Creates a cloud workflow that captures the current execution context.
+    /// </summary>
+    /// <param name="body">Execution body.</param>
+    [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
+    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Local<'T> = 
+        mkLocal(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
+
+    /// <summary>
+    ///     Installs provided resource to the scoped computation.
+    /// </summary>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    /// <param name="resource">Resource to be installed.</param>
+    [<CompilerMessage("'WithResource' only intended for runtime implementers.", 444)>]
+    static member WithResource(workflow : Local<'T>, resource : 'Resource) : Local<'T> =
+        Local.FromContinuations(fun ctx cont ->
+            // Augment the continuation with undo logic so that resource
+            // updates only hold within scope.
+            let parentResource = ctx.Resources.TryResolve<'Resource>()
+            let inline revertCtx (ctx : ExecutionContext) =
+                let resources =
+                    match parentResource with
+                    | None -> ctx.Resources.Remove<'Resource> ()
+                    | Some pr -> ctx.Resources.Register<'Resource> pr
+
+                { ctx with Resources = resources }
+
+            let cont' = 
+                { 
+                    Success = fun ctx t -> cont.Success (revertCtx ctx) t
+                    Exception = fun ctx e -> cont.Exception (revertCtx ctx) e
+                    Cancellation = fun ctx c -> cont.Cancellation (revertCtx ctx) c
+                }
+
+            workflow.Body { ctx with Resources = ctx.Resources.Register resource } cont')
+
+    /// <summary>
+    ///     Wraps a workflow with a mapped continuation.
+    /// </summary>
+    /// <param name="mapper">Continuation mapping function.</param>
+    /// <param name="workflow">Input workflow.</param>
+    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
+    static member WithMappedContinuation (mapper : Continuation<'T> -> Continuation<'S>) (workflow : Local<'S>) : Local<'T> =
+        mkLocal (fun ctx cont -> workflow.Body ctx (mapper cont))
+
+    /// <summary>
+    ///     Appends a function information entry to the symbolic stacktrace in the exception continuation.
+    /// </summary>
+    /// <param name="functionName">Function info string to be appended.</param>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
+    static member WithAppendedStackTrace (functionName : string) (workflow : Local<'T>) : Local<'T> =
+        mkLocal (fun ctx cont ->
+            let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
+            workflow.Body ctx cont')
+
+
+/// Cloud workflows core continuation API
+type Workflow =
+
+    /// <summary>
+    ///     Returns the execution context of current computation.
+    /// </summary>
+    [<CompilerMessage("'GetExecutionContext' only intended for runtime implementers.", 444)>]
+    static member GetExecutionContext () : Local<ExecutionContext> =
+        Local.FromContinuations(fun ctx cont -> cont.Success ctx ctx)
+        
+    /// <summary>
+    ///     Returns the resource registry for current execution context.
+    /// </summary>
+    [<CompilerMessage("'GetResourceRegistry' only intended for runtime implementers.", 444)>]
+    static member GetResourceRegistry () : Local<ResourceRegistry> =
+        Local.FromContinuations(fun ctx cont -> cont.Success ctx ctx.Resources)
+
+    /// <summary>
+    ///     Gets resource from current execution context.
+    /// </summary>
+    [<CompilerMessage("'GetResource' only intended for runtime implementers.", 444)>]
+    static member GetResource<'TResource> () : Local<'TResource> =
+        Local.FromContinuations(fun ctx cont ->
+            let res = protect (fun () -> ctx.Resources.Resolve<'TResource> ()) ()
+            cont.Choice(ctx, res))
+
+    /// <summary>
+    ///     Try Getting resource from current execution context.
+    /// </summary>
+    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
+    static member TryGetResource<'TResource> () : Local<'TResource option> =
+        Local.FromContinuations(fun ctx cont -> cont.Success ctx <| ctx.Resources.TryResolve<'TResource> ())
 
     /// <summary>
     ///     Starts given workflow as a System.Threading.Task
@@ -148,7 +207,7 @@ type Workflow =
     /// <param name="context">Local execution context.</param>
     [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
     static member StartWithContinuations(workflow : Workflow<'T>, continuation : Continuation<'T>, context : ExecutionContext) : unit =
-        let (Body f) = workflow in f context continuation
+        workflow.Body context continuation
 
     /// <summary>
     ///     Starts a cloud workflow with given execution context in the current thread.
@@ -160,8 +219,7 @@ type Workflow =
     [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
     static member StartWithContinuations(workflow : Workflow<'T>, continuation : Continuation<'T>, 
                                             resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : unit =
-        let (Body f) = workflow
-        f { Resources = resources ; CancellationToken = cancellationToken } continuation
+        workflow.Body { Resources = resources ; CancellationToken = cancellationToken } continuation
 
     /// <summary>
     ///     Starts provided cloud workflow immediately in the current thread.

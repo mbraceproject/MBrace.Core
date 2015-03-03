@@ -40,17 +40,6 @@ type ICloudRuntimeProvider =
     /// <param name="newPolicy">new fault policy.</param>
     abstract WithFaultPolicy : newPolicy:FaultPolicy -> ICloudRuntimeProvider
 
-//    /// <summary>
-//    ///     Creates a new scheduler instance with updated scheduling context
-//    /// </summary>
-//    /// <param name="newContext">new scheduling context</param>
-//    abstract WithSchedulingContext : newContext:SchedulingContext -> ICloudRuntimeProvider
-//
-//    /// <summary>
-//    ///     Gets the current scheduling context.
-//    /// </summary>
-//    abstract SchedulingContext : SchedulingContext
-
     /// Specifies whether runtime supports submission of tasks to specific worker nodes
     abstract IsTargetedWorkerSupported : bool
 

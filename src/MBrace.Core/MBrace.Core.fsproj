@@ -79,7 +79,7 @@
     <Compile Include="Runtime\FaultPolicy.fs" />
     <Compile Include="Runtime\RuntimeTypes.fs" />
     <Compile Include="Runtime\RuntimeProvider.fs" />
-    <Compile Include="Runtime\CloudCombinators.fs" />
+    <Compile Include="Runtime\RuntimeCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryStore.fs" />
     <Compile Include="Runtime\InMemory\InMemoryCombinators.fs" />
     <Compile Include="Runtime\InMemory\InMemoryRuntimeProvider.fs" />

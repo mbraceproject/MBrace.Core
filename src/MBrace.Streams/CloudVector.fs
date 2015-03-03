@@ -75,7 +75,7 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
     }
 
     override __.IsCachingSupported = Option.isSome cacheMap
-    override __.GetCacheState () = getCacheMap().Value |> Cloud.map (fun m -> m |> Seq.map (function KeyValue(w,is) -> (w,is)) |> Seq.toArray)
+    override __.GetCacheState () = getCacheMap().Value |> Local.map (fun m -> m |> Seq.map (function KeyValue(w,is) -> (w,is)) |> Seq.toArray)
 
     override __.UpdateCacheState(worker : IWorkerRef, appendedIndices : int []) = local {
         let cacheMap = getCacheMap()
@@ -95,7 +95,7 @@ type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : Clou
             partitions
             |> Array.map (fun p -> (p :> ICloudDisposable).Dispose())
             |> Local.Parallel
-            |> Cloud.Ignore
+            |> Local.Ignore
     }
 
 /// Cloud vector implementation that results from concatennation of multiple cloudvectors
@@ -172,7 +172,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
             groupedIndices
             |> Seq.map (fun (ci, iss) -> components.[ci].UpdateCacheState(w, iss))
             |> Local.Parallel
-            |> Cloud.Ignore
+            |> Local.Ignore
     }
 
     override __.Dispose () = local {
@@ -180,7 +180,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
             components
             |> Seq.map (fun c -> c.Dispose())
             |> Local.Parallel
-            |> Cloud.Ignore
+            |> Local.Ignore
     }
             
 /// Cloud vector static API

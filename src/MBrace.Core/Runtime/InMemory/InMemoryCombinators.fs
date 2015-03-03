@@ -8,41 +8,6 @@ open System.Threading.Tasks
 open MBrace
 open MBrace.Continuation
 
-///// Collection of workflows that emulate execute
-///// the parallelism primitives sequentially.
-//type Sequential =
-//
-//    /// <summary>
-//    ///     A Cloud.Parallel implementation executed sequentially.
-//    /// </summary>
-//    /// <param name="computations">Input computations.</param>
-//    [<CompilerMessage("Use of Sequential.Parallel restricted to runtime implementers.", 444)>]
-//    static member Parallel(computations : seq<Workflow<'T>>) : Cloud<'T []> = cloud {
-//        let arr = ResizeArray<'T> ()
-//        for comp in Seq.toArray computations do
-//            let! r = comp in arr.Add r
-//        return arr.ToArray()
-//    }
-//
-//    /// <summary>
-//    ///     A Cloud.Choice implementation executed sequentially.
-//    /// </summary>
-//    /// <param name="computations">Input computations.</param>
-//    [<CompilerMessage("Use of Sequential.Choice restricted to runtime implementers.", 444)>]
-//    static member Choice(computations : seq<Workflow<'T option>>) : Cloud<'T option> = cloud {
-//        let computations = Seq.toArray computations
-//        let rec aux i = cloud {
-//            if i = computations.Length then return None
-//            else
-//                let! r = computations.[i]
-//                match r with
-//                | None -> return! aux (i+1)
-//                | Some _ -> return r
-//        }
-//
-//        return! aux 0
-//    }
-
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool
 type ThreadPool private () =
@@ -59,8 +24,8 @@ type ThreadPool private () =
     /// <param name="mkNestedCts">Creates a child cancellation token source for child workflows.</param>
     /// <param name="computations">Input computations.</param>
     [<CompilerMessage("Use of ThreadPool.Parallel restricted to runtime implementers.", 444)>]
-    static member Parallel (mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, computations : seq<#Workflow<'T>>) : Workflow<_, 'T []> =
-        Workflow.FromContinuations(fun ctx cont ->
+    static member Parallel (mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, computations : seq<#Workflow<'T>>) : Local<'T []> =
+        Local.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             | Choice1Of2 [||] -> cont.Success ctx [||]
@@ -103,8 +68,8 @@ type ThreadPool private () =
     /// <param name="mkNestedCts">Creates a child cancellation token source for child workflows.</param>
     /// <param name="computations">Input computations.</param>
     [<CompilerMessage("Use of ThreadPool.Choice restricted to runtime implementers.", 444)>]
-    static member Choice(mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, computations : seq<#Workflow<'T option>>) : Workflow<_, 'T option> =
-        Workflow.FromContinuations(fun ctx cont ->
+    static member Choice(mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, computations : seq<#Workflow<'T option>>) : Local<'T option> =
+        Local.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             | Choice1Of2 [||] -> cont.Success ctx None

@@ -59,7 +59,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="ParallelismTests.fs" />
     <Compile Include="StoreTests.fs" />
-    <None Include="StreamsTests.fs" />
+    <Compile Include="StreamsTests.fs" />
     <None Include="CSharpTestsDriver.fs" />
     <None Include="CSharpStreamsTestsDriver.fs" />
     <Content Include="App.config" />

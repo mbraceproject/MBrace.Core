@@ -17,7 +17,7 @@ let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : 
     { ctx with CancellationToken = cts }
 
 let private asyncFromContinuations f =
-    Workflow.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
+    Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
 let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq<#Workflow<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {

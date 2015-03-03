@@ -295,7 +295,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             repeat(fun () ->
                 cloud {
                     let! workers = Cloud.GetAvailableWorkers()
-                    let! results = Cloud.Parallel Cloud.CurrentWorker
+                    let! results = Cloud.ParallelEverywhere Cloud.CurrentWorker
                     return set results = set workers
                 } |> run |> Choice.shouldEqual true)
 
@@ -491,7 +491,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 cloud {
                     let! workers = Cloud.GetAvailableWorkers()
                     let! counter = CloudAtom.New 0
-                    let! _ = Cloud.Choice (cloud { let! _ = CloudAtom.Incr counter in return Option<int>.None })
+                    let! _ = Cloud.ChoiceEverywhere (cloud { let! _ = CloudAtom.Incr counter in return Option<int>.None })
                     let! value = counter.Value
                     return value = workers.Length
                 } |> run |> Choice.shouldEqual true)

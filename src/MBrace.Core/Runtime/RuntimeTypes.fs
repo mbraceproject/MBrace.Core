@@ -4,15 +4,6 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
-///// Scheduling context for currently executing cloud process.
-//type SchedulingContext =
-//    /// Current thread scheduling context
-//    | Sequential
-//    /// Thread pool scheduling context
-//    | ThreadParallel
-//    /// Distributed scheduling context
-//    | Distributed
-
 /// Denotes a reference to a worker node in the cluster.
 type IWorkerRef =
     inherit IComparable

@@ -115,7 +115,8 @@ type CloudChannel =
     ///     Deletes cloud channel instance.
     /// </summary>
     /// <param name="channel">Channel to be disposed.</param>
-    static member Delete(channel : IReceivePort<'T>) : Local<unit> = dispose channel
+    static member Delete(channel : IReceivePort<'T>) : Local<unit> = 
+        local { return! dispose channel }
 
     /// <summary>
     ///     Deletes container and all its contained channels.

@@ -190,7 +190,7 @@ module ``Continuation Tests`` =
     let ``try finally monadic`` () =
         let n = ref 10
         let rec loop () : Local<unit> =
-            Cloud.TryFinally(
+            Local.TryFinally(
                 Cloud.Raise(new Exception()),
                 local { if !n > 0 then decr n ; return! loop () }
             )
@@ -490,7 +490,7 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``test correct scoping in resource updates`` () =
         cloud {
-            do! Workflow.WithResource(cloud.Zero(), 42)
+            do! Cloud.WithResource(cloud.Zero(), 42)
             return! Workflow.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 

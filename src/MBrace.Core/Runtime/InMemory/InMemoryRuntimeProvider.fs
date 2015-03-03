@@ -115,7 +115,7 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, logger) :> ICloudRuntimeProvider
 
-        member __.ScheduleParallel computations = 
+        member __.ScheduleParallel computations = cloud {
             let computations =
                 computations
                 |> Seq.map (fun (c,w) ->
@@ -125,9 +125,10 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
                         c)
                 |> Seq.toArray
 
-            ThreadPool.Parallel(mkNestedCts, computations)
+            return! ThreadPool.Parallel(mkNestedCts, computations)
+        }
 
-        member __.ScheduleChoice computations = 
+        member __.ScheduleChoice computations = cloud {
             let computations =
                 computations
                 |> Seq.map (fun (c,w) ->
@@ -137,7 +138,8 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
                         c)
                 |> Seq.toArray
 
-            ThreadPool.Choice(mkNestedCts, computations)
+            return! ThreadPool.Choice(mkNestedCts, computations)
+        }
 
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, computations)
         member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts, computations)

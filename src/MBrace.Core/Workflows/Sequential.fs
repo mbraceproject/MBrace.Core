@@ -58,7 +58,7 @@ module Sequential =
     /// <param name="folder">Folding function.</param>
     /// <param name="state">Initial state.</param>
     /// <param name="source">Input data.</param>
-    let fold (folder : 'State -> 'T -> Local<'State>) (state : 'State) (source : seq<'T>) : Workflow<_, 'State> = local {
+    let fold (folder : 'State -> 'T -> Local<'State>) (state : 'State) (source : seq<'T>) : Local<'State> = local {
         let state = ref state
         for t in source do
             let! state' = folder !state t
@@ -86,7 +86,7 @@ module Sequential =
     /// </summary>
     /// <param name="collector">Collector function.</param>
     /// <param name="source">Source data.</param>
-    let lazyCollect (collector : 'T -> Local<#seq<'S>>) (source : seq<'T>) : Workflow<_, seq<'S>> = local {
+    let lazyCollect (collector : 'T -> Local<#seq<'S>>) (source : seq<'T>) : Local<seq<'S>> = local {
         let! ctx = Workflow.GetExecutionContext()
         return seq {
             for t in source do yield! Workflow.RunSynchronously(collector t, ctx.Resources, ctx.CancellationToken)
