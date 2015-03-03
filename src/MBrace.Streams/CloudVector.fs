@@ -187,7 +187,7 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
 type CloudVector =
 
     /// <summary>
-    ///     Creates a new CloudVector out of a collection of CloudSequence partitinons
+    ///     Creates a new CloudVector out of a collection of CloudSequence partitions
     /// </summary>
     /// <param name="partitions">CloudSequences that constitute the vector.</param>
     /// <param name="enableCaching">Enable in-memory caching of partitions in worker roles. Defaults to true.</param>

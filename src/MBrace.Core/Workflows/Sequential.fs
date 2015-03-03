@@ -132,3 +132,12 @@ module Sequential =
 
         return! aux ()
     }
+
+    /// <summary>
+    ///     Sequential iter combinator.
+    /// </summary>
+    /// <param name="body">Iterator body.</param>
+    /// <param name="source">Input sequence.</param>
+    let iter (body : 'T -> Cloud<unit>) (source : seq<'T>) : Cloud<unit> = cloud {
+        for t in source do do! body t
+    }

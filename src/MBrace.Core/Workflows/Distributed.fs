@@ -160,6 +160,16 @@ module Distributed =
         reduceCombine (Cloud.lift <| Array.fold folder init) (Cloud.lift reduce) source
 
     /// <summary>
+    ///     Distributed iter combinator. Input data is partitioned according to cluster size
+    ///     and distributed to worker nodes accordingly. It is then further partitioned
+    ///     according to the processor count of each worker.
+    /// </summary>
+    /// <param name="body">Iterator body.</param>
+    /// <param name="source">Input sequence.</param>
+    let iter (body : 'T -> Cloud<unit>) (source : seq<'T>) : Cloud<unit> =
+        reduceCombine (Sequential.iter body) (fun _ -> cloud.Zero()) source
+
+    /// <summary>
     ///     Distributed Map/Reduce workflow with cluster balancing.
     /// </summary>
     /// <param name="mapper">Mapper workflow.</param>
@@ -186,6 +196,7 @@ module Distributed =
 
         fold2 (fun s t -> let s' = mapper t in reducer s s')
                 reducer init source
+        
 
     //
     //  NonDeterministic Parallelism workflows

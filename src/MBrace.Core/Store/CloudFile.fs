@@ -112,8 +112,8 @@ type FileStore =
         let container : string option = container |> Option.map (fun d -> d.Path)
         FileStore.GetRandomFileName(?container = container)
 
-/// Represents a directory found in the local store
-and [<DataContract; Sealed>] CloudDirectory =
+/// Represents a directory found in the cloud store
+and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] CloudDirectory =
 
     [<DataMember(Name = "Path")>]
     val mutable private path : string
@@ -129,6 +129,9 @@ and [<DataContract; Sealed>] CloudDirectory =
 
     interface ICloudDisposable with
         member d.Dispose () = CloudDirectory.Delete(d, recursiveDelete = true)
+
+    override __.ToString() = __.path
+    member private r.StructuredFormatDisplay = r.ToString()
 
     /// <summary>
     ///     Checks if directory exists in given path
@@ -203,7 +206,7 @@ and [<DataContract; Sealed>] CloudDirectory =
         CloudDirectory.Enumerate(?directory = (directory |> Option.map (fun d -> d.Path)))
 
 /// Represents a file found in the local store
-and [<DataContract; Sealed>] CloudFile =
+and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] CloudFile =
 
     [<DataMember(Name = "Path")>]
     val mutable private path : string
@@ -219,6 +222,9 @@ and [<DataContract; Sealed>] CloudFile =
 
     interface ICloudDisposable with
         member f.Dispose () = CloudFile.Delete f
+
+    override __.ToString() = __.path
+    member private r.StructuredFormatDisplay = r.ToString()
 
     /// <summary>
     ///     Gets the size of provided file, in bytes.
