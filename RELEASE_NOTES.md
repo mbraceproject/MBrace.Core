@@ -1,3 +1,7 @@
+#### 0.9.3-alpha
+* Introduce Local<> workflows to programming model.
+* Add IWorkerRef.ProcessorCount property.
+
 #### 0.9.2-alpha
 * Release MBrace.Streams NuGet package.
 * Minor revisions and bugfixes.
