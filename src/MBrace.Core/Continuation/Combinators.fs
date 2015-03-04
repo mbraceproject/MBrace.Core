@@ -19,32 +19,19 @@ type Cloud =
         mkCloud(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
 
     /// <summary>
-    ///     Installs provided resource to the scoped computation.
+    ///     Runs provided workflow in a nested execution context that is
+    ///     introduced using the update/revert functions.
+    ///     These must be serializable and exception safe.
     /// </summary>
     /// <param name="workflow">Workflow to be wrapped.</param>
-    /// <param name="resource">Resource to be installed.</param>
-    [<CompilerMessage("'WithResource' only intended for runtime implementers.", 444)>]
-    static member WithResource(workflow : Workflow<'T>, resource : 'Resource) : Cloud<'T> =
-        Cloud.FromContinuations(fun ctx cont ->
-            // Augment the continuation with undo logic so that resource
-            // updates only hold within scope.
-            let parentResource = ctx.Resources.TryResolve<'Resource>()
-            let inline revertCtx (ctx : ExecutionContext) =
-                let resources =
-                    match parentResource with
-                    | None -> ctx.Resources.Remove<'Resource> ()
-                    | Some pr -> ctx.Resources.Register<'Resource> pr
+    /// <param name="update">Resource updating function.</param>
+    /// <param name="revert">Resource reverting function.</param>
+    [<CompilerMessage("'WithNestedContext' only intended for runtime implementers.", 444)>]
+    static member WithNestedContext(workflow : Workflow<'T>, 
+                                        update : ExecutionContext -> ExecutionContext, 
+                                        revert : ExecutionContext -> ExecutionContext) : Cloud<'T> =
 
-                { ctx with Resources = resources }
-
-            let cont' = 
-                { 
-                    Success = fun ctx t -> cont.Success (revertCtx ctx) t
-                    Exception = fun ctx e -> cont.Exception (revertCtx ctx) e
-                    Cancellation = fun ctx c -> cont.Cancellation (revertCtx ctx) c
-                }
-
-            workflow.Body { ctx with Resources = ctx.Resources.Register resource } cont')
+        Cloud.FromContinuations(withNestedContext update revert workflow.Body) 
 
     /// <summary>
     ///     Wraps a workflow with a mapped continuation.
@@ -77,32 +64,19 @@ type Local =
         mkLocal(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
 
     /// <summary>
-    ///     Installs provided resource to the scoped computation.
+    ///     Runs provided workflow in a nested execution context that is
+    ///     introduced using the update/revert functions.
+    ///     These must be serializable and exception safe.
     /// </summary>
     /// <param name="workflow">Workflow to be wrapped.</param>
-    /// <param name="resource">Resource to be installed.</param>
-    [<CompilerMessage("'WithResource' only intended for runtime implementers.", 444)>]
-    static member WithResource(workflow : Local<'T>, resource : 'Resource) : Local<'T> =
-        Local.FromContinuations(fun ctx cont ->
-            // Augment the continuation with undo logic so that resource
-            // updates only hold within scope.
-            let parentResource = ctx.Resources.TryResolve<'Resource>()
-            let inline revertCtx (ctx : ExecutionContext) =
-                let resources =
-                    match parentResource with
-                    | None -> ctx.Resources.Remove<'Resource> ()
-                    | Some pr -> ctx.Resources.Register<'Resource> pr
+    /// <param name="update">Resource updating function.</param>
+    /// <param name="revert">Resource reverting function.</param>
+    [<CompilerMessage("'WithNestedContext' only intended for runtime implementers.", 444)>]
+    static member WithNestedContext(workflow : Local<'T>, 
+                                        update : ExecutionContext -> ExecutionContext, 
+                                        revert : ExecutionContext -> ExecutionContext) : Local<'T> =
 
-                { ctx with Resources = resources }
-
-            let cont' = 
-                { 
-                    Success = fun ctx t -> cont.Success (revertCtx ctx) t
-                    Exception = fun ctx e -> cont.Exception (revertCtx ctx) e
-                    Cancellation = fun ctx c -> cont.Cancellation (revertCtx ctx) c
-                }
-
-            workflow.Body { ctx with Resources = ctx.Resources.Register resource } cont')
+        Local.FromContinuations(withNestedContext update revert workflow.Body) 
 
     /// <summary>
     ///     Wraps a workflow with a mapped continuation.

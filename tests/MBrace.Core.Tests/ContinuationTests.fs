@@ -490,7 +490,10 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``test correct scoping in resource updates`` () =
         cloud {
-            do! Cloud.WithResource(cloud.Zero(), 42)
+            do! Cloud.WithNestedContext(cloud.Zero(), 
+                                    (fun ctx -> { ctx with Resources = ctx.Resources.Register 42 }),
+                                    (fun ctx -> { ctx with Resources = ctx.Resources.Remove<int> ()}))
+
             return! Workflow.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 

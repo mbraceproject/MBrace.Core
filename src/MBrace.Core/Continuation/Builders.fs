@@ -256,6 +256,25 @@ module internal BuilderImpl =
 
         delay' loop
 
+    // wraps workflow in a nested execution context which can be updated
+    // once computation is completed.
+    let inline withNestedContext (update : ExecutionContext -> ExecutionContext)
+                                  (revert : ExecutionContext -> ExecutionContext) 
+                                  (body : Body<'T>) : Body<'T> =
+        fun ctx cont ->
+            match protect update ctx with
+            | Choice1Of2 ctx' -> 
+                // update immediate continuation so that execution context is reverted as soon as provided workflow is completed.
+                let cont' =
+                    { 
+                        Success = fun ctx t -> match protect revert ctx with Choice1Of2 ctx' -> cont.Success ctx' t | Choice2Of2 e -> cont.Exception ctx (capture e)
+                        Exception = fun ctx e -> match protect revert ctx with Choice1Of2 ctx' -> cont.Exception ctx' e | Choice2Of2 e -> cont.Exception ctx (capture e)
+                        Cancellation = fun ctx c -> match protect revert ctx with Choice1Of2 ctx' -> cont.Cancellation ctx' c | Choice2Of2 _ -> cont.Cancellation ctx c
+                    }
+
+                body ctx' cont'
+            | Choice2Of2 e -> cont.Exception ctx (capture e)
+
 /// A collection of builder implementations for MBrace workflows
 [<AutoOpen>]
 module Builders =

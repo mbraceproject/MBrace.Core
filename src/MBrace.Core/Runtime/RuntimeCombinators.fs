@@ -291,7 +291,10 @@ type Cloud =
     static member WithFaultPolicy (policy : FaultPolicy) (workflow : Workflow<'T>) : Cloud<'T> = cloud {
         let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
         let runtime' = runtime.WithFaultPolicy policy
-        return! Cloud.WithResource(workflow, runtime')
+        let currentPolicy = runtime.FaultPolicy
+        let update (ctx : ExecutionContext) = { ctx with Resources = ctx.Resources.Register(runtime.WithFaultPolicy policy) }
+        let revert (ctx : ExecutionContext) = { ctx with Resources = ctx.Resources.Register(runtime.WithFaultPolicy currentPolicy) }
+        return! Cloud.WithNestedContext(workflow, update, revert)
     }
 
     /// Creates a new cloud cancellation token source
