@@ -83,14 +83,7 @@ type ActorChannelProvider (state : RuntimeState) =
         member __.DisposeContainer _ = async.Zero()
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies : AssemblyId [], faultPolicy, jobId, context) =
-
-    let failTargetWorker () = invalidOp <| sprintf "Cannot target worker when running in '%A' execution context" context
-
-    let extractComputations (computations : seq<Cloud<_> * IWorkerRef option>) =
-        computations
-        |> Seq.map (fun (c,w) -> if Option.isSome w then failTargetWorker () else c)
-        |> Seq.toArray
+type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies : AssemblyId [], faultPolicy, jobId) =
 
     static let mkNestedCts elevate (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
@@ -99,19 +92,15 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
 
     /// Creates a runtime provider instance for a provided job
     static member FromJob state dependencies (job : Job) =
-        new RuntimeProvider(state, job.ProcessInfo, dependencies, job.FaultPolicy, job.JobId, Distributed)
+        new RuntimeProvider(state, job.ProcessInfo, dependencies, job.FaultPolicy, job.JobId)
         
     interface ICloudRuntimeProvider with
         member __.ProcessId = procInfo.ProcessId
         member __.JobId = jobId
 
-        member __.SchedulingContext = context
-        member __.WithSchedulingContext ctx =
-            new RuntimeProvider(state, procInfo, dependencies, faultPolicy, jobId, ctx) :> ICloudRuntimeProvider
-
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, procInfo, dependencies, newPolicy, jobId, context) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, procInfo, dependencies, newPolicy, jobId) :> ICloudRuntimeProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = async {
             match parents with
@@ -120,24 +109,18 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
             | _ -> return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
         }
 
-        member __.IsTargetedWorkerSupported = 
-            match context with
-            | Distributed -> true
-            | _ -> false
+        member __.IsTargetedWorkerSupported = true
 
-        member __.ScheduleParallel computations = 
-            match context with
-            | Distributed -> Combinators.Parallel state procInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Parallel (mkNestedCts false, extractComputations computations)
-            | Sequential -> Sequential.Parallel (extractComputations computations)
+        member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts false, computations)
+        member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts false, computations)
+
+        member __.ScheduleParallel computations =
+            Combinators.Parallel state procInfo dependencies faultPolicy computations
 
         member __.ScheduleChoice computations = 
-            match context with
-            | Distributed -> Combinators.Choice state procInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Choice (mkNestedCts false, extractComputations computations)
-            | Sequential -> Sequential.Choice (extractComputations computations)
+            Combinators.Choice state procInfo dependencies faultPolicy computations
 
-        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
+        member __.ScheduleStartAsTask(workflow : Workflow<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
             Combinators.StartAsCloudTask state procInfo dependencies cancellationToken faultPolicy target workflow
 
         member __.GetAvailableWorkers () = state.Workers.GetValue()

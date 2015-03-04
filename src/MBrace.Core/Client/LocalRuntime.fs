@@ -31,7 +31,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
     ///     with parallelism provided by the .NET thread pool.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
-    member r.RunAsync(workflow : Cloud<'T>) : Async<'T> =
+    member r.RunAsync(workflow : Workflow<'T>) : Async<'T> =
         toLocalAsync resources workflow
 
     /// <summary>
@@ -40,9 +40,9 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token passed to computation.</param>
-    member r.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken) : 'T =
+    member r.Run(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken) : 'T =
         let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
-        Cloud.RunSynchronously(workflow, resources, cancellationToken)
+        Workflow.RunSynchronously(workflow, resources, cancellationToken)
 
     /// <summary>
     ///     Executes a cloud computation in the local process,
@@ -50,9 +50,9 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token passed to computation.</param>
-    member r.Run(workflow : Cloud<'T>, cancellationToken : CancellationToken) : 'T =
+    member r.Run(workflow : Workflow<'T>, cancellationToken : CancellationToken) : 'T =
         let cancellationToken = new InMemoryCancellationToken(cancellationToken)
-        Cloud.RunSynchronously(workflow, resources, cancellationToken)
+        Workflow.RunSynchronously(workflow, resources, cancellationToken)
 
     /// Creates a new cancellation token source
     member r.CreateCancellationTokenSource() = 

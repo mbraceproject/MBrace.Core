@@ -42,16 +42,16 @@ type CloudRef<'T> =
     member r.Path = r.path
 
     /// Dereference the cloud ref
-    member r.Value = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+    member r.Value = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
         match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
         | Some v -> return v :?> 'T
         | None -> return! ofAsync <| r.GetValueFromStore(config)
     }
 
-    /// Caches the cloud ref value to the local execution contexts. Returns true iff successful.
-    member r.Cache() = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+    /// Caches the local ref value to the local execution contexts. Returns true iff successful.
+    member r.Cache() = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
         match config.Cache with
         | None -> return false
         | Some c ->
@@ -62,14 +62,14 @@ type CloudRef<'T> =
     }
 
     /// Indicates if array is cached in local execution context
-    member c.IsCachedLocally = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    member c.IsCachedLocally = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.Cache |> Option.exists(fun ch -> ch.ContainsKey c.uuid)
     }
 
-    /// Gets the size of cloud ref in bytes
-    member r.Size = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+    /// Gets the size of local ref in bytes
+    member r.Size = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
         return! ofAsync <| config.FileStore.GetFileSize r.path
     }
 
@@ -77,8 +77,8 @@ type CloudRef<'T> =
     member private r.StructuredFormatDisplay = r.ToString()
 
     interface ICloudDisposable with
-        member r.Dispose () = cloud {
-            let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        member r.Dispose () = local {
+            let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
             return! ofAsync <| config.FileStore.DeleteFile r.path
         }
 
@@ -91,14 +91,14 @@ type CloudRef<'T> =
 type CloudRef =
     
     /// <summary>
-    ///     Creates a new cloud reference to the underlying store with provided value.
+    ///     Creates a new local reference to the underlying store with provided value.
     ///     Cloud references are immutable and cached locally for performance.
     /// </summary>
     /// <param name="value">Cloud reference value.</param>
-    /// <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+    /// <param name="directory">FileStore directory used for local ref. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    static member New(value : 'T, ?directory : string, ?serializer : ISerializer) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+    static member New(value : 'T, ?directory : string, ?serializer : ISerializer) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         return! ofAsync <| async {
@@ -116,18 +116,18 @@ type CloudRef =
     }
 
     /// <summary>
-    ///     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+    ///     Parses a local ref of given type with provided serializer. If successful, returns the local ref instance.
     /// </summary>
-    /// <param name="path">Path to cloud ref.</param>
-    /// <param name="serializer">Serializer for cloud ref.</param>
-    static member Parse<'T>(path : string, ?serializer : ISerializer) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+    /// <param name="path">Path to local ref.</param>
+    /// <param name="serializer">Serializer for local ref.</param>
+    static member Parse<'T>(path : string, ?serializer : ISerializer) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         return! ofAsync <| async {
             use! stream = config.FileStore.BeginRead path
             let header = 
                 try _serializer.Deserialize<CloudRefHeader>(stream, leaveOpen = false)
-                with e -> raise <| new FormatException("Error reading cloud ref header.", e)
+                with e -> raise <| new FormatException("Error reading local ref header.", e)
             return
                 if header.Type = typeof<'T> then
                     new CloudRef<'T>(header.UUID, path, serializer)
@@ -141,10 +141,10 @@ type CloudRef =
     ///     Dereference a Cloud reference.
     /// </summary>
     /// <param name="cloudRef">CloudRef to be dereferenced.</param>
-    static member Read(cloudRef : CloudRef<'T>) : Cloud<'T> = cloudRef.Value
+    static member Read(cloudRef : CloudRef<'T>) : Local<'T> = cloudRef.Value
 
     /// <summary>
-    ///     Cache a cloud reference to local execution context
+    ///     Cache a local reference to local execution context
     /// </summary>
     /// <param name="cloudRef">Cloud ref input</param>
-    static member Cache(cloudRef : CloudRef<'T>) : Cloud<bool> = cloudRef.Cache()
+    static member Cache(cloudRef : CloudRef<'T>) : Local<bool> = cloudRef.Cache()

@@ -35,8 +35,8 @@ runtime.Run(
     })
 
 let getWordCount inputSize =
-    let map (text : string) = cloud { return text.Split(' ').Length }
-    let reduce i i' = cloud { return i + i' }
+    let map (text : string) = local { return text.Split(' ').Length }
+    let reduce i i' = local { return i + i' }
     let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
     Distributed.mapReduce map reduce 0 inputs
 
@@ -66,15 +66,7 @@ let rec test () = cloud {
 runtime.Run(test(), faultPolicy = FaultPolicy.NoRetry)
 
 
-let foo = cloud {
-    let! x = Cloud.ToLocal(cloud { return 42})
-    return! Seq.init 1000 (fun i -> cloud { return i}) |> Cloud.Parallel
+local {
+    let! x = Cloud.Parallel [ cloud { return 42 }]
+    return x
 }
-
-runtime.Run foo
-
-let t = runtime.Run(Cloud.StartAsCloudTask(cloud { let! _ = Cloud.Sleep 60000 in return 42}))
-
-t.AwaitResult(50000) |> runtime.RunLocal
-
-t.Status

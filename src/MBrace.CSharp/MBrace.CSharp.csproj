@@ -46,7 +46,7 @@
   <ItemGroup>
     <Compile Include="Base.cs" />
     <Compile Include="Combinators\Concurrency.cs" />
-    <Compile Include="Combinators\Other.cs" />
+    <Compile Include="Utils\Other.cs" />
     <Compile Include="Utils\FSharpFunc.cs" />
     <Compile Include="Utils\Option.cs" />
     <Compile Include="Workflow.cs" />

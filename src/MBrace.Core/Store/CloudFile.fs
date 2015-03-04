@@ -25,8 +25,8 @@ module private CloudFileUtils =
 type FileStore =
 
     /// Returns the file store instance carried in current execution context.
-    static member Current = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Current = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore
     }
 
@@ -34,8 +34,8 @@ type FileStore =
     ///     Returns the directory name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
-    static member GetDirectoryName(path : string) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member GetDirectoryName(path : string) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.GetDirectoryName path
     }
 
@@ -43,8 +43,8 @@ type FileStore =
     ///     Returns the file name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
-    static member GetFileName(path : string) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member GetFileName(path : string) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.GetFileName path
     }
 
@@ -53,8 +53,8 @@ type FileStore =
     /// </summary>
     /// <param name="path1">First path.</param>
     /// <param name="path2">Second path.</param>
-    static member Combine(path1 : string, path2 : string) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Combine(path1 : string, path2 : string) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine [| path1 ; path2 |]
     }
 
@@ -64,8 +64,8 @@ type FileStore =
     /// <param name="path1">First path.</param>
     /// <param name="path2">Second path.</param>
     /// <param name="path3">Third path.</param>
-    static member Combine(path1 : string, path2 : string, path3 : string) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Combine(path1 : string, path2 : string, path3 : string) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine [| path1 ; path2 ; path3 |]
     }
 
@@ -73,8 +73,8 @@ type FileStore =
     ///     Combines an array of paths into a path.
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
-    static member Combine(paths : string []) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Combine(paths : string []) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine paths
     }
 
@@ -83,14 +83,14 @@ type FileStore =
     /// </summary>
     /// <param name="directory">Directory prefix path.</param>
     /// <param name="fileNames">File names to be combined.</param>
-    static member Combine(directory : string, fileNames : seq<string>) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Combine(directory : string, fileNames : seq<string>) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.Combine(directory, fileNames)
     }
 
     /// Generates a random, uniquely specified path to directory
-    static member GetRandomDirectoryName() = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member GetRandomDirectoryName() = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return config.FileStore.GetRandomDirectoryName()
     }
 
@@ -98,8 +98,8 @@ type FileStore =
     ///     Creates a uniquely defined file path for given container.
     /// </summary>
     /// <param name="container">Path to containing directory. Defaults to process directory.</param>
-    static member GetRandomFileName(?container : string) : Cloud<string> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member GetRandomFileName(?container : string) : Local<string> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let container = match container with Some c -> c | None -> config.DefaultDirectory
         return config.FileStore.GetRandomFilePath(container)
     }
@@ -108,7 +108,7 @@ type FileStore =
     ///     Creates a uniquely defined file path for given container.
     /// </summary>
     /// <param name="container">Path to containing directory. Defaults to process directory.</param>
-    static member GetRandomFileName(?container : CloudDirectory) : Cloud<string> =
+    static member GetRandomFileName(?container : CloudDirectory) : Local<string> =
         let container : string option = container |> Option.map (fun d -> d.Path)
         FileStore.GetRandomFileName(?container = container)
 
@@ -119,7 +119,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     val mutable private path : string
 
     /// <summary>
-    ///     Defines a reference to a cloud directory. This will not create a directory in the cloud store.
+    ///     Defines a reference to a local directory. This will not create a directory in the local store.
     /// </summary>
     /// <param name="path">Path to directory.</param>
     new (path : string) = { path = path }
@@ -137,8 +137,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Checks if directory exists in given path
     /// </summary>
     /// <param name="directory">Path to directory.</param>
-    static member Exists(directory : string) : Cloud<bool> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Exists(directory : string) : Local<bool> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.DirectoryExists directory
     }
 
@@ -153,8 +153,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Creates a new directory in store.
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
-    static member Create(?directory : string) : Cloud<CloudDirectory> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Create(?directory : string) : Local<CloudDirectory> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory =
             match directory with
             | Some d -> d
@@ -169,9 +169,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="directory">Directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    static member Delete(directory : string, ?recursiveDelete : bool) : Cloud<unit> = cloud {
+    static member Delete(directory : string, ?recursiveDelete : bool) : Local<unit> = local {
         let recursiveDelete = defaultArg recursiveDelete false
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.DeleteDirectory(directory, recursiveDelete = recursiveDelete)
     }
 
@@ -187,8 +187,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Enumerates all directories contained in path.
     /// </summary>
     /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
-    static member Enumerate(?directory : string) : Cloud<CloudDirectory []> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Enumerate(?directory : string) : Local<CloudDirectory []> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory =
             match directory with
             | Some d -> d
@@ -202,7 +202,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to the process directory.</param>
-    static member Enumerate(?directory : CloudDirectory) : Cloud<CloudDirectory []> =
+    static member Enumerate(?directory : CloudDirectory) : Local<CloudDirectory []> =
         CloudDirectory.Enumerate(?directory = (directory |> Option.map (fun d -> d.Path)))
 
 /// Represents a file found in the local store
@@ -230,8 +230,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Gets the size of provided file, in bytes.
     /// </summary>
     /// <param name="path">Input file.</param>
-    static member GetSize(path : string) : Cloud<int64> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member GetSize(path : string) : Local<int64> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.GetFileSize path
     }
 
@@ -246,8 +246,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Checks if file exists in store.
     /// </summary>
     /// <param name="path">Input file.</param>
-    static member Exists(path : string) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Exists(path : string) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.FileExists path
     }
 
@@ -262,8 +262,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Deletes file in given path.
     /// </summary>
     /// <param name="path">Input file.</param>
-    static member Delete(path : string) = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Delete(path : string) = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| config.FileStore.DeleteFile path
     }
 
@@ -279,8 +279,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="serializer">Serializer function.</param>
     /// <param name="path">Path to file. Defaults to auto-generated path.</param>
-    static member Create(serializer : Stream -> Async<unit>, ?path : string) : Cloud<CloudFile> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Create(serializer : Stream -> Async<unit>, ?path : string) : Local<CloudFile> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let path = match path with Some p -> p | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
         do! ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
@@ -292,8 +292,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="serializer">Serializer function.</param>
     /// <param name="directory">Containing directory.</param>
     /// <param name="fileName">File name.</param>
-    static member Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Cloud<CloudFile> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Local<CloudFile> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let path = config.FileStore.Combine [|directory ; fileName|]
         do! ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
@@ -305,9 +305,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
     /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
-    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Cloud<'T> = cloud {
+    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Local<'T> = local {
         let leaveOpen = defaultArg leaveOpen false
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| async {
             if leaveOpen then
                 let! stream = config.FileStore.BeginRead(path)
@@ -323,15 +323,15 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="file">Input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
     /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
-    static member Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Cloud<'T> = 
+    static member Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Local<'T> = 
         CloudFile.Read(file.Path, deserializer, ?leaveOpen = leaveOpen)
 
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to the process directory.</param>
-    static member Enumerate(?directory : string) : Cloud<CloudFile []> = cloud {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+    static member Enumerate(?directory : string) : Local<CloudFile []> = local {
+        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         let directory =
             match directory with
             | Some d -> d
@@ -345,7 +345,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="directory">Path to directory. Defaults to the process directory.</param>
-    static member Enumerate(?directory : CloudDirectory) : Cloud<CloudFile []> =
+    static member Enumerate(?directory : CloudDirectory) : Local<CloudFile []> =
         CloudFile.Enumerate(?directory = (directory |> Option.map (fun d -> d.Path)))
 
     //
@@ -358,7 +358,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
     /// <param name="path">Path to CloudFile.</param>
-    static member WriteAllLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Cloud<CloudFile> = cloud {
+    static member WriteAllLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Local<CloudFile> = local {
         let writer (stream : Stream) = async {
             use sw = 
                 match encoding with
@@ -377,7 +377,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadLines(file : string, ?encoding : Encoding) : Cloud<seq<string>> = cloud {
+    static member ReadLines(file : string, ?encoding : Encoding) : Local<seq<string>> = local {
         let reader (stream : Stream) = async {
             return seq { 
                 use sr = 
@@ -406,7 +406,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadAllLines(file : string, ?encoding : Encoding) : Cloud<string []> = cloud {
+    static member ReadAllLines(file : string, ?encoding : Encoding) : Local<string []> = local {
         let reader (stream : Stream) = async {
             let ra = new ResizeArray<string> ()
             use sr = 
@@ -437,7 +437,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
     /// <param name="path">Path to Cloud file.</param>
-    static member WriteAllText(text : string, ?path : string, ?encoding : Encoding) : Cloud<CloudFile> = cloud {
+    static member WriteAllText(text : string, ?path : string, ?encoding : Encoding) : Local<CloudFile> = local {
         let writer (stream : Stream) = async {
             use sw = 
                 match encoding with
@@ -454,7 +454,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadAllText(file : string, ?encoding : Encoding) = cloud {
+    static member ReadAllText(file : string, ?encoding : Encoding) = local {
         let reader (stream : Stream) = async {
             use sr = 
                 match encoding with
@@ -478,7 +478,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="buffer">Source buffer.</param>
     /// <param name="path">Path to Cloud file.</param>
-    static member WriteAllBytes(buffer : byte [], ?path : string) : Cloud<CloudFile> = cloud {
+    static member WriteAllBytes(buffer : byte [], ?path : string) : Local<CloudFile> = local {
         let writer (stream : Stream) = stream.AsyncWrite(buffer, 0, buffer.Length)
         return! CloudFile.Create(writer, ?path = path)
     }
@@ -487,7 +487,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Store all contents of given file to a new byte array.
     /// </summary>
     /// <param name="path">Input file.</param>
-    static member ReadAllBytes(path : string) : Cloud<byte []> = cloud {
+    static member ReadAllBytes(path : string) : Local<byte []> = local {
         let reader (stream : Stream) = async {
             use ms = new MemoryStream()
             do! stream.CopyToAsync ms
@@ -501,5 +501,5 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Store all contents of given file to a new byte array.
     /// </summary>
     /// <param name="file">Input file.</param>
-    static member ReadAllBytes(file : CloudFile) : Cloud<byte []> =
+    static member ReadAllBytes(file : CloudFile) : Local<byte []> =
         CloudFile.ReadAllBytes(file.Path)

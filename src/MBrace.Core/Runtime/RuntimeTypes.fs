@@ -4,15 +4,6 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
-/// Scheduling context for currently executing cloud process.
-type SchedulingContext =
-    /// Current thread scheduling context
-    | Sequential
-    /// Thread pool scheduling context
-    | ThreadParallel
-    /// Distributed scheduling context
-    | Distributed
-
 /// Denotes a reference to a worker node in the cluster.
 type IWorkerRef =
     inherit IComparable
@@ -34,8 +25,8 @@ type ICloudTask<'T> =
     /// Gets a boolean indicating that the task has been canceled.
     abstract IsCanceled : bool
     /// Awaits task for completion, returning its eventual result
-    abstract AwaitResult : ?timeoutMilliseconds:int -> Cloud<'T>
+    abstract AwaitResult : ?timeoutMilliseconds:int -> Local<'T>
     /// Rreturns the task result if completed or None if still pending.
-    abstract TryGetResult : unit -> Cloud<'T option>
+    abstract TryGetResult : unit -> Local<'T option>
     /// Synchronously gets the task result, blocking until it completes.
     abstract Result : 'T

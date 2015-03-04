@@ -23,8 +23,8 @@ module ``Continuation Tests`` =
     //
 
     let imem = LocalRuntime.Create(ResourceRegistry.Empty)
-    let run (wf : Cloud<'T>) = Choice.protect(fun () -> imem.Run wf)
-    let runCts (wf : ICloudCancellationTokenSource -> Cloud<'T>) =
+    let run (wf : Workflow<'T>) = Choice.protect(fun () -> imem.Run wf)
+    let runCts (wf : ICloudCancellationTokenSource -> #Workflow<'T>) =
         let cts = new InMemoryCancellationTokenSource ()
         Choice.protect(fun () -> imem.Run(wf cts, cts.Token))
 
@@ -189,10 +189,10 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``try finally monadic`` () =
         let n = ref 10
-        let rec loop () : Cloud<unit> =
-            Cloud.TryFinally(
+        let rec loop () : Local<unit> =
+            Local.TryFinally(
                 Cloud.Raise(new Exception()),
-                cloud { if !n > 0 then decr n ; return! loop () }
+                local { if !n > 0 then decr n ; return! loop () }
             )
 
         loop () |> run |> Choice.shouldFailwith<_, Exception>
@@ -491,7 +491,7 @@ module ``Continuation Tests`` =
     let ``test correct scoping in resource updates`` () =
         cloud {
             do! Cloud.WithResource(cloud.Zero(), 42)
-            return! Cloud.TryGetResource<int> ()
+            return! Workflow.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 
 
@@ -503,7 +503,7 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``start as task`` () =
-        let t = Cloud.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
+        let t = Workflow.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
         t.Result |> shouldEqual 42
 
     //
@@ -516,7 +516,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.map (fun i -> cloud { return i + 1 }) 
+            |> Sequential.map (fun i -> local { return i + 1 }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -526,7 +526,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.filter (fun i -> cloud { return i % 5 = 0 || i % 7 = 0 }) 
+            |> Sequential.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -536,7 +536,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 then Some i else None) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.choose (fun i -> cloud { return if i % 5 = 0 then Some i else None }) 
+            |> Sequential.choose (fun i -> local { return if i % 5 = 0 then Some i else None }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -546,7 +546,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.fold (fun s i -> i + s) 0
             ints 
             |> dseq 
-            |> Sequential.fold (fun s i -> cloud { return s + i }) 0
+            |> Sequential.fold (fun s i -> local { return s + i }) 0
             |> run
             |> Choice.shouldEqual expected)
 
@@ -556,7 +556,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.collect (fun i -> cloud { return [(i,1) ; (i,2) ; (i,3)] })
+            |> Sequential.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
             |> run
             |> Choice.shouldEqual expected)
 
@@ -566,7 +566,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.tryFind (fun i -> i % 13 = 0 || i % 7 = 0)
             ints 
             |> dseq 
-            |> Sequential.tryFind (fun i -> cloud { return i % 13 = 0 || i % 7 = 0 })
+            |> Sequential.tryFind (fun i -> local { return i % 13 = 0 || i % 7 = 0 })
             |> run
             |> Choice.shouldEqual expected)
 
@@ -576,6 +576,6 @@ module ``Continuation Tests`` =
             let expected = ints |> List.tryPick (fun i -> if i % 13 = 0 || i % 7 = 0 then Some i else None)
             ints 
             |> dseq 
-            |> Sequential.tryPick (fun i -> cloud { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
+            |> Sequential.tryPick (fun i -> local { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected)
