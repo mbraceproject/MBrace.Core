@@ -31,6 +31,8 @@ type Worker(procId : string) =
     interface IWorkerRef with
         member __.Id = id
         member __.Type = "sample runtime worker node"
+        // this assumes that workers are constrained to local machine
+        member __.ProcessorCount = System.Environment.ProcessorCount
         member __.CompareTo(other : obj) =
             match other with
             | :? Worker as w -> compare id (w :> IWorkerRef).Id

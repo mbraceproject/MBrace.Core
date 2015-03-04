@@ -31,6 +31,7 @@ type ``CloudStreams tests`` () as self =
             interface IWorkerRef with 
                 member __.Id = "foo" 
                 member __.Type = "foo"
+                member __.ProcessorCount = Environment.ProcessorCount
                 member __.CompareTo y =
                     match y with
                     | :? IWorkerRef as w -> compare "foo" w.Id

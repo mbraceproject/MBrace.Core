@@ -68,6 +68,7 @@ type internal InMemoryWorker private () =
     interface IWorkerRef with
         member __.Type = "InMemory worker"
         member __.Id = name
+        member __.ProcessorCount = Environment.ProcessorCount
         member __.CompareTo(other : obj) =
             match other with
             | :? InMemoryWorker -> 0
