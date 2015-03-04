@@ -51,7 +51,12 @@ module Continuation =
     /// <param name="tcont">Initial continuation.</param>
     let inline map (f : 'S -> 'T) (tcont : Continuation<'T>) : Continuation<'S> =
         {
-            Success = fun ctx s -> tcont.Success ctx (f s)
+            Success = 
+                fun ctx s -> 
+                    match (try f s |> Choice1Of2 with e -> Choice2Of2 e) with
+                    | Choice1Of2 t -> tcont.Success ctx t
+                    | Choice2Of2 e -> tcont.Exception ctx (ExceptionDispatchInfo.Capture e) 
+
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
         }
