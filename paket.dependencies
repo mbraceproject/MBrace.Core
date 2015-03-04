@@ -12,5 +12,5 @@ nuget Vagabond
 nuget Streams
 nuget Streams.CSharp
 nuget Streams
-nuget FsPickler.Json 1.0.12
+nuget FsPickler.Json 1.0.13
 nuget NuGet.CommandLine
