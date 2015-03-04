@@ -83,7 +83,7 @@ type ActorChannelProvider (state : RuntimeState) =
         member __.DisposeContainer _ = async.Zero()
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies : AssemblyId [], faultPolicy, jobId) =
+type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies : AssemblyId [], faultPolicy, jobId, isForcedLocalParallelism) =
 
     static let mkNestedCts elevate (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
@@ -92,7 +92,7 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
 
     /// Creates a runtime provider instance for a provided job
     static member FromJob state dependencies (job : Job) =
-        new RuntimeProvider(state, job.ProcessInfo, dependencies, job.FaultPolicy, job.JobId)
+        new RuntimeProvider(state, job.ProcessInfo, dependencies, job.FaultPolicy, job.JobId, false)
         
     interface ICloudRuntimeProvider with
         member __.ProcessId = procInfo.ProcessId
@@ -100,7 +100,7 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, procInfo, dependencies, newPolicy, jobId) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, procInfo, dependencies, newPolicy, jobId, isForcedLocalParallelism) :> ICloudRuntimeProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = async {
             match parents with
@@ -110,18 +110,33 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         }
 
         member __.IsTargetedWorkerSupported = true
+        member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
+        member __.WithForcedLocalParallelismSetting setting = 
+            new RuntimeProvider(state, procInfo, dependencies, faultPolicy, jobId, setting) :> ICloudRuntimeProvider
 
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts false, computations)
         member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts false, computations)
 
-        member __.ScheduleParallel computations =
-            Combinators.Parallel state procInfo dependencies faultPolicy computations
+        member __.ScheduleParallel computations = cloud {
+            if isForcedLocalParallelism then
+                return! ThreadPool.Parallel(mkNestedCts false, Seq.map fst computations)
+            else
+                return! Combinators.Parallel state procInfo dependencies faultPolicy computations
+        }
 
-        member __.ScheduleChoice computations = 
-            Combinators.Choice state procInfo dependencies faultPolicy computations
+        member __.ScheduleChoice computations = cloud {
+            if isForcedLocalParallelism then
+                return! ThreadPool.Choice(mkNestedCts false, Seq.map fst computations)
+            else
+                return! Combinators.Choice state procInfo dependencies faultPolicy computations
+        }
 
-        member __.ScheduleStartAsTask(workflow : Workflow<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
-            Combinators.StartAsCloudTask state procInfo dependencies cancellationToken faultPolicy target workflow
+        member __.ScheduleStartAsTask(workflow : Workflow<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) = cloud {
+            if isForcedLocalParallelism then
+                return invalidOp <| sprintf "cannot initialize cloud task when evaluating as local semantics."
+            else
+                return! Combinators.StartAsCloudTask state procInfo dependencies cancellationToken faultPolicy target workflow
+        }
 
         member __.GetAvailableWorkers () = state.Workers.GetValue()
         member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef

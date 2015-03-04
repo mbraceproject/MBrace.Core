@@ -236,6 +236,31 @@ type Cloud =
     }
 
     /// <summary>
+    ///     Wraps provided cloud workflow as a local workflow.
+    ///     Any distributed parallelism combinators called by the
+    ///     workflow will be re-interpreted using thread parallelism semantics.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to be wrapped.</param>
+    static member AsLocal(workflow : Cloud<'T>) : Local<'T> = local {
+        let isLocalEvaluated = ref false
+        let updateCtx (ctx : ExecutionContext) =
+            match ctx.Resources.TryResolve<ICloudRuntimeProvider> () with
+            | None -> ctx
+            | Some rp when rp.IsForcedLocalParallelismEnabled -> isLocalEvaluated := true ; ctx
+            | Some rp -> { ctx with Resources = ctx.Resources.Register <| rp.WithForcedLocalParallelismSetting true }
+
+        let revertCtx (ctx : ExecutionContext) =
+            if !isLocalEvaluated then ctx
+            else
+                match ctx.Resources.TryResolve<ICloudRuntimeProvider> () with
+                | None -> ctx
+                | Some rp -> { ctx with Resources = ctx.Resources.Register <| rp.WithForcedLocalParallelismSetting false }
+
+        let localEvaluated = Cloud.WithNestedContext(workflow, updateCtx, revertCtx)
+        return! mkLocal localEvaluated.Body
+    }
+
+    /// <summary>
     ///     Gets information on the execution cluster.
     /// </summary>
     static member CurrentWorker : Local<IWorkerRef> = local {

@@ -61,7 +61,7 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
 
         new InMemoryCancellationTokenSource(lcts)
 
-[<AutoSerializable(false)>]
+[<Sealed; AutoSerializable(false)>]
 type internal InMemoryWorker private () =
     static let singleton = new InMemoryWorker()
     let name = System.Net.Dns.GetHostName()
@@ -115,30 +115,15 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, logger) :> ICloudRuntimeProvider
 
-        member __.ScheduleParallel computations = cloud {
-            let computations =
-                computations
-                |> Seq.map (fun (c,w) ->
-                    if Option.isSome w then
-                        raise <| new System.NotSupportedException("Targeted workers not supported in InMemory runtime.")
-                    else
-                        c)
-                |> Seq.toArray
+        member __.IsForcedLocalParallelismEnabled = true
+        member __.WithForcedLocalParallelismSetting _ = __ :> _
 
-            return! ThreadPool.Parallel(mkNestedCts, computations)
+        member __.ScheduleParallel computations = cloud {
+            return! ThreadPool.Parallel(mkNestedCts, Seq.map fst computations)
         }
 
         member __.ScheduleChoice computations = cloud {
-            let computations =
-                computations
-                |> Seq.map (fun (c,w) ->
-                    if Option.isSome w then
-                        raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime.")
-                    else
-                        c)
-                |> Seq.toArray
-
-            return! ThreadPool.Choice(mkNestedCts, computations)
+            return! ThreadPool.Choice(mkNestedCts, Seq.map fst computations)
         }
 
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, computations)

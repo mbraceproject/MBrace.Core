@@ -210,6 +210,21 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             counter.Value |> runLocal |> shouldEqual 0)
 
     [<Test>]
+    member __.``1. Parallel : as local`` () =
+        repeat(fun () ->
+            // check local semantics are forced by using ref cells.
+            local {
+                let counter = ref 0
+                let seqWorker _ = cloud {
+                    do! Cloud.Sleep 10
+                    Interlocked.Increment counter |> ignore
+                }
+
+                let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.AsLocal
+                return counter.Value
+            } |> run |> Choice.shouldEqual 100)
+
+    [<Test>]
     member __.``1. Parallel : local`` () =
         repeat(fun () ->
             // check local semantics are forced by using ref cells.
@@ -440,6 +455,27 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
             counter.Value |> runLocal |> shouldEqual 0)
+
+    [<Test>]
+    member __.``2. Choice : as local`` () =
+        repeat(fun () ->
+            let parallelismFactor = parallelismFactor
+            // check local semantics are forced by using ref cells.
+            local {
+                let counter = ref 0
+                let seqWorker i = cloud {
+                    if i = parallelismFactor / 2 then
+                        do! Cloud.Sleep 100
+                        return Some i
+                    else
+                        let _ = Interlocked.Increment counter
+                        return None
+                }
+
+                let! result = Array.init parallelismFactor seqWorker |> Cloud.Choice |> Cloud.AsLocal
+                counter.Value |> shouldEqual (parallelismFactor - 1)
+                return result
+            } |> run |> Choice.shouldEqual (Some (parallelismFactor / 2)))
 
     [<Test>]
     member __.``2. Choice : local`` () =

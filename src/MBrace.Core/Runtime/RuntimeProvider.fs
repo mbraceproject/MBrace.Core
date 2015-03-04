@@ -43,6 +43,15 @@ type ICloudRuntimeProvider =
     /// Specifies whether runtime supports submission of tasks to specific worker nodes
     abstract IsTargetedWorkerSupported : bool
 
+    /// Specifies whether runtime will evaluate all parallelism primitives using threadpool semantics 
+    abstract IsForcedLocalParallelismEnabled : bool
+
+    /// <summary>
+    ///     Creates a new runtime provider instance with toggled local parallelism semantics
+    /// </summary>
+    /// <param name="localParallelismEnabled">With local parallelism enabled or disabled.</param>
+    abstract WithForcedLocalParallelismSetting : localParallelismEnabled:bool -> ICloudRuntimeProvider
+
     /// <summary>
     ///     Parallel fork/join implementation.
     /// </summary>
