@@ -93,7 +93,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     ///     Transactionally updates the contained value.
     /// </summary>
     /// <param name="atom">Atom instance to be updated.</param>
-    /// <param name="trasactF">Transaction function.</param>
+    /// <param name="transactF">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     member c.TransactAsync (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Async<'R> =
         CloudAtom.Transact(atom, transactF, ?maxRetries = maxRetries) |> toAsync
@@ -102,7 +102,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     ///     Transactionally updates the contained value.
     /// </summary>
     /// <param name="atom">Atom instance to be updated.</param>
-    /// <param name="trasactF">Transaction function.</param>
+    /// <param name="transactF">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     member c.Transact (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : 'R = 
         c.TransactAsync(atom, transactF, ?maxRetries = maxRetries) |> toSync
