@@ -8,6 +8,7 @@ open MBrace.Continuation
 
 #nowarn "444"
 
+/// Intrinsic cloud workflow combinators
 type Cloud =
         
     /// <summary>
@@ -53,6 +54,7 @@ type Cloud =
             let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
             workflow.Body ctx cont')
 
+/// Intrinsic local workflow combinators
 type Local =
         
     /// <summary>
