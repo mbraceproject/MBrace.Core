@@ -95,7 +95,7 @@ type CloudSequence<'T> =
     }
 
     /// Cache contents to local execution context. Returns true iff succesful.
-    member c.Cache () = local {
+    member c.PopulateCache () = local {
         let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         match config.Cache with
         | None -> return false
@@ -283,4 +283,4 @@ module CloudSequence =
     ///     Cache contents to local execution context. Returns true iff succesful.
     /// </summary>
     /// <param name="cseq">Input cloud sequence.</param>
-    let cache (cseq : CloudSequence<'T>) = cseq.Cache()
+    let cache (cseq : CloudSequence<'T>) = cseq.PopulateCache()

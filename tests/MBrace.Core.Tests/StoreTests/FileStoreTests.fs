@@ -46,7 +46,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         if __.IsCachingStore then
             cloud {
                 let! c = CloudCell.New [1..10000]
-                let! r = c.Cache()
+                let! r = c.PopulateCache()
                 r |> shouldEqual true
                 let! v1 = c.Value
                 let! v2 = c.Value
@@ -80,7 +80,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         if __.IsCachingStore then
             cloud {
                 let! c = CloudSequence.New [1..10000]
-                let! success = c.Cache()
+                let! success = c.PopulateCache()
                 success |> shouldEqual true
                 let! v1 = c.ToArray()
                 let! v2 = c.ToArray()

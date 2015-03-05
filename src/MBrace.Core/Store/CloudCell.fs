@@ -47,7 +47,7 @@ type CloudCell<'T> =
     }
 
     /// Caches the cloud cell value to the local execution contexts. Returns true iff successful.
-    member r.Cache() = local {
+    member r.PopulateCache() = local {
         let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
         match config.Cache with
         | None -> return false
@@ -117,7 +117,7 @@ type CloudCell =
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         let cell = new CloudCell<'T>(path, serializer)
         if defaultArg force false then
-            let! _ = cell.Cache() in ()
+            let! _ = cell.PopulateCache() in ()
         else
             let! exists = ofAsync <| config.FileStore.FileExists path
             if not exists then return raise <| new FileNotFoundException(path)
@@ -134,4 +134,4 @@ type CloudCell =
     ///     Cache a cloud cell to local execution context
     /// </summary>
     /// <param name="cloudRef">Cloud cell input</param>
-    static member Cache(cloudRef : CloudCell<'T>) : Local<bool> = cloudRef.Cache()
+    static member Cache(cloudRef : CloudCell<'T>) : Local<bool> = cloudRef.PopulateCache()
