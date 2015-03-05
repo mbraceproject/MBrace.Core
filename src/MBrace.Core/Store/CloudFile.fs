@@ -119,7 +119,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     val mutable private path : string
 
     /// <summary>
-    ///     Defines a reference to a local directory. This will not create a directory in the local store.
+    ///     Defines a reference to a cloud directory. This will not create a directory in the local store.
     /// </summary>
     /// <param name="path">Path to directory.</param>
     new (path : string) = { path = path }
@@ -212,12 +212,12 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     val mutable private path : string
 
     /// <summary>
-    ///     Defines a reference to a local file. This will not create a file in the local store.
+    ///     Defines a reference to a cloud file. This will not create a file in the local store.
     /// </summary>
     /// <param name="path">Path to file.</param>
     new (path : string) = { path = path }
     
-    /// Path to local file
+    /// Path to cloud file
     member f.Path = f.path
 
     interface ICloudDisposable with

@@ -73,7 +73,7 @@
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Channel.fs" />
     <Compile Include="Store\CloudFile.fs" />
-    <Compile Include="Store\CloudRef.fs" />
+    <Compile Include="Store\CloudCell.fs" />
     <Compile Include="Store\CloudSequence.fs" />
     <Compile Include="Runtime\Logging.fs" />
     <Compile Include="Runtime\FaultPolicy.fs" />

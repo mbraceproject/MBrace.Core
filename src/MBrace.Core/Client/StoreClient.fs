@@ -777,7 +777,7 @@ type FileStoreClient internal (registry : ResourceRegistry) =
         new FileStoreClient(resources)
 
 [<Sealed; AutoSerializable(false)>]
-/// Collection of CloudRef operations.
+/// Collection of CloudCell operations.
 type CloudRefClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
     
@@ -785,75 +785,75 @@ type CloudRefClient internal (registry : ResourceRegistry) =
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
-    ///     Creates a new cloud reference to the underlying store with provided value.
-    ///     Cloud references are immutable and cached locally for performance.
+    ///     Creates a new cloud cell to the underlying store with provided value.
+    ///     Cloud cells are immutable and cached locally for performance.
     /// </summary>
-    /// <param name="value">Cloud reference value.</param>
-    /// <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+    /// <param name="value">Cloud cell value.</param>
+    /// <param name="directory">FileStore directory used for cloud cell. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
     member __.NewAsync(value : 'T, ?directory : string, ?serializer : ISerializer) =
-        CloudRef.New(value, ?directory = directory, ?serializer = serializer) |> toAsync
+        CloudCell.New(value, ?directory = directory, ?serializer = serializer) |> toAsync
 
     /// <summary>
-    ///     Creates a new cloud reference to the underlying store with provided value.
-    ///     Cloud references are immutable and cached locally for performance.
+    ///     Creates a new cloud cell to the underlying store with provided value.
+    ///     Cloud cells are immutable and cached locally for performance.
     /// </summary>
-    /// <param name="value">Cloud reference value.</param>
-    /// <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+    /// <param name="value">Cloud cell value.</param>
+    /// <param name="directory">FileStore directory used for cloud cell. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
     member __.New(value : 'T, ?directory : string, ?serializer : ISerializer) =
         __.NewAsync(value, ?directory = directory, ?serializer = serializer) |> toSync
 
 
     /// <summary>
-    ///     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+    ///     Parses a cloud cell of given type with provided serializer. If successful, returns the cloud cell instance.
     /// </summary>
-    /// <param name="path">Path to cloud ref.</param>
-    /// <param name="serializer">Serializer for cloud ref.</param>
+    /// <param name="path">Path to cloud cell.</param>
+    /// <param name="serializer">Serializer for cloud cell.</param>
     member __.ParseAsync<'T>(path : string, ?serializer : ISerializer) = 
-        CloudRef.Parse(path, ?serializer = serializer) |> toAsync
+        CloudCell.Parse(path, ?serializer = serializer) |> toAsync
 
     /// <summary>
-    ///     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+    ///     Parses a cloud cell of given type with provided serializer. If successful, returns the cloud cell instance.
     /// </summary>
-    /// <param name="path">Path to cloud ref.</param>
-    /// <param name="serializer">Serializer for cloud ref.</param>
+    /// <param name="path">Path to cloud cell.</param>
+    /// <param name="serializer">Serializer for cloud cell.</param>
     member __.Parse<'T>(path : string, ?serializer : ISerializer) = 
         __.ParseAsync(path, ?serializer = serializer) |> toSync
 
 
     /// <summary>
-    ///     Dereference a Cloud reference.
+    ///     Dereference a Cloud cell.
     /// </summary>
-    /// <param name="cloudRef">CloudRef to be dereferenced.</param>
-    member __.ReadAsync(cloudRef : CloudRef<'T>) : Async<'T> = 
-        CloudRef.Read(cloudRef) |> toAsync
+    /// <param name="cloudRef">CloudCell to be dereferenced.</param>
+    member __.ReadAsync(cloudRef : CloudCell<'T>) : Async<'T> = 
+        CloudCell.Read(cloudRef) |> toAsync
 
     /// <summary>
-    ///     Dereference a Cloud reference.
+    ///     Dereference a Cloud cell.
     /// </summary>
-    /// <param name="cloudRef">CloudRef to be dereferenced.</param>
-    member __.Read(cloudRef : CloudRef<'T>) : 'T = 
+    /// <param name="cloudRef">CloudCell to be dereferenced.</param>
+    member __.Read(cloudRef : CloudCell<'T>) : 'T = 
         __.ReadAsync(cloudRef) |> toSync
 
 
     /// <summary>
-    ///     Cache a cloud reference to local execution context
+    ///     Cache a cloud cell to local execution context
     /// </summary>
     /// <param name="cloudRef">Cloud ref input</param>
-    member __.CacheAsync(cloudRef : CloudRef<'T>) : Async<bool> = 
-        CloudRef.Cache(cloudRef) |> toAsync
+    member __.CacheAsync(cloudRef : CloudCell<'T>) : Async<bool> = 
+        CloudCell.Cache(cloudRef) |> toAsync
 
     /// <summary>
-    ///     Cache a cloud reference to local execution context
+    ///     Cache a cloud cell to local execution context
     /// </summary>
     /// <param name="cloudRef">Cloud ref input</param>
-    member __.Cache(cloudRef : CloudRef<'T>) : bool = 
+    member __.Cache(cloudRef : CloudCell<'T>) : bool = 
         __.CacheAsync(cloudRef) |> toSync
 
 
 [<Sealed; AutoSerializable(false)>]
-/// Collection of CloudRef operations.
+/// Collection of CloudCell operations.
 type CloudSequenceClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
     
@@ -997,8 +997,8 @@ type StoreClient internal (registry : ResourceRegistry) =
     member __.Channel = channelClient.Value
     /// CloudFileStore client.
     member __.FileStore = fileStore.Value
-    /// CloudRef client.
-    member __.CloudRef = cloudrefClient.Value
+    /// CloudCell client.
+    member __.CloudCell = cloudrefClient.Value
     /// CloudSequence client.
     member __.CloudSequence = cloudseqClient.Value
     /// Gets the associated ResourceRegistry.

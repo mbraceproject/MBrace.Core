@@ -37,7 +37,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
     member this.SourceStore = sourceStore
 
     /// <summary>
-    ///     Wraps a file store instance in an instance that caches files to a local file store.
+    ///     Wraps a file store instance in an instance that caches files to a cloud file store.
     /// </summary>
     /// <param name="target">Target file store to cache files from.</param>
     /// <param name="localCacheStore">Local file store to cache files to.</param>

@@ -76,7 +76,7 @@ type CloudSequence<'T> =
         return serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
     }
 
-    /// Returns an enumerable that lazily fetches elements of the local sequence from store.
+    /// Returns an enumerable that lazily fetches elements of the cloud sequence from store.
     member c.ToEnumerable () = local {
         let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
@@ -84,7 +84,7 @@ type CloudSequence<'T> =
         | None -> return! c.GetSequenceFromStore(config)
     }
 
-    /// Fetches all elements of the local sequence and returns them as a local array.
+    /// Fetches all elements of the cloud sequence and returns them as a local array.
     member c.ToArray () : Local<'T []> = local {
         let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
         match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
@@ -224,7 +224,7 @@ type CloudSequence =
     /// <summary>
     ///     Parses an already existing sequence of given type in provided file store.
     /// </summary>
-    /// <param name="file">Target local file.</param>
+    /// <param name="file">Target cloud file.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
     static member Parse<'T>(file : CloudFile, ?serializer : ISerializer, ?force : bool) : Local<CloudSequence<'T>> =
@@ -253,7 +253,7 @@ type CloudSequence =
     /// <summary>
     ///     Creates a CloudSequence from file path with user-provided deserialization function.
     /// </summary>
-    /// <param name="file">Target local file.</param>
+    /// <param name="file">Target cloud file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
     static member FromFile<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force) : Local<CloudSequence<'T>> =
@@ -265,19 +265,19 @@ type CloudSequence =
 module CloudSequence =
     
     /// <summary>
-    ///     Returns an enumerable that lazily fetches elements of the local sequence from store.
+    ///     Returns an enumerable that lazily fetches elements of the cloud sequence from store.
     /// </summary>
-    /// <param name="cseq">Input local sequence</param>
+    /// <param name="cseq">Input cloud sequence</param>
     let toSeq (cseq : CloudSequence<'T>) = cseq.ToEnumerable()
 
     /// <summary>
-    ///     Fetches all elements of the local sequence and returns them as a local array.
+    ///     Fetches all elements of the cloud sequence and returns them as a local array.
     /// </summary>
-    /// <param name="cseq">Input local sequence</param>
+    /// <param name="cseq">Input cloud sequence</param>
     let toArray (cseq : CloudSequence<'T>) = cseq.ToArray()
 
     /// <summary>
     ///     Cache contents to local execution context. Returns true iff succesful.
     /// </summary>
-    /// <param name="cseq">Input local sequence.</param>
+    /// <param name="cseq">Input cloud sequence.</param>
     let cache (cseq : CloudSequence<'T>) = cseq.Cache()
