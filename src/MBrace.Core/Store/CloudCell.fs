@@ -120,7 +120,7 @@ type CloudCell =
             let! _ = cell.Cache() in ()
         else
             let! exists = ofAsync <| config.FileStore.FileExists path
-            if not exists then return raise <| new FileNotFoundException("path")
+            if not exists then return raise <| new FileNotFoundException(path)
         return cell
     }
 

@@ -213,11 +213,14 @@ type CloudSequence =
     /// <param name="force">Force evaluation. Defaults to false.</param>
     static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool) : Local<CloudSequence<'T>> = local {
         let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
-        let force = defaultArg force false
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         let cseq = new CloudSequence<'T>(path, None, serializer)
-        // force sequence traversal
-        if force then let! _ = cseq.Count in ()
+        if defaultArg force false then
+            let! _ = cseq.Count in ()
+        else
+            let! exists = ofAsync <| config.FileStore.FileExists path
+            if not exists then return raise <| new FileNotFoundException(path)
+            
         return cseq
     }
 
