@@ -148,10 +148,10 @@ type CloudAtom =
     ///     Transactionally updates the contained value.
     /// </summary>
     /// <param name="atom">Input atom.</param>
-    /// <param name="trasactF">Transaction function.</param>
+    /// <param name="transactF">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    static member Transact (atom : ICloudAtom<'T>, trasactF : 'T -> 'R * 'T, ?maxRetries : int) : Local<'R> = local {
-        return! atom.Transact trasactF
+    static member Transact (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Local<'R> = local {
+        return! atom.Transact transactF
     }
 
     /// <summary>
