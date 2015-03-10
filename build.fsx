@@ -131,7 +131,7 @@ let addFile (target : string) (file : string) =
     if File.Exists (Path.Combine("nuget", file)) then (file, Some target, None)
     else raise <| new FileNotFoundException(file)
 
-let addAssembly (target : string) assembly =
+let addAssembly reqXml (target : string) assembly =
     let includeFile force file =
         let file = file
         if File.Exists (Path.Combine("nuget", file)) then [(file, Some target, None)]
@@ -140,8 +140,8 @@ let addAssembly (target : string) assembly =
 
     seq {
         yield! includeFile true assembly
-        yield! includeFile false <| Path.ChangeExtension(assembly, "pdb")
-        yield! includeFile false <| Path.ChangeExtension(assembly, "xml")
+        yield! includeFile reqXml <| Path.ChangeExtension(assembly, "xml")
+        yield! includeFile true <| Path.ChangeExtension(assembly, "pdb")
         yield! includeFile false <| assembly + ".config"
     }
 
@@ -161,7 +161,7 @@ Target "NuGet.Core" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Core.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Core.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -187,7 +187,7 @@ Target "NuGet.Streams" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Streams.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -213,7 +213,7 @@ Target "NuGet.CSharp" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.CSharp.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.CSharp.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -239,7 +239,7 @@ Target "NuGet.Streams.CSharp" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.CSharp.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Streams.CSharp.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -267,7 +267,7 @@ Target "NuGet.Runtime.Core" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -295,8 +295,8 @@ Target "NuGet.Tests" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.Tests.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Streams.Tests.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
