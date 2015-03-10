@@ -884,7 +884,7 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Creates a collection of Cloud sequences partitioned by file size.
     /// </summary>
-    /// <param name="values">Input sequence./param>
+    /// <param name="values">Input sequence.</param>
     /// <param name="maxPartitionSize">Maximum size in bytes per Cloud sequence partition.</param>
     /// <param name="directory"></param>
     /// <param name="serializer"></param>
@@ -896,7 +896,7 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Creates a collection of Cloud sequences partitioned by file size.
     /// </summary>
-    /// <param name="values">Input sequence./param>
+    /// <param name="values">Input sequence.</param>
     /// <param name="maxPartitionSize">Maximum size in bytes per Cloud sequence partition.</param>
     /// <param name="directory"></param>
     /// <param name="serializer"></param>

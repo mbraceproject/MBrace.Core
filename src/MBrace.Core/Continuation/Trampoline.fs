@@ -17,7 +17,6 @@ type internal Trampoline private () =
     static let threshold = 300 // schedule continuation to new thread, if threshold is reached.
     let mutable bindCount = 0  // number of continuation bindings performed in current thread.
 
-    /// Checks if continuation execution stack has reached specified threshold in the current thread.
     member private __.IsBindThresholdReached () =
         if bindCount + 1 > threshold then
             bindCount <- 0
@@ -26,7 +25,6 @@ type internal Trampoline private () =
             bindCount <- bindCount + 1
             false
 
-    /// Resets the trampoline state in the current thread.
     member private __.Reset () = bindCount <- 0
 
     /// Checks if continuation execution stack has reached specified threshold in the current thread.

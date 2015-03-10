@@ -179,7 +179,7 @@ type Workflow =
     ///     Starts a cloud workflow with given execution context in the current thread.
     /// </summary>
     /// <param name="workflow">Cloud workflow to be executed.</param>
-    /// <paran name"continuation">Root continuation for workflow.</param>
+    /// <param name="continuation">Root continuation for workflow.</param>
     /// <param name="context">Local execution context.</param>
     [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
     static member StartWithContinuations(workflow : Workflow<'T>, continuation : Continuation<'T>, context : ExecutionContext) : unit =
