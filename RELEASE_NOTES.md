@@ -1,3 +1,6 @@
+#### 0.9.4-alpha
+* Packaging hotfix.
+
 #### 0.9.3-alpha
 * Introduce Local<> workflows to programming model.
 * Add IWorkerRef.ProcessorCount property.
