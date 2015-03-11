@@ -9,10 +9,9 @@ module private ResourceRegistryUtils =
     // ResourceRegistry indexes by Type.AssemblyQualifiedName which is expensive to obtain.
     // Memoize for better resolution performance.
     let dict = new System.Collections.Generic.Dictionary<Type, string>()
-    let inline key<'T> : string =
-        let t = typeof<'T>
+    let inline key (t : Type) : string =
         let mutable k = null
-        if dict.TryGetValue(typeof<'T>, &k) then k
+        if dict.TryGetValue(t, &k) then k
         else
             lock dict (fun () ->
                 let k = t.AssemblyQualifiedName
@@ -35,30 +34,63 @@ type ResourceRegistry private (index : Map<string, obj>) =
     /// </summary>
     /// <param name="resource">input resource.</param>
     member __.Register<'TResource>(resource : 'TResource) : ResourceRegistry = 
-        new ResourceRegistry(Map.add key<'TResource> (box resource) index)
+        __.Register(resource, typeof<'TResource>)
+
+    /// <summary>
+    ///     Creates a new resource registry by appending provided resource.
+    ///     Any existing resources of the same type will be overwritten.
+    /// </summary>
+    /// <param name="resource">input resource.</param>
+    /// <param name="ty">resource type.</param>
+    member __.Register(resource : obj, ty : Type) : ResourceRegistry = 
+        new ResourceRegistry(Map.add (key ty) (box resource) index)
 
     /// <summary>
     ///     Creates a new resource registry by removing resource of given key.
     /// </summary>
     member __.Remove<'TResource> () : ResourceRegistry =
-        new ResourceRegistry(Map.remove key<'TResource> index)
+        __.Remove(typeof<'TResource>)
+
+    /// <summary>
+    ///     Creates a new resource registry by removing resource of given key.
+    /// </summary>
+    /// <param name="ty">resource type.</param>
+    member __.Remove(ty : Type) : ResourceRegistry =
+        new ResourceRegistry(Map.remove (key ty) index)
 
     /// Try Resolving resource of given type
     member __.TryResolve<'TResource> () : 'TResource option = 
-        match index.TryFind key<'TResource> with
+        match __.TryResolve(typeof<'TResource>) with
         | Some boxedResource -> Some (unbox<'TResource> boxedResource)
+        | None -> None
+
+    ///<summary> Try Resolving resource of given type.</summary>
+    /// <param name="ty">resource type.</param>
+    member __.TryResolve (ty : Type) : obj option = 
+        match index.TryFind(key ty) with
+        | Some boxedResource -> Some boxedResource
         | None -> None
 
     /// Resolves resource of given type
     member __.Resolve<'TResource> () : 'TResource =
-        match index.TryFind key<'TResource> with
-        | Some boxedResource -> unbox<'TResource> boxedResource
+        unbox<'TResource> <| __.Resolve(typeof<'TResource>) 
+
+    /// <summary>Resolves resource of given type</summary>
+    /// <param name="ty">resource type.</param>
+    member __.Resolve (ty : Type) : obj =
+        match index.TryFind (key ty) with
+        | Some boxedResource -> boxedResource
         | None -> 
-            let msg = sprintf "Resource '%s' not installed in this context." typeof<'TResource>.Name
+            let msg = sprintf "Resource '%s' not installed in this context." ty.Name
             raise <| ResourceNotFoundException msg
 
     /// Returns true iff registry instance contains resource of given type
-    member __.Contains<'TResource> () = index.ContainsKey key<'TResource>
+    member __.Contains<'TResource> () = __.Contains(typeof<'TResource>)
+
+    /// Returns true iff registry instance contains resource of given type
+    /// <param name="ty">resource type.</param>
+    member __.Contains (ty : Type) = index.ContainsKey(key ty)
+
 
     /// Creates an empty resource container
     static member Empty = new ResourceRegistry(Map.empty)
