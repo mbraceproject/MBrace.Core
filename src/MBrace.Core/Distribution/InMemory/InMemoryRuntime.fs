@@ -77,7 +77,7 @@ type internal InMemoryWorker private () =
 
     static member Instance = singleton
 
-/// .NET ThreadPool runtime provider
+/// .NET ThreadPool distribution provider
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger) =
 
@@ -98,7 +98,7 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.NoRetry
         new ThreadPoolRuntime(faultPolicy, logger)
         
-    interface ICloudRuntimeProvider with
+    interface IDistributionProvider with
         member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
             return InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
         }
@@ -114,7 +114,7 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         member __.CurrentWorker = InMemoryWorker.Instance :> IWorkerRef
 
         member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, logger) :> ICloudRuntimeProvider
+        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, logger) :> IDistributionProvider
 
         member __.IsForcedLocalParallelismEnabled = true
         member __.WithForcedLocalParallelismSetting _ = __ :> _
@@ -134,7 +134,7 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
             let! resources = Workflow.GetResourceRegistry()
             let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
-            let resources' = resources.Register (runtimeP :> ICloudRuntimeProvider)
+            let resources' = resources.Register (runtimeP :> IDistributionProvider)
             let task = Workflow.StartAsTask(workflow, resources', cancellationToken)
             return new InMemoryTask<'T>(task) :> _
         }

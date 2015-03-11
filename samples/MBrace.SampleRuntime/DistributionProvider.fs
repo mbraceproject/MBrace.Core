@@ -85,24 +85,24 @@ type ActorChannelProvider (state : RuntimeState) =
         member __.DisposeContainer _ = async.Zero()
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies : AssemblyId [], faultPolicy, jobId, isForcedLocalParallelism) =
+type DistributionProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies : AssemblyId [], faultPolicy, jobId, isForcedLocalParallelism) =
 
     static let mkNestedCts elevate (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
         let dcts = DistributedCancellationTokenSource.CreateLinkedCancellationTokenSource(parentCts, forceElevation = elevate)
         dcts :> ICloudCancellationTokenSource
 
-    /// Creates a runtime provider instance for a provided job
+    /// Creates a distribution provider instance for a provided job
     static member FromJob state dependencies (job : Job) =
-        new RuntimeProvider(state, job.ProcessInfo, dependencies, job.FaultPolicy, job.JobId, false)
+        new DistributionProvider(state, job.ProcessInfo, dependencies, job.FaultPolicy, job.JobId, false)
         
-    interface ICloudRuntimeProvider with
+    interface IDistributionProvider with
         member __.ProcessId = procInfo.ProcessId
         member __.JobId = jobId
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, procInfo, dependencies, newPolicy, jobId, isForcedLocalParallelism) :> ICloudRuntimeProvider
+            new DistributionProvider(state, procInfo, dependencies, newPolicy, jobId, isForcedLocalParallelism) :> IDistributionProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = async {
             match parents with
@@ -114,7 +114,7 @@ type RuntimeProvider private (state : RuntimeState, procInfo : ProcessInfo, depe
         member __.IsTargetedWorkerSupported = true
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting setting = 
-            new RuntimeProvider(state, procInfo, dependencies, faultPolicy, jobId, setting) :> ICloudRuntimeProvider
+            new DistributionProvider(state, procInfo, dependencies, faultPolicy, jobId, setting) :> IDistributionProvider
 
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts false, computations)
         member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts false, computations)

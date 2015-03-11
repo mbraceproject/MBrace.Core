@@ -84,7 +84,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
         let channelConfig = match channelConfig with Some cc -> cc | None -> InMemoryChannelProvider.CreateConfiguration()
 
         let resources = resource {
-            yield ThreadPoolRuntime.Create(?logger = logger) :> ICloudRuntimeProvider
+            yield ThreadPoolRuntime.Create(?logger = logger) :> IDistributionProvider
             yield atomConfig
             yield channelConfig
             match fileConfig with Some fc -> yield fc | None -> ()

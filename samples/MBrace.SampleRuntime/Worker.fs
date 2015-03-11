@@ -89,7 +89,7 @@ type LocalJobEvaluator(?showAppDomain : bool) =
             let! fault = 
                 async {
                     let! job = runtime.UnPickle pjob
-                    let runtimeP = RuntimeProvider.FromJob runtime pjob.Dependencies job
+                    let runtimeP = DistributionProvider.FromJob runtime pjob.Dependencies job
                     do! Job.RunAsync runtimeP faultCount job
                 } |> Async.Catch
 

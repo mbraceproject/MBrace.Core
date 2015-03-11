@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Runtime
 
-// Distributed runtime provider definition
+// Distributed distribution provider definition
 // Cloud workflows actuating parallelism should
 // be passed an instance of ICloudRuntimeProvider in their
 // ExecutionContext.
@@ -10,7 +10,7 @@ open MBrace
 /// <summary>
 ///     Executing runtime abstraction.
 /// </summary>
-type ICloudRuntimeProvider =
+type IDistributionProvider =
 
     /// Get cloud process identifier
     abstract ProcessId : string
@@ -38,7 +38,7 @@ type ICloudRuntimeProvider =
     ///     Creates a new scheduler instance with updated fault policy.
     /// </summary>
     /// <param name="newPolicy">new fault policy.</param>
-    abstract WithFaultPolicy : newPolicy:FaultPolicy -> ICloudRuntimeProvider
+    abstract WithFaultPolicy : newPolicy:FaultPolicy -> IDistributionProvider
 
     /// Specifies whether runtime supports submission of tasks to specific worker nodes
     abstract IsTargetedWorkerSupported : bool
@@ -47,10 +47,10 @@ type ICloudRuntimeProvider =
     abstract IsForcedLocalParallelismEnabled : bool
 
     /// <summary>
-    ///     Creates a new runtime provider instance with toggled local parallelism semantics
+    ///     Creates a new distribution provider instance with toggled local parallelism semantics
     /// </summary>
     /// <param name="localParallelismEnabled">With local parallelism enabled or disabled.</param>
-    abstract WithForcedLocalParallelismSetting : localParallelismEnabled:bool -> ICloudRuntimeProvider
+    abstract WithForcedLocalParallelismSetting : localParallelismEnabled:bool -> IDistributionProvider
 
     /// <summary>
     ///     Parallel fork/join implementation.

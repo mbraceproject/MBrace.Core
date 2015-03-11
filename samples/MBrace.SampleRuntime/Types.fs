@@ -63,7 +63,7 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Job dependent assemblies.</param>
     /// <param name="job">Job to be executed.</param>
-    static member RunAsync (runtimeProvider : ICloudRuntimeProvider) (faultCount : int) (job : Job) = 
+    static member RunAsync (runtimeProvider : IDistributionProvider) (faultCount : int) (job : Job) = 
         async {
             let tem = new JobExecutionMonitor()
             let ctx =

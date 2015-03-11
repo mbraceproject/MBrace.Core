@@ -62,7 +62,7 @@
     <Compile Include="Actors.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Combinators.fs" />
-    <Compile Include="RuntimeProvider.fs" />
+    <Compile Include="DistributionProvider.fs" />
     <Compile Include="Worker.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="main.fs" />

@@ -93,7 +93,7 @@ type Cloud =
     /// </summary>
     /// <param name="logEntry">Added log entry.</param>
     static member Log(logEntry : string) : Local<unit> = local {
-        let! runtime = Workflow.TryGetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.TryGetResource<IDistributionProvider> ()
         return 
             match runtime with
             | None -> ()
@@ -109,7 +109,7 @@ type Cloud =
     /// Returns true iff runtime supports executing workflows in specific worker.
     /// Should be used with combinators that support worker targeting like Cloud.Parallel/Choice/StartChild.
     static member IsTargetedWorkerSupported : Local<bool> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider>()
+        let! runtime = Workflow.GetResource<IDistributionProvider>()
         return runtime.IsTargetedWorkerSupported
     }
 
@@ -121,7 +121,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (computations : seq<#Workflow<'T>>) : Cloud<'T []> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun c -> c,None))
         return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T>> computations)" workflow
     }
@@ -135,7 +135,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (computations : seq<#Workflow<'T> * IWorkerRef>) : Cloud<'T []> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun (c,w) -> c,Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T> * IWorkerRef> computations)" workflow
     }
@@ -148,7 +148,7 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Computation to be executed in every worker.</param>
     static member ParallelEverywhere(computation : Workflow<'T>) : Cloud<'T []> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
         let workflow = runtime.ScheduleParallel (workers |> Seq.map (fun w -> computation, Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.ParallelEverywhere[T](Cloud<T> computation)" workflow
@@ -164,7 +164,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Choice (computations : seq<#Workflow<'T option>>) : Cloud<'T option> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun c -> c,None))
         return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option>> computations)" workflow
     }
@@ -179,7 +179,7 @@ type Cloud =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Choice (computations : seq<#Workflow<'T option> * IWorkerRef>) : Cloud<'T option> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun (c,w) -> c, Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option> * IWorkerRef> computations)" workflow
     }
@@ -194,7 +194,7 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Input computation to be executed everywhere.</param>
     static member ChoiceEverywhere (computation : Workflow<'T option>) : Cloud<'T option> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
         let workflow = runtime.ScheduleChoice (workers |> Seq.map (fun w -> computation, Some w))
         return! Cloud.WithAppendedStackTrace "Cloud.ChoiceEverywhere[T](Cloud<T option> computation)" workflow
@@ -207,7 +207,7 @@ type Cloud =
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Cancellation token for task. Defaults to current cancellation token.</param>
     static member StartAsCloudTask(computation : Workflow<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken) : Cloud<ICloudTask<'T>> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! defaultToken = Cloud.CancellationToken
         let cancellationToken = defaultArg cancellationToken defaultToken
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
@@ -229,7 +229,7 @@ type Cloud =
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     static member StartChild(workflow : Workflow<'T>, ?target : IWorkerRef) : Cloud<Local<'T>> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! cancellationToken = Cloud.CancellationToken
         let! task = runtime.ScheduleStartAsTask(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
         return Local.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" (local { return! task.AwaitResult() })
@@ -244,7 +244,7 @@ type Cloud =
     static member AsLocal(workflow : Cloud<'T>) : Local<'T> = local {
         let isLocalEvaluated = ref false
         let updateCtx (ctx : ExecutionContext) =
-            match ctx.Resources.TryResolve<ICloudRuntimeProvider> () with
+            match ctx.Resources.TryResolve<IDistributionProvider> () with
             | None -> ctx
             | Some rp when rp.IsForcedLocalParallelismEnabled -> isLocalEvaluated := true ; ctx
             | Some rp -> { ctx with Resources = ctx.Resources.Register <| rp.WithForcedLocalParallelismSetting true }
@@ -252,7 +252,7 @@ type Cloud =
         let revertCtx (ctx : ExecutionContext) =
             if !isLocalEvaluated then ctx
             else
-                match ctx.Resources.TryResolve<ICloudRuntimeProvider> () with
+                match ctx.Resources.TryResolve<IDistributionProvider> () with
                 | None -> ctx
                 | Some rp -> { ctx with Resources = ctx.Resources.Register <| rp.WithForcedLocalParallelismSetting false }
 
@@ -264,7 +264,7 @@ type Cloud =
     ///     Gets information on the execution cluster.
     /// </summary>
     static member CurrentWorker : Local<IWorkerRef> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return runtime.CurrentWorker
     }
 
@@ -272,7 +272,7 @@ type Cloud =
     ///     Gets all workers in currently running cluster context.
     /// </summary>
     static member GetAvailableWorkers () : Local<IWorkerRef []> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return! Cloud.OfAsync <| runtime.GetAvailableWorkers()
     }
 
@@ -288,7 +288,7 @@ type Cloud =
     ///     Gets the assigned id of the currently running cloud process.
     /// </summary>
     static member GetProcessId () : Local<string> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return runtime.ProcessId
     }
 
@@ -296,7 +296,7 @@ type Cloud =
     ///     Gets the assigned id of the currently running cloud job.
     /// </summary>
     static member GetJobId () : Local<string> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return runtime.JobId
     }
 
@@ -304,7 +304,7 @@ type Cloud =
     ///     Gets the current fault policy.
     /// </summary>
     static member GetFaultPolicy () : Local<FaultPolicy> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return runtime.FaultPolicy
     }
 
@@ -314,7 +314,7 @@ type Cloud =
     /// <param name="policy">Updated fault policy.</param>
     /// <param name="workflow">Workflow to be used.</param>
     static member WithFaultPolicy (policy : FaultPolicy) (workflow : Workflow<'T>) : Cloud<'T> = cloud {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let runtime' = runtime.WithFaultPolicy policy
         let currentPolicy = runtime.FaultPolicy
         let update (ctx : ExecutionContext) = { ctx with Resources = ctx.Resources.Register(runtime.WithFaultPolicy policy) }
@@ -324,7 +324,7 @@ type Cloud =
 
     /// Creates a new cloud cancellation token source
     static member CreateCancellationTokenSource () = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [||]
     }
 
@@ -333,7 +333,7 @@ type Cloud =
     /// </summary>
     /// <param name="parent">Parent cancellation token. Defaults to the current process cancellation token.</param>
     static member CreateLinkedCancellationTokenSource(?parent : ICloudCancellationToken) = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! currentCt = Cloud.CancellationToken
         let parent = defaultArg parent currentCt
         return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [| parent |]
@@ -345,7 +345,7 @@ type Cloud =
     /// <param name="token1">First parent cancellation token.</param>
     /// <param name="token2">Second parent cancellation token.</param>s
     static member CreateLinkedCancellationTokenSource(token1 : ICloudCancellationToken, token2 : ICloudCancellationToken) = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [|token1 ; token2|]
     }
 
@@ -354,7 +354,7 @@ type Cloud =
     /// </summary>
     /// <param name="tokens">Parent cancellation tokens.</param>
     static member CreateLinkedCancellationTokenSource(tokens : seq<ICloudCancellationToken>) = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource (Seq.toArray tokens)
     }
 
@@ -396,7 +396,7 @@ type Local =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (computations : seq<Local<'T>>) : Local<'T []> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleLocalParallel computations
         return! Local.WithAppendedStackTrace "Local.Parallel[T](seq<Local<T>> computations)" workflow
     }
@@ -411,7 +411,7 @@ type Local =
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Choice (computations : seq<Local<'T option>>) : Local<'T option> = local {
-        let! runtime = Workflow.GetResource<ICloudRuntimeProvider> ()
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleLocalChoice computations
         return! Local.WithAppendedStackTrace "Local.Choice[T](seq<Local<T option>> computations)" workflow
     }
