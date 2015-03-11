@@ -91,13 +91,6 @@ module CloudOperators =
         }
 
     /// <summary>
-    ///     Combines two cloud computations into one that executes them sequentially.
-    /// </summary>
-    /// <param name="left">The first cloud computation.</param>
-    /// <param name="right">The second cloud computation.</param>
-    let (<.>) first second = cloud { let! v1 = first in let! v2 = second in return (v1, v2) }
-
-    /// <summary>
     ///     Send a message to cloud channel.
     /// </summary>
     /// <param name="channel">Target channel.</param>
