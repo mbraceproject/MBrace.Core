@@ -123,7 +123,24 @@ type Cloud =
     static member Parallel (computations : seq<#Workflow<'T>>) : Cloud<'T []> = cloud {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun c -> c,None))
-        return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T>> computations)" workflow
+        let stackTraceSig = sprintf "Cloud.Parallel(seq<Cloud<%s>> computations)" typeof<'T>.Name
+        return! Cloud.WithAppendedStackTrace stackTraceSig workflow
+    }
+
+    /// <summary>
+    ///     Creates a cloud computation that will execute the given computations
+    ///     possibly in parallel and if successful returns the pair of results.
+    ///     This operator may create distribution.
+    ///     Exceptions raised by children carry cancellation semantics.
+    /// </summary>
+    /// <param name="computations">Input computations to be executed in parallel.</param>
+    static member Parallel (left : Workflow<'L>, right : Workflow<'R>) : Cloud<'L * 'R> = cloud {
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
+        let wrap w = (cloud { let! r = w in return box r } , None)
+        let workflow = runtime.ScheduleParallel [| wrap left ; wrap right |]
+        let stackTraceSig = sprintf "Cloud.Parallel(Cloud<%s> left, Cloud<%s> right)" typeof<'L>.Name typeof<'R>.Name
+        let! result = Cloud.WithAppendedStackTrace stackTraceSig workflow
+        return result.[0] :?> 'L, result.[1] :?> 'R
     }
 
 
@@ -137,7 +154,8 @@ type Cloud =
     static member Parallel (computations : seq<#Workflow<'T> * IWorkerRef>) : Cloud<'T []> = cloud {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleParallel (computations |> Seq.map (fun (c,w) -> c,Some w))
-        return! Cloud.WithAppendedStackTrace "Cloud.Parallel[T](seq<Cloud<T> * IWorkerRef> computations)" workflow
+        let stackTraceSig = sprintf "Cloud.Parallel(seq<Cloud<%s> * IWorkerRef> computations)" typeof<'T>.Name
+        return! Cloud.WithAppendedStackTrace stackTraceSig workflow
     }
 
     /// <summary>
@@ -151,7 +169,8 @@ type Cloud =
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
         let workflow = runtime.ScheduleParallel (workers |> Seq.map (fun w -> computation, Some w))
-        return! Cloud.WithAppendedStackTrace "Cloud.ParallelEverywhere[T](Cloud<T> computation)" workflow
+        let stackTraceSig = sprintf "Cloud.ParallelEverywhere(Cloud<%s> computation)" typeof<'T>.Name
+        return! Cloud.WithAppendedStackTrace stackTraceSig workflow
     }
 
     /// <summary>
@@ -166,7 +185,8 @@ type Cloud =
     static member Choice (computations : seq<#Workflow<'T option>>) : Cloud<'T option> = cloud {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun c -> c,None))
-        return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option>> computations)" workflow
+        let stackTraceSig = sprintf "Cloud.Choice(seq<Cloud<%s option>> computations)" typeof<'T>.Name
+        return! Cloud.WithAppendedStackTrace stackTraceSig workflow
     }
 
     /// <summary>
@@ -181,7 +201,8 @@ type Cloud =
     static member Choice (computations : seq<#Workflow<'T option> * IWorkerRef>) : Cloud<'T option> = cloud {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleChoice (computations |> Seq.map (fun (c,w) -> c, Some w))
-        return! Cloud.WithAppendedStackTrace "Cloud.Choice[T](seq<Cloud<T option> * IWorkerRef> computations)" workflow
+        let stackTraceSig = sprintf "Cloud.Choice(seq<Cloud<%s option> * IWorkerRef> computations)" typeof<'T>.Name
+        return! Cloud.WithAppendedStackTrace stackTraceSig workflow
     }
 
     /// <summary>
@@ -197,7 +218,8 @@ type Cloud =
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! workers = Cloud.OfAsync <| runtime.GetAvailableWorkers()
         let workflow = runtime.ScheduleChoice (workers |> Seq.map (fun w -> computation, Some w))
-        return! Cloud.WithAppendedStackTrace "Cloud.ChoiceEverywhere[T](Cloud<T option> computation)" workflow
+        let stackTraceSig = sprintf "Cloud.ChoiceEverywhere(Cloud<%s option> computation)" typeof<'T>.Name
+        return! Cloud.WithAppendedStackTrace stackTraceSig workflow
     }
 
     /// <summary>
@@ -232,7 +254,8 @@ type Cloud =
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let! cancellationToken = Cloud.CancellationToken
         let! task = runtime.ScheduleStartAsTask(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
-        return Local.WithAppendedStackTrace "Cloud.StartChild[T](Cloud<T> computation)" (local { return! task.AwaitResult() })
+        let stackTraceSig = sprintf "Cloud.StartChild(Cloud<%s> computation)" typeof<'T>.Name
+        return Local.WithAppendedStackTrace stackTraceSig (local { return! task.AwaitResult() })
     }
 
     /// <summary>
@@ -303,7 +326,7 @@ type Cloud =
     /// <summary>
     ///     Gets the current fault policy.
     /// </summary>
-    static member GetFaultPolicy () : Local<FaultPolicy> = local {
+    static member FaultPolicy : Local<FaultPolicy> = local {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         return runtime.FaultPolicy
     }
@@ -315,11 +338,10 @@ type Cloud =
     /// <param name="workflow">Workflow to be used.</param>
     static member WithFaultPolicy (policy : FaultPolicy) (workflow : Workflow<'T>) : Cloud<'T> = cloud {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
-        let runtime' = runtime.WithFaultPolicy policy
         let currentPolicy = runtime.FaultPolicy
-        let update (ctx : ExecutionContext) = { ctx with Resources = ctx.Resources.Register(runtime.WithFaultPolicy policy) }
-        let revert (ctx : ExecutionContext) = { ctx with Resources = ctx.Resources.Register(runtime.WithFaultPolicy currentPolicy) }
-        return! Cloud.WithNestedContext(workflow, update, revert)
+        let update (runtime : IDistributionProvider) = runtime.WithFaultPolicy policy
+        let revert (runtime : IDistributionProvider) = runtime.WithFaultPolicy currentPolicy
+        return! Cloud.WithNestedResource(workflow, update, revert)
     }
 
     /// Creates a new cloud cancellation token source
@@ -398,7 +420,24 @@ type Local =
     static member Parallel (computations : seq<Local<'T>>) : Local<'T []> = local {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleLocalParallel computations
-        return! Local.WithAppendedStackTrace "Local.Parallel[T](seq<Local<T>> computations)" workflow
+        let stackTraceSig = sprintf "Local.Parallel(seq<Local<%s>> computations)" typeof<'T>.Name
+        return! Local.WithAppendedStackTrace stackTraceSig workflow
+    }
+
+    /// <summary>
+    ///     Creates a cloud computation that will execute given computations to targeted workers
+    ///     possibly in parallel and if successful returns the array of gathered results.
+    ///     This operator may create distribution.
+    ///     Exceptions raised by children carry cancellation semantics.
+    /// </summary>
+    /// <param name="computations">Input computations to be executed in parallel.</param>
+    static member Parallel (left : Local<'L>, right : Local<'R>) : Local<'L * 'R> = local {
+        let! runtime = Workflow.GetResource<IDistributionProvider> ()
+        let wrap w = local { let! r = w in return box r }
+        let workflow = runtime.ScheduleLocalParallel [| wrap left ; wrap right |]
+        let stackTraceSig = sprintf "Local.Parallel(Local<%s> left, Local<%s> right)" typeof<'L>.Name typeof<'R>.Name
+        let! result = Local.WithAppendedStackTrace stackTraceSig workflow
+        return result.[0] :?> 'L, result.[1] :?> 'R
     }
 
     /// <summary>
@@ -413,5 +452,6 @@ type Local =
     static member Choice (computations : seq<Local<'T option>>) : Local<'T option> = local {
         let! runtime = Workflow.GetResource<IDistributionProvider> ()
         let workflow = runtime.ScheduleLocalChoice computations
-        return! Local.WithAppendedStackTrace "Local.Choice[T](seq<Local<T option>> computations)" workflow
+        let stackTraceSig = sprintf "Local.Choice(seq<Local<%s option>> computations)" typeof<'T>.Name
+        return! Local.WithAppendedStackTrace stackTraceSig workflow
     }

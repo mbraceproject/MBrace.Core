@@ -66,7 +66,7 @@
     <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Workflow.fs" />
     <Compile Include="Continuation\Builders.fs" />
-    <Compile Include="Continuation\Continuation.fs" />
+    <Compile Include="Continuation\ContinuationAPI.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\Cache.fs" />
     <Compile Include="Store\FileStore.fs" />

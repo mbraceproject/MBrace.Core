@@ -707,3 +707,12 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             |> Array.forall (fun ct -> ct.IsCancellationRequested)
             |> shouldEqual true
         } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. Fault Policy: update over parallelism`` () =
+        // checks that non-serializable entities do not get accidentally captured in closures.
+        cloud {
+            let workflow = Cloud.Parallel[Cloud.FaultPolicy ; Cloud.FaultPolicy]
+            let! results = Cloud.WithFaultPolicy (FaultPolicy.ExponentialDelay(3)) workflow
+            return ()
+        } |> run |> Choice.shouldEqual ()

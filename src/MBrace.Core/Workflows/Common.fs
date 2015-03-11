@@ -69,12 +69,7 @@ module CloudOperators =
     /// <param name="left">The first cloud computation.</param>
     /// <param name="right">The second cloud computation.</param>
     let (<||>) (left : Workflow<'a>) (right : Workflow<'b>) : Cloud<'a * 'b> = 
-        cloud { 
-            let left'= cloud { let! value = left in return value :> obj }
-            let right' = cloud { let! value = right in return value :> obj }
-            let! result = Cloud.Parallel [| left' ; right' |]
-            return (result.[0] :?> 'a, result.[1] :?> 'b) 
-        }
+        Cloud.Parallel(left, right)
 
     /// <summary>
     ///     Combines two cloud computations into one that executes them in parallel and returns the

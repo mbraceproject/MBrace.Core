@@ -35,6 +35,25 @@ type Cloud =
         Cloud.FromContinuations(withNestedContext update revert workflow.Body) 
 
     /// <summary>
+    ///     Runs provided workflow in a nested execution context that is
+    ///     introduced using the update/revert functions.
+    ///     These must be serializable and exception safe.
+    /// </summary>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    /// <param name="update">Resource updating function.</param>
+    /// <param name="revert">Resource reverting function.</param>
+    [<CompilerMessage("'WithNestedResource' only intended for runtime implementers.", 444)>]
+    static member WithNestedResource(workflow : Workflow<'T>, 
+                                        update : 'TResource -> 'TResource, 
+                                        revert : 'TResource -> 'TResource) : Cloud<'T> =
+
+        let updateCtx f (ctx : ExecutionContext) =
+            let tres = ctx.Resources.Resolve<'TResource> ()
+            { ctx with Resources = ctx.Resources.Register(f tres) }
+
+        Cloud.FromContinuations(withNestedContext (updateCtx update) (updateCtx revert) workflow.Body) 
+
+    /// <summary>
     ///     Wraps a workflow with a mapped continuation.
     /// </summary>
     /// <param name="mapper">Continuation mapping function.</param>
@@ -78,7 +97,26 @@ type Local =
                                         update : ExecutionContext -> ExecutionContext, 
                                         revert : ExecutionContext -> ExecutionContext) : Local<'T> =
 
-        Local.FromContinuations(withNestedContext update revert workflow.Body) 
+        Local.FromContinuations(withNestedContext update revert workflow.Body)
+
+    /// <summary>
+    ///     Runs provided workflow in a nested execution context that is
+    ///     introduced using the update/revert functions.
+    ///     These must be serializable and exception safe.
+    /// </summary>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    /// <param name="update">Resource updating function.</param>
+    /// <param name="revert">Resource reverting function.</param>
+    [<CompilerMessage("'WithNestedResource' only intended for runtime implementers.", 444)>]
+    static member WithNestedResource(workflow : Workflow<'T>, 
+                                        update : 'TResource -> 'TResource, 
+                                        revert : 'TResource -> 'TResource) : Local<'T> =
+
+        let updateCtx f (ctx : ExecutionContext) =
+            let tres = ctx.Resources.Resolve<'TResource> ()
+            { ctx with Resources = ctx.Resources.Register(f tres) }
+
+        Local.FromContinuations(withNestedContext (updateCtx update) (updateCtx revert) workflow.Body) 
 
     /// <summary>
     ///     Wraps a workflow with a mapped continuation.

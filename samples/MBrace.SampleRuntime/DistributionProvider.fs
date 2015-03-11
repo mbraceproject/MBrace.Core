@@ -85,6 +85,7 @@ type ActorChannelProvider (state : RuntimeState) =
         member __.DisposeContainer _ = async.Zero()
         
 /// Scheduling implementation provider
+[<AutoSerializable(false)>]
 type DistributionProvider private (state : RuntimeState, procInfo : ProcessInfo, dependencies : AssemblyId [], faultPolicy, jobId, isForcedLocalParallelism) =
 
     static let mkNestedCts elevate (ct : ICloudCancellationToken) =
