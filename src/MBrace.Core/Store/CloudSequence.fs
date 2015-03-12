@@ -4,6 +4,7 @@ open System
 open System.Collections
 open System.Collections.Generic
 open System.Runtime.Serialization
+open System.Text
 open System.IO
 
 open MBrace.Store
@@ -251,6 +252,25 @@ type CloudSequence =
             }
 
         return! CloudSequence.Parse(path, serializer, ?force = force)
+    }
+
+    /// <summary>
+    ///     Creates a CloudSequence from text file.
+    /// </summary>
+    /// <param name="path">Path to file.</param>
+    /// <param name="textDeserializer">Text deserializer function.</param>
+    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    static member FromTextFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool) : Local<CloudSequence<'T>> = local {
+        let deserializer (stream : Stream) =
+            let sr = 
+                match encoding with
+                | None -> new StreamReader(stream)
+                | Some e -> new StreamReader(stream, e)
+
+            textDeserializer sr 
+        
+        return! CloudSequence.FromFile(path, deserializer, ?force = force)
     }
 
     /// <summary>

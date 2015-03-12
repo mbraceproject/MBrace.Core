@@ -825,31 +825,31 @@ type CloudRefClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Dereference a Cloud cell.
     /// </summary>
-    /// <param name="cloudRef">CloudCell to be dereferenced.</param>
-    member __.ReadAsync(cloudRef : CloudCell<'T>) : Async<'T> = 
-        CloudCell.Read(cloudRef) |> toAsync
+    /// <param name="cloudCell">CloudCell to be dereferenced.</param>
+    member __.ReadAsync(cloudCell : CloudCell<'T>) : Async<'T> = 
+        CloudCell.Read(cloudCell) |> toAsync
 
     /// <summary>
     ///     Dereference a Cloud cell.
     /// </summary>
-    /// <param name="cloudRef">CloudCell to be dereferenced.</param>
-    member __.Read(cloudRef : CloudCell<'T>) : 'T = 
-        __.ReadAsync(cloudRef) |> toSync
+    /// <param name="cloudCell">CloudCell to be dereferenced.</param>
+    member __.Read(cloudCell : CloudCell<'T>) : 'T = 
+        __.ReadAsync(cloudCell) |> toSync
 
 
     /// <summary>
     ///     Cache a cloud cell to local execution context
     /// </summary>
-    /// <param name="cloudRef">Cloud ref input</param>
-    member __.CacheAsync(cloudRef : CloudCell<'T>) : Async<bool> = 
-        CloudCell.Cache(cloudRef) |> toAsync
+    /// <param name="cloudCell">Cloud ref input</param>
+    member __.CacheAsync(cloudCell : CloudCell<'T>) : Async<bool> = 
+        CloudCell.Cache(cloudCell) |> toAsync
 
     /// <summary>
     ///     Cache a cloud cell to local execution context
     /// </summary>
-    /// <param name="cloudRef">Cloud ref input</param>
-    member __.Cache(cloudRef : CloudCell<'T>) : bool = 
-        __.CacheAsync(cloudRef) |> toSync
+    /// <param name="cloudCell">Cloud ref input</param>
+    member __.Cache(cloudCell : CloudCell<'T>) : bool = 
+        __.CacheAsync(cloudCell) |> toSync
 
 
 [<Sealed; AutoSerializable(false)>]

@@ -3,6 +3,7 @@
 open System
 open System.Runtime.Serialization
 open System.IO
+open System.Text
 
 open MBrace
 open MBrace.Store
@@ -125,13 +126,58 @@ type CloudCell =
     }
 
     /// <summary>
-    ///     Dereference a Cloud cell.
+    ///     Creates a CloudCell from file path with user-provided deserialization function.
     /// </summary>
-    /// <param name="cloudRef">CloudCell to be dereferenced.</param>
-    static member Read(cloudRef : CloudCell<'T>) : Local<'T> = cloudRef.Value
+    /// <param name="path">Path to file.</param>
+    /// <param name="deserializer">Sequence deserializer function.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    static member FromFile<'T>(path : string, deserializer : Stream -> 'T, ?force : bool) : Local<CloudCell<'T>> = local {
+        let serializer =
+            {
+                new ISerializer with
+                    member __.Id = "Deserializer Lambda"
+                    member __.Serialize(_,_,_) = raise <| new NotSupportedException()
+                    member __.Deserialize(_,_) = raise <| new NotSupportedException()
+                    member __.SeqSerialize(_,_,_) = raise <| new NotSupportedException()
+                    member __.SeqDeserialize<'a>(source,_) = deserializer source :> obj :?> seq<'a>
+            }
+
+        return! CloudCell.Parse(path, serializer, ?force = force)
+    }
 
     /// <summary>
-    ///     Cache a cloud cell to local execution context
+    ///     Creates a CloudCell parsing a text file.
     /// </summary>
-    /// <param name="cloudRef">Cloud cell input</param>
-    static member Cache(cloudRef : CloudCell<'T>) : Local<bool> = cloudRef.PopulateCache()
+    /// <param name="path">Path to file.</param>
+    /// <param name="textDeserializer">Text deserializer function.</param>
+    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    static member FromTextFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool) : Local<CloudCell<'T>> = local {
+        let deserializer (stream : Stream) =
+            let sr =
+                match encoding with
+                | None -> new StreamReader(stream)
+                | Some e -> new StreamReader(stream, e)
+
+            textDeserializer sr 
+
+        return! CloudCell.FromFile(path, deserializer, ?force = force)
+    }
+
+    /// <summary>
+    ///     Dereference a Cloud cell.
+    /// </summary>
+    /// <param name="cloudCell">CloudCell to be dereferenced.</param>
+    static member Read(cloudCell : CloudCell<'T>) : Local<'T> = cloudCell.Value
+
+    /// <summary>
+    ///     Cache a cloud cell to local execution context.
+    /// </summary>
+    /// <param name="cloudCell">Cloud cell input.</param>
+    static member Cache(cloudCell : CloudCell<'T>) : Local<bool> = local { return! cloudCell.PopulateCache() }
+
+    /// <summary>
+    ///     Disposes cloud cell from store.
+    /// </summary>
+    /// <param name="cloudCell">Cloud cell to be deleted.</param>
+    static member Dispose(cloudCell : CloudCell<'T>) : Local<unit> = local { return! (cloudCell :> ICloudDisposable).Dispose() }
