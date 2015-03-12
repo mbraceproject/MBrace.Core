@@ -27,29 +27,28 @@ module internal Utils =
 
         /// <summary>
         ///     partitions an array into a predetermined number of uniformly sized chunks.
-        /// </summary>5 
+        /// </summary>
         /// <param name="partitions">number of partitions.</param>
         /// <param name="input">Input array.</param>
         let splitByPartitionCount partitions (ts : 'T []) =
             if partitions < 1 then invalidArg "partitions" "invalid number of partitions."
             elif partitions = 1 then [| ts |]
-            elif partitions > ts.Length then
-                [| for t in ts -> [| t |] |]
+            elif partitions > ts.Length then ts |> Array.map (fun t -> [| t |])
             else
                 let chunkSize = ts.Length / partitions
                 let r = ts.Length % partitions
-                [|
-                    for i in 0 .. r - 1 do
-                        yield ts.[i * (chunkSize + 1) .. (i + 1) * (chunkSize + 1) - 1]
+                let chunks = new ResizeArray<'T []>()
+                let mutable i = 0
+                for p in 0 .. partitions - 1 do
+                    let j = i + chunkSize + if p < r then 1 else 0
+                    let ch = ts.[i .. j - 1]
+                    chunks.Add ch
+                    i <- j
 
-                    let I = r * (chunkSize + 1)
-
-                    for i in 0 .. partitions - r - 1 do
-                        yield ts.[I + i * chunkSize .. I + (i + 1) * chunkSize - 1]
-                |]
+                chunks.ToArray()
 
         /// <summary>
-        ///     partitions an array into chunks of given size
+        ///     partitions an array into chunks of given size.
         /// </summary>
         /// <param name="chunkSize">chunk size.</param>
         /// <param name="ts">Input array.</param>
@@ -57,12 +56,65 @@ module internal Utils =
             if chunkSize <= 0 then invalidArg "chunkSize" "must be positive."
             elif chunkSize > ts.Length then invalidArg "chunkSize" "chunk size greater than array size."
             let q, r = ts.Length / chunkSize , ts.Length % chunkSize
-            [|
-                for i in 0 .. q-1 do
-                    yield ts.[ i * chunkSize .. (i + 1) * chunkSize - 1]
+            let chunks = new ResizeArray<'T []>()
+            let mutable i = 0
+            for c = 0 to q - 1 do
+                let j = i + chunkSize
+                let ch = ts.[i .. j - 1] in chunks.Add ch
+                i <- j
 
-                if r > 0 then yield ts.[q * chunkSize .. ]
-            |]
+            if r > 0 then let ch = ts.[i .. ] in chunks.Add ch
+
+            chunks.ToArray()
+
+        /// <summary>
+        ///     Partitions an array into chunks according to a weighted array.
+        ///     This scheme assumes weights are relatively small, like the cpu core count of a worker node.
+        /// </summary>
+        /// <param name="weights">Weights for each chunk.</param>
+        /// <param name="ts">Input array.</param>
+        let splitWeighted (weights : int []) (ts : 'T []) : (int * 'T []) [] =
+            // normalize weight array using gcd
+            let normalize (ns : int []) =
+                let rec gcd m n =
+                    if m < n then gcd n m
+                    elif n = 0 then m
+                    else gcd n (m % n)
+
+                let gcd = Array.fold (fun c n -> gcd n c) ns.[0] ns
+                ns |> Array.map (fun n -> n / gcd)
+
+            if weights.Length = 0 then invalidArg "weights" "must be non-empty array."
+            let weights = normalize weights
+            // compute the total number of 'chunks', which is the sum of normalized weights
+            let total =
+                let mutable c = 0
+                for w in weights do
+                    if w <= 0 then invalidArg "weights" "must contain positive weights."
+                    c <- c + w
+                c
+
+            let chunkSize = ts.Length / total
+            let r = ts.Length % total
+            let ra = new ResizeArray<int * 'T []> ()
+            let mutable i = 0 // source array index
+            let mutable c = 0 // chunk count
+            for w = 0 to weights.Length - 1 do
+                let weigh = weights.[w]
+                let l = 
+                    if c + weigh <= r then weigh
+                    elif c < r then r - c
+                    else 0
+
+                let j = i + chunkSize * weigh + l
+                if i <= j - 1 then
+                    let chunk = ts.[i .. j - 1]
+                    ra.Add (w, chunk)
+                i <- j
+                c <- c + weigh
+
+            ra.ToArray()
+            
 
     [<RequireQualifiedAccess>]
     module List =

@@ -247,14 +247,14 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     [<Test>]
     member __.``1. Parallel : MapReduce balanced`` () =
         // balanced, core implemented MapReduce algorithm
-        repeat(fun () -> WordCount.run 1000 Distributed.mapReduce |> run |> Choice.shouldEqual 5000)
+        repeat(fun () -> WordCount.run 1000 DivideAndConquer.mapReduce |> run |> Choice.shouldEqual 5000)
 
     [<Test>]
     member __.``1. Parallel : Distributed.map`` () =
         let checker (ints : int list) =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints
-            |> Distributed.map (fun i -> local { return i + 1})
+            |> DivideAndConquer.map (fun i -> local { return i + 1})
             |> run
             |> Choice.shouldEqual expected
 
@@ -265,7 +265,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints
-            |> Distributed.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 })
+            |> DivideAndConquer.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 })
             |> run
             |> Choice.shouldEqual expected
 
@@ -276,7 +276,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
             ints
-            |> Distributed.choose (fun i -> local { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
+            |> DivideAndConquer.choose (fun i -> local { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected
 
@@ -287,7 +287,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             ints
-            |> Distributed.fold2 (fun s i -> s + i) (fun s i -> s + i) 0
+            |> DivideAndConquer.fold2 (fun s i -> s + i) (fun s i -> s + i) 0
             |> run
             |> Choice.shouldEqual expected
 
@@ -298,7 +298,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let checker (ints : int list) =
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> set
             ints
-            |> Distributed.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
+            |> DivideAndConquer.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
             |> run
             |> Choice.shouldBe (fun r -> set r = expected)
 
@@ -503,7 +503,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
             ints
-            |> Distributed.tryFind (fun i -> local { return i % 7 = 0 && i % 5 = 0 })
+            |> DivideAndConquer.tryFind (fun i -> local { return i % 7 = 0 && i % 5 = 0 })
             |> run
             |> Choice.shouldBe(function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 
@@ -514,7 +514,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
             ints
-            |> Distributed.tryPick (fun i -> local { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
+            |> DivideAndConquer.tryPick (fun i -> local { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
             |> run
             |> Choice.shouldBe (function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 

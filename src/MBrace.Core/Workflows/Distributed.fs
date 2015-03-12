@@ -2,8 +2,9 @@
 
 open MBrace
 
-/// Collection of distributed workflow combinators
-module Distributed =
+/// Collection of combinators that split workloads to workers
+/// according to multicore capacity.
+module DivideAndConquer =
 
     /// <summary>
     ///     Distributed reduceCombine combinator. Input data is partitioned according to cluster size
@@ -34,11 +35,12 @@ module Distributed =
             let inputs = Seq.toArray source
             if inputs.Length < 2 then return! reducer inputs
             else
-                let! size = Cloud.GetWorkerCount()
-                let chunks = Array.splitByPartitionCount size inputs
+                let! workers = Cloud.GetAvailableWorkers()
+                let weights = workers |> Array.map (fun w -> w.ProcessorCount)
+                let chunks = Array.splitWeighted weights inputs
                 let! results =
                     chunks
-                    |> Array.map reduceCombineLocal
+                    |> Array.map (fun (i,ts) -> reduceCombineLocal ts, workers.[i])
                     |> Cloud.Parallel
 
                 return! combiner results
@@ -225,11 +227,12 @@ module Distributed =
             let inputs = Seq.toArray source
             if inputs.Length < 2 then return! chooser inputs
             else
-                let! size = Cloud.GetWorkerCount()
-                let chunks = Array.splitByPartitionCount size inputs
+                let! workers = Cloud.GetAvailableWorkers()
+                let weights = workers |> Array.map (fun w -> w.ProcessorCount)
+                let chunks = Array.splitWeighted weights inputs
                 return!
                     chunks
-                    |> Array.map multiCoreSearch
+                    |> Array.map (fun (i,ch) -> multiCoreSearch ch, workers.[i])
                     |> Cloud.Choice
         }
 
