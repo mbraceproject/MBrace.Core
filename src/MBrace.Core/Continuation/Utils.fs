@@ -30,19 +30,21 @@ module Utils =
         /// </summary>
         /// <param name="partitions">number of partitions.</param>
         /// <param name="input">Input array.</param>
-        let splitByPartitionCount partitions (ts : 'T []) =
+        let splitByPartitionCount partitions (input : 'T []) =
             if partitions < 1 then invalidArg "partitions" "invalid number of partitions."
-            elif partitions = 1 then [| ts |]
-            elif partitions > ts.Length then ts |> Array.map (fun t -> [| t |])
+            elif input = null then raise <| new ArgumentNullException("input")
+            elif input.Length = 0 then [||]
+            elif partitions = 1 then [| input |]
+            elif partitions > input.Length then input |> Array.map (fun t -> [| t |])
             else
-                let chunkSize = ts.Length / partitions
-                let r = ts.Length % partitions
+                let chunkSize = input.Length / partitions
+                let r = input.Length % partitions
                 let chunks = new ResizeArray<'T []>()
                 let mutable i = 0
                 for p in 0 .. partitions - 1 do
                     // add a padding element for every chunk 0 <= p < r
                     let j = i + chunkSize + if p < r then 1 else 0
-                    let ch = ts.[i .. j - 1]
+                    let ch = input.[i .. j - 1]
                     chunks.Add ch
                     i <- j
 
@@ -52,19 +54,20 @@ module Utils =
         ///     partitions an array into chunks of given size.
         /// </summary>
         /// <param name="chunkSize">chunk size.</param>
-        /// <param name="ts">Input array.</param>
-        let splitByChunkSize chunkSize (ts : 'T []) =
+        /// <param name="input">Input array.</param>
+        let splitByChunkSize chunkSize (input : 'T []) =
             if chunkSize <= 0 then invalidArg "chunkSize" "must be positive."
-            elif chunkSize > ts.Length then invalidArg "chunkSize" "chunk size greater than array size."
-            let q, r = ts.Length / chunkSize , ts.Length % chunkSize
+            elif input = null then raise <| new ArgumentNullException("input")
+            elif chunkSize > input.Length then invalidArg "chunkSize" "chunk size greater than array size."
+            let q, r = input.Length / chunkSize , input.Length % chunkSize
             let chunks = new ResizeArray<'T []>()
             let mutable i = 0
-            for c = 0 to q - 1 do
+            for c = 1 to q do
                 let j = i + chunkSize
-                let ch = ts.[i .. j - 1] in chunks.Add ch
+                let ch = input.[i .. j - 1] in chunks.Add ch
                 i <- j
 
-            if r > 0 then let ch = ts.[i .. ] in chunks.Add ch
+            if r > 0 then let ch = input.[i .. ] in chunks.Add ch
 
             chunks.ToArray()
 
@@ -72,17 +75,19 @@ module Utils =
         ///     Partitions an array into chunks according to a weighted array.
         /// </summary>
         /// <param name="weights">Weights for each chunk.</param>
-        /// <param name="ts">Input array.</param>
-        let splitWeighted (weights : int []) (ts : 'T []) : 'T [][] =
-            if ts.Length = 0 then [||] else
-            if weights.Length = 0 then invalidArg "weights" "must be non-empty array."
+        /// <param name="input">Input array.</param>
+        let splitWeighted (weights : int []) (input : 'T []) : 'T [][] =
+            if input = null then raise <| new ArgumentNullException("input")
+            elif input.Length = 0 then [||]
+            elif weights.Length = 0 then invalidArg "weights" "must be non-empty array."
+            else
 
             // compute weighted chunk sizes
             // 1. compute total = Σ w_i
             // 2. compute x_i, where x_i / N = w_i / Σ w_i
             // 3. compute R = N - Σ (floor x_i), the number of padding elements.
             // 4. compute chunk sizes, adding an extra padding element to the first R x_i's of largest decimal component.
-            let N = ts.Length
+            let N = input.Length
             let total = weights |> Array.sumBy (fun w -> if w > 0 then w else invalidArg "weights" "weights must contain positive values.") |> uint64
             let chunkInfo = weights |> Array.map (fun w -> let C = uint64 w * uint64 N in int (C / total), int (C % total))
             let R = N - (chunkInfo |> Array.sumBy fst)
@@ -98,7 +103,7 @@ module Utils =
             let mutable i = 0
             let chunks = new ResizeArray<'T []> ()
             for chunkSize in chunkSizes do
-                let chunk = ts.[i .. i + chunkSize - 1]
+                let chunk = input.[i .. i + chunkSize - 1]
                 chunks.Add chunk
                 i <- i + chunkSize
 

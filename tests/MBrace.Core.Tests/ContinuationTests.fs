@@ -582,3 +582,39 @@ module ``Continuation Tests`` =
             |> Sequential.tryPick (fun i -> local { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected)
+
+
+    //
+    //  Utils tests
+    //
+
+    [<Test>]
+    let ``Array.splitByChunkSize`` () =
+        Check.QuickThrowOnFail<uint16 * uint16>(fun (chunkSize : uint16, arraySize : uint16) ->
+            let chunkSize = 1 + int chunkSize // need size > 0
+            let arraySize = int arraySize
+            if chunkSize > arraySize then () else // expected failure case
+            let ts = [|1 .. arraySize|]
+            let tss = Array.splitByChunkSize chunkSize ts
+            for ch in tss do ch.Length |> shouldBe (fun l -> l <= chunkSize)
+            Array.concat tss |> shouldEqual ts)
+
+    [<Test>]
+    let ``Array.splitByPartitionCount`` () =
+        Check.QuickThrowOnFail<uint16 * uint16>(fun (partitionCount : uint16, arraySize : uint16) ->
+            let partitionCount = 1 + int partitionCount // need size > 0
+            let arraySize = int arraySize
+            let ts = [|1 .. arraySize|]
+            let tss = Array.splitByPartitionCount partitionCount ts
+            tss.Length |> shouldEqual (min arraySize partitionCount)
+            Array.concat tss |> shouldEqual ts)
+
+    [<Test>]
+    let ``Array.splitWeighted`` () =
+        Check.QuickThrowOnFail<uint16 [] * uint16>(fun (weights : uint16 [], arraySize : uint16) ->
+            if weights = null || weights.Length = 0 then () else // expected failure case
+            let weights = weights |> Array.map (fun w -> 1 + int w) // need weights > 0
+            let arraySize = int arraySize
+            let ts = [|1 .. arraySize|]
+            let tss = Array.splitWeighted weights ts
+            Array.concat tss |> shouldEqual ts)
