@@ -15,7 +15,7 @@ module internal ClientUtils =
 
     let toLocalAsync resources wf = async {
         let! ct = Async.CancellationToken
-        return! Workflow.ToAsync(wf, resources, new InMemoryCancellationToken(ct))
+        return! Cloud.ToAsync(wf, resources, new InMemoryCancellationToken(ct))
     }
 
 [<Sealed; AutoSerializable(false)>]

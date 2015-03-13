@@ -29,16 +29,16 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
 
     let repeat f = repeat self.Repeats f
 
-    let run (workflow : Workflow<'T>) = self.Run workflow
-    let runCts (workflow : ICloudCancellationTokenSource -> #Workflow<'T>) = self.Run workflow
-    let runLocal (workflow : Workflow<'T>) = self.RunLocal workflow
+    let run (workflow : Cloud<'T>) = self.Run workflow
+    let runCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.Run workflow
+    let runLocal (workflow : Cloud<'T>) = self.RunLocal workflow
     
     /// Run workflow in the runtime under test
-    abstract Run : workflow:Workflow<'T> -> Choice<'T, exn>
+    abstract Run : workflow:Cloud<'T> -> Choice<'T, exn>
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
-    abstract Run : workflow:(ICloudCancellationTokenSource -> #Workflow<'T>) -> Choice<'T, exn>
+    abstract Run : workflow:(ICloudCancellationTokenSource -> #Cloud<'T>) -> Choice<'T, exn>
     /// Evaluate workflow in the local test process
-    abstract RunLocal : workflow:Workflow<'T> -> 'T
+    abstract RunLocal : workflow:Cloud<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck
     abstract FsCheckMaxTests : int
     /// Maximum number of repeats to run nondeterministic tests

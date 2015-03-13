@@ -23,8 +23,8 @@ module ``Continuation Tests`` =
     //
 
     let imem = LocalRuntime.Create(ResourceRegistry.Empty)
-    let run (wf : Workflow<'T>) = Choice.protect(fun () -> imem.Run wf)
-    let runCts (wf : ICloudCancellationTokenSource -> #Workflow<'T>) =
+    let run (wf : Cloud<'T>) = Choice.protect(fun () -> imem.Run wf)
+    let runCts (wf : ICloudCancellationTokenSource -> #Cloud<'T>) =
         let cts = new InMemoryCancellationTokenSource ()
         Choice.protect(fun () -> imem.Run(wf cts, cts.Token))
 
@@ -494,7 +494,7 @@ module ``Continuation Tests`` =
                                     (fun ctx -> { ctx with Resources = ctx.Resources.Register 42 }),
                                     (fun ctx -> { ctx with Resources = ctx.Resources.Remove<int> ()}))
 
-            return! Workflow.TryGetResource<int> ()
+            return! Cloud.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 
 
@@ -506,7 +506,7 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``start as task`` () =
-        let t = Workflow.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
+        let t = Cloud.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
         t.Result |> shouldEqual 42
 
     //

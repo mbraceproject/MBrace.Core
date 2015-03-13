@@ -138,14 +138,14 @@ module CloudStream =
                                 let! partitions = partitionByLength files 0 0L [] []
 
                                 let result = new ResizeArray<'R>(partitions.Length)
-                                let! ctx = Workflow.GetExecutionContext()
+                                let! ctx = Cloud.GetExecutionContext()
                                 for fs in partitions do
                                     let! collector = collectorf
                                     let parStream = 
                                         fs
                                         |> ParStream.ofSeq 
                                         |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
-                                        |> ParStream.map (fun wf -> Workflow.RunSynchronously(wf, ctx.Resources, ctx.CancellationToken))
+                                        |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, ctx.Resources, ctx.CancellationToken))
                                     let collectorResult = parStream.Apply (toParStreamCollector collector)
                                     let! partial = projection collectorResult
                                     result.Add(partial)
@@ -408,14 +408,14 @@ module CloudStream =
             }
         let reducerf = local {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
-            let! ctx = Workflow.GetExecutionContext()
+            let! ctx = Cloud.GetExecutionContext()
             return { new Collector<int * CloudVector<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
                         Func =
                             (fun (_, keyValues) ->
-                                let keyValues = Workflow.RunSynchronously(keyValues.ToEnumerable(), ctx.Resources, ctx.CancellationToken)
+                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), ctx.Resources, ctx.CancellationToken)
                                    
                                 for (key, value) in keyValues do 
                                     let mutable grouping = Unchecked.defaultof<_>

@@ -122,12 +122,12 @@ with
     /// <param name="sc">Success continuation</param>
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
-    /// <param name="wf">Workflow</param>
-    static member Create procInfo dependencies cts fp sc ec cc worker (wf : Workflow<'T>) : PickledJob =
+    /// <param name="wf">Cloud</param>
+    static member Create procInfo dependencies cts fp sc ec cc worker (wf : Cloud<'T>) : PickledJob =
         let jobId = System.Guid.NewGuid().ToString()
         let runJob ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Workflow.StartWithContinuations(wf, cont, ctx)
+            Cloud.StartWithContinuations(wf, cont, ctx)
 
         let job = 
             { 
@@ -201,8 +201,8 @@ with
     /// <param name="sc">Success continuation</param>
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
-    /// <param name="wf">Workflow</param>
-    member rt.EnqueueJob procInfo dependencies cts fp sc ec cc worker (wf : Workflow<'T>) : unit =
+    /// <param name="wf">Cloud</param>
+    member rt.EnqueueJob procInfo dependencies cts fp sc ec cc worker (wf : Cloud<'T>) : unit =
         rt.JobQueue.Enqueue <| PickledJob.Create procInfo dependencies cts fp sc ec cc worker wf
 
     /// <summary>
@@ -217,7 +217,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to job.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsTask procInfo dependencies cts fp worker (wf : Workflow<'T>) : Async<ICloudTask<'T>> = async {
+    member rt.StartAsTask procInfo dependencies cts fp worker (wf : Cloud<'T>) : Async<ICloudTask<'T>> = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
         let setResult ctx r = 
             async {

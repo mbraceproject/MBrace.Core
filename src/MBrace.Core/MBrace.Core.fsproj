@@ -64,7 +64,7 @@
     <Compile Include="Continuation\ExceptionDispatchInfo.fs" />
     <Compile Include="Continuation\CancellationToken.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />
-    <Compile Include="Continuation\Workflow.fs" />
+    <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\Builders.fs" />
     <Compile Include="Continuation\ContinuationAPI.fs" />
     <Compile Include="Store\Serializer.fs" />

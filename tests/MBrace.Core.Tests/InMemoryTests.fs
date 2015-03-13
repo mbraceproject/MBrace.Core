@@ -25,13 +25,13 @@ type ``ThreadPool Parallelism Tests`` () =
     let logger = InMemoryLogTester()
     let imem = LocalRuntime.Create(logger = logger)
 
-    override __.Run(workflow : Workflow<'T>) = Choice.protect (fun () -> imem.Run(workflow))
-    override __.Run(workflow : ICloudCancellationTokenSource -> #Workflow<'T>) =
+    override __.Run(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.Run(workflow))
+    override __.Run(workflow : ICloudCancellationTokenSource -> #Cloud<'T>) =
         let cts = imem.CreateCancellationTokenSource()
         Choice.protect(fun () ->
             imem.Run(workflow cts, cancellationToken = cts.Token))
 
-    override __.RunLocal(workflow : Workflow<'T>) = imem.Run(workflow)
+    override __.RunLocal(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
     override __.Logs = logger :> _
     override __.FsCheckMaxTests = 100
