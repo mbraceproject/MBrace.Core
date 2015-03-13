@@ -90,7 +90,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-    member __.StartAsTaskAsync(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : Async<ICloudTask<'T>> = async {
+    member __.StartAsTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : Async<ICloudTask<'T>> = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
         let dependencies = VagabondRegistry.ComputeObjectDependencies ((workflow, fileStore, serializer))
         let processInfo = createProcessInfo ()
@@ -110,7 +110,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-    member __.StartAsTask(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : ICloudTask<'T> =
+    member __.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : ICloudTask<'T> =
         __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
 
@@ -120,7 +120,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-    member __.RunAsync(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
+    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
         let! cts = async {
             match cancellationToken with 
             | Some ct -> return ct :?> DistributedCancellationTokenSource
@@ -140,14 +140,14 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-    member __.Run(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
+    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
     /// <summary>
     ///     Run workflow as local, in-memory computation
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
-    member __.RunLocalAsync(workflow : Workflow<'T>) : Async<'T> = imem.RunAsync workflow
+    member __.RunLocalAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
 
     /// Returns the store client for provided runtime
     member __.StoreClient = imem.StoreClient

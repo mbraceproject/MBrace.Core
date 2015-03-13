@@ -112,7 +112,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="initial">Initial value.</param>
     static member New<'T>(initial : 'T, ?container : string) : Local<ICloudAtom<'T>> = local {
-        let! config = Workflow.GetResource<CloudAtomConfiguration> ()
+        let! config = Cloud.GetResource<CloudAtomConfiguration> ()
         let container = defaultArg container config.DefaultContainer
         return! ofAsync <| config.AtomProvider.CreateAtom(container, initial)
     }
@@ -165,13 +165,13 @@ type CloudAtom =
     /// </summary>
     /// <param name="container"></param>
     static member DeleteContainer (container : string) : Local<unit> = local {
-        let! config = Workflow.GetResource<CloudAtomConfiguration> ()
+        let! config = Cloud.GetResource<CloudAtomConfiguration> ()
         return! ofAsync <| config.AtomProvider.DisposeContainer container
     }
 
     /// Generates a unique container name.
     static member CreateContainerName() = local {
-        let! config = Workflow.GetResource<CloudAtomConfiguration> ()
+        let! config = Cloud.GetResource<CloudAtomConfiguration> ()
         return config.AtomProvider.CreateUniqueContainerName()
     }
 
@@ -180,7 +180,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="value">Value to be checked.</param>
     static member IsSupportedValue(value : 'T) = local {
-        let! config = Workflow.TryGetResource<CloudAtomConfiguration> ()
+        let! config = Cloud.TryGetResource<CloudAtomConfiguration> ()
         return
             match config with
             | None -> false

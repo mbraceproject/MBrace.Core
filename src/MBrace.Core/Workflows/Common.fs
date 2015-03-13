@@ -68,7 +68,7 @@ module CloudOperators =
     /// </summary>
     /// <param name="left">The first cloud computation.</param>
     /// <param name="right">The second cloud computation.</param>
-    let (<||>) (left : Workflow<'a>) (right : Workflow<'b>) : Cloud<'a * 'b> = 
+    let (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
         Cloud.Parallel(left, right)
 
     /// <summary>
@@ -77,7 +77,7 @@ module CloudOperators =
     /// </summary>
     /// <param name="left">The first cloud computation.</param>
     /// <param name="right">The second cloud computation.</param>
-    let (<|>) (left : Workflow<'a>) (right : Workflow<'a>) : Cloud<'a> =
+    let (<|>) (left : Cloud<'a>) (right : Cloud<'a>) : Cloud<'a> =
         cloud {
             let left' = cloud { let! value = left  in return Some (value) }
             let right'= cloud { let! value = right in return Some (value) }

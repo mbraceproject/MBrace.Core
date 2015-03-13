@@ -41,7 +41,7 @@ type CloudCell<'T> =
 
     /// Dereference the cloud cell
     member r.Value = local {
-        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
         | Some v -> return v :?> 'T
         | None -> return! ofAsync <| r.GetValueFromStore(config)
@@ -49,7 +49,7 @@ type CloudCell<'T> =
 
     /// Caches the cloud cell value to the local execution contexts. Returns true iff successful.
     member r.PopulateCache() = local {
-        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         match config.Cache with
         | None -> return false
         | Some c ->
@@ -61,13 +61,13 @@ type CloudCell<'T> =
 
     /// Indicates if array is cached in local execution context
     member c.IsCachedLocally = local {
-        let! config = Workflow.GetResource<CloudFileStoreConfiguration> ()
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         return config.Cache |> Option.exists(fun ch -> ch.ContainsKey c.uuid)
     }
 
     /// Gets the size of cloud cell in bytes
     member r.Size = local {
-        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         return! ofAsync <| config.FileStore.GetFileSize r.path
     }
 
@@ -76,7 +76,7 @@ type CloudCell<'T> =
 
     interface ICloudDisposable with
         member r.Dispose () = local {
-            let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
+            let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
             return! ofAsync <| config.FileStore.DeleteFile r.path
         }
 
@@ -96,7 +96,7 @@ type CloudCell =
     /// <param name="directory">FileStore directory used for cloud cell. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
     static member New(value : 'T, ?directory : string, ?serializer : ISerializer) = local {
-        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         let path = config.FileStore.GetRandomFilePath directory
@@ -114,7 +114,7 @@ type CloudCell =
     /// <param name="path">Path to cloud cell.</param>
     /// <param name="serializer">Serializer for cloud cell.</param>
     static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool) = local {
-        let! config = Workflow.GetResource<CloudFileStoreConfiguration>()
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
         let cell = new CloudCell<'T>(path, serializer)
         if defaultArg force false then

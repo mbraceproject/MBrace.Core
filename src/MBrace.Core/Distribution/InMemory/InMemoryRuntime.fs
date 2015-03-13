@@ -130,11 +130,11 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, computations)
         member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts, computations)
 
-        member __.ScheduleStartAsTask (workflow:Workflow<'T>, faultPolicy:FaultPolicy, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
+        member __.ScheduleStartAsTask (workflow:Cloud<'T>, faultPolicy:FaultPolicy, cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
-            let! resources = Workflow.GetResourceRegistry()
+            let! resources = Cloud.GetResourceRegistry()
             let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
             let resources' = resources.Register (runtimeP :> IDistributionProvider)
-            let task = Workflow.StartAsTask(workflow, resources', cancellationToken)
+            let task = Cloud.StartAsTask(workflow, resources', cancellationToken)
             return new InMemoryTask<'T>(task) :> _
         }

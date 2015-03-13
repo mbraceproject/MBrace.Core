@@ -134,7 +134,7 @@ type DistributionProvider private (state : RuntimeState, procInfo : ProcessInfo,
                 return! Combinators.Choice state procInfo dependencies faultPolicy computations
         }
 
-        member __.ScheduleStartAsTask(workflow : Workflow<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) = cloud {
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) = cloud {
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating as local semantics."
             else

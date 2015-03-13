@@ -8,71 +8,6 @@ open MBrace.Continuation
 
 #nowarn "444"
 
-/// Intrinsic cloud workflow combinators
-type Cloud =
-        
-    /// <summary>
-    ///     Creates a cloud workflow that captures the current execution context.
-    /// </summary>
-    /// <param name="body">Execution body.</param>
-    [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
-    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> = 
-        mkCloud(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
-
-    /// <summary>
-    ///     Runs provided workflow in a nested execution context that is
-    ///     introduced using the update/revert functions.
-    ///     These must be serializable and exception safe.
-    /// </summary>
-    /// <param name="workflow">Workflow to be wrapped.</param>
-    /// <param name="update">Resource updating function.</param>
-    /// <param name="revert">Resource reverting function.</param>
-    [<CompilerMessage("'WithNestedContext' only intended for runtime implementers.", 444)>]
-    static member WithNestedContext(workflow : Workflow<'T>, 
-                                        update : ExecutionContext -> ExecutionContext, 
-                                        revert : ExecutionContext -> ExecutionContext) : Cloud<'T> =
-
-        Cloud.FromContinuations(withNestedContext update revert workflow.Body) 
-
-    /// <summary>
-    ///     Runs provided workflow in a nested execution context that is
-    ///     introduced using the update/revert functions.
-    ///     These must be serializable and exception safe.
-    /// </summary>
-    /// <param name="workflow">Workflow to be wrapped.</param>
-    /// <param name="update">Resource updating function.</param>
-    /// <param name="revert">Resource reverting function.</param>
-    [<CompilerMessage("'WithNestedResource' only intended for runtime implementers.", 444)>]
-    static member WithNestedResource(workflow : Workflow<'T>, 
-                                        update : 'TResource -> 'TResource, 
-                                        revert : 'TResource -> 'TResource) : Cloud<'T> =
-
-        let updateCtx f (ctx : ExecutionContext) =
-            let tres = ctx.Resources.Resolve<'TResource> ()
-            { ctx with Resources = ctx.Resources.Register(f tres) }
-
-        Cloud.FromContinuations(withNestedContext (updateCtx update) (updateCtx revert) workflow.Body) 
-
-    /// <summary>
-    ///     Wraps a workflow with a mapped continuation.
-    /// </summary>
-    /// <param name="mapper">Continuation mapping function.</param>
-    /// <param name="workflow">Input workflow.</param>
-    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
-    static member WithMappedContinuation (mapper : Continuation<'T> -> Continuation<'S>) (workflow : #Workflow<'S>) : Cloud<'T> =
-        mkCloud (fun ctx cont -> workflow.Body ctx (mapper cont))
-
-    /// <summary>
-    ///     Appends a function information entry to the symbolic stacktrace in the exception continuation.
-    /// </summary>
-    /// <param name="functionName">Function info string to be appended.</param>
-    /// <param name="workflow">Workflow to be wrapped.</param>
-    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
-    static member WithAppendedStackTrace (functionName : string) (workflow : #Workflow<'T>) : Cloud<'T> =
-        mkCloud (fun ctx cont ->
-            let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
-            workflow.Body ctx cont')
-
 /// Intrinsic local workflow combinators
 type Local =
         
@@ -108,7 +43,7 @@ type Local =
     /// <param name="update">Resource updating function.</param>
     /// <param name="revert">Resource reverting function.</param>
     [<CompilerMessage("'WithNestedResource' only intended for runtime implementers.", 444)>]
-    static member WithNestedResource(workflow : Workflow<'T>, 
+    static member WithNestedResource(workflow : Cloud<'T>, 
                                         update : 'TResource -> 'TResource, 
                                         revert : 'TResource -> 'TResource) : Local<'T> =
 
@@ -138,9 +73,71 @@ type Local =
             let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
             workflow.Body ctx cont')
 
+/// Intrinsic cloud workflow combinators
+type Cloud =
+        
+    /// <summary>
+    ///     Creates a cloud workflow that captures the current execution context.
+    /// </summary>
+    /// <param name="body">Execution body.</param>
+    [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
+    static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> = 
+        mkCloud(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
 
-/// Cloud workflows core continuation API
-type Workflow =
+    /// <summary>
+    ///     Runs provided workflow in a nested execution context that is
+    ///     introduced using the update/revert functions.
+    ///     These must be serializable and exception safe.
+    /// </summary>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    /// <param name="update">Resource updating function.</param>
+    /// <param name="revert">Resource reverting function.</param>
+    [<CompilerMessage("'WithNestedContext' only intended for runtime implementers.", 444)>]
+    static member WithNestedContext(workflow : Cloud<'T>, 
+                                        update : ExecutionContext -> ExecutionContext, 
+                                        revert : ExecutionContext -> ExecutionContext) : Cloud<'T> =
+
+        Cloud.FromContinuations(withNestedContext update revert workflow.Body) 
+
+    /// <summary>
+    ///     Runs provided workflow in a nested execution context that is
+    ///     introduced using the update/revert functions.
+    ///     These must be serializable and exception safe.
+    /// </summary>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    /// <param name="update">Resource updating function.</param>
+    /// <param name="revert">Resource reverting function.</param>
+    [<CompilerMessage("'WithNestedResource' only intended for runtime implementers.", 444)>]
+    static member WithNestedResource(workflow : Cloud<'T>, 
+                                        update : 'TResource -> 'TResource, 
+                                        revert : 'TResource -> 'TResource) : Cloud<'T> =
+
+        let updateCtx f (ctx : ExecutionContext) =
+            let tres = ctx.Resources.Resolve<'TResource> ()
+            { ctx with Resources = ctx.Resources.Register(f tres) }
+
+        Cloud.FromContinuations(withNestedContext (updateCtx update) (updateCtx revert) workflow.Body) 
+
+    /// <summary>
+    ///     Wraps a workflow with a mapped continuation.
+    /// </summary>
+    /// <param name="mapper">Continuation mapping function.</param>
+    /// <param name="workflow">Input workflow.</param>
+    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
+    static member WithMappedContinuation (mapper : Continuation<'T> -> Continuation<'S>) (workflow : #Cloud<'S>) : Cloud<'T> =
+        mkCloud (fun ctx cont -> workflow.Body ctx (mapper cont))
+
+    /// <summary>
+    ///     Appends a function information entry to the symbolic stacktrace in the exception continuation.
+    /// </summary>
+    /// <param name="functionName">Function info string to be appended.</param>
+    /// <param name="workflow">Workflow to be wrapped.</param>
+    [<CompilerMessage("'GetResources' only intended for runtime implementers.", 444)>]
+    static member WithAppendedStackTrace (functionName : string) (workflow : #Cloud<'T>) : Cloud<'T> =
+        mkCloud (fun ctx cont ->
+            let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
+            workflow.Body ctx cont')
+
 
     /// <summary>
     ///     Returns the execution context of current computation.
@@ -180,7 +177,7 @@ type Workflow =
     /// <param name="taskCreationOptions">Resource registry used with workflows.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [<CompilerMessage("'StartAsTask' only intended for runtime implementers.", 444)>]
-    static member StartAsTask(workflow : Workflow<'T>, resources : ResourceRegistry, 
+    static member StartAsTask(workflow : Cloud<'T>, resources : ResourceRegistry, 
                                 cancellationToken : ICloudCancellationToken, ?taskCreationOptions : TaskCreationOptions) : Task<'T> =
 
         let taskCreationOptions = defaultArg taskCreationOptions TaskCreationOptions.None
@@ -192,7 +189,7 @@ type Workflow =
                 Cancellation = fun _ _ -> tcs.TrySetCanceled() |> ignore
             }
 
-        Trampoline.QueueWorkItem(fun () -> Workflow.StartWithContinuations(workflow, cont, resources, cancellationToken))
+        Trampoline.QueueWorkItem(fun () -> Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken))
         tcs.Task
 
     /// <summary>
@@ -201,7 +198,7 @@ type Workflow =
     /// <param name="workflow">Cloud workflow to be executed.</param>
     /// <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
     [<CompilerMessage("'ToAsync' only intended for runtime implementers.", 444)>]
-    static member ToAsync(workflow : Workflow<'T>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : Async<'T> =
+    static member ToAsync(workflow : Cloud<'T>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : Async<'T> =
         Async.FromContinuations(fun (sc,ec,cc) ->
             let cont =
                 {
@@ -211,7 +208,7 @@ type Workflow =
                 }
 
             do Trampoline.Reset()
-            Workflow.StartWithContinuations(workflow, cont, resources, cancellationToken))
+            Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken))
 
     /// <summary>
     ///     Starts a cloud workflow with given execution context in the current thread.
@@ -220,7 +217,7 @@ type Workflow =
     /// <param name="continuation">Root continuation for workflow.</param>
     /// <param name="context">Local execution context.</param>
     [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
-    static member StartWithContinuations(workflow : Workflow<'T>, continuation : Continuation<'T>, context : ExecutionContext) : unit =
+    static member StartWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, context : ExecutionContext) : unit =
         workflow.Body context continuation
 
     /// <summary>
@@ -231,7 +228,7 @@ type Workflow =
     /// <param name="resources">Resource registry for workflow.</param>
     /// <param name="cancellationToken">Cancellation token for workflow.</param>
     [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
-    static member StartWithContinuations(workflow : Workflow<'T>, continuation : Continuation<'T>, 
+    static member StartWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, 
                                             resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : unit =
         workflow.Body { Resources = resources ; CancellationToken = cancellationToken } continuation
 
@@ -242,7 +239,7 @@ type Workflow =
     /// <param name="resources">Resource registry passed to execution context.</param>
     /// <param name="cancellationToken">Local Cancellation token.</param>
     [<CompilerMessage("'StartImmediate' only intended for runtime implementers.", 444)>]
-    static member StartImmediate(workflow : Workflow<unit>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : unit =
+    static member StartImmediate(workflow : Cloud<unit>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : unit =
         let cont =
             {
                 Success = fun _ _ -> ()
@@ -250,7 +247,7 @@ type Workflow =
                 Cancellation = fun _ _ -> ()
             }
             
-        Workflow.StartWithContinuations(workflow, cont, resources, cancellationToken)
+        Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken)
 
     /// <summary>
     ///     Starts provided cloud workflow in the thread pool.
@@ -259,8 +256,8 @@ type Workflow =
     /// <param name="resources">Resource registry passed to execution context.</param>
     /// <param name="cancellationToken">Local Cancellation token.</param>
     [<CompilerMessage("'Start' only intended for runtime implementers.", 444)>]
-    static member Start(workflow : Workflow<unit>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : unit =
-        Trampoline.QueueWorkItem(fun () -> Workflow.StartImmediate(workflow, resources, cancellationToken))
+    static member Start(workflow : Cloud<unit>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : unit =
+        Trampoline.QueueWorkItem(fun () -> Cloud.StartImmediate(workflow, resources, cancellationToken))
 
     /// <summary>
     ///     Synchronously await a locally executing workflow.
@@ -269,5 +266,5 @@ type Workflow =
     /// <param name="resources">Resource resolver to be used; defaults to no resources.</param>
     /// <param name="cancellationToken">Cancellation token to be used.</param>
     [<CompilerMessage("'RunSynchronously' only intended for runtime implementers.", 444)>]
-    static member RunSynchronously(workflow : Workflow<'T>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : 'T =
-        Workflow.StartAsTask(workflow, resources, cancellationToken).GetResult()
+    static member RunSynchronously(workflow : Cloud<'T>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : 'T =
+        Cloud.StartAsTask(workflow, resources, cancellationToken).GetResult()

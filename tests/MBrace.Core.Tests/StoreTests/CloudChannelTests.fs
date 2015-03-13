@@ -20,9 +20,9 @@ type ``CloudChannel Tests`` (parallelismFactor : int) as self =
         with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
-    abstract Run : Workflow<'T> -> 'T
+    abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocal : Workflow<'T> -> 'T
+    abstract RunLocal : Cloud<'T> -> 'T
     /// Local store client instance
     abstract ChannelClient : CloudChannelClient
 

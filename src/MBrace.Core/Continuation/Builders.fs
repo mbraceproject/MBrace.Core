@@ -29,7 +29,7 @@ module internal BuilderImpl =
             | Choice1Of2 t -> c.Success ctx t
             | Choice2Of2 e -> c.Exception ctx (capture e)
 
-        member inline c.Choice2 (ctx, choice : Choice<#Workflow<'T>, exn>) =
+        member inline c.Choice2 (ctx, choice : Choice<#Cloud<'T>, exn>) =
             match choice with
             | Choice1Of2 wf -> wf.Body ctx c
             | Choice2Of2 e -> c.Exception ctx (capture e)
@@ -58,7 +58,7 @@ module internal BuilderImpl =
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken))
 
-    let inline bind (f : Body<'T>) (g : 'T -> #Workflow<'S>) : Body<'S> =
+    let inline bind (f : Body<'T>) (g : 'T -> #Cloud<'S>) : Body<'S> =
         fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             let cont' = {
@@ -142,7 +142,7 @@ module internal BuilderImpl =
             else
                 f ctx cont'
 
-    let inline tryWith (wf : Body<'T>) (handler : exn -> #Workflow<'T>) : Body<'T> =
+    let inline tryWith (wf : Body<'T>) (handler : exn -> #Cloud<'T>) : Body<'T> =
         fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             let cont' = {
@@ -202,17 +202,17 @@ module internal BuilderImpl =
             else
                 f ctx cont'
 
-    let inline delay (f : unit -> #Workflow<'T>) : Body<'T> = bind zero f
+    let inline delay (f : unit -> #Cloud<'T>) : Body<'T> = bind zero f
     let inline delay' (f : unit -> Body<'T>) : Body<'T> = bind' zero f
     let inline dispose (d : ICloudDisposable) = mkLocal <| delay d.Dispose
 
-    let inline usingIDisposable (t : #IDisposable) (g : #IDisposable -> #Workflow<'S>) : Body<'S> =
+    let inline usingIDisposable (t : #IDisposable) (g : #IDisposable -> #Cloud<'S>) : Body<'S> =
         tryFinally (bind ((ret t)) g) (retFunc t.Dispose)
 
-    let inline usingICloudDisposable (t : #ICloudDisposable) (g : #ICloudDisposable -> #Workflow<'S>) : Body<'S> =
+    let inline usingICloudDisposable (t : #ICloudDisposable) (g : #ICloudDisposable -> #Cloud<'S>) : Body<'S> =
         tryFinally (bind (ret t) g) (delay t.Dispose)
 
-    let inline forArray (body : 'T -> #Workflow<unit>) (ts : 'T []) : Body<unit> =
+    let inline forArray (body : 'T -> #Cloud<unit>) (ts : 'T []) : Body<unit> =
         let rec loop i () =
             if i = ts.Length then zero
             else
@@ -222,7 +222,7 @@ module internal BuilderImpl =
 
         delay' (loop 0)
 
-    let inline forList (body : 'T -> #Workflow<unit>) (ts : 'T list) : Body<unit> =
+    let inline forList (body : 'T -> #Cloud<unit>) (ts : 'T list) : Body<unit> =
         let rec loop ts () =
             match ts with
             | [] -> zero
@@ -233,7 +233,7 @@ module internal BuilderImpl =
 
         delay' (loop ts)
 
-    let inline forSeq (body : 'T -> #Workflow<unit>) (ts : seq<'T>) : Body<unit> =
+    let inline forSeq (body : 'T -> #Cloud<unit>) (ts : seq<'T>) : Body<unit> =
         delay' <|
             fun () ->
                 let enum = ts.GetEnumerator()
@@ -286,10 +286,8 @@ module Builders =
         member __.Zero () : Cloud<unit> = czero
         member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| delay f
         member __.ReturnFrom (c : Cloud<'T>) : Cloud<'T> = c
-        member __.ReturnFrom (l : Local<'T>) : Cloud<'T> = mkCloud l.Body
-
-        member __.Combine(f : Workflow<unit>, g : Cloud<'T>) : Cloud<'T> = mkCloud <| combine f.Body g.Body
-        member __.Bind (f : Workflow<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = mkCloud <| bind f.Body g
+        member __.Combine(f : Cloud<unit>, g : Cloud<'T>) : Cloud<'T> = mkCloud <| combine f.Body g.Body
+        member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = mkCloud <| bind f.Body g
 
         member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingICloudDisposable value bindF
