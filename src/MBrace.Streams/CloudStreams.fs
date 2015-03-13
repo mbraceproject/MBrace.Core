@@ -29,7 +29,7 @@ type CloudStream<'T> =
     /// The number of concurrently executing tasks
     abstract DegreeOfParallelism : int option
     /// Applies the given collector to the CloudStream.
-    abstract Apply<'S, 'R> : Local<Collector<'T, 'S>> -> ('S -> Local<'R>) -> ('R -> 'R -> 'R) -> Cloud<'R>
+    abstract Apply<'S, 'R> : Local<Collector<'T, 'S>> -> ('S -> Local<'R>) -> ('R []  -> Local<'R>) -> Cloud<'R>
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Provides basic operations on CloudStreams.
@@ -75,7 +75,7 @@ module CloudStream =
     let ofArray (source : 'T []) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R -> 'R -> 'R) =
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let! collector = collectorf 
                     let! workerCount = 
@@ -96,7 +96,7 @@ module CloudStream =
                             partitions 
                             |> Array.map (fun (s, e) -> createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf) 
                             |> Cloud.Parallel
-                        return Array.reduce combiner results
+                        return! combiner results 
                     else
                         return! projection collector.Result
                 } }
@@ -109,7 +109,7 @@ module CloudStream =
     let ofCloudFiles (reader : System.IO.Stream -> Async<'T>) (sources : seq<CloudFile>) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R -> 'R -> 'R) =
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud { 
                     if Seq.isEmpty sources then 
                         let! collector = collectorf
@@ -153,12 +153,12 @@ module CloudStream =
                                     let! collector = collectorf
                                     return! projection collector.Result
                                 else
-                                    return Array.reduce combiner (result.ToArray())
+                                    return! combiner (result.ToArray())
                             }
 
                         let partitions = sources |> Seq.toArray |> Partitions.ofArray workerCount
                         let! results = partitions |> Array.map (fun cfiles -> createTask cfiles collectorf) |> Cloud.Parallel
-                        return Array.reduce combiner results
+                        return! combiner results
                 } }
 
     /// <summary>
@@ -168,7 +168,7 @@ module CloudStream =
     let ofCloudVector (source : CloudVector<'T>) : CloudStream<'T> =
         { new CloudStream<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R -> 'R -> 'R) =
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let useCache = source.IsCachingSupported
                     let partitions = getPartitionIndices source
@@ -194,7 +194,7 @@ module CloudStream =
                             let! worker = Cloud.CurrentWorker
                             do! source.UpdateCacheState(worker, partitions)
 
-                        return Array.reduce combiner results
+                        return! combiner results
                     }
 
                     if Array.isEmpty partitions then 
@@ -219,7 +219,7 @@ module CloudStream =
                             |> Seq.map computePartitions 
                             |> Cloud.Parallel
 
-                        return Array.reduce combiner results
+                        return! combiner results
                 }
         }
 
@@ -344,7 +344,7 @@ module CloudStream =
                             acc <- combiner acc !result 
                     acc }
         }
-        stream.Apply collectorf (fun x -> local { return x }) combiner
+        stream.Apply collectorf (fun x -> local { return x }) (fun values -> local { return Array.reduce combiner values })
 
     /// <summary>Applies a key-generating function to each element of a CloudStream and return a CloudStream yielding unique keys and the result of the threading an accumulator.</summary>
     /// <param name="projection">A function to transform items from the input CloudStream to keys.</param>
@@ -388,7 +388,7 @@ module CloudStream =
         // Phase 1
         let shuffling = 
             cloud {
-                let combiner' (left : _ []) (right : _ []) =  Array.append left right 
+                let combiner' (result : _ []) = local { return Array.reduce Array.append result }
                 let! totalWorkers = match stream.DegreeOfParallelism with Some n -> local { return n } | None -> Cloud.GetWorkerCount()
                 let! keyValueArray = stream.Apply (collectorf totalWorkers) 
                                                   (fun keyValues -> local {
@@ -437,7 +437,7 @@ module CloudStream =
         // Phase 2
         let reducer (stream : CloudStream<int * CloudVector<'Key * 'State>>) : Cloud<CloudVector<'Key * 'State>> = 
             cloud {
-                let combiner' (left : CloudVector<_>) (right : CloudVector<_>) = CloudVector.Merge [| left ; right |]
+                let combiner' (result : CloudVector<_> []) = local { return CloudVector.Merge result }
 
                 let! keyValueArray = stream.Apply reducerf (fun keyValues -> CloudVector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
                 return keyValueArray
@@ -517,7 +517,7 @@ module CloudStream =
             let! vc =
                 stream.Apply collectorf 
                     (fun array -> local { return! CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = false) }) 
-                    (fun left right -> CloudVector.Merge [|left ; right|])
+                    (fun result -> local { return CloudVector.Merge result })
             return vc
         }
 
@@ -560,7 +560,7 @@ module CloudStream =
         }
         let sortByComp = 
             cloud {
-                let! results = stream.Apply collectorf (fun x -> local { return x }) (fun left right -> left.AddRange(right); left)
+                let! results = stream.Apply collectorf (fun x -> local { return x }) (fun result -> local { return Array.reduce (fun left right -> left.AddRange(right); left) result })
                 let result = 
                     let count = results |> Seq.sumBy (fun (keys, _) -> keys.Length)
                     let keys = Array.zeroCreate<'Key> count
@@ -610,7 +610,7 @@ module CloudStream =
                             !resultRef }
             }
         cloud {
-            return! stream.Apply collectorf (fun v -> local { return v }) (fun left right -> match left with Some _ -> left | None -> right)
+            return! stream.Apply collectorf (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
 
     /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
@@ -648,7 +648,7 @@ module CloudStream =
                             !resultRef }
             }
         cloud {
-            return! stream.Apply collectorf (fun v -> local { return v }) (fun left right -> match left with Some _ -> left | None -> right)
+            return! stream.Apply collectorf (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
 
 
