@@ -38,7 +38,7 @@ let getWordCount inputSize =
     let map (text : string) = local { return text.Split(' ').Length }
     let reduce i i' = local { return i + i' }
     let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
-    Distributed.mapReduce map reduce 0 inputs
+    DivideAndConquer.mapReduce map reduce 0 inputs
 
 runtime.Run (getWordCount 1000)
 
