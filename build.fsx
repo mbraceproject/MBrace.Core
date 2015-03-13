@@ -15,7 +15,7 @@ open System.IO
 
 
 let project = "MBrace.Core"
-let authors = [ "Eirik Tsarpalis" ]
+let authors = [ "Eirik Tsarpalis" ; "Nick Palladinos" ; "Kostas Rontogiannis" ]
 
 let description = """Cloud workflow core libraries."""
 

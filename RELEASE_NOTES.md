@@ -1,3 +1,10 @@
+#### 0.9.5-alpha
+* Refine local workflows implementation.
+* Improve MBrace.Streams implementations.
+* Add CloudCacheable<T> primitive.
+* Improve DivideAndConquer workflows.
+* Misc fixes and improvements.
+
 #### 0.9.4-alpha
 * Packaging hotfix.
 
