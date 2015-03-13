@@ -455,3 +455,17 @@ type Local =
         let stackTraceSig = sprintf "Local.Choice(seq<Local<%s option>> computations)" typeof<'T>.Name
         return! Local.WithAppendedStackTrace stackTraceSig workflow
     }
+
+
+
+/// collection of parallelism operators for the cloud
+[<AutoOpen>]
+module CloudOperators =
+        
+    /// <summary>
+    ///     Combines two cloud computations into one that executes them in parallel.
+    /// </summary>
+    /// <param name="left">The first cloud computation.</param>
+    /// <param name="right">The second cloud computation.</param>
+    let (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
+        Cloud.Parallel(left, right)
