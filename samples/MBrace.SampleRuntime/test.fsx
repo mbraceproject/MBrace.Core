@@ -69,6 +69,6 @@ runtime.Run(test(), faultPolicy = FaultPolicy.NoRetry)
 Cloud.Parallel [cloud { return 432 } ; local { return 1 } :> _ ]
 
 local {
-    let! x = Cloud.Parallel [ cloud { return 42 } ; ]
+    let! x = Cloud.Parallel [ cloud { return 42 } ]
     return x
 }

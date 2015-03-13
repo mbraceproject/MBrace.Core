@@ -26,7 +26,7 @@ type internal Body<'T> = ExecutionContext -> Continuation<'T> -> unit
 type Cloud<'T> =
     [<DataMember(Name = "Body")>]
     val mutable private body : Body<'T>
-    internal new (body : Body<'T>) = { body = body}
+    internal new (body : Body<'T>) = { body = body }
     member internal __.Body = __.body
 
 /// Representation of an in-memory computation, which, when run 
