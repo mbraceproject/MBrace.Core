@@ -503,3 +503,19 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="file">Input file.</param>
     static member ReadAllBytes(file : CloudFile) : Local<byte []> =
         CloudFile.ReadAllBytes(file.Path)
+
+
+    /// <summary>
+    ///     Uploads a local file to store.
+    /// </summary>
+    /// <param name="localFile">Local path to file.</param>
+    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    static member Upload(localFile : string, ?targetDirectory : string) : Local<CloudFile> = local {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        let targetDirectory = defaultArg targetDirectory config.DefaultDirectory
+        use fs = File.OpenRead localFile
+        let fileName = Path.GetFileName localFile
+        let targetPath = config.FileStore.Combine(targetDirectory, fileName)
+        do! ofAsync <| config.FileStore.OfStream(fs, targetPath)
+        return new CloudFile(targetPath)
+    }

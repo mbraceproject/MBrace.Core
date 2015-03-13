@@ -750,6 +750,43 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     member __.ReadAllBytes(file : CloudFile) : byte [] =
         __.ReadAllBytesAsync(file.Path) |> toSync
 
+    /// <summary>
+    ///     Uploads a local file to store.
+    /// </summary>
+    /// <param name="localFile">Local path to file.</param>
+    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    member __.UploadAsync(localFile : string, ?targetDirectory : string) : Async<CloudFile> =
+        CloudFile.Upload(localFile, ?targetDirectory = targetDirectory) |> toAsync
+
+    /// <summary>
+    ///     Uploads a local file to store.
+    /// </summary>
+    /// <param name="localFile">Local path to file.</param>
+    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    member __.Upload(localFile : string, ?targetDirectory : string) : CloudFile =
+        __.UploadAsync(localFile, ?targetDirectory = targetDirectory) |> toSync
+
+    /// <summary>
+    ///     Uploads a collection local files to store.
+    /// </summary>
+    /// <param name="localFiles">Local paths to files.</param>
+    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    member __.UploadAsync(localFiles : seq<string>, ?targetDirectory : string) : Async<CloudFile []> = 
+        local {
+            return!
+                localFiles
+                |> Seq.map (fun f -> CloudFile.Upload(f, ?targetDirectory = targetDirectory))
+                |> Local.Parallel
+        } |> toAsync
+
+    /// <summary>
+    ///     Uploads a collection local files to store.
+    /// </summary>
+    /// <param name="localFiles">Local paths to files.</param>
+    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    member __.Upload(localFiles : seq<string>, ?targetDirectory : string) : CloudFile [] = 
+        __.UploadAsync(localFiles, ?targetDirectory = targetDirectory) |> toSync
+
 
 [<Sealed; AutoSerializable(false)>]
 type FileStoreClient internal (registry : ResourceRegistry) =
