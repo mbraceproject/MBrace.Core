@@ -14,6 +14,27 @@ type IWorkerRef =
     /// Worker processor count
     abstract ProcessorCount : int
 
+module WorkerRef =
+
+    /// partitions a set of inputs to workers
+    let partition (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
+        if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
+        inputs
+        |> Array.splitByPartitionCount workers.Length
+        |> Seq.mapi (fun i p -> (workers.[i],p))
+        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
+        |> Seq.toArray
+    
+    /// partitions a set of inputs to workers -- weighted by worker processor count.
+    let partitionWeighted (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
+        if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
+        let weights = workers |> Array.map (fun w -> w.ProcessorCount)
+        inputs
+        |> Array.splitWeighted weights
+        |> Seq.mapi (fun i p -> (workers.[i],p))
+        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
+        |> Seq.toArray
+
 /// Denotes a task that is being executed in the cluster.
 type ICloudTask<'T> =
     /// Unique task identifier

@@ -107,7 +107,7 @@ type DistributionProvider private (state : RuntimeState, procInfo : ProcessInfo,
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = async {
             match parents with
-            | [||] -> let! cts = state.ResourceFactory.RequestCancellationTokenSource() in return cts :> _
+            | [||] -> let! cts = state.ResourceFactory.RequestCancellationTokenSource() in return cts :> ICloudCancellationTokenSource
             | [| ct |] -> return mkNestedCts false ct
             | _ -> return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
         }

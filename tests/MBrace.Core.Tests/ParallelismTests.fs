@@ -250,7 +250,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         repeat(fun () -> WordCount.run 1000 DivideAndConquer.mapReduce |> run |> Choice.shouldEqual 5000)
 
     [<Test>]
-    member __.``1. Parallel : Distributed.map`` () =
+    member __.``1. Parallel : DivideAndConquer.map`` () =
         let checker (ints : int list) =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints
@@ -261,7 +261,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Distributed.filter`` () =
+    member __.``1. Parallel : DivideAndConquer.filter`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints
@@ -272,7 +272,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Distributed.choose`` () =
+    member __.``1. Parallel : DivideAndConquer.choose`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
             ints
@@ -283,7 +283,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Distributed.fold`` () =
+    member __.``1. Parallel : DivideAndConquer.fold`` () =
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             ints
@@ -294,7 +294,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Distributed.collect`` () =
+    member __.``1. Parallel : DivideAndConquer.collect`` () =
         let checker (ints : int list) =
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> set
             ints
@@ -499,7 +499,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldEqual (Some (parallelismFactor / 2)))
 
     [<Test>]
-    member __.``2. Choice : Distributed.tryFind`` () =
+    member __.``2. Choice : DivideAndConquer.tryFind`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
             ints
@@ -510,7 +510,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``2. Choice : Distributed.tryPick`` () =
+    member __.``2. Choice : DivideAndConquer.tryPick`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
             ints

@@ -36,11 +36,10 @@ module DivideAndConquer =
             if inputs.Length < 2 then return! reducer inputs
             else
                 let! workers = Cloud.GetAvailableWorkers()
-                let weights = workers |> Array.map (fun w -> w.ProcessorCount)
-                let chunks = Array.splitWeighted weights inputs
+                let chunks = WorkerRef.partitionWeighted workers inputs
                 let! results =
                     chunks
-                    |> Array.map (fun (i,ts) -> reduceCombineLocal ts, workers.[i])
+                    |> Array.map (fun (w,ts) -> reduceCombineLocal ts, w)
                     |> Cloud.Parallel
 
                 return! combiner results
@@ -228,11 +227,10 @@ module DivideAndConquer =
             if inputs.Length < 2 then return! chooser inputs
             else
                 let! workers = Cloud.GetAvailableWorkers()
-                let weights = workers |> Array.map (fun w -> w.ProcessorCount)
-                let chunks = Array.splitWeighted weights inputs
+                let chunks = WorkerRef.partitionWeighted workers inputs
                 return!
                     chunks
-                    |> Array.map (fun (i,ch) -> multiCoreSearch ch, workers.[i])
+                    |> Array.map (fun (w,ch) -> multiCoreSearch ch, w)
                     |> Cloud.Choice
         }
 

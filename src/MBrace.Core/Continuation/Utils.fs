@@ -7,7 +7,7 @@ open System.Threading
 open System.Threading.Tasks
 
 [<AutoOpen>]
-module internal Utils =
+module Utils =
 
     type AsyncBuilder with
         member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
@@ -15,7 +15,7 @@ module internal Utils =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
 
-    type Latch (init : int) =
+    type internal Latch (init : int) =
         [<VolatileField>]
         let mutable value = init
 
@@ -40,6 +40,7 @@ module internal Utils =
                 let chunks = new ResizeArray<'T []>()
                 let mutable i = 0
                 for p in 0 .. partitions - 1 do
+                    // add a padding element for every chunk 0 <= p < r
                     let j = i + chunkSize + if p < r then 1 else 0
                     let ch = ts.[i .. j - 1]
                     chunks.Add ch
@@ -69,75 +70,39 @@ module internal Utils =
 
         /// <summary>
         ///     Partitions an array into chunks according to a weighted array.
-        ///     This scheme assumes weights are relatively small, like the cpu core count of a worker node.
         /// </summary>
         /// <param name="weights">Weights for each chunk.</param>
         /// <param name="ts">Input array.</param>
-        let splitWeighted (weights : int []) (ts : 'T []) : (int * 'T []) [] =
-            // normalize weight array using gcd
-            let normalize (ns : int []) =
-                let rec gcd m n =
-                    if m < n then gcd n m
-                    elif n = 0 then m
-                    else gcd n (m % n)
-
-                let gcd = Array.fold (fun c n -> gcd n c) ns.[0] ns
-                ns |> Array.map (fun n -> n / gcd)
-
+        let splitWeighted (weights : int []) (ts : 'T []) : 'T [][] =
+            if ts.Length = 0 then [||] else
             if weights.Length = 0 then invalidArg "weights" "must be non-empty array."
-            let weights = normalize weights
-            // compute the total number of 'chunks', which is the sum of normalized weights
-            let total =
-                let mutable c = 0
-                for w in weights do
-                    if w <= 0 then invalidArg "weights" "must contain positive weights."
-                    c <- c + w
-                c
 
-            let chunkSize = ts.Length / total
-            let r = ts.Length % total
-            let ra = new ResizeArray<int * 'T []> ()
-            let mutable i = 0 // source array index
-            let mutable c = 0 // chunk count
-            for w = 0 to weights.Length - 1 do
-                let weigh = weights.[w]
-                let l = 
-                    if c + weigh <= r then weigh
-                    elif c < r then r - c
-                    else 0
+            // compute weighted chunk sizes
+            // 1. compute total = Σ w_i
+            // 2. compute x_i, where x_i / N = w_i / Σ w_i
+            // 3. compute R = N - Σ (floor x_i), the number of padding elements.
+            // 4. compute chunk sizes, adding an extra padding element to the first R x_i's of largest decimal component.
+            let N = ts.Length
+            let total = weights |> Array.sumBy (fun w -> if w > 0 then w else invalidArg "weights" "weights must contain positive values.") |> uint64
+            let chunkInfo = weights |> Array.map (fun w -> let C = uint64 w * uint64 N in int (C / total), int (C % total))
+            let R = N - (chunkInfo |> Array.sumBy fst)
+            let chunkSizes = 
+                chunkInfo 
+                |> Seq.mapi (fun i (q,r) -> i,q,r) 
+                |> Seq.sortBy (fun (_,_,r) -> -r)
+                |> Seq.mapi (fun j (i,q,_) -> if j < R then (i, q + 1) else (i,q))
+                |> Seq.sortBy fst
+                |> Seq.map snd
+                |> Seq.toArray
 
-                let j = i + chunkSize * weigh + l
-                if i <= j - 1 then
-                    let chunk = ts.[i .. j - 1]
-                    ra.Add (w, chunk)
-                i <- j
-                c <- c + weigh
+            let mutable i = 0
+            let chunks = new ResizeArray<'T []> ()
+            for chunkSize in chunkSizes do
+                let chunk = ts.[i .. i + chunkSize - 1]
+                chunks.Add chunk
+                i <- i + chunkSize
 
-            ra.ToArray()
-            
-
-    [<RequireQualifiedAccess>]
-    module List =
-
-        /// <summary>
-        ///     split list at given length
-        /// </summary>
-        /// <param name="n">splitting point.</param>
-        /// <param name="xs">input list.</param>
-        let splitAt n (xs : 'a list) =
-            let rec splitter n (left : 'a list) right =
-                match n, right with
-                | 0 , _ | _ , [] -> List.rev left, right
-                | n , h :: right' -> splitter (n-1) (h::left) right'
-
-            splitter n [] xs
-
-        /// <summary>
-        ///     split list in half
-        /// </summary>
-        /// <param name="xs">input list</param>
-        let split (xs : 'a list) = splitAt (xs.Length / 2) xs
-
+            chunks.ToArray()
 
     type Task<'T> with
 
