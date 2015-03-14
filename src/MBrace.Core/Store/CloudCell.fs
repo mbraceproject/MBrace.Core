@@ -137,9 +137,9 @@ type CloudCell =
                 new ISerializer with
                     member __.Id = "Deserializer Lambda"
                     member __.Serialize(_,_,_) = raise <| new NotSupportedException()
-                    member __.Deserialize(_,_) = raise <| new NotSupportedException()
+                    member __.Deserialize<'a>(source,_) = deserializer source :> obj :?> 'a
                     member __.SeqSerialize(_,_,_) = raise <| new NotSupportedException()
-                    member __.SeqDeserialize<'a>(source,_) = deserializer source :> obj :?> seq<'a>
+                    member __.SeqDeserialize(_,_) = raise <| new NotSupportedException()
             }
 
         return! CloudCell.Parse(path, serializer, ?force = force)
