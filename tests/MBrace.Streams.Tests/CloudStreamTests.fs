@@ -214,6 +214,26 @@ type ``CloudStreams tests`` () as self =
         Check.QuickThrowOnFail(f, 10)
 
     [<Test>]
+    member __.``2. CloudStream : ofTextCloudFiles with ReadLines`` () =
+        let f(xs : string [][]) =
+            let cfs = xs 
+                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
+                     |> Cloud.Parallel
+                     |> run
+
+            let x = cfs |> CloudStream.ofTextCloudFiles
+                        |> CloudStream.toArray
+                        |> run
+                        |> Set.ofArray
+            
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines(f) }))
+                        |> Seq.collect id
+                        |> Set.ofSeq
+
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, 10)
+
+    [<Test>]
     member __.``2. CloudStream : ofCloudFiles with ReadAllLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
