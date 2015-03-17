@@ -699,7 +699,7 @@ module CloudStream =
     /// Constructs a CloudStream from a collection of CloudFiles using text line reader.
     /// </summary>
     /// <param name="sources">The collection of CloudFiles.</param>
-    let ofTextCloudFiles (sources : seq<CloudFile>) : CloudStream<string> =
+    let ofCloudFilesByLines (sources : seq<CloudFile>) : CloudStream<string> =
         sources
         |> ofCloudFiles CloudFileReader.ReadLines
         |> flatMap Stream.ofSeq
