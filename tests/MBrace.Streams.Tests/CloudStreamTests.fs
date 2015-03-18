@@ -232,6 +232,30 @@ type ``CloudStreams tests`` () as self =
 
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, 10)
+    
+    
+    [<Test>]
+    member __.``2. CloudStream : ofTextFile`` () =
+        
+        let f(xs : string []) =
+            let cf = CloudFile.WriteAllLines(xs) |> run
+            let path = cf.Path
+
+            let x = 
+                path 
+                |> CloudStream.ofTextFile
+                |> CloudStream.toArray
+                |> run
+                |> Array.sortBy id
+                    
+            
+            let y = 
+                __.RunLocal(cloud { return! CloudFile.ReadLines(cf) })
+                |> Seq.sortBy id
+                |> Seq.toArray
+                    
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, 10)
 
     [<Test>]
     member __.``2. CloudStream : ofCloudFiles with ReadAllLines`` () =

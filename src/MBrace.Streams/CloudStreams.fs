@@ -703,5 +703,54 @@ module CloudStream =
         sources
         |> ofCloudFiles CloudFileReader.ReadLines
         |> flatMap Stream.ofSeq
-        
+
+    /// <summary>
+    /// Constructs a CloudStream of lines from a path.
+    /// </summary>
+    /// <param name="path">The path to the text file.</param>
+    let ofTextFile (path : string) : CloudStream<string> =
+        { new CloudStream<string> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+                cloud {
+                    let! fileSize = CloudFile.GetSize(path)
+                    let! collector = collectorf 
+                    let! workerCount = 
+                        match collector.DegreeOfParallelism with
+                        | Some n -> local { return n }
+                        | _ -> Cloud.GetWorkerCount()
+
+                    let rangeBasedReadLines (s : int64) (e : int64) (stream : System.IO.Stream) = 
+                        seq {
+                            let numOfBytesRead = ref 0L
+                            stream.Seek(s, System.IO.SeekOrigin.Begin) |> ignore
+                            let reader = new LineReader(stream)
+                            let size = stream.Length
+                            while s + !numOfBytesRead <= e && s + !numOfBytesRead < size do
+                                let line = reader.ReadLine()
+                                if s = 0L || !numOfBytesRead > 0L then
+                                    yield line
+                                numOfBytesRead := reader.NumOfBytesRead
+                        }
+                    let createTask (s : int64) (e : int64) (collector : Local<Collector<string, 'S>>) = 
+                        local {
+                            let! collector = collector
+                            if s = e then
+                                return! projection collector.Result
+                            else
+                                use! stream = CloudFile.Read(path, (fun stream -> async { return stream }), true)
+                                let parStream = ParStream.ofSeq (rangeBasedReadLines s e stream) 
+                                let collectorResult = parStream.Apply (toParStreamCollector collector)
+                                return! projection collectorResult
+                        }
+                    if not (fileSize = 0L) then 
+                        let partitions = Partitions.ofLongRange workerCount fileSize
+                        let! results = 
+                            partitions 
+                            |> Array.map (fun (s, e) -> createTask s e collectorf) 
+                            |> Cloud.Parallel
+                        return! combiner results 
+                    else
+                        return! projection collector.Result
+                } }
 
