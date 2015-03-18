@@ -708,7 +708,7 @@ module CloudStream =
     /// Constructs a CloudStream of lines from a path.
     /// </summary>
     /// <param name="path">The path to the text file.</param>
-    let ofTextFile (path : string) : CloudStream<string> =
+    let ofTextFileByLine (path : string) : CloudStream<string> =
         { new CloudStream<string> with
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =

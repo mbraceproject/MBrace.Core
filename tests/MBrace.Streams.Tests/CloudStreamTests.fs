@@ -235,7 +235,7 @@ type ``CloudStreams tests`` () as self =
     
     
     [<Test>]
-    member __.``2. CloudStream : ofTextFile`` () =
+    member __.``2. CloudStream : ofTextFileByLine`` () =
         
         let f(xs : string []) =
             let cf = CloudFile.WriteAllLines(xs) |> run
@@ -243,7 +243,7 @@ type ``CloudStreams tests`` () as self =
 
             let x = 
                 path 
-                |> CloudStream.ofTextFile
+                |> CloudStream.ofTextFileByLine
                 |> CloudStream.toArray
                 |> run
                 |> Array.sortBy id
