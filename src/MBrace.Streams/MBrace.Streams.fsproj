@@ -52,6 +52,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Readers.fs" />
+    <Compile Include="LineReader.fs" />
     <Compile Include="CloudVector.fs" />
     <Compile Include="CloudStreams.fs" />
     <Compile Include="CSharpProxy.fs" />
