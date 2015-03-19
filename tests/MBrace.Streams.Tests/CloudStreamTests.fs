@@ -214,14 +214,14 @@ type ``CloudStreams tests`` () as self =
         Check.QuickThrowOnFail(f, 10)
 
     [<Test>]
-    member __.``2. CloudStream : ofCloudFilesByLines with ReadLines`` () =
+    member __.``2. CloudStream : ofCloudFilesByLine with ReadLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
                      |> Array.map(fun text -> CloudFile.WriteAllLines(text))
                      |> Cloud.Parallel
                      |> run
 
-            let x = cfs |> CloudStream.ofCloudFilesByLines
+            let x = cfs |> CloudStream.ofCloudFilesByLine
                         |> CloudStream.toArray
                         |> run
                         |> Set.ofArray
