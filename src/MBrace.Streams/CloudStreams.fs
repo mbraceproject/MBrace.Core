@@ -253,7 +253,7 @@ module CloudStream =
     /// <param name="f">A function to transform items from the input CloudStream.</param>
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudStream.</returns>
-    let inline flatMap (f : 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
+    let inline collect (f : 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
         { new CloudStream<'R> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
             member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
@@ -280,7 +280,7 @@ module CloudStream =
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudStream.</returns>
     let inline collect (f : 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
-        flatMap f stream
+        collect f stream
 
     /// <summary>Filters the elements of the input CloudStream.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -702,7 +702,7 @@ module CloudStream =
     let ofCloudFilesByLine (sources : seq<CloudFile>) : CloudStream<string> =
         sources
         |> ofCloudFiles CloudFileReader.ReadLines
-        |> flatMap Stream.ofSeq
+        |> collect Stream.ofSeq
 
     /// <summary>
     /// Constructs a CloudStream of lines from a path.
