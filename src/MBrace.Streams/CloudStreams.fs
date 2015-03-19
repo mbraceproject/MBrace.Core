@@ -275,13 +275,6 @@ module CloudStream =
                 }
                 stream.Apply collectorf' projection combiner }
 
-    /// <summary>Transforms each element of the input CloudStream to a new stream and flattens its elements.</summary>
-    /// <param name="f">A function to transform items from the input CloudStream.</param>
-    /// <param name="stream">The input CloudStream.</param>
-    /// <returns>The result CloudStream.</returns>
-    let inline collect (f : 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
-        collect f stream
-
     /// <summary>Filters the elements of the input CloudStream.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="stream">The input CloudStream.</param>
