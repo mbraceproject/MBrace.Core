@@ -319,6 +319,36 @@ module CloudStream =
 
     // terminal functions
 
+
+    /// <summary>Applies a local cloud function to each element of the CloudStream, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
+    /// <param name="folder">A local cloud function that updates the state with each element from the CloudStream.</param>
+    /// <param name="combiner">A local cloud function that combines partial states into a new state.</param>
+    /// <param name="state">A local cloud function that produces the initial state.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The final result.</returns>
+    let inline foldLocal (folder : 'State -> 'T -> Local<'State>) (combiner : 'State -> 'State -> Local<'State>) 
+                         (state : unit -> Local<'State>) (stream : CloudStream<'T>) : Cloud<'State> =
+        let collectorf = local {  
+            let results = new List<'State ref>()
+            let! ctx = Cloud.GetExecutionContext()
+            let run a = Async.RunSync(Cloud.ToAsync(a, ctx.Resources,ctx.CancellationToken))
+            return
+              { new Collector<'T, 'State> with
+                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
+                member self.Iterator() = 
+                    let accRef = ref <| run (state ())
+                    results.Add(accRef)
+                    {   Index = ref -1;
+                        Func = (fun value -> accRef := run (folder !accRef value));
+                        Cts = new CancellationTokenSource() }
+                member self.Result = 
+                    let mutable acc = run (state ())
+                    for result in results do
+                            acc <- run (combiner acc !result)
+                    acc }
+        }
+        stream.Apply collectorf (fun x -> local { return x }) (fun values -> local { return Array.reduce combiner values })
+
     /// <summary>Applies a function to each element of the CloudStream, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
     /// <param name="folder">A function that updates the state with each element from the CloudStream.</param>
     /// <param name="combiner">A function that combines partial states into a new state.</param>
@@ -459,6 +489,12 @@ module CloudStream =
     /// <param name="stream">The input CloudStream.</param>
     let inline countBy (projection : 'T -> 'Key) (stream : CloudStream<'T>) : CloudStream<'Key * int64> =
         foldBy projection (fun state _ -> state + 1L) (+) (fun () -> 0L) stream
+
+    /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>Nothing.</returns>
+    let iter (action: 'T -> unit) (stream : CloudStream< 'T >) : Cloud< unit > =
+        fold (fun () x -> action x) (fun () () -> ()) (fun () -> ()) stream
 
     /// <summary>Returns the sum of the elements.</summary>
     /// <param name="stream">The input CloudStream.</param>
