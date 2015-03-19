@@ -570,6 +570,14 @@ module CloudStream =
             and  ^T : (static member Zero : ^T) = 
         fold (fun s x -> s + projection x) (+) (fun () -> LanguagePrimitives.GenericZero) stream
 
+    /// <summary>Applies a key-generating locally executing cloud function to each element of a CloudStream and return the sum of the keys.</summary>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The sum of the keys.</returns>
+    let inline sumByLocal (projection : ^T -> Local< ^Key >) (stream : CloudStream< ^T >) : Cloud< ^Key > 
+            when ^Key : (static member ( + ) : ^Key * ^Key -> ^Key) 
+            and  ^Key : (static member Zero : ^Key) = 
+        foldGen (fun ctx s x -> s + run ctx (projection x)) (fun _ctx x y -> x + y) (fun _ctx -> LanguagePrimitives.GenericZero) stream
+
     /// <summary>Returns the total number of elements of the CloudStream.</summary>
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The total number of elements.</returns>
@@ -587,6 +595,34 @@ module CloudStream =
                     (fun () -> new ArrayCollector<'T>()) stream 
             return arrayCollector.ToArray()
         }
+
+    // Taken from FSharp.Core
+    //
+    // The CLI implementation of mscorlib optimizes array sorting
+    // when the comparer is either null or precisely
+    // reference-equals to System.Collections.Generic.Comparer<'T>.Default.
+    // This is an indication that a "fast" array sorting helper can be used.
+    //
+    // This type is only public because of the excessive inlining used in this file
+    type _PrivateFastGenericComparerTable<'T when 'T : comparison>() = 
+
+        static let fCanBeNull : System.Collections.Generic.IComparer<'T>  = 
+            match typeof<'T> with 
+            | ty when ty.Equals(typeof<byte>)       -> null    
+            | ty when ty.Equals(typeof<char>)       -> null    
+            | ty when ty.Equals(typeof<sbyte>)      -> null     
+            | ty when ty.Equals(typeof<int16>)      -> null    
+            | ty when ty.Equals(typeof<int32>)      -> null    
+            | ty when ty.Equals(typeof<int64>)      -> null    
+            | ty when ty.Equals(typeof<uint16>)     -> null    
+            | ty when ty.Equals(typeof<uint32>)     -> null    
+            | ty when ty.Equals(typeof<uint64>)     -> null    
+            | ty when ty.Equals(typeof<float>)      -> null    
+            | ty when ty.Equals(typeof<float32>)    -> null    
+            | ty when ty.Equals(typeof<decimal>)    -> null    
+            | _ -> LanguagePrimitives.FastGenericComparer<'T>
+
+        static member ValueCanBeNullIfDefaultSemantics : System.Collections.Generic.IComparer<'T> = fCanBeNull
 
     /// <summary>Creates a CloudVector from the given CloudStream.</summary>
     /// <param name="stream">The input CloudStream.</param>
@@ -623,14 +659,10 @@ module CloudStream =
             return vc
         }
 
-    /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>
-    /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>
-    /// <param name="stream">The input CloudStream.</param>
-    /// <param name="takeCount">The number of elements to return.</param>
-    /// <returns>The result CloudStream.</returns>  
-    let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+    let inline private sortByGen comparer (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
         let collectorf = local {  
             let results = new List<List<'T>>()
+            let! ctx = Cloud.GetExecutionContext()
             return 
               { new Collector<'T, List<'Key[] * 'T []>> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
@@ -649,12 +681,12 @@ module CloudStream =
                         for i = 0 to list.Count - 1 do
                             let value = list.[i]
                             counter <- counter + 1
-                            keys.[counter] <- projection value
+                            keys.[counter] <- projection ctx value
                             values.[counter] <- value
-                    if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
-                        Array.Sort(keys, values)
-                    else
-                        Sort.parallelSort Environment.ProcessorCount keys values
+                    //if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                    Array.Sort(keys, values, comparer)
+                    //else
+                    //    Sort.parallelSort Environment.ProcessorCount keys values
 
                     new List<_>(Seq.singleton
                                     (keys.Take(takeCount).ToArray(), 
@@ -673,10 +705,10 @@ module CloudStream =
                             counter <- counter + 1
                             keys.[counter] <- keys'.[i]
                             values.[counter] <- values'.[i]
-                    if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
-                        Array.Sort(keys, values)
-                    else
-                        Sort.parallelSort Environment.ProcessorCount keys values
+                    //if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                    Array.Sort(keys, values, comparer)
+                    //else
+                    //    Sort.parallelSort Environment.ProcessorCount keys values
 
                     values.Take(takeCount).ToArray()
                 return result
@@ -690,15 +722,48 @@ module CloudStream =
                 }  
         }
 
+    let inline private descComparer (comparer: IComparer<'T>) = { new IComparer<'T> with member __.Compare(x,y) = -comparer.Compare(x,y) }
 
+    /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>
+    /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <param name="takeCount">The number of elements to return.</param>
+    /// <returns>The result CloudStream.</returns>  
+    let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+        let comparer = _PrivateFastGenericComparerTable<'Key>.ValueCanBeNullIfDefaultSemantics
+        sortByGen comparer (fun _ctx x -> projection x) takeCount stream 
 
-    /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
-    /// <param name="predicate">A function to test each source element for a condition.</param>
-    /// <param name="stream">The input cloud stream.</param>
-    /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
-    let inline tryFind (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<'T option> =
+    /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered descending by keys.</summary>
+    /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <param name="takeCount">The number of elements to return.</param>
+    /// <returns>The result CloudStream.</returns>  
+    let inline sortByDescending (projection : 'T -> 'Key) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+        let comparer = descComparer LanguagePrimitives.FastGenericComparer<'Key>
+        sortByGen comparer (fun _ctx x -> projection x) takeCount stream 
+
+    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>
+    /// <param name="projection">A locally executing cloud function to transform items of the input CloudStream into comparable keys.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <param name="takeCount">The number of elements to return.</param>
+    /// <returns>The result CloudStream.</returns>  
+    let inline sortByLocal (projection : 'T -> Local<'Key>) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+        let comparer = _PrivateFastGenericComparerTable<'Key>.ValueCanBeNullIfDefaultSemantics
+        sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount stream 
+
+    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by descending keys.</summary>
+    /// <param name="projection">A locally executing cloud function to transform items of the input CloudStream into comparable keys.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <param name="takeCount">The number of elements to return.</param>
+    /// <returns>The result CloudStream.</returns>  
+    let inline sortByLocalDescending (projection : 'T -> Local<'Key>) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+        let comparer = descComparer LanguagePrimitives.FastGenericComparer<'Key>
+        sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount stream 
+
+    let inline private tryFindGen (predicate : ExecutionContext -> 'T -> bool) (stream : CloudStream<'T>) : Cloud<'T option> =
         let collectorf = 
             local {
+                let! ctx = Cloud.GetExecutionContext()
                 let resultRef = ref Unchecked.defaultof<'T option>
                 let cts =  new CancellationTokenSource()
                 return
@@ -706,7 +771,7 @@ module CloudStream =
                         member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                         member self.Iterator() = 
                             {   Index = ref -1; 
-                                Func = (fun value -> if predicate value then resultRef := Some value; cts.Cancel() else ());
+                                Func = (fun value -> if predicate ctx value then resultRef := Some value; cts.Cancel() else ());
                                 Cts = cts }
                         member self.Result = 
                             !resultRef }
@@ -714,6 +779,21 @@ module CloudStream =
         cloud {
             return! stream.Apply collectorf (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
+
+
+    /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
+    /// <param name="predicate">A function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
+    let inline tryFind (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<'T option> =
+        tryFindGen (fun _ctx x -> predicate x) stream 
+
+    /// <summary>Returns the first element for which the given locally executing cloud function returns true. Returns None if no such element exists.</summary>
+    /// <param name="predicate">A function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
+    let inline tryFindLocal (predicate : 'T -> Local<bool>) (stream : CloudStream<'T>) : Cloud<'T option> =
+        tryFindGen (fun ctx x -> predicate x |> run ctx) stream 
 
     /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -729,14 +809,25 @@ module CloudStream =
                 | None -> raise <| new KeyNotFoundException()
         }
 
-    /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.</summary>
-    /// <param name="chooser">A function that transforms items into options.</param>
+    /// <summary>Returns the first element for which the given locally executing cloud function returns true. Raises KeyNotFoundException if no such element exists.</summary>
+    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
     /// <param name="stream">The input cloud stream.</param>
-    /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
-    let inline tryPick (chooser : 'T -> 'R option) (stream : CloudStream<'T>) : Cloud<'R option> = 
+    /// <returns>The first element for which the predicate returns true.</returns>
+    /// <exception cref="System.KeyNotFoundException">Thrown if the predicate evaluates to false for all the elements of the cloud stream.</exception>
+    let inline findLocal (predicate : 'T -> Local<bool>) (stream : CloudStream<'T>) : Cloud<'T> = 
+        cloud {
+            let! result = tryFindLocal predicate stream 
+            return
+                match result with
+                | Some value -> value 
+                | None -> raise <| new KeyNotFoundException()
+        }
+
+    let inline private tryPickGen (chooser : ExecutionContext -> 'T -> 'R option) (stream : CloudStream<'T>) : Cloud<'R option> = 
         
         let collectorf = 
             local {
+                let! ctx = Cloud.GetExecutionContext()
                 let resultRef = ref Unchecked.defaultof<'R option>
                 let cts = new CancellationTokenSource()
                 return 
@@ -744,7 +835,7 @@ module CloudStream =
                         member self.DegreeOfParallelism = stream.DegreeOfParallelism
                         member self.Iterator() = 
                             {   Index = ref -1; 
-                                Func = (fun value -> match chooser value with Some value' -> resultRef := Some value'; cts.Cancel() | None -> ());
+                                Func = (fun value -> match chooser ctx value with Some value' -> resultRef := Some value'; cts.Cancel() | None -> ());
                                 Cts = cts }
                         member self.Result = 
                             !resultRef }
@@ -753,6 +844,20 @@ module CloudStream =
             return! stream.Apply collectorf (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
 
+
+    /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.</summary>
+    /// <param name="chooser">A function that transforms items into options.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
+    let inline tryPick (chooser : 'T -> 'R option) (stream : CloudStream<'T>) : Cloud<'R option> = 
+        tryPickGen (fun _ctx x -> chooser x) stream 
+
+    /// <summary>Applies the given locally executing cloud function to successive elements, returning the first result where the function returns a Some value.</summary>
+    /// <param name="chooser">A locally executing cloud function that transforms items into options.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
+    let inline tryPickLocal (chooser : 'T -> Local<'R option>) (stream : CloudStream<'T>) : Cloud<'R option> = 
+        tryPickGen (fun ctx x -> chooser x |> run ctx) stream 
 
     /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.
     /// Raises KeyNotFoundException when every item of the cloud stream evaluates to None when the given function is applied.</summary>
@@ -763,6 +868,21 @@ module CloudStream =
     let inline pick (chooser : 'T -> 'R option) (stream : CloudStream<'T>) : Cloud<'R> = 
         cloud {
             let! result = tryPick chooser stream 
+            return 
+                match result with
+                | Some value -> value 
+                | None -> raise <| new KeyNotFoundException()
+        }
+
+    /// <summary>Applies the given locally executing cloud function to successive elements, returning the first result where the function returns a Some value.
+    /// Raises KeyNotFoundException when every item of the cloud stream evaluates to None when the given function is applied.</summary>
+    /// <param name="chooser">A locally executing cloud function that transforms items into options.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>The first element for which the chooser returns Some, or raises KeyNotFoundException if every element evaluates to None.</returns>
+    /// <exception cref="System.KeyNotFoundException">Thrown if every item of the cloud stream evaluates to None when the given function is applied.</exception>
+    let inline pickLocal (chooser : 'T -> Local<'R option>) (stream : CloudStream<'T>) : Cloud<'R> = 
+        cloud {
+            let! result = tryPickLocal chooser stream 
             return 
                 match result with
                 | Some value -> value 
@@ -782,6 +902,19 @@ module CloudStream =
                 | None -> false
         }
 
+    /// <summary>Tests if any element of the stream satisfies the given locally executing cloud predicate.</summary>
+    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>true if any element satisfies the predicate. Otherwise, returns false.</returns>
+    let inline existsLocal (predicate : 'T -> Local<bool>) (stream : CloudStream<'T>) : Cloud<bool> = 
+        cloud {
+            let! result = tryFindLocal predicate stream 
+            return 
+                match result with
+                | Some value -> true
+                | None -> false
+        }
+
 
     /// <summary>Tests if all elements of the parallel stream satisfy the given predicate.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -790,6 +923,17 @@ module CloudStream =
     let inline forall (predicate : 'T -> bool) (stream : CloudStream<'T>) : Cloud<bool> = 
         cloud {
             let! result = exists (fun x -> not <| predicate x) stream
+            return not result
+        }
+
+
+    /// <summary>Tests if all elements of the parallel stream satisfy the given predicate.</summary>
+    /// <param name="predicate">A function to test each source element for a condition.</param>
+    /// <param name="stream">The input cloud stream.</param>
+    /// <returns>true if all of the elements satisfies the predicate. Otherwise, returns false.</returns>
+    let inline forallLocal (predicate : 'T -> Local<bool>) (stream : CloudStream<'T>) : Cloud<bool> = 
+        cloud {
+            let! result = existsLocal (fun x -> local { let! v = predicate x in return not v }) stream
             return not result
         }
 
