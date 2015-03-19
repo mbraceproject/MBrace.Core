@@ -489,6 +489,12 @@ module CloudStream =
     let iter (action: 'T -> unit) (stream : CloudStream< 'T >) : Cloud< unit > =
         fold (fun () x -> action x) (fun () () -> ()) (fun () -> ()) stream
 
+    /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>Nothing.</returns>
+    let iterLocal (action: 'T -> Local<unit>) (stream : CloudStream< 'T >) : Cloud< unit > =
+        foldLocal (fun () x -> action x) (fun () () -> local { return () }) (fun () -> local { return () }) stream
+
     /// <summary>Returns the sum of the elements.</summary>
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The sum of the elements.</returns>
