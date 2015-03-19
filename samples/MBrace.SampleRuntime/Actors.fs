@@ -15,6 +15,8 @@ open Nessos.Thespian
 open Nessos.Thespian.Remote.Protocols
 
 open Nessos.Vagabond
+open Nessos.Vagabond.AssemblyProtocols
+open Nessos.Vagabond.ExportableAssembly
 
 open MBrace
 open MBrace.Continuation
@@ -796,13 +798,14 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 //
 
 type private AssemblyExporterMsg =
-    | RequestAssemblies of AssemblyId list * IReplyChannel<AssemblyPackage list> 
+    | RequestAssemblies of AssemblyId list * IReplyChannel<ExportableAssembly list> 
 
 /// Provides assembly uploading facility for Vagabond.
 type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     static member Init() =
         let behaviour (RequestAssemblies(ids, ch)) = async {
-            let packages = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
+            let packages = VagabondRegistry.Instance.CreateRawAssemblies vas
             do! ch.Reply packages
         }
 
@@ -823,7 +826,10 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
             {
                 new IRemoteAssemblyPublisher with
                     member __.GetRequiredAssemblyInfo () = async { return ids }
-                    member __.PullAssemblies ids = exporter <!- fun ch -> RequestAssemblies(ids, ch)
+                    member __.PullAssemblies ids = async {
+                        let! eas = exporter <!- fun ch -> RequestAssemblies(ids, ch)
+                        return VagabondRegistry.Instance.CacheRawAssemblies(eas)
+                    }
             }
 
         do! VagabondRegistry.Instance.ReceiveDependencies publisher
@@ -835,7 +841,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     /// <param name="graph">Object graph to be analyzed</param>
     member __.ComputeDependencies (graph:'T) =
         VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true)
-        |> List.map Utilities.ComputeAssemblyId
+        |> List.map Vagabond.ComputeAssemblyId
 
 
 type WorkerManager =

@@ -72,3 +72,8 @@ local {
     let! x = Cloud.Parallel [ cloud { return 42 } ]
     return x
 }
+
+// vagabond data initialization test
+let c = ref 0
+for i in 1 .. 10 do
+    c := runtime.Run(cloud { return !c + 1 })
