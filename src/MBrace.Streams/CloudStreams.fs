@@ -683,10 +683,10 @@ module CloudStream =
                             counter <- counter + 1
                             keys.[counter] <- projection ctx value
                             values.[counter] <- value
-                    //if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
-                    Array.Sort(keys, values, comparer)
-                    //else
-                    //    Sort.parallelSort Environment.ProcessorCount keys values
+                    if box comparer <> null || System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                        Array.Sort(keys, values, comparer)
+                    else
+                        Sort.parallelSort Environment.ProcessorCount keys values
 
                     new List<_>(Seq.singleton
                                     (keys.Take(takeCount).ToArray(), 
@@ -705,10 +705,10 @@ module CloudStream =
                             counter <- counter + 1
                             keys.[counter] <- keys'.[i]
                             values.[counter] <- values'.[i]
-                    //if System.Environment.OSVersion.Platform = System.PlatformID.Unix then
-                    Array.Sort(keys, values, comparer)
-                    //else
-                    //    Sort.parallelSort Environment.ProcessorCount keys values
+                    if box comparer <> null || System.Environment.OSVersion.Platform = System.PlatformID.Unix then
+                        Array.Sort(keys, values, comparer)
+                    else
+                        Sort.parallelSort Environment.ProcessorCount keys values
 
                     values.Take(takeCount).ToArray()
                 return result
@@ -733,6 +733,14 @@ module CloudStream =
         let comparer = _PrivateFastGenericComparerTable<'Key>.ValueCanBeNullIfDefaultSemantics
         sortByGen comparer (fun _ctx x -> projection x) takeCount stream 
 
+    /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered using the given comparer for the keys.</summary>
+    /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <param name="takeCount">The number of elements to return.</param>
+    /// <returns>The result CloudStream.</returns>  
+    let inline sortByUsing (projection : 'T -> 'Key) comparer (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+        sortByGen comparer (fun _ctx x -> projection x) takeCount stream 
+
     /// <summary>Applies a key-generating function to each element of the input CloudStream and yields the CloudStream of the given length, ordered descending by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudStream into comparable keys.</param>
     /// <param name="stream">The input CloudStream.</param>
@@ -751,12 +759,20 @@ module CloudStream =
         let comparer = _PrivateFastGenericComparerTable<'Key>.ValueCanBeNullIfDefaultSemantics
         sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount stream 
 
+    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by keys.</summary>
+    /// <param name="projection">A locally executing cloud function to transform items of the input CloudStream into comparable keys.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <param name="takeCount">The number of elements to return.</param>
+    /// <returns>The result CloudStream.</returns>  
+    let inline sortByUsingLocal (projection : 'T -> Local<'Key>) comparer (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+        sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount stream 
+
     /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudStream and yields the CloudStream of the given length, ordered by descending keys.</summary>
     /// <param name="projection">A locally executing cloud function to transform items of the input CloudStream into comparable keys.</param>
     /// <param name="stream">The input CloudStream.</param>
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudStream.</returns>  
-    let inline sortByLocalDescending (projection : 'T -> Local<'Key>) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
+    let inline sortByDescendingLocal (projection : 'T -> Local<'Key>) (takeCount : int) (stream : CloudStream<'T>) : CloudStream<'T> = 
         let comparer = descComparer LanguagePrimitives.FastGenericComparer<'Key>
         sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount stream 
 
