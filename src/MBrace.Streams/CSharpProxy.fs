@@ -18,7 +18,7 @@ type public CSharpProxy =
         CloudStream.filter (fun x -> func.Invoke(x)) stream
 
     static member SelectMany<'T, 'R>(stream : CloudStream<'T>, func : Func<'T, Stream<'R>>) =
-        CloudStream.flatMap (fun x -> func.Invoke(x)) stream 
+        CloudStream.collect (fun x -> func.Invoke(x)) stream 
 
     static member Aggregate<'T, 'Acc>(stream : CloudStream<'T>, state : Func<'Acc>, folder : Func<'Acc, 'T, 'Acc>, combiner : Func<'Acc, 'Acc, 'Acc>) = 
         CloudStream.fold (fun acc x -> folder.Invoke(acc, x)) (fun left right -> combiner.Invoke(left, right)) (fun _ -> state.Invoke()) stream

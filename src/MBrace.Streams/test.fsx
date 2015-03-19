@@ -28,7 +28,7 @@ for i in 1..100 do
 let query1 = 
     runtime.Run (
         CloudStream.ofArray [|1 .. 1000|]
-        |> CloudStream.flatMap(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
+        |> CloudStream.collect(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
         |> CloudStream.toCloudVector)
 
 
@@ -48,7 +48,7 @@ let query2 = runtime.Run (
 let query3 =
     runtime.Run(
         CloudStream.ofArray [|1 .. 1000|]
-        |> CloudStream.flatMap(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
+        |> CloudStream.collect(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
         |> CloudStream.sortBy snd 100
         |> CloudStream.toArray)
 
