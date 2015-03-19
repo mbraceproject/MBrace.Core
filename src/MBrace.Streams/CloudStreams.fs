@@ -227,23 +227,63 @@ module CloudStream =
 
     //#region Intermediate functions
 
+    let inline private run ctx a = Cloud.RunSynchronously(a, ctx.Resources,ctx.CancellationToken)
+
     /// <summary>Transforms each element of the input CloudStream.</summary>
     /// <param name="f">A function to transform items from the input CloudStream.</param>
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudStream.</returns>
-    let inline map (f : 'T -> 'R) (stream : CloudStream<'T>) : CloudStream<'R> =
+    let inline private mapGen  (f : ExecutionContext -> 'T -> 'R) (stream : CloudStream<'T>) : CloudStream<'R> =
         { new CloudStream<'R> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
             member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
+                    let! ctx = Cloud.GetExecutionContext()
                     return 
                       { new Collector<'T, 'S> with
                         member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() = 
                             let { Func = iter } as iterator = collector.Iterator()
                             {   Index = iterator.Index; 
-                                Func = (fun value -> iter (f value));
+                                Func = (fun value -> iter (f ctx value));
+                                Cts = iterator.Cts }
+                        member self.Result = collector.Result  }
+                }
+                stream.Apply collectorf' projection combiner }
+
+    /// <summary>Transforms each element of the input CloudStream.</summary>
+    /// <param name="f">A function to transform items from the input CloudStream.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The result CloudStream.</returns>
+    let inline map  (f : 'T -> 'R) (stream : CloudStream<'T>) : CloudStream<'R> =
+        mapGen (fun ctx x -> f x) stream
+
+    /// <summary>Transforms each element of the input CloudStream using a locally executing cloud function.</summary>
+    /// <param name="f">A locally executing cloud function to transform items from the input CloudStream.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The result CloudStream.</returns>
+    let inline mapLocal (f : 'T -> Local<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
+        mapGen (fun ctx x -> f x |> run ctx) stream
+
+    let inline private collectGen (f : ExecutionContext -> 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
+        { new CloudStream<'R> with
+            member self.DegreeOfParallelism = stream.DegreeOfParallelism
+            member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+                let collectorf' = local {
+                    let! collector = collectorf
+                    let! ctx = Cloud.GetExecutionContext()
+                    return 
+                      { new Collector<'T, 'S> with
+                        member self.DegreeOfParallelism = collector.DegreeOfParallelism
+                        member self.Iterator() = 
+                            let { Func = iter } as iterator = collector.Iterator()
+                            {   Index = iterator.Index; 
+                                Func = 
+                                    (fun value -> 
+                                        let (Stream streamf) = f ctx value
+                                        let cts = CancellationTokenSource.CreateLinkedTokenSource(iterator.Cts.Token)
+                                        let { Bulk = bulk; Iterator = _ } = streamf { Complete = (fun () -> ()); Cont = iter; Cts = cts } in bulk ());
                                 Cts = iterator.Cts }
                         member self.Result = collector.Result  }
                 }
@@ -254,24 +294,30 @@ module CloudStream =
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudStream.</returns>
     let inline collect (f : 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
-        { new CloudStream<'R> with
+        collectGen (fun ctx x -> f x) stream 
+
+    /// <summary>Transforms each element of the input CloudStream to a new stream and flattens its elements using a locally executing cloud function.</summary>
+    /// <param name="f">A locally executing cloud function to transform items from the input CloudStream.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The result CloudStream.</returns>
+    let inline collectLocal (f : 'T -> Local<Stream<'R>>) (stream : CloudStream<'T>) : CloudStream<'R> =
+        collectGen (fun ctx x -> f x |> run ctx) stream 
+
+    let inline private filterGen (predicate : ExecutionContext -> 'T -> bool) (stream : CloudStream<'T>) : CloudStream<'T> =
+        { new CloudStream<'T> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
-            member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
-                    return 
-                      { new Collector<'T, 'S> with
+                    let! ctx = Cloud.GetExecutionContext()
+                    return { new Collector<'T, 'S> with
                         member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() = 
                             let { Func = iter } as iterator = collector.Iterator()
                             {   Index = iterator.Index; 
-                                Func = 
-                                    (fun value -> 
-                                        let (Stream streamf) = f value
-                                        let cts = CancellationTokenSource.CreateLinkedTokenSource(iterator.Cts.Token)
-                                        let { Bulk = bulk; Iterator = _ } = streamf { Complete = (fun () -> ()); Cont = iter; Cts = cts } in bulk ());
+                                Func = (fun value -> if predicate ctx value then iter value else ());
                                 Cts = iterator.Cts }
-                        member self.Result = collector.Result  }
+                        member self.Result = collector.Result }
                 }
                 stream.Apply collectorf' projection combiner }
 
@@ -280,22 +326,14 @@ module CloudStream =
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudStream.</returns>
     let inline filter (predicate : 'T -> bool) (stream : CloudStream<'T>) : CloudStream<'T> =
-        { new CloudStream<'T> with
-            member self.DegreeOfParallelism = stream.DegreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
-                let collectorf' = local {
-                    let! collector = collectorf
-                    return { new Collector<'T, 'S> with
-                        member self.DegreeOfParallelism = collector.DegreeOfParallelism
-                        member self.Iterator() = 
-                            let { Func = iter } as iterator = collector.Iterator()
-                            {   Index = iterator.Index; 
-                                Func = (fun value -> if predicate value then iter value else ());
-                                Cts = iterator.Cts }
-                        member self.Result = collector.Result }
-                }
-                stream.Apply collectorf' projection combiner }
+        filterGen (fun ctx x -> predicate x) stream 
 
+    /// <summary>Filters the elements of the input CloudStream using a locally executing cloud function.</summary>
+    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The result CloudStream.</returns>
+    let inline filterLocal (predicate : 'T -> Local<bool>) (stream : CloudStream<'T>) : CloudStream<'T> =
+        filterGen (fun ctx x -> predicate x |> run ctx) stream 
 
     /// <summary>Returns a cloud stream with a new degree of parallelism.</summary>
     /// <param name="degreeOfParallelism">The degree of parallelism.</param>
@@ -312,35 +350,44 @@ module CloudStream =
 
     // terminal functions
 
-
-    /// <summary>Applies a local cloud function to each element of the CloudStream, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
-    /// <param name="folder">A local cloud function that updates the state with each element from the CloudStream.</param>
-    /// <param name="combiner">A local cloud function that combines partial states into a new state.</param>
-    /// <param name="state">A local cloud function that produces the initial state.</param>
-    /// <param name="stream">The input CloudStream.</param>
-    /// <returns>The final result.</returns>
-    let inline foldLocal (folder : 'State -> 'T -> Local<'State>) (combiner : 'State -> 'State -> Local<'State>) 
-                         (state : unit -> Local<'State>) (stream : CloudStream<'T>) : Cloud<'State> =
+    let inline private foldGen (folder : ExecutionContext -> 'State -> 'T -> 'State) (combiner : ExecutionContext -> 'State -> 'State -> 'State) 
+                               (state : ExecutionContext -> 'State) (stream : CloudStream<'T>) : Cloud<'State> =
         let collectorf = local {  
             let results = new List<'State ref>()
             let! ctx = Cloud.GetExecutionContext()
-            let run a = Async.RunSync(Cloud.ToAsync(a, ctx.Resources,ctx.CancellationToken))
             return
               { new Collector<'T, 'State> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
                 member self.Iterator() = 
-                    let accRef = ref <| run (state ())
+                    let accRef = ref <| state ctx 
                     results.Add(accRef)
                     {   Index = ref -1;
-                        Func = (fun value -> accRef := run (folder !accRef value));
+                        Func = (fun value -> accRef := folder ctx !accRef value);
                         Cts = new CancellationTokenSource() }
                 member self.Result = 
-                    let mutable acc = run (state ())
+                    let mutable acc = state ctx
                     for result in results do
-                            acc <- run (combiner acc !result)
+                            acc <- combiner ctx acc !result
                     acc }
         }
-        stream.Apply collectorf (fun x -> local { return x }) (fun values -> local { return Array.reduce combiner values })
+        stream.Apply 
+           collectorf 
+           (fun x -> local { return x }) 
+           (fun values -> local { 
+               let! ctx = Cloud.GetExecutionContext()
+               return Array.reduce (combiner ctx) values })
+
+
+
+    /// <summary>Applies a locally executing cloud function to each element of the CloudStream, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
+    /// <param name="folder">A locally executing cloud function that updates the state with each element from the CloudStream.</param>
+    /// <param name="combiner">A locally executing cloud function that combines partial states into a new state.</param>
+    /// <param name="state">A locally executing cloud function that produces the initial state.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The final result.</returns>
+    let inline foldLocal (folder : 'State -> 'T -> Local<'State>) (combiner : 'State -> 'State -> Local<'State>) 
+                         (state : unit -> Local<'State>) (stream : CloudStream<'T>) : Cloud<'State> =
+        foldGen (fun ctx x y -> run ctx (folder x y)) (fun ctx x y -> run ctx (combiner x y)) (fun ctx -> run ctx (state ())) stream
 
     /// <summary>Applies a function to each element of the CloudStream, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
     /// <param name="folder">A function that updates the state with each element from the CloudStream.</param>
@@ -350,38 +397,15 @@ module CloudStream =
     /// <returns>The final result.</returns>
     let inline fold (folder : 'State -> 'T -> 'State) (combiner : 'State -> 'State -> 'State) 
                     (state : unit -> 'State) (stream : CloudStream<'T>) : Cloud<'State> =
-        let collectorf = local {  
-            let results = new List<'State ref>()
-            return
-              { new Collector<'T, 'State> with
-                member self.DegreeOfParallelism = stream.DegreeOfParallelism 
-                member self.Iterator() = 
-                    let accRef = ref <| state ()
-                    results.Add(accRef)
-                    {   Index = ref -1;
-                        Func = (fun value -> accRef := folder !accRef value);
-                        Cts = new CancellationTokenSource() }
-                member self.Result = 
-                    let mutable acc = state ()
-                    for result in results do
-                            acc <- combiner acc !result 
-                    acc }
-        }
-        stream.Apply collectorf (fun x -> local { return x }) (fun values -> local { return Array.reduce combiner values })
+        foldGen (fun ctx x y -> folder x y) (fun ctx x y -> combiner x y) (fun ctx -> state ()) stream
 
-    /// <summary>Applies a key-generating function to each element of a CloudStream and return a CloudStream yielding unique keys and the result of the threading an accumulator.</summary>
-    /// <param name="projection">A function to transform items from the input CloudStream to keys.</param>
-    /// <param name="folder">A function that updates the state with each element from the CloudStream.</param>
-    /// <param name="combiner">A function that combines partial states into a new state.</param>
-    /// <param name="state">A function that produces the initial state.</param>
-    /// <param name="stream">The input CloudStream.</param>
-    /// <returns>The final result.</returns>
-    let inline foldBy (projection : 'T -> 'Key) 
-                      (folder : 'State -> 'T -> 'State) 
-                      (combiner : 'State -> 'State -> 'State) 
-                      (state : unit -> 'State) (stream : CloudStream<'T>) : CloudStream<'Key * 'State> = 
+    let inline private foldByGen (projection : ExecutionContext -> 'T -> 'Key) 
+                                 (folder : ExecutionContext -> 'State -> 'T -> 'State) 
+                                 (combiner : ExecutionContext -> 'State -> 'State -> 'State) 
+                                 (state : ExecutionContext -> 'State) (stream : CloudStream<'T>) : CloudStream<'Key * 'State> = 
         let collectorf (totalWorkers : int) = local {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
+            let! ctx = Cloud.GetExecutionContext()
             return
               { new Collector<'T,  seq<int * seq<'Key * 'State>>> with
                 member self.DegreeOfParallelism = stream.DegreeOfParallelism 
@@ -390,16 +414,16 @@ module CloudStream =
                         Func =
                             (fun value -> 
                                     let mutable grouping = Unchecked.defaultof<_>
-                                    let key = projection value
+                                    let key = projection ctx value
                                     if dict.TryGetValue(key, &grouping) then
                                         let acc = grouping
-                                        lock grouping (fun () -> acc := folder !acc value) 
+                                        lock grouping (fun () -> acc := folder ctx !acc value) 
                                     else
-                                        grouping <- ref <| state ()
+                                        grouping <- ref <| state ctx
                                         if not <| dict.TryAdd(key, grouping) then
                                             dict.TryGetValue(key, &grouping) |> ignore
                                         let acc = grouping
-                                        lock grouping (fun () -> acc := folder !acc value) 
+                                        lock grouping (fun () -> acc := folder ctx !acc value) 
                                     ());
                         Cts = new CancellationTokenSource() }
                 member self.Result = 
@@ -444,13 +468,13 @@ module CloudStream =
                                     let mutable grouping = Unchecked.defaultof<_>
                                     if dict.TryGetValue(key, &grouping) then
                                         let acc = grouping
-                                        lock grouping (fun () -> acc := combiner !acc value) 
+                                        lock grouping (fun () -> acc := combiner ctx !acc value) 
                                     else
-                                        grouping <- ref <| state ()
+                                        grouping <- ref <| state ctx
                                         if not <| dict.TryAdd(key, grouping) then
                                             dict.TryGetValue(key, &grouping) |> ignore
                                         let acc = grouping
-                                        lock grouping (fun () -> acc := combiner !acc value) 
+                                        lock grouping (fun () -> acc := combiner ctx !acc value) 
                                 ());
                         Cts = new CancellationTokenSource() }
                 member self.Result =
@@ -475,13 +499,47 @@ module CloudStream =
                 }  }
 
 
+    /// <summary>Applies a key-generating function to each element of a CloudStream and return a CloudStream yielding unique keys and the result of the threading an accumulator. The folder, combiner and state are locally executing cloud functions.</summary>
+    /// <param name="projection">A function to transform items from the input CloudStream to keys.</param>
+    /// <param name="folder">A locally executing cloud function that updates the state with each element from the CloudStream.</param>
+    /// <param name="combiner">A locally executing cloud function that combines partial states into a new state.</param>
+    /// <param name="state">A locally executing cloud function that produces the initial state.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The final result.</returns>
+    let inline foldByLocal (projection : 'T -> Local<'Key>) 
+                           (folder : 'State -> 'T -> Local<'State>) 
+                           (combiner : 'State -> 'State -> Local<'State>) 
+                           (state : unit -> Local<'State>) (stream : CloudStream<'T>) : CloudStream<'Key * 'State> = 
+        foldByGen (fun ctx x -> projection x |> run ctx) (fun ctx x y -> folder x y |> run ctx) (fun ctx s1 s2 -> combiner s1 s2 |> run ctx) (fun ctx -> state () |> run ctx) stream 
+
+    /// <summary>Applies a key-generating function to each element of a CloudStream and return a CloudStream yielding unique keys and the result of the threading an accumulator.</summary>
+    /// <param name="projection">A function to transform items from the input CloudStream to keys.</param>
+    /// <param name="folder">A function that updates the state with each element from the CloudStream.</param>
+    /// <param name="combiner">A function that combines partial states into a new state.</param>
+    /// <param name="state">A function that produces the initial state.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The final result.</returns>
+    let inline foldBy (projection : 'T -> 'Key) 
+                      (folder : 'State -> 'T -> 'State) 
+                      (combiner : 'State -> 'State -> 'State) 
+                      (state : unit -> 'State) (stream : CloudStream<'T>) : CloudStream<'Key * 'State> = 
+        foldByGen (fun ctx x -> projection x) (fun ctx x y -> folder x y) (fun ctx s1 s2 -> combiner s1 s2) (fun ctx -> state ()) stream 
+
     /// <summary>
     /// Applies a key-generating function to each element of a CloudStream and return a CloudStream yielding unique keys and their number of occurrences in the original sequence.
     /// </summary>
     /// <param name="projection">A function that maps items from the input CloudStream to keys.</param>
     /// <param name="stream">The input CloudStream.</param>
     let inline countBy (projection : 'T -> 'Key) (stream : CloudStream<'T>) : CloudStream<'Key * int64> =
-        foldBy projection (fun state _ -> state + 1L) (+) (fun () -> 0L) stream
+        foldByGen (fun _ctx x -> projection x) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ctx -> 0L) stream
+
+    /// <summary>
+    /// Applies a key-generating function to each element of a CloudStream and return a CloudStream yielding unique keys and their number of occurrences in the original sequence.
+    /// </summary>
+    /// <param name="projection">A function that maps items from the input CloudStream to keys.</param>
+    /// <param name="stream">The input CloudStream.</param>
+    let inline countByLocal (projection : 'T -> Local<'Key>) (stream : CloudStream<'T>) : CloudStream<'Key * int64> =
+        foldByGen (fun ctx x -> projection x |> run ctx) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun ctx -> 0L) stream
 
     /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
     /// <param name="stream">The input CloudStream.</param>
@@ -502,6 +560,15 @@ module CloudStream =
             when ^T : (static member ( + ) : ^T * ^T -> ^T) 
             and  ^T : (static member Zero : ^T) = 
         fold (+) (+) (fun () -> LanguagePrimitives.GenericZero) stream
+
+
+    /// <summary>Applies a key-generating function to each element of a CloudStream and return the sum of the keys.</summary>
+    /// <param name="stream">The input CloudStream.</param>
+    /// <returns>The sum of the keys.</returns>
+    let inline sumBy projection (stream : CloudStream< ^T >) : Cloud< ^T > 
+            when ^T : (static member ( + ) : ^T * ^T -> ^T) 
+            and  ^T : (static member Zero : ^T) = 
+        fold (fun s x -> s + projection x) (+) (fun () -> LanguagePrimitives.GenericZero) stream
 
     /// <summary>Returns the total number of elements of the CloudStream.</summary>
     /// <param name="stream">The input CloudStream.</param>
