@@ -217,11 +217,20 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to job.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsTask procInfo dependencies cts fp worker (wf : Cloud<'T>) : Async<ICloudTask<'T>> = async {
+    member rt.StartAsTask procInfo dependencies (ct : ICloudCancellationToken option) fp worker (wf : Cloud<'T>) : Async<ICloudTask<'T>> = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
+        // create a new cancellation token source if none specified, or a child cancellation token if supplied
+        // this will allow cancellation once task has been completed.
+        let! cts = async {
+            match ct with
+            | None -> return! rt.ResourceFactory.RequestCancellationTokenSource()
+            | Some ct -> return DistributedCancellationTokenSource.CreateLinkedCancellationTokenSource(unbox ct, forceElevation = true)
+        }
+
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
+                cts.Cancel()
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
 

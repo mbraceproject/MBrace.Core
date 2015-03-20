@@ -227,13 +227,11 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
-    /// <param name="cancellationToken">Cancellation token for task. Defaults to current cancellation token.</param>
+    /// <param name="cancellationToken">Specify cancellation token for task. Defaults to no cancellation token.</param>
     static member StartAsCloudTask(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken) : Cloud<ICloudTask<'T>> = cloud {
         let! runtime = Cloud.GetResource<IDistributionProvider> ()
-        let! defaultToken = Cloud.CancellationToken
-        let cancellationToken = defaultArg cancellationToken defaultToken
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
-        return! runtime.ScheduleStartAsTask(computation, faultPolicy, cancellationToken, ?target = target)
+        return! runtime.ScheduleStartAsTask(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target)
     }
 
     /// <summary>

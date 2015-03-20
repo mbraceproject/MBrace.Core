@@ -94,14 +94,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
         let dependencies = VagabondRegistry.ComputeObjectDependencies ((workflow, fileStore, serializer))
         let processInfo = createProcessInfo ()
-        let! cts = async {
-            match cancellationToken with 
-            | Some ct -> return ct :?> DistributedCancellationTokenSource
-            // NB : currently this results in the cts never being disposed
-            | None -> return! state.ResourceFactory.RequestCancellationTokenSource()
-        }
-
-        return! state.StartAsTask processInfo (List.toArray dependencies) cts faultPolicy None workflow
+        return! state.StartAsTask processInfo (List.toArray dependencies) cancellationToken faultPolicy None workflow
     }
 
     /// <summary>
