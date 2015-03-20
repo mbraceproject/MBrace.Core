@@ -147,7 +147,6 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<#
             JobExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartAsCloudTask (state : RuntimeState) procInfo dependencies (ct : ICloudCancellationToken) fp worker (computation : Cloud<'T>) = cloud {
-    let dcts = ct :?> DistributedCancellationTokenSource
-    return! Cloud.OfAsync <| state.StartAsTask procInfo dependencies dcts fp worker computation
+let StartAsCloudTask (state : RuntimeState) procInfo dependencies ct fp worker (computation : Cloud<'T>) = cloud {
+    return! Cloud.OfAsync <| state.StartAsTask procInfo dependencies ct fp worker computation
 }
