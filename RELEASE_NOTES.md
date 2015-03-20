@@ -1,3 +1,9 @@
+#### 0.9.6-alpha
+* Add text methods to MBrace.Streams.
+* Refine CloudTask cancellation.
+* Update Vagabond to 0.5.0.
+* Minor bugfixes.
+
 #### 0.9.5-alpha
 * Refine local workflows implementation.
 * Improve MBrace.Streams implementations.
