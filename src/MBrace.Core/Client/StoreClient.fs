@@ -815,7 +815,7 @@ type FileStoreClient internal (registry : ResourceRegistry) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudCell operations.
-type CloudRefClient internal (registry : ResourceRegistry) =
+type CloudCellClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
     
     let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
@@ -872,21 +872,6 @@ type CloudRefClient internal (registry : ResourceRegistry) =
     /// <param name="cloudCell">CloudCell to be dereferenced.</param>
     member __.Read(cloudCell : CloudCell<'T>) : 'T = 
         __.ReadAsync(cloudCell) |> toSync
-
-
-    /// <summary>
-    ///     Cache a cloud cell to local execution context
-    /// </summary>
-    /// <param name="cloudCell">Cloud ref input</param>
-    member __.CacheAsync(cloudCell : CloudCell<'T>) : Async<bool> = 
-        CloudCell.Cache(cloudCell) |> toAsync
-
-    /// <summary>
-    ///     Cache a cloud cell to local execution context
-    /// </summary>
-    /// <param name="cloudCell">Cloud ref input</param>
-    member __.Cache(cloudCell : CloudCell<'T>) : bool = 
-        __.CacheAsync(cloudCell) |> toSync
 
 
 [<Sealed; AutoSerializable(false)>]
@@ -1025,7 +1010,7 @@ type StoreClient internal (registry : ResourceRegistry) =
     let atomClient     = lazy CloudAtomClient(registry)
     let channelClient  = lazy CloudChannelClient(registry)
     let fileStore      = lazy FileStoreClient(registry)
-    let cloudrefClient = lazy CloudRefClient(registry)
+    let cloudCellClient = lazy CloudCellClient(registry)
     let cloudseqClient = lazy CloudSequenceClient(registry)
 
     /// CloudAtom client.
@@ -1035,7 +1020,7 @@ type StoreClient internal (registry : ResourceRegistry) =
     /// CloudFileStore client.
     member __.FileStore = fileStore.Value
     /// CloudCell client.
-    member __.CloudCell = cloudrefClient.Value
+    member __.CloudCell = cloudCellClient.Value
     /// CloudSequence client.
     member __.CloudSequence = cloudseqClient.Value
     /// Gets the associated ResourceRegistry.

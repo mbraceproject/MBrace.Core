@@ -24,10 +24,21 @@ type CloudCell<'T> =
     val mutable private uuid : string
     [<DataMember(Name = "Serializer")>]
     val mutable private serializer : ISerializer option
+    [<DataMember(Name = "CacheByDefault")>]
+    val mutable private cacheByDefault : bool
 
-    internal new (path, serializer) =
+    internal new (path, serializer, ?cacheByDefault) =
         let uuid = Guid.NewGuid().ToString()
-        { path = path ; uuid = uuid ; serializer = serializer }
+        let cacheByDefault = defaultArg cacheByDefault false
+        { uuid = uuid ; path = path ; serializer = serializer ; cacheByDefault = cacheByDefault }
+
+    /// Path to cloud cell payload in store
+    member r.Path = r.path
+
+    /// Gets or sets the caching behaviour for the instance
+    member r.CacheByDefault
+        with get () = r.cacheByDefault
+        and set c = r.cacheByDefault <- c
 
     member private r.GetValueFromStore(config : CloudFileStoreConfiguration) = async {
         let serializer = match r.serializer with Some s -> s | None -> config.Serializer
@@ -36,15 +47,19 @@ type CloudCell<'T> =
         return serializer.Deserialize<'T>(stream, leaveOpen = false)
     }
 
-    /// Path to cloud cell payload in store
-    member r.Path = r.path
-
     /// Dereference the cloud cell
     member r.Value = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
         | Some v -> return v :?> 'T
-        | None -> return! ofAsync <| r.GetValueFromStore(config)
+        | None ->
+            let! value = ofAsync <| r.GetValueFromStore(config)
+            if r.cacheByDefault then
+                match config.Cache with
+                | None -> ()
+                | Some ch -> ignore <| ch.Add(r.uuid, value)
+
+            return value
     }
 
     /// Caches the cloud cell value to the local execution contexts. Returns true iff successful.
@@ -95,7 +110,8 @@ type CloudCell =
     /// <param name="value">Cloud cell value.</param>
     /// <param name="directory">FileStore directory used for cloud cell. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    static member New(value : 'T, ?directory : string, ?serializer : ISerializer) = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member New(value : 'T, ?directory : string, ?serializer : ISerializer, ?cacheByDefault : bool) = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
@@ -105,7 +121,7 @@ type CloudCell =
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
         do! ofAsync <| config.FileStore.Write(path, writer)
-        return new CloudCell<'T>(path, serializer)
+        return new CloudCell<'T>(path, serializer, ?cacheByDefault = cacheByDefault)
     }
 
     /// <summary>
@@ -113,10 +129,11 @@ type CloudCell =
     /// </summary>
     /// <param name="path">Path to cloud cell.</param>
     /// <param name="serializer">Serializer for cloud cell.</param>
-    static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool) = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool, ?cacheByDefault : bool) = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
-        let cell = new CloudCell<'T>(path, serializer)
+        let cell = new CloudCell<'T>(path, serializer, ?cacheByDefault = cacheByDefault)
         if defaultArg force false then
             let! _ = cell.PopulateCache() in ()
         else
@@ -131,7 +148,8 @@ type CloudCell =
     /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member FromFile<'T>(path : string, deserializer : Stream -> 'T, ?force : bool) : Local<CloudCell<'T>> = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member FromFile<'T>(path : string, deserializer : Stream -> 'T, ?force : bool, ?cacheByDefault) : Local<CloudCell<'T>> = local {
         let serializer =
             {
                 new ISerializer with
@@ -142,7 +160,7 @@ type CloudCell =
                     member __.SeqDeserialize(_,_) = raise <| new NotSupportedException()
             }
 
-        return! CloudCell.Parse(path, serializer, ?force = force)
+        return! CloudCell.Parse(path, serializer, ?force = force, ?cacheByDefault = cacheByDefault)
     }
 
     /// <summary>
@@ -152,7 +170,8 @@ type CloudCell =
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member FromTextFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool) : Local<CloudCell<'T>> = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member FromTextFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool, ?cacheByDefault) : Local<CloudCell<'T>> = local {
         let deserializer (stream : Stream) =
             let sr =
                 match encoding with
@@ -161,7 +180,7 @@ type CloudCell =
 
             textDeserializer sr 
 
-        return! CloudCell.FromFile(path, deserializer, ?force = force)
+        return! CloudCell.FromFile(path, deserializer, ?force = force, ?cacheByDefault = cacheByDefault)
     }
 
     /// <summary>

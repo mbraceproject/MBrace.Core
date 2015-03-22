@@ -10,12 +10,19 @@ open MBrace.Store
 /// Defines a defered computation whose result can be
 /// cached in-memory and on-demand to worker machines.
 [<Sealed; DataContract>]
-type CloudCacheable<'T> internal (evaluator : Local<'T>) =
+type CloudCacheable<'T> internal (evaluator : Local<'T>, ?cacheByDefault : bool) =
 
     [<DataMember(Name = "CacheId")>]
     let id = System.Guid.NewGuid().ToString()
     [<DataMember(Name = "Evaluator")>]
     let evaluator = evaluator
+    [<DataMember(Name = "CacheByDefault")>]
+    let mutable cacheByDefault = defaultArg cacheByDefault false
+
+    /// Gets or sets the default caching behaviour.
+    member __.CacheByDefault
+        with get () = cacheByDefault
+        and set c = cacheByDefault <- c
 
     /// <summary>
     ///     Attempt to cache computation to local execution context.
@@ -50,7 +57,10 @@ type CloudCacheable<'T> internal (evaluator : Local<'T>) =
         | Some c ->
             match c.TryFind id with
             | Some (:? 'T as t) -> return t
-            | _ -> return! evaluator
+            | _ -> 
+                let! t = evaluator
+                if cacheByDefault then ignore(c.Add(id, t))
+                return t
     }
 
 
@@ -60,10 +70,12 @@ type CloudCacheable =
     ///     Creates a computation that can be cached on demand to worker instances.
     /// </summary>
     /// <param name="evaluator">Evaluator workflow.</param>
-    static member Create(evaluator : Local<'T>) = new CloudCacheable<'T>(evaluator)
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member Create(evaluator : Local<'T>, ?cacheByDefault : bool) = new CloudCacheable<'T>(evaluator, ?cacheByDefault = cacheByDefault)
 
     /// <summary>
     ///     Creates a computation that can be cached on demand to worker instances.
     /// </summary>
     /// <param name="evaluator">Evaluator workflow.</param>
-    static member Create(evaluator : unit -> Local<'T>) = new CloudCacheable<'T>(local.Delay evaluator)
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member Create(evaluator : unit -> Local<'T>, ?cacheByDefault : bool) = new CloudCacheable<'T>(local.Delay evaluator, ?cacheByDefault = cacheByDefault)

@@ -66,10 +66,13 @@ type CloudSequence<'T> =
     val mutable private count : int option
     [<DataMember(Name = "Serializer")>]
     val mutable private serializer : ISerializer option
+    [<DataMember(Name = "CacheByDefault")>]
+    val mutable private cacheByDefault : bool
 
-    internal new (path, count, serializer) = 
+    internal new (path, count, serializer, ?cacheByDefault) = 
         let uuid = Guid.NewGuid().ToString()
-        { uuid = uuid ; path = path ; count = count ; serializer = serializer }
+        let cacheByDefault = defaultArg cacheByDefault false
+        { uuid = uuid ; path = path ; count = count ; serializer = serializer ; cacheByDefault = cacheByDefault }
 
     member private c.GetSequenceFromStore(config : CloudFileStoreConfiguration) = local {
         let serializer = match c.serializer with Some c -> c | None -> config.Serializer
@@ -92,7 +95,11 @@ type CloudSequence<'T> =
         | Some v -> return v :?> 'T []
         | None ->
             let! seq = c.GetSequenceFromStore(config)
-            return Seq.toArray seq
+            let array = Seq.toArray seq
+            if c.CacheByDefault then
+                config.Cache |> Option.iter(fun ch -> ch.Add(c.uuid, array) |> ignore)
+
+            return array
     }
 
     /// Cache contents to local execution context. Returns true iff succesful.
@@ -115,6 +122,11 @@ type CloudSequence<'T> =
 
     /// Path to Cloud sequence in store
     member c.Path = c.path
+
+    /// Gets or sets the caching behaviour for the instance
+    member c.CacheByDefault
+        with get () = c.cacheByDefault
+        and set s = c.cacheByDefault <- s
 
     /// Cloud sequence element count
     member c.Count = local {
@@ -158,7 +170,8 @@ type CloudSequence =
     /// <param name="values">Input sequence.</param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    static member New(values : seq<'T>, ?directory, ?serializer) : Local<CloudSequence<'T>> = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member New(values : seq<'T>, ?directory, ?serializer, ?cacheByDefault) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = defaultArg serializer config.Serializer
@@ -168,7 +181,7 @@ type CloudSequence =
                 return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false)
             }
             let! length = config.FileStore.Write(path, writer)
-            return new CloudSequence<'T>(path, Some length, serializer)
+            return new CloudSequence<'T>(path, Some length, serializer, ?cacheByDefault = cacheByDefault)
         }
     }
 
@@ -181,7 +194,8 @@ type CloudSequence =
     /// <param name="serializer"></param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    static member NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : Local<CloudSequence<'T> []> = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer, ?cacheByDefault) : Local<CloudSequence<'T> []> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
         let _serializer = defaultArg serializer config.Serializer
@@ -199,7 +213,7 @@ type CloudSequence =
                     return _serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false)
                 }
                 let! length = config.FileStore.Write(path, writer)
-                let seq = new CloudSequence<'T>(path, Some length, serializer)
+                let seq = new CloudSequence<'T>(path, Some length, serializer, ?cacheByDefault = cacheByDefault)
                 seqs.Add seq
 
             return seqs.ToArray()
@@ -212,10 +226,11 @@ type CloudSequence =
     /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool) : Local<CloudSequence<'T>> = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member Parse<'T>(path : string, ?serializer : ISerializer, ?force : bool, ?cacheByDefault) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let _serializer = match serializer with Some s -> s | None -> config.Serializer
-        let cseq = new CloudSequence<'T>(path, None, serializer)
+        let cseq = new CloudSequence<'T>(path, None, serializer, ?cacheByDefault = cacheByDefault)
         if defaultArg force false then
             let! _ = cseq.Count in ()
         else
@@ -231,8 +246,9 @@ type CloudSequence =
     /// <param name="file">Target cloud file.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member Parse<'T>(file : CloudFile, ?serializer : ISerializer, ?force : bool) : Local<CloudSequence<'T>> =
-        CloudSequence.Parse<'T>(file, ?serializer = serializer, ?force = force)
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member Parse<'T>(file : CloudFile, ?serializer : ISerializer, ?force : bool, ?cacheByDefault) : Local<CloudSequence<'T>> =
+        CloudSequence.Parse<'T>(file, ?serializer = serializer, ?force = force, ?cacheByDefault = cacheByDefault)
 
     /// <summary>
     ///     Creates a CloudSequence from file path with user-provided deserialization function.
@@ -240,7 +256,8 @@ type CloudSequence =
     /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force : bool) : Local<CloudSequence<'T>> = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force : bool, ?cacheByDefault) : Local<CloudSequence<'T>> = local {
         let serializer =
             {
                 new ISerializer with
@@ -251,7 +268,7 @@ type CloudSequence =
                     member __.SeqDeserialize<'a>(source,_) = deserializer source :> obj :?> seq<'a>
             }
 
-        return! CloudSequence.Parse(path, serializer, ?force = force)
+        return! CloudSequence.Parse(path, serializer, ?force = force, ?cacheByDefault = cacheByDefault)
     }
 
     /// <summary>
@@ -261,7 +278,8 @@ type CloudSequence =
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member FromTextFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool) : Local<CloudSequence<'T>> = local {
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member FromTextFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool, ?cacheByDefault) : Local<CloudSequence<'T>> = local {
         let deserializer (stream : Stream) =
             let sr = 
                 match encoding with
@@ -270,7 +288,7 @@ type CloudSequence =
 
             textDeserializer sr 
         
-        return! CloudSequence.FromFile(path, deserializer, ?force = force)
+        return! CloudSequence.FromFile(path, deserializer, ?force = force, ?cacheByDefault = cacheByDefault)
     }
 
     /// <summary>
@@ -279,8 +297,9 @@ type CloudSequence =
     /// <param name="file">Target cloud file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    static member FromFile<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force) : Local<CloudSequence<'T>> =
-        CloudSequence.FromFile<'T>(file.Path, deserializer = deserializer, ?force = force)
+    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    static member FromFile<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force, ?cacheByDefault) : Local<CloudSequence<'T>> =
+        CloudSequence.FromFile<'T>(file.Path, deserializer = deserializer, ?force = force, ?cacheByDefault = cacheByDefault)
 
 
 [<RequireQualifiedAccess>]
