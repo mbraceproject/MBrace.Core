@@ -26,7 +26,7 @@ type public CSharpProxy =
     static member AggregateBy<'T, 'Key, 'Acc when 'Key : equality>(stream : CloudStream<'T>, projection : Func<'T,'Key> , state : Func<'Acc>, folder : Func<'Acc, 'T, 'Acc>, combiner : Func<'Acc, 'Acc, 'Acc>) = 
         CloudStream.foldBy (fun x -> projection.Invoke(x)) (fun acc x -> folder.Invoke(acc, x)) (fun left right -> combiner.Invoke(left, right)) (fun _ -> state.Invoke()) stream
 
-    static member OrderBy<'T, 'Key when 'Key :> IComparable<'Key>>(stream : CloudStream<'T>, func : Func<'T, 'Key>, takeCount : int) =
+    static member OrderBy<'T, 'Key when 'Key :> IComparable<'Key> and 'Key : comparison>(stream : CloudStream<'T>, func : Func<'T, 'Key>, takeCount : int) =
         CloudStream.sortBy (fun x -> func.Invoke(x)) takeCount stream
 
     static member Count<'T>(stream : CloudStream<'T>) = 
