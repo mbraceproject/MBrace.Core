@@ -14,25 +14,25 @@ let runtime = MBraceRuntime.InitLocal(4)
 
 #I "../../bin"
 #r "Streams.Core.dll"
-#r "MBrace.Streams.dll"
+#r "MBrace.Flow.dll"
 #time "on"
 
 open Nessos.Streams
-open MBrace.Streams
+open MBrace.Flow
 
 for i in 1..100 do
     let source = [| 1..10 |]
-    let q = source |> CloudStream.ofArray |> CloudStream.sortBy id 10 |> CloudStream.toArray
+    let q = source |> CloudFlow.ofArray |> CloudFlow.sortBy id 10 |> CloudFlow.toArray
     printfn "%A" <| runtime.Run q
 
 let query1 = 
     runtime.Run (
-        CloudStream.ofArray [|1 .. 1000|]
-        |> CloudStream.collect(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
-        |> CloudStream.toCloudVector)
+        CloudFlow.ofArray [|1 .. 1000|]
+        |> CloudFlow.collect(fun i -> [|1..10000|] |> Seq.map (fun j -> string i, j))
+        |> CloudFlow.toCloudVector)
 
 
-runtime.Run <| CloudStream.cache(query1)
+runtime.Run <| CloudFlow.cache(query1)
 
 query1.CacheMap.Value |> runtime.RunLocal
 
@@ -41,16 +41,16 @@ runtime.RunLocal(query1.ToEnumerable())
 
 let query2 = runtime.Run (
                 query1
-                |> CloudStream.ofCloudVector
-                |> CloudStream.sortBy snd 100
-                |> CloudStream.toArray )
+                |> CloudFlow.ofCloudVector
+                |> CloudFlow.sortBy snd 100
+                |> CloudFlow.toArray )
 
 let query3 =
     runtime.Run(
-        CloudStream.ofArray [|1 .. 1000|]
-        |> CloudStream.collect(fun i -> [|1..10000|] |> Stream.ofArray |> Stream.map (fun j -> string i, j))
-        |> CloudStream.sortBy snd 100
-        |> CloudStream.toArray)
+        CloudFlow.ofArray [|1 .. 1000|]
+        |> CloudFlow.collect(fun i -> [|1..10000|] |> Seq.map (fun j -> string i, j))
+        |> CloudFlow.sortBy snd 100
+        |> CloudFlow.toArray)
 
 
 

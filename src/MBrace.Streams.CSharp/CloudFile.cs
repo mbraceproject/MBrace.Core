@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MBrace.Streams.CSharp
+namespace MBrace.Flow.CSharp
 {
     internal class LineEnumerator : IEnumerator<string>
     {

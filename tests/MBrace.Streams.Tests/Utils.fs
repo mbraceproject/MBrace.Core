@@ -1,9 +1,9 @@
-﻿namespace MBrace.Streams.Tests
+﻿namespace MBrace.Flow.Tests
 
 open NUnit.Framework
 open FsCheck
 
-[<System.Runtime.CompilerServices.InternalsVisibleTo("MBrace.Streams.CSharp.Tests")>]
+[<System.Runtime.CompilerServices.InternalsVisibleTo("MBrace.Flow.CSharp.Tests")>]
 do()
 
 [<AutoOpen>]

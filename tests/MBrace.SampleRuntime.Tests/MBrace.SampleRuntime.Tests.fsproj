@@ -59,20 +59,20 @@
     <Compile Include="Utils.fs" />
     <Compile Include="ParallelismTests.fs" />
     <Compile Include="StoreTests.fs" />
-    <Compile Include="StreamsTests.fs" />
+    <Compile Include="FlowTests.fs" />
     <None Include="CSharpTestsDriver.fs" />
     <None Include="CSharpStreamsTestsDriver.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.Streams\MBrace.Streams.fsproj">
-      <Name>MBrace.Streams</Name>
+    <ProjectReference Include="..\..\src\MBrace.Streams\MBrace.Flow.fsproj">
+      <Name>MBrace.Flow</Name>
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Streams.Tests.fsproj">
-      <Name>MBrace.Streams.Tests</Name>
+    <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Flow.Tests.fsproj">
+      <Name>MBrace.Flow.Tests</Name>
       <Project>{7d520bca-f23a-498d-a49b-8e42ab6c60f3}</Project>
       <Private>True</Private>
     </ProjectReference>

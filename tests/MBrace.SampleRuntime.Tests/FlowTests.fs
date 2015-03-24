@@ -5,12 +5,12 @@ open System.IO
 open NUnit.Framework
 
 open MBrace
-open MBrace.Streams.Tests
+open MBrace.Flow.Tests
 open MBrace.SampleRuntime
 
 [<Category("CloudStreams.Cluster")>]
-type ``SampleRuntime Streams Tests`` () =
-    inherit ``CloudStreams tests`` ()
+type ``SampleRuntime Flow Tests`` () =
+    inherit ``CloudFlow tests`` ()
 
     let session = new RuntimeSession(nodes = 4)
 

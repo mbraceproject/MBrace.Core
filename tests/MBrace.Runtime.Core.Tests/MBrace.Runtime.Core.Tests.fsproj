@@ -51,13 +51,13 @@
   <ItemGroup>
     <Compile Include="FileSystemStore.fs" />
     <Compile Include="Compiler.fs" />
-    <Compile Include="InMemoryStreamsTests.fs" />
+    <Compile Include="InMemoryFlowTests.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Streams.Tests.fsproj">
-      <Name>MBrace.Streams.Tests</Name>
+    <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Flow.Tests.fsproj">
+      <Name>MBrace.Flow.Tests</Name>
       <Project>{7d520bca-f23a-498d-a49b-8e42ab6c60f3}</Project>
       <Private>True</Private>
     </ProjectReference>

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Streams
+﻿namespace MBrace.Flow
 
 open System.IO
 open System.Collections.Generic

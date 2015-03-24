@@ -5,10 +5,10 @@ open MBrace.Store
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
 open MBrace.Runtime.Store
-open MBrace.Streams.Tests
+open MBrace.Flow.Tests
 
-type ``InMemory CloudStreams tests`` () =
-    inherit ``CloudStreams tests`` ()
+type ``InMemory CloudFlow tests`` () =
+    inherit ``CloudFlow tests`` ()
 
     do VagabondRegistry.Initialize(throwOnError = false)
 
