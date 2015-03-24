@@ -7,7 +7,6 @@ open System.Collections.Generic
 open System.IO
 open FsCheck
 open NUnit.Framework
-open Nessos.Streams
 open MBrace.Streams
 open MBrace
 open MBrace.Store
@@ -201,7 +200,7 @@ type ``CloudStreams tests`` () as self =
                      |> run
 
             let x = cfs |> CloudStream.ofCloudFiles CloudFileReader.ReadLines
-                        |> CloudStream.collect Stream.ofSeq
+                        |> CloudStream.collect id
                         |> CloudStream.toArray
                         |> run
                         |> Set.ofArray
@@ -266,7 +265,7 @@ type ``CloudStreams tests`` () as self =
                      |> run
 
             let x = cfs |> CloudStream.ofCloudFiles CloudFileReader.ReadAllLines
-                        |> CloudStream.collect Stream.ofArray
+                        |> CloudStream.collect (fun lines -> lines :> _)
                         |> CloudStream.toArray
                         |> run
                         |> Set.ofArray
@@ -299,7 +298,7 @@ type ``CloudStreams tests`` () as self =
     [<Test>]
     member __.``2. CloudStream : collect`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudStream.ofArray |> CloudStream.collect (fun n -> [|1..n|] |> Stream.ofArray) |> CloudStream.toArray |> run
+            let x = xs |> CloudStream.ofArray |> CloudStream.collect (fun n -> [|1..n|] :> _) |> CloudStream.toArray |> run
             let y = xs |> Seq.collect (fun n -> [|1..n|]) |> Seq.toArray
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)

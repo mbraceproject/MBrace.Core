@@ -17,7 +17,7 @@ type public CSharpProxy =
     static member Where<'T> (stream : CloudStream<'T>, func : Func<'T, bool>) = 
         CloudStream.filter (fun x -> func.Invoke(x)) stream
 
-    static member SelectMany<'T, 'R>(stream : CloudStream<'T>, func : Func<'T, Stream<'R>>) =
+    static member SelectMany<'T, 'R>(stream : CloudStream<'T>, func : Func<'T, IEnumerable<'R>>) =
         CloudStream.collect (fun x -> func.Invoke(x)) stream 
 
     static member Aggregate<'T, 'Acc>(stream : CloudStream<'T>, state : Func<'Acc>, folder : Func<'Acc, 'T, 'Acc>, combiner : Func<'Acc, 'Acc, 'Acc>) = 

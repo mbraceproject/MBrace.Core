@@ -266,7 +266,7 @@ module CloudStream =
     let inline mapLocal (f : 'T -> Local<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
         mapGen (fun ctx x -> f x |> run ctx) stream
 
-    let inline private collectGen (f : ExecutionContext -> 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
+    let inline private collectGen (f : ExecutionContext -> 'T -> seq<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
         { new CloudStream<'R> with
             member self.DegreeOfParallelism = stream.DegreeOfParallelism
             member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
@@ -281,7 +281,7 @@ module CloudStream =
                             {   Index = iterator.Index; 
                                 Func = 
                                     (fun value -> 
-                                        let (Stream streamf) = f ctx value
+                                        let (Stream streamf) = Stream.ofSeq (f ctx value)
                                         let cts = CancellationTokenSource.CreateLinkedTokenSource(iterator.Cts.Token)
                                         let { Bulk = bulk; Iterator = _ } = streamf { Complete = (fun () -> ()); Cont = iter; Cts = cts } in bulk ());
                                 Cts = iterator.Cts }
@@ -289,18 +289,18 @@ module CloudStream =
                 }
                 stream.Apply collectorf' projection combiner }
 
-    /// <summary>Transforms each element of the input CloudStream to a new stream and flattens its elements.</summary>
+    /// <summary>Transforms each element of the input CloudStream to a new sequence and flattens its elements.</summary>
     /// <param name="f">A function to transform items from the input CloudStream.</param>
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudStream.</returns>
-    let inline collect (f : 'T -> Stream<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
+    let inline collect (f : 'T -> seq<'R>) (stream : CloudStream<'T>) : CloudStream<'R> =
         collectGen (fun ctx x -> f x) stream 
 
-    /// <summary>Transforms each element of the input CloudStream to a new stream and flattens its elements using a locally executing cloud function.</summary>
+    /// <summary>Transforms each element of the input CloudStream to a new sequence and flattens its elements using a locally executing cloud function.</summary>
     /// <param name="f">A locally executing cloud function to transform items from the input CloudStream.</param>
     /// <param name="stream">The input CloudStream.</param>
     /// <returns>The result CloudStream.</returns>
-    let inline collectLocal (f : 'T -> Local<Stream<'R>>) (stream : CloudStream<'T>) : CloudStream<'R> =
+    let inline collectLocal (f : 'T -> Local<seq<'R>>) (stream : CloudStream<'T>) : CloudStream<'R> =
         collectGen (fun ctx x -> f x |> run ctx) stream 
 
     let inline private filterGen (predicate : ExecutionContext -> 'T -> bool) (stream : CloudStream<'T>) : CloudStream<'T> =
@@ -964,7 +964,7 @@ module CloudStream =
     let ofCloudFilesByLine (sources : seq<CloudFile>) : CloudStream<string> =
         sources
         |> ofCloudFiles CloudFileReader.ReadLines
-        |> collect Stream.ofSeq
+        |> collect id
 
     /// <summary>
     /// Constructs a CloudStream of lines from a path.
