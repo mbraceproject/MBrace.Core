@@ -55,9 +55,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
     [<Test>]
-    member __.``2. MBrace : CloudCell - cache by default`` () = 
-        let ref = runRemote <| CloudCell.New(42, cacheByDefault = true)
-        cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
+    member __.``2. MBrace : CloudCell - cache by default`` () =
+        if __.IsCachingStore then
+            let ref = runRemote <| CloudCell.New(42, cacheByDefault = true)
+            cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
 
     [<Test>]
     member __.``2. MBrace : CloudCell - Parallel`` () =
@@ -95,8 +96,9 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - cache by default`` () = 
-        let seq = runRemote <| CloudSequence.New([1..1000], cacheByDefault = true)
-        cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
+        if __.IsCachingStore then
+            let seq = runRemote <| CloudSequence.New([1..1000], cacheByDefault = true)
+            cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - parallel`` () =

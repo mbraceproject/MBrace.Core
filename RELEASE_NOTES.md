@@ -1,3 +1,8 @@
+#### 0.9.7-alpha
+* Add 'cacheByDefault' setting to cacheable entitites.
+* Implement CloudStream.*Local combinators.
+* Upgrade Vagabond.
+
 #### 0.9.6-alpha
 * Add text methods to MBrace.Streams.
 * Refine CloudTask cancellation.

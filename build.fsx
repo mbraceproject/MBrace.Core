@@ -261,7 +261,7 @@ Target "NuGet.Runtime.Core" (fun _ ->
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
                     ("FsPickler", "1.0.13")
-                    ("Vagabond", "0.3.2")
+                    ("Vagabond", "0.5.3")
                     ("Unquote", "2.2.2")
                 ]
             Publish = hasBuildParam "nugetkey" 
