@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{82E2F911-4563-4F05-9451-F2DD73622BE1}</ProjectGuid>
+    <ProjectGuid>{0D500B73-4CEE-409A-AEFA-3A6C11368F10}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>MBrace.Streams.CSharp.Tests</RootNamespace>
-    <AssemblyName>MBrace.Streams.CSharp.Tests</AssemblyName>
+    <RootNamespace>MBrace.Flow.CSharp</RootNamespace>
+    <AssemblyName>MBrace.Flow.CSharp</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -20,6 +20,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>..\..\bin\MBrace.Flow.CSharp.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -28,6 +29,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>..\..\bin\MBrace.Flow.CSharp.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core, Version=4.3.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
@@ -40,33 +42,26 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CloudStreamTests.cs" />
+    <Compile Include="CloudFile.cs" />
+    <Compile Include="CloudFlow.cs" />
+    <Compile Include="CloudVector.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
+    <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj">
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
       <Name>MBrace.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.CSharp\MBrace.CSharp.csproj">
+    <ProjectReference Include="..\MBrace.CSharp\MBrace.CSharp.csproj">
       <Project>{9f535680-053f-4514-91fa-472b82646b15}</Project>
       <Name>MBrace.CSharp</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Streams.CSharp\MBrace.Streams.CSharp.csproj">
-      <Project>{0d500b73-4cee-409a-aefa-3a6c11368f10}</Project>
-      <Name>MBrace.Streams.CSharp</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Streams\MBrace.Streams.fsproj">
+    <ProjectReference Include="..\MBrace.Flow\MBrace.Flow.fsproj">
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
-      <Name>MBrace.Streams</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Streams.Tests.fsproj">
-      <Project>{7d520bca-f23a-498d-a49b-8e42ab6c60f3}</Project>
-      <Name>MBrace.Streams.Tests</Name>
+      <Name>MBrace.Flow</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
@@ -77,24 +72,6 @@
   <Target Name="AfterBuild">
   </Target>
   -->
-  <Choose>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
-      <ItemGroup>
-        <Reference Include="FsCheck">
-          <HintPath>..\..\packages\FsCheck\lib\net45\FsCheck.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <ItemGroup>
-    <Reference Include="nunit.framework">
-      <HintPath>..\..\packages\NUnit\lib\nunit.framework.dll</HintPath>
-      <Private>True</Private>
-      <Paket>True</Paket>
-    </Reference>
-  </ItemGroup>
   <Choose>
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
       <ItemGroup>

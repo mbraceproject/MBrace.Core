@@ -8,7 +8,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MBrace.Streams.CSharp.Samples
+namespace MBrace.Flow.CSharp.Samples
 {
     class Program
     {

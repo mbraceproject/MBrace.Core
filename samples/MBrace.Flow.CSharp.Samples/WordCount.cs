@@ -5,11 +5,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Nessos.Streams.CSharp;
-using MBrace.Streams.CSharp;
+using MBrace.Flow.CSharp;
 using System.Text.RegularExpressions;
 using MBrace.SampleRuntime;
 
-namespace MBrace.Streams.CSharp.Samples
+namespace MBrace.Flow.CSharp.Samples
 {
     static class WordCount
     {
@@ -64,9 +64,9 @@ namespace MBrace.Streams.CSharp.Samples
             var count = 20;
     
             var query = cfiles
-                            .AsCloudStream(CloudFileReader.ReadAllLines)
-                            .SelectMany(lines => lines.AsStream())
-                            .SelectMany(line => line.SplitWords().AsStream().Select(WordTransform))
+                            .AsCloudFlow(CloudFileReader.ReadAllLines)
+                            .SelectMany(lines => lines)
+                            .SelectMany(line => line.SplitWords().Select(WordTransform))
                             .Where(WordFilter)
                             .CountBy(w => w)
                             .OrderBy(t => -t.Item2, count) 
@@ -86,8 +86,8 @@ namespace MBrace.Streams.CSharp.Samples
             var count = 20;
 
             var query = vector
-                            .AsCloudStream()
-                            .SelectMany(line => line.SplitWords().AsStream().Select(WordTransform))
+                            .AsCloudFlow()
+                            .SelectMany(line => line.SplitWords().Select(WordTransform))
                             .Where(WordFilter)
                             .CountBy(w => w)
                             .OrderBy(t => -t.Item2, count)

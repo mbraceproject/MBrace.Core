@@ -1,7 +1,7 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core"
 #r "Streams.Core"
-#r "MBrace.Streams"
+#r "MBrace.Flow"
 #r "MBrace.SampleRuntime"
 
 open System
@@ -10,7 +10,7 @@ open System.Text.RegularExpressions
 open Nessos.Streams
 open MBrace
 open MBrace.SampleRuntime
-open MBrace.Streams
+open MBrace.Flow
 
 /// words ignored by wordcount
 let noiseWords = 
@@ -50,21 +50,21 @@ let storeClient = runtime.StoreClient
 // Option 1 : CloudArrays API
 //
 
-let lines = runtime.StoreClient.CloudArray.New(files |> Seq.collect(fun f -> File.ReadLines(f)))
+let lines = runtime.StoreClient.CloudVector.New(files |> Seq.collect(fun f -> File.ReadLines(f)))
 
 let getTop count =
     lines
-    |> CloudStream.ofCloudArray
-    |> CloudStream.collect (fun line -> splitWords line |> Stream.ofArray |> Stream.map wordTransform)
-    |> CloudStream.filter wordFilter
-    |> CloudStream.countBy id
-    |> CloudStream.sortBy (fun (_,c) -> -c) count
-    |> CloudStream.toCloudArray
+    |> CloudFlow.ofCloudVector
+    |> CloudFlow.collect (fun line -> splitWords line |> Seq.map wordTransform)
+    |> CloudFlow.filter wordFilter
+    |> CloudFlow.countBy id
+    |> CloudFlow.sortBy (fun (_,c) -> -c) count
+    |> CloudFlow.toCloudVector
 
              
-let cloudArray = runtime.Run(getTop 20)
+let cloudVector = runtime.Run(getTop 20)
 
-cloudArray.ToEnumerable()
+cloudVector.ToEnumerable()
 |> runtime.RunLocal
 |> Seq.iter (printfn "%A")
 
@@ -80,16 +80,16 @@ let cfiles =
 
 let getTop' count =
     cfiles
-    |> CloudStream.ofCloudFiles CloudFileReader.ReadLines
-    |> CloudStream.collect Stream.ofSeq 
-    |> CloudStream.collect (fun line -> splitWords line |> Stream.ofArray |> Stream.map wordTransform)
-    |> CloudStream.filter wordFilter
-    |> CloudStream.countBy id
-    |> CloudStream.sortBy (fun (_,c) -> -c) count
-    |> CloudStream.toCloudArray
+    |> CloudFlow.ofCloudFiles CloudFileReader.ReadLines
+    |> CloudFlow.collect id
+    |> CloudFlow.collect (fun line -> splitWords line |> Seq.map wordTransform)
+    |> CloudFlow.filter wordFilter
+    |> CloudFlow.countBy id
+    |> CloudFlow.sortBy (fun (_,c) -> -c) count
+    |> CloudFlow.toCloudVector
 
-let cloudArray' = runtime.Run(getTop' 20)
+let cloudVector' = runtime.Run(getTop' 20)
 
-cloudArray'.ToEnumerable()
+cloudVector'.ToEnumerable()
 |> runtime.RunLocal
 |> Seq.iter (printfn "%A")

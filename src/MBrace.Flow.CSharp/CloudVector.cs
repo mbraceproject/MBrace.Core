@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MBrace.Streams.CSharp
+namespace MBrace.Flow.CSharp
 {
     /// <summary>
     /// CSharp-friendly methods for CloudVector.
@@ -42,7 +42,7 @@ namespace MBrace.Streams.CSharp
         /// <param name="maxPartitionSize">Max partitions size in bytes.</param>
         public static Cloud<CloudVector<TValue>>New<TValue>(IEnumerable<TValue> source, long maxPartitionSize)
         {
-            return MBrace.Streams.CloudVector.New(source, maxPartitionSize, null);
+            return MBrace.Flow.CloudVector.New(source, maxPartitionSize, null);
         }
 
     }
