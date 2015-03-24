@@ -1,7 +1,7 @@
 NUGET
   remote: https://nuget.org/api/v2
   specs:
-    FAKE (3.18.0)
+    FAKE (3.25.0)
     FsCheck (1.0.4)
     FSharp.Core (3.1.2.1)
     FsPickler (1.0.13)
@@ -15,12 +15,12 @@ NUGET
     NuGet.CommandLine (2.8.3)
     NUnit (2.6.3)
     NUnit.Runners (2.6.4)
-    Streams (0.2.9)
-    Streams.CSharp (0.2.9)
-      Streams (0.2.9)
+    Streams (0.3.0)
+    Streams.CSharp (0.3.0)
+      Streams (0.3.0)
     Thespian.Core (0.1.1-alpha)
       FsPickler (>= 1.0.2)
     Unquote (2.2.2)
-    Vagabond (0.5.0)
+    Vagabond (0.5.3)
       FsPickler (>= 1.0.8)
       Mono.Cecil (>= 0.9.5.4)

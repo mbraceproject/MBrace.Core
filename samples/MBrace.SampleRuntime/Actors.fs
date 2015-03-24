@@ -798,15 +798,23 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 //
 
 type private AssemblyExporterMsg =
+    | GetAssemblyMetadata of AssemblyId list * IReplyChannel<(AssemblyId * VagabondMetadata option) list>
     | RequestAssemblies of AssemblyId list * IReplyChannel<ExportableAssembly list> 
 
 /// Provides assembly uploading facility for Vagabond.
 type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     static member Init() =
-        let behaviour (RequestAssemblies(ids, ch)) = async {
-            let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
-            let packages = VagabondRegistry.Instance.CreateRawAssemblies vas
-            do! ch.Reply packages
+        let behaviour (msg : AssemblyExporterMsg) = async {
+            match msg with
+            | GetAssemblyMetadata(ids, ch) ->
+                let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
+                let md = vas |> List.map (fun va -> va.Id, va.Metadata |> Option.map fst)
+                do! ch.Reply md
+
+            | RequestAssemblies(ids, ch) ->
+                let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
+                let packages = VagabondRegistry.Instance.CreateRawAssemblies vas
+                do! ch.Reply packages
         }
 
         let ref = 
@@ -825,7 +833,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
         let publisher =
             {
                 new IRemoteAssemblyPublisher with
-                    member __.GetRequiredAssemblyInfo () = async { return ids }
+                    member __.GetRequiredAssemblyInfo () = async { return! exporter <!- fun ch -> GetAssemblyMetadata(ids, ch) }
                     member __.PullAssemblies ids = async {
                         let! eas = exporter <!- fun ch -> RequestAssemblies(ids, ch)
                         return VagabondRegistry.Instance.CacheRawAssemblies(eas)
