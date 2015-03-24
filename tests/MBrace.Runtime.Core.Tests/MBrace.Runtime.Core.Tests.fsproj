@@ -56,7 +56,7 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MBrace.Streams.Tests\MBrace.Flow.Tests.fsproj">
+    <ProjectReference Include="..\MBrace.Flow.Tests\MBrace.Flow.Tests.fsproj">
       <Name>MBrace.Flow.Tests</Name>
       <Project>{7d520bca-f23a-498d-a49b-8e42ab6c60f3}</Project>
       <Private>True</Private>

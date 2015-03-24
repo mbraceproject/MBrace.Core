@@ -26,8 +26,8 @@ let coreSummary = """
     libraries and local execution tools for authoring distributed code.
 """
 
-let streamsSummary = """
-    MBrace library for distributing streaming computations.
+let flowSummary = """
+    MBrace library for distributing flow computations.
 """
 
 let csharpSummary = """
@@ -106,8 +106,8 @@ let testAssemblies =
         yield "bin/MBrace.Core.Tests.dll"
 //        yield "bin/MBrace.CSharp.Tests.dll"
         yield "bin/MBrace.Runtime.Core.Tests.dll"
-        yield "bin/MBrace.Streams.Tests.dll"
-//        yield "bin/MBrace.Streams.CSharp.Tests.dll"
+        yield "bin/MBrace.Flow.Tests.dll"
+//        yield "bin/MBrace.Flow.CSharp.Tests.dll"
         if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
     ]
 
@@ -167,13 +167,13 @@ Target "NuGet.Core" (fun _ ->
         ("nuget/MBrace.nuspec")
 )
 
-Target "NuGet.Streams" (fun _ ->
+Target "NuGet.Flow" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Streams"
-            Summary = streamsSummary
-            Description = streamsSummary
+            Project = "MBrace.Flow"
+            Summary = flowSummary
+            Description = flowSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -187,7 +187,7 @@ Target "NuGet.Streams" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Streams.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -219,13 +219,13 @@ Target "NuGet.CSharp" (fun _ ->
         ("nuget/MBrace.nuspec")
 )
 
-Target "NuGet.Streams.CSharp" (fun _ ->
+Target "NuGet.Flow.CSharp" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Streams.CSharp"
-            Summary = streamsSummary
-            Description = streamsSummary
+            Project = "MBrace.Flow.CSharp"
+            Summary = flowSummary
+            Description = flowSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -234,12 +234,12 @@ Target "NuGet.Streams.CSharp" (fun _ ->
             Dependencies = 
                 [
                     "MBrace.CSharp", RequireExactly nugetVersion
-                    "MBrace.Streams", RequireExactly nugetVersion
+                    "MBrace.Flow", RequireExactly nugetVersion
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Streams.CSharp.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.CSharp.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -288,7 +288,7 @@ Target "NuGet.Tests" (fun _ ->
             Dependencies = 
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
-                    ("MBrace.Streams", RequireExactly release.NugetVersion)
+                    ("MBrace.Flow", RequireExactly release.NugetVersion)
                     ("NUnit", "2.6.3")
                     ("FsCheck", "1.0.4")
                 ]
@@ -296,7 +296,7 @@ Target "NuGet.Tests" (fun _ ->
             Files =
                 [
                     yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Streams.Tests.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.Tests.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -339,9 +339,9 @@ Target "Help" (fun _ -> PrintTargets() )
 "Build"
   ==> "PrepareRelease"
   ==> "NuGet.Core"
-  ==> "NuGet.Streams"
+  ==> "NuGet.Flow"
 //  ==> "NuGet.CSharp" // disable for now
-//  ==> "NuGet.Streams.CSharp"
+//  ==> "NuGet.Flow.CSharp"
   ==> "NuGet.Tests"
   ==> "NuGet.Runtime.Core"
   ==> "NuGet"

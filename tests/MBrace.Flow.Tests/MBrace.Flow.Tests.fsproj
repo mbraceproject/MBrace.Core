@@ -7,7 +7,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>7d520bca-f23a-498d-a49b-8e42ab6c60f3</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>MBrace.Streams.Tests</RootNamespace>
+    <RootNamespace>MBrace.Flow.Tests</RootNamespace>
     <AssemblyName>MBrace.Flow.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
@@ -21,7 +21,7 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Streams.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Flow.Tests.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,7 +30,7 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Streams.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Flow.Tests.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -62,7 +62,7 @@
     <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.Streams\MBrace.Flow.fsproj">
+    <ProjectReference Include="..\..\src\MBrace.Flow\MBrace.Flow.fsproj">
       <Name>MBrace.Flow</Name>
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
       <Private>True</Private>
