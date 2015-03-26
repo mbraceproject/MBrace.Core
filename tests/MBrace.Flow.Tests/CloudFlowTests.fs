@@ -10,6 +10,7 @@ open NUnit.Framework
 open MBrace.Flow
 open MBrace
 open MBrace.Store
+open System.Text
 
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
@@ -154,6 +155,16 @@ type ``CloudFlow tests`` () as self =
             let x = xs |> CloudFlow.ofArray |> CloudFlow.map ((+)1) |> CloudFlow.toCloudVector |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
             Assert.AreEqual(y, cloud { return! x.ToEnumerable() } |> runLocal)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+    [<Test>]
+    member __.``2. CloudFlow : toCachedCloudVector`` () =
+        let f(xs : string[]) =            
+            let cv = xs |> CloudFlow.ofArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.toCachedCloudVector |> run
+            let x = cv |> CloudFlow.ofCloudVector |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
+            let y = cv |> CloudFlow.ofCloudVector |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
+            Assert.AreEqual(x, y)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
