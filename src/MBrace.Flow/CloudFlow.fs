@@ -676,7 +676,7 @@ module CloudFlow =
             return vc
         }
 
-    /// <summary>Creates a CloudVector from the given CloudFlow, with its partitions cached localy</summary>
+    /// <summary>Creates a CloudVector from the given CloudFlow, with its partitions cached locally</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudVector.</returns>
     let inline toCachedCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
