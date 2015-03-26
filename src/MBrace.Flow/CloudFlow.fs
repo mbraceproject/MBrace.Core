@@ -48,15 +48,6 @@ module CloudFlow =
     /// gets all partition indices found in cloud vector
     let inline private getPartitionIndices (v : CloudVector<'T>) = [| 0 .. v.PartitionCount - 1 |]
 
-    /// Flat map/reduce with sequential execution on leafs.
-    let inline private parallelInChunks (npar : int) (workflows : Local<'T> []) = cloud {
-        let! partials = 
-            workflows 
-            |> Partitions.ofArray npar
-            |> Array.map (fun wfs -> wfs |> Local.Parallel)
-            |> Cloud.Parallel
-        return Array.concat partials
-    }
 
     /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
     let inline private toParStreamCollector (collector : Collector<'T, 'S>) =
@@ -82,6 +73,7 @@ module CloudFlow =
                         match collector.DegreeOfParallelism with
                         | Some n -> local { return n }
                         | _ -> Cloud.GetWorkerCount()
+                    let! workers = Cloud.GetAvailableWorkers()
 
                     let createTask array (collector : Local<Collector<'T, 'S>>) = 
                         local {
@@ -94,7 +86,9 @@ module CloudFlow =
                         let partitions = Partitions.ofLongRange workerCount (int64 source.Length)
                         let! results = 
                             partitions 
-                            |> Array.map (fun (s, e) -> createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf) 
+                            |> Array.mapi (fun i (s, e) -> 
+                                                let cloudBlock = createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf
+                                                (cloudBlock, workers.[i % workers.Length])) 
                             |> Cloud.Parallel
                         return! combiner results 
                     else
@@ -119,7 +113,8 @@ module CloudFlow =
                         let! workerCount = 
                             match collector.DegreeOfParallelism with
                             | Some n -> local { return n }
-                            | _ -> Cloud.GetWorkerCount() 
+                            | _ -> Cloud.GetWorkerCount()
+                        let! workers = Cloud.GetAvailableWorkers() 
 
                         let createTask (files : CloudFile []) (collectorf : Local<Collector<'T, 'S>>) : Local<'R> = 
                             local {
@@ -157,7 +152,10 @@ module CloudFlow =
                             }
 
                         let partitions = sources |> Seq.toArray |> Partitions.ofArray workerCount
-                        let! results = partitions |> Array.map (fun cfiles -> createTask cfiles collectorf) |> Cloud.Parallel
+                        let! results = 
+                            partitions 
+                            |> Array.mapi (fun i cfiles -> (createTask cfiles collectorf, workers.[i % workers.Length])) 
+                            |> Cloud.Parallel
                         return! combiner results
                 } }
 
@@ -207,6 +205,7 @@ module CloudFlow =
                             | Some n -> return n
                             | None -> return! Cloud.GetWorkerCount()
                         }
+                        let! workers = Cloud.GetAvailableWorkers()
 
                         // TODO : need a scheduling algorithm to assign partition indices
                         //        to workers according to current cache state.
@@ -216,7 +215,7 @@ module CloudFlow =
                             partitions
                             |> Partitions.ofArray workerCount
                             |> Seq.filter (not << Array.isEmpty)
-                            |> Seq.map computePartitions 
+                            |> Seq.mapi (fun i partitions -> (computePartitions partitions, workers.[i % workers.Length]))
                             |> Cloud.Parallel
 
                         return! combiner results
@@ -981,6 +980,7 @@ module CloudFlow =
                         match collector.DegreeOfParallelism with
                         | Some n -> local { return n }
                         | _ -> Cloud.GetWorkerCount()
+                    let! workers = Cloud.GetAvailableWorkers()
 
                     let rangeBasedReadLines (s : int64) (e : int64) (stream : System.IO.Stream) = 
                         seq {
@@ -1009,7 +1009,7 @@ module CloudFlow =
                         let partitions = Partitions.ofLongRange workerCount fileSize
                         let! results = 
                             partitions 
-                            |> Array.map (fun (s, e) -> createTask s e collectorf) 
+                            |> Array.mapi (fun i (s, e) -> (createTask s e collectorf, workers.[i % workers.Length])) 
                             |> Cloud.Parallel
                         return! combiner results 
                     else
