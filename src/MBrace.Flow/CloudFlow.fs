@@ -73,7 +73,8 @@ module CloudFlow =
                         match collector.DegreeOfParallelism with
                         | Some n -> local { return n }
                         | _ -> Cloud.GetWorkerCount()
-                    let! workers = Cloud.GetAvailableWorkers()
+                    let! workers = Cloud.GetAvailableWorkers() 
+                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
 
                     let createTask array (collector : Local<Collector<'T, 'S>>) = 
                         local {
@@ -121,6 +122,7 @@ module CloudFlow =
                             | Some n -> local { return n }
                             | _ -> Cloud.GetWorkerCount()
                         let! workers = Cloud.GetAvailableWorkers() 
+                        let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
 
                         let createTask (files : CloudFile []) (collectorf : Local<Collector<'T, 'S>>) : Local<'R> = 
                             local {
@@ -218,6 +220,7 @@ module CloudFlow =
                             | None -> return! Cloud.GetWorkerCount()
                         }
                         let! workers = Cloud.GetAvailableWorkers()
+                        let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
 
                         // TODO : need a scheduling algorithm to assign partition indices
                         //        to workers according to current cache state.
@@ -1044,6 +1047,7 @@ module CloudFlow =
                         | Some n -> local { return n }
                         | _ -> Cloud.GetWorkerCount()
                     let! workers = Cloud.GetAvailableWorkers()
+                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
 
                     let rangeBasedReadLines (s : int64) (e : int64) (flow : System.IO.Stream) = 
                         seq {
