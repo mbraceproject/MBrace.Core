@@ -676,6 +676,51 @@ module CloudFlow =
             return vc
         }
 
+    /// <summary>Creates a CloudVector from the given CloudFlow, with its partitions cached localy</summary>
+    /// <param name="stream">The input CloudFlow.</param>
+    /// <returns>The result CloudVector.</returns>
+    let inline toCachedCloudVector (stream : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
+        cloud {
+            let collectorf = local { 
+                let results = new List<List<'T>>()
+                return 
+                  { new Collector<'T, 'T []> with
+                    member self.DegreeOfParallelism = stream.DegreeOfParallelism 
+                    member self.Iterator() = 
+                        let list = new List<'T>()
+                        results.Add(list)
+                        {   Index = ref -1; 
+                            Func = (fun value -> list.Add(value));
+                            Cts = new CancellationTokenSource() }
+                    member self.Result = 
+                        let count = results |> Seq.sumBy (fun list -> list.Count)
+                        let values = Array.zeroCreate<'T> count
+                        let mutable counter = -1
+                        for list in results do
+                            for i = 0 to list.Count - 1 do
+                                let value = list.[i]
+                                counter <- counter + 1
+                                values.[counter] <- value
+                        values }
+            }
+
+            let! vc =
+                stream.Apply collectorf 
+                    (fun array -> local { 
+                                    let! cloudVector = CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = true)
+                                    // Cache the partitions
+                                    let partitions = cloudVector.GetAllPartitions()
+                                    for partition in partitions do
+                                        do! partition.PopulateCache() |> Local.Ignore
+                                    
+                                    return cloudVector
+                                  }) 
+                    (fun result -> local { return CloudVector.Merge result })
+            return vc
+        }
+
+
+
     let inline private sortByGen comparer (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (stream : CloudFlow<'T>) : CloudFlow<'T> = 
         let collectorf = local {  
             let results = new List<List<'T>>()
