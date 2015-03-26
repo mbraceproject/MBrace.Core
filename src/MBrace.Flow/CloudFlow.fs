@@ -84,12 +84,18 @@ module CloudFlow =
                         }
                     if not (source.Length = 0) then 
                         let partitions = Partitions.ofLongRange workerCount (int64 source.Length)
+                        let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                         let! results = 
-                            partitions 
-                            |> Array.mapi (fun i (s, e) -> 
-                                                let cloudBlock = createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf
-                                                (cloudBlock, workers.[i % workers.Length])) 
-                            |> Cloud.Parallel
+                            if targetedworkerSupport then
+                                partitions 
+                                |> Array.mapi (fun i (s, e) -> 
+                                                    let cloudBlock = createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf
+                                                    (cloudBlock, workers.[i % workers.Length])) 
+                                |> Cloud.Parallel
+                            else
+                                partitions 
+                                |> Array.map (fun (s, e) -> createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf)
+                                |> Cloud.Parallel
                         return! combiner results 
                     else
                         return! projection collector.Result
@@ -152,10 +158,16 @@ module CloudFlow =
                             }
 
                         let partitions = sources |> Seq.toArray |> Partitions.ofArray workerCount
+                        let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                         let! results = 
-                            partitions 
-                            |> Array.mapi (fun i cfiles -> (createTask cfiles collectorf, workers.[i % workers.Length])) 
-                            |> Cloud.Parallel
+                            if targetedworkerSupport then
+                                partitions 
+                                |> Array.mapi (fun i cfiles -> (createTask cfiles collectorf, workers.[i % workers.Length])) 
+                                |> Cloud.Parallel
+                            else
+                                partitions 
+                                |> Array.map (fun cfiles -> createTask cfiles collectorf) 
+                                |> Cloud.Parallel
                         return! combiner results
                 } }
 
@@ -210,14 +222,20 @@ module CloudFlow =
                         // TODO : need a scheduling algorithm to assign partition indices
                         //        to workers according to current cache state.
                         //        for now blindly assign partitions among workers.
-
+                        let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                         let! results =
-                            partitions
-                            |> Partitions.ofArray workerCount
-                            |> Seq.filter (not << Array.isEmpty)
-                            |> Seq.mapi (fun i partitions -> (computePartitions partitions, workers.[i % workers.Length]))
-                            |> Cloud.Parallel
-
+                            if targetedworkerSupport then
+                                partitions
+                                |> Partitions.ofArray workerCount
+                                |> Seq.filter (not << Array.isEmpty)
+                                |> Seq.mapi (fun i partitions -> (computePartitions partitions, workers.[i % workers.Length]))
+                                |> Cloud.Parallel
+                            else
+                                partitions
+                                |> Partitions.ofArray workerCount
+                                |> Seq.filter (not << Array.isEmpty)
+                                |> Seq.map (fun partitions -> computePartitions partitions)
+                                |> Cloud.Parallel
                         return! combiner results
                 }
         }
@@ -1007,10 +1025,16 @@ module CloudFlow =
                         }
                     if not (fileSize = 0L) then 
                         let partitions = Partitions.ofLongRange workerCount fileSize
+                        let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                         let! results = 
-                            partitions 
-                            |> Array.mapi (fun i (s, e) -> (createTask s e collectorf, workers.[i % workers.Length])) 
-                            |> Cloud.Parallel
+                            if targetedworkerSupport then
+                                partitions 
+                                |> Array.mapi (fun i (s, e) -> (createTask s e collectorf, workers.[i % workers.Length])) 
+                                |> Cloud.Parallel
+                            else
+                                partitions 
+                                |> Array.map (fun (s, e) -> createTask s e collectorf) 
+                                |> Cloud.Parallel
                         return! combiner results 
                     else
                         return! projection collector.Result
