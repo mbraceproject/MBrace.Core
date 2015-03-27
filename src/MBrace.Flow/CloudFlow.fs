@@ -1101,8 +1101,8 @@ module CloudFlow =
                             if s = e then
                                 return! projection collector.Result
                             else
-                                use! flow = CloudFile.Read(path, (fun stream -> async { return stream }), true)
-                                let parStream = ParStream.ofSeq (rangeBasedReadLines s e flow) 
+                                use! stream = CloudFile.Read(path, (fun stream -> async { return stream }), true)
+                                let parStream = ParStream.ofSeq (rangeBasedReadLines s e stream) 
                                 let collectorResult = parStream.Apply (toParStreamCollector collector)
                                 return! projection collectorResult
                         }
