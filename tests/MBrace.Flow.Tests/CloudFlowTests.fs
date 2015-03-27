@@ -357,6 +357,15 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : take`` () =
+        let f (xs : int[], n : int) =
+            let n = System.Math.Abs(n)
+            let x = xs |> CloudFlow.ofArray |> CloudFlow.take n |> CloudFlow.toArray |> run
+            let y = xs.Take(n).ToArray()
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : withDegreeOfParallelism`` () =
         let f(xs : int[]) = 
             let r = xs 
