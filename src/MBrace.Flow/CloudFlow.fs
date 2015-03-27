@@ -1083,12 +1083,12 @@ module CloudFlow =
                     let! workers = Cloud.GetAvailableWorkers()
                     let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
 
-                    let rangeBasedReadLines (s : int64) (e : int64) (flow : System.IO.Stream) = 
+                    let rangeBasedReadLines (s : int64) (e : int64) (stream : System.IO.Stream) = 
                         seq {
                             let numOfBytesRead = ref 0L
-                            flow.Seek(s, System.IO.SeekOrigin.Begin) |> ignore
-                            let reader = new LineReader(flow)
-                            let size = flow.Length
+                            stream.Seek(s, System.IO.SeekOrigin.Begin) |> ignore
+                            let reader = new LineReader(stream)
+                            let size = stream.Length
                             while s + !numOfBytesRead <= e && s + !numOfBytesRead < size do
                                 let line = reader.ReadLine()
                                 if s = 0L || !numOfBytesRead > 0L then
@@ -1101,7 +1101,7 @@ module CloudFlow =
                             if s = e then
                                 return! projection collector.Result
                             else
-                                use! flow = CloudFile.Read(path, (fun flow -> async { return flow }), true)
+                                use! flow = CloudFile.Read(path, (fun stream -> async { return stream }), true)
                                 let parStream = ParStream.ofSeq (rangeBasedReadLines s e flow) 
                                 let collectorResult = parStream.Apply (toParStreamCollector collector)
                                 return! projection collectorResult
