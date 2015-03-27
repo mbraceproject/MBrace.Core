@@ -1018,7 +1018,41 @@ module CloudFlow =
             return not result
         }
 
-
+    /// <summary> Returns the elements of a CloudFlow up to a specified count. </summary>
+    /// <param name="n">The maximum number of items to take.</param>
+    /// <param name="flow">The input CloudFlow.</param>
+    /// <returns>The resulting CloudFlow.</returns>
+    let inline take (n : int) (flow: CloudFlow<'T>) : CloudFlow<'T> =
+        let collectorF =
+            local {
+                let results = new List<List<'T>>()
+                let cts = new CancellationTokenSource()
+                return
+                    { new Collector<'T, 'T []> with
+                      member __.DegreeOfParallelism = flow.DegreeOfParallelism
+                      member __.Iterator() =
+                          let list = new List<'T>()
+                          results.Add(list)
+                          { Index = ref -1
+                            Func = (fun value -> if list.Count < n then list.Add(value) else cts.Cancel())
+                            Cts = cts }
+                      member __.Result =
+                          (results |> Seq.collect id).Take(n) |> Seq.toArray
+                     }
+            }
+        let gather =
+            cloud {
+                let! results = flow.Apply collectorF (local.Return) (fun results -> local { return Array.collect id results })
+                return results.Take(n).ToArray()
+            }
+        { new CloudFlow<'T> with
+              member __.DegreeOfParallelism = flow.DegreeOfParallelism
+              member __.Apply<'S, 'R>(collectorF: Local<Collector<'T, 'S>>) (projection: 'S -> Local<'R>) combiner =
+                  cloud {
+                      let! result = gather
+                      return! (ofArray result).Apply collectorF projection combiner
+                  }
+        }
 
     // Text ReadLine CloudFile producers
 
