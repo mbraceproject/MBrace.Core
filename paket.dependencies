@@ -8,9 +8,9 @@ nuget Thespian.Core 0.1.1-alpha
 nuget FSharp.Core
 nuget FsCheck
 nuget Unquote
-nuget Vagabond 0.5.3
+nuget Vagabond 0.6.0
 nuget Streams
 nuget Streams.CSharp
 nuget Streams
-nuget FsPickler.Json 1.0.13
+nuget FsPickler.Json 1.0.16
 nuget NuGet.CommandLine
