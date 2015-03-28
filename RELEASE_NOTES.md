@@ -1,3 +1,7 @@
+#### 0.9.8-alpha
+* Upgrade to Vagabond 0.6.
+* Rename MBrace.Streams to MBrace.Flow.
+
 #### 0.9.7-alpha
 * Add 'cacheByDefault' setting to cacheable entitites.
 * Implement CloudStream.*Local combinators.
