@@ -12,6 +12,9 @@ open MBrace
 open MBrace.Store
 open System.Text
 
+// Helper type
+type Seperator = N | R | RN
+
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
     let run (workflow : Cloud<'T>) = self.Run(workflow)
@@ -247,8 +250,13 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : ofTextFileByLine`` () =
         
-        let f(xs : string []) =
-            let cf = CloudFile.WriteAllLines(xs) |> run
+        let f(xs : string [], seperator : Seperator) =
+            let seperator = 
+                match seperator with
+                | N -> "\n" 
+                | R -> "\r"
+                | RN -> "\r\n"
+            let cf = CloudFile.WriteAllText(xs |> String.concat seperator) |> run
             let path = cf.Path
 
             let x = 
