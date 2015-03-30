@@ -260,8 +260,8 @@ Target "NuGet.Runtime.Core" (fun _ ->
             Dependencies = 
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
-                    ("FsPickler", "1.0.13")
-                    ("Vagabond", "0.5.3")
+                    ("FsPickler", "1.0.16")
+                    ("Vagabond", "0.6.0")
                     ("Unquote", "2.2.2")
                 ]
             Publish = hasBuildParam "nugetkey" 

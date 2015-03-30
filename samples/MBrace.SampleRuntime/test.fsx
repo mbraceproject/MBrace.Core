@@ -73,7 +73,20 @@ local {
     return x
 }
 
-// vagabond data initialization test
+// vagabond data initialization test 1.
 let c = ref 0
 for i in 1 .. 10 do
     c := runtime.Run(cloud { return !c + 1 })
+
+// vagabond data initialization test 2.
+let mutable enabled = false
+
+runtime.Run(cloud { return enabled })
+
+enabled <- true
+
+runtime.Run(cloud { return enabled })
+
+enabled <- false
+
+runtime.Run(cloud { return enabled })

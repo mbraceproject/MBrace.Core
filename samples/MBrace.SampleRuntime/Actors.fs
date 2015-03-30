@@ -798,7 +798,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 //
 
 type private AssemblyExporterMsg =
-    | GetAssemblyMetadata of AssemblyId list * IReplyChannel<(AssemblyId * VagabondMetadata option) list>
+    | GetAssemblyMetadata of AssemblyId list * IReplyChannel<(AssemblyId * VagabondMetadata) list>
     | RequestAssemblies of AssemblyId list * IReplyChannel<ExportableAssembly list> 
 
 /// Provides assembly uploading facility for Vagabond.
@@ -808,7 +808,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
             match msg with
             | GetAssemblyMetadata(ids, ch) ->
                 let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
-                let md = vas |> List.map (fun va -> va.Id, va.Metadata |> Option.map fst)
+                let md = vas |> List.map (fun va -> va.Id, va.Metadata)
                 do! ch.Reply md
 
             | RequestAssemblies(ids, ch) ->
