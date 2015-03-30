@@ -64,12 +64,12 @@ type internal LineReader(stream : Stream) =
                         stringBuilder.Append(buffer, posInBuffer, numOfChars - posInBuffer) |> ignore
                     if i = numOfChars then
                         posInBuffer <- -1
-            if not endOfStream then
-                let result = stringBuilder.ToString()
-                stringBuilder.Clear() |> ignore
-                numberOfBytesRead <- numberOfBytesRead + (int64 <| reader.CurrentEncoding.GetByteCount(result))
-                result 
-            else null
+            
+            let result = stringBuilder.ToString()
+            stringBuilder.Clear() |> ignore
+            numberOfBytesRead <- numberOfBytesRead + (int64 <| reader.CurrentEncoding.GetByteCount(result))
+            result 
+            
 
     /// The total number of bytes read
     member self.NumOfBytesRead = numberOfBytesRead
