@@ -1142,3 +1142,52 @@ module CloudFlow =
 
 
 
+                
+    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
+    /// <param name="channel">the ReceivePort of a CloudChannel.</param>
+    /// <returns>The result CloudFlow.</returns>
+    let ofCloudChannel (channel : IReceivePort<'T>) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+                cloud {
+                    let! collector = collectorf 
+                    let! workerCount = 
+                        match collector.DegreeOfParallelism with
+                        | Some n -> local { return n }
+                        | _ -> Cloud.GetWorkerCount()
+                    let! workers = Cloud.GetAvailableWorkers() 
+                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
+
+                    let createTask (collector : Local<Collector<'T, 'S>>) = 
+                        local {
+                            let! ctx = Cloud.GetExecutionContext()
+                            let! collectorf = collector
+                            let! value = CloudChannel.Receive(channel)
+                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
+                            let parStream = ParStream.ofSeq seq
+                            let collectorResult = parStream.Apply (toParStreamCollector collectorf)
+                            return! projection collectorResult
+                        }
+                    
+                    let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
+                    let! results = 
+                        if targetedworkerSupport then
+                            [|1..workerCount|] 
+                            |> Array.map (fun i -> (createTask collectorf, workers.[i % workers.Length])) 
+                            |> Cloud.Parallel
+                        else
+                            [|1..workerCount|] 
+                            |> Array.map (fun i -> createTask collectorf)
+                            |> Cloud.Parallel
+
+                    return! combiner results
+
+                } }
+
+    /// <summary>Sends the values of CloudFlow to the SendPort of a CloudChannel</summary>
+    /// <param name="channel">the SendPort of a CloudChannel.</param>
+    /// <param name="flow">The input CloudFlow.</param>
+    /// <returns>Nothing.</returns>
+    let toCloudChannel (channel : ISendPort<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
+        flow |> iterLocal (fun v -> CloudChannel.Send(channel, v))

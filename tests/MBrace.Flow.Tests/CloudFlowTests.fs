@@ -453,3 +453,58 @@ type ``CloudFlow tests`` () as self =
 
 
 
+        [<Test>]
+        member __.``2. CloudFlow : ofCloudChannel`` () =
+            let f(_ : int) =
+                let x =
+                    cloud {
+                        let! sendPort, receivePort = CloudChannel.New()
+                        let! n =
+                            Cloud.Choice [
+                                cloud { 
+                                    let i = ref 0
+                                    while true do
+                                        incr i
+                                        do! CloudChannel.Send(sendPort, !i)
+                                        do! Cloud.Sleep(100)
+                                    return None
+                                };
+                                cloud {
+                                    let! n =  
+                                        receivePort
+                                        |> CloudFlow.ofCloudChannel 
+                                        |> CloudFlow.withDegreeOfParallelism 2
+                                        |> CloudFlow.take 3
+                                        |> CloudFlow.length
+                                    return Some n
+                                }]
+                        return Option.get n
+                    }
+                    |> run
+                x = 3L
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+        [<Test>]
+        member __.``2. CloudFlow : toCloudChannel`` () =
+            let f(xs : int[]) =
+                let sendPort, receivePort = CloudChannel.New() |> run
+                let x = 
+                    xs
+                    |> CloudFlow.ofArray
+                    |> CloudFlow.map (fun v -> v + 1)
+                    |> CloudFlow.toCloudChannel sendPort
+                    |> run
+                let x = 
+                    cloud {
+                        let list = ResizeArray<int>()
+                        for x in xs do 
+                            let! v = CloudChannel.Receive(receivePort)
+                            list.Add(v)
+                        return list
+                    } |> run
+                let y = xs |> Seq.map (fun v -> v + 1) |> Seq.toArray
+                (set x) = (set y)
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
