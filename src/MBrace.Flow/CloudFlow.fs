@@ -1163,7 +1163,6 @@ module CloudFlow =
                         local {
                             let! ctx = Cloud.GetExecutionContext()
                             let! collectorf = collector
-                            let! value = CloudChannel.Receive(channel)
                             let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
                             let parStream = ParStream.ofSeq seq
                             let collectorResult = parStream.Apply (toParStreamCollector collectorf)
