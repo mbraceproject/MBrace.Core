@@ -199,7 +199,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllText(f) }))
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllText f.Path }))
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
@@ -219,7 +219,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines(f) }))
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -239,7 +239,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines(f) }))
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -268,7 +268,7 @@ type ``CloudFlow tests`` () as self =
                     
             
             let y = 
-                __.RunLocal(cloud { return! CloudFile.ReadLines(cf) })
+                __.RunLocal(cloud { return! CloudFile.ReadLines cf.Path })
                 |> Seq.sortBy id
                 |> Seq.toArray
                     
@@ -289,7 +289,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines(f) }))
+            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 

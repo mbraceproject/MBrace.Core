@@ -142,9 +142,9 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
         let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> runRemote
-        CloudFile.GetSize file |> runLocal |> shouldEqual 100L
+        file.Size |> runLocal |> shouldEqual 100L
         cloud {
-            let! bytes = CloudFile.ReadAllBytes file
+            let! bytes = CloudFile.ReadAllBytes file.Path
             return bytes.Length
         } |> runRemote |> shouldEqual 100
 
@@ -157,7 +157,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
         cloud {
-            let! lines = CloudFile.ReadLines file
+            let! lines = CloudFile.ReadLines file.Path
             return Seq.length lines
         } |> runRemote |> shouldEqual 1000
 
@@ -173,7 +173,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                     stream.Flush()
                     stream.Dispose() })
 
-            return! CloudFile.ReadAllBytes f
+            return! CloudFile.ReadAllBytes f.Path
         } |> runRemote |> shouldEqual (mk n)
 
     [<Test>]
@@ -190,7 +190,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         cloud {
             let! file = CloudFile.WriteAllText "lorem ipsum dolor"
             do! cloud { use file = file in () }
-            return! CloudFile.ReadAllText file
+            return! CloudFile.ReadAllText file.Path
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
@@ -211,21 +211,21 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
         cloud {
             use! cf = CloudFile.Create(fun stream -> async { stream.WriteByte(10uy) })
-            return! CloudFile.Read(cf, fun stream -> async { stream.WriteByte(20uy) })
+            return! CloudFile.Read(cf.Path, fun stream -> async { stream.WriteByte(20uy) })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to read nonexistent file`` () =
         cloud {
             let cf = new CloudFile(Guid.NewGuid().ToString())
-            return! CloudFile.Read(cf, fun s -> async { return s.ReadByte() })
+            return! CloudFile.Read(cf.Path, fun s -> async { return s.ReadByte() })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
     member __.``2. MBrace : CloudDirectory - Create; populate; delete`` () =
         cloud {
             let! dir = CloudDirectory.Create ()
-            let! exists = CloudDirectory.Exists dir
+            let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual true
             let write i = cloud {
                 let! path = FileStore.GetRandomFileName dir
@@ -235,10 +235,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
             do! Seq.init 20 write |> Cloud.Parallel |> Cloud.Ignore
 
-            let! files = CloudFile.Enumerate dir
+            let! files = CloudFile.Enumerate dir.Path
             files.Length |> shouldEqual 20
-            do! CloudDirectory.Delete(dir, recursiveDelete = true)
-            let! exists = CloudDirectory.Exists dir
+            do! CloudDirectory.Delete(dir.Path, recursiveDelete = true)
+            let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual false
         } |> runRemote
 
@@ -252,8 +252,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                 return dir, file
             } |> runRemote
 
-        CloudDirectory.Exists dir |> runLocal |> shouldEqual false
-        CloudFile.Exists file |> runLocal |> shouldEqual false
+        CloudDirectory.Exists dir.Path |> runLocal |> shouldEqual false
+        CloudFile.Exists file.Path |> runLocal |> shouldEqual false
 
 
 /// Cloud file store test suite
@@ -383,11 +383,11 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
         let sc = __.FileStoreClient
         let lines = Array.init 10 string
         let file = sc.File.WriteAllLines(lines)
-        sc.File.ReadLines(file)
+        sc.File.ReadLines(file.Path)
         |> Seq.toArray
         |> shouldEqual lines
 
-        sc.File.ReadAllLines(file)
+        sc.File.ReadAllLines(file.Path)
         |> shouldEqual lines
 
 
