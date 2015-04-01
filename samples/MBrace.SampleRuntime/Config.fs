@@ -55,11 +55,11 @@ type Config private () =
     static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Pickler
     static member WorkingDirectory = checkInitialized() ; workingDirectory
     static member FileStoreCache = checkInitialized() ; fileCache
-    static member ObjectCache = checkInitialized() ; objectCache
+    static member ObjectCache = checkInitialized() ; objectCache :> IObjectCache
     static member LocalEndPoint = checkInitialized() ; TcpListenerPool.GetListener().LocalEndPoint
     static member LocalAddress = 
         checkInitialized() ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
 
     static member WithCachedFileStore(config : CloudFileStoreConfiguration) =
         let cacheStore = FileStoreCache.Create(config.FileStore, Config.FileStoreCache, localCacheContainer = "cache") :> ICloudFileStore
-        { config with FileStore = cacheStore ; Cache = Some (Config.ObjectCache :> _) }
+        { config with FileStore = cacheStore }

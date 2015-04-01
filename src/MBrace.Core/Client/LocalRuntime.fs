@@ -71,11 +71,13 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="logger">Logger abstraction. Defaults to no logging.</param>
     /// <param name="fileConfig">File store configuration. Defaults to no file store.</param>
+    /// <param name="objectCache">Object caching instance. Defaults to no cache.</param>
     /// <param name="atomConfig">Cloud atom configuration. Defaults to in-memory atoms.</param>
     /// <param name="channelConfig">Cloud channel configuration. Defaults to in-memory channels.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
     static member Create(?logger : ICloudLogger,
                             ?fileConfig : CloudFileStoreConfiguration,
+                            ?objectCache : IObjectCache,
                             ?atomConfig : CloudAtomConfiguration,
                             ?channelConfig : CloudChannelConfiguration,
                             ?resources : ResourceRegistry) : LocalRuntime =
@@ -87,6 +89,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
             yield ThreadPoolRuntime.Create(?logger = logger) :> IDistributionProvider
             yield atomConfig
             yield channelConfig
+            match objectCache with Some oc -> yield oc | None -> ()
             match fileConfig with Some fc -> yield fc | None -> ()
             match resources with Some r -> yield! r | None -> ()
         }

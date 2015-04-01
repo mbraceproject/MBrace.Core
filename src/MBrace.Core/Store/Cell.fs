@@ -33,71 +33,50 @@ type CloudCell<'T> =
         { uuid = uuid ; path = path ; serializer = serializer ; cacheByDefault = cacheByDefault }
 
     /// Path to cloud cell payload in store
-    member r.Path = r.path
+    member c.Path = c.path
 
-    /// Gets or sets the caching behaviour for the instance
-    member r.CacheByDefault
-        with get () = r.cacheByDefault
-        and set c = r.cacheByDefault <- c
+    /// Enables or disables implicit, on-demand caching of values when first dereferenced.
+    member c.CacheByDefault
+        with get () = c.cacheByDefault
+        and set cbd = c.cacheByDefault <- cbd
 
-    member private r.GetValueFromStore(config : CloudFileStoreConfiguration) = async {
-        let serializer = match r.serializer with Some s -> s | None -> config.Serializer
-        use! stream = config.FileStore.BeginRead r.path
-        // deserialize payload
-        return serializer.Deserialize<'T>(stream, leaveOpen = false)
-    }
+    interface ICloudCacheable<'T> with
+        member c.UUID = c.uuid
+        member c.GetSourceValue() = local {
+            let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+            let serializer = match c.serializer with Some s -> s | None -> config.Serializer
+            use! stream = ofAsync <| config.FileStore.BeginRead c.path
+            // deserialize payload
+            return serializer.Deserialize<'T>(stream, leaveOpen = false)
+        }
 
     /// Dereference the cloud cell
-    member r.Value = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        match config.Cache |> Option.bind (fun c -> c.TryFind r.uuid) with
-        | Some v -> return v :?> 'T
-        | None ->
-            let! value = ofAsync <| r.GetValueFromStore(config)
-            if r.cacheByDefault then
-                match config.Cache with
-                | None -> ()
-                | Some ch -> ignore <| ch.Add(r.uuid, value)
-
-            return value
-    }
+    member c.Value = local { return! CloudCache.GetCachedValue(c, cacheIfNotExists = c.CacheByDefault) }
 
     /// Caches the cloud cell value to the local execution contexts. Returns true iff successful.
-    member r.PopulateCache() = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        match config.Cache with
-        | None -> return false
-        | Some c ->
-            if c.ContainsKey r.uuid then return true
-            else
-                let! v = ofAsync <| r.GetValueFromStore(config)
-                return c.Add(r.uuid, v)
-    }
+    member c.PopulateCache() = local { return! CloudCache.PopulateCache c }
 
     /// Indicates if array is cached in local execution context
-    member c.IsCachedLocally = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.Cache |> Option.exists(fun ch -> ch.ContainsKey c.uuid)
-    }
+    member c.IsCachedLocally = local { return! CloudCache.IsCachedLocally c }
 
     /// Gets the size of cloud cell in bytes
-    member r.Size = local {
+    member c.Size = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        return! ofAsync <| config.FileStore.GetFileSize r.path
+        return! ofAsync <| config.FileStore.GetFileSize c.path
     }
 
-    override r.ToString() = sprintf "CloudCell[%O] at %s" typeof<'T> r.path
-    member private r.StructuredFormatDisplay = r.ToString()
+    override c.ToString() = sprintf "CloudCell[%O] at %s" typeof<'T> c.path
+    member private c.StructuredFormatDisplay = c.ToString()
 
     interface ICloudDisposable with
-        member r.Dispose () = local {
+        member c.Dispose () = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            return! ofAsync <| config.FileStore.DeleteFile r.path
+            return! ofAsync <| config.FileStore.DeleteFile c.path
         }
 
     interface ICloudStorageEntity with
-        member r.Type = sprintf "cloudref:%O" typeof<'T>
-        member r.Id = r.path
+        member c.Type = sprintf "cloudref:%O" typeof<'T>
+        member c.Id = c.path
 
 #nowarn "444"
 
@@ -110,7 +89,7 @@ type CloudCell =
     /// <param name="value">Cloud cell value.</param>
     /// <param name="directory">FileStore directory used for cloud cell. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    /// <param name="cacheByDefault">Enables implicit, on-demand caching of cell value across instances. Defaults to false.</param>
     static member New(value : 'T, ?directory : string, ?serializer : ISerializer, ?cacheByDefault : bool) = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
