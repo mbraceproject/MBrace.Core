@@ -38,19 +38,8 @@ type ICloudCacheable<'T> =
     /// Used to dereference values from local caches.
     abstract UUID : string
     /// Fetches/computes the cacheable value from its source.
+    /// This will NOT return return a cached value even if it exists in context.
     abstract GetSourceValue : unit -> Local<'T>
-
-// Anonymous CloudCacheable implementation
-// Avoid using object expressions here
-[<DataContract>]
-type private AnonCloudCacheable<'T>(evaluator : Local<'T>) =
-    [<DataMember(Name = "UUID")>]
-    let uuid = Guid.NewGuid().ToString()
-    [<DataMember(Name = "Evaluator")>]
-    let evaluator = evaluator
-    interface ICloudCacheable<'T> with
-        member __.UUID = uuid
-        member __.GetSourceValue () = evaluator
 
 /// CloudCache static methods.
 type CloudCache =
@@ -59,8 +48,8 @@ type CloudCache =
     ///     Wraps a local workflow into a cacheable entity.
     /// </summary>
     /// <param name="evaluator">Evaluator that produces the cacheable value.</param>
-    static member CreateCacheableEntity(evaluator : Local<'T>) : ICloudCacheable<'T> =
-        new AnonCloudCacheable<'T>(evaluator) :> _
+    static member CreateCacheableEntity(evaluator : Local<'T>, ?cacheByDefault : bool) : CloudCacheable<'T> =
+        new CloudCacheable<'T>(evaluator, defaultArg cacheByDefault true)
 
     /// <summary>
     ///     Populates cache in the current execution context with
@@ -129,3 +118,30 @@ type CloudCache =
                 if cacheIfNotExists then ignore <| c.Add(entity.UUID, t)
                 return t
     }
+
+/// Anonymous CloudCacheable workflow wrapper
+and [<DataContract; Sealed>] CloudCacheable<'T> internal (evaluator : Local<'T>, cacheByDefault : bool) =
+    [<DataMember(Name = "UUID")>]
+    let uuid = Guid.NewGuid().ToString() // cached instances uniquely identified by constructor-generated id's.
+    [<DataMember(Name = "Evaluator")>]
+    let evaluator = evaluator
+    [<DataMember(Name = "CacheByDefault")>]
+    let mutable cacheByDefault = cacheByDefault
+    interface ICloudCacheable<'T> with
+        member __.UUID = uuid
+        member __.GetSourceValue () = evaluator
+
+    /// Enables or disables implicit caching when
+    /// value is dereferenced in a given execution context.
+    member __.CacheByDefault
+        with get () = cacheByDefault
+        and set cbd = cacheByDefault <- cbd
+
+    /// Dereferences cacheable value from source or local cache.
+    member cc.Value = local { return! CloudCache.GetCachedValue(cc, cacheIfNotExists = cacheByDefault) }
+    /// Force caching of value to local cache.
+    member cc.PopulateCache () = local { return! CloudCache.PopulateCache cc }
+    /// Gets the cache status in the local execution context.
+    member cc.IsCachedLocally = local { return! CloudCache.IsCached cc }
+    /// Try getting value from the local cache only.
+    member cc.TryGetCachedValue () = local { return! CloudCache.TryGetCachedValue cc }
