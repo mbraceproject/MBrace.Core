@@ -121,13 +121,16 @@ type CloudCache =
     }
 
 /// Anonymous CloudCacheable workflow wrapper
-and [<DataContract; Sealed>] CloudCacheable<'T> internal (evaluator : Local<'T>, cacheByDefault : bool) =
+and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] 
+ CloudCacheable<'T> internal (evaluator : Local<'T>, cacheByDefault : bool) =
+
     [<DataMember(Name = "UUID")>]
     let uuid = Guid.NewGuid().ToString() // cached instances uniquely identified by constructor-generated id's.
     [<DataMember(Name = "Evaluator")>]
     let evaluator = evaluator
     [<DataMember(Name = "CacheByDefault")>]
     let mutable cacheByDefault = cacheByDefault
+
     interface ICloudCacheable<'T> with
         member __.UUID = uuid
         member __.GetSourceValue () = evaluator
@@ -146,3 +149,6 @@ and [<DataContract; Sealed>] CloudCacheable<'T> internal (evaluator : Local<'T>,
     member cc.IsCachedLocally = local { return! CloudCache.IsCachedLocally cc }
     /// Try getting value from the local cache only.
     member cc.TryGetCachedValue () = local { return! CloudCache.TryGetCachedValue cc }
+
+    override c.ToString() = sprintf "CloudCacheable[%O] %s" typeof<'T> uuid
+    member private c.StructuredFormatDisplay = c.ToString()
