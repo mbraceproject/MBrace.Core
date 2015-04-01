@@ -72,7 +72,7 @@ type CloudCache =
     ///     Checks if entity is cached in the local execution context.
     /// </summary>
     /// <param name="entity">Cacheable entity.</param>
-    static member IsCached(entity : ICloudCacheable<'T>) : Local<bool> = local {
+    static member IsCachedLocally(entity : ICloudCacheable<'T>) : Local<bool> = local {
         let! cache = Cloud.TryGetResource<IObjectCache> ()
         return cache |> Option.exists (fun c -> c.ContainsKey entity.UUID)
     }
@@ -143,6 +143,6 @@ and [<DataContract; Sealed>] CloudCacheable<'T> internal (evaluator : Local<'T>,
     /// Force caching of value to local cache.
     member cc.PopulateCache () = local { return! CloudCache.PopulateCache cc }
     /// Gets the cache status in the local execution context.
-    member cc.IsCachedLocally = local { return! CloudCache.IsCached cc }
+    member cc.IsCachedLocally = local { return! CloudCache.IsCachedLocally cc }
     /// Try getting value from the local cache only.
     member cc.TryGetCachedValue () = local { return! CloudCache.TryGetCachedValue cc }

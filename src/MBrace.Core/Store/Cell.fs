@@ -57,7 +57,7 @@ type CloudCell<'T> =
     member c.PopulateCache() = local { return! CloudCache.PopulateCache c }
 
     /// Indicates if array is cached in local execution context
-    member c.IsCachedLocally = local { return! CloudCache.IsCached c }
+    member c.IsCachedLocally = local { return! CloudCache.IsCachedLocally c }
 
     /// Gets the size of cloud cell in bytes
     member c.Size = local {

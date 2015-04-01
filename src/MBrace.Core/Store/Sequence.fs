@@ -107,7 +107,7 @@ type CloudSequence<'T> =
     member c.PopulateCache () = local { return! CloudCache.PopulateCache c }
 
     /// Indicates if array is cached in local execution context
-    member c.IsCachedLocally = local { return! CloudCache.IsCached c }
+    member c.IsCachedLocally = local { return! CloudCache.IsCachedLocally c }
 
     /// Path to Cloud sequence in store
     member c.Path = c.path
