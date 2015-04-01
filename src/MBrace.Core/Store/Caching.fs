@@ -48,6 +48,7 @@ type CloudCache =
     ///     Wraps a local workflow into a cacheable entity.
     /// </summary>
     /// <param name="evaluator">Evaluator that produces the cacheable value.</param>
+    /// <param name="cacheByDefault">Enables implicit, on-demand caching of instance value. Defaults to true.</param>
     static member CreateCacheableEntity(evaluator : Local<'T>, ?cacheByDefault : bool) : CloudCacheable<'T> =
         new CloudCacheable<'T>(evaluator, defaultArg cacheByDefault true)
 

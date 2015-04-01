@@ -112,7 +112,7 @@ type CloudSequence<'T> =
     /// Path to Cloud sequence in store
     member c.Path = c.path
 
-    /// Gets or sets the caching behaviour for the instance
+    /// Enables or disables implicit, on-demand caching of values when first dereferenced.
     member c.CacheByDefault
         with get () = c.cacheByDefault
         and set s = c.cacheByDefault <- s
@@ -159,7 +159,7 @@ type CloudSequence =
     /// <param name="values">Input sequence.</param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    /// <param name="cacheByDefault">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
     static member New(values : seq<'T>, ?directory, ?serializer, ?cacheByDefault) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory

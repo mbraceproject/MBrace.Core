@@ -35,7 +35,7 @@ type CloudCell<'T> =
     /// Path to cloud cell payload in store
     member c.Path = c.path
 
-    /// Gets or sets the caching behaviour for the instance
+    /// Enables or disables implicit, on-demand caching of values when first dereferenced.
     member c.CacheByDefault
         with get () = c.cacheByDefault
         and set cbd = c.cacheByDefault <- cbd
@@ -89,7 +89,7 @@ type CloudCell =
     /// <param name="value">Cloud cell value.</param>
     /// <param name="directory">FileStore directory used for cloud cell. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    /// <param name="cacheByDefault">Enables implicit, on-demand caching of cell value across instances. Defaults to false.</param>
     static member New(value : 'T, ?directory : string, ?serializer : ISerializer, ?cacheByDefault : bool) = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
