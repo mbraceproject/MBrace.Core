@@ -3,6 +3,8 @@
 open System
 open System.IO
 
+open MBrace
+
 /// Cloud file storage abstraction
 type ICloudFileStore =
 
@@ -132,6 +134,7 @@ type ICloudFileStore =
 
 /// Cloud storage entity identifier
 type ICloudStorageEntity =
+    inherit ICloudDisposable
     /// Type identifier for entity
     abstract Type : string
     /// Entity unique identifier
@@ -144,8 +147,6 @@ type CloudFileStoreConfiguration =
         FileStore : ICloudFileStore
         /// Default directory used by current execution context.
         DefaultDirectory : string
-        // Local caching facility
-        Cache : IObjectCache option
         // Default serializer
         Serializer : ISerializer
     }
@@ -156,12 +157,10 @@ with
     /// <param name="fileStore">File store instance.</param>
     /// <param name="serializer">Serializer instance.</param>
     /// <param name="defaultDirectory">Default directory for current process. Defaults to auto generated.</param>
-    /// <param name="cache">Object cache. Defaults to no cache.</param>
-    static member Create(fileStore : ICloudFileStore, serializer : ISerializer, ?defaultDirectory : string, ?cache : IObjectCache) =
+    static member Create(fileStore : ICloudFileStore, serializer : ISerializer, ?defaultDirectory : string) =
         {
             FileStore = fileStore
             DefaultDirectory = match defaultDirectory with Some d -> d | None -> fileStore.GetRandomDirectoryName()
-            Cache = cache
             Serializer = serializer
         }
 

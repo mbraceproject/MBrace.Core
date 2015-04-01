@@ -28,8 +28,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     abstract RunLocal : Cloud<'T> -> 'T
     /// Store client to be tested
     abstract FileStoreClient : FileStoreClient
-    /// denotes that underlying store employs caching
-    abstract IsCachingStore : bool
+    /// denotes that runtime uses in-memory object caching
+    abstract IsObjectCacheInstalled : bool
 
     //
     //  Section 2. FileStore via MBrace runtime
@@ -43,7 +43,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudCell - caching`` () = 
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             cloud {
                 let! c = CloudCell.New [1..10000]
                 let! r = c.PopulateCache()
@@ -56,7 +56,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudCell - cache by default`` () =
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             let ref = runRemote <| CloudCell.New(42, cacheByDefault = true)
             cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
 
@@ -83,7 +83,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - caching`` () = 
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             cloud {
                 let! c = CloudSequence.New [1..10000]
                 let! success = c.PopulateCache()
@@ -96,7 +96,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - cache by default`` () = 
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             let seq = runRemote <| CloudSequence.New([1..1000], cacheByDefault = true)
             cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
 
@@ -258,10 +258,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
+type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, ?objectCache : IObjectCache) =
     inherit ``FileStore Tests`` (parallelismFactor = 100)
 
-    let imem = LocalRuntime.Create(fileConfig = config)
+    let imem = LocalRuntime.Create(fileConfig = config, ?objectCache = objectCache)
 
     let fileStore = config.FileStore
     let testDirectory = fileStore.GetRandomDirectoryName()
@@ -270,6 +270,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
     override __.Run wf = imem.Run wf
     override __.RunLocal wf = imem.Run wf
     override __.FileStoreClient = imem.StoreClient.FileStore
+    override __.IsObjectCacheInstalled = Option.isSome objectCache
 
     //
     //  Section 1: Local raw fileStore tests
