@@ -68,14 +68,12 @@
     <Compile Include="Continuation\Builders.fs" />
     <Compile Include="Continuation\Continuation.fs" />
     <Compile Include="Store\Serializer.fs" />
-    <Compile Include="Store\Cache.fs" />
+    <Compile Include="Store\Caching.fs" />
     <Compile Include="Store\FileStore.fs" />
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Channel.fs" />
-    <Compile Include="Store\CloudFile.fs" />
-    <Compile Include="Store\CloudCacheable.fs" />
-    <Compile Include="Store\CloudCell.fs" />
-    <Compile Include="Store\CloudSequence.fs" />
+    <Compile Include="Store\Cell.fs" />
+    <Compile Include="Store\Sequence.fs" />
     <Compile Include="Distribution\Logging.fs" />
     <Compile Include="Distribution\FaultPolicy.fs" />
     <Compile Include="Distribution\RuntimeTypes.fs" />

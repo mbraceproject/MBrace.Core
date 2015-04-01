@@ -15,8 +15,8 @@ type ``InMemory CloudFlow tests`` () =
     let fileStore = FileSystemStore.CreateUniqueLocal()
     let serializer = new FsPicklerBinaryStoreSerializer()
     let objcache = InMemoryCache.Create()
-    let fsConfig = CloudFileStoreConfiguration.Create(fileStore, serializer, cache = objcache)
-    let imem = MBrace.Client.LocalRuntime.Create(fileConfig = fsConfig)
+    let fsConfig = CloudFileStoreConfiguration.Create(fileStore, serializer)
+    let imem = MBrace.Client.LocalRuntime.Create(fileConfig = fsConfig, objectCache = objcache)
 
     override __.Run(workflow : Cloud<'T>) = imem.Run workflow
     override __.RunLocal(workflow : Cloud<'T>) = imem.Run workflow

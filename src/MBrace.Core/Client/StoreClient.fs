@@ -296,92 +296,62 @@ type CloudDirectoryClient internal (registry : ResourceRegistry) =
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
     
     /// <summary>
-    ///     Checks if directory exists in given path
+    ///     Checks if directory path exists in given path.
     /// </summary>
-    /// <param name="directory">Path to directory.</param>
-    member c.ExistsAsync(directory : string) : Async<bool> = 
-        CloudDirectory.Exists(directory) |> toAsync
+    /// <param name="dirPath">Path to directory.</param>
+    member c.ExistsAsync(dirPath : string) : Async<bool> = 
+        CloudDirectory.Exists(dirPath) |> toAsync
 
     /// <summary>
     ///     Checks if directory exists in given path
     /// </summary>
-    /// <param name="directory">Path to directory.</param>
-    member c.ExistsAsync(directory : CloudDirectory) : Async<bool> =
-        c.ExistsAsync directory.Path
-
-    /// <summary>
-    ///     Checks if directory exists in given path
-    /// </summary>
-    /// <param name="directory">Path to directory.</param>
-    member c.Exists(directory : string) : bool = 
-        c.ExistsAsync directory |> toSync
-
-    /// <summary>
-    ///     Checks if directory exists in given path
-    /// </summary>
-    /// <param name="directory">Path to directory.</param>
-    member c.Exists(directory : CloudDirectory) : bool =
-        c.Exists directory.Path
+    /// <param name="dirPath">Path to directory.</param>
+    member c.Exists(dirPath : string) : bool = 
+        c.ExistsAsync dirPath |> toSync
 
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
-    /// <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
-    member c.CreateAsync(?directory : string) : Async<CloudDirectory> =
-        CloudDirectory.Create(?directory = directory) |> toAsync
+    /// <param name="dirPath">Path to directory. Defaults to randomly generated directory.</param>
+    member c.CreateAsync(?dirPath : string) : Async<CloudDirectory> =
+        CloudDirectory.Create(?dirPath = dirPath) |> toAsync
 
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
-    /// <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
-    member c.Create(?directory : string) : CloudDirectory =
-        c.CreateAsync(?directory = directory) |> toSync
+    /// <param name="dirPath">Path to directory. Defaults to randomly generated directory.</param>
+    member c.Create(?dirPath : string) : CloudDirectory =
+        c.CreateAsync(?dirPath = dirPath) |> toSync
 
     /// <summary>
     ///     Deletes directory from store.
     /// </summary>
-    /// <param name="directory">Directory to be deleted.</param>
+    /// <param name="dirPath">Path to directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member c.DeleteAsync(directory : string, ?recursiveDelete : bool) : Async<unit> = 
-        CloudDirectory.Delete(directory, ?recursiveDelete = recursiveDelete) |> toAsync
+    member c.DeleteAsync(dirPath : string, ?recursiveDelete : bool) : Async<unit> = 
+        CloudDirectory.Delete(dirPath, ?recursiveDelete = recursiveDelete) |> toAsync
 
     /// <summary>
     ///     Deletes directory from store.
     /// </summary>
-    /// <param name="directory">Directory to be deleted.</param>
+    /// <param name="dirPath">Path to directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member c.DeleteAsync(directory : CloudDirectory, ?recursiveDelete : bool) : Async<unit> =
-        c.DeleteAsync(directory.Path, ?recursiveDelete = recursiveDelete)
-
-    /// <summary>
-    ///     Deletes directory from store.
-    /// </summary>
-    /// <param name="directory">Directory to be deleted.</param>
-    /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member c.Delete(directory : string, ?recursiveDelete : bool) : unit = 
-        c.DeleteAsync(directory, ?recursiveDelete = recursiveDelete) |> toSync
-
-    /// <summary>
-    ///     Deletes directory from store.
-    /// </summary>
-    /// <param name="directory">Directory to be deleted.</param>
-    /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member c.Delete(directory : CloudDirectory, ?recursiveDelete : bool) : unit = 
-        c.DeleteAsync(directory, ?recursiveDelete = recursiveDelete) |> toSync
+    member c.Delete(dirPath : string, ?recursiveDelete : bool) : unit = 
+        c.DeleteAsync(dirPath, ?recursiveDelete = recursiveDelete) |> toSync
 
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
-    /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
-    member c.EnumerateAsync(?directory : string) : Async<CloudDirectory []> = 
-        CloudDirectory.Enumerate(?directory = directory) |> toAsync
+    /// <param name="dirPath">Path to directory to be enumerated. Defaults to root directory.</param>
+    member c.EnumerateAsync(?dirPath : string) : Async<CloudDirectory []> = 
+        CloudDirectory.Enumerate(?dirPath = dirPath) |> toAsync
 
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
-    /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
-    member c.Enumerate(?directory : string) : CloudDirectory [] = 
-        c.EnumerateAsync(?directory = directory) |> toSync
+    /// <param name="dirPath">Path to directory to be enumerated. Defaults to root directory.</param>
+    member c.Enumerate(?dirPath : string) : CloudDirectory [] = 
+        c.EnumerateAsync(?dirPath = dirPath) |> toSync
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of file store operations
@@ -393,86 +363,44 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Gets the size of provided file, in bytes.
     /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member c.GetSizeAsync(path : string) : Async<int64> = 
         CloudFile.GetSize(path) |> toAsync
 
     /// <summary>
     ///     Gets the size of provided file, in bytes.
     /// </summary>
-    /// <param name="file">Input file.</param>
-    member c.GetSizeAsync(file : CloudFile) : Async<int64> =
-        CloudFile.GetSize(file.Path) |> toAsync
-
-    /// <summary>
-    ///     Gets the size of provided file, in bytes.
-    /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member c.GetSize(path : string) : int64 = 
         c.GetSizeAsync(path) |> toSync
 
     /// <summary>
-    ///     Gets the size of provided file, in bytes.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    member c.GetSize(file : CloudFile) : int64 = 
-        c.GetSizeAsync(file) |> toSync
-
-    /// <summary>
     ///     Checks if file exists in store.
     /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member c.ExistsAsync(path : string) : Async<bool> = 
         CloudFile.Exists(path) |> toAsync
 
     /// <summary>
     ///     Checks if file exists in store.
     /// </summary>
-    /// <param name="file">Input file.</param>
-    member c.ExistsAsync(file : CloudFile) : Async<bool> =
-        CloudFile.Exists(file) |> toAsync
-
-    /// <summary>
-    ///     Checks if file exists in store.
-    /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member c.Exists(path : string) : bool = 
         c.ExistsAsync(path) |> toSync
 
     /// <summary>
-    ///     Checks if file exists in store.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    member c.Exists(file : CloudFile) : bool =
-        c.ExistsAsync(file) |> toSync
-
-    /// <summary>
     ///     Deletes file in given path.
     /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member c.DeleteAsync(path : string) : Async<unit> = 
         CloudFile.Delete(path) |> toAsync
 
     /// <summary>
     ///     Deletes file in given path.
     /// </summary>
-    /// <param name="file">Input file.</param>
-    member c.DeleteAsync(file : CloudFile) : Async<unit> =
-        CloudFile.Delete(file) |> toAsync
-
-    /// <summary>
-    ///     Deletes file in given path.
-    /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member c.Delete(path : string) : unit = 
         c.DeleteAsync(path) |> toSync
-
-    /// <summary>
-    ///     Deletes file in given path.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    member c.Delete(file : CloudFile) : unit =
-        c.DeleteAsync(file) |> toSync
 
     /// <summary>
     ///     Creates a new file in store with provided serializer function.
@@ -486,10 +414,10 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     ///     Creates a new file in store with provided serializer function.
     /// </summary>
     /// <param name="serializer">Serializer function.</param>
-    /// <param name="directory">Containing directory.</param>
+    /// <param name="dirPath">Path to containing directory.</param>
     /// <param name="fileName">File name.</param>
-    member c.CreateAsync(serializer : Stream -> Async<unit>, directory : string, fileName : string) : Async<CloudFile> = 
-        CloudFile.Create(serializer, directory, fileName) |> toAsync
+    member c.CreateAsync(serializer : Stream -> Async<unit>, dirPath : string, fileName : string) : Async<CloudFile> = 
+        CloudFile.Create(serializer, dirPath, fileName) |> toAsync
 
     /// <summary>
     ///     Creates a new file in store with provided serializer function.
@@ -503,15 +431,15 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     ///     Creates a new file in store with provided serializer function.
     /// </summary>
     /// <param name="serializer">Serializer function.</param>
-    /// <param name="directory">Containing directory.</param>
+    /// <param name="dirPath">Path to containing directory.</param>
     /// <param name="fileName">File name.</param>
-    member c.Create(serializer : Stream -> Async<unit>, directory : string, fileName : string) : CloudFile = 
-        c.CreateAsync(serializer, directory, fileName) |> toSync
+    member c.Create(serializer : Stream -> Async<unit>, dirPath : string, fileName : string) : CloudFile = 
+        c.CreateAsync(serializer, dirPath, fileName) |> toSync
 
     /// <summary>
     ///     Reads file in store with provided deserializer function.
     /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
     /// <param name="leaveOpen">Leave stream open after deserialization. Defaults to false.</param>
     member c.ReadAsync<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Async<'T> = 
@@ -520,43 +448,25 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Reads file in store with provided deserializer function.
     /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="deserializer">Deserializer function.</param>
-    /// <param name="leaveOpen">Leave stream open after deserialization. Defaults to false.</param>
-    member c.ReadAsync<'T>(file : CloudFile, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Async<'T> = 
-        c.ReadAsync(file.Path, deserializer, ?leaveOpen = leaveOpen)
-
-    /// <summary>
-    ///     Reads file in store with provided deserializer function.
-    /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
     /// <param name="leaveOpen">Leave stream open after deserialization. Defaults to false.</param>
     member c.Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : 'T = 
         c.ReadAsync<'T>(path, deserializer, ?leaveOpen = leaveOpen) |> toSync
 
     /// <summary>
-    ///     Reads file in store with provided deserializer function.
+    ///     Gets all files that exist in given container.
     /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="deserializer">Deserializer function.</param>
-    /// <param name="leaveOpen">Leave stream open after deserialization. Defaults to false.</param>
-    member c.Read<'T>(file : CloudFile, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : 'T = 
-        c.ReadAsync<'T>(file.Path, deserializer, ?leaveOpen = leaveOpen) |> toSync
+    /// <param name="dirPath">Path to directory. Defaults to the process directory.</param>
+    member c.EnumerateAsync(?dirPath : string) : Async<CloudFile []> = 
+        CloudFile.Enumerate(?dirPath = dirPath) |> toAsync
 
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
-    /// <param name="directory">Path to directory. Defaults to the process directory.</param>
-    member c.EnumerateAsync(?directory : string) : Async<CloudFile []> = 
-        CloudFile.Enumerate(?directory = directory) |> toAsync
-
-    /// <summary>
-    ///     Gets all files that exist in given container.
-    /// </summary>
-    /// <param name="directory">Path to directory. Defaults to the process directory.</param>
-    member c.Enumerate(?directory : string) : CloudFile [] = 
-        c.EnumerateAsync(?directory = directory) |> toSync
+    /// <param name="dirPath">Path to directory. Defaults to the process directory.</param>
+    member c.Enumerate(?dirPath : string) : CloudFile [] = 
+        c.EnumerateAsync(?dirPath = dirPath) |> toSync
 
     //
     //  Cloud file text utilities
@@ -567,7 +477,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    /// <param name="path">Path to CloudFile.</param>
+    /// <param name="path">Path to file.</param>
     member c.WriteAllLinesAsync(lines : seq<string>, ?encoding : Encoding, ?path : string) : Async<CloudFile> = 
         CloudFile.WriteAllLines(lines, ?encoding = encoding, ?path = path) |> toAsync
 
@@ -584,69 +494,34 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Reads a file as a sequence of lines.
     /// </summary>
-    /// <param name="file">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLinesAsync(file : string, ?encoding : Encoding) : Async<string seq> =
-        CloudFile.ReadLines(file, ?encoding = encoding) |> toAsync
+    member c.ReadLinesAsync(path : string, ?encoding : Encoding) : Async<string seq> =
+        CloudFile.ReadLines(path, ?encoding = encoding) |> toAsync
 
     /// <summary>
     ///     Reads a file as a sequence of lines.
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLines(file : string, ?encoding : Encoding) : string seq =
-        c.ReadLinesAsync(file, ?encoding = encoding) |> toSync
-
-    /// <summary>
-    ///     Reads a file as a sequence of lines.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="encoding">Text encoding.</param>
-    member c.ReadLinesAsync(file : CloudFile, ?encoding : Encoding) : Async<string seq> = 
-        c.ReadLinesAsync(file.Path, ?encoding = encoding)
-
-    /// <summary>
-    ///     Reads a file as a sequence of lines.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="encoding">Text encoding.</param>
-    member c.ReadLines(file : CloudFile, ?encoding : Encoding) : string seq = 
-        c.ReadLines(file.Path, ?encoding = encoding)
-
-
+    member c.ReadLines(path : string, ?encoding : Encoding) : seq<string> =
+        c.ReadLinesAsync(path, ?encoding = encoding) |> toSync
 
     /// <summary>
     ///     Reads a file as an array of lines.
     /// </summary>
-    /// <param name="file">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllLinesAsync(file : string, ?encoding : Encoding) : Async<string []> =
-        CloudFile.ReadAllLines(file, ?encoding = encoding) |> toAsync
+    member c.ReadAllLinesAsync(path : string, ?encoding : Encoding) : Async<string []> =
+        CloudFile.ReadAllLines(path, ?encoding = encoding) |> toAsync
 
     /// <summary>
     ///     Reads a file as an array of lines.
     /// </summary>
-    /// <param name="file">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllLines(file : string, ?encoding : Encoding) : string [] =
-        c.ReadAllLinesAsync(file, ?encoding = encoding) |> toSync
-
-    /// <summary>
-    ///     Reads a file as an array of lines.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllLinesAsync(file : CloudFile, ?encoding : Encoding) : Async<string []> = 
-        c.ReadAllLinesAsync(file.Path, ?encoding = encoding)
-
-    /// <summary>
-    ///     Reads a file as an array of lines.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllLines(file : CloudFile, ?encoding : Encoding) : string [] = 
-        c.ReadAllLines(file.Path, ?encoding = encoding)
-
+    member c.ReadAllLines(path : string, ?encoding : Encoding) : string [] =
+        c.ReadAllLinesAsync(path, ?encoding = encoding) |> toSync
 
 
     /// <summary>
@@ -671,44 +546,24 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Dump all file contents to a single string.
     /// </summary>
-    /// <param name="file">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member __.ReadAllTextAsync(file : string, ?encoding : Encoding) : Async<string> =
-        CloudFile.ReadAllText(file, ?encoding = encoding) |> toAsync
+    member __.ReadAllTextAsync(path : string, ?encoding : Encoding) : Async<string> =
+        CloudFile.ReadAllText(path, ?encoding = encoding) |> toAsync
 
     /// <summary>
     ///     Dump all file contents to a single string.
     /// </summary>
-    /// <param name="file">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllText(file : string, ?encoding : Encoding) : string =
-        c.ReadAllTextAsync(file, ?encoding = encoding) |> toSync
-
-
-    /// <summary>
-    ///     Dump all file contents to a single string.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="encoding">Text encoding.</param>
-    member __.ReadAllTextAsync(file : CloudFile, ?encoding : Encoding) : Async<string> =
-        __.ReadAllTextAsync(file.Path, ?encoding = encoding)
-
-    /// <summary>
-    ///     Dump all file contents to a single string.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    /// <param name="encoding">Text encoding.</param>
-    member __.ReadAllText(file : CloudFile, ?encoding : Encoding) : string =
-        __.ReadAllTextAsync(file.Path, ?encoding = encoding) |> toSync
-
-
-
+    member c.ReadAllText(path : string, ?encoding : Encoding) : string =
+        c.ReadAllTextAsync(path, ?encoding = encoding) |> toSync
 
     /// <summary>
     ///     Write buffer contents to CloudFile.
     /// </summary>
     /// <param name="buffer">Source buffer.</param>
-    /// <param name="path">Path to Cloud file.</param>
+    /// <param name="path">Path to file.</param>
     member __.WriteAllBytesAsync(buffer : byte [], ?path : string) : Async<CloudFile> =
        CloudFile.WriteAllBytes(buffer, ?path = path) |> toAsync
 
@@ -724,36 +579,21 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Store all contents of given file to a new byte array.
     /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member __.ReadAllBytesAsync(path : string) : Async<byte []> =
         CloudFile.ReadAllBytes(path) |> toAsync
 
     /// <summary>
     ///     Store all contents of given file to a new byte array.
     /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to input file.</param>
     member __.ReadAllBytes(path : string) : byte [] =
         __.ReadAllBytesAsync(path) |> toSync
-
-
-    /// <summary>
-    ///     Store all contents of given file to a new byte array.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    member __.ReadAllBytesAsync(file : CloudFile) : Async<byte []> =
-        __.ReadAllBytesAsync(file.Path)
-
-    /// <summary>
-    ///     Store all contents of given file to a new byte array.
-    /// </summary>
-    /// <param name="file">Input file.</param>
-    member __.ReadAllBytes(file : CloudFile) : byte [] =
-        __.ReadAllBytesAsync(file.Path) |> toSync
 
     /// <summary>
     ///     Uploads a local file to store.
     /// </summary>
-    /// <param name="localFile">Local path to file.</param>
+    /// <param name="localFile">Local file system path to file.</param>
     /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
     member __.UploadAsync(localFile : string, ?targetDirectory : string) : Async<CloudFile> =
         CloudFile.Upload(localFile, ?targetDirectory = targetDirectory) |> toAsync
@@ -761,7 +601,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Uploads a local file to store.
     /// </summary>
-    /// <param name="localFile">Local path to file.</param>
+    /// <param name="localFile">Local file system path to file.</param>
     /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
     member __.Upload(localFile : string, ?targetDirectory : string) : CloudFile =
         __.UploadAsync(localFile, ?targetDirectory = targetDirectory) |> toSync
@@ -771,11 +611,16 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="localFiles">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
-    member __.UploadAsync(localFiles : seq<string>, ?targetDirectory : string) : Async<CloudFile []> = 
+    member __.UploadAsync(localFiles : seq<string>, ?targetDirectory : string) : Async<CloudFile []> =
         local {
+            let localFiles = Seq.toArray localFiles
+            match localFiles |> Array.tryFind (not << File.Exists) with
+            | Some notFound -> raise <| new FileNotFoundException(notFound)
+            | None -> ()
+
             return!
                 localFiles
-                |> Seq.map (fun f -> CloudFile.Upload(f, ?targetDirectory = targetDirectory))
+                |> Array.map (fun f -> CloudFile.Upload(f, ?targetDirectory = targetDirectory))
                 |> Local.Parallel
         } |> toAsync
 

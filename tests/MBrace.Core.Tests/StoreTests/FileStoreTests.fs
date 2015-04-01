@@ -28,8 +28,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     abstract RunLocal : Cloud<'T> -> 'T
     /// Store client to be tested
     abstract FileStoreClient : FileStoreClient
-    /// denotes that underlying store employs caching
-    abstract IsCachingStore : bool
+    /// denotes that runtime uses in-memory object caching
+    abstract IsObjectCacheInstalled : bool
 
     //
     //  Section 2. FileStore via MBrace runtime
@@ -43,7 +43,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudCell - caching`` () = 
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             cloud {
                 let! c = CloudCell.New [1..10000]
                 let! r = c.PopulateCache()
@@ -56,7 +56,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudCell - cache by default`` () =
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             let ref = runRemote <| CloudCell.New(42, cacheByDefault = true)
             cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
 
@@ -83,7 +83,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - caching`` () = 
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             cloud {
                 let! c = CloudSequence.New [1..10000]
                 let! success = c.PopulateCache()
@@ -96,7 +96,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - cache by default`` () = 
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             let seq = runRemote <| CloudSequence.New([1..1000], cacheByDefault = true)
             cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
 
@@ -142,9 +142,9 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
         let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> runRemote
-        CloudFile.GetSize file |> runLocal |> shouldEqual 100L
+        file.Size |> runLocal |> shouldEqual 100L
         cloud {
-            let! bytes = CloudFile.ReadAllBytes file
+            let! bytes = CloudFile.ReadAllBytes file.Path
             return bytes.Length
         } |> runRemote |> shouldEqual 100
 
@@ -157,7 +157,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
         cloud {
-            let! lines = CloudFile.ReadLines file
+            let! lines = CloudFile.ReadLines file.Path
             return Seq.length lines
         } |> runRemote |> shouldEqual 1000
 
@@ -173,7 +173,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                     stream.Flush()
                     stream.Dispose() })
 
-            return! CloudFile.ReadAllBytes f
+            return! CloudFile.ReadAllBytes f.Path
         } |> runRemote |> shouldEqual (mk n)
 
     [<Test>]
@@ -190,7 +190,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         cloud {
             let! file = CloudFile.WriteAllText "lorem ipsum dolor"
             do! cloud { use file = file in () }
-            return! CloudFile.ReadAllText file
+            return! CloudFile.ReadAllText file.Path
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
@@ -211,21 +211,21 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
         cloud {
             use! cf = CloudFile.Create(fun stream -> async { stream.WriteByte(10uy) })
-            return! CloudFile.Read(cf, fun stream -> async { stream.WriteByte(20uy) })
+            return! CloudFile.Read(cf.Path, fun stream -> async { stream.WriteByte(20uy) })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to read nonexistent file`` () =
         cloud {
             let cf = new CloudFile(Guid.NewGuid().ToString())
-            return! CloudFile.Read(cf, fun s -> async { return s.ReadByte() })
+            return! CloudFile.Read(cf.Path, fun s -> async { return s.ReadByte() })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
     member __.``2. MBrace : CloudDirectory - Create; populate; delete`` () =
         cloud {
             let! dir = CloudDirectory.Create ()
-            let! exists = CloudDirectory.Exists dir
+            let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual true
             let write i = cloud {
                 let! path = FileStore.GetRandomFileName dir
@@ -235,10 +235,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
             do! Seq.init 20 write |> Cloud.Parallel |> Cloud.Ignore
 
-            let! files = CloudFile.Enumerate dir
+            let! files = CloudFile.Enumerate dir.Path
             files.Length |> shouldEqual 20
-            do! CloudDirectory.Delete(dir, recursiveDelete = true)
-            let! exists = CloudDirectory.Exists dir
+            do! CloudDirectory.Delete(dir.Path, recursiveDelete = true)
+            let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual false
         } |> runRemote
 
@@ -252,16 +252,16 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                 return dir, file
             } |> runRemote
 
-        CloudDirectory.Exists dir |> runLocal |> shouldEqual false
-        CloudFile.Exists file |> runLocal |> shouldEqual false
+        CloudDirectory.Exists dir.Path |> runLocal |> shouldEqual false
+        CloudFile.Exists file.Path |> runLocal |> shouldEqual false
 
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
+type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, ?objectCache : IObjectCache) =
     inherit ``FileStore Tests`` (parallelismFactor = 100)
 
-    let imem = LocalRuntime.Create(fileConfig = config)
+    let imem = LocalRuntime.Create(fileConfig = config, ?objectCache = objectCache)
 
     let fileStore = config.FileStore
     let testDirectory = fileStore.GetRandomDirectoryName()
@@ -270,6 +270,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
     override __.Run wf = imem.Run wf
     override __.RunLocal wf = imem.Run wf
     override __.FileStoreClient = imem.StoreClient.FileStore
+    override __.IsObjectCacheInstalled = Option.isSome objectCache
 
     //
     //  Section 1: Local raw fileStore tests
@@ -383,11 +384,11 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
         let sc = __.FileStoreClient
         let lines = Array.init 10 string
         let file = sc.File.WriteAllLines(lines)
-        sc.File.ReadLines(file)
+        sc.File.ReadLines(file.Path)
         |> Seq.toArray
         |> shouldEqual lines
 
-        sc.File.ReadAllLines(file)
+        sc.File.ReadAllLines(file.Path)
         |> shouldEqual lines
 
 

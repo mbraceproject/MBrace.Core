@@ -74,56 +74,45 @@ type CloudSequence<'T> =
         let cacheByDefault = defaultArg cacheByDefault false
         { uuid = uuid ; path = path ; count = count ; serializer = serializer ; cacheByDefault = cacheByDefault }
 
-    member private c.GetSequenceFromStore(config : CloudFileStoreConfiguration) = local {
+    member private c.GetSequenceFromStore () = local {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let serializer = match c.serializer with Some c -> c | None -> config.Serializer
         let! stream = ofAsync <| config.FileStore.BeginRead(c.path)
         return serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
     }
 
+    interface ICloudCacheable<'T []> with
+        member c.UUID = c.uuid
+        member c.GetSourceValue () = local {
+            let! seq = c.GetSequenceFromStore()
+            return Seq.toArray seq
+        }
+
     /// Returns an enumerable that lazily fetches elements of the cloud sequence from store.
     member c.ToEnumerable () = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
-        | Some v -> return v :?> seq<'T>
-        | None -> return! c.GetSequenceFromStore(config)
+        if c.CacheByDefault then
+            let! array = CloudCache.GetCachedValue c
+            return array :> seq<'T>
+        else
+            let! cachedValue = CloudCache.TryGetCachedValue c
+            match cachedValue with
+            | None -> return! c.GetSequenceFromStore()
+            | Some cv -> return cv :> seq<'T>
     }
 
     /// Fetches all elements of the cloud sequence and returns them as a local array.
-    member c.ToArray () : Local<'T []> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache |> Option.bind(fun ch -> ch.TryFind c.uuid) with
-        | Some v -> return v :?> 'T []
-        | None ->
-            let! seq = c.GetSequenceFromStore(config)
-            let array = Seq.toArray seq
-            if c.CacheByDefault then
-                config.Cache |> Option.iter(fun ch -> ch.Add(c.uuid, array) |> ignore)
-
-            return array
-    }
+    member c.ToArray () : Local<'T []> = local { return! CloudCache.GetCachedValue(c, cacheIfNotExists = c.CacheByDefault) }
 
     /// Cache contents to local execution context. Returns true iff succesful.
-    member c.PopulateCache () = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        match config.Cache with
-        | None -> return false
-        | Some ch when ch.ContainsKey c.uuid -> return true
-        | Some ch ->
-            let! seq = c.GetSequenceFromStore(config)
-            let array = Seq.toArray seq
-            return ch.Add(c.uuid, array)
-    }
+    member c.PopulateCache () = local { return! CloudCache.PopulateCache c }
 
     /// Indicates if array is cached in local execution context
-    member c.IsCachedLocally = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.Cache |> Option.exists(fun ch -> ch.ContainsKey c.uuid)
-    }
+    member c.IsCachedLocally = local { return! CloudCache.IsCachedLocally c }
 
     /// Path to Cloud sequence in store
     member c.Path = c.path
 
-    /// Gets or sets the caching behaviour for the instance
+    /// Enables or disables implicit, on-demand caching of values when first dereferenced.
     member c.CacheByDefault
         with get () = c.cacheByDefault
         and set s = c.cacheByDefault <- s
@@ -170,7 +159,7 @@ type CloudSequence =
     /// <param name="values">Input sequence.</param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="cacheByDefault">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+    /// <param name="cacheByDefault">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
     static member New(values : seq<'T>, ?directory, ?serializer, ?cacheByDefault) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory

@@ -131,7 +131,7 @@ module CloudFlow =
                                     local {
                                         if index >= files.Length then return (currAcc :: acc) |> List.filter (not << List.isEmpty)
                                         else
-                                            let! length = CloudFile.GetSize(files.[index])
+                                            let! length =files.[index].Size
                                             if length >= maxCloudFileCombinedLength then
                                                 return! partitionByLength files (index + 1) length [files.[index]] (currAcc :: acc)
                                             elif length + currLength >= maxCloudFileCombinedLength then
@@ -148,7 +148,7 @@ module CloudFlow =
                                     let parStream = 
                                         fs
                                         |> ParStream.ofSeq 
-                                        |> ParStream.map (fun file -> CloudFile.Read(file, reader, leaveOpen = true))
+                                        |> ParStream.map (fun file -> CloudFile.Read(file.Path, reader, leaveOpen = true))
                                         |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, ctx.Resources, ctx.CancellationToken))
                                     let collectorResult = parStream.Apply (toParStreamCollector collector)
                                     let! partial = projection collectorResult
