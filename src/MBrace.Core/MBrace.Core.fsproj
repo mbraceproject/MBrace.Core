@@ -72,7 +72,6 @@
     <Compile Include="Store\FileStore.fs" />
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Channel.fs" />
-    <Compile Include="Store\File.fs" />
     <Compile Include="Store\Cell.fs" />
     <Compile Include="Store\Sequence.fs" />
     <Compile Include="Distribution\Logging.fs" />
