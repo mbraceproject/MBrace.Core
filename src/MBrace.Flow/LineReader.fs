@@ -5,8 +5,8 @@ open System.IO
 open System.Text
 
 /// Provides a line reader from an input stream.
-type internal LineReader(stream : Stream) = 
-    let reader = new StreamReader(stream)
+type internal LineReader(stream : Stream, ?encoding : Encoding) = 
+    let reader = match encoding with None -> new StreamReader(stream) | Some e -> new StreamReader(stream, e)
     let buffer : char [] = Array.zeroCreate 4096
     let mutable posInBuffer : int = -1
     let mutable numOfChars : int = 0
