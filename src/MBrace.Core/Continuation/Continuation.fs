@@ -3,7 +3,7 @@
 open System.Threading
 open System.Threading.Tasks
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 
 #nowarn "444"

@@ -4,7 +4,7 @@
 #r "MBrace.SampleRuntime.exe"
 
 open System
-open MBrace
+open MBrace.Core
 open MBrace.Workflows
 open MBrace.SampleRuntime
 

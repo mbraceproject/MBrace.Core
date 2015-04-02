@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Workflows
 
-open MBrace
+open MBrace.Core
 
 [<RequireQualifiedAccess>]
 module Cloud =

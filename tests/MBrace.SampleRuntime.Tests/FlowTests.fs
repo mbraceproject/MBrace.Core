@@ -4,7 +4,7 @@ open System.IO
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.Flow.Tests
 open MBrace.SampleRuntime
 

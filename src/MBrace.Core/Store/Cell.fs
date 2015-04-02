@@ -1,11 +1,11 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 open System
 open System.Runtime.Serialization
 open System.IO
 open System.Text
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Continuation
 

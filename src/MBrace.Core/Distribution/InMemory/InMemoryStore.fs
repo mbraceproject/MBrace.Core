@@ -1,11 +1,9 @@
 ﻿namespace MBrace.Runtime.InMemory
 
-open MBrace
-
 open System
 open System.Threading
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Continuation
 

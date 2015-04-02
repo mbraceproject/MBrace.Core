@@ -4,7 +4,7 @@ open System
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Client
 

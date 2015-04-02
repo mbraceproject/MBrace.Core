@@ -8,7 +8,7 @@ open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Quotations.ExprShape
 
-open MBrace
+open MBrace.Core
 open MBrace.Runtime.Utils.Reflection
 
 /// checks if the given type or covariant type arguments are of type Cloud<'T>

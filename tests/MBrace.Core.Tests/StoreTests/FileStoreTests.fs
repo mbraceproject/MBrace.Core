@@ -5,7 +5,7 @@ open System.IO
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Workflows
 open MBrace.Store

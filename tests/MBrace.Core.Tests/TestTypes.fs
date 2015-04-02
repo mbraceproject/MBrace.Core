@@ -2,7 +2,7 @@
 
 open System.Collections.Generic
 
-open MBrace
+open MBrace.Core
 open MBrace.Workflows
 
 type DummyDisposable() =

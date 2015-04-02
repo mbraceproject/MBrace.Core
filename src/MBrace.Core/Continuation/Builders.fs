@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 //  Cloud builder implementation
 

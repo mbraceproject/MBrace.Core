@@ -5,7 +5,7 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Store
 open MBrace.Runtime

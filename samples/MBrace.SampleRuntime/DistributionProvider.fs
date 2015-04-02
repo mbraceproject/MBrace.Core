@@ -14,7 +14,7 @@ open Nessos.Thespian.Remote
 
 open Nessos.Vagabond
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Workflows
 open MBrace.Runtime.InMemory

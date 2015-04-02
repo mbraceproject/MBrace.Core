@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Runtime.Tests
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization

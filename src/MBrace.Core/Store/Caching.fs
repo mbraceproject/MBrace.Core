@@ -22,7 +22,7 @@ type IObjectCache =
     /// <param name="key"></param>
     abstract TryFind : key:string -> obj option
 
-namespace MBrace
+namespace MBrace.Core
 
 open System
 open System.Runtime.Serialization

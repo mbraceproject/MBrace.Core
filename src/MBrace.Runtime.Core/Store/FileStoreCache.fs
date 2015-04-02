@@ -6,7 +6,7 @@ open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String

@@ -5,7 +5,7 @@
 open System.Threading
 open System.Threading.Tasks
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 
 /// Collection of workflows that provide parallelism
