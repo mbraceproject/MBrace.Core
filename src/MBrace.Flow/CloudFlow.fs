@@ -31,6 +31,7 @@ type CloudFlow<'T> =
     /// Applies the given collector to the CloudFlow.
     abstract Apply<'S, 'R> : Local<Collector<'T, 'S>> -> ('S -> Local<'R>) -> ('R []  -> Local<'R>) -> Cloud<'R>
 
+
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Provides basic operations on CloudFlows.
 module CloudFlow =
@@ -372,9 +373,10 @@ module CloudFlow =
 
     let inline private foldGen (folder : ExecutionContext -> 'State -> 'T -> 'State) (combiner : ExecutionContext -> 'State -> 'State -> 'State) 
                                (state : ExecutionContext -> 'State) (flow : CloudFlow<'T>) : Cloud<'State> =
-        let collectorf = local {  
+        let collectorf (cloudCts : ICloudCancellationTokenSource) = local {  
             let results = new List<'State ref>()
             let! ctx = Cloud.GetExecutionContext()
+            let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
             return
               { new Collector<'T, 'State> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism 
@@ -383,19 +385,23 @@ module CloudFlow =
                     results.Add(accRef)
                     {   Index = ref -1;
                         Func = (fun value -> accRef := folder ctx !accRef value);
-                        Cts = new CancellationTokenSource() }
+                        Cts = cts }
                 member self.Result = 
                     let mutable acc = state ctx
                     for result in results do
                             acc <- combiner ctx acc !result
                     acc }
         }
-        flow.Apply 
-           collectorf 
-           (fun x -> local { return x }) 
-           (fun values -> local { 
-               let! ctx = Cloud.GetExecutionContext()
-               return Array.reduce (combiner ctx) values })
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            return! 
+                flow.Apply 
+                   (collectorf cts)
+                   (fun x -> local { return x }) 
+                   (fun values -> local { 
+                       let! ctx = Cloud.GetExecutionContext()
+                       return Array.reduce (combiner ctx) values })
+        }
 
 
 
@@ -423,9 +429,10 @@ module CloudFlow =
                                  (folder : ExecutionContext -> 'State -> 'T -> 'State) 
                                  (combiner : ExecutionContext -> 'State -> 'State -> 'State) 
                                  (state : ExecutionContext -> 'State) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> = 
-        let collectorf (totalWorkers : int) = local {
+        let collectorf (cloudCts : ICloudCancellationTokenSource) (totalWorkers : int) = local {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! ctx = Cloud.GetExecutionContext()
+            let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
             return
               { new Collector<'T,  seq<int * seq<'Key * 'State>>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism 
@@ -445,7 +452,7 @@ module CloudFlow =
                                         let acc = grouping
                                         lock grouping (fun () -> acc := folder ctx !acc value) 
                                     ());
-                        Cts = new CancellationTokenSource() }
+                        Cts = cts }
                 member self.Result = 
                     let partitions = dict 
                                      |> Seq.groupBy (fun keyValue -> Math.Abs(keyValue.Key.GetHashCode()) % totalWorkers)
@@ -457,7 +464,8 @@ module CloudFlow =
             cloud {
                 let combiner' (result : _ []) = local { return Array.reduce Array.append result }
                 let! totalWorkers = match flow.DegreeOfParallelism with Some n -> local { return n } | None -> Cloud.GetWorkerCount()
-                let! keyValueArray = flow.Apply (collectorf totalWorkers) 
+                let! cts = Cloud.CreateCancellationTokenSource()
+                let! keyValueArray = flow.Apply (collectorf cts totalWorkers) 
                                                   (fun keyValues -> local {
                                                         let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
@@ -473,9 +481,10 @@ module CloudFlow =
                     |> Seq.toArray
                 return merged
             }
-        let reducerf = local {
+        let reducerf (cloudCts : ICloudCancellationTokenSource) = local {
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! ctx = Cloud.GetExecutionContext()
+            let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
             return { new Collector<int * CloudVector<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism 
                 member self.Iterator() = 
@@ -496,7 +505,7 @@ module CloudFlow =
                                         let acc = grouping
                                         lock grouping (fun () -> acc := combiner ctx !acc value) 
                                 ());
-                        Cts = new CancellationTokenSource() }
+                        Cts = cts }
                 member self.Result =
                     dict
                     |> Seq.map (fun keyValue -> (keyValue.Key, !keyValue.Value)) }
@@ -505,8 +514,8 @@ module CloudFlow =
         let reducer (flow : CloudFlow<int * CloudVector<'Key * 'State>>) : Cloud<CloudVector<'Key * 'State>> = 
             cloud {
                 let combiner' (result : CloudVector<_> []) = local { return CloudVector.Merge result }
-
-                let! keyValueArray = flow.Apply reducerf (fun keyValues -> CloudVector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
+                let! cts = Cloud.CreateCancellationTokenSource()
+                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> CloudVector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
                 return keyValueArray
             }
         { new CloudFlow<'Key * 'State> with
@@ -649,8 +658,9 @@ module CloudFlow =
     /// <returns>The result CloudVector.</returns>    
     let inline toCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
         cloud {
-            let collectorf = local { 
+            let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
                 let results = new List<List<'T>>()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return 
                   { new Collector<'T, 'T []> with
                     member self.DegreeOfParallelism = flow.DegreeOfParallelism 
@@ -659,7 +669,7 @@ module CloudFlow =
                         results.Add(list)
                         {   Index = ref -1; 
                             Func = (fun value -> list.Add(value));
-                            Cts = new CancellationTokenSource() }
+                            Cts = cts }
                     member self.Result = 
                         let count = results |> Seq.sumBy (fun list -> list.Count)
                         let values = Array.zeroCreate<'T> count
@@ -671,9 +681,9 @@ module CloudFlow =
                                 values.[counter] <- value
                         values }
             }
-
+            let! cts = Cloud.CreateCancellationTokenSource()
             let! vc =
-                flow.Apply collectorf 
+                flow.Apply (collectorf cts)
                     (fun array -> local { return! CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = false) }) 
                     (fun result -> local { return CloudVector.Merge result })
             return vc
@@ -684,8 +694,9 @@ module CloudFlow =
     /// <returns>The result CloudVector.</returns>
     let inline toCachedCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
         cloud {
-            let collectorf = local { 
+            let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
                 let results = new List<List<'T>>()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return 
                   { new Collector<'T, 'T []> with
                     member self.DegreeOfParallelism = flow.DegreeOfParallelism 
@@ -694,7 +705,7 @@ module CloudFlow =
                         results.Add(list)
                         {   Index = ref -1; 
                             Func = (fun value -> list.Add(value));
-                            Cts = new CancellationTokenSource() }
+                            Cts = cts }
                     member self.Result = 
                         let count = results |> Seq.sumBy (fun list -> list.Count)
                         let values = Array.zeroCreate<'T> count
@@ -706,9 +717,9 @@ module CloudFlow =
                                 values.[counter] <- value
                         values }
             }
-
+            let! cts = Cloud.CreateCancellationTokenSource()
             let! vc =
-                flow.Apply collectorf 
+                flow.Apply (collectorf cts)
                     (fun array -> local { 
                                     let! cloudVector = CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = true)
                                     // Cache the partitions
@@ -725,9 +736,10 @@ module CloudFlow =
 
 
     let inline private sortByGen comparer (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> = 
-        let collectorf = local {  
+        let collectorf (cloudCts : ICloudCancellationTokenSource) = local {  
             let results = new List<List<'T>>()
             let! ctx = Cloud.GetExecutionContext()
+            let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
             return 
               { new Collector<'T, List<'Key[] * 'T []>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism 
@@ -736,7 +748,7 @@ module CloudFlow =
                     results.Add(list)
                     {   Index = ref -1; 
                         Func = (fun value -> list.Add(value));
-                        Cts = new CancellationTokenSource() }
+                        Cts = cts }
                 member self.Result = 
                     let count = results |> Seq.sumBy (fun list -> list.Count)
                     let keys = Array.zeroCreate<'Key> count
@@ -759,7 +771,8 @@ module CloudFlow =
         }
         let sortByComp = 
             cloud {
-                let! results = flow.Apply collectorf (fun x -> local { return x }) (fun result -> local { return Array.reduce (fun left right -> left.AddRange(right); left) result })
+                let! cts = Cloud.CreateCancellationTokenSource()
+                let! results = flow.Apply (collectorf cts) (fun x -> local { return x }) (fun result -> local { return Array.reduce (fun left right -> left.AddRange(right); left) result })
                 let result = 
                     let count = results |> Seq.sumBy (fun (keys, _) -> keys.Length)
                     let keys = Array.zeroCreate<'Key> count
@@ -842,23 +855,24 @@ module CloudFlow =
         sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount flow 
 
     let inline private tryFindGen (predicate : ExecutionContext -> 'T -> bool) (flow : CloudFlow<'T>) : Cloud<'T option> =
-        let collectorf = 
+        let collectorf (cloudCts : ICloudCancellationTokenSource) =
             local {
                 let! ctx = Cloud.GetExecutionContext()
                 let resultRef = ref Unchecked.defaultof<'T option>
-                let cts =  new CancellationTokenSource()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return
                     { new Collector<'T, 'T option> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism 
                         member self.Iterator() = 
                             {   Index = ref -1; 
-                                Func = (fun value -> if predicate ctx value then resultRef := Some value; cts.Cancel() else ());
+                                Func = (fun value -> if predicate ctx value then resultRef := Some value; cloudCts.Cancel() else ());
                                 Cts = cts }
                         member self.Result = 
                             !resultRef }
             }
         cloud {
-            return! flow.Apply collectorf (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
+            let! cts = Cloud.CreateCancellationTokenSource()
+            return! flow.Apply (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
 
 
@@ -906,23 +920,24 @@ module CloudFlow =
 
     let inline private tryPickGen (chooser : ExecutionContext -> 'T -> 'R option) (flow : CloudFlow<'T>) : Cloud<'R option> = 
         
-        let collectorf = 
+        let collectorf (cloudCts : ICloudCancellationTokenSource) = 
             local {
                 let! ctx = Cloud.GetExecutionContext()
                 let resultRef = ref Unchecked.defaultof<'R option>
-                let cts = new CancellationTokenSource()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return 
                     { new Collector<'T, 'R option> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() = 
                             {   Index = ref -1; 
-                                Func = (fun value -> match chooser ctx value with Some value' -> resultRef := Some value'; cts.Cancel() | None -> ());
+                                Func = (fun value -> match chooser ctx value with Some value' -> resultRef := Some value'; cloudCts.Cancel() | None -> ());
                                 Cts = cts }
                         member self.Result = 
                             !resultRef }
             }
         cloud {
-            return! flow.Apply collectorf (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
+            let! cts = Cloud.CreateCancellationTokenSource()
+            return! flow.Apply (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
 
 
@@ -1023,10 +1038,10 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The resulting CloudFlow.</returns>
     let inline take (n : int) (flow: CloudFlow<'T>) : CloudFlow<'T> =
-        let collectorF =
+        let collectorF (cloudCts : ICloudCancellationTokenSource) =
             local {
                 let results = new List<List<'T>>()
-                let cts = new CancellationTokenSource()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return
                     { new Collector<'T, 'T []> with
                       member __.DegreeOfParallelism = flow.DegreeOfParallelism
@@ -1034,7 +1049,7 @@ module CloudFlow =
                           let list = new List<'T>()
                           results.Add(list)
                           { Index = ref -1
-                            Func = (fun value -> if list.Count < n then list.Add(value) else cts.Cancel())
+                            Func = (fun value -> if list.Count < n then list.Add(value) else cloudCts.Cancel())
                             Cts = cts }
                       member __.Result =
                           (results |> Seq.collect id).Take(n) |> Seq.toArray
@@ -1042,7 +1057,8 @@ module CloudFlow =
             }
         let gather =
             cloud {
-                let! results = flow.Apply collectorF (local.Return) (fun results -> local { return Array.collect id results })
+                let! cts = Cloud.CreateCancellationTokenSource()
+                let! results = flow.Apply (collectorF cts) (local.Return) (fun results -> local { return Array.collect id results })
                 return results.Take(n).ToArray()
             }
         { new CloudFlow<'T> with
@@ -1122,4 +1138,52 @@ module CloudFlow =
                     else
                         return! projection collector.Result
                 } }
+                
+    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
+    /// <param name="channel">the ReceivePort of a CloudChannel.</param>
+    /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
+    /// <returns>The result CloudFlow.</returns>
+    let ofCloudChannel (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = Some degreeOfParallelism
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+                cloud {
+                    let! collector = collectorf 
+                    let! workerCount = 
+                        match collector.DegreeOfParallelism with
+                        | Some n -> local { return n }
+                        | _ -> Cloud.GetWorkerCount()
+                    let! workers = Cloud.GetAvailableWorkers() 
+                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
 
+                    let createTask (collector : Local<Collector<'T, 'S>>) = 
+                        local {
+                            let! ctx = Cloud.GetExecutionContext()
+                            let! collectorf = collector
+                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
+                            let parStream = ParStream.ofSeq seq
+                            let collectorResult = parStream.Apply (toParStreamCollector collectorf)
+                            return! projection collectorResult
+                        }
+                    
+                    let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
+                    let! results = 
+                        if targetedworkerSupport then
+                            [|1..workerCount|] 
+                            |> Array.map (fun i -> (createTask collectorf, workers.[i % workers.Length])) 
+                            |> Cloud.Parallel
+                        else
+                            [|1..workerCount|] 
+                            |> Array.map (fun i -> createTask collectorf)
+                            |> Cloud.Parallel
+
+                    return! combiner results
+
+                } }
+
+    /// <summary>Sends the values of CloudFlow to the SendPort of a CloudChannel</summary>
+    /// <param name="channel">the SendPort of a CloudChannel.</param>
+    /// <param name="flow">The input CloudFlow.</param>
+    /// <returns>Nothing.</returns>
+    let toCloudChannel (channel : ISendPort<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
+        flow |> iterLocal (fun v -> CloudChannel.Send(channel, v))
