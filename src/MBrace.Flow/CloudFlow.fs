@@ -1160,7 +1160,7 @@ module CloudFlow =
                         local {
                             let! ctx = Cloud.GetExecutionContext()
                             let! collectorf = collector
-                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(channel.Receive(), ctx.Resources, ctx.CancellationToken))
+                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
                             let parStream = ParStream.ofSeq seq
                             let collectorResult = parStream.Apply (toParStreamCollector collectorf)
                             return! projection collectorResult
@@ -1186,4 +1186,4 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>Nothing.</returns>
     let toCloudChannel (channel : ISendPort<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
-        flow |> iterLocal (fun v -> channel.Send(v))
+        flow |> iterLocal (fun v -> CloudChannel.Send(channel, v))
