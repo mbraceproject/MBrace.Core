@@ -469,15 +469,15 @@ type ``CloudFlow tests`` () as self =
                                 };
                                 cloud {
                                     let! n =  
-                                        CloudFlow.ofCloudChannel(receivePort, 2)
-                                        |> CloudFlow.take 3
+                                        CloudFlow.ofCloudChannel(receivePort, 1)
+                                        |> CloudFlow.take 2
                                         |> CloudFlow.length
                                     return Some n
                                 }]
                         return Option.get n
                     }
                     |> run
-                x = 3L
+                x = 2L
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
