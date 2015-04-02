@@ -1138,17 +1138,14 @@ module CloudFlow =
                     else
                         return! projection collector.Result
                 } }
-
-
-
-
                 
     /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
     /// <param name="channel">the ReceivePort of a CloudChannel.</param>
+    /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
     /// <returns>The result CloudFlow.</returns>
-    let ofCloudChannel (channel : IReceivePort<'T>) : CloudFlow<'T> =
+    let ofCloudChannel (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
         { new CloudFlow<'T> with
-            member self.DegreeOfParallelism = None
+            member self.DegreeOfParallelism = Some degreeOfParallelism
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let! collector = collectorf 
@@ -1163,7 +1160,7 @@ module CloudFlow =
                         local {
                             let! ctx = Cloud.GetExecutionContext()
                             let! collectorf = collector
-                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
+                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(channel.Receive(), ctx.Resources, ctx.CancellationToken))
                             let parStream = ParStream.ofSeq seq
                             let collectorResult = parStream.Apply (toParStreamCollector collectorf)
                             return! projection collectorResult
@@ -1189,4 +1186,4 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>Nothing.</returns>
     let toCloudChannel (channel : ISendPort<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
-        flow |> iterLocal (fun v -> CloudChannel.Send(channel, v))
+        flow |> iterLocal (fun v -> channel.Send(v))
