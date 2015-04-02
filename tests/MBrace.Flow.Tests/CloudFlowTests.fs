@@ -478,7 +478,7 @@ type ``CloudFlow tests`` () as self =
                     }
                     |> run
                 x = 2L
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+            Check.QuickThrowOnFail(f, 10)
 
 
         [<Test>]
@@ -501,6 +501,6 @@ type ``CloudFlow tests`` () as self =
                     } |> run
                 let y = xs |> Seq.map (fun v -> v + 1) |> Seq.toArray
                 (set x) = (set y)
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+            Check.QuickThrowOnFail(f, 10)
 
 
