@@ -462,10 +462,8 @@ type ``CloudFlow tests`` () as self =
                         let! n =
                             Cloud.Choice [
                                 cloud { 
-                                    let i = ref 0
-                                    while true do
-                                        incr i
-                                        do! CloudChannel.Send(sendPort, !i)
+                                    for i in [|1..10|] do
+                                        do! CloudChannel.Send(sendPort, i)
                                         do! Cloud.Sleep(100)
                                     return None
                                 };
@@ -473,15 +471,15 @@ type ``CloudFlow tests`` () as self =
                                     let! n =  
                                         receivePort
                                         |> CloudFlow.ofCloudChannel 
-                                        |> CloudFlow.withDegreeOfParallelism 2
-                                        |> CloudFlow.take 3
+                                        |> CloudFlow.withDegreeOfParallelism 1
+                                        |> CloudFlow.take 1
                                         |> CloudFlow.length
                                     return Some n
                                 }]
                         return Option.get n
                     }
                     |> run
-                x = 3L
+                x = 1L
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
