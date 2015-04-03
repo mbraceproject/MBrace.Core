@@ -58,10 +58,12 @@
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Continuation\Utils.fs" />
+    <Compile Include="Utils\Utils.fs" />
+    <Compile Include="Utils\Trampoline.fs" />
+    <Compile Include="Utils\ExceptionDispatchInfo.fs" />
+    <Compile Include="Utils\LineReader.fs" />
+    <Compile Include="Utils\Enumerable.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
-    <Compile Include="Continuation\Trampoline.fs" />
-    <Compile Include="Continuation\ExceptionDispatchInfo.fs" />
     <Compile Include="Continuation\CancellationToken.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Cloud.fs" />
@@ -73,6 +75,7 @@
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Channel.fs" />
     <Compile Include="Store\Cell.fs" />
+    <Compile Include="Store\Collection.fs" />
     <Compile Include="Store\Sequence.fs" />
     <Compile Include="Distribution\Logging.fs" />
     <Compile Include="Distribution\FaultPolicy.fs" />

@@ -12,49 +12,10 @@ open MBrace.Continuation
 
 #nowarn "444"
 
-/// Partition a seq<'T> to seq<seq<'T>> using a predicate
-type private PartitionedEnumerable<'T> private (splitNext : unit -> bool, source : IEnumerable<'T>) = 
-    let e = source.GetEnumerator()
-    let mutable sourceMoveNext = true
-
-    let innerEnumerator =
-        { new IEnumerator<'T> with
-            member __.MoveNext() : bool = 
-                if splitNext() then false
-                else
-                    sourceMoveNext <- e.MoveNext()
-                    sourceMoveNext
-
-            member __.Current : obj = e.Current  :> _
-            member __.Current : 'T = e.Current
-            member __.Dispose() : unit = () 
-            member __.Reset() : unit = invalidOp "Reset" }
-
-    let innerSeq = 
-        { new IEnumerable<'T> with
-                member __.GetEnumerator() : IEnumerator = innerEnumerator :> _
-                member __.GetEnumerator() : IEnumerator<'T> = innerEnumerator }
-
-    let outerEnumerator =
-        { new IEnumerator<IEnumerable<'T>> with
-                member __.Current: IEnumerable<'T> = innerSeq
-                member __.Current: obj = innerSeq :> _
-                member __.Dispose(): unit = ()
-                member __.MoveNext() = sourceMoveNext
-                member __.Reset(): unit = invalidOp "Reset"
-        }
-
-    interface IEnumerable<IEnumerable<'T>> with
-        member this.GetEnumerator() : IEnumerator = outerEnumerator :> _
-        member this.GetEnumerator() : IEnumerator<IEnumerable<'T>> = outerEnumerator :> _ 
-
-    static member ofSeq (splitNext : unit -> bool) (source : seq<'T>) : seq<seq<'T>> =
-        new PartitionedEnumerable<'T>(splitNext, source) :> _
-
 /// <summary>
 ///     Ordered, immutable collection of values persisted in a single FileStore entity.
 /// </summary>
-[<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
+[<DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type CloudSequence<'T> =
 
     // https://visualfsharp.codeplex.com/workitem/199
@@ -63,7 +24,7 @@ type CloudSequence<'T> =
     [<DataMember(Name = "Path")>]
     val mutable private path : string
     [<DataMember(Name = "Count")>]
-    val mutable private count : int option
+    val mutable private count : int64 option
     [<DataMember(Name = "Serializer")>]
     val mutable private serializer : ISerializer option
     [<DataMember(Name = "CacheByDefault")>]
@@ -124,7 +85,7 @@ type CloudSequence<'T> =
         | None ->
             // this is a potentially costly operation
             let! seq = c.ToEnumerable()
-            let l = Seq.length seq
+            let l = int64 <| Seq.length seq
             c.count <- Some l
             return l
     }
@@ -145,9 +106,16 @@ type CloudSequence<'T> =
             return! ofAsync <| config.FileStore.DeleteFile c.path
         }
 
+//    interface ICloudCollection<'T> with
+//        member c.Count = c.Count
+//        member c.ToEnumerable() = c.ToEnumerable()
+
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()
 
+//[<DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
+//type private TextFileSegment(path : string, beginPos : int64, endPos : int64, encoding : Encoding, ?cacheByDefault) =
+    
 #nowarn "444"
 
 type CloudSequence =
@@ -167,7 +135,7 @@ type CloudSequence =
         return! ofAsync <| async {
             let path = config.FileStore.GetRandomFilePath directory
             let writer (stream : Stream) = async {
-                return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false)
+                return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
             }
             let! length = config.FileStore.Write(path, writer)
             return new CloudSequence<'T>(path, Some length, serializer, ?cacheByDefault = cacheByDefault)
@@ -199,7 +167,7 @@ type CloudSequence =
                 let path = config.FileStore.GetRandomFilePath directory
                 let writer (stream : Stream) = async {
                     currentStream := stream
-                    return _serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false)
+                    return _serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false) |> int64
                 }
                 let! length = config.FileStore.Write(path, writer)
                 let seq = new CloudSequence<'T>(path, Some length, serializer, ?cacheByDefault = cacheByDefault)

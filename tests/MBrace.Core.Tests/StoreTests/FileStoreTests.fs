@@ -77,7 +77,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - simple`` () = 
         let b = runRemote <| CloudSequence.New [1..10000]
-        b.Count |> runLocal |> shouldEqual 10000
+        b.Count |> runLocal |> shouldEqual 10000L
         b.ToEnumerable() |> runLocal |> Seq.sum |> shouldEqual (List.sum [1..10000])
         b.ToArray() |> runLocal |> Array.sum |> shouldEqual (List.sum [1..10000])
 
