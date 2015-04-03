@@ -11,6 +11,7 @@ open System.Linq
 open MBrace
 open MBrace.Continuation
 open MBrace.Workflows
+open MBrace.Flow.Internals
 open Nessos.Streams
 open Nessos.Streams.Internals
 
@@ -715,34 +716,6 @@ module CloudFlow =
                     (fun () -> new ArrayCollector<'T>()) flow 
             return arrayCollector.ToArray()
         }
-
-    // Taken from FSharp.Core
-    //
-    // The CLI implementation of mscorlib optimizes array sorting
-    // when the comparer is either null or precisely
-    // reference-equals to System.Collections.Generic.Comparer<'T>.Default.
-    // This is an indication that a "fast" array sorting helper can be used.
-    //
-    // This type is only public because of the excessive inlining used in this file
-    type _PrivateFastGenericComparerTable<'T when 'T : comparison>() = 
-
-        static let fCanBeNull : System.Collections.Generic.IComparer<'T>  = 
-            match typeof<'T> with 
-            | ty when ty.Equals(typeof<byte>)       -> null    
-            | ty when ty.Equals(typeof<char>)       -> null    
-            | ty when ty.Equals(typeof<sbyte>)      -> null     
-            | ty when ty.Equals(typeof<int16>)      -> null    
-            | ty when ty.Equals(typeof<int32>)      -> null    
-            | ty when ty.Equals(typeof<int64>)      -> null    
-            | ty when ty.Equals(typeof<uint16>)     -> null    
-            | ty when ty.Equals(typeof<uint32>)     -> null    
-            | ty when ty.Equals(typeof<uint64>)     -> null    
-            | ty when ty.Equals(typeof<float>)      -> null    
-            | ty when ty.Equals(typeof<float32>)    -> null    
-            | ty when ty.Equals(typeof<decimal>)    -> null    
-            | _ -> LanguagePrimitives.FastGenericComparer<'T>
-
-        static member ValueCanBeNullIfDefaultSemantics : System.Collections.Generic.IComparer<'T> = fCanBeNull
 
     /// <summary>Creates a CloudVector from the given CloudFlow.</summary>
     /// <param name="flow">The input CloudFlow.</param>

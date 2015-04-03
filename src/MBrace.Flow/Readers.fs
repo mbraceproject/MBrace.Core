@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Flow
     open System
     open System.IO
+    open MBrace.Flow.Internals
 
     [<AbstractClass; Sealed; CompiledName("FSharpCloudFileReader")>]
     /// Common readers for a CloudFile.
