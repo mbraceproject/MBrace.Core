@@ -25,10 +25,15 @@ module WorkerRef =
         |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
         |> Seq.toArray
     
-    /// partitions a set of inputs to workers -- weighted by worker processor count.
-    let partitionWeighted (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
-        if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
-        let weights = workers |> Array.map (fun w -> w.ProcessorCount)
+    /// <summary>
+    ///     Partitions a set of inputs according to a weighted set of workers.
+    /// </summary>
+    /// <param name="weight">Weight function.</param>
+    /// <param name="workers">Input workers.</param>
+    /// <param name="inputs">Input array to be partitioned.</param>
+    let partitionWeighted (weight : IWorkerRef -> int) (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
+        if workers = null then raise <| new ArgumentNullException("workers")
+        let weights = workers |> Array.map weight
         inputs
         |> Array.splitWeighted weights
         |> Seq.mapi (fun i p -> (workers.[i],p))

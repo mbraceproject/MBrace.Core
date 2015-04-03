@@ -80,15 +80,16 @@ type private LineReader(stream : Stream, ?encoding : Encoding) =
 type private LineEnumerator (stream : Stream, beginPos : int64, endPos : int64, ?encoding : Encoding) =
     let mutable currentLine = Unchecked.defaultof<string>
     do 
-        if beginPos > endPos || endPos >= stream.Length then raise <| new IndexOutOfRangeException("endPos")
+        if beginPos > endPos || endPos > stream.Length then raise <| new ArgumentOutOfRangeException("endPos")
         ignore <| stream.Seek(beginPos, SeekOrigin.Begin)
 
     let reader = new LineReader(stream)
 
     let rec readNext () =
-        if beginPos + reader.BytesRead <= endPos then
+        let bytesRead = reader.BytesRead
+        if beginPos + bytesRead <= endPos then
             let line = reader.ReadLine()
-            if beginPos = 0L || reader.BytesRead > 0L then
+            if beginPos = 0L || bytesRead > 0L then
                 currentLine <- line
                 true
             else
@@ -100,11 +101,12 @@ type private LineEnumerator (stream : Stream, beginPos : int64, endPos : int64, 
         member __.Current = currentLine
         member __.Current = box currentLine
         member __.MoveNext () = readNext ()
-        member __.Dispose () = ()
+        member __.Dispose () = stream.Dispose()
         member __.Reset () = raise <| new NotSupportedException("LineReader")
 
 /// Provides an enumerable implementation that reads text lines within the supplied seek range.
 type internal LineEnumerable(stream : Stream, beginPos : int64, endPos : int64, ?encoding : Encoding) =
+    new (stream : Stream, ?encoding : Encoding) = new LineEnumerable(stream, 0L, stream.Length - 1L, ?encoding = encoding)
     interface IEnumerable<string> with
         member __.GetEnumerator() = new LineEnumerator(stream, beginPos, endPos, ?encoding = encoding) :> IEnumerator<string>
         member __.GetEnumerator() = new LineEnumerator(stream, beginPos, endPos, ?encoding = encoding) :> IEnumerator

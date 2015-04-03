@@ -192,7 +192,7 @@ module CloudFlow =
                         let computePartition (pIndex : int) = local {
                             let partition = source.GetPartition pIndex
                             let! collector = collectorf
-                            if useCache then do! partition.PopulateCache() |> Local.Ignore
+                            if useCache then do! partition.ForceCache() |> Local.Ignore
                             let! array = partition.ToArray()
                             let parStream = ParStream.ofArray array 
                             let collectorResult = parStream.Apply (toParStreamCollector collector)
@@ -725,7 +725,7 @@ module CloudFlow =
                                     // Cache the partitions
                                     let partitions = cloudVector.GetAllPartitions()
                                     for partition in partitions do
-                                        do! partition.PopulateCache() |> Local.Ignore
+                                        do! partition.ForceCache() |> Local.Ignore
                                     
                                     return cloudVector
                                   }) 

@@ -508,8 +508,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
                 | None -> new StreamWriter(stream)
                 | Some e -> new StreamWriter(stream, e)
 
-            do for line in lines do
-                do sw.WriteLine(line)
+            do for line in lines do sw.WriteLine(line)
         }
 
         return! CloudFile.Create(writer, ?path = path)
@@ -521,17 +520,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadLines(path : string, ?encoding : Encoding) : Local<seq<string>> = local {
-        let reader (stream : Stream) = async {
-            return seq { 
-                use sr = 
-                    match encoding with
-                    | None -> new StreamReader(stream)
-                    | Some e -> new StreamReader(stream, e)
-                while not sr.EndOfStream do
-                    yield sr.ReadLine()
-            }
-        }
-
+        let reader (stream : Stream) = async { return LineEnumerable(stream, ?encoding = encoding) :> seq<string> }
         return! CloudFile.Read(path, reader, leaveOpen = true)
     }
 
@@ -542,16 +531,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="encoding">Text encoding.</param>
     static member ReadAllLines(path : string, ?encoding : Encoding) : Local<string []> = local {
         let reader (stream : Stream) = async {
-            let ra = new ResizeArray<string> ()
-            use sr = 
-                match encoding with
-                | None -> new StreamReader(stream)
-                | Some e -> new StreamReader(stream, e)
-
-            do while not sr.EndOfStream do
-                ra.Add <| sr.ReadLine()
-
-            return ra.ToArray()
+            let le = new LineEnumerable(stream, ?encoding = encoding)
+            return Seq.toArray le
         }
 
         return! CloudFile.Read(path, reader)

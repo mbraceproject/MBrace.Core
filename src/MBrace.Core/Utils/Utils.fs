@@ -30,32 +30,45 @@ module Utils =
         /// </summary>
         /// <param name="partitions">number of partitions.</param>
         /// <param name="input">Input array.</param>
-        let splitByPartitionCount partitions (input : 'T []) =
-            if partitions < 1 then invalidArg "partitions" "invalid number of partitions."
-            elif input = null then raise <| new ArgumentNullException("input")
-            elif input.Length = 0 then [||]
-            elif partitions = 1 then [| input |]
-            elif partitions > input.Length then input |> Array.map (fun t -> [| t |])
+        let splitByPartitionCountRange (partitions : int) (startRange : int64) (endRange : int64) : (int64 * int64) [] =
+            if startRange > endRange then raise <| new ArgumentOutOfRangeException()
+            elif partitions < 1 then invalidArg "partitions" "invalid number of partitions."
             else
-                let chunkSize = input.Length / partitions
-                let r = input.Length % partitions
-                let chunks = new ResizeArray<'T []>()
-                let mutable i = 0
-                for p in 0 .. partitions - 1 do
-                    // add a padding element for every chunk 0 <= p < r
-                    let j = i + chunkSize + if p < r then 1 else 0
-                    let ch = input.[i .. j - 1]
-                    chunks.Add ch
-                    i <- j
 
-                chunks.ToArray()
+            let length = endRange - startRange
+            if length = 0L then [||] else
+
+            let partitions = if length < int64 partitions then length else int64 partitions
+            let chunkSize = length / partitions
+            let r = length % partitions
+            let ranges = new ResizeArray<int64 * int64>()
+            let mutable i = startRange
+            for p in 0L .. partitions - 1L do
+                // add a padding element for every chunk 0 <= p < r
+                let j = i + chunkSize + if p < r then 1L else 0L
+                let range = (i, j - 1L)
+                ranges.Add range
+                i <- j
+
+            ranges.ToArray()
+
+        /// <summary>
+        ///     partitions an array into a predetermined number of uniformly sized chunks.
+        /// </summary>
+        /// <param name="partitions">number of partitions.</param>
+        /// <param name="input">Input array.</param>
+        let splitByPartitionCount partitions (input : 'T []) : 'T [][] =
+            if input = null then raise <| new ArgumentNullException("input")
+            else
+                splitByPartitionCountRange partitions 0L (int64 input.Length)
+                |> Array.map (fun (s,e) -> input.[int s .. int e])
 
         /// <summary>
         ///     partitions an array into chunks of given size.
         /// </summary>
         /// <param name="chunkSize">chunk size.</param>
         /// <param name="input">Input array.</param>
-        let splitByChunkSize chunkSize (input : 'T []) =
+        let splitByChunkSize chunkSize (input : 'T []) : 'T [][] =
             if chunkSize <= 0 then invalidArg "chunkSize" "must be positive."
             elif input = null then raise <| new ArgumentNullException("input")
             elif chunkSize > input.Length then invalidArg "chunkSize" "chunk size greater than array size."
@@ -75,11 +88,15 @@ module Utils =
         ///     Partitions an array into chunks according to a weighted array.
         /// </summary>
         /// <param name="weights">Weights for each chunk.</param>
-        /// <param name="input">Input array.</param>
-        let splitWeighted (weights : int []) (input : 'T []) : 'T [][] =
-            if input = null then raise <| new ArgumentNullException("input")
-            elif input.Length = 0 then [||]
+        /// <param name="lower">Lower bound of range.</param>
+        /// <param name="upper">Upper bound of range.</param>
+        let splitWeightedRange (weights : int []) (lower : int64) (upper : int64) : (int64 * int64) option [] =
+            if lower > upper then raise <| new ArgumentOutOfRangeException()
             elif weights.Length = 0 then invalidArg "weights" "must be non-empty array."
+            else
+
+            let length = upper - lower
+            if length = 0L then [| for w in weights -> None |] 
             else
 
             // compute weighted chunk sizes
@@ -87,27 +104,40 @@ module Utils =
             // 2. compute x_i, where x_i / N = w_i / Σ w_i
             // 3. compute R = N - Σ (floor x_i), the number of padding elements.
             // 4. compute chunk sizes, adding an extra padding element to the first R x_i's of largest decimal component.
-            let N = input.Length
             let total = weights |> Array.sumBy (fun w -> if w > 0 then w else invalidArg "weights" "weights must contain positive values.") |> uint64
-            let chunkInfo = weights |> Array.map (fun w -> let C = uint64 w * uint64 N in int (C / total), int (C % total))
-            let R = N - (chunkInfo |> Array.sumBy fst)
+            let chunkInfo = weights |> Array.map (fun w -> let C = uint64 w * uint64 length in int64 (C / total), int64 (C % total))
+            let R = length - (chunkInfo |> Array.sumBy fst)
             let chunkSizes = 
                 chunkInfo 
                 |> Seq.mapi (fun i (q,r) -> i,q,r) 
                 |> Seq.sortBy (fun (_,_,r) -> -r)
-                |> Seq.mapi (fun j (i,q,_) -> if j < R then (i, q + 1) else (i,q))
+                |> Seq.mapi (fun j (i,q,_) -> if int64 j < R then (i, q + 1L) else (i,q))
                 |> Seq.sortBy fst
                 |> Seq.map snd
                 |> Seq.toArray
 
-            let mutable i = 0
-            let chunks = new ResizeArray<'T []> ()
+            let mutable i = lower
+            let chunks = new ResizeArray<(int64 * int64) option> ()
             for chunkSize in chunkSizes do
-                let chunk = input.[i .. i + chunkSize - 1]
-                chunks.Add chunk
+                let range =
+                    if chunkSize = 0L then None
+                    else Some (i, i + chunkSize - 1L)
+                chunks.Add range
                 i <- i + chunkSize
 
             chunks.ToArray()
+            
+
+        /// <summary>
+        ///     Partitions an array into chunks according to a weighted array.
+        /// </summary>
+        /// <param name="weights">Weights for each chunk.</param>
+        /// <param name="input">Input array.</param>
+        let splitWeighted (weights : int []) (input : 'T []) : 'T [][] =
+            if input = null then raise <| new ArgumentNullException("input")
+            else
+                splitWeightedRange weights 0L (int64 input.Length)
+                |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])
 
     type Task<'T> with
 

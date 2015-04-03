@@ -53,12 +53,11 @@ type CloudCache =
         new CloudCacheable<'T>(evaluator, defaultArg cacheByDefault true)
 
     /// <summary>
-    ///     Populates cache in the current execution context with
-    ///     value from provided entity. 
+    ///     Populates cache in the current execution context with value from provided entity. 
     ///     Returns a boolean indicating success of the operation.
     /// </summary>
     /// <param name="entity">Entity to be cached.</param>
-    static member PopulateCache(entity : ICloudCacheable<'T>) : Local<bool> = local {
+    static member PopulateLocalCache(entity : ICloudCacheable<'T>) : Local<bool> = local {
         let! cache = Cloud.TryGetResource<IObjectCache> ()
         match cache with
         | None -> return false
@@ -143,8 +142,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
 
     /// Dereferences cacheable value from source or local cache.
     member cc.Value = local { return! CloudCache.GetCachedValue(cc, cacheIfNotExists = cacheByDefault) }
-    /// Force caching of value to local cache.
-    member cc.PopulateCache () = local { return! CloudCache.PopulateCache cc }
+    /// Force caching of value to local context.
+    member cc.ForceCache () = local { return! CloudCache.PopulateLocalCache cc }
     /// Gets the cache status in the local execution context.
     member cc.IsCachedLocally = local { return! CloudCache.IsCachedLocally cc }
     /// Try getting value from the local cache only.

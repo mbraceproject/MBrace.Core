@@ -692,16 +692,16 @@ type CloudCellClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to cloud cell.</param>
     /// <param name="serializer">Serializer for cloud cell.</param>
-    member __.ParseAsync<'T>(path : string, ?serializer : ISerializer) = 
-        CloudCell.Parse(path, ?serializer = serializer) |> toAsync
+    member __.FromFileAsync<'T>(path : string, ?serializer : ISerializer) = 
+        CloudCell.FromFile(path, ?serializer = serializer) |> toAsync
 
     /// <summary>
     ///     Parses a cloud cell of given type with provided serializer. If successful, returns the cloud cell instance.
     /// </summary>
     /// <param name="path">Path to cloud cell.</param>
     /// <param name="serializer">Serializer for cloud cell.</param>
-    member __.Parse<'T>(path : string, ?serializer : ISerializer) = 
-        __.ParseAsync(path, ?serializer = serializer) |> toSync
+    member __.FromFile<'T>(path : string, ?serializer : ISerializer) = 
+        __.FromFileAsync(path, ?serializer = serializer) |> toSync
 
 
     /// <summary>
@@ -779,37 +779,17 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.ParseAsync<'T>(path : string, ?serializer, ?force) : Async<CloudSequence<'T>> = 
-        CloudSequence.Parse<'T>(path, ?serializer = serializer, ?force = force) |> toAsync
+    member __.FromFileAsync<'T>(path : string, ?deserializer, ?force) : Async<CloudSequence<'T>> = 
+        CloudSequence.FromFile<'T>(path, ?deserializer = deserializer, ?force = force) |> toAsync
 
     /// <summary>
     ///     Parses an already existing sequence of given type in provided file store.
     /// </summary>
     /// <param name="path">Path to Cloud sequence.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    /// <param name="deserializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.Parse<'T>(path : string, ?serializer, ?force) : CloudSequence<'T> = 
-        __.ParseAsync<'T>(path, ?serializer = serializer, ?force = force) |> toSync
-
-
-    /// <summary>
-    ///     Parses an already existing sequence of given type in provided file store.
-    /// </summary>
-    /// <param name="file">Target cloud file.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.ParseAsync<'T>(file : CloudFile, ?serializer, ?force) : Async<CloudSequence<'T>> =
-        CloudSequence.Parse<'T>(file, ?serializer = serializer, ?force = force) |> toAsync
-
-    /// <summary>
-    ///     Parses an already existing sequence of given type in provided file store.
-    /// </summary>
-    /// <param name="file">Target cloud file.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.Parse<'T>(file : CloudFile, ?serializer, ?force) : CloudSequence<'T> =
-        __.ParseAsync<'T>(file, ?serializer = serializer, ?force = force) |> toSync
-
+    member __.FromFile<'T>(path : string, ?deserializer, ?force) : CloudSequence<'T> = 
+        __.FromFileAsync<'T>(path, ?deserializer = deserializer, ?force = force) |> toSync
 
     /// <summary>
     ///     Creates a CloudSequence from file path with user-provided deserialization function.
@@ -817,36 +797,17 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFileAsync<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : Async<CloudSequence<'T>> = 
-        CloudSequence.FromFile<'T>(path, deserializer, ?force = force) |> toAsync
+    member __.FromFileAsync<'T>(path : string, serializer : ISerializer, ?force) : Async<CloudSequence<'T>> = 
+        CloudSequence.FromFile<'T>(path, serializer, ?force = force) |> toAsync
 
     /// <summary>
     ///     Creates a CloudSequence from file path with user-provided deserialization function.
     /// </summary>
     /// <param name="path">Path to file.</param>
-    /// <param name="deserializer">Sequence deserializer function.</param>
+    /// <param name="serializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFile<'T>(path : string, deserializer : Stream -> seq<'T>, ?force) : CloudSequence<'T> = 
-        __.FromFileAsync<'T>(path, deserializer, ?force = force) |> toSync
-
-
-    /// <summary>
-    ///     Creates a CloudSequence from file path with user-provided deserialization function.
-    /// </summary>
-    /// <param name="file">Target cloud file.</param>
-    /// <param name="deserializer">Sequence deserializer function.</param>
-    /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFileAsync<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force) =
-        CloudSequence.FromFile<'T>(file.Path, deserializer = deserializer, ?force = force) |> toAsync
-
-    /// <summary>
-    ///     Creates a CloudSequence from file path with user-provided deserialization function.
-    /// </summary>
-    /// <param name="file">Target cloud file.</param>
-    /// <param name="deserializer">Sequence deserializer function.</param>
-    /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFile<'T>(file : CloudFile, deserializer : Stream -> seq<'T>, ?force) =
-        __.FromFileAsync<'T>(file.Path, deserializer = deserializer, ?force = force) |> toSync
+    member __.FromFile<'T>(path : string, serializer : ISerializer, ?force) : CloudSequence<'T> = 
+        __.FromFileAsync<'T>(path, serializer, ?force = force) |> toSync
 
 
 [<Sealed; AutoSerializable(false)>]

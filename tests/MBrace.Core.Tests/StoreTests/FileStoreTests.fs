@@ -46,7 +46,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         if __.IsObjectCacheInstalled then
             cloud {
                 let! c = CloudCell.New [1..10000]
-                let! r = c.PopulateCache()
+                let! r = c.ForceCache()
                 r |> shouldEqual true
                 let! v1 = c.Value
                 let! v2 = c.Value
@@ -86,7 +86,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         if __.IsObjectCacheInstalled then
             cloud {
                 let! c = CloudSequence.New [1..10000]
-                let! success = c.PopulateCache()
+                let! success = c.ForceCache()
                 success |> shouldEqual true
                 let! v1 = c.ToArray()
                 let! v2 = c.ToArray()
@@ -137,6 +137,16 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             let! seq = CloudSequence.FromFile(file.Path, deserializer)
             let! ch = Cloud.StartChild(cloud { let! e = seq.ToEnumerable() in return Seq.length e })
             return! ch
+        } |> runRemote |> shouldEqual 100
+
+    [<Test>]
+    member __.``2. MBrace : CloudSequence - read lines`` () =
+        cloud {
+            use! file = CloudFile.WriteAllLines([1..100] |> List.map (fun i -> string i))
+            let! cseq = CloudSequence.FromLineSeparatedTextFile(file.Path)
+            let! _ = cseq.ForceCache()
+            let! elem = cseq.ToArray()
+            return elem.Length
         } |> runRemote |> shouldEqual 100
 
     [<Test>]
