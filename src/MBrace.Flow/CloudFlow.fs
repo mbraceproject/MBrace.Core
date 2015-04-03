@@ -11,6 +11,7 @@ open System.Linq
 open MBrace
 open MBrace.Continuation
 open MBrace.Workflows
+open MBrace.Flow.Internals
 open Nessos.Streams
 open Nessos.Streams.Internals
 
@@ -31,40 +32,28 @@ type CloudFlow<'T> =
     /// Applies the given collector to the CloudFlow.
     abstract Apply<'S, 'R> : Local<Collector<'T, 'S>> -> ('S -> Local<'R>) -> ('R []  -> Local<'R>) -> Cloud<'R>
 
-
-[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-/// Provides basic operations on CloudFlows.
-module CloudFlow =
-
-    //#region Helpers
-
+/// Provides CloudFlow producers.
+type CloudFlow =
     /// Maximum combined flow length used in ofCloudFiles.
-    let private maxCloudFileCombinedLength = 1024L * 1024L * 1024L
+    static member internal maxCloudFileCombinedLength = 1024L * 1024L * 1024L
     
     /// Maximum CloudVector partition size used in CloudVector.New.
-    [<Literal>]
-    let private maxCloudVectorPartitionSize = 1073741824L // 1GB
-
+    static member internal maxCloudVectorPartitionSize = 1073741824L // 1GB
 
     /// gets all partition indices found in cloud vector
-    let inline private getPartitionIndices (v : CloudVector<'T>) = [| 0 .. v.PartitionCount - 1 |]
-
+    static member internal getPartitionIndices (v : CloudVector<'T>) = [| 0 .. v.PartitionCount - 1 |]
 
     /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
-    let inline private toParStreamCollector (collector : Collector<'T, 'S>) =
+    static member internal toParStreamCollector (collector : Collector<'T, 'S>) =
         { new Nessos.Streams.Collector<'T, 'S> with
             member self.DegreeOfParallelism = match collector.DegreeOfParallelism with Some n -> n | None -> Environment.ProcessorCount
             member self.Iterator() = collector.Iterator()
             member self.Result = collector.Result  }
 
-    //#endregion
-
-    //#region Driver functions
-
     /// <summary>Wraps array as a CloudFlow.</summary>
     /// <param name="source">The input array.</param>
     /// <returns>The result CloudFlow.</returns>
-    let ofArray (source : 'T []) : CloudFlow<'T> =
+    static member ofArray (source : 'T []) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
@@ -81,7 +70,7 @@ module CloudFlow =
                         local {
                             let! collector = collector
                             let parStream = ParStream.ofArray array 
-                            let collectorResult = parStream.Apply (toParStreamCollector collector)
+                            let collectorResult = parStream.Apply (CloudFlow.toParStreamCollector collector)
                             return! projection collectorResult
                         }
                     if not (source.Length = 0) then 
@@ -103,12 +92,13 @@ module CloudFlow =
                         return! projection collector.Result
                 } }
 
+
     /// <summary>
     /// Constructs a CloudFlow from a collection of CloudFiles using the given reader.
     /// </summary>
     /// <param name="reader">A function to transform the contents of a CloudFile to an object.</param>
     /// <param name="sources">The collection of CloudFiles.</param>
-    let ofCloudFiles (reader : System.IO.Stream -> Async<'T>) (sources : seq<CloudFile>) : CloudFlow<'T> =
+    static member ofCloudFiles (reader : System.IO.Stream -> Async<'T>) (sources : seq<CloudFile>) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
@@ -132,9 +122,9 @@ module CloudFlow =
                                         if index >= files.Length then return (currAcc :: acc) |> List.filter (not << List.isEmpty)
                                         else
                                             let! length =files.[index].Size
-                                            if length >= maxCloudFileCombinedLength then
+                                            if length >= CloudFlow.maxCloudFileCombinedLength then
                                                 return! partitionByLength files (index + 1) length [files.[index]] (currAcc :: acc)
-                                            elif length + currLength >= maxCloudFileCombinedLength then
+                                            elif length + currLength >= CloudFlow.maxCloudFileCombinedLength then
                                                 return! partitionByLength files index 0L [] (currAcc :: acc)
                                             else
                                                 return! partitionByLength files (index + 1) (currLength + length) (files.[index] :: currAcc) acc
@@ -150,7 +140,7 @@ module CloudFlow =
                                         |> ParStream.ofSeq 
                                         |> ParStream.map (fun file -> CloudFile.Read(file.Path, reader, leaveOpen = true))
                                         |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, ctx.Resources, ctx.CancellationToken))
-                                    let collectorResult = parStream.Apply (toParStreamCollector collector)
+                                    let collectorResult = parStream.Apply (CloudFlow.toParStreamCollector collector)
                                     let! partial = projection collectorResult
                                     result.Add(partial)
                                 if result.Count = 0 then
@@ -178,13 +168,13 @@ module CloudFlow =
     /// Constructs a CloudFlow from a CloudVector.
     /// </summary>
     /// <param name="source">The input CloudVector.</param>
-    let ofCloudVector (source : CloudVector<'T>) : CloudFlow<'T> =
+    static member ofCloudVector (source : CloudVector<'T>) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let useCache = source.IsCachingSupported
-                    let partitions = getPartitionIndices source
+                    let partitions = CloudFlow.getPartitionIndices source
 
 
                     let computePartitions (partitions : int []) = local {
@@ -195,7 +185,7 @@ module CloudFlow =
                             if useCache then do! partition.PopulateCache() |> Local.Ignore
                             let! array = partition.ToArray()
                             let parStream = ParStream.ofArray array 
-                            let collectorResult = parStream.Apply (toParStreamCollector collector)
+                            let collectorResult = parStream.Apply (CloudFlow.toParStreamCollector collector)
                             return! projection collectorResult
                         }
 
@@ -244,7 +234,109 @@ module CloudFlow =
                 }
         }
 
-    //#endregion
+    /// <summary>
+    /// Constructs a CloudFlow of lines from a path.
+    /// </summary>
+    /// <param name="path">The path to the text file.</param>
+    static member ofTextFileByLine (path : string) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+                cloud {
+                    let! fileSize = CloudFile.GetSize(path)
+                    let! collector = collectorf 
+                    let! workerCount = 
+                        match collector.DegreeOfParallelism with
+                        | Some n -> local { return n }
+                        | _ -> Cloud.GetWorkerCount()
+                    let! workers = Cloud.GetAvailableWorkers()
+                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
+
+                    let rangeBasedReadLines (s : int64) (e : int64) (stream : System.IO.Stream) = 
+                        seq {
+                            let numOfBytesRead = ref 0L
+                            stream.Seek(s, System.IO.SeekOrigin.Begin) |> ignore
+                            let reader = new LineReader(stream)
+                            let size = stream.Length
+                            while s + !numOfBytesRead <= e && s + !numOfBytesRead < size do
+                                let line = reader.ReadLine()
+                                if s = 0L || !numOfBytesRead > 0L then
+                                    yield line
+                                numOfBytesRead := reader.NumOfBytesRead
+                        }
+                    let createTask (s : int64) (e : int64) (collector : Local<Collector<string, 'S>>) = 
+                        local {
+                            let! collector = collector
+                            if s = e then
+                                return! projection collector.Result
+                            else
+                                use! stream = CloudFile.Read(path, (fun stream -> async { return stream }), true)
+                                let parStream = ParStream.ofSeq (rangeBasedReadLines s e stream) 
+                                let collectorResult = parStream.Apply (CloudFlow.toParStreamCollector collector)
+                                return! projection collectorResult
+                        }
+                    if not (fileSize = 0L) then 
+                        let partitions = Partitions.ofLongRange workerCount fileSize
+                        let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
+                        let! results = 
+                            if targetedworkerSupport then
+                                partitions 
+                                |> Array.mapi (fun i (s, e) -> (createTask s e collectorf, workers.[i % workers.Length])) 
+                                |> Cloud.Parallel
+                            else
+                                partitions 
+                                |> Array.map (fun (s, e) -> createTask s e collectorf) 
+                                |> Cloud.Parallel
+                        return! combiner results 
+                    else
+                        return! projection collector.Result
+                } }
+                
+    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
+    /// <param name="channel">the ReceivePort of a CloudChannel.</param>
+    /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
+    /// <returns>The result CloudFlow.</returns>
+    static member ofCloudChannel (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = Some degreeOfParallelism
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+                cloud {
+                    let! collector = collectorf 
+                    let! workerCount = 
+                        match collector.DegreeOfParallelism with
+                        | Some n -> local { return n }
+                        | _ -> Cloud.GetWorkerCount()
+                    let! workers = Cloud.GetAvailableWorkers() 
+                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
+
+                    let createTask (collector : Local<Collector<'T, 'S>>) = 
+                        local {
+                            let! ctx = Cloud.GetExecutionContext()
+                            let! collectorf = collector
+                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
+                            let parStream = ParStream.ofSeq seq
+                            let collectorResult = parStream.Apply (CloudFlow.toParStreamCollector collectorf)
+                            return! projection collectorResult
+                        }
+                    
+                    let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
+                    let! results = 
+                        if targetedworkerSupport then
+                            [|1..workerCount|] 
+                            |> Array.map (fun i -> (createTask collectorf, workers.[i % workers.Length])) 
+                            |> Cloud.Parallel
+                        else
+                            [|1..workerCount|] 
+                            |> Array.map (fun i -> createTask collectorf)
+                            |> Cloud.Parallel
+
+                    return! combiner results
+
+                } }
+
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+/// Provides basic operations on CloudFlows.
+module CloudFlow =
 
     //#region Intermediate functions
 
@@ -469,7 +561,7 @@ module CloudFlow =
                                                   (fun keyValues -> local {
                                                         let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
-                                                            let! values = CloudVector.New(value, maxCloudVectorPartitionSize, enableCaching = false)
+                                                            let! values = CloudVector.New(value, CloudFlow.maxCloudVectorPartitionSize, enableCaching = false)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) 
                                                         return Seq.toArray values }) combiner'
@@ -515,7 +607,7 @@ module CloudFlow =
             cloud {
                 let combiner' (result : CloudVector<_> []) = local { return CloudVector.Merge result }
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> CloudVector.New(keyValues, maxCloudVectorPartitionSize)) combiner'
+                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> CloudVector.New(keyValues, CloudFlow.maxCloudVectorPartitionSize)) combiner'
                 return keyValueArray
             }
         { new CloudFlow<'Key * 'State> with
@@ -523,8 +615,8 @@ module CloudFlow =
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'Key * 'State, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 cloud {
                     let! result = shuffling
-                    let! result' = reducer (ofArray result)
-                    return! (ofCloudVector result').Apply collectorf projection combiner
+                    let! result' = reducer (CloudFlow.ofArray result)
+                    return! (CloudFlow.ofCloudVector result').Apply collectorf projection combiner
                 }  }
 
 
@@ -535,7 +627,7 @@ module CloudFlow =
     /// <param name="state">A locally executing cloud function that produces the initial state.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The final result.</returns>
-    let inline foldByLocal (projection : 'T -> Local<'Key>) 
+    let foldByLocal (projection : 'T -> Local<'Key>) 
                            (folder : 'State -> 'T -> Local<'State>) 
                            (combiner : 'State -> 'State -> Local<'State>) 
                            (state : unit -> Local<'State>) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> = 
@@ -548,7 +640,7 @@ module CloudFlow =
     /// <param name="state">A function that produces the initial state.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The final result.</returns>
-    let inline foldBy (projection : 'T -> 'Key) 
+    let foldBy (projection : 'T -> 'Key) 
                       (folder : 'State -> 'T -> 'State) 
                       (combiner : 'State -> 'State -> 'State) 
                       (state : unit -> 'State) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> = 
@@ -559,7 +651,7 @@ module CloudFlow =
     /// </summary>
     /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
-    let inline countBy (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
+    let countBy (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
         foldByGen (fun _ctx x -> projection x) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ctx -> 0L) flow
 
     /// <summary>
@@ -567,7 +659,7 @@ module CloudFlow =
     /// </summary>
     /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
-    let inline countByLocal (projection : 'T -> Local<'Key>) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
+    let countByLocal (projection : 'T -> Local<'Key>) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
         foldByGen (fun ctx x -> projection x |> run ctx) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun ctx -> 0L) flow
 
     /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
@@ -625,38 +717,10 @@ module CloudFlow =
             return arrayCollector.ToArray()
         }
 
-    // Taken from FSharp.Core
-    //
-    // The CLI implementation of mscorlib optimizes array sorting
-    // when the comparer is either null or precisely
-    // reference-equals to System.Collections.Generic.Comparer<'T>.Default.
-    // This is an indication that a "fast" array sorting helper can be used.
-    //
-    // This type is only public because of the excessive inlining used in this file
-    type _PrivateFastGenericComparerTable<'T when 'T : comparison>() = 
-
-        static let fCanBeNull : System.Collections.Generic.IComparer<'T>  = 
-            match typeof<'T> with 
-            | ty when ty.Equals(typeof<byte>)       -> null    
-            | ty when ty.Equals(typeof<char>)       -> null    
-            | ty when ty.Equals(typeof<sbyte>)      -> null     
-            | ty when ty.Equals(typeof<int16>)      -> null    
-            | ty when ty.Equals(typeof<int32>)      -> null    
-            | ty when ty.Equals(typeof<int64>)      -> null    
-            | ty when ty.Equals(typeof<uint16>)     -> null    
-            | ty when ty.Equals(typeof<uint32>)     -> null    
-            | ty when ty.Equals(typeof<uint64>)     -> null    
-            | ty when ty.Equals(typeof<float>)      -> null    
-            | ty when ty.Equals(typeof<float32>)    -> null    
-            | ty when ty.Equals(typeof<decimal>)    -> null    
-            | _ -> LanguagePrimitives.FastGenericComparer<'T>
-
-        static member ValueCanBeNullIfDefaultSemantics : System.Collections.Generic.IComparer<'T> = fCanBeNull
-
     /// <summary>Creates a CloudVector from the given CloudFlow.</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudVector.</returns>    
-    let inline toCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
+    let toCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
         cloud {
             let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
                 let results = new List<List<'T>>()
@@ -684,7 +748,7 @@ module CloudFlow =
             let! cts = Cloud.CreateCancellationTokenSource()
             let! vc =
                 flow.Apply (collectorf cts)
-                    (fun array -> local { return! CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = false) }) 
+                    (fun array -> local { return! CloudVector.New(array, CloudFlow.maxCloudVectorPartitionSize, enableCaching = false) }) 
                     (fun result -> local { return CloudVector.Merge result })
             return vc
         }
@@ -692,7 +756,7 @@ module CloudFlow =
     /// <summary>Creates a CloudVector from the given CloudFlow, with its partitions cached locally</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudVector.</returns>
-    let inline toCachedCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
+    let toCachedCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
         cloud {
             let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
                 let results = new List<List<'T>>()
@@ -721,7 +785,7 @@ module CloudFlow =
             let! vc =
                 flow.Apply (collectorf cts)
                     (fun array -> local { 
-                                    let! cloudVector = CloudVector.New(array, maxCloudVectorPartitionSize, enableCaching = true)
+                                    let! cloudVector = CloudVector.New(array, CloudFlow.maxCloudVectorPartitionSize, enableCaching = true)
                                     // Cache the partitions
                                     let partitions = cloudVector.GetAllPartitions()
                                     for partition in partitions do
@@ -796,7 +860,7 @@ module CloudFlow =
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner = 
                 cloud {
                     let! result = sortByComp
-                    return! (ofArray result).Apply collectorf projection combiner
+                    return! (CloudFlow.ofArray result).Apply collectorf projection combiner
                 }  
         }
 
@@ -1066,11 +1130,9 @@ module CloudFlow =
               member __.Apply<'S, 'R>(collectorF: Local<Collector<'T, 'S>>) (projection: 'S -> Local<'R>) combiner =
                   cloud {
                       let! result = gather
-                      return! (ofArray result).Apply collectorF projection combiner
+                      return! (CloudFlow.ofArray result).Apply collectorF projection combiner
                   }
         }
-
-    // Text ReadLine CloudFile producers
 
     /// <summary>
     /// Constructs a CloudFlow from a collection of CloudFiles using text line reader.
@@ -1078,108 +1140,10 @@ module CloudFlow =
     /// <param name="sources">The collection of CloudFiles.</param>
     let ofCloudFilesByLine (sources : seq<CloudFile>) : CloudFlow<string> =
         sources
-        |> ofCloudFiles CloudFileReader.ReadLines
+        |> CloudFlow.ofCloudFiles CloudFileReader.ReadLines
         |> collect id
 
-    /// <summary>
-    /// Constructs a CloudFlow of lines from a path.
-    /// </summary>
-    /// <param name="path">The path to the text file.</param>
-    let ofTextFileByLine (path : string) : CloudFlow<string> =
-        { new CloudFlow<string> with
-            member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
-                cloud {
-                    let! fileSize = CloudFile.GetSize(path)
-                    let! collector = collectorf 
-                    let! workerCount = 
-                        match collector.DegreeOfParallelism with
-                        | Some n -> local { return n }
-                        | _ -> Cloud.GetWorkerCount()
-                    let! workers = Cloud.GetAvailableWorkers()
-                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
 
-                    let rangeBasedReadLines (s : int64) (e : int64) (stream : System.IO.Stream) = 
-                        seq {
-                            let numOfBytesRead = ref 0L
-                            stream.Seek(s, System.IO.SeekOrigin.Begin) |> ignore
-                            let reader = new LineReader(stream)
-                            let size = stream.Length
-                            while s + !numOfBytesRead <= e && s + !numOfBytesRead < size do
-                                let line = reader.ReadLine()
-                                if s = 0L || !numOfBytesRead > 0L then
-                                    yield line
-                                numOfBytesRead := reader.NumOfBytesRead
-                        }
-                    let createTask (s : int64) (e : int64) (collector : Local<Collector<string, 'S>>) = 
-                        local {
-                            let! collector = collector
-                            if s = e then
-                                return! projection collector.Result
-                            else
-                                use! stream = CloudFile.Read(path, (fun stream -> async { return stream }), true)
-                                let parStream = ParStream.ofSeq (rangeBasedReadLines s e stream) 
-                                let collectorResult = parStream.Apply (toParStreamCollector collector)
-                                return! projection collectorResult
-                        }
-                    if not (fileSize = 0L) then 
-                        let partitions = Partitions.ofLongRange workerCount fileSize
-                        let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
-                        let! results = 
-                            if targetedworkerSupport then
-                                partitions 
-                                |> Array.mapi (fun i (s, e) -> (createTask s e collectorf, workers.[i % workers.Length])) 
-                                |> Cloud.Parallel
-                            else
-                                partitions 
-                                |> Array.map (fun (s, e) -> createTask s e collectorf) 
-                                |> Cloud.Parallel
-                        return! combiner results 
-                    else
-                        return! projection collector.Result
-                } }
-                
-    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
-    /// <param name="channel">the ReceivePort of a CloudChannel.</param>
-    /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
-    /// <returns>The result CloudFlow.</returns>
-    let ofCloudChannel (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
-        { new CloudFlow<'T> with
-            member self.DegreeOfParallelism = Some degreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
-                cloud {
-                    let! collector = collectorf 
-                    let! workerCount = 
-                        match collector.DegreeOfParallelism with
-                        | Some n -> local { return n }
-                        | _ -> Cloud.GetWorkerCount()
-                    let! workers = Cloud.GetAvailableWorkers() 
-                    let workers = workers |> Array.sortBy (fun workerRef -> workerRef.Id)
-
-                    let createTask (collector : Local<Collector<'T, 'S>>) = 
-                        local {
-                            let! ctx = Cloud.GetExecutionContext()
-                            let! collectorf = collector
-                            let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
-                            let parStream = ParStream.ofSeq seq
-                            let collectorResult = parStream.Apply (toParStreamCollector collectorf)
-                            return! projection collectorResult
-                        }
-                    
-                    let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
-                    let! results = 
-                        if targetedworkerSupport then
-                            [|1..workerCount|] 
-                            |> Array.map (fun i -> (createTask collectorf, workers.[i % workers.Length])) 
-                            |> Cloud.Parallel
-                        else
-                            [|1..workerCount|] 
-                            |> Array.map (fun i -> createTask collectorf)
-                            |> Cloud.Parallel
-
-                    return! combiner results
-
-                } }
 
     /// <summary>Sends the values of CloudFlow to the SendPort of a CloudChannel</summary>
     /// <param name="channel">the SendPort of a CloudChannel.</param>
