@@ -31,6 +31,8 @@ type ProcessInfo =
         ProcessId : string
         /// Cloud file store configuration
         FileStoreConfig : CloudFileStoreConfiguration
+        /// Default serializer used for process
+        Serializer : ISerializer
         /// Cloud atom configuration
         AtomConfig : CloudAtomConfiguration
         /// Cloud channel configuration
@@ -71,6 +73,7 @@ with
                     Resources = 
                         resource { 
                             yield runtimeProvider ; yield tem ; yield job.CancellationTokenSource ; 
+                            yield job.ProcessInfo.Serializer
                             yield Config.WithCachedFileStore job.ProcessInfo.FileStoreConfig
                             yield Config.ObjectCache
                             yield job.ProcessInfo.AtomConfig ; yield job.ProcessInfo.ChannelConfig

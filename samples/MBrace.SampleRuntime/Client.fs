@@ -69,16 +69,17 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     let createProcessInfo () =
         {
             ProcessId = System.Guid.NewGuid().ToString()
-            FileStoreConfig = CloudFileStoreConfiguration.Create(fileStore, serializer)
+            FileStoreConfig = CloudFileStoreConfiguration.Create(fileStore)
             AtomConfig = CloudAtomConfiguration.Create(atomProvider)
             ChannelConfig = CloudChannelConfiguration.Create(channelProvider)
+            Serializer = serializer
         }
         
     let imem =
-        let fileConfig    = CloudFileStoreConfiguration.Create(fileStore, serializer)
+        let fileConfig    = CloudFileStoreConfiguration.Create(fileStore)
         let atomConfig    = CloudAtomConfiguration.Create(atomProvider)
         let channelConfig = CloudChannelConfiguration.Create(channelProvider)
-        LocalRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
+        LocalRuntime.Create(fileConfig = fileConfig, objectCache = Config.ObjectCache, serializer = serializer, atomConfig = atomConfig, channelConfig = channelConfig)
 
     /// Creates a fresh cloud cancellation token source for this runtime
     member __.CreateCancellationTokenSource () =

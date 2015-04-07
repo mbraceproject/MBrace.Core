@@ -147,8 +147,6 @@ type CloudFileStoreConfiguration =
         FileStore : ICloudFileStore
         /// Default directory used by current execution context.
         DefaultDirectory : string
-        // Default serializer
-        Serializer : ISerializer
     }
 with
     /// <summary>
@@ -157,11 +155,10 @@ with
     /// <param name="fileStore">File store instance.</param>
     /// <param name="serializer">Serializer instance.</param>
     /// <param name="defaultDirectory">Default directory for current process. Defaults to auto generated.</param>
-    static member Create(fileStore : ICloudFileStore, serializer : ISerializer, ?defaultDirectory : string) =
+    static member Create(fileStore : ICloudFileStore, ?defaultDirectory : string) =
         {
             FileStore = fileStore
             DefaultDirectory = match defaultDirectory with Some d -> d | None -> fileStore.GetRandomDirectoryName()
-            Serializer = serializer
         }
 
 [<AutoOpen>]

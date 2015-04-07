@@ -39,8 +39,10 @@ type CloudSequence<'T> =
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let! stream = ofAsync <| config.FileStore.BeginRead(c.path)
         match c.deserializer with
-        | None -> return config.Serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
         | Some ds -> return ds stream
+        | None -> 
+            let! serializer = Cloud.GetResource<ISerializer> ()
+            return serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
     }
 
     interface ICloudCacheable<'T []> with
@@ -140,7 +142,12 @@ type CloudSequence =
     static member New(values : seq<'T>, ?directory : string, ?serializer : ISerializer, ?cacheByDefault : bool) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
-        let _serializer = defaultArg serializer config.Serializer
+        let! _serializer = local {
+            match serializer with
+            | None -> return! Cloud.GetResource<ISerializer> ()
+            | Some s -> return s
+        }
+
         let deserializer = serializer |> Option.map (fun ser stream -> ser.SeqDeserialize<'T>(stream, leaveOpen = false))
         let path = config.FileStore.GetRandomFilePath directory
         let writer (stream : Stream) = async {
@@ -163,7 +170,12 @@ type CloudSequence =
     static member NewPartitioned(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer, ?cacheByDefault : bool) : Local<CloudSequence<'T> []> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let directory = defaultArg directory config.DefaultDirectory
-        let _serializer = defaultArg serializer config.Serializer
+        let! _serializer = local {
+            match serializer with
+            | None -> return! Cloud.GetResource<ISerializer> ()
+            | Some s -> return s
+        }
+
         let deserializer = serializer |> Option.map (fun ser stream -> ser.SeqDeserialize<'T>(stream, leaveOpen = false))
         return! ofAsync <| async {
             if maxPartitionSize <= 0L then return invalidArg "maxPartitionSize" "Must be greater that 0."

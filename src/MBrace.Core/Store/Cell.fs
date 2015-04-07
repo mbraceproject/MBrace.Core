@@ -45,10 +45,11 @@ type CloudCell<'T> =
         member c.GetSourceValue() = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
             use! stream = ofAsync <| config.FileStore.BeginRead c.path
-            return
-                match c.deserializer with 
-                | Some ds -> ds stream
-                | None -> config.Serializer.Deserialize<'T>(stream, leaveOpen = false)
+            match c.deserializer with 
+            | Some ds -> return ds stream
+            | None -> 
+                let! defaultSerializer = Cloud.GetResource<ISerializer> ()
+                return defaultSerializer.Deserialize<'T>(stream, leaveOpen = false)
         }
 
     /// Dereference the cloud cell
@@ -94,7 +95,12 @@ type CloudCell =
     static member New(value : 'T, ?directory : string, ?serializer : ISerializer, ?cacheByDefault : bool) = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
-        let _serializer = match serializer with Some s -> s | None -> config.Serializer
+        let! _serializer = local {
+            match serializer with 
+            | Some s -> return s 
+            | None -> return! Cloud.GetResource<ISerializer>()
+        }
+
         let deserializer = serializer |> Option.map (fun ser stream -> ser.Deserialize<'T>(stream, leaveOpen = false))
         let path = config.FileStore.GetRandomFilePath directory
         let writer (stream : Stream) = async {

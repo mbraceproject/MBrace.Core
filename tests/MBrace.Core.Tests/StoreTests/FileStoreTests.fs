@@ -268,10 +268,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, ?objectCache : IObjectCache) =
+type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer : ISerializer, ?objectCache : IObjectCache) =
     inherit ``FileStore Tests`` (parallelismFactor = 100)
 
-    let imem = LocalRuntime.Create(fileConfig = config, ?objectCache = objectCache)
+    let imem = LocalRuntime.Create(fileConfig = config, serializer = serializer, ?objectCache = objectCache)
 
     let fileStore = config.FileStore
     let testDirectory = fileStore.GetRandomDirectoryName()
@@ -293,7 +293,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, ?objectCac
 
     [<Test>]
     member __.``1. FileStore : Store instance should be serializable`` () =
-        let fileStore' = config.Serializer.Clone fileStore
+        let fileStore' = serializer.Clone fileStore
         fileStore'.Id |> shouldEqual fileStore.Id
         fileStore'.Name |> shouldEqual fileStore.Name
 

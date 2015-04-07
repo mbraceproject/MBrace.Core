@@ -20,12 +20,12 @@ module private Config =
     let fsStore = FileSystemStore.CreateSharedLocal()
     let serializer = new FsPicklerBinaryStoreSerializer()
     let imem = InMemoryCache.Create()
-    let fsConfig = CloudFileStoreConfiguration.Create(fsStore, serializer)
+    let fsConfig = CloudFileStoreConfiguration.Create(fsStore)
 
 [<TestFixture>]
 type ``FileSystemStore Tests`` () =
-    inherit  ``Local FileStore Tests``(fsConfig, ?objectCache = None)
+    inherit  ``Local FileStore Tests``(fsConfig, serializer, ?objectCache = None)
 
 [<TestFixture>]
 type ``FileSystemStore Tests (cached)`` () =
-    inherit  ``Local FileStore Tests``(fsConfig, objectCache = imem)
+    inherit  ``Local FileStore Tests``(fsConfig, serializer, objectCache = imem)
