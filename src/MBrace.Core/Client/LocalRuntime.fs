@@ -82,14 +82,17 @@ type LocalRuntime private (resources : ResourceRegistry) =
                             ?objectCache : IObjectCache,
                             ?atomConfig : CloudAtomConfiguration,
                             ?channelConfig : CloudChannelConfiguration,
+                            ?dictionaryProvider : ICloudDictionaryProvider,
                             ?resources : ResourceRegistry) : LocalRuntime =
 
         let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration()
+        let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider() :> _
         let channelConfig = match channelConfig with Some cc -> cc | None -> InMemoryChannelProvider.CreateConfiguration()
 
         let resources = resource {
             yield ThreadPoolRuntime.Create(?logger = logger) :> IDistributionProvider
             yield atomConfig
+            yield dictionaryProvider
             yield channelConfig
             match fileConfig with Some fc -> yield fc | None -> ()
             match serializer with Some sr -> yield sr | None -> ()

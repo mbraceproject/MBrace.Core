@@ -3,6 +3,7 @@
 open MBrace
 
 open System
+open System.Collections.Generic
 open System.Threading
 
 open MBrace
@@ -90,3 +91,44 @@ type InMemoryChannelProvider () =
         }
 
         member __.DisposeContainer _ = async.Zero()
+
+/// Defines an in-memory dictionary factory using ConcurrentDictionary
+[<Sealed; AutoSerializable(false)>]
+type InMemoryDictionaryProvider() =
+    interface ICloudDictionaryProvider with
+        member s.IsSupportedValue _ = true
+        member s.Create<'T> () = async {
+            let id = Guid.NewGuid().ToString()
+            let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
+            return {
+                new ICloudDictionary<'T> with
+                    member x.Add(key : string, value : 'T) : Local<unit> =
+                        local { return dict.[key] <- value }
+
+                    member x.TryAdd(key: string, value: 'T): Local<bool> = 
+                        local { return dict.TryAdd(key, value) }
+                    
+                    member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Local<'T> = 
+                        local { return dict.AddOrUpdate(key, updater None, fun _ curr -> updater (Some curr))}
+                    
+                    member x.ContainsKey(key: string): Local<bool> = 
+                        local { return dict.ContainsKey key }
+                    
+                    member x.Count: Local<int64> = 
+                        local { return int64 dict.Count }
+                    
+                    member x.Dispose(): Local<unit> = local.Zero()
+                    
+                    // capture provider in closure it avoid it being serialized
+                    member x.Id: string = let _ = s.GetHashCode() in id
+                    
+                    member x.Remove(key: string): Local<bool> = 
+                        local { return dict.TryRemove key |> fst }
+                    
+                    member x.ToEnumerable(): Local<seq<KeyValuePair<string, 'T>>> = 
+                        local { return dict :> _ }
+                    
+                    member x.TryFind(key: string): Local<'T option> = 
+                        local { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
+                    
+            } }

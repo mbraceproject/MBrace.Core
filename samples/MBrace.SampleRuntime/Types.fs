@@ -37,6 +37,8 @@ type ProcessInfo =
         AtomConfig : CloudAtomConfiguration
         /// Cloud channel configuration
         ChannelConfig : CloudChannelConfiguration
+        /// Cloud dictionary provider
+        DictionaryProvider : ICloudDictionaryProvider
     }
 
 /// A job is a computation belonging to a larger cloud process
@@ -76,6 +78,7 @@ with
                             yield job.ProcessInfo.Serializer
                             yield Config.WithCachedFileStore job.ProcessInfo.FileStoreConfig
                             yield Config.ObjectCache
+                            yield job.ProcessInfo.DictionaryProvider
                             yield job.ProcessInfo.AtomConfig ; yield job.ProcessInfo.ChannelConfig
                         }
 

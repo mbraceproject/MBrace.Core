@@ -83,6 +83,14 @@ type ActorChannelProvider (state : RuntimeState) =
         }
 
         member __.DisposeContainer _ = async.Zero()
+
+type ActorDictionaryProvider (state : RuntimeState) =
+    interface ICloudDictionaryProvider with
+        member __.IsSupportedValue _ = true
+        member __.Create<'T> () = async {
+            let! dict = state.ResourceFactory.RequestDictionary()
+            return dict :> ICloudDictionary<'T>
+        }
         
 /// Scheduling implementation provider
 [<AutoSerializable(false)>]

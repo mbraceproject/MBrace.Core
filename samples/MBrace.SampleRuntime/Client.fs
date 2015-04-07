@@ -58,6 +58,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> _
     let atomProvider = new ActorAtomProvider(state) :> ICloudAtomProvider
     let channelProvider = new ActorChannelProvider(state) :> ICloudChannelProvider
+    let dictionaryProvider = new ActorDictionaryProvider(state) :> ICloudDictionaryProvider
 
     let appendWorker (address: string) =
         let url = sprintf "utcp://%s/workerManager" address
@@ -72,6 +73,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
             FileStoreConfig = CloudFileStoreConfiguration.Create(fileStore)
             AtomConfig = CloudAtomConfiguration.Create(atomProvider)
             ChannelConfig = CloudChannelConfiguration.Create(channelProvider)
+            DictionaryProvider = dictionaryProvider
             Serializer = serializer
         }
         

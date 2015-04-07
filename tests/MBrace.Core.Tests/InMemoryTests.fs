@@ -64,3 +64,12 @@ type ``InMemory CloudChannel Tests`` () =
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocal(workflow) = imem.Run workflow
     override __.ChannelClient = imem.StoreClient.Channel
+
+type ``InMemory CloudDictionary Tests`` () =
+    inherit ``CloudDictionary Tests`` (parallelismFactor = 100)
+
+    let imem = LocalRuntime.Create()
+
+    override __.Run(workflow) = imem.Run workflow
+    override __.RunLocal(workflow) = imem.Run workflow
+    override __.DictionaryClient = imem.StoreClient.Dictionary

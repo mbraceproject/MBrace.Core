@@ -59,3 +59,18 @@ type ``SampleRuntime Channel Tests`` () =
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
     override __.ChannelClient = session.Runtime.StoreClient.Channel
+
+type ``SampleRuntime Dictionary Tests`` () =
+    inherit ``CloudDictionary Tests``(parallelismFactor = 10)
+
+    let session = new RuntimeSession(nodes = 4)
+
+    [<TestFixtureSetUp>]
+    member __.Init () = session.Start()
+
+    [<TestFixtureTearDown>]
+    member __.Fini () = session.Stop ()
+
+    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.DictionaryClient = session.Runtime.StoreClient.Dictionary

@@ -240,6 +240,122 @@ type CloudChannelClient internal (registry : ResourceRegistry) =
     static member CreateFromResources(resources : ResourceRegistry) =
         new CloudChannelClient(resources)
 
+[<Sealed; AutoSerializable(false)>]
+/// Collection of client methods for CloudDictionary API
+type CloudDictionaryClient internal (registry : ResourceRegistry) =
+    // force exception in event of missing resource
+    let config = registry.Resolve<ICloudDictionaryProvider>()
+    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
+
+    /// Asynchronously creates a new CloudDictionary instance.
+    member __.NewAsync<'T> () : Async<ICloudDictionary<'T>> = CloudDictionary.New<'T> () |> toAsync
+
+    /// Creates a new CloudDictionary instance.
+    member __.New<'T> () : ICloudDictionary<'T> = __.NewAsync<'T> () |> toSync
+
+    /// <summary>
+    ///     Asynchronously checks if entry of given key exists in dictionary.
+    /// </summary>
+    /// <param name="key">Key for entry.</param>
+    /// <param name="dictionary">Dictionary to be checked.</param>
+    member __.ContainsKeyAsync (key : string) (dictionary : ICloudDictionary<'T>) : Async<bool> =
+        CloudDictionary.ContainsKey key dictionary |> toAsync
+
+    /// <summary>
+    ///     Checks if entry of given key exists in dictionary.
+    /// </summary>
+    /// <param name="key">Key for entry.</param>
+    /// <param name="dictionary">Dictionary to be checked.</param>
+    member __.ContainsKey (key : string) (dictionary : ICloudDictionary<'T>) : bool =
+        __.ContainsKeyAsync key dictionary |> toSync
+
+    /// <summary>
+    ///     Asynchronously adds key/value entry to dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="value">Value to entry.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.AddAsync (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : Async<unit> =
+        CloudDictionary.Add key value dictionary |> toAsync
+
+    /// <summary>
+    ///     Adds key/value entry to dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="value">Value to entry.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.Add (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : unit =
+        __.AddAsync key value dictionary |> toSync
+
+    /// <summary>
+    ///     Asynchronously adds key/value entry to dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="value">Value to entry.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.TryAddAsync (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : Async<bool> =
+        CloudDictionary.TryAdd key value dictionary |> toAsync
+
+    /// <summary>
+    ///     Adds key/value entry to dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="value">Value to entry.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.TryAdd (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : bool =
+        __.TryAddAsync key value dictionary |> toSync
+
+    /// <summary>
+    ///     Asynchronously updates a key/value entry on a dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Value updater function.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.AddOrUpdateAsync (key : string) (updater : 'T option -> 'T) (dictionary : ICloudDictionary<'T>) : Async<'T> =
+        CloudDictionary.AddOrUpdate key updater dictionary |> toAsync
+
+    /// <summary>
+    ///     Updates a key/value entry on a dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Value updater function.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.AddOrUpdate (key : string) (updater : 'T option -> 'T) (dictionary : ICloudDictionary<'T>) : 'T =
+        __.AddOrUpdateAsync key updater dictionary |> toSync
+
+    /// <summary>
+    ///     Asynchronously removes an entry of given id from dictionary.
+    /// </summary>
+    /// <param name="key">Key for entry to be removed.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.RemoveAsync (key : string) (dictionary : ICloudDictionary<'T>) : Async<bool> =
+        CloudDictionary.Remove key dictionary |> toAsync
+
+    /// <summary>
+    ///     Removes an entry of given id from dictionary.
+    /// </summary>
+    /// <param name="key">Key for entry to be removed.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.Remove (key : string) (dictionary : ICloudDictionary<'T>) : bool =
+        __.RemoveAsync key dictionary |> toSync
+
+    /// <summary>
+    ///     Asynchronously try reading value of supplied key from dictionary.
+    /// </summary>
+    /// <param name="key">Key to be looked up.</param>
+    /// <param name="dictionary">Dictionary to be accessed.</param>
+    member __.TryFindAsync (key : string) (dictionary : ICloudDictionary<'T>) : Async<'T option> =
+        CloudDictionary.TryFind key dictionary |> toAsync
+
+    /// <summary>
+    ///     Try reading value of supplied key from dictionary.
+    /// </summary>
+    /// <param name="key">Key to be looked up.</param>
+    /// <param name="dictionary">Dictionary to be accessed.</param>
+    member __.TryFind (key : string) (dictionary : ICloudDictionary<'T>) : 'T option =
+        __.TryFindAsync key dictionary |> toSync
+
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of path-related file store methods.
@@ -815,6 +931,7 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
 type StoreClient internal (registry : ResourceRegistry) =
     let atomClient     = lazy CloudAtomClient(registry)
     let channelClient  = lazy CloudChannelClient(registry)
+    let dictClient     = lazy CloudDictionaryClient(registry)
     let fileStore      = lazy FileStoreClient(registry)
     let cloudCellClient = lazy CloudCellClient(registry)
     let cloudseqClient = lazy CloudSequenceClient(registry)
@@ -823,6 +940,8 @@ type StoreClient internal (registry : ResourceRegistry) =
     member __.Atom = atomClient.Value
     /// CloudChannel client.
     member __.Channel = channelClient.Value
+    /// CloudDictionary client.
+    member __.Dictionary = dictClient.Value
     /// CloudFileStore client.
     member __.FileStore = fileStore.Value
     /// CloudValue client.
