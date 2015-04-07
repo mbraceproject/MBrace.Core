@@ -1,5 +1,14 @@
 ﻿namespace MBrace.Store
 
+open System
+open System.Runtime.Serialization
+
+open MBrace
+open MBrace.Continuation
+open MBrace.Store
+
+#nowarn "444"
+
 /// Object caching abstraction
 type IObjectCache =
 
@@ -7,30 +16,20 @@ type IObjectCache =
     ///     Returns true iff key is contained in cache.
     /// </summary>
     /// <param name="key"></param>
-    abstract ContainsKey : key:string -> bool
+    abstract ContainsKey : key:string -> Async<bool>
 
     /// <summary>
     ///     Adds a key/value pair to cache.
     /// </summary>
     /// <param name="key"></param>
     /// <param name="value"></param>
-    abstract Add : key:string * value:obj -> bool
+    abstract Add : key:string * value:obj -> Async<bool>
 
     /// <summary>
     ///     Attempt to recover value of given type from cache.
     /// </summary>
     /// <param name="key"></param>
-    abstract TryFind : key:string -> obj option
-
-namespace MBrace
-
-open System
-open System.Runtime.Serialization
-
-open MBrace.Continuation
-open MBrace.Store
-
-#nowarn "444"
+    abstract TryFind : key:string -> Async<obj option>
 
 /// Represents an entity that can be cached across worker instances.
 type ICloudCacheable<'T> =
@@ -45,14 +44,6 @@ type ICloudCacheable<'T> =
 type CloudCache =
 
     /// <summary>
-    ///     Wraps a local workflow into a cacheable entity.
-    /// </summary>
-    /// <param name="evaluator">Evaluator that produces the cacheable value.</param>
-    /// <param name="cacheByDefault">Enables implicit, on-demand caching of instance value. Defaults to true.</param>
-    static member CreateCacheableEntity(evaluator : Local<'T>, ?cacheByDefault : bool) : CloudCacheable<'T> =
-        new CloudCacheable<'T>(evaluator, defaultArg cacheByDefault true)
-
-    /// <summary>
     ///     Populates cache in the current execution context with value from provided entity. 
     ///     Returns a boolean indicating success of the operation.
     /// </summary>
@@ -61,10 +52,12 @@ type CloudCache =
         let! cache = Cloud.TryGetResource<IObjectCache> ()
         match cache with
         | None -> return false
-        | Some c when c.ContainsKey entity.UUID -> return true
         | Some c ->
-            let! value = entity.GetSourceValue()
-            return c.Add (entity.UUID, value)
+            let! containsKey = ofAsync <| c.ContainsKey entity.UUID
+            if containsKey then return true
+            else
+                let! value = entity.GetSourceValue()
+                return! ofAsync <| c.Add (entity.UUID, value)
     }
 
     /// <summary>
@@ -73,7 +66,9 @@ type CloudCache =
     /// <param name="entity">Cacheable entity.</param>
     static member IsCachedLocally(entity : ICloudCacheable<'T>) : Local<bool> = local {
         let! cache = Cloud.TryGetResource<IObjectCache> ()
-        return cache |> Option.exists (fun c -> c.ContainsKey entity.UUID)
+        match cache with
+        | None -> return false
+        | Some c -> return! ofAsync <| c.ContainsKey entity.UUID
     }
 
     /// <summary>
@@ -86,7 +81,8 @@ type CloudCache =
         match cache with
         | None -> return None
         | Some c ->
-            match c.TryFind entity.UUID with
+            let! cacheResult = ofAsync <| c.TryFind entity.UUID
+            match cacheResult with
             | None -> return None
             | Some(:? 'T as t) -> return Some t
             | Some null -> return raise <| new NullReferenceException("CloudCache entity.")
@@ -107,7 +103,8 @@ type CloudCache =
         match cache with
         | None -> return! entity.GetSourceValue()
         | Some c ->
-            match c.TryFind entity.UUID with
+            let! cacheResult = ofAsync <| c.TryFind entity.UUID
+            match cacheResult with
             | Some(:? 'T as t) -> return t
             | Some null -> return raise <| new NullReferenceException("CloudCache entity.")
             | Some o -> 
@@ -115,39 +112,8 @@ type CloudCache =
                 return raise <| new InvalidCastException(msg)
             | None ->
                 let! t = entity.GetSourceValue()
-                if cacheIfNotExists then ignore <| c.Add(entity.UUID, t)
+                if cacheIfNotExists then 
+                    let! _ = ofAsync <| c.Add(entity.UUID, t) in ()
+
                 return t
     }
-
-/// Anonymous CloudCacheable workflow wrapper
-and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] 
- CloudCacheable<'T> internal (evaluator : Local<'T>, cacheByDefault : bool) =
-
-    [<DataMember(Name = "UUID")>]
-    let uuid = Guid.NewGuid().ToString() // cached instances uniquely identified by constructor-generated id's.
-    [<DataMember(Name = "Evaluator")>]
-    let evaluator = evaluator
-    [<DataMember(Name = "CacheByDefault")>]
-    let mutable cacheByDefault = cacheByDefault
-
-    interface ICloudCacheable<'T> with
-        member __.UUID = uuid
-        member __.GetSourceValue () = evaluator
-
-    /// Enables or disables implicit caching when
-    /// value is dereferenced in a given execution context.
-    member __.CacheByDefault
-        with get () = cacheByDefault
-        and set cbd = cacheByDefault <- cbd
-
-    /// Dereferences cacheable value from source or local cache.
-    member cc.Value = local { return! CloudCache.GetCachedValue(cc, cacheIfNotExists = cacheByDefault) }
-    /// Force caching of value to local context.
-    member cc.ForceCache () = local { return! CloudCache.PopulateLocalCache cc }
-    /// Gets the cache status in the local execution context.
-    member cc.IsCachedLocally = local { return! CloudCache.IsCachedLocally cc }
-    /// Try getting value from the local cache only.
-    member cc.TryGetCachedValue () = local { return! CloudCache.TryGetCachedValue cc }
-
-    override c.ToString() = sprintf "CloudCacheable[%O] %s" typeof<'T> uuid
-    member private c.StructuredFormatDisplay = c.ToString()

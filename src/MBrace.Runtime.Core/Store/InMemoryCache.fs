@@ -77,6 +77,6 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
             false
 
     interface IObjectCache with
-        member self.ContainsKey key = self.ContainsKey key
-        member self.Add(key : string, value : obj) = self.Add(key, value)
-        member self.TryFind(key : string) = self.TryFind key
+        member self.ContainsKey key = async { return self.ContainsKey key }
+        member self.Add(key : string, value : obj) = async { return self.Add(key, value) }
+        member self.TryFind(key : string) = async { return self.TryFind key }
