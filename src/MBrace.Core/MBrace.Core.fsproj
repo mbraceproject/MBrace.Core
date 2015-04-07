@@ -74,9 +74,9 @@
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\Caching.fs" />
-    <Compile Include="Store\Cell.fs" />
-    <Compile Include="Store\Collection.fs" />
-    <Compile Include="Store\Sequence.fs" />
+    <Compile Include="Store\CloudValue.fs" />
+    <Compile Include="Store\CloudCollection.fs" />
+    <Compile Include="Store\CloudSequence.fs" />
     <Compile Include="Distribution\Logging.fs" />
     <Compile Include="Distribution\FaultPolicy.fs" />
     <Compile Include="Distribution\RuntimeTypes.fs" />

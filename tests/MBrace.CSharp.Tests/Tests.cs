@@ -128,7 +128,7 @@ namespace MBrace.CSharp.Tests
         [Test]
         public void TryFinally()
         {
-            var cref = this.Run(CloudCell.New(0, null, null));
+            var cref = this.Run(CloudValue.New(0, null, null));
 
             var workflow = Cloud.New(() => 
                     Cloud.TryFinally(
@@ -186,7 +186,7 @@ namespace MBrace.CSharp.Tests
         [Test]
         public void Dispose()
         {
-            var cref = this.Run(CloudCell.New(0, null, null));
+            var cref = this.Run(CloudValue.New(0, null, null));
             this.Run(cref.Dispose());
             Assert.Catch<Exception>(() => this.Run(cref.Value));
         }

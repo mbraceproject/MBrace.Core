@@ -37,15 +37,15 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
 
     [<Test>]
-    member __.``2. MBrace : CloudCell - simple`` () = 
-        let ref = runRemote <| CloudCell.New 42
+    member __.``2. MBrace : CloudValue - simple`` () = 
+        let ref = runRemote <| CloudValue.New 42
         ref.Value |> runLocal |> shouldEqual 42
 
     [<Test>]
-    member __.``2. MBrace : CloudCell - caching`` () = 
+    member __.``2. MBrace : CloudValue - caching`` () = 
         if __.IsObjectCacheInstalled then
             cloud {
-                let! c = CloudCell.New [1..10000]
+                let! c = CloudValue.New [1..10000]
                 let! r = c.ForceCache()
                 r |> shouldEqual true
                 let! v1 = c.Value
@@ -55,21 +55,21 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
     [<Test>]
-    member __.``2. MBrace : CloudCell - cache by default`` () =
+    member __.``2. MBrace : CloudValue - cache by default`` () =
         if __.IsObjectCacheInstalled then
-            let ref = runRemote <| CloudCell.New(42, cacheByDefault = true)
+            let ref = runRemote <| CloudValue.New(42, enableCache = true)
             cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
 
     [<Test>]
-    member __.``2. MBrace : CloudCell - Parallel`` () =
+    member __.``2. MBrace : CloudValue - Parallel`` () =
         cloud {
-            let! ref = CloudCell.New [1 .. 100]
+            let! ref = CloudValue.New [1 .. 100]
             let! (x, y) = cloud { let! v = ref.Value in return v.Length } <||> cloud { let! v = ref.Value in return v.Length }
             return x + y
         } |> runRemote |> shouldEqual 200
 
     [<Test>]
-    member __.``2. MBrace : CloudCell - Distributed tree`` () =
+    member __.``2. MBrace : CloudValue - Distributed tree`` () =
         let tree = CloudTree.createTree 5 |> runRemote
         CloudTree.getBranchCount tree |> runRemote |> shouldEqual 31
 
@@ -97,7 +97,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - cache by default`` () = 
         if __.IsObjectCacheInstalled then
-            let seq = runRemote <| CloudSequence.New([1..1000], cacheByDefault = true)
+            let seq = runRemote <| CloudSequence.New([1..1000], enableCache = true)
             cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
 
     [<Test>]

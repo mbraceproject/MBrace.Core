@@ -13,8 +13,6 @@ open MBrace.Continuation
 
 #nowarn "444"
 
-// sketch of cloud collection design; provisional design
-
 /// Represents an abstract, distributed collection of values.
 type ICloudCollection<'T> =
     /// Computes the element count for the collection.

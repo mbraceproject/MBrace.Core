@@ -48,7 +48,7 @@ type CloudCache =
     ///     Returns a boolean indicating success of the operation.
     /// </summary>
     /// <param name="entity">Entity to be cached.</param>
-    static member PopulateLocalCache(entity : ICloudCacheable<'T>) : Local<bool> = local {
+    static member PopulateCache(entity : ICloudCacheable<'T>) : Local<bool> = local {
         let! cache = Cloud.TryGetResource<IObjectCache> ()
         match cache with
         | None -> return false
@@ -64,7 +64,7 @@ type CloudCache =
     ///     Checks if entity is cached in the local execution context.
     /// </summary>
     /// <param name="entity">Cacheable entity.</param>
-    static member IsCachedLocally(entity : ICloudCacheable<'T>) : Local<bool> = local {
+    static member IsCachedEntity(entity : ICloudCacheable<'T>) : Local<bool> = local {
         let! cache = Cloud.TryGetResource<IObjectCache> ()
         match cache with
         | None -> return false

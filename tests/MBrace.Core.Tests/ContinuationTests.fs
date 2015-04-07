@@ -485,7 +485,7 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``storage resouces`` () =
-        run(CloudCell.New 0) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
+        run(CloudValue.New 0) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
 
     [<Test>]
     let ``test correct scoping in resource updates`` () =
