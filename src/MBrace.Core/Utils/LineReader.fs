@@ -80,7 +80,7 @@ type private LineReader(stream : Stream, ?encoding : Encoding) =
 type private LineEnumerator (stream : Stream, beginPos : int64, endPos : int64, ?encoding : Encoding) =
     let mutable currentLine = Unchecked.defaultof<string>
     do 
-        if beginPos > endPos || endPos > stream.Length then raise <| new ArgumentOutOfRangeException("endPos")
+        if beginPos > endPos + 1L || endPos > stream.Length then raise <| new ArgumentOutOfRangeException("endPos")
         ignore <| stream.Seek(beginPos, SeekOrigin.Begin)
 
     let reader = new LineReader(stream)
