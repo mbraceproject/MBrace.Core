@@ -111,6 +111,7 @@ type CloudSequence<'T> =
 
     interface ICloudCollection<'T> with
         member c.Count = c.Count
+        member c.Size = c.Size
         member c.ToEnumerable() = c.ToEnumerable()
 
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path

@@ -88,9 +88,10 @@ type private StreamLineEnumerator(stream : Stream, ?encoding : Encoding) =
         member __.Current = currentLine
         member __.Current = box currentLine
         member __.MoveNext () =
-            match reader.ReadLine() with
-            | null -> false
-            | line -> currentLine <- line ; true
+            if reader.EndOfStream then false
+            else
+                currentLine <- reader.ReadLine()
+                true
 
         member __.Dispose () = stream.Dispose()
         member __.Reset () = raise <| new NotSupportedException("LineReader")

@@ -52,5 +52,5 @@ type public CSharpProxy =
         
 
 
-    static member OfCloudFiles(sources : seq<CloudFile>, reader : Func<IO.Stream, Task<'T>>) =
+    static member OfCloudFiles(sources : seq<string>, reader : Func<IO.Stream, Task<'T>>) =
         CloudFlow.ofCloudFiles (fun stream -> Async.AwaitTask(reader.Invoke(stream))) sources

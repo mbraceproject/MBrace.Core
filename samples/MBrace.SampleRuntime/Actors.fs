@@ -514,6 +514,9 @@ type CloudDictionary<'T> private (id : string, source : ActorRef<CloudDictionary
         
         member x.Count: Local<int64> = 
             source <!- GetCount
+
+        member x.Size : Local<int64> =
+            source <!- GetCount
         
         member x.Dispose(): Local<unit> = local.Zero ()
         

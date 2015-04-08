@@ -116,6 +116,9 @@ type InMemoryDictionaryProvider() =
                     
                     member x.Count: Local<int64> = 
                         local { return int64 dict.Count }
+
+                    member x.Size: Local<int64> = 
+                        local { return int64 dict.Count }
                     
                     member x.Dispose(): Local<unit> = local.Zero()
                     

@@ -13,7 +13,7 @@ open MBrace.Store
 open System.Text
 
 // Helper type
-type Seperator = N | R | RN
+type Separator = N | R | RN
 
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
@@ -194,7 +194,8 @@ type ``CloudFlow tests`` () as self =
                      |> Cloud.Parallel
                      |> run
 
-            let x = cfs |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllText
+            let x = cfs |> Array.map (fun cf -> cf.Path)
+                        |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllText
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -213,7 +214,8 @@ type ``CloudFlow tests`` () as self =
                      |> Cloud.Parallel
                      |> run
 
-            let x = cfs |> CloudFlow.ofCloudFiles CloudFileReader.ReadLines
+            let x = cfs |> Array.map (fun cf -> cf.Path)
+                        |> CloudFlow.ofCloudFiles CloudFileReader.ReadLines
                         |> CloudFlow.collect id
                         |> CloudFlow.toArray
                         |> run
@@ -234,7 +236,8 @@ type ``CloudFlow tests`` () as self =
                      |> Cloud.Parallel
                      |> run
 
-            let x = cfs |> CloudFlow.ofCloudFilesByLine
+            let x = cfs |> Array.map (fun cf -> cf.Path)
+                        |> CloudFlow.ofCloudFilesByLine
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -250,13 +253,13 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : ofTextFileByLine`` () =
         
-        let f(xs : string [], seperator : Seperator) =
-            let seperator = 
-                match seperator with
+        let f(xs : string [], separator : Separator) =
+            let separator = 
+                match separator with
                 | N -> "\n" 
                 | R -> "\r"
                 | RN -> "\r\n"
-            let cf = CloudFile.WriteAllText(xs |> String.concat seperator) |> run
+            let cf = CloudFile.WriteAllText(xs |> String.concat separator) |> run
             let path = cf.Path
 
             let x = 
@@ -283,7 +286,9 @@ type ``CloudFlow tests`` () as self =
                      |> Cloud.Parallel
                      |> run
 
-            let x = cfs |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllLines
+            let x = cfs 
+                        |> Array.map (fun cf -> cf.Path)
+                        |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllLines
                         |> CloudFlow.collect (fun lines -> lines :> _)
                         |> CloudFlow.toArray
                         |> run
@@ -446,7 +451,7 @@ type ``CloudFlow tests`` () as self =
                          |> Array.map (fun x -> CloudFile.WriteAllText(string x))
                          |> Cloud.Parallel
                          |> run
-                let x = cfs |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllText |> CloudFlow.forall (fun x -> Int32.Parse(x) = 0) |> run
+                let x = cfs |> Array.map (fun cf -> cf.Path) |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllText |> CloudFlow.forall (fun x -> Int32.Parse(x) = 0) |> run
                 let y = xs |> Seq.forall (fun n -> n = 0) 
                 x = y
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)

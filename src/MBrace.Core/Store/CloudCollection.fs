@@ -17,6 +17,12 @@ open MBrace.Continuation
 type ICloudCollection<'T> =
     /// Computes the element count for the collection.
     abstract Count : Local<int64>
+    /// Gets a size metric for the collection.
+    /// This could be total amount of bytes of persisting files
+    /// or the total number of elements if this is a known value.
+    /// Importantly this should be cheap to compute, not requiring
+    /// traversal of the entire collection. It used for weighing collection partitions.
+    abstract Size : Local<int64>
     /// Gets an enumeration of all elements in the collection
     abstract ToEnumerable : unit -> Local<seq<'T>>
 
