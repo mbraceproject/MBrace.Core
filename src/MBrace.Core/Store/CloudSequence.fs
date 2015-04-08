@@ -117,13 +117,13 @@ type CloudSequence<'T> =
     member private c.StructuredFormatDisplay = c.ToString()
 
 [<DataContract>]
-type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache) =
-    inherit CloudSequence<string>(path, None, Some(fun stream -> new LineEnumerable(stream, ?encoding = encoding) :> _), ?enableCache = enableCache)
+type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache : bool) =
+    inherit CloudSequence<string>(path, None, Some(fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?enableCache = enableCache)
 
     interface IPartitionableCollection<string> with
         member __.GetPartitions(partitionCount : int) = local {
             let! size = CloudFile.GetSize path
-            let getDeserializer s e stream = new LineEnumerable(stream, s, e, ?encoding = encoding) :> seq<string>
+            let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, s, e + 1L, ?encoding = encoding)
             return
                 Array.splitByPartitionCountRange partitionCount 0L size
                 |> Array.map (fun (s,e) -> new CloudSequence<string>(path, None, Some(getDeserializer s e), ?enableCache = enableCache) :> _)

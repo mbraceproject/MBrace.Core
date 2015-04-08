@@ -13,7 +13,6 @@ open MBrace.Continuation
 
 /// Represents an immutable reference to an
 /// object that is persisted in the underlying store.
-/// Cloud cells cached locally for performance.
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type CloudValue<'T> =
 

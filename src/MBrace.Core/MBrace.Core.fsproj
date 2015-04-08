@@ -61,7 +61,7 @@
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\Trampoline.fs" />
     <Compile Include="Utils\ExceptionDispatchInfo.fs" />
-    <Compile Include="Utils\LineReader.fs" />
+    <Compile Include="Utils\TextReaders.fs" />
     <Compile Include="Utils\Enumerable.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\CancellationToken.fs" />

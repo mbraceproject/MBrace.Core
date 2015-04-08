@@ -517,7 +517,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadLines(path : string, ?encoding : Encoding) : Local<seq<string>> = local {
-        let reader (stream : Stream) = async { return LineEnumerable(stream, ?encoding = encoding) :> seq<string> }
+        let reader (stream : Stream) = async { return TextReaders.ReadLines(stream, ?encoding = encoding) }
         return! CloudFile.Read(path, reader, leaveOpen = true)
     }
 
@@ -528,8 +528,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="encoding">Text encoding.</param>
     static member ReadAllLines(path : string, ?encoding : Encoding) : Local<string []> = local {
         let reader (stream : Stream) = async {
-            let le = new LineEnumerable(stream, ?encoding = encoding)
-            return Seq.toArray le
+            let lines = TextReaders.ReadLines(stream, ?encoding = encoding)
+            return Seq.toArray lines
         }
 
         return! CloudFile.Read(path, reader)
