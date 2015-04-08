@@ -8,7 +8,7 @@ open System.Threading
 open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Linq
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Workflows
 open MBrace.Flow.Internals

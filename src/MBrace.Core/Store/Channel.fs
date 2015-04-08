@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 /// Sending side of a distributed channel
 type ISendPort<'T> =
@@ -27,7 +27,7 @@ type IReceivePort<'T> =
 
 namespace MBrace.Store
 
-open MBrace
+open MBrace.Core
 
 /// Defines a factory for distributed channels
 type ICloudChannelProvider =
@@ -73,7 +73,7 @@ with
             DefaultContainer = match defaultContainer with Some c -> c | None -> channelProvider.CreateUniqueContainerName()
         }
 
-namespace MBrace
+namespace MBrace.Core
 
 open MBrace.Continuation
 open MBrace.Store

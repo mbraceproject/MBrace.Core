@@ -2,7 +2,7 @@
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.Streams.CSharp.Tests
 
 type ``SampleRuntime CloudStream CSharp Tests`` () =

@@ -2,7 +2,7 @@
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.Runtime.InMemory
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization

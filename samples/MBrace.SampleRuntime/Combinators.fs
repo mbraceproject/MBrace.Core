@@ -4,7 +4,7 @@
 //  Provides distributed implementations for Cloud.Parallel, Cloud.Choice and Cloud.StartChild
 //
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Runtime
 open MBrace.Runtime.Utils

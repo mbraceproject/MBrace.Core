@@ -5,7 +5,7 @@
 // be passed an instance of ICloudRuntimeProvider in their
 // ExecutionContext.
 
-open MBrace
+open MBrace.Core
 
 /// <summary>
 ///     Executing runtime abstraction.

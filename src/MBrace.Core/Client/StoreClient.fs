@@ -5,7 +5,7 @@
 open System.IO
 open System.Text
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Continuation
 open MBrace.Runtime.InMemory

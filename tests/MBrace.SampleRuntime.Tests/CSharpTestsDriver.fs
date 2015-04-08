@@ -2,7 +2,7 @@
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.CSharp.Tests
 
 type ``SampleRuntime CSharp Tests`` () =

@@ -8,7 +8,7 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 open Nessos.Streams
-open MBrace
+open MBrace.Core
 open MBrace.SampleRuntime
 open MBrace.Flow
 

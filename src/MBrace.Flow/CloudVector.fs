@@ -3,7 +3,7 @@
 open System.IO
 open System.Collections.Generic
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Workflows
 

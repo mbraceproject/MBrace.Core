@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 open System
 open System.Runtime.Serialization

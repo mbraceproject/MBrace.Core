@@ -2,7 +2,7 @@
 
 open System.Threading
 
-open MBrace
+open MBrace.Core
 open MBrace.Tests
 open MBrace.SampleRuntime
 

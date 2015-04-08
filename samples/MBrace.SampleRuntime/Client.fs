@@ -7,7 +7,7 @@ open System.Threading
 open Nessos.Thespian
 open Nessos.Thespian.Remote
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Client
 open MBrace.Continuation

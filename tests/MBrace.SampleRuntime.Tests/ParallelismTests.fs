@@ -6,7 +6,7 @@ open System.Threading
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Workflows
 open MBrace.Runtime

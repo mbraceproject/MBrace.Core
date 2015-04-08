@@ -18,7 +18,7 @@ open Nessos.Vagabond
 open Nessos.Vagabond.AssemblyProtocols
 open Nessos.Vagabond.ExportableAssembly
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Runtime
 open MBrace.Runtime.Utils

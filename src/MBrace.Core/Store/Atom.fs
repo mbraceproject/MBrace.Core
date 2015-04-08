@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 open MBrace.Continuation
 
@@ -44,7 +44,7 @@ module CloudAtomUtils =
 
 namespace MBrace.Store
  
-open MBrace
+open MBrace.Core
 
 /// Defines a factory for distributed atoms
 type ICloudAtomProvider =
@@ -98,7 +98,7 @@ with
         }
 
 
-namespace MBrace
+namespace MBrace.Core
 
 open MBrace.Continuation
 open MBrace.Store

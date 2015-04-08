@@ -3,7 +3,7 @@
 open System
 open System.Threading
 
-open MBrace
+open MBrace.Core
 
 /// Local, non-distributable continuation execution context.
 [<AutoSerializable(false)>]

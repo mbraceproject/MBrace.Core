@@ -2,7 +2,7 @@
 
 open System
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Workflows
 open MBrace.Client

@@ -13,7 +13,7 @@ open System
 open Nessos.FsPickler
 open Nessos.Vagabond
 
-open MBrace
+open MBrace.Core
 open MBrace.Continuation
 open MBrace.Store
 
