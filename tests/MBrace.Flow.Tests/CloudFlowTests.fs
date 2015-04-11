@@ -374,9 +374,6 @@ type ``CloudFlow tests`` () as self =
         let f (xs : int[], n : int) =
             let n = System.Math.Abs(n)
             let x = xs |> CloudFlow.ofArray |> CloudFlow.take n |> CloudFlow.toArray |> run
-            // is this assertion correct?
-//            let y = xs.Take(n).ToArray()
-//            Assert.AreEqual(y, x)
             Assert.AreEqual(min xs.Length n, x.Length)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
