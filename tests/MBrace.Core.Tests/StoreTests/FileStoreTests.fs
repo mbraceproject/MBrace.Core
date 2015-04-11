@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Text.RegularExpressions
 
 open NUnit.Framework
 
@@ -148,6 +149,44 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             let! elem = cseq.ToArray()
             return elem.Length
         } |> runRemote |> shouldEqual 100
+
+    [<Test>]
+    member __.``2. MBrace : CloudSequence - read lines partitioned`` () =
+        let lineCount = 1000
+        let parseRegex = new Regex("([0-9]+),([0-9]+)", RegexOptions.Compiled)
+        let parse x =
+            let m = parseRegex.Match x
+            if m.Success then
+                let i = m.Groups.[1].Value |> int
+                let j = m.Groups.[2].Value |> int
+                if i + 1 <> j then raise <| new FormatException(sprintf "expected %d but was %d" (i+1) j)
+                i
+            else
+                raise <| new FormatException(sprintf "not a match: '%s'." x)
+
+        let lines = 
+            cloud {
+                let! file = CloudFile.WriteAllLines(Seq.init lineCount (fun i -> sprintf "%d,%d" (i + 1) (i + 2)))
+                let! cseq = CloudSequence.FromLineSeparatedTextFile file.Path   
+                return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
+            } |> runLocal
+
+        let testPartitioning partitionCount =
+            cloud {
+                let! partitions = lines.GetPartitions partitionCount
+                let readLines (c : ICloudCollection<string>) = local {
+                    let! e = c.ToEnumerable()
+                    return e |> Seq.map parse |> Seq.toArray
+                }
+
+                let! lines = partitions |> DivideAndConquer.map readLines
+                let results = Array.concat lines
+                results |> shouldEqual [|1..lineCount|]
+            } |> runRemote
+
+        for pc in [|1;2;3;5;10;50;100;250;500;750;1000|] do
+            testPartitioning pc
+
 
     [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
