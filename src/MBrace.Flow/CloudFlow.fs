@@ -72,19 +72,19 @@ type CloudFlow =
                             let collectorResult = parStream.Apply (CloudFlow.toParStreamCollector collector)
                             return! projection collectorResult
                         }
-                    if not (source.Length = 0) then 
+                    if source.Length > 0 then 
                         let partitions = Partitions.ofLongRange workerCount (int64 source.Length)
                         let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                         let! results = 
                             if targetedworkerSupport then
                                 partitions 
                                 |> Array.mapi (fun i (s, e) -> 
-                                                    let cloudBlock = createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf
+                                                    let cloudBlock = createTask source.[int s .. int e - 1] collectorf
                                                     (cloudBlock, workers.[i % workers.Length])) 
                                 |> Cloud.Parallel
                             else
                                 partitions 
-                                |> Array.map (fun (s, e) -> createTask [| for i in s..(e - 1L) do yield source.[int i] |] collectorf)
+                                |> Array.map (fun (s, e) -> createTask source.[int s .. int e - 1] collectorf)
                                 |> Cloud.Parallel
                         return! combiner results 
                     else
@@ -533,7 +533,11 @@ module CloudFlow =
                    (fun x -> local { return x }) 
                    (fun values -> local { 
                        let! ctx = Cloud.GetExecutionContext()
-                       return Array.reduce (combiner ctx) values })
+                       let combined =
+                            let mutable state = state ctx
+                            for v in values do state <- combiner ctx state v
+                            state
+                       return combined })
         }
 
 
@@ -595,7 +599,7 @@ module CloudFlow =
         // Phase 1
         let shuffling = 
             cloud {
-                let combiner' (result : _ []) = local { return Array.reduce Array.append result }
+                let combiner' (result : _ []) = local { return Array.concat result }
                 let! totalWorkers = match flow.DegreeOfParallelism with Some n -> local { return n } | None -> Cloud.GetWorkerCount()
                 let! cts = Cloud.CreateCancellationTokenSource()
                 let! keyValueArray = flow.Apply (collectorf cts totalWorkers) 
@@ -877,7 +881,7 @@ module CloudFlow =
         let sortByComp = 
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! results = flow.Apply (collectorf cts) (fun x -> local { return x }) (fun result -> local { return Array.reduce (fun left right -> left.AddRange(right); left) result })
+                let! results = flow.Apply (collectorf cts) (fun x -> local { return x }) (fun result -> local { match result with [||] -> return List() | _ -> return Array.reduce (fun left right -> left.AddRange(right); left) result })
                 let result = 
                     let count = results |> Seq.sumBy (fun (keys, _) -> keys.Length)
                     let keys = Array.zeroCreate<'Key> count
@@ -1157,13 +1161,13 @@ module CloudFlow =
                             Func = (fun value -> if list.Count < n then list.Add(value) else cloudCts.Cancel())
                             Cts = cts }
                       member __.Result =
-                          (results |> Seq.collect id).Take(n) |> Seq.toArray
+                          (results |> Seq.concat).Take(n) |> Seq.toArray
                      }
             }
         let gather =
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! results = flow.Apply (collectorF cts) (local.Return) (fun results -> local { return Array.collect id results })
+                let! results = flow.Apply (collectorF cts) (local.Return) (fun results -> local { return Array.concat results })
                 return results.Take(n).ToArray()
             }
         { new CloudFlow<'T> with

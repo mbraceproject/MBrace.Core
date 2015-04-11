@@ -547,7 +547,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
                 match encoding with
                 | None -> new StreamWriter(stream)
                 | Some e -> new StreamWriter(stream, e)
-            do! sw.WriteLineAsync text
+            do! sw.WriteAsync text
         }
 
         return! CloudFile.Create(writer, ?path = path)

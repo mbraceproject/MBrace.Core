@@ -118,16 +118,43 @@ type CloudSequence<'T> =
     member private c.StructuredFormatDisplay = c.ToString()
 
 [<DataContract>]
+type private StringCollection(lines : string []) =
+    [<DataMember(Name = "Lines")>]
+    let lines = lines
+    interface ICloudCollection<string> with
+        member x.Count: Local<int64> = local { return int64 lines.Length }
+        member x.Size: Local<int64> = local { return int64 lines.Length }
+        member x.ToEnumerable(): Local<seq<string>> = local { return lines :> _ }        
+
+[<DataContract>]
 type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache : bool) =
     inherit CloudSequence<string>(path, None, Some(fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?enableCache = enableCache)
 
     interface IPartitionableCollection<string> with
-        member __.GetPartitions(partitionCount : int) = local {
-            let! size = CloudFile.GetSize path
-            let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, s, e + 1L, ?encoding = encoding)
-            return
-                Array.splitByPartitionCountRange partitionCount 0L size
-                |> Array.map (fun (s,e) -> new CloudSequence<string>(path, None, Some(getDeserializer s e), ?enableCache = enableCache) :> _)
+        member cs.GetPartitions(partitionCount : int) = local {
+            if partitionCount <= 0 || partitionCount > int UInt16.MaxValue then
+                raise <| new ArgumentOutOfRangeException("partitionCount")
+
+            let! size = CloudFile.GetSize cs.Path
+
+            let mkRangedSeqs (partitionCount : int) =
+                let getDeserializer s e stream =
+                    TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
+                let mkRangedSeq (s,e) =  new CloudSequence<string>(cs.Path, None, Some(getDeserializer s e), ?enableCache = enableCache) :> ICloudCollection<string>
+                let partitions = Array.splitByPartitionCountRange (int partitionCount) 0L size
+                Array.map mkRangedSeq partitions
+
+            if size < 512L * 1024L then
+                let! count = cs.Count
+                if count < int64 partitionCount then
+                    let! lines = cs.ToArray()
+                    let partitions = min partitionCount (int count)
+                    let liness = Array.splitByPartitionCount partitionCount lines
+                    return liness |> Array.map (fun lines -> new StringCollection(lines) :> _)
+                else
+                    return mkRangedSeqs partitionCount
+            else
+                return mkRangedSeqs partitionCount
         }
 
 type CloudSequence =
@@ -259,7 +286,7 @@ type CloudSequence =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
     static member FromLineSeparatedTextFile(path : string, ?encoding : Encoding, ?force : bool, ?enableCache : bool) : Local<CloudSequence<string>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let cseq = TextLineSequence(path, ?encoding = encoding, ?enableCache = enableCache)
+        let cseq = new TextLineSequence(path, ?encoding = encoding, ?enableCache = enableCache)
         if defaultArg force false then
             let! _ = cseq.Count in ()
         else
