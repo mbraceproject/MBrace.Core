@@ -49,8 +49,6 @@ type public CSharpProxy =
 
     static member Sum(stream : CloudFlow<decimal>) = 
         CloudFlow.sum stream
-        
 
-
-    static member OfCloudFiles(sources : seq<string>, reader : Func<IO.Stream, Task<'T>>) =
-        CloudFlow.ofCloudFiles (fun stream -> Async.AwaitTask(reader.Invoke(stream))) sources
+    static member OfCloudFiles(sources : seq<string>, reader : Func<IO.Stream, seq<'T>>) =
+        CloudFlow.ofCloudFiles reader.Invoke sources

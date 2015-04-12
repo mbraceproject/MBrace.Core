@@ -9,6 +9,12 @@ open MBrace.Workflows
 
 #nowarn "444"
 
+//
+//  TODO: 
+//  1. Refactor CloudVector<> as PersistedCloudFlow<> : CloudFlow<>
+//  2. Include .toCloudVector implementation here, hide constructors.
+//
+
 /// Represents the cached indices corresponding to each worker node of the cluster
 type WorkerCacheState = IWorkerRef * int []
 
@@ -185,6 +191,9 @@ type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
             
 /// Cloud vector static API
 type CloudVector =
+
+    /// Maximum CloudVector partition size used in CloudVector.New.
+    static member internal MaxCloudVectorPartitionSize = 1073741824L // 1GB
 
     /// <summary>
     ///     Creates a new CloudVector out of a collection of CloudSequence partitions

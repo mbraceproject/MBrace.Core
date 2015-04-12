@@ -9,7 +9,7 @@ open System.Text
 /// Replacement implementation for System.IO.StreamReader which
 /// will not expose number of bytes read in underlying stream.
 /// This is used by RangedLineReader for proper partitioning of large text files.
-type  StreamLineReader(stream : Stream, ?encoding : Encoding) = 
+type private StreamLineReader(stream : Stream, ?encoding : Encoding) = 
     let reader = match encoding with None -> new StreamReader(stream) | Some e -> new StreamReader(stream, e)
     let buffer : char [] = Array.zeroCreate 4096
     let mutable posInBuffer : int = -1
@@ -136,7 +136,20 @@ type private RangedStreamLineEnumerable(stream : Stream, beginPos : int64, endPo
         member __.GetEnumerator() = new RangedStreamLineEnumerator(stream, beginPos, endPos, ?encoding = encoding) :> IEnumerator<string>
         member __.GetEnumerator() = new RangedStreamLineEnumerator(stream, beginPos, endPos, ?encoding = encoding) :> IEnumerator
 
-type internal TextReaders =
+type TextReaders =
+
+    /// <summary>
+    ///     Reads all text from provided given stream with provided encoding.
+    /// </summary>
+    /// <param name="stream">Reader stream.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member ReadAllText (stream : Stream, ?encoding : Encoding) : string =
+        let reader =
+            match encoding with
+            | None -> new StreamReader(stream)
+            | Some e -> new StreamReader(stream, e)
+
+        reader.ReadToEnd()
     
     /// <summary>
     ///     Returns an enumeration of all text lines contained in stream.

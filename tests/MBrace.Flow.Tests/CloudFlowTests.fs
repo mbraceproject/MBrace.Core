@@ -195,7 +195,7 @@ type ``CloudFlow tests`` () as self =
                      |> run
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllText
+                        |> CloudFlow.ofTextFiles
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -215,8 +215,7 @@ type ``CloudFlow tests`` () as self =
                      |> run
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.ofCloudFiles CloudFileReader.ReadLines
-                        |> CloudFlow.collect id
+                        |> CloudFlow.ofTextFilesByLine
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -237,7 +236,7 @@ type ``CloudFlow tests`` () as self =
                      |> run
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.ofCloudFilesByLine
+                        |> CloudFlow.ofTextFilesByLine
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -288,8 +287,7 @@ type ``CloudFlow tests`` () as self =
 
             let x = cfs 
                         |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllLines
-                        |> CloudFlow.collect (fun lines -> lines :> _)
+                        |> CloudFlow.ofTextFilesByLine
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -450,7 +448,7 @@ type ``CloudFlow tests`` () as self =
                          |> Array.map (fun x -> CloudFile.WriteAllText(string x))
                          |> Cloud.Parallel
                          |> run
-                let x = cfs |> Array.map (fun cf -> cf.Path) |> CloudFlow.ofCloudFiles CloudFileReader.ReadAllText |> CloudFlow.forall (fun x -> Int32.Parse(x) = 0) |> run
+                let x = cfs |> Array.map (fun cf -> cf.Path) |> CloudFlow.ofTextFiles |> CloudFlow.forall (fun x -> Int32.Parse(x) = 0) |> run
                 let y = xs |> Seq.forall (fun n -> n = 0) 
                 x = y
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)

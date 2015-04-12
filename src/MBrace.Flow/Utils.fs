@@ -4,29 +4,38 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
+open MBrace.Flow
+
 [<AutoOpen>]
 module internal Utils =
 
     type Async with
         static member AwaitTask(t : Task) = Async.AwaitTask(t.ContinueWith(ignore, TaskContinuationOptions.None))
 
+    type Collector<'T, 'R> with
+        /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
+        member collector.ToParStreamCollector () =
+            { new Nessos.Streams.Collector<'T, 'R> with
+                member self.DegreeOfParallelism = match collector.DegreeOfParallelism with Some n -> n | None -> Environment.ProcessorCount
+                member self.Iterator() = collector.Iterator()
+                member self.Result = collector.Result }
 
-module internal Partitions =
+    module internal Partitions =
 
-    let ofLongRange (n : int) (length : int64) : (int64 * int64) []  = 
-        let n = int64 n
-        [| 
-            for i in 0L .. n - 1L ->
-                let i, j = length * i / n, length * (i + 1L) / n in (i, j) 
-        |]
+        let ofLongRange (n : int) (length : int64) : (int64 * int64) []  = 
+            let n = int64 n
+            [| 
+                for i in 0L .. n - 1L ->
+                    let i, j = length * i / n, length * (i + 1L) / n in (i, j) 
+            |]
 
-    let ofRange (totalWorkers : int) (length : int) : (int * int) [] = 
-        ofLongRange totalWorkers (int64 length)
-        |> Array.map (fun (s,e) -> int s, int e)
+        let ofRange (totalWorkers : int) (length : int) : (int * int) [] = 
+            ofLongRange totalWorkers (int64 length)
+            |> Array.map (fun (s,e) -> int s, int e)
 
-    let ofArray (totalWorkers : int) (array : 'T []) : 'T [] [] =
-        ofRange totalWorkers array.Length
-        |> Array.map (fun (s,e) -> Array.sub array s (e-s))
+        let ofArray (totalWorkers : int) (array : 'T []) : 'T [] [] =
+            ofRange totalWorkers array.Length
+            |> Array.map (fun (s,e) -> Array.sub array s (e-s))
 
 
 // Taken from FSharp.Core

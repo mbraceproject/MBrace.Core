@@ -50,11 +50,11 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="Readers.fs" />
-    <Compile Include="LineReader.fs" />
-    <Compile Include="CloudVector.fs" />
     <Compile Include="CloudFlow.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="CloudVector.fs" />
+    <Compile Include="FlowProducers.fs" />
+    <Compile Include="FlowCombinators.fs" />
     <Compile Include="CSharpProxy.fs" />
     <None Include="test.fsx" />
     <None Include="paket.references" />
