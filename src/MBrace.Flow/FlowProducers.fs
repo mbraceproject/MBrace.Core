@@ -78,7 +78,10 @@ type CloudFlow =
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
-                    // TODO: take nested partitioning into account
+                    // TODO: 
+                    //   1. take nested partitioning into account
+                    //   2. partition according to collection sizes; current partition schemes assume that inputs are homogeneous
+                    //      but this might not be the case.
                     let! collector = collectorf
                     let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                     let! workers = Cloud.GetAvailableWorkers()

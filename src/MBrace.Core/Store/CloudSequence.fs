@@ -117,6 +117,7 @@ type CloudSequence<'T> =
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()
 
+/// in-memory CloudCollection of text lines
 [<DataContract>]
 type private StringCollection(lines : string []) =
     [<DataMember(Name = "Lines")>]
@@ -126,6 +127,7 @@ type private StringCollection(lines : string []) =
         member x.Size: Local<int64> = local { return int64 lines.Length }
         member x.ToEnumerable(): Local<seq<string>> = local { return lines :> _ }        
 
+/// Partitionable implementation of cloud file line reader
 [<DataContract>]
 type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache : bool) =
     inherit CloudSequence<string>(path, None, Some(fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?enableCache = enableCache)
@@ -145,6 +147,7 @@ type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache 
                 Array.map mkRangedSeq partitions
 
             if size < 512L * 1024L then
+                // partition lines in-memory if file is particularly small.
                 let! count = cs.Count
                 if count < int64 partitionCount then
                     let! lines = cs.ToArray()
