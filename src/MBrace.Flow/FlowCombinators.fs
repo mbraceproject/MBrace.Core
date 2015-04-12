@@ -304,8 +304,8 @@ module CloudFlow =
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'Key * 'State, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 cloud {
                     let! result = shuffling
-                    let! result' = reducer (CloudFlow.ofArray result)
-                    return! (CloudFlow.ofCloudVector result').Apply collectorf projection combiner
+                    let! result' = reducer (CloudFlow.OfArray result)
+                    return! (CloudFlow.OfCloudVector result').Apply collectorf projection combiner
                 }  }
 
 
@@ -549,7 +549,7 @@ module CloudFlow =
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner = 
                 cloud {
                     let! result = sortByComp
-                    return! (CloudFlow.ofArray result).Apply collectorf projection combiner
+                    return! (CloudFlow.OfArray result).Apply collectorf projection combiner
                 }  
         }
 
@@ -819,7 +819,7 @@ module CloudFlow =
               member __.Apply<'S, 'R>(collectorF: Local<Collector<'T, 'S>>) (projection: 'S -> Local<'R>) combiner =
                   cloud {
                       let! result = gather
-                      return! (CloudFlow.ofArray result).Apply collectorF projection combiner
+                      return! (CloudFlow.OfArray result).Apply collectorF projection combiner
                   }
         }
 

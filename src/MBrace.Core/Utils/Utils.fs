@@ -58,7 +58,7 @@ module Utils =
         /// <param name="partitions">number of partitions.</param>
         /// <param name="input">Input array.</param>
         let splitByPartitionCount partitions (input : 'T []) : 'T [][] =
-            if input = null then raise <| new ArgumentNullException("input")
+            if obj.ReferenceEquals(input, null) then raise <| new ArgumentNullException("input")
             else
                 splitByPartitionCountRange partitions 0L (int64 input.Length)
                 |> Array.map (fun (s,e) -> input.[int s .. int e])
@@ -134,7 +134,7 @@ module Utils =
         /// <param name="weights">Weights for each chunk.</param>
         /// <param name="input">Input array.</param>
         let splitWeighted (weights : int []) (input : 'T []) : 'T [][] =
-            if input = null then raise <| new ArgumentNullException("input")
+            if obj.ReferenceEquals(input, null) then raise <| new ArgumentNullException("input")
             else
                 splitWeightedRange weights 0L (int64 input.Length)
                 |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])

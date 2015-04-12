@@ -54,7 +54,7 @@ let lines = runtime.StoreClient.CloudVector.New(files |> Seq.collect(fun f -> Fi
 
 let getTop count =
     lines
-    |> CloudFlow.ofCloudVector
+    |> CloudFlow.OfCloudVector
     |> CloudFlow.collect (fun line -> splitWords line |> Seq.map wordTransform)
     |> CloudFlow.filter wordFilter
     |> CloudFlow.countBy id
