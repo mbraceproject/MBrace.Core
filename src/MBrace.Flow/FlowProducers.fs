@@ -47,6 +47,7 @@ type CloudFlow private () =
                             let collectorResult = parStream.Apply (collector.ToParStreamCollector())
                             return! projection collectorResult
                         }
+
                     if source.Length > 0 then 
                         let partitions = Partitions.ofLongRange workerCount (int64 source.Length)
                         let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
@@ -75,11 +76,7 @@ type CloudFlow private () =
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
-                    // TODO: 
-                    //  1. take nested partitioning into account
-                    //  2. reconcile degreeOfParallelism with partition grouping and partition.Size
-                    // these actions will allow for integration with ofCloudFile and an efficient implementation of 'ofTextFilesByLines'.
-
+                    // TODO: take nested partitioning into account
                     let! collector = collectorf
                     let! workers = Cloud.GetAvailableWorkers()
                     let workers = workers |> Array.sortBy (fun w -> w.Id)
@@ -177,11 +174,12 @@ type CloudFlow private () =
     /// <param name="reader">A function to transform the contents of a CloudFile to a stream of elements.</param>
     /// <param name="sources">The collection of CloudFiles.</param>
     static member ofCloudFiles (reader : System.IO.Stream -> seq<'T>) (sources : seq<string>) : CloudFlow<'T> =
+        let sources = sources |> Seq.map (fun s -> new CloudFile(s)) |> Seq.toArray
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud { 
-                    if Seq.isEmpty sources then 
+                    if Array.isEmpty sources then 
                         let! collector = collectorf
                         return! projection collector.Result
                     else
@@ -226,16 +224,15 @@ type CloudFlow private () =
                                 return! combiner (result.ToArray())
                             }
 
-                        let files = sources |> Seq.map (fun p -> new CloudFile(p)) |> Seq.toArray
                         let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                         let! results = 
                             if targetedworkerSupport then
-                                files
+                                sources
                                 |> WorkerRef.partitionWeighted (fun w -> w.ProcessorCount) workers
                                 |> Array.mapi (fun i (worker,cfiles) -> createTask cfiles collectorf, worker) 
                                 |> Cloud.Parallel
                             else
-                                files
+                                sources
                                 |> Array.splitByPartitionCount workers.Length 
                                 |> Array.map (fun cfiles -> createTask cfiles collectorf) 
                                 |> Cloud.Parallel
