@@ -187,6 +187,26 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : ofSeqs`` () =
+        let tester (xs : int [] []) =
+            let flowResult =
+                xs
+                |> CloudFlow.ofSeqs
+                |> CloudFlow.map (fun x -> x * x)
+                |> CloudFlow.sum
+                |> run
+
+            let seqResult =
+                xs
+                |> Seq.concat
+                |> Seq.map (fun x -> x * x)
+                |> Seq.sum
+
+            Assert.AreEqual(seqResult, flowResult)
+
+        Check.QuickThrowOnFail(tester, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadAllText`` () =
         let f(xs : string []) =
             let cfs = xs 

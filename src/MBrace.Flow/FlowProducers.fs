@@ -144,6 +144,32 @@ type CloudFlow private () =
                 }
         }
 
+    /// <summary>
+    ///     Creates a CloudFlow instance from a finite collection of serializable enumerations.
+    /// </summary>
+    /// <param name="enumerations">Input enumerations.</param>
+    static member ofSeqs (enumerations : seq<#seq<'T>>) : CloudFlow<'T> =
+        let enumerations = Seq.toArray enumerations
+        let mkSeqCollection (seq : seq<'T>) = 
+            {
+                new ICloudCollection<'T> with
+                    member x.Count: Local<int64> = local { return int64 <| Seq.length seq }
+                    member x.Size: Local<int64> = local { return int64 <| Seq.length seq }
+                    member x.ToEnumerable(): Local<seq<'T>> = local { return seq }
+            }
+
+        let partitioned =
+            {
+                new IPartitionedCollection<'T> with
+                    member x.Count: Local<int64> = local { return enumerations |> Array.map (int64 << Seq.length) |> Array.sum }
+                    member x.Size: Local<int64> = local { return enumerations |> Array.map (int64 << Seq.length) |> Array.sum }
+                    member x.GetPartitions(): Local<ICloudCollection<'T> []> = local { return enumerations |> Array.map mkSeqCollection }
+                    member x.PartitionCount: Local<int> = local { return enumerations.Length }
+                    member x.ToEnumerable(): Local<seq<'T>> = local { return Seq.concat enumerations }
+            }
+
+        CloudFlow.ofCloudCollection partitioned
+
 
     /// <summary>
     /// Constructs a CloudFlow from a collection of CloudFiles using the given reader.
@@ -192,27 +218,28 @@ type CloudFlow private () =
                                         |> ParStream.map (fun file -> CloudFile.Read(file.Path, (fun s -> async { return reader s }), leaveOpen = true))
                                         |> ParStream.map (fun wf -> Cloud.RunSynchronously(wf, ctx.Resources, ctx.CancellationToken))
                                         |> ParStream.collect Stream.ofSeq
+
                                     let collectorResult = parStream.Apply (collector.ToParStreamCollector())
                                     let! partial = projection collectorResult
-                                    result.Add(partial)
-                                if result.Count = 0 then
-                                    let! collector = collectorf
-                                    return! projection collector.Result
-                                else
-                                    return! combiner (result.ToArray())
+                                    result.Add partial
+
+                                return! combiner (result.ToArray())
                             }
 
-                        let partitions = sources |> Seq.map (fun p -> new CloudFile(p)) |> Seq.toArray |> Partitions.ofArray workerCount
+                        let files = sources |> Seq.map (fun p -> new CloudFile(p)) |> Seq.toArray
                         let! targetedworkerSupport = Cloud.IsTargetedWorkerSupported
                         let! results = 
                             if targetedworkerSupport then
-                                partitions 
-                                |> Array.mapi (fun i cfiles -> (createTask cfiles collectorf, workers.[i % workers.Length])) 
+                                files
+                                |> WorkerRef.partitionWeighted (fun w -> w.ProcessorCount) workers
+                                |> Array.mapi (fun i (worker,cfiles) -> createTask cfiles collectorf, worker) 
                                 |> Cloud.Parallel
                             else
-                                partitions 
+                                files
+                                |> Array.splitByPartitionCount workers.Length 
                                 |> Array.map (fun cfiles -> createTask cfiles collectorf) 
                                 |> Cloud.Parallel
+
                         return! combiner results
                 } }
 
