@@ -1,8 +1,8 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Workflows
 open MBrace.Client

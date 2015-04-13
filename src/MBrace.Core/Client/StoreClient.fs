@@ -5,10 +5,11 @@
 open System.IO
 open System.Text
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Internals.InMemoryRuntime
 open MBrace.Store
-open MBrace.Continuation
-open MBrace.Runtime.InMemory
+open MBrace.Store.Internals
 
 [<AutoOpen>]
 module internal ClientUtils =

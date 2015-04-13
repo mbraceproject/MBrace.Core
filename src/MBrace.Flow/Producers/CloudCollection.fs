@@ -3,9 +3,10 @@
 open System
 open Nessos.Streams
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
-open MBrace.Continuation
+open MBrace.Store.Internals
 open MBrace.Workflows
 
 open MBrace.Flow
@@ -58,7 +59,7 @@ type internal CloudCollection =
                     // use caching, if supported by collection
                     let tryGetCachedContents (collection : ICloudCollection<'T>) = local {
                         match box collection with
-                        | :? Store.ICloudCacheable<'T []> as cc -> 
+                        | :? ICloudCacheable<'T []> as cc -> 
                             if useCache then 
                                 let! result = CloudCache.GetCachedValue(cc, cacheIfNotExists = true)
                                 return Some result

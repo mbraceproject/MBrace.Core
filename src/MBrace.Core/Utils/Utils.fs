@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.Collections

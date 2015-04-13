@@ -1,4 +1,4 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open FsCheck
 
@@ -8,8 +8,7 @@ open System.Threading
 
 open NUnit.Framework
 
-open MBrace.Continuation
-open MBrace.Store
+open MBrace.Store.Internals
 
 [<AutoOpen>]
 module Utils =

@@ -5,9 +5,10 @@ open System.Runtime.Serialization
 open System.Collections.Generic
 open System.Threading
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Workflows
 
 #nowarn "444"

@@ -6,11 +6,11 @@ open System.Threading
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Workflows
 open MBrace.Runtime
-open MBrace.Tests
+open MBrace.Core.Tests
 open MBrace.SampleRuntime
 open MBrace.SampleRuntime.Actors
 

@@ -1,10 +1,9 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System.Threading
 
-open MBrace
-open MBrace.Continuation
-open MBrace.Runtime
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Client
 
 open NUnit.Framework

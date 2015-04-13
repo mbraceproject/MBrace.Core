@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.Collections
@@ -8,7 +8,7 @@ open System.Text
 open System.IO
 
 /// Partition a seq<'T> to seq<seq<'T>> using a predicate
-type private PartitionedEnumerable<'T> private (splitNext : unit -> bool, source : IEnumerable<'T>) = 
+type internal PartitionedEnumerable<'T> private (splitNext : unit -> bool, source : IEnumerable<'T>) = 
     let e = source.GetEnumerator()
     let mutable sourceMoveNext = true
 

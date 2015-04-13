@@ -10,10 +10,12 @@ open System.Linq
 open Nessos.Streams
 open Nessos.Streams.Internals
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
-open MBrace.Continuation
+open MBrace.Store.Internals
 open MBrace.Workflows
+
 open MBrace.Flow
 open MBrace.Flow.Internals
 

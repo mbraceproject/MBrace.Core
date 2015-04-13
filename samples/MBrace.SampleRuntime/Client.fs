@@ -7,10 +7,11 @@ open System.Threading
 open Nessos.Thespian
 open Nessos.Thespian.Remote
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Client
-open MBrace.Continuation
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond

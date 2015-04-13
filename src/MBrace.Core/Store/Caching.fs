@@ -1,10 +1,10 @@
-﻿namespace MBrace.Store
+﻿namespace MBrace.Store.Internals
 
 open System
 open System.Runtime.Serialization
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
 
 #nowarn "444"

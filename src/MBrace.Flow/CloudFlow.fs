@@ -1,7 +1,7 @@
 ﻿namespace MBrace.Flow
 
 open Nessos.Streams
-open MBrace
+open MBrace.Core
 
 /// Collects elements into a mutable result container.
 type Collector<'T, 'R> = 

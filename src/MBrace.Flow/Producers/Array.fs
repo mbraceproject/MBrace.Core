@@ -2,9 +2,9 @@
 
 open Nessos.Streams
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
-open MBrace.Continuation
 open MBrace.Workflows
 
 open MBrace.Flow

@@ -8,7 +8,8 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 open Nessos.Streams
-open MBrace
+open MBrace.Core
+open MBrace.Store
 open MBrace.SampleRuntime
 open MBrace.Flow
 
@@ -44,17 +45,18 @@ MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/
 let runtime = MBraceRuntime.InitLocal(4)
 let storeClient = runtime.StoreClient
 
-
-
 //
-// Option 1 : CloudArrays API
+// CloudVector API
 //
 
-let lines = runtime.StoreClient.CloudVector.New(files |> Seq.collect(fun f -> File.ReadLines(f)))
+let words =
+    CloudFlow.OfTextFilesByLine files
+    |> CloudFlow.collect (fun line -> splitWords line |> Seq.map wordTransform)
+    |> CloudFlow.toCloudVector
+    |> runtime.Run
 
 let getTop count =
-    lines
-    |> CloudFlow.OfCloudVector
+    words
     |> CloudFlow.collect (fun line -> splitWords line |> Seq.map wordTransform)
     |> CloudFlow.filter wordFilter
     |> CloudFlow.countBy id
@@ -65,31 +67,5 @@ let getTop count =
 let cloudVector = runtime.Run(getTop 20)
 
 cloudVector.ToEnumerable()
-|> runtime.RunLocal
-|> Seq.iter (printfn "%A")
-
-
-//
-// Option 2 : CloudFiles API
-//
-
-let cfiles = 
-    files 
-    |> Array.map (File.ReadLines >> storeClient.FileStore.File.WriteLines)
-
-
-let getTop' count =
-    cfiles
-    |> CloudFlow.ofCloudFiles CloudFileReader.ReadLines
-    |> CloudFlow.collect id
-    |> CloudFlow.collect (fun line -> splitWords line |> Seq.map wordTransform)
-    |> CloudFlow.filter wordFilter
-    |> CloudFlow.countBy id
-    |> CloudFlow.sortBy (fun (_,c) -> -c) count
-    |> CloudFlow.toCloudVector
-
-let cloudVector' = runtime.Run(getTop' 20)
-
-cloudVector'.ToEnumerable()
 |> runtime.RunLocal
 |> Seq.iter (printfn "%A")

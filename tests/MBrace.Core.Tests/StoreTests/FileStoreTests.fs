@@ -1,4 +1,4 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 open System.IO
@@ -6,10 +6,11 @@ open System.Text.RegularExpressions
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
-open MBrace.Workflows
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
+open MBrace.Workflows
 open MBrace.Client
 
 /// Cloud file store test suite

@@ -8,7 +8,7 @@ open System.IO
 open FsCheck
 open NUnit.Framework
 open MBrace.Flow
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open System.Text
 

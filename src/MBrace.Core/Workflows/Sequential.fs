@@ -1,7 +1,7 @@
 ﻿namespace MBrace.Workflows
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 
 #nowarn "443"
 #nowarn "444"

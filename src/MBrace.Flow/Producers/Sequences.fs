@@ -6,7 +6,10 @@ open System.Runtime.Serialization
 open Nessos.Streams
 open Nessos.Streams.Internals
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
+
 open MBrace.Flow
 open MBrace.Flow.Internals
 

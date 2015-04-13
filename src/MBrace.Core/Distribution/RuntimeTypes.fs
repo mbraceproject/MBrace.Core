@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 open System
 open System.Threading
@@ -14,9 +14,37 @@ type IWorkerRef =
     /// Worker processor count
     abstract ProcessorCount : int
 
+/// Denotes a task that is being executed in the cluster.
+type ICloudTask<'T> =
+    /// Unique task identifier
+    abstract Id : string
+    /// Gets a TaskStatus enumeration indicating the current task state.
+    abstract Status : TaskStatus
+    /// Gets a boolean indicating that the task has completed successfully.
+    abstract IsCompleted : bool
+    /// Gets a boolean indicating that the task has completed with fault.
+    abstract IsFaulted : bool
+    /// Gets a boolean indicating that the task has been canceled.
+    abstract IsCanceled : bool
+    /// Awaits task for completion, returning its eventual result
+    abstract AwaitResult : ?timeoutMilliseconds:int -> Local<'T>
+    /// Rreturns the task result if completed or None if still pending.
+    abstract TryGetResult : unit -> Local<'T option>
+    /// Synchronously gets the task result, blocking until it completes.
+    abstract Result : 'T
+
+namespace MBrace.Core.Internals
+
+open System
+open MBrace.Core
+
 module WorkerRef =
 
-    /// partitions a set of inputs to workers
+    /// <summary>
+    ///     Partitions a set of inputs to workers.
+    /// </summary>
+    /// <param name="workers">Workers to be partition work to.</param>
+    /// <param name="inputs">Input work.</param>
     let partition (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
         if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
         inputs
@@ -39,22 +67,3 @@ module WorkerRef =
         |> Seq.mapi (fun i p -> (workers.[i],p))
         |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
         |> Seq.toArray
-
-/// Denotes a task that is being executed in the cluster.
-type ICloudTask<'T> =
-    /// Unique task identifier
-    abstract Id : string
-    /// Gets a TaskStatus enumeration indicating the current task state.
-    abstract Status : TaskStatus
-    /// Gets a boolean indicating that the task has completed successfully.
-    abstract IsCompleted : bool
-    /// Gets a boolean indicating that the task has completed with fault.
-    abstract IsFaulted : bool
-    /// Gets a boolean indicating that the task has been canceled.
-    abstract IsCanceled : bool
-    /// Awaits task for completion, returning its eventual result
-    abstract AwaitResult : ?timeoutMilliseconds:int -> Local<'T>
-    /// Rreturns the task result if completed or None if still pending.
-    abstract TryGetResult : unit -> Local<'T option>
-    /// Synchronously gets the task result, blocking until it completes.
-    abstract Result : 'T

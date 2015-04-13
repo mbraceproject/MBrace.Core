@@ -1,14 +1,15 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
     
 open System
 open System.Threading
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Internals.InMemoryRuntime
+open MBrace.Store
 open MBrace.Workflows
-open MBrace.Runtime.InMemory
 
 /// Logging tester abstraction
 type ILogTester =

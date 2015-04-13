@@ -76,8 +76,6 @@
     <Compile Include="Store\Caching.fs" />
     <Compile Include="Store\CloudCollection.fs" />
     <Compile Include="Store\CloudDictionary.fs" />
-    <Compile Include="Store\CloudValue.fs" />
-    <Compile Include="Store\CloudSequence.fs" />
     <Compile Include="Distribution\Logging.fs" />
     <Compile Include="Distribution\FaultPolicy.fs" />
     <Compile Include="Distribution\RuntimeTypes.fs" />
@@ -89,6 +87,8 @@
     <Compile Include="Workflows\Common.fs" />
     <Compile Include="Workflows\Sequential.fs" />
     <Compile Include="Workflows\Distributed.fs" />
+    <Compile Include="Workflows\CloudValue.fs" />
+    <Compile Include="Workflows\CloudSequence.fs" />
     <Compile Include="Client\StoreClient.fs" />
     <Compile Include="Client\LocalRuntime.fs" />
   </ItemGroup>

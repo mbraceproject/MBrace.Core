@@ -1,11 +1,13 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Client
 
 [<TestFixture; AbstractClass>]

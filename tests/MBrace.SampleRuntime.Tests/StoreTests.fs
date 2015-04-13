@@ -2,8 +2,8 @@
 
 open System.Threading
 
-open MBrace
-open MBrace.Tests
+open MBrace.Core
+open MBrace.Core.Tests
 open MBrace.SampleRuntime
 
 open NUnit.Framework

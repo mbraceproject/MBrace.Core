@@ -1,14 +1,12 @@
-﻿namespace MBrace.Runtime.InMemory
-
-open MBrace
+﻿namespace MBrace.Core.Internals.InMemoryRuntime
 
 open System
 open System.Collections.Generic
 open System.Threading
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
-open MBrace.Continuation
+open MBrace.Store.Internals
 
 [<AutoSerializable(false)>]
 type private InMemoryAtom<'T> (initial : 'T) =

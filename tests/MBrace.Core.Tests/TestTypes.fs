@@ -1,8 +1,9 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System.Collections.Generic
 
-open MBrace
+open MBrace.Core
+open MBrace.Store
 open MBrace.Workflows
 
 type DummyDisposable() =

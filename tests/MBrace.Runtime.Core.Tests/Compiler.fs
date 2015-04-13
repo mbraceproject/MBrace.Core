@@ -1,9 +1,9 @@
 ﻿namespace MBrace.Runtime.Tests
 
-open MBrace
+open MBrace.Core
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Compiler
-open MBrace.Tests
+open MBrace.Core.Tests
 
 open NUnit.Framework
 

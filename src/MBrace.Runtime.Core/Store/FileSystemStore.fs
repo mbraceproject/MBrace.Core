@@ -5,9 +5,8 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
-open MBrace
-open MBrace.Continuation
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry

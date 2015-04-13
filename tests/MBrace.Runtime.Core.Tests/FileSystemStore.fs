@@ -2,14 +2,15 @@
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Runtime.InMemory
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Internals.InMemoryRuntime
+open MBrace.Core.Tests
+open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization
 open MBrace.Runtime.Store
-open MBrace.Store
-open MBrace.Continuation
-open MBrace.Tests
 
 #nowarn "044"
 

@@ -1,9 +1,10 @@
-﻿namespace MBrace.Store
+﻿namespace MBrace.Store.Internals
 
 open System
 open System.IO
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 
 /// Cloud file storage abstraction
 type ICloudFileStore =
@@ -204,7 +205,7 @@ module CloudFileStoreUtils =
             fileNames |> Seq.map (fun f -> cfs.Combine [|container ; f |]) |> Seq.toArray
 
 
-namespace MBrace
+namespace MBrace.Store
 
 open System
 open System.Runtime.Serialization
@@ -212,8 +213,9 @@ open System.Text
 open System.Threading.Tasks
 open System.IO
 
-open MBrace.Continuation
-open MBrace.Store
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store.Internals
 
 #nowarn "444"
 

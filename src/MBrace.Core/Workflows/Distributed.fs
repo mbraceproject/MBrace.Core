@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Workflows
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 
 /// Collection of combinators that split workloads to workers
 /// according to multicore capacity.

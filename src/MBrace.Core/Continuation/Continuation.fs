@@ -1,10 +1,10 @@
-﻿namespace MBrace.Continuation
+﻿namespace MBrace.Core.Internals
 
 open System.Threading
 open System.Threading.Tasks
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 
 #nowarn "444"
 

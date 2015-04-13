@@ -5,7 +5,7 @@ open System.Collections.Generic
 open System.Threading.Tasks
 open Nessos.Streams
 open MBrace.Flow
-open MBrace
+open MBrace.Core
 
 /// [omit]
 /// Proxy for FSharp type specialization and lambda inlining.

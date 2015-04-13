@@ -2,20 +2,20 @@
 
 open System.Threading
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Internals.InMemoryRuntime
 open MBrace.Store
-open MBrace.Runtime
-open MBrace.Runtime.InMemory
+open MBrace.Store.Internals
 
 #nowarn "444"
 
 /// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
-type InMemoryCancellationToken = MBrace.Runtime.InMemory.InMemoryCancellationToken
+type InMemoryCancellationToken = MBrace.Core.Internals.InMemoryRuntime.InMemoryCancellationToken
 /// Cloud cancellation token source implementation that wraps around System.Threading.CancellationTokenSource
-type InMemoryCancellationTokenSource = MBrace.Runtime.InMemory.InMemoryCancellationTokenSource
+type InMemoryCancellationTokenSource = MBrace.Core.Internals.InMemoryRuntime.InMemoryCancellationTokenSource
 /// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
-type InMemoryTask<'T> = MBrace.Runtime.InMemory.InMemoryTask<'T>
+type InMemoryTask<'T> = MBrace.Core.Internals.InMemoryRuntime.InMemoryTask<'T>
 
 /// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]

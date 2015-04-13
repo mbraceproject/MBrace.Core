@@ -6,6 +6,7 @@ open System.Collections.Specialized
 open System.Runtime.Caching
 
 open MBrace.Store
+open MBrace.Store.Internals
 
 /// In-Memory caching mechanism using System.Runtime.Caching.MemoryCache
 type InMemoryCache private (name : string, config : NameValueCollection) =
