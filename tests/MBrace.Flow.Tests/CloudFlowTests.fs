@@ -18,7 +18,7 @@ type Separator = N | R | RN
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
     let run (workflow : Cloud<'T>) = self.Run(workflow)
-    let runLocal (workflow : Cloud<'T>) = self.RunLocal(workflow)
+    let runLocally (workflow : Cloud<'T>) = self.RunLocally(workflow)
 
     let mkDummyWorker () = 
         { 
@@ -42,7 +42,7 @@ type ``CloudFlow tests`` () as self =
         }
 
     abstract Run : Cloud<'T> -> 'T
-    abstract RunLocal : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     abstract FsCheckMaxNumberOfTests : int
 
     // #region Cloud vector tests
@@ -54,7 +54,7 @@ type ``CloudFlow tests`` () as self =
         let workers = Cloud.GetWorkerCount() |> run
         vector.IsCachingEnabled |> shouldEqual false
         vector.PartitionCount |> shouldEqual workers
-        cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.toArray |> shouldEqual inputs
+        cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
         vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
@@ -64,7 +64,7 @@ type ``CloudFlow tests`` () as self =
         let workers = Cloud.GetWorkerCount() |> run
         vector.PartitionCount |> shouldEqual workers
         vector.IsCachingEnabled |> shouldEqual true
-        cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.toArray |> shouldEqual inputs
+        cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
         vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
@@ -72,7 +72,7 @@ type ``CloudFlow tests`` () as self =
         let inputs = [|1 .. 1000000|]
         let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
         vector |> Cloud.Dispose |> run
-        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.iter ignore)
+        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
     [<Test>]
     member __.``1. CloudVector : merging`` () =
@@ -92,7 +92,7 @@ type ``CloudFlow tests`` () as self =
             merged.[i].Path |> shouldEqual (vector.[i % vector.PartitionCount].Path)
 
         cloud { return! merged.ToEnumerable() }
-        |> runLocal
+        |> runLocally
         |> Seq.toArray
         |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
 
@@ -103,7 +103,7 @@ type ``CloudFlow tests`` () as self =
         let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
         let merged = CloudVector.Concat(Array.init N (fun _ -> vector))
         merged |> Cloud.Dispose |> run
-        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.iter ignore)
+        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
     // #region Streams tests
 
@@ -130,7 +130,7 @@ type ``CloudFlow tests`` () as self =
         let f(xs : int[]) =            
             let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.toCloudVector |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
-            Assert.AreEqual(y, cloud { return! x.ToEnumerable() } |> runLocal)
+            Assert.AreEqual(y, cloud { return! x.ToEnumerable() } |> runLocally)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
@@ -152,8 +152,8 @@ type ``CloudFlow tests`` () as self =
             let x' = v |> CloudFlow.OfCloudVector |> CloudFlow.map (fun x -> x * x) |> CloudFlow.toCloudVector |> run
             let y = xs |> Array.map (fun x -> x * x)
             
-            let _x = cloud { return! x.ToEnumerable() } |> runLocal |> Seq.toArray
-            let _x' = cloud { return! x'.ToEnumerable() } |> runLocal |> Seq.toArray
+            let _x = cloud { return! x.ToEnumerable() } |> runLocally |> Seq.toArray
+            let _x' = cloud { return! x'.ToEnumerable() } |> runLocally |> Seq.toArray
             
             Assert.AreEqual(y, _x)
             Assert.AreEqual(_x', _x)
@@ -193,7 +193,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllText f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllText f.Path }))
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
@@ -213,7 +213,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -234,7 +234,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -263,7 +263,7 @@ type ``CloudFlow tests`` () as self =
                     
             
             let y = 
-                __.RunLocal(cloud { return! CloudFile.ReadLines cf.Path })
+                __.RunLocally(cloud { return! CloudFile.ReadLines cf.Path })
                 |> Seq.sortBy id
                 |> Seq.toArray
                     
@@ -285,7 +285,7 @@ type ``CloudFlow tests`` () as self =
                         |> run
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunLocal(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 

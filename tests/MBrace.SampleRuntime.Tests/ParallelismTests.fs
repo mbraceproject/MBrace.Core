@@ -42,7 +42,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
             return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
         } |> Async.RunSync
 
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
 
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10

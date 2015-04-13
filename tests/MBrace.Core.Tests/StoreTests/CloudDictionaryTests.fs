@@ -13,7 +13,7 @@ open NUnit.Framework
 type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.Run wf 
-    let runLocal wf = self.RunLocal wf
+    let runLocally wf = self.RunLocally wf
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -22,7 +22,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocal : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Local store client instance
     abstract DictionaryClient : CloudDictionaryClient
 

@@ -144,7 +144,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     ///     Run workflow as local, in-memory computation
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
-    member __.RunLocalAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
+    member __.RunLocallyAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
 
     /// Returns the store client for provided runtime
     member __.StoreClient = imem.StoreClient
@@ -154,7 +154,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    member __.RunLocal(workflow, ?cancellationToken) : 'T = imem.Run(workflow, ?cancellationToken = cancellationToken)
+    member __.RunLocally(workflow, ?cancellationToken) : 'T = imem.Run(workflow, ?cancellationToken = cancellationToken)
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])

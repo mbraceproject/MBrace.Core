@@ -30,7 +30,7 @@ type ``ThreadPool Parallelism Tests`` () =
         Choice.protect(fun () ->
             imem.Run(workflow cts, cancellationToken = cts.Token))
 
-    override __.RunLocal(workflow : Cloud<'T>) = imem.Run(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
     override __.Logs = logger :> _
     override __.FsCheckMaxTests = 100
@@ -47,7 +47,7 @@ type ``InMemory CloudAtom Tests`` () =
     let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
-    override __.RunLocal(workflow) = imem.Run workflow
+    override __.RunLocally(workflow) = imem.Run workflow
     override __.AtomClient = imem.StoreClient.Atom
 #if DEBUG
     override __.Repeats = 10
@@ -61,7 +61,7 @@ type ``InMemory CloudChannel Tests`` () =
     let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
-    override __.RunLocal(workflow) = imem.Run workflow
+    override __.RunLocally(workflow) = imem.Run workflow
     override __.ChannelClient = imem.StoreClient.Channel
 
 type ``InMemory CloudDictionary Tests`` () =
@@ -70,5 +70,5 @@ type ``InMemory CloudDictionary Tests`` () =
     let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
-    override __.RunLocal(workflow) = imem.Run workflow
+    override __.RunLocally(workflow) = imem.Run workflow
     override __.DictionaryClient = imem.StoreClient.Dictionary

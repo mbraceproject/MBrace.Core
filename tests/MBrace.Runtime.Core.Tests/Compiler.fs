@@ -85,7 +85,7 @@ module ``Cloud Compiler Tests`` =
 //    let rec blockThatCallsClientApi2 n =
 //        if n = 0 then 1
 //        else
-//            MBrace.RunLocal <@ cloud { return n * blockThatCallsClientApi2 (n-1) } @>
+//            MBrace.RunLocally <@ cloud { return n * blockThatCallsClientApi2 (n-1) } @>
 
     [<Cloud>]
     module Module =

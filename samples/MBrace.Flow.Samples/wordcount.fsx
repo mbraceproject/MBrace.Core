@@ -67,5 +67,5 @@ let getTop count =
 let cloudVector = runtime.Run(getTop 20)
 
 cloudVector.ToEnumerable()
-|> runtime.RunLocal
+|> runtime.RunLocally
 |> Seq.iter (printfn "%A")

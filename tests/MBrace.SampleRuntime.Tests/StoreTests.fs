@@ -20,7 +20,7 @@ type ``SampleRuntime FileStore Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
     override __.StoreClient = session.Runtime.StoreClient
     override __.IsObjectCacheInstalled = true
 
@@ -37,7 +37,7 @@ type ``SampleRuntime Atom Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
     override __.AtomClient = session.Runtime.StoreClient.Atom
 #if DEBUG
     override __.Repeats = 10
@@ -57,7 +57,7 @@ type ``SampleRuntime Channel Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
     override __.ChannelClient = session.Runtime.StoreClient.Channel
 
 type ``SampleRuntime Dictionary Tests`` () =
@@ -72,5 +72,5 @@ type ``SampleRuntime Dictionary Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
     override __.DictionaryClient = session.Runtime.StoreClient.Dictionary

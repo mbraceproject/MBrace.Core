@@ -18,7 +18,7 @@ open MBrace.Client
 type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.Run wf 
-    let runLocal wf = self.RunLocal wf
+    let runLocally wf = self.RunLocally wf
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -27,7 +27,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocal : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Store client to be tested
     abstract StoreClient : CloudStoreClient
     /// denotes that runtime uses in-memory object caching
@@ -41,7 +41,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudValue - simple`` () = 
         let ref = runRemote <| CloudValue.New 42
-        ref.Value |> runLocal |> shouldEqual 42
+        ref.Value |> runLocally |> shouldEqual 42
 
     [<Test>]
     member __.``2. MBrace : CloudValue - caching`` () = 
@@ -79,9 +79,9 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - simple`` () = 
         let b = runRemote <| CloudSequence.New [1..10000]
-        b.Count |> runLocal |> shouldEqual 10000L
-        b.ToEnumerable() |> runLocal |> Seq.sum |> shouldEqual (List.sum [1..10000])
-        b.ToArray() |> runLocal |> Array.sum |> shouldEqual (List.sum [1..10000])
+        b.Count |> runLocally |> shouldEqual 10000L
+        b.ToEnumerable() |> runLocally |> Seq.sum |> shouldEqual (List.sum [1..10000])
+        b.ToArray() |> runLocally |> Array.sum |> shouldEqual (List.sum [1..10000])
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - caching`` () = 
@@ -105,7 +105,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - parallel`` () =
         let ref = runRemote <| CloudSequence.New [1..10000]
-        ref.ToEnumerable() |> runLocal |> Seq.length |> shouldEqual 10000
+        ref.ToEnumerable() |> runLocally |> Seq.length |> shouldEqual 10000
         cloud {
             let! ref = CloudSequence.New [1 .. 10000]
             let! (x, y) = 
@@ -170,7 +170,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                 let! file = CloudFile.WriteAllLines(Seq.init lineCount (fun i -> sprintf "%d,%d" (i + 1) (i + 2)))
                 let! cseq = CloudSequence.FromLineSeparatedTextFile file.Path   
                 return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
-            } |> runLocal
+            } |> runLocally
 
         let testPartitioning partitionCount =
             cloud {
@@ -192,7 +192,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
         let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> runRemote
-        file.Size |> runLocal |> shouldEqual 100L
+        file.Size |> runLocally |> shouldEqual 100L
         cloud {
             let! bytes = CloudFile.ReadAllBytes file.Path
             return bytes.Length
@@ -302,8 +302,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                 return dir, file
             } |> runRemote
 
-        CloudDirectory.Exists dir.Path |> runLocal |> shouldEqual false
-        CloudFile.Exists file.Path |> runLocal |> shouldEqual false
+        CloudDirectory.Exists dir.Path |> runLocally |> shouldEqual false
+        CloudFile.Exists file.Path |> runLocally |> shouldEqual false
 
 
 /// Cloud file store test suite
@@ -318,7 +318,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
     let runSync wf = Async.RunSync wf
 
     override __.Run wf = imem.Run wf
-    override __.RunLocal wf = imem.Run wf
+    override __.RunLocally wf = imem.Run wf
     override __.StoreClient = imem.StoreClient
     override __.IsObjectCacheInstalled = Option.isSome objectCache
 

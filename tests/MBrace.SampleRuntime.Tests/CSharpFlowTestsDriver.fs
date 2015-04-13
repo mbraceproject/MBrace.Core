@@ -17,5 +17,5 @@ type ``SampleRuntime CloudStream CSharp Tests`` () =
     member __.Fini () = session.Stop()
 
     override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
     override __.MaxNumberOfTests = 10

@@ -22,4 +22,4 @@ type ``SampleRuntime Flow Tests`` () =
       
     override __.FsCheckMaxNumberOfTests = 10  
     override __.Run(expr : Cloud<'T>) : 'T = session.Runtime.Run(expr, faultPolicy = FaultPolicy.NoRetry)
-    override __.RunLocal(expr : Cloud<'T>) : 'T = session.Runtime.RunLocal(expr)
+    override __.RunLocally(expr : Cloud<'T>) : 'T = session.Runtime.RunLocally(expr)

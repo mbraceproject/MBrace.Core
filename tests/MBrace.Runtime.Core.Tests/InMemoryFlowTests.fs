@@ -20,5 +20,5 @@ type ``InMemory CloudFlow tests`` () =
     let imem = MBrace.Client.LocalRuntime.Create(fileConfig = fsConfig, serializer = serializer, objectCache = objcache)
 
     override __.Run(workflow : Cloud<'T>) = imem.Run workflow
-    override __.RunLocal(workflow : Cloud<'T>) = imem.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = imem.Run workflow
     override __.FsCheckMaxNumberOfTests = 100
