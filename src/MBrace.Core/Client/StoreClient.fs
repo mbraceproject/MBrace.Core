@@ -776,7 +776,7 @@ type FileStoreClient internal (registry : ResourceRegistry) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
-type CloudCellClient internal (registry : ResourceRegistry) =
+type CloudValueClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
     
     let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
@@ -789,8 +789,9 @@ type CloudCellClient internal (registry : ResourceRegistry) =
     /// <param name="value">Cloud value value.</param>
     /// <param name="directory">FileStore directory used for cloud value. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    member __.NewAsync(value : 'T, ?directory : string, ?serializer : ISerializer) =
-        CloudValue.New(value, ?directory = directory, ?serializer = serializer) |> toAsync
+    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
+    member __.NewAsync(value : 'T, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) =
+        CloudValue.New(value, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Creates a new cloud value to the underlying store with provided value.
@@ -799,8 +800,9 @@ type CloudCellClient internal (registry : ResourceRegistry) =
     /// <param name="value">Cloud value value.</param>
     /// <param name="directory">FileStore directory used for cloud value. Defaults to execution context setting.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    member __.New(value : 'T, ?directory : string, ?serializer : ISerializer) =
-        __.NewAsync(value, ?directory = directory, ?serializer = serializer) |> toSync
+    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
+    member __.New(value : 'T, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) =
+        __.NewAsync(value, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toSync
 
 
     /// <summary>
@@ -808,16 +810,20 @@ type CloudCellClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to cloud value.</param>
     /// <param name="serializer">Serializer for cloud value.</param>
-    member __.FromFileAsync<'T>(path : string, ?serializer : ISerializer) = 
-        CloudValue.FromFile(path, ?serializer = serializer) |> toAsync
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
+    member __.FromFileAsync<'T>(path : string, ?serializer : ISerializer, ?force : bool, ?enableCache : bool) = 
+        CloudValue.FromFile(path, ?serializer = serializer, ?force = force, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Parses a cloud value of given type with provided serializer. If successful, returns the cloud value instance.
     /// </summary>
     /// <param name="path">Path to cloud value.</param>
     /// <param name="serializer">Serializer for cloud value.</param>
-    member __.FromFile<'T>(path : string, ?serializer : ISerializer) = 
-        __.FromFileAsync(path, ?serializer = serializer) |> toSync
+    /// <param name="force">Force evaluation. Defaults to false.</param>
+    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
+    member __.FromFile<'T>(path : string, ?serializer : ISerializer, ?force : bool, ?enableCache : bool) = 
+        __.FromFileAsync(path, ?serializer = serializer, ?force = force, ?enableCache = enableCache) |> toSync
 
 
     /// <summary>
@@ -850,8 +856,9 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="values">Input sequence.</param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    member __.NewAsync(values : seq<'T>, ?directory, ?serializer) : Async<CloudSequence<'T>> = 
-        CloudSequence.New(values, ?directory = directory, ?serializer = serializer) |> toAsync
+    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.NewAsync(values : seq<'T>, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T>> = 
+        CloudSequence.New(values, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Creates a new Cloud sequence with given values in the underlying store.
@@ -860,8 +867,9 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="values">Input sequence.</param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    member __.New(values : seq<'T>, ?directory, ?serializer) : CloudSequence<'T> = 
-        __.NewAsync(values, ?directory = directory, ?serializer = serializer) |> toSync
+    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.New(values : seq<'T>, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : CloudSequence<'T> = 
+        __.NewAsync(values, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toSync
 
 
     /// <summary>
@@ -873,8 +881,9 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="serializer"></param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    member __.NewPartitionedAsync(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : Async<CloudSequence<'T> []> =
-        CloudSequence.NewPartitioned(values, maxPartitionSize, ?directory = directory, ?serializer = serializer) |> toAsync
+    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.NewPartitionedAsync(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T> []> =
+        CloudSequence.NewPartitioned(values, maxPartitionSize, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Creates a collection of Cloud sequences partitioned by file size.
@@ -885,8 +894,9 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="serializer"></param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    member __.NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer) : CloudSequence<'T> [] =
-        __.NewPartitionedAsync(values, maxPartitionSize, ?directory = directory, ?serializer = serializer) |> toSync
+    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer, ?enableCache : bool) : CloudSequence<'T> [] =
+        __.NewPartitionedAsync(values, maxPartitionSize, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toSync
 
 
     /// <summary>
@@ -895,8 +905,9 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFileAsync<'T>(path : string, ?deserializer, ?force) : Async<CloudSequence<'T>> = 
-        CloudSequence.FromFile<'T>(path, ?deserializer = deserializer, ?force = force) |> toAsync
+    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.FromFileAsync<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : Async<CloudSequence<'T>> = 
+        CloudSequence.FromFile<'T>(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Parses an already existing sequence of given type in provided file store.
@@ -904,8 +915,9 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="deserializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFile<'T>(path : string, ?deserializer, ?force) : CloudSequence<'T> = 
-        __.FromFileAsync<'T>(path, ?deserializer = deserializer, ?force = force) |> toSync
+        /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.FromFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : CloudSequence<'T> = 
+        __.FromFileAsync<'T>(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toSync
 
     /// <summary>
     ///     Creates a CloudSequence from file path with user-provided deserialization function.
@@ -913,8 +925,9 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFileAsync<'T>(path : string, serializer : ISerializer, ?force) : Async<CloudSequence<'T>> = 
-        CloudSequence.FromFile<'T>(path, serializer, ?force = force) |> toAsync
+    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.FromFileAsync<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) : Async<CloudSequence<'T>> = 
+        CloudSequence.FromFile<'T>(path, serializer, ?force = force, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Creates a CloudSequence from file path with user-provided deserialization function.
@@ -922,19 +935,20 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="path">Path to file.</param>
     /// <param name="serializer">Sequence deserializer function.</param>
     /// <param name="force">Force evaluation. Defaults to false.</param>
-    member __.FromFile<'T>(path : string, serializer : ISerializer, ?force) : CloudSequence<'T> = 
-        __.FromFileAsync<'T>(path, serializer, ?force = force) |> toSync
+    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+    member __.FromFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) : CloudSequence<'T> = 
+        __.FromFileAsync<'T>(path, serializer, ?force = force, ?enableCache = enableCache) |> toSync
 
 
 [<Sealed; AutoSerializable(false)>]
 /// Common client operations on CloudAtom, CloudChannel and CloudFile primitives.
 type StoreClient internal (registry : ResourceRegistry) =
-    let atomClient     = lazy CloudAtomClient(registry)
-    let channelClient  = lazy CloudChannelClient(registry)
-    let dictClient     = lazy CloudDictionaryClient(registry)
-    let fileStore      = lazy FileStoreClient(registry)
-    let cloudCellClient = lazy CloudCellClient(registry)
-    let cloudseqClient = lazy CloudSequenceClient(registry)
+    let atomClient       = lazy CloudAtomClient(registry)
+    let channelClient    = lazy CloudChannelClient(registry)
+    let dictClient       = lazy CloudDictionaryClient(registry)
+    let fileStore        = lazy FileStoreClient(registry)
+    let cloudValueClient = lazy CloudValueClient(registry)
+    let cloudseqClient   = lazy CloudSequenceClient(registry)
 
     /// CloudAtom client.
     member __.Atom = atomClient.Value
@@ -945,7 +959,7 @@ type StoreClient internal (registry : ResourceRegistry) =
     /// CloudFileStore client.
     member __.FileStore = fileStore.Value
     /// CloudValue client.
-    member __.CloudValue = cloudCellClient.Value
+    member __.CloudValue = cloudValueClient.Value
     /// CloudSequence client.
     member __.CloudSequence = cloudseqClient.Value
     /// Gets the associated ResourceRegistry.

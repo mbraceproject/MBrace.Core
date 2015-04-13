@@ -137,6 +137,7 @@ type CloudValue =
     /// </summary>
     /// <param name="path">Path to cloud value.</param>
     /// <param name="serializer">Serializer for cloud value.</param>
+    /// <param name="force">Force evaluation. Defaults to false.</param>
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
     static member FromFile<'T>(path : string, ?serializer : ISerializer, ?force : bool, ?enableCache : bool) = local {
         let deserializer = serializer |> Option.map (fun ser stream -> ser.Deserialize<'T>(stream, leaveOpen = false))
