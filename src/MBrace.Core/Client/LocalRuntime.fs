@@ -21,7 +21,7 @@ type InMemoryTask<'T> = MBrace.Runtime.InMemory.InMemoryTask<'T>
 [<Sealed; AutoSerializable(false)>]
 type LocalRuntime private (resources : ResourceRegistry) =
 
-    let storeClient = StoreClient.CreateFromResources(resources)
+    let storeClient = CloudStoreClient.CreateFromResources(resources)
 
     /// Store client instance for in memory runtime instance.
     member r.StoreClient = storeClient

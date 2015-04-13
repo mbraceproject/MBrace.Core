@@ -28,7 +28,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     /// Evaluate workflow in the local test process
     abstract RunLocal : Cloud<'T> -> 'T
     /// Store client to be tested
-    abstract FileStoreClient : FileStoreClient
+    abstract StoreClient : CloudStoreClient
     /// denotes that runtime uses in-memory object caching
     abstract IsObjectCacheInstalled : bool
 
@@ -318,7 +318,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
 
     override __.Run wf = imem.Run wf
     override __.RunLocal wf = imem.Run wf
-    override __.FileStoreClient = imem.StoreClient.FileStore
+    override __.StoreClient = imem.StoreClient
     override __.IsObjectCacheInstalled = Option.isSome objectCache
 
     //
@@ -430,7 +430,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
 
     [<Test>]
     member __.``1. FileStore : StoreClient - CloudFile`` () =
-        let sc = __.FileStoreClient
+        let sc = __.StoreClient
         let lines = Array.init 10 string
         let file = sc.File.WriteAllLines(lines)
         sc.File.ReadLines(file.Path)

@@ -359,7 +359,8 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of path-related file store methods.
-type CloudPathClient internal (config : CloudFileStoreConfiguration) =
+type CloudPathClient internal (registry : ResourceRegistry) =
+    let config = registry.Resolve<CloudFileStoreConfiguration>()
 
     /// <summary>
     ///     Returns the directory name for given path.
@@ -748,32 +749,6 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     member __.Upload(localFiles : seq<string>, ?targetDirectory : string) : CloudFile [] = 
         __.UploadAsync(localFiles, ?targetDirectory = targetDirectory) |> toSync
 
-
-[<Sealed; AutoSerializable(false)>]
-type FileStoreClient internal (registry : ResourceRegistry) =
-    let config = registry.Resolve<CloudFileStoreConfiguration>()
-
-    // TODO : CloudFile & CloudSeq clients
-    let pathClient = new CloudPathClient(config)
-    let directoryClient = new CloudDirectoryClient(registry)
-    let fileClient = new CloudFileClient(registry)
-
-    /// CloudFileStore client.
-    member __.File = fileClient
-    /// CloudDirectory client.
-    member __.Directory = directoryClient
-    /// CloudFile client.
-    member __.Path = pathClient 
-
-
-    /// <summary>
-    /// Create a new FileStoreClient instance from given resources.
-    /// Resources must contain CloudFileStoreConfiguration value.
-    /// </summary>
-    /// <param name="resources"></param>
-    static member CreateFromResources(resources : ResourceRegistry) =
-        new FileStoreClient(resources)
-
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
 type CloudValueClient internal (registry : ResourceRegistry) =
@@ -939,14 +914,15 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     member __.FromFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) : CloudSequence<'T> = 
         __.FromFileAsync<'T>(path, serializer, ?force = force, ?enableCache = enableCache) |> toSync
 
-
+/// Client-side API for cloud store operations
 [<Sealed; AutoSerializable(false)>]
-/// Common client operations on CloudAtom, CloudChannel and CloudFile primitives.
-type StoreClient internal (registry : ResourceRegistry) =
+type CloudStoreClient internal (registry : ResourceRegistry) =
     let atomClient       = lazy CloudAtomClient(registry)
     let channelClient    = lazy CloudChannelClient(registry)
     let dictClient       = lazy CloudDictionaryClient(registry)
-    let fileStore        = lazy FileStoreClient(registry)
+    let dirClient        = lazy CloudDirectoryClient(registry)
+    let pathClient       = lazy CloudPathClient(registry)
+    let fileClient       = lazy CloudFileClient(registry)
     let cloudValueClient = lazy CloudValueClient(registry)
     let cloudseqClient   = lazy CloudSequenceClient(registry)
 
@@ -956,8 +932,12 @@ type StoreClient internal (registry : ResourceRegistry) =
     member __.Channel = channelClient.Value
     /// CloudDictionary client.
     member __.Dictionary = dictClient.Value
-    /// CloudFileStore client.
-    member __.FileStore = fileStore.Value
+    /// CloudFile client.
+    member __.File = fileClient.Value
+    /// CloudDirectory client.
+    member __.Directory = dirClient.Value
+    /// CloudPath client.
+    member __.Path = pathClient.Value
     /// CloudValue client.
     member __.CloudValue = cloudValueClient.Value
     /// CloudSequence client.
@@ -971,4 +951,4 @@ type StoreClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="resources"></param>
     static member CreateFromResources(resources : ResourceRegistry) =
-        new StoreClient(resources)
+        new CloudStoreClient(resources)
