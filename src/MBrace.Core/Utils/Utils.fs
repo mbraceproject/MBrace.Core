@@ -139,6 +139,13 @@ module Utils =
                 splitWeightedRange weights 0L (int64 input.Length)
                 |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])
 
+
+    module Seq =
+        let fromEnumerator (enum : unit -> IEnumerator<'T>) =
+            { new IEnumerable<'T> with
+                member __.GetEnumerator () = enum () 
+                member __.GetEnumerator () = enum () :> IEnumerator }
+
     type Task<'T> with
 
         /// <summary>

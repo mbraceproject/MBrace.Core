@@ -26,6 +26,9 @@ type CloudValue<'T> =
     [<DataMember(Name = "IsCacheEnabled")>]
     val mutable private isCacheEnabled : bool
 
+    private new (uuid, path, deserializer, enableCache) =
+        { uuid = uuid ; path = path ; deserializer = deserializer ; isCacheEnabled = enableCache }
+
     internal new (path, deserializer, ?enableCache) =
         let uuid = Guid.NewGuid().ToString()
         let enableCache = defaultArg enableCache true
@@ -35,9 +38,10 @@ type CloudValue<'T> =
     member c.Path = c.path
 
     /// Enables or disables caching setting for current cloud value instance.
-    member c.EnableCache 
-        with get () = c.isCacheEnabled
-        and set ch = c.isCacheEnabled <- ch
+    member c.EnableCache = c.isCacheEnabled
+
+    /// immutable update to the cache behaviour
+    member internal c.WithCacheBehaviour b = new CloudValue<'T>(c.uuid, c.path, c.deserializer, b)
 
     interface ICloudCacheable<'T> with
         member c.UUID = c.uuid
@@ -170,3 +174,10 @@ type CloudValue =
     /// </summary>
     /// <param name="cloudCell">Cloud value to be deleted.</param>
     static member Dispose(cloudCell : CloudValue<'T>) : Local<unit> = local { return! (cloudCell :> ICloudDisposable).Dispose() }
+
+    /// <summary>
+    ///     Creates a copy of CloudValue with updated cache behaviour.
+    /// </summary>
+    /// <param name="cacheByDefault">Cache behaviour to be set.</param>
+    /// <param name="cv">Input cloud value.</param>
+    static member WithCacheBehaviour (cacheByDefault:bool) (cv:CloudValue<'T>) : CloudValue<'T> = cv.WithCacheBehaviour cacheByDefault

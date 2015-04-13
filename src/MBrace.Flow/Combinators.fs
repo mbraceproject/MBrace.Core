@@ -19,9 +19,141 @@ open MBrace.Flow.Internals
 
 #nowarn "444"
 
+/// Provides CloudFlow producers.
+type CloudFlow =
+
+    /// <summary>Wraps array as a CloudFlow.</summary>
+    /// <param name="source">The input array.</param>
+    /// <returns>The result CloudFlow.</returns>
+    static member OfArray (source : 'T []) : CloudFlow<'T> = Array.ToCloudFlow source
+
+    /// <summary>
+    ///     Creates a CloudFlow according to partitions of provided cloud collection.
+    /// </summary>
+    /// <param name="collection">Input cloud collection.</param>
+    /// <param name="useCache">Make use of caching, if the collection supports it. Defaults to false.</param>
+    /// <param name="sizeThresholdPerWorker">Restricts concurrent processing of collection partitions up to specified size per worker.</param>
+    static member OfCloudCollection (collection : ICloudCollection<'T>, ?useCache:bool, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
+        CloudCollection.ToCloudFlow(collection, ?useCache = useCache, ?sizeThresholdPerWorker = sizeThresholdPerWorker)
+
+    /// <summary>
+    ///     Creates a CloudFlow instance from a finite collection of serializable enumerations.
+    /// </summary>
+    /// <param name="enumerations">Input enumerations.</param>
+    static member OfSeqs (enumerations : seq<#seq<'T>>) : CloudFlow<'T> =
+        Sequences.OfSeqs enumerations
+
+    /// <summary>
+    /// Constructs a CloudFlow from a collection of CloudFiles using the given reader.
+    /// </summary>
+    /// <param name="reader">A function to transform the contents of a CloudFile to a stream of elements.</param>
+    /// <param name="sources">The collection of CloudFiles.</param>
+    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
+    static member OfFiles (reader : System.IO.Stream -> seq<'T>, sources : seq<string>, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+                cloud {
+                    let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
+                    let toCloudSeq (path : string) = CloudSequence.FromFile(path, reader, ?enableCache = enableCache)
+                    let! cseqs = Sequential.map toCloudSeq sources
+                    let collection = new CloudVector<'T>(cseqs)
+                    let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
+                    let collectionFlow = CloudFlow.OfCloudCollection(collection, ?useCache = enableCache, sizeThresholdPerWorker = threshold)
+                    return! collectionFlow.Apply collectorf projection combiner
+                }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow from a collection of text files using the given reader.
+    /// </summary>
+    /// <param name="reader">A function to transform the contents of a CloudFile to a stream of elements.</param>
+    /// <param name="sources">The collection of CloudFiles.</param>
+    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
+    static member OfTextFiles (reader : System.IO.TextReader -> seq<'T>, sources : seq<string>, ?encoding : Encoding, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+                cloud {
+                    let reader (stream : System.IO.Stream) =
+                        let sr =
+                            match encoding with
+                            | None -> new System.IO.StreamReader(stream)
+                            | Some e -> new System.IO.StreamReader(stream, e)
+
+                        reader sr
+
+                    let filesFlow = CloudFlow.OfFiles(reader, sources, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                    return! filesFlow.Apply collectorf projection combiner
+                }
+        }
+
+    /// <summary>
+    /// Constructs a CloudFlow from a CloudVector.
+    /// </summary>
+    /// <param name="source">The input CloudVector.</param>
+    static member OfCloudVector (source : CloudVector<'T>) : CloudFlow<'T> = CloudVector.ToCloudFlow source
+
+    /// <summary>
+    ///     Constructs a CloudFlow of lines from a single large text file.
+    /// </summary>
+    /// <param name="path">The path to the text file.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member OfTextFileByLine (path : string, ?encoding : Encoding) : CloudFlow<string> = 
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let! cseq = CloudSequence.FromLineSeparatedTextFile(path, ?encoding = encoding, enableCache = false, force = false)
+                let collectionStream = CloudFlow.OfCloudCollection cseq
+                return! collectionStream.Apply collectorf projection combiner
+            }  
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow of lines from a collection of text files.
+    /// </summary>
+    /// <param name="paths">Paths to the text files.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member OfTextFilesByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let flow = CloudFlow.OfFiles ((fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), paths, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.Apply collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow of text bodies from a collection of text files.
+    /// </summary>
+    /// <param name="paths">Paths to the text files.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member OfTextFiles (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let flow = CloudFlow.OfFiles ((fun stream -> Seq.singleton <| TextReaders.ReadAllText(stream, ?encoding = encoding)), paths, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.Apply collectorf projection combiner
+            }
+        }
+                
+    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
+    /// <param name="channel">the ReceivePort of a CloudChannel.</param>
+    /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
+    /// <returns>The result CloudFlow.</returns>
+    static member OfCloudChannel (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
+        CloudChannel.ToCloudFlow(channel, degreeOfParallelism)
+
+
+
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Provides basic operations on CloudFlows.
 module CloudFlow =
+
+    // TODO : move *Gen implementations to a consumer folder in project.
+    //        haven't done this yet since it complicates inlining.
 
     //#region Intermediate functions
 
@@ -250,7 +382,7 @@ module CloudFlow =
                                                   (fun keyValues -> local {
                                                         let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
-                                                            let! values = CloudVector.New(value, CloudVector.MaxCloudVectorPartitionSize, enableCaching = false)
+                                                            let! values = CloudVector.New(value, cache = false)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) 
                                                         return Seq.toArray values }) combiner'
@@ -258,7 +390,7 @@ module CloudFlow =
                 let merged =
                     keyValueArray
                     |> Seq.groupBy fst
-                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> CloudVector.Merge)
+                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> CloudVector.Concat)
                     |> Seq.toArray
                 return merged
             }
@@ -294,9 +426,9 @@ module CloudFlow =
         // Phase 2
         let reducer (flow : CloudFlow<int * CloudVector<'Key * 'State>>) : Cloud<CloudVector<'Key * 'State>> = 
             cloud {
-                let combiner' (result : CloudVector<_> []) = local { return CloudVector.Merge result }
+                let combiner' (result : CloudVector<_> []) = local { return CloudVector.Concat result }
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> CloudVector.New(keyValues, CloudVector.MaxCloudVectorPartitionSize)) combiner'
+                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> CloudVector.New(keyValues, cache = false)) combiner'
                 return keyValueArray
             }
         { new CloudFlow<'Key * 'State> with
@@ -409,84 +541,12 @@ module CloudFlow =
     /// <summary>Creates a CloudVector from the given CloudFlow.</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudVector.</returns>    
-    let toCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
-        cloud {
-            let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
-                let results = new List<List<'T>>()
-                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
-                return 
-                  { new Collector<'T, 'T []> with
-                    member self.DegreeOfParallelism = flow.DegreeOfParallelism 
-                    member self.Iterator() = 
-                        let list = new List<'T>()
-                        results.Add(list)
-                        {   Index = ref -1; 
-                            Func = (fun value -> list.Add(value));
-                            Cts = cts }
-                    member self.Result = 
-                        let count = results |> Seq.sumBy (fun list -> list.Count)
-                        let values = Array.zeroCreate<'T> count
-                        let mutable counter = -1
-                        for list in results do
-                            for i = 0 to list.Count - 1 do
-                                let value = list.[i]
-                                counter <- counter + 1
-                                values.[counter] <- value
-                        values }
-            }
-            let! cts = Cloud.CreateCancellationTokenSource()
-            let! vc =
-                flow.Apply (collectorf cts)
-                    (fun array -> local { return! CloudVector.New(array, CloudVector.MaxCloudVectorPartitionSize, enableCaching = false) }) 
-                    (fun result -> local { return CloudVector.Merge result })
-            return vc
-        }
+    let toCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> = CloudVector.OfCloudFlow(flow, enableCache = false)
 
     /// <summary>Creates a CloudVector from the given CloudFlow, with its partitions cached locally</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudVector.</returns>
-    let toCachedCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> =
-        cloud {
-            let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
-                let results = new List<List<'T>>()
-                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
-                return 
-                  { new Collector<'T, 'T []> with
-                    member self.DegreeOfParallelism = flow.DegreeOfParallelism 
-                    member self.Iterator() = 
-                        let list = new List<'T>()
-                        results.Add(list)
-                        {   Index = ref -1; 
-                            Func = (fun value -> list.Add(value));
-                            Cts = cts }
-                    member self.Result = 
-                        let count = results |> Seq.sumBy (fun list -> list.Count)
-                        let values = Array.zeroCreate<'T> count
-                        let mutable counter = -1
-                        for list in results do
-                            for i = 0 to list.Count - 1 do
-                                let value = list.[i]
-                                counter <- counter + 1
-                                values.[counter] <- value
-                        values }
-            }
-            let! cts = Cloud.CreateCancellationTokenSource()
-            let! vc =
-                flow.Apply (collectorf cts)
-                    (fun array -> local { 
-                                    let! cloudVector = CloudVector.New(array, CloudVector.MaxCloudVectorPartitionSize, enableCaching = true)
-                                    // Cache the partitions
-                                    let partitions = cloudVector.GetAllPartitions()
-                                    for partition in partitions do
-                                        do! partition.ForceCache() |> Local.Ignore
-                                    
-                                    return cloudVector
-                                  }) 
-                    (fun result -> local { return CloudVector.Merge result })
-            return vc
-        }
-
-
+    let toCachedCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> = CloudVector.OfCloudFlow(flow, enableCache = true)
 
     let inline private sortByGen comparer (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> = 
         let collectorf (cloudCts : ICloudCancellationTokenSource) = local {  

@@ -35,14 +35,27 @@ type CloudSequence<'T> =
         let enableCache = defaultArg enableCache false
         { uuid = uuid ; path = path ; count = count ; deserializer = deserializer ; enableCache = enableCache }
 
+    private new (uuid, path, count, deserializer, enableCache) =
+        { uuid = uuid ; path = path ; count = count ; deserializer = deserializer ; enableCache = enableCache }
+
     member private c.GetSequenceFromStore () = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! stream = ofAsync <| config.FileStore.BeginRead(c.path)
-        match c.deserializer with
-        | Some ds -> return ds stream
-        | None -> 
-            let! serializer = Cloud.GetResource<ISerializer> ()
-            return serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
+        let! deserializer = local {
+            match c.deserializer with
+            | Some ds -> return ds
+            | None ->
+                let! serializer = Cloud.GetResource<ISerializer> ()
+                return fun s -> serializer.SeqDeserialize<'T>(s, leaveOpen = false)
+        }
+
+        // wrap stream inside enumerator to enforce correct IEnumerable behaviour
+        let fileStore = config.FileStore
+        let path = c.path
+        let mkEnumerator () =
+            let stream = fileStore.BeginRead path |> Async.RunSync
+            deserializer(stream).GetEnumerator()
+
+        return Seq.fromEnumerator mkEnumerator
     }
 
     interface ICloudCacheable<'T []> with
@@ -76,10 +89,11 @@ type CloudSequence<'T> =
     /// Path to Cloud sequence in store
     member c.Path = c.path
 
-    /// Enables or disables implicit, on-demand caching of values when first dereferenced.
-    member c.CacheByDefault
-        with get () = c.enableCache
-        and set s = c.enableCache <- s
+    /// Enables implicit, on-demand caching of values when first dereferenced.
+    member c.CacheByDefault = c.enableCache
+
+    /// immutable update to the cache behaviour
+    member internal c.WithCacheBehaviour b = new CloudSequence<'T>(c.uuid, c.path, c.count, c.deserializer, b)
 
     /// Cloud sequence element count
     member c.Count = local {
@@ -298,3 +312,10 @@ type CloudSequence =
 
         return cseq :> _
     }
+
+    /// <summary>
+    ///     Creates a copy of CloudSequence with updated cache behaviour.
+    /// </summary>
+    /// <param name="cacheByDefault">Cache behaviour to be set.</param>
+    /// <param name="cseq">Input cloud sequence.</param>
+    static member WithCacheBehaviour (cacheByDefault:bool) (cseq:CloudSequence<'T>) : CloudSequence<'T> = cseq.WithCacheBehaviour cacheByDefault

@@ -49,49 +49,40 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``1. CloudVector : simple cloudvector`` () =
-        let inputs = [|1 .. 1000000|]
-        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) } |> run
-        vector.PartitionCount |> shouldBe (fun c -> c > 10)
-        vector.IsCachingSupported |> shouldEqual false
-        vector.GetAllPartitions().Length |> shouldEqual vector.PartitionCount
+        let inputs = [|1L .. 1000000L|]
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
+        let workers = Cloud.GetWorkerCount() |> run
+        vector.IsCachingEnabled |> shouldEqual false
+        vector.PartitionCount |> shouldEqual workers
         cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.toArray |> shouldEqual inputs
+        vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
     member __.``1. CloudVector : caching`` () =
-        let inputs = [|1 .. 1000000|]
-        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) } |> run
-        vector.PartitionCount |> shouldBe (fun c -> c > 10)
-        vector.IsCachingSupported |> shouldEqual true
-        vector.GetAllPartitions().Length |> shouldEqual vector.PartitionCount
-
-        let dummyWorker = mkDummyWorker()
-
-        // attempt to cache remotely
-        cloud {
-            do! vector.UpdateCacheState(dummyWorker, [|0 .. 4|])
-        } |> run
-
-
-        let worker,indices = cloud { return! vector.GetCacheState() } |> runLocal |> fun c -> c.[0]
-        worker |> shouldEqual dummyWorker
-        indices |> shouldEqual [|0..4|]
+        let inputs = [|1L .. 1000000L|]
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCachedCloudVector |> run
+        let workers = Cloud.GetWorkerCount() |> run
+        vector.PartitionCount |> shouldEqual workers
+        vector.IsCachingEnabled |> shouldEqual true
+        cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.toArray |> shouldEqual inputs
+        vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
     member __.``1. CloudVector : disposal`` () =
         let inputs = [|1 .. 1000000|]
-        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) } |> run
-        vector.Dispose() |> ignore
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
+        vector |> Cloud.Dispose |> run
         shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.iter ignore)
 
     [<Test>]
     member __.``1. CloudVector : merging`` () =
         let inputs = [|1 .. 1000000|]
         let N = 10
-        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = false) } |> run
-        let merged = CloudVector.Merge(Array.init N (fun _ -> vector))
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
+        let merged = CloudVector.Concat(Array.init N (fun _ -> vector))
         merged.PartitionCount |> shouldEqual (N * vector.PartitionCount)
-        merged.IsCachingSupported |> shouldEqual false
-        merged.GetAllPartitions() 
+        merged.IsCachingEnabled |> shouldEqual false
+        merged.Partitions
         |> Seq.groupBy (fun p -> p.Path)
         |> Seq.map (fun (_,ps) -> Seq.length ps)
         |> Seq.forall ((=) N)
@@ -106,30 +97,12 @@ type ``CloudFlow tests`` () as self =
         |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
 
     [<Test>]
-    member __.``1. CloudVector : merged caching`` () =
-        let inputs = [|1 .. 1000000|]
-        let N = 10
-        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) } |> run
-        let merged = CloudVector.Merge(Array.init N (fun _ -> vector))
-
-        let dummyWorker = mkDummyWorker()
-
-        cloud {
-            do! vector.UpdateCacheState(dummyWorker, [|0 .. vector.PartitionCount - 1|])
-        } |> run
-
-        let cState = cloud { return! merged.GetCacheState() } |> runLocal //|> fun c -> c.[0]
-        let worker, partitions = cState.[0]
-        worker |> shouldEqual dummyWorker
-        partitions |> shouldEqual [|0 .. merged.PartitionCount - 1|]
-
-    [<Test>]
     member __.``1. CloudVector : merged disposal`` () =
         let inputs = [|1 .. 1000000|]
         let N = 10
-        let vector = cloud { return! CloudVector.New(inputs, maxPartitionSize = 100000L, enableCaching = true) } |> run
-        let merged = CloudVector.Merge(Array.init N (fun _ -> vector))
-        merged.Dispose() |> ignore
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
+        let merged = CloudVector.Concat(Array.init N (fun _ -> vector))
+        merged |> Cloud.Dispose |> run
         shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocal |> Seq.iter ignore)
 
     // #region Streams tests
@@ -145,7 +118,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : ofCloudVector`` () =
         let f(xs : int []) =
-            let CloudVector = cloud { return! CloudVector.New(xs, 100L) } |> run
+            let CloudVector = xs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
             let x = CloudVector |> CloudFlow.OfCloudVector |> CloudFlow.length |> run
             let y = xs |> Seq.map ((+)1) |> Seq.length
             Assert.AreEqual(y, int x)
@@ -173,11 +146,11 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : cache`` () =
         let f(xs : int[]) =
-            let v = cloud { return! CloudVector.New(xs, 1024L) } |> run
+            let v = xs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
 //            v.Cache() |> run 
             let x = v |> CloudFlow.OfCloudVector |> CloudFlow.map  (fun x -> x * x) |> CloudFlow.toCloudVector |> run
             let x' = v |> CloudFlow.OfCloudVector |> CloudFlow.map (fun x -> x * x) |> CloudFlow.toCloudVector |> run
-            let y = xs |> Seq.map (fun x -> x * x) |> Seq.toArray
+            let y = xs |> Array.map (fun x -> x * x)
             
             let _x = cloud { return! x.ToEnumerable() } |> runLocal |> Seq.toArray
             let _x' = cloud { return! x'.ToEnumerable() } |> runLocal |> Seq.toArray
