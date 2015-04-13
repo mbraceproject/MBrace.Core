@@ -18,6 +18,8 @@ open MBrace.Runtime.Store
 module private Config =
     do VagabondRegistry.Initialize(throwOnError = false)
 
+    let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
+
     let fsStore = FileSystemStore.CreateSharedLocal()
     let serializer = new FsPicklerBinaryStoreSerializer()
     let imem = InMemoryCache.Create()

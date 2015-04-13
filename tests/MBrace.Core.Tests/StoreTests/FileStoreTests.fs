@@ -185,7 +185,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                 results |> shouldEqual [|1..lineCount|]
             } |> runRemote
 
-        for pc in [|1;2;3;5;10;50;100;250;500;750;1000|] do
+        for pc in [|1;2;3;5;10;50;100;250;500;750;1000;2000|] do
             testPartitioning pc
 
 
