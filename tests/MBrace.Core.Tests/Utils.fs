@@ -2,7 +2,6 @@
 
 open FsCheck
 
-open System
 open System.Collections.Generic
 open System.IO
 open System.Threading
@@ -15,8 +14,8 @@ open MBrace.Store.Internals
 module Utils =
 
     let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
-    let isAppVeyorInstance = Environment.GetEnvironmentVariable("APPVEYOR") = "TRUE"
-    let isTravisInstance = Environment.GetEnvironmentVariable("TRAVIS") = "true"
+    let isAppVeyorInstance = System.Environment.GetEnvironmentVariable("APPVEYOR") <> null
+    let isTravisInstance = System.Environment.GetEnvironmentVariable("TRAVIS") <> null
 
     let shouldfail (f : unit -> 'T) =
         try let v = f () in raise <| new AssertionException(sprintf "should fail but was '%A'" v)
