@@ -1,3 +1,10 @@
+#### 0.9.9-alpha
+* Introduce ICloudCollection and ICloudDictionary.
+* Refactor namespaces in MBrace.Core.
+* Refactor CloudVector and MBrace.Flow.
+* Rename CloudCell to CloudValue.
+* Misc revisions and improvements.
+
 #### 0.9.8-alpha
 * Upgrade to Vagabond 0.6.
 * Rename MBrace.Streams to MBrace.Flow.
