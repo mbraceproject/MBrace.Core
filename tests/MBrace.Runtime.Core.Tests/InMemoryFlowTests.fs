@@ -21,4 +21,5 @@ type ``InMemory CloudFlow tests`` () =
 
     override __.Run(workflow : Cloud<'T>) = imem.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = imem.Run workflow
-    override __.FsCheckMaxNumberOfTests = 100
+    override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
+    override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 10

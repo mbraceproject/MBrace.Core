@@ -44,6 +44,7 @@ type ``CloudFlow tests`` () as self =
     abstract Run : Cloud<'T> -> 'T
     abstract RunLocally : Cloud<'T> -> 'T
     abstract FsCheckMaxNumberOfTests : int
+    abstract FsCheckMaxNumberOfIOBoundTests : int
 
     // #region Cloud vector tests
 
@@ -197,7 +198,7 @@ type ``CloudFlow tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, 10)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
     [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadLines`` () =
@@ -218,7 +219,7 @@ type ``CloudFlow tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, 10)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
     [<Test>]
     member __.``2. CloudFlow : ofCloudFilesByLine with ReadLines`` () =
@@ -239,7 +240,7 @@ type ``CloudFlow tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, 10)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
     
     
     [<Test>]
@@ -268,7 +269,7 @@ type ``CloudFlow tests`` () as self =
                 |> Seq.toArray
                     
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, 10)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
     [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadAllLines`` () =
@@ -290,7 +291,7 @@ type ``CloudFlow tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, 10)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
 
     [<Test>]
@@ -473,7 +474,7 @@ type ``CloudFlow tests`` () as self =
                     }
                     |> run
                 x = 2L
-            Check.QuickThrowOnFail(f, 10)
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
 
         [<Test>]
@@ -496,6 +497,6 @@ type ``CloudFlow tests`` () as self =
                     } |> run
                 let y = xs |> Seq.map (fun v -> v + 1) |> Seq.toArray
                 (set x) = (set y)
-            Check.QuickThrowOnFail(f, 10)
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
 
