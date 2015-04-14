@@ -1,12 +1,13 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 open System.Threading
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
 open MBrace.Workflows
 open MBrace.Client
 
@@ -481,11 +482,11 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``runtime resources`` () =
-        run(Cloud.GetWorkerCount()) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
+        run(Cloud.GetWorkerCount()) |> Choice.shouldFailwith<_, ResourceNotFoundException>
 
     [<Test>]
     let ``storage resouces`` () =
-        run(CloudCell.New 0) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
+        run(CloudValue.New 0) |> Choice.shouldFailwith<_, ResourceNotFoundException>
 
     [<Test>]
     let ``test correct scoping in resource updates`` () =

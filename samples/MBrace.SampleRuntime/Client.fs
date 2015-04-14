@@ -7,10 +7,11 @@ open System.Threading
 open Nessos.Thespian
 open Nessos.Thespian.Remote
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Client
-open MBrace.Continuation
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond
@@ -58,6 +59,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> _
     let atomProvider = new ActorAtomProvider(state) :> ICloudAtomProvider
     let channelProvider = new ActorChannelProvider(state) :> ICloudChannelProvider
+    let dictionaryProvider = new ActorDictionaryProvider(state) :> ICloudDictionaryProvider
 
     let appendWorker (address: string) =
         let url = sprintf "utcp://%s/workerManager" address
@@ -69,16 +71,18 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     let createProcessInfo () =
         {
             ProcessId = System.Guid.NewGuid().ToString()
-            FileStoreConfig = CloudFileStoreConfiguration.Create(fileStore, serializer)
+            FileStoreConfig = CloudFileStoreConfiguration.Create(fileStore)
             AtomConfig = CloudAtomConfiguration.Create(atomProvider)
             ChannelConfig = CloudChannelConfiguration.Create(channelProvider)
+            DictionaryProvider = dictionaryProvider
+            Serializer = serializer
         }
         
     let imem =
-        let fileConfig    = CloudFileStoreConfiguration.Create(fileStore, serializer)
+        let fileConfig    = CloudFileStoreConfiguration.Create(fileStore)
         let atomConfig    = CloudAtomConfiguration.Create(atomProvider)
         let channelConfig = CloudChannelConfiguration.Create(channelProvider)
-        LocalRuntime.Create(fileConfig = fileConfig, atomConfig = atomConfig, channelConfig = channelConfig)
+        LocalRuntime.Create(fileConfig = fileConfig, objectCache = Config.ObjectCache, serializer = serializer, atomConfig = atomConfig, channelConfig = channelConfig)
 
     /// Creates a fresh cloud cancellation token source for this runtime
     member __.CreateCancellationTokenSource () =
@@ -140,7 +144,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     ///     Run workflow as local, in-memory computation
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
-    member __.RunLocalAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
+    member __.RunLocallyAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
 
     /// Returns the store client for provided runtime
     member __.StoreClient = imem.StoreClient
@@ -150,7 +154,7 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    member __.RunLocal(workflow, ?cancellationToken) : 'T = imem.Run(workflow, ?cancellationToken = cancellationToken)
+    member __.RunLocally(workflow, ?cancellationToken) : 'T = imem.Run(workflow, ?cancellationToken = cancellationToken)
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])

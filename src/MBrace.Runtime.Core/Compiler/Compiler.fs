@@ -12,7 +12,7 @@ open Microsoft.FSharp.Quotations.ExprShape
 open Nessos.FsPickler
 open Nessos.Vagabond
 
-open MBrace
+open MBrace.Core
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils

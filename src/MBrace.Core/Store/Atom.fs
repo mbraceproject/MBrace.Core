@@ -1,6 +1,6 @@
-﻿namespace MBrace
+﻿namespace MBrace.Store
 
-open MBrace.Continuation
+open MBrace.Core
 
 /// Represent a distributed atomically updatable value reference
 type ICloudAtom<'T> =
@@ -42,9 +42,11 @@ module CloudAtomUtils =
             return result.Value
         }
 
-namespace MBrace.Store
+namespace MBrace.Store.Internals
  
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
 
 /// Defines a factory for distributed atoms
 type ICloudAtomProvider =
@@ -98,10 +100,11 @@ with
         }
 
 
-namespace MBrace
+namespace MBrace.Store
 
-open MBrace.Continuation
-open MBrace.Store
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store.Internals
 
 #nowarn "444"
 

@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Workflows
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 
 /// Collection of combinators that split workloads to workers
 /// according to multicore capacity.
@@ -36,10 +37,11 @@ module DivideAndConquer =
             if inputs.Length < 2 then return! reducer inputs
             else
                 let! workers = Cloud.GetAvailableWorkers()
-                let chunks = WorkerRef.partitionWeighted workers inputs
+                let chunks = WorkerRef.partitionWeighted (fun w -> w.ProcessorCount) workers inputs
                 let! results =
                     chunks
-                    |> Array.map (fun (w,ts) -> reduceCombineLocal ts, w)
+                    |> Seq.filter (not << Array.isEmpty << snd)
+                    |> Seq.map (fun (w,ts) -> reduceCombineLocal ts, w)
                     |> Cloud.Parallel
 
                 return! combiner results
@@ -227,10 +229,11 @@ module DivideAndConquer =
             if inputs.Length < 2 then return! chooser inputs
             else
                 let! workers = Cloud.GetAvailableWorkers()
-                let chunks = WorkerRef.partitionWeighted workers inputs
+                let chunks = WorkerRef.partitionWeighted (fun w -> w.ProcessorCount) workers inputs
                 return!
                     chunks
-                    |> Array.map (fun (w,ch) -> multiCoreSearch ch, w)
+                    |> Seq.filter (not << Array.isEmpty << snd)
+                    |> Seq.map (fun (w,ch) -> multiCoreSearch ch, w)
                     |> Cloud.Choice
         }
 

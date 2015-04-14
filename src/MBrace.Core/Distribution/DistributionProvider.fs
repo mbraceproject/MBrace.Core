@@ -1,11 +1,11 @@
-﻿namespace MBrace.Runtime
+﻿namespace MBrace.Core.Internals
 
 // Distributed distribution provider definition
 // Cloud workflows actuating parallelism should
 // be passed an instance of ICloudRuntimeProvider in their
 // ExecutionContext.
 
-open MBrace
+open MBrace.Core
 
 /// <summary>
 ///     Executing runtime abstraction.

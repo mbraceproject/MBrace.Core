@@ -3,7 +3,7 @@
 open System
 open System.Threading
 
-open MBrace.Continuation
+open MBrace.Core.Internals
 
 /// Thread-safe value container with optimistic update semantics
 type Atom<'T when 'T : not struct>(value : 'T) =

@@ -34,14 +34,14 @@ let query1 =
 
 runtime.Run <| CloudFlow.cache(query1)
 
-query1.CacheMap.Value |> runtime.RunLocal
+query1.CacheMap.Value |> runtime.RunLocally
 
-runtime.RunLocal(query1.ToEnumerable())
+runtime.RunLocally(query1.ToEnumerable())
 |> Seq.toArray
 
 let query2 = runtime.Run (
                 query1
-                |> CloudFlow.ofCloudVector
+                |> CloudFlow.OfCloudVector
                 |> CloudFlow.sortBy snd 100
                 |> CloudFlow.toArray )
 
@@ -51,6 +51,3 @@ let query3 =
         |> CloudFlow.collect(fun i -> [|1..10000|] |> Seq.map (fun j -> string i, j))
         |> CloudFlow.sortBy snd 100
         |> CloudFlow.toArray)
-
-
-

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime
+﻿namespace MBrace.Core.Internals
 
 open System
 

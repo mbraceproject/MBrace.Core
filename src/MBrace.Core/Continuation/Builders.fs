@@ -1,9 +1,9 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 //  Cloud builder implementation
 
 open System
-open MBrace.Continuation
+open MBrace.Core.Internals
 
 [<AutoOpen>]
 module internal BuilderImpl =

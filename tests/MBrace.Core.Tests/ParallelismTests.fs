@@ -1,14 +1,15 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
     
 open System
 open System.Threading
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Internals.InMemoryRuntime
+open MBrace.Store
 open MBrace.Workflows
-open MBrace.Runtime.InMemory
 
 /// Logging tester abstraction
 type ILogTester =
@@ -31,14 +32,14 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
 
     let run (workflow : Cloud<'T>) = self.Run workflow
     let runCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.Run workflow
-    let runLocal (workflow : Cloud<'T>) = self.RunLocal workflow
+    let runLocally (workflow : Cloud<'T>) = self.RunLocally workflow
     
     /// Run workflow in the runtime under test
     abstract Run : workflow:Cloud<'T> -> Choice<'T, exn>
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
     abstract Run : workflow:(ICloudCancellationTokenSource -> #Cloud<'T>) -> Choice<'T, exn>
     /// Evaluate workflow in the local test process
-    abstract RunLocal : workflow:Cloud<'T> -> 'T
+    abstract RunLocally : workflow:Cloud<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck
     abstract FsCheckMaxTests : int
     /// Maximum number of repeats to run nondeterministic tests
@@ -77,14 +78,14 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     [<Test>]
     member __.``1. Parallel : use binding`` () =
         let parallelismFactor = parallelismFactor
-        let c = CloudAtom.New 0 |> runLocal
+        let c = CloudAtom.New 0 |> runLocally
         cloud {
             use foo = { new ICloudDisposable with member __.Dispose () = CloudAtom.Incr c }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Incr c) |> Cloud.Parallel
             return! c.Value
         } |> run |> Choice.shouldEqual parallelismFactor
 
-        c.Value |> runLocal |> shouldEqual (parallelismFactor + 1)
+        c.Value |> runLocally |> shouldEqual (parallelismFactor + 1)
 
     [<Test>]
     member  __.``1. Parallel : exception handler`` () =
@@ -99,13 +100,13 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
 
     [<Test>]
     member  __.``1. Parallel : finally`` () =
-        let trigger = runLocal <| CloudAtom.New 0
+        let trigger = runLocally <| CloudAtom.New 0
         Cloud.TryFinally( cloud {
             let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
             return () }, CloudAtom.Incr trigger)
         |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-        trigger.Value |> runLocal |> shouldEqual 1
+        trigger.Value |> runLocally |> shouldEqual 1
 
     [<Test>]
     member __.``1. Parallel : simple nested`` () =
@@ -194,7 +195,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     member __.``1. Parallel : simple cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let counter = CloudAtom.New 0 |> runLocal
+            let counter = CloudAtom.New 0 |> runLocally
             runCts(fun cts -> cloud {
                 let f i = cloud {
                     if i = 0 then cts.Cancel() 
@@ -207,7 +208,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return ()
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-            counter.Value |> runLocal |> shouldEqual 0)
+            counter.Value |> runLocally |> shouldEqual 0)
 
     [<Test>]
     member __.``1. Parallel : as local`` () =
@@ -345,7 +346,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     member __.``2. Choice : all inputs 'None'`` () =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let count = CloudAtom.New 0 |> runLocal
+            let count = CloudAtom.New 0 |> runLocally
             cloud {
                 let worker _ = cloud {
                     do! CloudAtom.Incr count
@@ -355,14 +356,14 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Array.init parallelismFactor worker |> Cloud.Choice
             } |> run |> Choice.shouldEqual None
 
-            count.Value |> runLocal |> shouldEqual parallelismFactor)
+            count.Value |> runLocally |> shouldEqual parallelismFactor)
 
     [<Test>]
     member __.``2. Choice : one input 'Some'`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let count = CloudAtom.New 0 |> runLocal
+            let count = CloudAtom.New 0 |> runLocally
             cloud {
                 let worker i = cloud {
                     if i = 0 then return Some i
@@ -375,12 +376,12 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
 
                 return! Array.init parallelismFactor worker |> Cloud.Choice
             } |> run |> Choice.shouldEqual (Some 0)
-            count.Value |> runLocal |> shouldEqual 0)
+            count.Value |> runLocally |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : all inputs 'Some'`` () =
         repeat(fun () ->
-            let successcounter = CloudAtom.New 0 |> runLocal
+            let successcounter = CloudAtom.New 0 |> runLocally
             cloud {
                 let worker _ = cloud { return Some 42 }
                 let! result = Array.init 100 worker |> Cloud.Choice
@@ -389,7 +390,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldEqual (Some 42)
 
             // ensure only one success continuation call
-            successcounter.Value |> runLocal |> shouldEqual 1)
+            successcounter.Value |> runLocally |> shouldEqual 1)
 
     [<Test>]
     member __.``2. Choice : simple nested`` () =
@@ -397,7 +398,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             let nNested = nNested
-            let counter = CloudAtom.New 0 |> runLocal
+            let counter = CloudAtom.New 0 |> runLocally
             cloud {
                 let worker i j = cloud {
                     if i = 0 && j = 0 then
@@ -412,14 +413,14 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Array.init nNested cluster |> Cloud.Choice
             } |> run |> Choice.shouldEqual (Some(0,0))
 
-            counter.Value |> runLocal |> shouldBe (fun i ->  i < parallelismFactor / 2))
+            counter.Value |> runLocally |> shouldBe (fun i ->  i < parallelismFactor / 2))
 
     [<Test>]
     member __.``2. Choice : nested exception cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let nNested = nNested
-            let counter = CloudAtom.New 0 |> runLocal
+            let counter = CloudAtom.New 0 |> runLocally
             cloud {
                 let worker i j = cloud {
                     if i = 0 && j = 0 then
@@ -434,14 +435,14 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Array.init nNested cluster |> Cloud.Choice
             } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-            counter.Value |> runLocal |> shouldEqual 0)
+            counter.Value |> runLocally |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : simple cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let counter = CloudAtom.New 0 |> runLocal
+            let counter = CloudAtom.New 0 |> runLocally
             runCts(fun cts ->
                 cloud {
                     let worker i = cloud {
@@ -454,7 +455,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     return! Array.init parallelismFactor worker |> Cloud.Choice
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-            counter.Value |> runLocal |> shouldEqual 0)
+            counter.Value |> runLocally |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : as local`` () =
@@ -564,7 +565,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     member __.``3. StartAsTask: task with exception`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let count = CloudAtom.New 0 |> runLocal
+            let count = CloudAtom.New 0 |> runLocally
             cloud {
                 let tworkflow = cloud {
                     do! Cloud.Sleep delayFactor
@@ -582,13 +583,13 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Cloud.AwaitCloudTask task
             } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-            count.Value |> runLocal |> shouldEqual 2)
+            count.Value |> runLocally |> shouldEqual 2)
 
     [<Test>]
     member __.``3. StartAsTask: with cancellation token`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let count = CloudAtom.New 0 |> runLocal
+            let count = CloudAtom.New 0 |> runLocally
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
                 let tworkflow = cloud {
@@ -605,7 +606,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldFailwith<_, OperationCanceledException>
             
             // ensure final increment was cancelled.
-            count.Value |> runLocal |> shouldEqual 1)
+            count.Value |> runLocally |> shouldEqual 1)
 
     [<Test>]
     member __.``3. StartAsTask: to current worker`` () =

@@ -1,9 +1,10 @@
-﻿namespace MBrace.Store
+﻿namespace MBrace.Store.Internals
 
 open System
 open System.IO
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 
 /// Cloud file storage abstraction
 type ICloudFileStore =
@@ -147,8 +148,6 @@ type CloudFileStoreConfiguration =
         FileStore : ICloudFileStore
         /// Default directory used by current execution context.
         DefaultDirectory : string
-        // Default serializer
-        Serializer : ISerializer
     }
 with
     /// <summary>
@@ -157,11 +156,10 @@ with
     /// <param name="fileStore">File store instance.</param>
     /// <param name="serializer">Serializer instance.</param>
     /// <param name="defaultDirectory">Default directory for current process. Defaults to auto generated.</param>
-    static member Create(fileStore : ICloudFileStore, serializer : ISerializer, ?defaultDirectory : string) =
+    static member Create(fileStore : ICloudFileStore, ?defaultDirectory : string) =
         {
             FileStore = fileStore
             DefaultDirectory = match defaultDirectory with Some d -> d | None -> fileStore.GetRandomDirectoryName()
-            Serializer = serializer
         }
 
 [<AutoOpen>]
@@ -207,7 +205,7 @@ module CloudFileStoreUtils =
             fileNames |> Seq.map (fun f -> cfs.Combine [|container ; f |]) |> Seq.toArray
 
 
-namespace MBrace
+namespace MBrace.Store
 
 open System
 open System.Runtime.Serialization
@@ -215,8 +213,9 @@ open System.Text
 open System.Threading.Tasks
 open System.IO
 
-open MBrace.Continuation
-open MBrace.Store
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store.Internals
 
 #nowarn "444"
 
@@ -508,8 +507,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
                 | None -> new StreamWriter(stream)
                 | Some e -> new StreamWriter(stream, e)
 
-            do for line in lines do
-                do sw.WriteLine(line)
+            do for line in lines do sw.WriteLine(line)
         }
 
         return! CloudFile.Create(writer, ?path = path)
@@ -521,17 +519,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadLines(path : string, ?encoding : Encoding) : Local<seq<string>> = local {
-        let reader (stream : Stream) = async {
-            return seq { 
-                use sr = 
-                    match encoding with
-                    | None -> new StreamReader(stream)
-                    | Some e -> new StreamReader(stream, e)
-                while not sr.EndOfStream do
-                    yield sr.ReadLine()
-            }
-        }
-
+        let reader (stream : Stream) = async { return TextReaders.ReadLines(stream, ?encoding = encoding) }
         return! CloudFile.Read(path, reader, leaveOpen = true)
     }
 
@@ -542,16 +530,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="encoding">Text encoding.</param>
     static member ReadAllLines(path : string, ?encoding : Encoding) : Local<string []> = local {
         let reader (stream : Stream) = async {
-            let ra = new ResizeArray<string> ()
-            use sr = 
-                match encoding with
-                | None -> new StreamReader(stream)
-                | Some e -> new StreamReader(stream, e)
-
-            do while not sr.EndOfStream do
-                ra.Add <| sr.ReadLine()
-
-            return ra.ToArray()
+            let lines = TextReaders.ReadLines(stream, ?encoding = encoding)
+            return Seq.toArray lines
         }
 
         return! CloudFile.Read(path, reader)
@@ -569,7 +549,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
                 match encoding with
                 | None -> new StreamWriter(stream)
                 | Some e -> new StreamWriter(stream, e)
-            do! sw.WriteLineAsync text
+            do! sw.WriteAsync text
         }
 
         return! CloudFile.Create(writer, ?path = path)

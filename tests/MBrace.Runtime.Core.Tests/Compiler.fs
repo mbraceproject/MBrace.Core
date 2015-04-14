@@ -1,9 +1,9 @@
 ﻿namespace MBrace.Runtime.Tests
 
-open MBrace
+open MBrace.Core
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Compiler
-open MBrace.Tests
+open MBrace.Core.Tests
 
 open NUnit.Framework
 
@@ -85,7 +85,7 @@ module ``Cloud Compiler Tests`` =
 //    let rec blockThatCallsClientApi2 n =
 //        if n = 0 then 1
 //        else
-//            MBrace.RunLocal <@ cloud { return n * blockThatCallsClientApi2 (n-1) } @>
+//            MBrace.RunLocally <@ cloud { return n * blockThatCallsClientApi2 (n-1) } @>
 
     [<Cloud>]
     module Module =

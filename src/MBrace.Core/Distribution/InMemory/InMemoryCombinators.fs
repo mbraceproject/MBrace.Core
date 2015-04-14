@@ -1,12 +1,12 @@
-﻿namespace MBrace.Runtime.InMemory
+﻿namespace MBrace.Core.Internals.InMemoryRuntime
 
 #nowarn "444"
 
 open System.Threading
 open System.Threading.Tasks
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool

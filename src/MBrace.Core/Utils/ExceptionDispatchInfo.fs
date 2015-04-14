@@ -1,4 +1,4 @@
-﻿namespace MBrace.Continuation
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.Reflection

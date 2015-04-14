@@ -13,9 +13,10 @@ open System
 open Nessos.FsPickler
 open Nessos.Vagabond
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
@@ -31,10 +32,14 @@ type ProcessInfo =
         ProcessId : string
         /// Cloud file store configuration
         FileStoreConfig : CloudFileStoreConfiguration
+        /// Default serializer used for process
+        Serializer : ISerializer
         /// Cloud atom configuration
         AtomConfig : CloudAtomConfiguration
         /// Cloud channel configuration
         ChannelConfig : CloudChannelConfiguration
+        /// Cloud dictionary provider
+        DictionaryProvider : ICloudDictionaryProvider
     }
 
 /// A job is a computation belonging to a larger cloud process
@@ -71,8 +76,10 @@ with
                     Resources = 
                         resource { 
                             yield runtimeProvider ; yield tem ; yield job.CancellationTokenSource ; 
+                            yield job.ProcessInfo.Serializer
                             yield Config.WithCachedFileStore job.ProcessInfo.FileStoreConfig
                             yield Config.ObjectCache
+                            yield job.ProcessInfo.DictionaryProvider
                             yield job.ProcessInfo.AtomConfig ; yield job.ProcessInfo.ChannelConfig
                         }
 

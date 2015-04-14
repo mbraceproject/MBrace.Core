@@ -4,7 +4,7 @@ open System.IO
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
 open MBrace.Flow.Tests
 open MBrace.SampleRuntime
 
@@ -21,5 +21,6 @@ type ``SampleRuntime Flow Tests`` () =
     member __.Fini () = session.Stop()
       
     override __.FsCheckMaxNumberOfTests = 10  
+    override __.FsCheckMaxNumberOfIOBoundTests = 10
     override __.Run(expr : Cloud<'T>) : 'T = session.Runtime.Run(expr, faultPolicy = FaultPolicy.NoRetry)
-    override __.RunLocal(expr : Cloud<'T>) : 'T = session.Runtime.RunLocal(expr)
+    override __.RunLocally(expr : Cloud<'T>) : 'T = session.Runtime.RunLocally(expr)

@@ -58,22 +58,24 @@
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Continuation\Utils.fs" />
+    <Compile Include="Utils\Utils.fs" />
+    <Compile Include="Utils\Trampoline.fs" />
+    <Compile Include="Utils\ExceptionDispatchInfo.fs" />
+    <Compile Include="Utils\TextReaders.fs" />
+    <Compile Include="Utils\Enumerable.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
-    <Compile Include="Continuation\Trampoline.fs" />
-    <Compile Include="Continuation\ExceptionDispatchInfo.fs" />
     <Compile Include="Continuation\CancellationToken.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\Builders.fs" />
     <Compile Include="Continuation\Continuation.fs" />
+    <Compile Include="Store\FileStore.fs" />
+    <Compile Include="Store\Channel.fs" />
+    <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\Caching.fs" />
-    <Compile Include="Store\FileStore.fs" />
-    <Compile Include="Store\Atom.fs" />
-    <Compile Include="Store\Channel.fs" />
-    <Compile Include="Store\Cell.fs" />
-    <Compile Include="Store\Sequence.fs" />
+    <Compile Include="Store\CloudCollection.fs" />
+    <Compile Include="Store\CloudDictionary.fs" />
     <Compile Include="Distribution\Logging.fs" />
     <Compile Include="Distribution\FaultPolicy.fs" />
     <Compile Include="Distribution\RuntimeTypes.fs" />
@@ -85,6 +87,8 @@
     <Compile Include="Workflows\Common.fs" />
     <Compile Include="Workflows\Sequential.fs" />
     <Compile Include="Workflows\Distributed.fs" />
+    <Compile Include="Workflows\CloudValue.fs" />
+    <Compile Include="Workflows\CloudSequence.fs" />
     <Compile Include="Client\StoreClient.fs" />
     <Compile Include="Client\LocalRuntime.fs" />
   </ItemGroup>

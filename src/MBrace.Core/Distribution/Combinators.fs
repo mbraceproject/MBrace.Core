@@ -1,9 +1,8 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 open System.Threading.Tasks
 
-open MBrace.Continuation
-open MBrace.Runtime
+open MBrace.Core.Internals
 
 #nowarn "444"
 
@@ -465,5 +464,5 @@ module CloudOperators =
     /// </summary>
     /// <param name="left">The first cloud computation.</param>
     /// <param name="right">The second cloud computation.</param>
-    let (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
+    let inline (<||>) (left : Cloud<'a>) (right : Cloud<'b>) : Cloud<'a * 'b> = 
         Cloud.Parallel(left, right)

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Continuation
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.Runtime.Serialization
@@ -21,7 +21,7 @@ module private ResourceRegistryUtils =
 
 /// Immutable dependency container used for pushing
 /// runtime resources to the continuation monad.
-[<Sealed ; DataContract;>]
+[<Sealed ; DataContract>]
 type ResourceRegistry =
 
     [<DataMember(Name = "Index")>]

@@ -1,4 +1,4 @@
-﻿namespace MBrace
+﻿namespace MBrace.Core
 
 open System
 open System.Threading
@@ -13,27 +13,6 @@ type IWorkerRef =
     abstract Id : string
     /// Worker processor count
     abstract ProcessorCount : int
-
-module WorkerRef =
-
-    /// partitions a set of inputs to workers
-    let partition (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
-        if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
-        inputs
-        |> Array.splitByPartitionCount workers.Length
-        |> Seq.mapi (fun i p -> (workers.[i],p))
-        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
-        |> Seq.toArray
-    
-    /// partitions a set of inputs to workers -- weighted by worker processor count.
-    let partitionWeighted (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
-        if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
-        let weights = workers |> Array.map (fun w -> w.ProcessorCount)
-        inputs
-        |> Array.splitWeighted weights
-        |> Seq.mapi (fun i p -> (workers.[i],p))
-        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
-        |> Seq.toArray
 
 /// Denotes a task that is being executed in the cluster.
 type ICloudTask<'T> =
@@ -53,3 +32,38 @@ type ICloudTask<'T> =
     abstract TryGetResult : unit -> Local<'T option>
     /// Synchronously gets the task result, blocking until it completes.
     abstract Result : 'T
+
+namespace MBrace.Core.Internals
+
+open System
+open MBrace.Core
+
+module WorkerRef =
+
+    /// <summary>
+    ///     Partitions a set of inputs to workers.
+    /// </summary>
+    /// <param name="workers">Workers to be partition work to.</param>
+    /// <param name="inputs">Input work.</param>
+    let partition (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
+        if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
+        inputs
+        |> Array.splitByPartitionCount workers.Length
+        |> Seq.mapi (fun i p -> (workers.[i],p))
+        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
+        |> Seq.toArray
+    
+    /// <summary>
+    ///     Partitions a set of inputs according to a weighted set of workers.
+    /// </summary>
+    /// <param name="weight">Weight function.</param>
+    /// <param name="workers">Input workers.</param>
+    /// <param name="inputs">Input array to be partitioned.</param>
+    let partitionWeighted (weight : IWorkerRef -> int) (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
+        if workers = null then raise <| new ArgumentNullException("workers")
+        let weights = workers |> Array.map weight
+        inputs
+        |> Array.splitWeighted weights
+        |> Seq.mapi (fun i p -> (workers.[i],p))
+        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
+        |> Seq.toArray

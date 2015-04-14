@@ -5,11 +5,12 @@ open System.Collections.Generic
 open System.Threading.Tasks
 open Nessos.Streams
 open MBrace.Flow
-open MBrace
+open MBrace.Core
 
 /// [omit]
 /// Proxy for FSharp type specialization and lambda inlining.
-type public CSharpProxy = 
+// use internalsVisibleTo for CSharp library
+type internal CSharpProxy = 
 
     static member Select<'T, 'R> (stream : CloudFlow<'T>, func : Func<'T, 'R>) = 
         CloudFlow.map (fun x -> func.Invoke(x)) stream
@@ -49,8 +50,6 @@ type public CSharpProxy =
 
     static member Sum(stream : CloudFlow<decimal>) = 
         CloudFlow.sum stream
-        
 
-
-    static member OfCloudFiles(sources : seq<CloudFile>, reader : Func<IO.Stream, Task<'T>>) =
-        CloudFlow.ofCloudFiles (fun stream -> Async.AwaitTask(reader.Invoke(stream))) sources
+    static member OfCloudFiles(sources : seq<string>, reader : Func<IO.Stream, seq<'T>>, sizeThresholdPerCore : Nullable<int64>) =
+        CloudFlow.OfFiles (reader.Invoke, sources, ?sizeThresholdPerCore = Option.ofNullable sizeThresholdPerCore)

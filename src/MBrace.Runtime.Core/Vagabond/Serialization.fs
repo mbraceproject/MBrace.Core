@@ -9,6 +9,7 @@ open Nessos.FsPickler
 open Nessos.FsPickler.Json
 
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Vagabond
 

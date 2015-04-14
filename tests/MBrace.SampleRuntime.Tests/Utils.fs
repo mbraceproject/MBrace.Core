@@ -1,6 +1,6 @@
 ﻿namespace MBrace.SampleRuntime.Tests
 
-open MBrace.Tests
+open MBrace.Core.Tests
 open MBrace.SampleRuntime
 
 type LogTester(runtime : MBraceRuntime) =

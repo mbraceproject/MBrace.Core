@@ -2,8 +2,8 @@
 
 open System.Threading.Tasks
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 
 #nowarn "444"
 

@@ -14,10 +14,12 @@ open Nessos.Thespian.Remote
 
 open Nessos.Vagabond
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Internals.InMemoryRuntime
+open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Workflows
-open MBrace.Runtime.InMemory
 open MBrace.Runtime.Vagabond
 open MBrace.Store
 open MBrace.Runtime
@@ -83,6 +85,14 @@ type ActorChannelProvider (state : RuntimeState) =
         }
 
         member __.DisposeContainer _ = async.Zero()
+
+type ActorDictionaryProvider (state : RuntimeState) =
+    interface ICloudDictionaryProvider with
+        member __.IsSupportedValue _ = true
+        member __.Create<'T> () = async {
+            let! dict = state.ResourceFactory.RequestDictionary()
+            return dict :> ICloudDictionary<'T>
+        }
         
 /// Scheduling implementation provider
 [<AutoSerializable(false)>]

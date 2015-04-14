@@ -1,245 +1,153 @@
 ﻿namespace MBrace.Flow
 
 open System.IO
+open System.Runtime.Serialization
 open System.Collections.Generic
+open System.Threading
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Workflows
 
 #nowarn "444"
 
-/// Represents the cached indices corresponding to each worker node of the cluster
-type WorkerCacheState = IWorkerRef * int []
+/// Store Persisted CloudFlow implementation.
+[<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
+type CloudVector<'T> internal (partitions : CloudSequence<'T> []) =
+    [<DataMember(Name = "Partitions")>]
+    let partitions = partitions
 
-/// Represents an ordered collection of values stored in CloudSequence partitions.
-[<AbstractClass>]
-type CloudVector<'T> () =
-    /// Gets the total element count for the cloud vector.
-    abstract Count : Local<int64>
-    /// Gets the partition count for cloud vector.
-    abstract PartitionCount : int
-    /// Gets all partitions of contained in the vector.
-    abstract GetAllPartitions : unit -> CloudSequence<'T> []
-    /// Gets partition of given index.
-    abstract GetPartition : index:int -> CloudSequence<'T>
-    /// Gets partition of given index.
-    abstract Item : int -> CloudSequence<'T> with get
-    /// Returns a local enumerable that iterates through
-    /// all elements of the cloud vector.
-    abstract ToEnumerable : unit -> Local<seq<'T>>
-    /// Gets the cache support status for cloud vector instance.
-    abstract IsCachingSupported : bool
-    /// Gets the current cache state of the vector inside the cluster.
-    abstract GetCacheState : unit -> Local<WorkerCacheState []>
-    /// Updates the cache state to include provided indices for given worker ref.
-    abstract UpdateCacheState : worker:IWorkerRef * appendedIndices:int[] -> Local<unit>
-    /// Disposes cloud vector from store.
-    abstract Dispose : unit -> Local<unit>
+    /// Number of partitions in the vector.
+    member __.PartitionCount = partitions.Length
+
+    member __.Item with get i = partitions.[i]
+
+    /// Returns true if in-memory caching support is enabled for the vector instance.
+    member __.IsCachingEnabled = partitions |> Array.forall (fun p -> p.CacheByDefault)
+
+    /// Creates an immutable copy iwht updated cache behaviour
+    member internal __.WithCacheBehaviour b =
+        let partitions' = partitions |> Array.map (CloudSequence.WithCacheBehaviour b)
+        new CloudVector<'T>(partitions')
+
+    /// Gets the CloudSequence partitions of the CloudVector
+    member __.Partitions = partitions
+    /// Computes the size (in bytes) of the CloudVector
+    member __.Size: Local<int64> = local { let! sizes = partitions |> Sequential.map (fun p -> p.Size) in return Array.sum sizes }
+    /// Computes the element count of the CloudVector
+    member __.Count: Local<int64> = local { let! counts = partitions |> Sequential.map (fun p -> p.Count) in return Array.sum counts }
+    /// Gets an enumerable for all elements in the CloudVector
+    member __.ToEnumerable() = local { let! seqs = partitions |> Sequential.map (fun p -> p.ToEnumerable()) in return Seq.concat seqs }
+
+    interface IPartitionedCollection<'T> with
+        member cv.Size: Local<int64> = cv.Size
+        member cv.Count: Local<int64> = cv.Count
+        member cv.GetPartitions(): Local<ICloudCollection<'T> []> = local { return partitions |> Array.map (fun p -> p :> _) }
+        member cv.PartitionCount: Local<int> = local { return partitions.Length }
+        member cv.ToEnumerable(): Local<seq<'T>> = cv.ToEnumerable()
+
+    interface CloudFlow<'T> with
+        member cv.DegreeOfParallelism = None
+        member cv.Apply(collectorf : Local<Collector<'T,'S>>) (projection: 'S -> Local<'R>) (combiner: 'R [] -> Local<'R>): Cloud<'R> = cloud {
+            // TODO : use ad-hoc implementation with better scheduling
+            let flow = CloudCollection.ToCloudFlow(cv, useCache = cv.IsCachingEnabled)
+            return! flow.Apply collectorf projection combiner
+        }
 
     interface ICloudDisposable with
-        member __.Dispose () = __.Dispose()
+        member __.Dispose () = local {
+            for p in partitions do do! (p :> ICloudDisposable).Dispose()
+        }
 
-/// Cloud vector implementation that keeps cache information in a single cloud atom
-type internal AtomCloudVector<'T>(elementCount : int64 option, partitions : CloudSequence<'T> [], cacheMap : ICloudAtom<Map<IWorkerRef, int[]>> option) =
-    inherit CloudVector<'T> ()
-
-    let mutable elementCount = elementCount
-
-    let getCacheMap() =
-        match cacheMap with
-        | None -> raise <| new System.NotSupportedException("caching")
-        | Some cm -> cm
+    override __.ToString() = sprintf "CloudVector[%O] of %d partitions." typeof<'T> partitions.Length
+    member private __.StructuredFormatDisplay = __.ToString()
         
 
-    override __.Count = local {
-        match elementCount with
-        | Some c -> return c
-        | None ->
-            let! counts =
-                partitions
-                |> Seq.map (fun p -> p.Count)
-                |> Local.Parallel
+type CloudVector private () =
 
-            let count = counts |> Array.sumBy int64
-            elementCount <- Some count
-            return count
-    }
-
-    override __.PartitionCount = partitions.Length
-    override __.GetAllPartitions () = partitions
-    override __.GetPartition i = partitions.[i]
-    override __.Item with get i = partitions.[i]
-    override __.ToEnumerable() = local {
-        return! partitions |> Sequential.lazyCollect (fun p -> p.ToEnumerable())
-    }
-
-    override __.IsCachingSupported = Option.isSome cacheMap
-    override __.GetCacheState () = getCacheMap().Value |> Local.map (fun m -> m |> Seq.map (function KeyValue(w,is) -> (w,is)) |> Seq.toArray)
-
-    override __.UpdateCacheState(worker : IWorkerRef, appendedIndices : int []) = local {
-        let cacheMap = getCacheMap()
-        let updater (state : Map<IWorkerRef, int[]>) =
-            let indices =
-                match state.TryFind worker with
-                | None -> appendedIndices
-                | Some is -> Seq.append is appendedIndices |> Seq.distinct |> Seq.toArray
-
-            state.Add(worker, indices)
-
-        return! cacheMap.Update updater
-    }
-
-    override __.Dispose() = local {
-        return!
-            partitions
-            |> Array.map (fun p -> (p :> ICloudDisposable).Dispose())
-            |> Local.Parallel
-            |> Local.Ignore
-    }
-
-/// Cloud vector implementation that results from concatennation of multiple cloudvectors
-type internal ConcatenatedCloudVector<'T>(components : CloudVector<'T> []) =
-    inherit CloudVector<'T> ()
-
-    // computing global index for jagged array
-
-    let global2Local (globalIndex : int) =
-        if globalIndex < 0 then raise <| new System.IndexOutOfRangeException()
-
-        let mutable ci = 0
-        let mutable i = globalIndex
-        while ci < components.Length && i >= components.[ci].PartitionCount do
-            ci <- ci + 1
-            i <- i - components.[ci].PartitionCount
-
-        if ci = components.Length then raise <| new System.IndexOutOfRangeException()
-        ci,i
-
-    let local2Global (componentIndex : int, partitionIndex : int) =
-        let mutable globalIndex = partitionIndex
-        for ci = 0 to componentIndex - 1 do
-            globalIndex <- globalIndex + components.[ci].PartitionCount
-
-        globalIndex
-
-    member internal __.Components = components
-
-    override __.Count = local {
-        let! counts = components |> Sequential.map (fun c -> c.Count)
-        return Array.sum counts
-    }
-
-    override __.PartitionCount = components |> Array.sumBy(fun c -> c.PartitionCount)
-    override __.ToEnumerable() = local {
-        return! components |> Sequential.lazyCollect(fun p -> p.ToEnumerable())
-    }
-
-    override __.GetAllPartitions () = components |> Array.collect(fun c -> c.GetAllPartitions())
-    override __.GetPartition i = let ci, pi = global2Local i in components.[ci].[pi]
-    override __.Item with get i = let ci, pi = global2Local i in components.[ci].[pi]
-
-    override __.IsCachingSupported = components |> Array.forall(fun c -> c.IsCachingSupported)
-    override __.GetCacheState() = local {
-        let getComponentCacheState (ci : int) (c : CloudVector<'T>) = local {
-            let! state = c.GetCacheState()
-            // transform indices before returning
-            return state |> Array.map (fun (w,is) -> w, is |> Array.map (fun i -> local2Global (ci, i)))
-        }
-            
-        let! states =
-            components
-            |> Seq.mapi getComponentCacheState
-            |> Local.Parallel
-
-        return
-            states
-            |> Seq.concat
-            |> Seq.groupBy fst
-            |> Seq.map (fun (w, css) -> w, css |> Seq.collect (fun (_, is) -> is) |> Seq.sort |> Seq.toArray)
-            |> Seq.toArray
-    }
-
-    override __.UpdateCacheState(w : IWorkerRef, indices : int[]) = local {
-        let groupedIndices =
-            indices
-            |> Seq.map global2Local
-            |> Seq.groupBy fst
-            |> Seq.map (fun (ci, iss) -> ci, iss |> Seq.map snd |> Seq.toArray)
-            |> Seq.toArray
-
-        do!
-            groupedIndices
-            |> Seq.map (fun (ci, iss) -> components.[ci].UpdateCacheState(w, iss))
-            |> Local.Parallel
-            |> Local.Ignore
-    }
-
-    override __.Dispose () = local {
-        do!
-            components
-            |> Seq.map (fun c -> c.Dispose())
-            |> Local.Parallel
-            |> Local.Ignore
-    }
-            
-/// Cloud vector static API
-type CloudVector =
+    /// Maximum CloudVector partition size used in CloudVector.New
+    static let MaxCloudVectorPartitionSize = 1024L * 1024L * 1024L // 1GB
 
     /// <summary>
-    ///     Creates a new CloudVector out of a collection of CloudSequence partitions
+    ///     Creates a new CloudVector instance out of given sequence.
     /// </summary>
-    /// <param name="partitions">CloudSequences that constitute the vector.</param>
-    /// <param name="enableCaching">Enable in-memory caching of partitions in worker roles. Defaults to true.</param>
-    static member OfPartitions(partitions : seq<CloudSequence<'T>>, ?enableCaching : bool) : Local<CloudVector<'T>> = local {
-        let partitions = Seq.toArray partitions
-        if Array.isEmpty partitions then invalidArg "partitions" "partitions must be non-empty sequence."
-        let! cacheAtom = local {
-            if defaultArg enableCaching true then 
-                let! ca = CloudAtom.New Map.empty<IWorkerRef, int[]>
-                return Some ca
-            else return None
-        }
-
-        return new AtomCloudVector<'T>(None, partitions, cacheAtom) :> CloudVector<'T>
+    /// <param name="elems">Input sequence.</param>
+    /// <param name="cache">Enable caching behaviour in CloudVector instance.</param>
+    /// <param name="partitionThreshold">Partition threshold in bytes.</param>
+    static member internal New(elems : seq<'T>, cache : bool, ?partitionThreshold:int64) : Local<CloudVector<'T>> = local {
+        let partitionThreshold = defaultArg partitionThreshold MaxCloudVectorPartitionSize
+        let! cseqs = CloudSequence.NewPartitioned(elems, partitionThreshold, enableCache = cache) 
+        return new CloudVector<'T>(cseqs)
     }
+    
+    /// <summary>
+    ///     Concatenates a series of CloudVectors into one.
+    /// </summary>
+    /// <param name="vectors">Input CloudVectors.</param>
+    static member Concat (vectors : seq<CloudVector<'T>>) : CloudVector<'T> = 
+        let partitions = vectors |> Seq.collect (fun v -> v.Partitions) |> Seq.toArray
+        new CloudVector<'T>(partitions)
 
     /// <summary>
-    ///     Creates a cloudvector instance using a collection of cloud files and provided deserializer method.
+    ///     Converts a CloudVector to cloud flow.
     /// </summary>
-    /// <param name="files">Input file paths.</param>
-    /// <param name="deserializer">Deserializer lambda for given file.</param>
-    /// <param name="enableCaching">Enable in-memory caching for CloudVector instance. Defaults to true.</param>
-    static member OfCloudFiles(files : seq<string>, deserializer : Stream -> seq<'T>, ?enableCaching) = local {
-        let! partitions = 
-            files 
-            |> Seq.map (fun f -> CloudSequence.FromFile(f, deserializer, force = false))
-            |> Local.Parallel
-//            |> Cloud.ToLocal
-
-        return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)
-    }
+    /// <param name="vector">Input Cloud Vector.</param>
+    static member internal ToCloudFlow (vector : CloudVector<'T>) : CloudFlow<'T> = vector :> CloudFlow<'T>
 
     /// <summary>
-    ///     Merge a collection of cloud vectors into a single instance.
+    ///     Creates a CloudVector by persisting given flow to store.
     /// </summary>
-    /// <param name="components">CloudVector components.</param>
-    static member Merge(components : seq<CloudVector<'T>>) : CloudVector<'T> =
-        let components = 
-            components
-            |> Seq.collect (function :? ConcatenatedCloudVector<'T> as c -> c.Components | v -> [|v|])
-            |> Seq.toArray
+    /// <param name="flow">Input CloudFlow.</param>
+    /// <param name="enableCache">Use in-memory caching as vector is created.</param>
+    static member internal OfCloudFlow (flow : CloudFlow<'T>, enableCache : bool) : Cloud<CloudVector<'T>> = cloud {
+        match flow with
+        | :? CloudVector<'T> as cv -> return cv.WithCacheBehaviour enableCache
+        | _ ->
+            let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
+                let results = new List<List<'T>>()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
+                return 
+                  { new Collector<'T, 'T []> with
+                    member self.DegreeOfParallelism = flow.DegreeOfParallelism 
+                    member self.Iterator() = 
+                        let list = new List<'T>()
+                        results.Add(list)
+                        {   Index = ref -1; 
+                            Func = (fun value -> list.Add(value));
+                            Cts = cts }
+                    member self.Result = 
+                        let count = results |> Seq.sumBy (fun list -> list.Count)
+                        let values = Array.zeroCreate<'T> count
+                        let mutable counter = -1
+                        for list in results do
+                            for i = 0 to list.Count - 1 do
+                                let value = list.[i]
+                                counter <- counter + 1
+                                values.[counter] <- value
+                        values }
+            }
 
-        new ConcatenatedCloudVector<'T>(components) :> CloudVector<'T>
+            let! cts = Cloud.CreateCancellationTokenSource()
+            let createVector (ts : 'T []) = local {
+                let! vector = CloudVector.New(ts, cache = enableCache)
+                if enableCache then
+                    let! objCache = Cloud.TryGetResource<IObjectCache> ()
+                    match objCache with
+                    | None -> ()
+                    | Some oc ->
+                        // inject result array directly to cache
+                        let i = ref 0
+                        for p in vector.Partitions do
+                            let! count = p.Count
+                            let j = !i + int count
+                            let sub = ts.[!i .. j - 1]
+                            let _ = oc.Add((p :> ICloudCacheable<'T[]>).UUID, sub)
+                            i := j
 
+                return vector
+            }
 
-    /// <summary>
-    ///     Creates a CloudVector in file store using a collection of sequences with specified partition size.
-    /// </summary>
-    /// <param name="values">Inputs values for cloud vector.</param>
-    /// <param name="maxPartitionSize">Maximum size in bytes for each vector partition in file store.</param>
-    /// <param name="enableCaching">Enable caching for cloud vector instance. Defaults to true.</param>
-    static member New<'T>(values : seq<'T>, maxPartitionSize : int64, ?enableCaching:bool) : Local<CloudVector<'T>> = local {
-        let! partitions = CloudSequence.NewPartitioned(values, maxPartitionSize)
-        return! CloudVector.OfPartitions(partitions, ?enableCaching = enableCaching)
+            return! flow.Apply (collectorf cts) createVector (fun result -> local { return CloudVector.Concat result })
     }

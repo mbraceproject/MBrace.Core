@@ -13,6 +13,7 @@ open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
 
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
 open MBrace.Runtime.Vagabond

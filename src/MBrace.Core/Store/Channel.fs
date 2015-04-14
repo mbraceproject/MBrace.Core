@@ -1,4 +1,6 @@
-﻿namespace MBrace
+﻿namespace MBrace.Store
+
+open MBrace.Core
 
 /// Sending side of a distributed channel
 type ISendPort<'T> =
@@ -25,9 +27,10 @@ type IReceivePort<'T> =
     /// <param name="timeout">Timeout in milliseconds.</param>
     abstract Receive : ?timeout:int -> Local<'T>
 
-namespace MBrace.Store
+namespace MBrace.Store.Internals
 
-open MBrace
+open MBrace.Core
+open MBrace.Store
 
 /// Defines a factory for distributed channels
 type ICloudChannelProvider =
@@ -73,10 +76,11 @@ with
             DefaultContainer = match defaultContainer with Some c -> c | None -> channelProvider.CreateUniqueContainerName()
         }
 
-namespace MBrace
+namespace MBrace.Store
 
-open MBrace.Continuation
-open MBrace.Store
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store.Internals
 
 #nowarn "444"
 

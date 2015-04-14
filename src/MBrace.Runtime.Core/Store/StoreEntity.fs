@@ -6,6 +6,7 @@ open System.Runtime.Serialization
 open Nessos.FsPickler
 
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime.Utils
 
 type StorageEntity =

@@ -8,6 +8,7 @@ open System.Runtime.Serialization
 
 open MBrace
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.Retry
