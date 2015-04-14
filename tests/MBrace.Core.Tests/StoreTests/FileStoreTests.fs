@@ -174,7 +174,12 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                 lines' |> Array.iteri check 
             } |> runRemote
 
-        for pc in [|1;5;10;50;100;250;500;750;1000;2000|] do
+        // AppVeyor has performance bottleneck when doing concurrent IO; reduce number of tests
+        let testedPartitionCounts = 
+            if isAppVeyorInstance then [|20;2000|]
+            else [|1;5;10;50;100;250;500;750;1000;2000|]
+
+        for pc in testedPartitionCounts do
             testPartitioning pc
 
 

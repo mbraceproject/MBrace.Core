@@ -9,6 +9,10 @@ do()
 [<AutoOpen>]
 module Utils =
 
+    let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
+    let isAppVeyorInstance = System.Environment.GetEnvironmentVariable("APPVEYOR") = "TRUE"
+    let isTravisInstance = System.Environment.GetEnvironmentVariable("TRAVIS") = "true"
+
     let shouldfail (f : unit -> 'T) =
         try let v = f () in raise <| new AssertionException(sprintf "should fail but was '%A'" v)
         with _ -> ()

@@ -69,6 +69,7 @@ type ``InMemory CloudDictionary Tests`` () =
 
     let imem = LocalRuntime.Create()
 
+    override __.IsInMemoryFixture = true
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow
     override __.DictionaryClient = imem.StoreClient.Dictionary
