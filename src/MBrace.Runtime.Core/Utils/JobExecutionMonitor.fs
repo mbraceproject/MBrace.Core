@@ -2,8 +2,8 @@
 
 open System.Threading.Tasks
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 
 #nowarn "444"
 
@@ -50,10 +50,3 @@ type JobExecutionMonitor () =
         with :? System.AggregateException as e when e.InnerException <> null ->
             return! Async.Raise e.InnerException
     }
-
-    /// <summary>
-    ///     Protects uncaught exceptions from asynchronous workflows by channeling to TaskExecutionMonitor
-    /// </summary>
-    /// <param name="body">Computation body</param>
-    static member ProtectFromContinuations(body : ExecutionContext -> Continuation<'T> -> Async<unit>) : Cloud<'T>=
-        Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (body ctx cont))

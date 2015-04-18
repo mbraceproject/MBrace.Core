@@ -1,11 +1,13 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 
 open NUnit.Framework
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Client
 
 [<TestFixture; AbstractClass>]
@@ -14,7 +16,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     static let nSequential = 100
 
     let runRemote wf = self.Run wf 
-    let runLocal wf = self.RunLocal wf
+    let runLocally wf = self.RunLocally wf
 
     let repeat f = repeat self.Repeats f
 
@@ -25,7 +27,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocal : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Local store client instance
     abstract AtomClient : CloudAtomClient
     /// Maximum number of repeats to run nondeterministic tests
@@ -65,7 +67,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 return a
             } |> runRemote
             
-        atom.Value |> runLocal |> shouldEqual nSequential
+        atom.Value |> runLocally |> shouldEqual nSequential
 
     [<Test>]
     member __.``CloudAtom - Parallel updates`` () =
@@ -83,7 +85,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     return a
                 } |> runRemote
         
-            atom.Value |> runLocal |> shouldEqual (parallelismFactor * nSequential))
+            atom.Value |> runLocally |> shouldEqual (parallelismFactor * nSequential))
 
     [<Test>]
     member __.``CloudAtom - Parallel updates with large obj`` () =

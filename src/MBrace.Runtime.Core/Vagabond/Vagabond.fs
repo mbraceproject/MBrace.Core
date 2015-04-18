@@ -14,7 +14,7 @@ open MBrace.Runtime.Utils
 type VagabondRegistry private () =
 
     static let lockObj = obj()
-    static let mutable instance : Vagabond option = None
+    static let mutable instance : VagabondManager option = None
 
     /// Gets the registered vagabond instance.
     static member Instance =
@@ -28,14 +28,14 @@ type VagabondRegistry private () =
     /// <param name="graph">Object graph.</param>
     static member ComputeObjectDependencies(graph : obj) =
         VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true)
-        |> List.map Utilities.ComputeAssemblyId
+        |> List.map Vagabond.ComputeAssemblyId
 
     /// <summary>
     ///     Initializes the registry using provided factory.
     /// </summary>
     /// <param name="factory">Vagabond instance factory.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
-    static member Initialize(factory : unit -> Vagabond, ?throwOnError) =
+    static member Initialize(factory : unit -> VagabondManager, ?throwOnError) =
         lock lockObj (fun () ->
             match instance with
             | None -> instance <- Some <| factory ()

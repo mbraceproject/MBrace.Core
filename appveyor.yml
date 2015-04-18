@@ -7,5 +7,5 @@ test:
     - MBrace.Core.Tests.dll
     - MBrace.CSharp.Tests.dll
     - MBrace.Runtime.Core.Tests.dll
-    - MBrace.Streams.Tests.dll
-    - MBrace.Streams.CSharp.Tests.dll
+    - MBrace.Flow.Tests.dll
+    - MBrace.Flow.CSharp.Tests.dll

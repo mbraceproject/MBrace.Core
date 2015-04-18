@@ -5,9 +5,8 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
-open MBrace
-open MBrace.Continuation
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
@@ -52,14 +51,14 @@ type FileSystemStore private (rootPath : string) =
         new FileSystemStore(rootPath)
 
     /// <summary>
-    ///     Creates a local file system store that can be shared between local processes.
+    ///     Creates a cloud file system store that can be shared between local processes.
     /// </summary>
     static member CreateSharedLocal() =
         let path = Path.Combine(Path.GetTempPath(), "mbrace-shared", "fileStore")
         FileSystemStore.Create(path, create = true, cleanup = false)
 
     /// <summary>
-    ///     Creates a local file system store that is unique to the current process.
+    ///     Creates a cloud file system store that is unique to the current process.
     /// </summary>
     static member CreateUniqueLocal() =
         let path = Path.Combine(WorkingDirectory.GetDefaultWorkingDirectoryForProcess(), "localStore")

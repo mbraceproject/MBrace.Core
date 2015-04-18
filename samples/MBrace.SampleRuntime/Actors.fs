@@ -9,15 +9,19 @@
 
 open System
 open System.Threading
+open System.Collections.Generic
 open System.Runtime.Serialization
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote.Protocols
 
 open Nessos.Vagabond
+open Nessos.Vagabond.AssemblyProtocols
+open Nessos.Vagabond.ExportableAssembly
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
@@ -422,12 +426,12 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
 
     interface ICloudTask<'T> with
         member c.Id = id
-        member c.AwaitResult(?timeout:int) = cloud {
+        member c.AwaitResult(?timeout:int) = local {
             let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
             return r.Value
         }
 
-        member c.TryGetResult() = cloud {
+        member c.TryGetResult() = local {
             let! r = Cloud.OfAsync <| c.TryGetResult()
             return r |> Option.map (fun r -> r.Value)
         }
@@ -483,6 +487,93 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
 
         let id = Guid.NewGuid().ToString()
         new ResultCell<'T>(id, ref)
+
+//
+//  CloudDictionary implementation
+//
+
+type private CloudDictionaryMsg<'T> =
+    | Add of key:string * value:'T * force:bool * IReplyChannel<bool>
+    | AddOrUpdate of key:string * updater:('T option -> 'T) * IReplyChannel<'T>
+    | ContainsKey of key:string * IReplyChannel<bool>
+    | Remove of key:string * IReplyChannel<bool>
+    | TryFind of key:string * IReplyChannel<'T option>
+    | GetCount of IReplyChannel<int64>
+    | ToArray of IReplyChannel<KeyValuePair<string, 'T> []>
+
+type CloudDictionary<'T> private (id : string, source : ActorRef<CloudDictionaryMsg<'T>>) =
+    let (<!-) ar msgB = local { return! Cloud.OfAsync(ar <!- msgB)}
+    interface ICloudDictionary<'T> with
+        member x.Add(key: string, value: 'T): Local<unit> = 
+            local { let! _ = source <!- fun ch -> Add(key, value, true, ch) in return () }
+        
+        member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Local<'T> = 
+            source <!- fun ch -> AddOrUpdate(key, updater, ch)
+        
+        member x.ContainsKey(key: string): Local<bool> = 
+            source <!- fun ch -> ContainsKey(key, ch)
+        
+        member x.Count: Local<int64> = 
+            source <!- GetCount
+
+        member x.Size : Local<int64> =
+            source <!- GetCount
+        
+        member x.Dispose(): Local<unit> = local.Zero ()
+        
+        member x.Id: string = id
+        
+        member x.Remove(key: string): Local<bool> = 
+            source <!- fun ch -> Remove(key, ch)
+        
+        member x.ToEnumerable() = local {
+            let! pairs = source <!- ToArray
+            return pairs :> seq<_>
+        }
+        
+        member x.TryAdd(key: string, value: 'T): Local<bool> = 
+            source <!- fun ch -> Add(key, value, false, ch)
+        
+        member x.TryFind(key: string): Local<'T option> = 
+            source <!- fun ch -> TryFind(key, ch)
+
+    static member Init() =
+        let behaviour (state : Map<string, 'T>) (msg : CloudDictionaryMsg<'T>) = async {
+            match msg with
+            | Add(key, value, false, rc) when state.ContainsKey key ->
+                do! rc.Reply false
+                return state
+            | Add(key, value, _, rc) ->
+                do! rc.Reply true
+                return state.Add(key, value)
+            | AddOrUpdate(key, updater, rc) ->
+                let t = updater (state.TryFind key)
+                do! rc.Reply t
+                return state.Add(key, t)
+            | ContainsKey(key, rc) ->
+                do! rc.Reply (state.ContainsKey key)
+                return state
+            | Remove(key, rc) ->
+                do! rc.Reply (state.ContainsKey key)
+                return state.Remove key
+            | TryFind(key, rc) ->
+                do! rc.Reply (state.TryFind key)
+                return state
+            | GetCount rc ->
+                do! rc.Reply (int64 state.Count)
+                return state
+            | ToArray rc ->
+                do! rc.Reply (state |> Seq.toArray)
+                return state
+        }
+
+        let id = Guid.NewGuid().ToString()
+        let ref =
+            Actor.Stateful Map.empty behaviour
+            |> Actor.Publish
+            |> Actor.ref
+
+        new CloudDictionary<'T>(id, ref)
 
 //
 //  Distributed lease monitor. Tracks progress of dequeued tasks by 
@@ -711,7 +802,7 @@ type Channel<'T> private (id : string, source : ActorRef<ChannelMsg<'T>>) =
     interface IReceivePort<'T> with
         member __.Id = id
         member __.Receive(?timeout : int) = Cloud.OfAsync <| async { return! source.PostWithReply(Receive, ?timeout = timeout) }
-        member __.Dispose () = cloud.Zero()
+        member __.Dispose () = local.Zero()
 
     interface ISendPort<'T> with
         member __.Id = id
@@ -774,6 +865,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
     member __.RequestCancellationTokenSource() = __.RequestResource(fun () -> DistributedCancellationTokenSource.Init())
     member __.RequestResultCell<'T>() = __.RequestResource(fun () -> ResultCell<'T>.Init())
     member __.RequestChannel<'T>(id) = __.RequestResource(fun () -> Channel<'T>.Init(id))
+    member __.RequestDictionary<'T>() = __.RequestResource(fun () -> CloudDictionary<'T>.Init())
     member __.RequestAtom<'T>(id, init) = __.RequestResource(fun () -> Atom<'T>.Init(id, init))
 
     static member Init () =
@@ -796,14 +888,23 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 //
 
 type private AssemblyExporterMsg =
-    | RequestAssemblies of AssemblyId list * IReplyChannel<AssemblyPackage list> 
+    | GetAssemblyMetadata of AssemblyId list * IReplyChannel<(AssemblyId * VagabondMetadata) list>
+    | RequestAssemblies of AssemblyId list * IReplyChannel<ExportableAssembly list> 
 
 /// Provides assembly uploading facility for Vagabond.
 type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     static member Init() =
-        let behaviour (RequestAssemblies(ids, ch)) = async {
-            let packages = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
-            do! ch.Reply packages
+        let behaviour (msg : AssemblyExporterMsg) = async {
+            match msg with
+            | GetAssemblyMetadata(ids, ch) ->
+                let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
+                let md = vas |> List.map (fun va -> va.Id, va.Metadata)
+                do! ch.Reply md
+
+            | RequestAssemblies(ids, ch) ->
+                let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
+                let packages = VagabondRegistry.Instance.CreateRawAssemblies vas
+                do! ch.Reply packages
         }
 
         let ref = 
@@ -822,8 +923,11 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
         let publisher =
             {
                 new IRemoteAssemblyPublisher with
-                    member __.GetRequiredAssemblyInfo () = async { return ids }
-                    member __.PullAssemblies ids = exporter <!- fun ch -> RequestAssemblies(ids, ch)
+                    member __.GetRequiredAssemblyInfo () = async { return! exporter <!- fun ch -> GetAssemblyMetadata(ids, ch) }
+                    member __.PullAssemblies ids = async {
+                        let! eas = exporter <!- fun ch -> RequestAssemblies(ids, ch)
+                        return VagabondRegistry.Instance.CacheRawAssemblies(eas)
+                    }
             }
 
         do! VagabondRegistry.Instance.ReceiveDependencies publisher
@@ -835,7 +939,7 @@ type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
     /// <param name="graph">Object graph to be analyzed</param>
     member __.ComputeDependencies (graph:'T) =
         VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true)
-        |> List.map Utilities.ComputeAssemblyId
+        |> List.map Vagabond.ComputeAssemblyId
 
 
 type WorkerManager =

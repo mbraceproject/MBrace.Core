@@ -1,8 +1,8 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
 open MBrace.Workflows
 open MBrace.Client
@@ -13,7 +13,7 @@ open NUnit.Framework
 type ``CloudChannel Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.Run wf 
-    let runLocal wf = self.RunLocal wf
+    let runLocally wf = self.RunLocally wf
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -22,7 +22,7 @@ type ``CloudChannel Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocal : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Local store client instance
     abstract ChannelClient : CloudChannelClient
 

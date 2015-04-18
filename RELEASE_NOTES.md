@@ -1,3 +1,39 @@
+#### 0.9.9-alpha
+* Introduce ICloudCollection and ICloudDictionary.
+* Refactor namespaces in MBrace.Core.
+* Refactor CloudVector and MBrace.Flow.
+* Rename CloudCell to CloudValue.
+* Misc revisions and improvements.
+
+#### 0.9.8-alpha
+* Upgrade to Vagabond 0.6.
+* Rename MBrace.Streams to MBrace.Flow.
+
+#### 0.9.7-alpha
+* Add 'cacheByDefault' setting to cacheable entitites.
+* Implement CloudStream.*Local combinators.
+* Upgrade Vagabond.
+
+#### 0.9.6-alpha
+* Add text methods to MBrace.Streams.
+* Refine CloudTask cancellation.
+* Update Vagabond to 0.5.0.
+* Minor bugfixes.
+
+#### 0.9.5-alpha
+* Refine local workflows implementation.
+* Improve MBrace.Streams implementations.
+* Add CloudCacheable<T> primitive.
+* Improve DivideAndConquer workflows.
+* Misc fixes and improvements.
+
+#### 0.9.4-alpha
+* Packaging hotfix.
+
+#### 0.9.3-alpha
+* Introduce Local<> workflows to programming model.
+* Add IWorkerRef.ProcessorCount property.
+
 #### 0.9.2-alpha
 * Release MBrace.Streams NuGet package.
 * Minor revisions and bugfixes.

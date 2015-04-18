@@ -4,7 +4,7 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
-open MBrace.Continuation
+open MBrace.Core.Internals
 
 [<AutoOpen>]
 module AsyncUtils =

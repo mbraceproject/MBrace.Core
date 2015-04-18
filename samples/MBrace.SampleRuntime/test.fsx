@@ -4,7 +4,8 @@
 #r "MBrace.SampleRuntime.exe"
 
 open System
-open MBrace
+open MBrace.Core
+open MBrace.Store
 open MBrace.Workflows
 open MBrace.SampleRuntime
 
@@ -35,10 +36,10 @@ runtime.Run(
     })
 
 let getWordCount inputSize =
-    let map (text : string) = cloud { return text.Split(' ').Length }
-    let reduce i i' = cloud { return i + i' }
+    let map (text : string) = local { return text.Split(' ').Length }
+    let reduce i i' = local { return i + i' }
     let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
-    Distributed.mapReduce map reduce 0 inputs
+    DivideAndConquer.mapReduce map reduce 0 inputs
 
 runtime.Run (getWordCount 1000)
 
@@ -66,15 +67,27 @@ let rec test () = cloud {
 runtime.Run(test(), faultPolicy = FaultPolicy.NoRetry)
 
 
-let foo = cloud {
-    let! x = Cloud.ToLocal(cloud { return 42})
-    return! Seq.init 1000 (fun i -> cloud { return i}) |> Cloud.Parallel
+Cloud.Parallel [cloud { return 432 } ; local { return 1 } :> _ ]
+
+local {
+    let! x = Cloud.Parallel [ cloud { return 42 } ]
+    return x
 }
 
-runtime.Run foo
+// vagabond data initialization test 1.
+let c = ref 0
+for i in 1 .. 10 do
+    c := runtime.Run(cloud { return !c + 1 })
 
-let t = runtime.Run(Cloud.StartAsCloudTask(cloud { let! _ = Cloud.Sleep 60000 in return 42}))
+// vagabond data initialization test 2.
+let mutable enabled = false
 
-t.AwaitResult(50000) |> runtime.RunLocal
+runtime.Run(cloud { return enabled })
 
-t.Status
+enabled <- true
+
+runtime.Run(cloud { return enabled })
+
+enabled <- false
+
+runtime.Run(cloud { return enabled })

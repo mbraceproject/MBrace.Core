@@ -1,10 +1,9 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System.Threading
 
-open MBrace
-open MBrace.Continuation
-open MBrace.Runtime
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Client
 
 open NUnit.Framework
@@ -20,18 +19,18 @@ type InMemoryLogTester () =
         member __.Log msg = lock logs (fun () -> logs.Add msg)
 
 type ``ThreadPool Parallelism Tests`` () =
-    inherit ``Parallelism Tests``(parallelismFactor = 100, delayFactor = 200)
+    inherit ``Parallelism Tests``(parallelismFactor = 100, delayFactor = 1000)
 
     let logger = InMemoryLogTester()
     let imem = LocalRuntime.Create(logger = logger)
 
     override __.Run(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.Run(workflow))
-    override __.Run(workflow : ICloudCancellationTokenSource -> Cloud<'T>) =
+    override __.Run(workflow : ICloudCancellationTokenSource -> #Cloud<'T>) =
         let cts = imem.CreateCancellationTokenSource()
         Choice.protect(fun () ->
             imem.Run(workflow cts, cancellationToken = cts.Token))
 
-    override __.RunLocal(workflow : Cloud<'T>) = imem.Run(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
     override __.Logs = logger :> _
     override __.FsCheckMaxTests = 100
@@ -48,7 +47,7 @@ type ``InMemory CloudAtom Tests`` () =
     let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
-    override __.RunLocal(workflow) = imem.Run workflow
+    override __.RunLocally(workflow) = imem.Run workflow
     override __.AtomClient = imem.StoreClient.Atom
 #if DEBUG
     override __.Repeats = 10
@@ -62,5 +61,15 @@ type ``InMemory CloudChannel Tests`` () =
     let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
-    override __.RunLocal(workflow) = imem.Run workflow
+    override __.RunLocally(workflow) = imem.Run workflow
     override __.ChannelClient = imem.StoreClient.Channel
+
+type ``InMemory CloudDictionary Tests`` () =
+    inherit ``CloudDictionary Tests`` (parallelismFactor = 100)
+
+    let imem = LocalRuntime.Create()
+
+    override __.IsInMemoryFixture = true
+    override __.Run(workflow) = imem.Run workflow
+    override __.RunLocally(workflow) = imem.Run workflow
+    override __.DictionaryClient = imem.StoreClient.Dictionary

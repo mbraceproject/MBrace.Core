@@ -6,11 +6,11 @@ open System.Threading
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Workflows
 open MBrace.Runtime
-open MBrace.Tests
+open MBrace.Core.Tests
 open MBrace.SampleRuntime
 open MBrace.SampleRuntime.Actors
 
@@ -35,14 +35,14 @@ type ``SampleRuntime Parallelism Tests`` () as self =
         |> Async.Catch
         |> Async.RunSync
 
-    override __.Run (workflow : ICloudCancellationTokenSource -> Cloud<'T>) = 
+    override __.Run (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
             return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
         } |> Async.RunSync
 
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
 
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10

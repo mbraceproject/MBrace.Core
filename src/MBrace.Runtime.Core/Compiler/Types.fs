@@ -10,7 +10,7 @@ open Microsoft.FSharp.Quotations.Patterns
 open Nessos.Vagabond
 open Nessos.FsPickler
 
-open MBrace
+open MBrace.Core
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Serialization

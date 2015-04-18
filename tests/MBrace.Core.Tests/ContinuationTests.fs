@@ -1,12 +1,13 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 open System.Threading
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
 open MBrace.Workflows
 open MBrace.Client
 
@@ -24,7 +25,7 @@ module ``Continuation Tests`` =
 
     let imem = LocalRuntime.Create(ResourceRegistry.Empty)
     let run (wf : Cloud<'T>) = Choice.protect(fun () -> imem.Run wf)
-    let runCts (wf : ICloudCancellationTokenSource -> Cloud<'T>) =
+    let runCts (wf : ICloudCancellationTokenSource -> #Cloud<'T>) =
         let cts = new InMemoryCancellationTokenSource ()
         Choice.protect(fun () -> imem.Run(wf cts, cts.Token))
 
@@ -189,10 +190,10 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``try finally monadic`` () =
         let n = ref 10
-        let rec loop () : Cloud<unit> =
-            Cloud.TryFinally(
+        let rec loop () : Local<unit> =
+            Local.TryFinally(
                 Cloud.Raise(new Exception()),
-                cloud { if !n > 0 then decr n ; return! loop () }
+                local { if !n > 0 then decr n ; return! loop () }
             )
 
         loop () |> run |> Choice.shouldFailwith<_, Exception>
@@ -481,16 +482,19 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``runtime resources`` () =
-        run(Cloud.GetWorkerCount()) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
+        run(Cloud.GetWorkerCount()) |> Choice.shouldFailwith<_, ResourceNotFoundException>
 
     [<Test>]
     let ``storage resouces`` () =
-        run(CloudRef.New 0) |> Choice.shouldFailwith<_, Continuation.ResourceNotFoundException>
+        run(CloudValue.New 0) |> Choice.shouldFailwith<_, ResourceNotFoundException>
 
     [<Test>]
     let ``test correct scoping in resource updates`` () =
         cloud {
-            do! Cloud.WithResource(cloud.Zero(), 42)
+            do! Cloud.WithNestedContext(cloud.Zero(), 
+                                    (fun ctx -> { ctx with Resources = ctx.Resources.Register 42 }),
+                                    (fun ctx -> { ctx with Resources = ctx.Resources.Remove<int> ()}))
+
             return! Cloud.TryGetResource<int> ()
         } |> run |> Choice.shouldEqual None
 
@@ -516,7 +520,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.map (fun i -> cloud { return i + 1 }) 
+            |> Sequential.map (fun i -> local { return i + 1 }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -526,7 +530,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.filter (fun i -> cloud { return i % 5 = 0 || i % 7 = 0 }) 
+            |> Sequential.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -536,7 +540,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 then Some i else None) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.choose (fun i -> cloud { return if i % 5 = 0 then Some i else None }) 
+            |> Sequential.choose (fun i -> local { return if i % 5 = 0 then Some i else None }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -546,7 +550,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.fold (fun s i -> i + s) 0
             ints 
             |> dseq 
-            |> Sequential.fold (fun s i -> cloud { return s + i }) 0
+            |> Sequential.fold (fun s i -> local { return s + i }) 0
             |> run
             |> Choice.shouldEqual expected)
 
@@ -556,7 +560,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.collect (fun i -> cloud { return [(i,1) ; (i,2) ; (i,3)] })
+            |> Sequential.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
             |> run
             |> Choice.shouldEqual expected)
 
@@ -566,7 +570,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.tryFind (fun i -> i % 13 = 0 || i % 7 = 0)
             ints 
             |> dseq 
-            |> Sequential.tryFind (fun i -> cloud { return i % 13 = 0 || i % 7 = 0 })
+            |> Sequential.tryFind (fun i -> local { return i % 13 = 0 || i % 7 = 0 })
             |> run
             |> Choice.shouldEqual expected)
 
@@ -576,6 +580,42 @@ module ``Continuation Tests`` =
             let expected = ints |> List.tryPick (fun i -> if i % 13 = 0 || i % 7 = 0 then Some i else None)
             ints 
             |> dseq 
-            |> Sequential.tryPick (fun i -> cloud { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
+            |> Sequential.tryPick (fun i -> local { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected)
+
+
+    //
+    //  Utils tests
+    //
+
+    [<Test>]
+    let ``Array.splitByChunkSize`` () =
+        Check.QuickThrowOnFail<uint16 * uint16>(fun (chunkSize : uint16, arraySize : uint16) ->
+            let chunkSize = 1 + int chunkSize // need size > 0
+            let arraySize = int arraySize
+            if chunkSize > arraySize then () else // expected failure case
+            let ts = [|1 .. arraySize|]
+            let tss = Array.splitByChunkSize chunkSize ts
+            for ch in tss do ch.Length |> shouldBe (fun l -> l <= chunkSize)
+            Array.concat tss |> shouldEqual ts)
+
+    [<Test>]
+    let ``Array.splitByPartitionCount`` () =
+        Check.QuickThrowOnFail<uint16 * uint16>(fun (partitionCount : uint16, arraySize : uint16) ->
+            let partitionCount = 1 + int partitionCount // need size > 0
+            let arraySize = int arraySize
+            let ts = [|1 .. arraySize|]
+            let tss = Array.splitByPartitionCount partitionCount ts
+            tss.Length |> shouldEqual (min arraySize partitionCount)
+            Array.concat tss |> shouldEqual ts)
+
+    [<Test>]
+    let ``Array.splitWeighted`` () =
+        Check.QuickThrowOnFail<uint16 [] * uint16>(fun (weights : uint16 [], arraySize : uint16) ->
+            if weights = null || weights.Length = 0 then () else // expected failure case
+            let weights = weights |> Array.map (fun w -> 1 + int w) // need weights > 0
+            let arraySize = int arraySize
+            let ts = [|1 .. arraySize|]
+            let tss = Array.splitWeighted weights ts
+            Array.concat tss |> shouldEqual ts)

@@ -15,7 +15,7 @@ open System.IO
 
 
 let project = "MBrace.Core"
-let authors = [ "Eirik Tsarpalis" ]
+let authors = [ "Eirik Tsarpalis" ; "Nick Palladinos" ; "Kostas Rontogiannis" ]
 
 let description = """Cloud workflow core libraries."""
 
@@ -26,8 +26,8 @@ let coreSummary = """
     libraries and local execution tools for authoring distributed code.
 """
 
-let streamsSummary = """
-    MBrace library for distributing streaming computations.
+let flowSummary = """
+    MBrace library for distributing flow computations.
 """
 
 let csharpSummary = """
@@ -104,10 +104,10 @@ Target "Build" (fun _ ->
 let testAssemblies = 
     [
         yield "bin/MBrace.Core.Tests.dll"
-        yield "bin/MBrace.CSharp.Tests.dll"
+//        yield "bin/MBrace.CSharp.Tests.dll"
         yield "bin/MBrace.Runtime.Core.Tests.dll"
-        yield "bin/MBrace.Streams.Tests.dll"
-        yield "bin/MBrace.Streams.CSharp.Tests.dll"
+        yield "bin/MBrace.Flow.Tests.dll"
+//        yield "bin/MBrace.Flow.CSharp.Tests.dll"
         if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
     ]
 
@@ -131,7 +131,7 @@ let addFile (target : string) (file : string) =
     if File.Exists (Path.Combine("nuget", file)) then (file, Some target, None)
     else raise <| new FileNotFoundException(file)
 
-let addAssembly (target : string) assembly =
+let addAssembly reqXml (target : string) assembly =
     let includeFile force file =
         let file = file
         if File.Exists (Path.Combine("nuget", file)) then [(file, Some target, None)]
@@ -140,8 +140,8 @@ let addAssembly (target : string) assembly =
 
     seq {
         yield! includeFile true assembly
-        yield! includeFile false <| Path.ChangeExtension(assembly, "pdb")
-        yield! includeFile false <| Path.ChangeExtension(assembly, "xml")
+        yield! includeFile reqXml <| Path.ChangeExtension(assembly, "xml")
+        yield! includeFile true <| Path.ChangeExtension(assembly, "pdb")
         yield! includeFile false <| assembly + ".config"
     }
 
@@ -161,19 +161,19 @@ Target "NuGet.Core" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Core.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Core.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
 )
 
-Target "NuGet.Streams" (fun _ ->
+Target "NuGet.Flow" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Streams"
-            Summary = streamsSummary
-            Description = streamsSummary
+            Project = "MBrace.Flow"
+            Summary = flowSummary
+            Description = flowSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -187,7 +187,7 @@ Target "NuGet.Streams" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -213,19 +213,19 @@ Target "NuGet.CSharp" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.CSharp.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.CSharp.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
 )
 
-Target "NuGet.Streams.CSharp" (fun _ ->
+Target "NuGet.Flow.CSharp" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Streams.CSharp"
-            Summary = streamsSummary
-            Description = streamsSummary
+            Project = "MBrace.Flow.CSharp"
+            Summary = flowSummary
+            Description = flowSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -234,12 +234,12 @@ Target "NuGet.Streams.CSharp" (fun _ ->
             Dependencies = 
                 [
                     "MBrace.CSharp", RequireExactly nugetVersion
-                    "MBrace.Streams", RequireExactly nugetVersion
+                    "MBrace.Flow", RequireExactly nugetVersion
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.CSharp.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.CSharp.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -260,14 +260,14 @@ Target "NuGet.Runtime.Core" (fun _ ->
             Dependencies = 
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
-                    ("FsPickler", "1.0.12")
-                    ("Vagabond", "0.3.2")
+                    ("FsPickler", "1.0.16")
+                    ("Vagabond", "0.6.2")
                     ("Unquote", "2.2.2")
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -288,15 +288,15 @@ Target "NuGet.Tests" (fun _ ->
             Dependencies = 
                 [
                     ("MBrace.Core", RequireExactly release.NugetVersion)
-                    ("MBrace.Streams", RequireExactly release.NugetVersion)
+                    ("MBrace.Flow", RequireExactly release.NugetVersion)
                     ("NUnit", "2.6.3")
                     ("FsCheck", "1.0.4")
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Streams.Tests.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.Tests.dll"
                 ]
         })
         ("nuget/MBrace.nuspec")
@@ -339,9 +339,9 @@ Target "Help" (fun _ -> PrintTargets() )
 "Build"
   ==> "PrepareRelease"
   ==> "NuGet.Core"
-  ==> "NuGet.Streams"
+  ==> "NuGet.Flow"
 //  ==> "NuGet.CSharp" // disable for now
-//  ==> "NuGet.Streams.CSharp"
+//  ==> "NuGet.Flow.CSharp"
   ==> "NuGet.Tests"
   ==> "NuGet.Runtime.Core"
   ==> "NuGet"

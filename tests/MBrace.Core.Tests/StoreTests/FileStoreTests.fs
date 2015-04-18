@@ -1,14 +1,15 @@
-﻿namespace MBrace.Tests
+﻿namespace MBrace.Core.Tests
 
 open System
 open System.IO
 
 open NUnit.Framework
 
-open MBrace
-open MBrace.Continuation
-open MBrace.Workflows
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
+open MBrace.Workflows
 open MBrace.Client
 
 /// Cloud file store test suite
@@ -16,7 +17,7 @@ open MBrace.Client
 type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.Run wf 
-    let runLocal wf = self.RunLocal wf
+    let runLocally wf = self.RunLocally wf
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -25,11 +26,11 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocal : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Store client to be tested
-    abstract FileStoreClient : FileStoreClient
-    /// denotes that underlying store employs caching
-    abstract IsCachingStore : bool
+    abstract StoreClient : CloudStoreClient
+    /// denotes that runtime uses in-memory object caching
+    abstract IsObjectCacheInstalled : bool
 
     //
     //  Section 2. FileStore via MBrace runtime
@@ -37,16 +38,16 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
 
     [<Test>]
-    member __.``2. MBrace : CloudRef - simple`` () = 
-        let ref = runRemote <| CloudRef.New 42
-        ref.Value |> runLocal |> shouldEqual 42
+    member __.``2. MBrace : CloudValue - simple`` () = 
+        let ref = runRemote <| CloudValue.New 42
+        ref.Value |> runLocally |> shouldEqual 42
 
     [<Test>]
-    member __.``2. MBrace : CloudRef - caching`` () = 
-        if __.IsCachingStore then
+    member __.``2. MBrace : CloudValue - caching`` () = 
+        if __.IsObjectCacheInstalled then
             cloud {
-                let! c = CloudRef.New [1..10000]
-                let! r = c.Cache()
+                let! c = CloudValue.New [1..10000]
+                let! r = c.ForceCache()
                 r |> shouldEqual true
                 let! v1 = c.Value
                 let! v2 = c.Value
@@ -55,15 +56,21 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
     [<Test>]
-    member __.``2. MBrace : CloudRef - Parallel`` () =
+    member __.``2. MBrace : CloudValue - cache by default`` () =
+        if __.IsObjectCacheInstalled then
+            let ref = runRemote <| CloudValue.New(42, enableCache = true)
+            cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
+
+    [<Test>]
+    member __.``2. MBrace : CloudValue - Parallel`` () =
         cloud {
-            let! ref = CloudRef.New [1 .. 100]
+            let! ref = CloudValue.New [1 .. 100]
             let! (x, y) = cloud { let! v = ref.Value in return v.Length } <||> cloud { let! v = ref.Value in return v.Length }
             return x + y
         } |> runRemote |> shouldEqual 200
 
     [<Test>]
-    member __.``2. MBrace : CloudRef - Distributed tree`` () =
+    member __.``2. MBrace : CloudValue - Distributed tree`` () =
         let tree = CloudTree.createTree 5 |> runRemote
         CloudTree.getBranchCount tree |> runRemote |> shouldEqual 31
 
@@ -71,16 +78,16 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - simple`` () = 
         let b = runRemote <| CloudSequence.New [1..10000]
-        b.Count |> runLocal |> shouldEqual 10000
-        b.ToEnumerable() |> runLocal |> Seq.sum |> shouldEqual (List.sum [1..10000])
-        b.ToArray() |> runLocal |> Array.sum |> shouldEqual (List.sum [1..10000])
+        b.Count |> runLocally |> shouldEqual 10000L
+        b.ToEnumerable() |> runLocally |> Seq.sum |> shouldEqual (List.sum [1..10000])
+        b.ToArray() |> runLocally |> Array.sum |> shouldEqual (List.sum [1..10000])
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - caching`` () = 
-        if __.IsCachingStore then
+        if __.IsObjectCacheInstalled then
             cloud {
                 let! c = CloudSequence.New [1..10000]
-                let! success = c.Cache()
+                let! success = c.ForceCache()
                 success |> shouldEqual true
                 let! v1 = c.ToArray()
                 let! v2 = c.ToArray()
@@ -89,9 +96,15 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
     [<Test>]
+    member __.``2. MBrace : CloudSequence - cache by default`` () = 
+        if __.IsObjectCacheInstalled then
+            let seq = runRemote <| CloudSequence.New([1..1000], enableCache = true)
+            cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
+
+    [<Test>]
     member __.``2. MBrace : CloudSequence - parallel`` () =
         let ref = runRemote <| CloudSequence.New [1..10000]
-        ref.ToEnumerable() |> runLocal |> Seq.length |> shouldEqual 10000
+        ref.ToEnumerable() |> runLocally |> Seq.length |> shouldEqual 10000
         cloud {
             let! ref = CloudSequence.New [1 .. 10000]
             let! (x, y) = 
@@ -128,11 +141,54 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         } |> runRemote |> shouldEqual 100
 
     [<Test>]
+    member __.``2. MBrace : CloudSequence - read lines`` () =
+        cloud {
+            use! file = CloudFile.WriteAllLines([1..100] |> List.map (fun i -> string i))
+            let! cseq = CloudSequence.FromLineSeparatedTextFile(file.Path)
+            let! _ = cseq.ForceCache()
+            let! elem = cseq.ToArray()
+            return elem.Length
+        } |> runRemote |> shouldEqual 100
+
+    [<Test>]
+    member __.``2. MBrace : CloudSequence - read lines partitioned`` () =
+        let text = "lorem ipsum dolor sit amet consectetur adipiscing elit"
+        let lines = Seq.init 1000 (fun i -> text.Substring(0, i % 37))
+        let check i (line:string) = 
+            if line.Length = i % 37 && text.StartsWith line then ()
+            else
+                raise <| new AssertionException(sprintf "unexpected line '%s' in position %d." line i)
+
+        let cseq = 
+            cloud {
+                let! file = CloudFile.WriteAllLines lines
+                let! cseq = CloudSequence.FromLineSeparatedTextFile file.Path   
+                return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
+            } |> runLocally
+
+        let testPartitioning partitionCount =
+            cloud {
+                let! partitions = cseq.GetPartitions partitionCount
+                let! lines' = partitions |> DivideAndConquer.collect (fun e -> e.ToEnumerable())
+                lines'.Length |> shouldEqual 1000
+                lines' |> Array.iteri check 
+            } |> runRemote
+
+        // AppVeyor has performance bottleneck when doing concurrent IO; reduce number of tests
+        let testedPartitionCounts = 
+            if isAppVeyorInstance then [|20;2000|]
+            else [|1;5;10;50;100;250;500;750;1000;2000|]
+
+        for pc in testedPartitionCounts do
+            testPartitioning pc
+
+
+    [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
         let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> runRemote
-        CloudFile.GetSize file |> runLocal |> shouldEqual 100L
+        file.Size |> runLocally |> shouldEqual 100L
         cloud {
-            let! bytes = CloudFile.ReadAllBytes file
+            let! bytes = CloudFile.ReadAllBytes file.Path
             return bytes.Length
         } |> runRemote |> shouldEqual 100
 
@@ -145,7 +201,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
         cloud {
-            let! lines = CloudFile.ReadLines file
+            let! lines = CloudFile.ReadLines file.Path
             return Seq.length lines
         } |> runRemote |> shouldEqual 1000
 
@@ -161,7 +217,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                     stream.Flush()
                     stream.Dispose() })
 
-            return! CloudFile.ReadAllBytes f
+            return! CloudFile.ReadAllBytes f.Path
         } |> runRemote |> shouldEqual (mk n)
 
     [<Test>]
@@ -178,7 +234,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         cloud {
             let! file = CloudFile.WriteAllText "lorem ipsum dolor"
             do! cloud { use file = file in () }
-            return! CloudFile.ReadAllText file
+            return! CloudFile.ReadAllText file.Path
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
@@ -199,21 +255,21 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
         cloud {
             use! cf = CloudFile.Create(fun stream -> async { stream.WriteByte(10uy) })
-            return! CloudFile.Read(cf, fun stream -> async { stream.WriteByte(20uy) })
+            return! CloudFile.Read(cf.Path, fun stream -> async { stream.WriteByte(20uy) })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to read nonexistent file`` () =
         cloud {
             let cf = new CloudFile(Guid.NewGuid().ToString())
-            return! CloudFile.Read(cf, fun s -> async { return s.ReadByte() })
+            return! CloudFile.Read(cf.Path, fun s -> async { return s.ReadByte() })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
     member __.``2. MBrace : CloudDirectory - Create; populate; delete`` () =
         cloud {
             let! dir = CloudDirectory.Create ()
-            let! exists = CloudDirectory.Exists dir
+            let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual true
             let write i = cloud {
                 let! path = FileStore.GetRandomFileName dir
@@ -223,10 +279,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
             do! Seq.init 20 write |> Cloud.Parallel |> Cloud.Ignore
 
-            let! files = CloudFile.Enumerate dir
+            let! files = CloudFile.Enumerate dir.Path
             files.Length |> shouldEqual 20
-            do! CloudDirectory.Delete(dir, recursiveDelete = true)
-            let! exists = CloudDirectory.Exists dir
+            do! CloudDirectory.Delete(dir.Path, recursiveDelete = true)
+            let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual false
         } |> runRemote
 
@@ -240,24 +296,25 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                 return dir, file
             } |> runRemote
 
-        CloudDirectory.Exists dir |> runLocal |> shouldEqual false
-        CloudFile.Exists file |> runLocal |> shouldEqual false
+        CloudDirectory.Exists dir.Path |> runLocally |> shouldEqual false
+        CloudFile.Exists file.Path |> runLocally |> shouldEqual false
 
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
+type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer : ISerializer, ?objectCache : IObjectCache) =
     inherit ``FileStore Tests`` (parallelismFactor = 100)
 
-    let imem = LocalRuntime.Create(fileConfig = config)
+    let imem = LocalRuntime.Create(fileConfig = config, serializer = serializer, ?objectCache = objectCache)
 
     let fileStore = config.FileStore
     let testDirectory = fileStore.GetRandomDirectoryName()
     let runSync wf = Async.RunSync wf
 
     override __.Run wf = imem.Run wf
-    override __.RunLocal wf = imem.Run wf
-    override __.FileStoreClient = imem.StoreClient.FileStore
+    override __.RunLocally wf = imem.Run wf
+    override __.StoreClient = imem.StoreClient
+    override __.IsObjectCacheInstalled = Option.isSome objectCache
 
     //
     //  Section 1: Local raw fileStore tests
@@ -270,7 +327,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
 
     [<Test>]
     member __.``1. FileStore : Store instance should be serializable`` () =
-        let fileStore' = config.Serializer.Clone fileStore
+        let fileStore' = serializer.Clone fileStore
         fileStore'.Id |> shouldEqual fileStore.Id
         fileStore'.Name |> shouldEqual fileStore.Name
 
@@ -368,14 +425,14 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration) =
 
     [<Test>]
     member __.``1. FileStore : StoreClient - CloudFile`` () =
-        let sc = __.FileStoreClient
+        let sc = __.StoreClient
         let lines = Array.init 10 string
         let file = sc.File.WriteAllLines(lines)
-        sc.File.ReadLines(file)
+        sc.File.ReadLines(file.Path)
         |> Seq.toArray
         |> shouldEqual lines
 
-        sc.File.ReadAllLines(file)
+        sc.File.ReadAllLines(file.Path)
         |> shouldEqual lines
 
 

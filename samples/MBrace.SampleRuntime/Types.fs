@@ -13,9 +13,10 @@ open System
 open Nessos.FsPickler
 open Nessos.Vagabond
 
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
@@ -31,10 +32,14 @@ type ProcessInfo =
         ProcessId : string
         /// Cloud file store configuration
         FileStoreConfig : CloudFileStoreConfiguration
+        /// Default serializer used for process
+        Serializer : ISerializer
         /// Cloud atom configuration
         AtomConfig : CloudAtomConfiguration
         /// Cloud channel configuration
         ChannelConfig : CloudChannelConfiguration
+        /// Cloud dictionary provider
+        DictionaryProvider : ICloudDictionaryProvider
     }
 
 /// A job is a computation belonging to a larger cloud process
@@ -63,7 +68,7 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Job dependent assemblies.</param>
     /// <param name="job">Job to be executed.</param>
-    static member RunAsync (runtimeProvider : ICloudRuntimeProvider) (faultCount : int) (job : Job) = 
+    static member RunAsync (runtimeProvider : IDistributionProvider) (faultCount : int) (job : Job) = 
         async {
             let tem = new JobExecutionMonitor()
             let ctx =
@@ -71,7 +76,10 @@ with
                     Resources = 
                         resource { 
                             yield runtimeProvider ; yield tem ; yield job.CancellationTokenSource ; 
+                            yield job.ProcessInfo.Serializer
                             yield Config.WithCachedFileStore job.ProcessInfo.FileStoreConfig
+                            yield Config.ObjectCache
+                            yield job.ProcessInfo.DictionaryProvider
                             yield job.ProcessInfo.AtomConfig ; yield job.ProcessInfo.ChannelConfig
                         }
 
@@ -122,7 +130,7 @@ with
     /// <param name="sc">Success continuation</param>
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
-    /// <param name="wf">Workflow</param>
+    /// <param name="wf">Cloud</param>
     static member Create procInfo dependencies cts fp sc ec cc worker (wf : Cloud<'T>) : PickledJob =
         let jobId = System.Guid.NewGuid().ToString()
         let runJob ctx =
@@ -201,7 +209,7 @@ with
     /// <param name="sc">Success continuation</param>
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
-    /// <param name="wf">Workflow</param>
+    /// <param name="wf">Cloud</param>
     member rt.EnqueueJob procInfo dependencies cts fp sc ec cc worker (wf : Cloud<'T>) : unit =
         rt.JobQueue.Enqueue <| PickledJob.Create procInfo dependencies cts fp sc ec cc worker wf
 
@@ -217,11 +225,20 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to job.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsTask procInfo dependencies cts fp worker (wf : Cloud<'T>) : Async<ICloudTask<'T>> = async {
+    member rt.StartAsTask procInfo dependencies (ct : ICloudCancellationToken option) fp worker (wf : Cloud<'T>) : Async<ICloudTask<'T>> = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
+        // create a new cancellation token source if none specified, or a child cancellation token if supplied
+        // this will allow cancellation once task has been completed.
+        let! cts = async {
+            match ct with
+            | None -> return! rt.ResourceFactory.RequestCancellationTokenSource()
+            | Some ct -> return DistributedCancellationTokenSource.CreateLinkedCancellationTokenSource(unbox ct, forceElevation = true)
+        }
+
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
+                cts.Cancel()
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
 

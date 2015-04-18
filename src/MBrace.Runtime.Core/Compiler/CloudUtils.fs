@@ -8,7 +8,7 @@ open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Quotations.ExprShape
 
-open MBrace
+open MBrace.Core
 open MBrace.Runtime.Utils.Reflection
 
 /// checks if the given type or covariant type arguments are of type Cloud<'T>
@@ -69,7 +69,7 @@ let (|MemberInfo|_|) (e : Expr) =
 
 /// recognizes call to cloud builder
 let (|CloudBuilder|_|) (name : string) (m : MethodInfo) =
-    if m.DeclaringType = typeof<CloudBuilder> && m.Name = name then
+    if m.DeclaringType = typeof<Builders.CloudBuilder> && m.Name = name then
         Some ()
     else
         None
@@ -78,7 +78,7 @@ let (|CloudBuilder|_|) (name : string) (m : MethodInfo) =
 let (|CloudBuilderExpr|_|) (e : Expr) =
     match e with
     | Application(Lambda(bv,body),PropertyGet(None,_,[])) 
-        when bv.Type = typeof<CloudBuilder> -> Some body
+        when bv.Type = typeof<Builders.CloudBuilder> -> Some body
     | _ -> None
 
 /// recognized monadic return

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Continuation
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.Runtime.Serialization
@@ -21,13 +21,18 @@ module private ResourceRegistryUtils =
 
 /// Immutable dependency container used for pushing
 /// runtime resources to the continuation monad.
-[<Sealed ; AutoSerializable(false)>]
-type ResourceRegistry private (index : Map<string, obj>) =
+[<Sealed ; DataContract>]
+type ResourceRegistry =
 
-    member private __.Index = index
+    [<DataMember(Name = "Index")>]
+    val mutable private index : Map<string, obj>
+
+    private new (index : Map<string, obj>) = { index = index }
+
+    member private __.Index = __.index
 
     /// Gets all resources currently registered with factory.
-    member __.InstalledResources = index |> Map.toArray |> Array.map fst
+    member __.InstalledResources = __.index |> Map.toArray |> Array.map fst
 
     /// <summary>
     ///     Creates a new resource registry by appending provided resource.
@@ -35,30 +40,30 @@ type ResourceRegistry private (index : Map<string, obj>) =
     /// </summary>
     /// <param name="resource">input resource.</param>
     member __.Register<'TResource>(resource : 'TResource) : ResourceRegistry = 
-        new ResourceRegistry(Map.add key<'TResource> (box resource) index)
+        new ResourceRegistry(Map.add key<'TResource> (box resource) __.index)
 
     /// <summary>
     ///     Creates a new resource registry by removing resource of given key.
     /// </summary>
     member __.Remove<'TResource> () : ResourceRegistry =
-        new ResourceRegistry(Map.remove key<'TResource> index)
+        new ResourceRegistry(Map.remove key<'TResource> __.index)
 
     /// Try Resolving resource of given type
     member __.TryResolve<'TResource> () : 'TResource option = 
-        match index.TryFind key<'TResource> with
+        match __.index.TryFind key<'TResource> with
         | Some boxedResource -> Some (unbox<'TResource> boxedResource)
         | None -> None
 
     /// Resolves resource of given type
     member __.Resolve<'TResource> () : 'TResource =
-        match index.TryFind key<'TResource> with
+        match __.index.TryFind key<'TResource> with
         | Some boxedResource -> unbox<'TResource> boxedResource
         | None -> 
             let msg = sprintf "Resource '%s' not installed in this context." typeof<'TResource>.Name
             raise <| ResourceNotFoundException msg
 
     /// Returns true iff registry instance contains resource of given type
-    member __.Contains<'TResource> () = index.ContainsKey key<'TResource>
+    member __.Contains<'TResource> () = __.index.ContainsKey key<'TResource>
 
     /// Creates an empty resource container
     static member Empty = new ResourceRegistry(Map.empty)
