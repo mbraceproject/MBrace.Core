@@ -11,7 +11,8 @@ open MBrace.Flow.Tests
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
 
-    do ignore Config.imem
+    // force Vagabond initialization
+    let _ = Config.imem.GetHashCode()
 
     let fileStore = FileSystemStore.CreateUniqueLocal()
     let serializer = new FsPicklerBinaryStoreSerializer()

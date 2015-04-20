@@ -24,10 +24,10 @@ namespace MBrace.Flow.CSharp
             return CloudFlowModule.ofArray<TSource>(source);
         }
 
-        /// <summary>Constructs a CloudFlow from a CloudVector.</summary>
+        /// <summary>Constructs a CloudFlow from a PersistedCloudFlow.</summary>
         /// <param name="source">The input array.</param>
         /// <returns>The result CloudFlow.</returns>
-        public static CloudFlow<TSource> AsCloudFlow<TSource>(this CloudVector<TSource> source)
+        public static CloudFlow<TSource> AsCloudFlow<TSource>(this PersistedCloudFlow<TSource> source)
         {
             return CloudFlowModule.ofCloudVector<TSource>(source);
         }
@@ -177,10 +177,10 @@ namespace MBrace.Flow.CSharp
             return CloudFlowModule.toArray(stream);
         }
 
-        /// <summary>Creates a CloudVector from the given CloudFlow.</summary>
+        /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
         /// <param name="stream">The input CloudFlow.</param>
-        /// <returns>The result CloudVector.</returns>    
-        public static Cloud<CloudVector<TSource>> ToCloudVector<TSource>(this CloudFlow<TSource> stream)
+        /// <returns>The result PersistedCloudFlow.</returns>    
+        public static Cloud<PersistedCloudFlow<TSource>> ToCloudVector<TSource>(this CloudFlow<TSource> stream)
         {
             return CloudFlowModule.toCloudVector(stream);
         }

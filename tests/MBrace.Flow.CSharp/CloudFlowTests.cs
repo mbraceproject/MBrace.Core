@@ -63,7 +63,7 @@ namespace MBrace.Flow.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var ca = this.Run(CloudVector.New(xs, 100));
+                var ca = this.Run(PersistedCloudFlow.New(xs, 100));
                 var x = ca.AsCloudFlow().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();
                 return this.Run(x).SequenceEqual(y);
@@ -87,8 +87,8 @@ namespace MBrace.Flow.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var ca = this.Run(CloudVector.New(xs, 1024L));
-                this.Run(CloudVector.Cache(ca));
+                var ca = this.Run(PersistedCloudFlow.New(xs, 1024L));
+                this.Run(PersistedCloudFlow.Cache(ca));
                 var x = ca.AsCloudFlow().Select(i => i + 1).ToArray();
                 var y = xs.Select(i => i + 1).ToArray();
                 var z = ca.AsCloudFlow().Select(i => i + 1).ToArray();

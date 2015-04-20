@@ -162,15 +162,15 @@ type CloudFlowExtensions() =
     /// <returns>The result array.</returns>
     static member inline toArray (this : CloudFlow<'T>) : Cloud<'T[]> = CloudFlow.toArray this
 
-    /// <summary>Creates a CloudVector from the given CloudFlow.</summary>
+    /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
     /// <param name="this">The input CloudFlow.</param>
-    /// <returns>The result CloudVector.</returns>
-    static member inline toCloudVector (this : CloudFlow<'T>) : Cloud<CloudVector<'T>> = CloudFlow.toCloudVector this
+    /// <returns>The result PersistedCloudFlow.</returns>
+    static member inline persist (this : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = CloudFlow.persist this
 
-    /// <summary>Creates a CloudVector from the given CloudFlow, with its partitions cached locally</summary>
+    /// <summary>Creates a PersistedCloudFlow from the given CloudFlow, with its partitions cached locally</summary>
     /// <param name="this">The input CloudFlow.</param>
-    /// <returns>The result CloudVector.</returns>
-    static member inline toCachedCloudVector (this : CloudFlow<'T>) : Cloud<CloudVector<'T>> = CloudFlow.toCachedCloudVector this
+    /// <returns>The result PersistedCloudFlow.</returns>
+    static member inline persistCached (this : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = CloudFlow.persistCached this
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
     /// <param name="this">The input CloudFlow.</param>

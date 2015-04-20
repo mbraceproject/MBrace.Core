@@ -60,7 +60,7 @@ type CloudFlow =
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
                     let toCloudSeq (path : string) = CloudSequence.OfCloudFile(path, ?deserializer = deserializer, ?enableCache = enableCache)
                     let! cseqs = Sequential.map toCloudSeq paths
-                    let collection = new CloudVector<'T>(cseqs)
+                    let collection = new PersistedCloudFlow<'T>(cseqs)
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                     let collectionFlow = CloudFlow.OfCloudCollection(collection, ?useCache = enableCache, sizeThresholdPerWorker = threshold)
                     return! collectionFlow.Apply collectorf projection combiner
@@ -208,12 +208,6 @@ type CloudFlow =
                 return! collectionStream.Apply collectorf projection combiner
             }  
         }
-
-    /// <summary>
-    /// Constructs a CloudFlow from a CloudVector.
-    /// </summary>
-    /// <param name="source">The input CloudVector.</param>
-    static member OfCloudVector (source : CloudVector<'T>) : CloudFlow<'T> = CloudVector.ToCloudFlow source
        
     /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
     /// <param name="channel">the ReceivePort of a CloudChannel.</param>
@@ -455,9 +449,9 @@ module CloudFlow =
                 let! cts = Cloud.CreateCancellationTokenSource()
                 let! keyValueArray = flow.Apply (collectorf cts totalWorkers) 
                                                   (fun keyValues -> local {
-                                                        let dict = new Dictionary<int, CloudVector<'Key * 'State>>() 
+                                                        let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'State>>() 
                                                         for (key, value) in keyValues do
-                                                            let! values = CloudVector.New(value, cache = false)
+                                                            let! values = PersistedCloudFlow.New(value, cache = false)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value)) 
                                                         return Seq.toArray values }) combiner'
@@ -465,7 +459,7 @@ module CloudFlow =
                 let merged =
                     keyValueArray
                     |> Seq.groupBy fst
-                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> CloudVector.Concat)
+                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> PersistedCloudFlow.Concat)
                     |> Seq.toArray
                 return merged
             }
@@ -473,7 +467,7 @@ module CloudFlow =
             let dict = new ConcurrentDictionary<'Key, 'State ref>()
             let! ctx = Cloud.GetExecutionContext()
             let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
-            return { new Collector<int * CloudVector<'Key * 'State>,  seq<'Key * 'State>> with
+            return { new Collector<int * PersistedCloudFlow<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism 
                 member self.Iterator() = 
                     {   Index = ref -1; 
@@ -499,11 +493,11 @@ module CloudFlow =
                     |> Seq.map (fun keyValue -> (keyValue.Key, !keyValue.Value)) }
         }
         // Phase 2
-        let reducer (flow : CloudFlow<int * CloudVector<'Key * 'State>>) : Cloud<CloudVector<'Key * 'State>> = 
+        let reducer (flow : CloudFlow<int * PersistedCloudFlow<'Key * 'State>>) : Cloud<PersistedCloudFlow<'Key * 'State>> = 
             cloud {
-                let combiner' (result : CloudVector<_> []) = local { return CloudVector.Concat result }
+                let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> CloudVector.New(keyValues, cache = false)) combiner'
+                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> PersistedCloudFlow.New(keyValues, cache = false)) combiner'
                 return keyValueArray
             }
         { new CloudFlow<'Key * 'State> with
@@ -512,7 +506,7 @@ module CloudFlow =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (CloudFlow.OfArray result)
-                    return! (CloudFlow.OfCloudVector result').Apply collectorf projection combiner
+                    return! (result' :> CloudFlow<_>).Apply collectorf projection combiner
                 }  }
 
 
@@ -613,15 +607,15 @@ module CloudFlow =
             return arrayCollector.ToArray()
         }
 
-    /// <summary>Creates a CloudVector from the given CloudFlow.</summary>
+    /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
     /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudVector.</returns>    
-    let toCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> = CloudVector.OfCloudFlow(flow, enableCache = false)
+    /// <returns>The result PersistedCloudFlow.</returns>    
+    let persist (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, enableCache = false)
 
-    /// <summary>Creates a CloudVector from the given CloudFlow, with its partitions cached locally</summary>
+    /// <summary>Creates a PersistedCloudFlow from the given CloudFlow, with its partitions cached to local memory.</summary>
     /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudVector.</returns>
-    let toCachedCloudVector (flow : CloudFlow<'T>) : Cloud<CloudVector<'T>> = CloudVector.OfCloudFlow(flow, enableCache = true)
+    /// <returns>The result PersistedCloudFlow.</returns>
+    let persistCached (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, enableCache = true)
 
     let inline private sortByGen comparer (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> = 
         let collectorf (cloudCts : ICloudCancellationTokenSource) = local {  

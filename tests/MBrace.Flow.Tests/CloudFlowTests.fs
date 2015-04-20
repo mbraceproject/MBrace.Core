@@ -21,38 +21,17 @@ type ``CloudFlow tests`` () as self =
     let run (workflow : Cloud<'T>) = self.Run(workflow)
     let runLocally (workflow : Cloud<'T>) = self.RunLocally(workflow)
 
-    let mkDummyWorker () = 
-        { 
-            new obj() with
-                override __.Equals y =
-                    match y with
-                    | :? IWorkerRef as w -> w.Id = "foo"
-                    | _ -> false
-
-                // eirik's note to self: *ALWAYS* override .GetHashCode() if using in Seq.groupBy
-                override __.GetHashCode() = hash "foo"
-
-            interface IWorkerRef with 
-                member __.Id = "foo" 
-                member __.Type = "foo"
-                member __.ProcessorCount = Environment.ProcessorCount
-                member __.CompareTo y =
-                    match y with
-                    | :? IWorkerRef as w -> compare "foo" w.Id
-                    | _ -> invalidArg "y" "invalid comparand"
-        }
-
     abstract Run : Cloud<'T> -> 'T
     abstract RunLocally : Cloud<'T> -> 'T
     abstract FsCheckMaxNumberOfTests : int
     abstract FsCheckMaxNumberOfIOBoundTests : int
 
-    // #region Cloud vector tests
+    // #region Flow persist tests
 
     [<Test>]
-    member __.``1. CloudVector : simple cloudvector`` () =
+    member __.``1. PersistedCloudFlow : simple persist`` () =
         let inputs = [|1L .. 1000000L|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
         let workers = Cloud.GetWorkerCount() |> run
         vector.IsCachingEnabled |> shouldEqual false
         vector.PartitionCount |> shouldEqual workers
@@ -60,9 +39,9 @@ type ``CloudFlow tests`` () as self =
         vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
-    member __.``1. CloudVector : caching`` () =
+    member __.``1. PersistedCloudFlow : caching`` () =
         let inputs = [|1L .. 1000000L|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCachedCloudVector |> run
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persistCached |> run
         let workers = Cloud.GetWorkerCount() |> run
         vector.PartitionCount |> shouldEqual workers
         vector.IsCachingEnabled |> shouldEqual true
@@ -70,42 +49,42 @@ type ``CloudFlow tests`` () as self =
         vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
-    member __.``1. CloudVector : disposal`` () =
+    member __.``1. PersistedCloudFlow : disposal`` () =
         let inputs = [|1 .. 1000000|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
         vector |> Cloud.Dispose |> run
         shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
-    [<Test>]
-    member __.``1. CloudVector : merging`` () =
-        let inputs = [|1 .. 1000000|]
-        let N = 10
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
-        let merged = CloudVector.Concat(Array.init N (fun _ -> vector))
-        merged.PartitionCount |> shouldEqual (N * vector.PartitionCount)
-        merged.IsCachingEnabled |> shouldEqual false
-        merged.Partitions
-        |> Seq.groupBy (fun p -> p.Path)
-        |> Seq.map (fun (_,ps) -> Seq.length ps)
-        |> Seq.forall ((=) N)
-        |> shouldEqual true
-
-        for i = 0 to merged.PartitionCount - 1 do
-            merged.[i].Path |> shouldEqual (vector.[i % vector.PartitionCount].Path)
-
-        cloud { return! merged.ToEnumerable() }
-        |> runLocally
-        |> Seq.toArray
-        |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
-
-    [<Test>]
-    member __.``1. CloudVector : merged disposal`` () =
-        let inputs = [|1 .. 1000000|]
-        let N = 10
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
-        let merged = CloudVector.Concat(Array.init N (fun _ -> vector))
-        merged |> Cloud.Dispose |> run
-        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
+//    [<Test>]
+//    member __.``1. PersistedCloudFlow : merging`` () =
+//        let inputs = [|1 .. 1000000|]
+//        let N = 10
+//        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
+//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> vector))
+//        merged.PartitionCount |> shouldEqual (N * vector.PartitionCount)
+//        merged.IsCachingEnabled |> shouldEqual false
+//        merged.Partitions
+//        |> Seq.groupBy (fun p -> p.Path)
+//        |> Seq.map (fun (_,ps) -> Seq.length ps)
+//        |> Seq.forall ((=) N)
+//        |> shouldEqual true
+//
+//        for i = 0 to merged.PartitionCount - 1 do
+//            merged.[i].Path |> shouldEqual (vector.[i % vector.PartitionCount].Path)
+//
+//        cloud { return! merged.ToEnumerable() }
+//        |> runLocally
+//        |> Seq.toArray
+//        |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
+//
+//    [<Test>]
+//    member __.``1. PersistedCloudFlow : merged disposal`` () =
+//        let inputs = [|1 .. 1000000|]
+//        let N = 10
+//        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
+//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> vector))
+//        merged |> Cloud.Dispose |> run
+//        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
     // #region Streams tests
 
@@ -120,8 +99,8 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : ofCloudVector`` () =
         let f(xs : int []) =
-            let CloudVector = xs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
-            let x = CloudVector |> CloudFlow.OfCloudVector |> CloudFlow.length |> run
+            let cv = xs |> CloudFlow.OfArray |> CloudFlow.persist |> run
+            let x = cv |> CloudFlow.length |> run
             let y = xs |> Seq.map ((+)1) |> Seq.length
             Assert.AreEqual(y, int x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -130,7 +109,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : toCloudVector`` () =
         let f(xs : int[]) =            
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.toCloudVector |> run
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
             Assert.AreEqual(y, cloud { return! x.ToEnumerable() } |> runLocally)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -139,19 +118,19 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : toCachedCloudVector`` () =
         let f(xs : string[]) =            
-            let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.toCachedCloudVector |> run
-            let x = cv |> CloudFlow.OfCloudVector |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
-            let y = cv |> CloudFlow.OfCloudVector |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
+            let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.persistCached |> run
+            let x = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
+            let y = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
             Assert.AreEqual(x, y)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
     member __.``2. CloudFlow : cache`` () =
         let f(xs : int[]) =
-            let v = xs |> CloudFlow.OfArray |> CloudFlow.toCloudVector |> run
+            let v = xs |> CloudFlow.OfArray |> CloudFlow.persist |> run
 //            v.Cache() |> run 
-            let x = v |> CloudFlow.OfCloudVector |> CloudFlow.map  (fun x -> x * x) |> CloudFlow.toCloudVector |> run
-            let x' = v |> CloudFlow.OfCloudVector |> CloudFlow.map (fun x -> x * x) |> CloudFlow.toCloudVector |> run
+            let x = v |> CloudFlow.map  (fun x -> x * x) |> CloudFlow.persist |> run
+            let x' = v |> CloudFlow.map (fun x -> x * x) |> CloudFlow.persist |> run
             let y = xs |> Array.map (fun x -> x * x)
             
             let _x = cloud { return! x.ToEnumerable() } |> runLocally |> Seq.toArray
@@ -367,102 +346,100 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
-        member __.``2. CloudFlow : tryFind`` () =
-            let f(xs : int[]) =
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.tryFind (fun n -> n = 0) |> run
-                let y = xs |> Seq.tryFind (fun n -> n = 0) 
-                x = y
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+    member __.``2. CloudFlow : tryFind`` () =
+        let f(xs : int[]) =
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.tryFind (fun n -> n = 0) |> run
+            let y = xs |> Seq.tryFind (fun n -> n = 0) 
+            x = y
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
-        [<Test>]
-        member __.``2. CloudFlow : find`` () =
-            let f(xs : int[]) =
-                let x = try xs |> CloudFlow.OfArray |> CloudFlow.find (fun n -> n = 0) |> run with | :? KeyNotFoundException -> -1
-                let y = try xs |> Seq.find (fun n -> n = 0) with | :? KeyNotFoundException -> -1
-                x = y
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+    [<Test>]
+    member __.``2. CloudFlow : find`` () =
+        let f(xs : int[]) =
+            let x = try xs |> CloudFlow.OfArray |> CloudFlow.find (fun n -> n = 0) |> run with | :? KeyNotFoundException -> -1
+            let y = try xs |> Seq.find (fun n -> n = 0) with | :? KeyNotFoundException -> -1
+            x = y
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
-        [<Test>]
-        member __.``2. CloudFlow : tryPick`` () =
-            let f(xs : int[]) =
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.tryPick (fun n -> if n = 0 then Some n else None) |> run
-                let y = xs |> Seq.tryPick (fun n -> if n = 0 then Some n else None) 
-                x = y
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+    [<Test>]
+    member __.``2. CloudFlow : tryPick`` () =
+        let f(xs : int[]) =
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.tryPick (fun n -> if n = 0 then Some n else None) |> run
+            let y = xs |> Seq.tryPick (fun n -> if n = 0 then Some n else None) 
+            x = y
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
-        [<Test>]
-        member __.``2. CloudFlow : pick`` () =
-            let f(xs : int[]) =
-                let x = try xs |> CloudFlow.OfArray |> CloudFlow.pick (fun n -> if n = 0 then Some n else None) |> run with | :? KeyNotFoundException -> -1
-                let y = try xs |> Seq.pick (fun n -> if n = 0 then Some n else None)  with | :? KeyNotFoundException -> -1
-                x = y
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+    [<Test>]
+    member __.``2. CloudFlow : pick`` () =
+        let f(xs : int[]) =
+            let x = try xs |> CloudFlow.OfArray |> CloudFlow.pick (fun n -> if n = 0 then Some n else None) |> run with | :? KeyNotFoundException -> -1
+            let y = try xs |> Seq.pick (fun n -> if n = 0 then Some n else None)  with | :? KeyNotFoundException -> -1
+            x = y
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
-        [<Test>]
-        member __.``2. CloudFlow : exists`` () =
-            let f(xs : int[]) =
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.exists (fun n -> n = 0) |> run
-                let y = xs |> Seq.exists (fun n -> n = 0) 
-                x = y
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-
-        [<Test>]
-        member __.``2. CloudFlow : forall`` () =
-            let f(xs : int[]) =
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.forall (fun n -> n = 0) |> run
-                let y = xs |> Seq.forall (fun n -> n = 0) 
-                x = y
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-        [<Test>]
-        member __.``2. CloudFlow : ofCloudChannel`` () =
-            let f(_ : int) =
-                let x =
-                    cloud {
-                        let! sendPort, receivePort = CloudChannel.New()
-                        let! n =
-                            Cloud.Choice [
-                                cloud { 
-                                    for i in [|1..1000|] do
-                                        do! CloudChannel.Send(sendPort, i)
-                                        do! Cloud.Sleep(100)
-                                    return None
-                                };
-                                cloud {
-                                    let! n =  
-                                        CloudFlow.OfCloudChannel(receivePort, 1)
-                                        |> CloudFlow.take 2
-                                        |> CloudFlow.length
-                                    return Some n
-                                }]
-                        return Option.get n
-                    }
-                    |> run
-                x = 2L
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+    [<Test>]
+    member __.``2. CloudFlow : exists`` () =
+        let f(xs : int[]) =
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.exists (fun n -> n = 0) |> run
+            let y = xs |> Seq.exists (fun n -> n = 0) 
+            x = y
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
-        [<Test>]
-        member __.``2. CloudFlow : toCloudChannel`` () =
-            let f(xs : int[]) =
-                let sendPort, receivePort = CloudChannel.New() |> run
-                let x = 
-                    xs
-                    |> CloudFlow.OfArray
-                    |> CloudFlow.map (fun v -> v + 1)
-                    |> CloudFlow.toCloudChannel sendPort
-                    |> run
-                let x = 
-                    cloud {
-                        let list = ResizeArray<int>()
-                        for x in xs do 
-                            let! v = CloudChannel.Receive(receivePort)
-                            list.Add(v)
-                        return list
-                    } |> run
-                let y = xs |> Seq.map (fun v -> v + 1) |> Seq.toArray
-                (set x) = (set y)
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+    [<Test>]
+    member __.``2. CloudFlow : forall`` () =
+        let f(xs : int[]) =
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.forall (fun n -> n = 0) |> run
+            let y = xs |> Seq.forall (fun n -> n = 0) 
+            x = y
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : ofCloudChannel`` () =
+        let f(_ : int) =
+            let x =
+                cloud {
+                    let! sendPort, receivePort = CloudChannel.New()
+                    let! n =
+                        Cloud.Choice [
+                            cloud { 
+                                for i in [|1..1000|] do
+                                    do! CloudChannel.Send(sendPort, i)
+                                    do! Cloud.Sleep(100)
+                                return None
+                            };
+                            cloud {
+                                let! n =  
+                                    CloudFlow.OfCloudChannel(receivePort, 1)
+                                    |> CloudFlow.take 2
+                                    |> CloudFlow.length
+                                return Some n
+                            }]
+                    return Option.get n
+                }
+                |> run
+            x = 2L
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
 
+    [<Test>]
+    member __.``2. CloudFlow : toCloudChannel`` () =
+        let f(xs : int[]) =
+            let sendPort, receivePort = CloudChannel.New() |> run
+            let x = 
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.map (fun v -> v + 1)
+                |> CloudFlow.toCloudChannel sendPort
+                |> run
+            let x = 
+                cloud {
+                    let list = ResizeArray<int>()
+                    for x in xs do 
+                        let! v = CloudChannel.Receive(receivePort)
+                        list.Add(v)
+                    return list
+                } |> run
+            let y = xs |> Seq.map (fun v -> v + 1) |> Seq.toArray
+            (set x) = (set y)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)

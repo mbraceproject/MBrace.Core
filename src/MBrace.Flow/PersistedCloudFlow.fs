@@ -13,9 +13,9 @@ open MBrace.Workflows
 
 #nowarn "444"
 
-/// Store Persisted CloudFlow implementation.
+/// Persisted CloudFlow implementation.
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
-type CloudVector<'T> internal (partitions : CloudSequence<'T> []) =
+type PersistedCloudFlow<'T> internal (partitions : CloudSequence<'T> []) =
     [<DataMember(Name = "Partitions")>]
     let partitions = partitions
 
@@ -30,15 +30,15 @@ type CloudVector<'T> internal (partitions : CloudSequence<'T> []) =
     /// Creates an immutable copy iwht updated cache behaviour
     member internal __.WithCacheBehaviour b =
         let partitions' = partitions |> Array.map (CloudSequence.WithCacheBehaviour b)
-        new CloudVector<'T>(partitions')
+        new PersistedCloudFlow<'T>(partitions')
 
-    /// Gets the CloudSequence partitions of the CloudVector
+    /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.Partitions = partitions
-    /// Computes the size (in bytes) of the CloudVector
+    /// Computes the size (in bytes) of the PersistedCloudFlow
     member __.Size: Local<int64> = local { let! sizes = partitions |> Sequential.map (fun p -> p.Size) in return Array.sum sizes }
-    /// Computes the element count of the CloudVector
+    /// Computes the element count of the PersistedCloudFlow
     member __.Count: Local<int64> = local { let! counts = partitions |> Sequential.map (fun p -> p.Count) in return Array.sum counts }
-    /// Gets an enumerable for all elements in the CloudVector
+    /// Gets an enumerable for all elements in the PersistedCloudFlow
     member __.ToEnumerable() = local { let! seqs = partitions |> Sequential.map (fun p -> p.ToEnumerable()) in return Seq.concat seqs }
 
     interface IPartitionedCollection<'T> with
@@ -61,49 +61,49 @@ type CloudVector<'T> internal (partitions : CloudSequence<'T> []) =
             for p in partitions do do! (p :> ICloudDisposable).Dispose()
         }
 
-    override __.ToString() = sprintf "CloudVector[%O] of %d partitions." typeof<'T> partitions.Length
+    override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
     member private __.StructuredFormatDisplay = __.ToString()
         
 
-type CloudVector private () =
+type internal PersistedCloudFlow private () =
 
-    /// Maximum CloudVector partition size used in CloudVector.New
+    /// Maximum PersistedCloudFlow partition size used in PersistedCloudFlow.New
     static let MaxCloudVectorPartitionSize = 1024L * 1024L * 1024L // 1GB
 
     /// <summary>
-    ///     Creates a new CloudVector instance out of given sequence.
+    ///     Creates a new persisted CloudFlow instance out of given enumeration.
     /// </summary>
     /// <param name="elems">Input sequence.</param>
-    /// <param name="cache">Enable caching behaviour in CloudVector instance.</param>
+    /// <param name="cache">Enable caching behaviour in PersistedCloudFlow instance.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes.</param>
-    static member internal New(elems : seq<'T>, cache : bool, ?partitionThreshold:int64) : Local<CloudVector<'T>> = local {
+    static member New(elems : seq<'T>, cache : bool, ?partitionThreshold:int64) : Local<PersistedCloudFlow<'T>> = local {
         let partitionThreshold = defaultArg partitionThreshold MaxCloudVectorPartitionSize
         let! cseqs = CloudSequence.NewPartitioned(elems, partitionThreshold, enableCache = cache) 
-        return new CloudVector<'T>(cseqs)
+        return new PersistedCloudFlow<'T>(cseqs)
     }
     
     /// <summary>
-    ///     Concatenates a series of CloudVectors into one.
+    ///     Concatenates a series of persisted CloudFlows into one.
     /// </summary>
-    /// <param name="vectors">Input CloudVectors.</param>
-    static member Concat (vectors : seq<CloudVector<'T>>) : CloudVector<'T> = 
+    /// <param name="vectors">Input CloudFlows.</param>
+    static member Concat (vectors : seq<PersistedCloudFlow<'T>>) : PersistedCloudFlow<'T> = 
         let partitions = vectors |> Seq.collect (fun v -> v.Partitions) |> Seq.toArray
-        new CloudVector<'T>(partitions)
+        new PersistedCloudFlow<'T>(partitions)
 
     /// <summary>
-    ///     Converts a CloudVector to cloud flow.
+    ///     Downcasts a persisted cloud flow.
     /// </summary>
     /// <param name="vector">Input Cloud Vector.</param>
-    static member internal ToCloudFlow (vector : CloudVector<'T>) : CloudFlow<'T> = vector :> CloudFlow<'T>
+    static member internal ToCloudFlow (vector : PersistedCloudFlow<'T>) : CloudFlow<'T> = vector :> CloudFlow<'T>
 
     /// <summary>
-    ///     Creates a CloudVector by persisting given flow to store.
+    ///     Persists given flow to store.
     /// </summary>
     /// <param name="flow">Input CloudFlow.</param>
     /// <param name="enableCache">Use in-memory caching as vector is created.</param>
-    static member internal OfCloudFlow (flow : CloudFlow<'T>, enableCache : bool) : Cloud<CloudVector<'T>> = cloud {
+    static member Persist (flow : CloudFlow<'T>, enableCache : bool) : Cloud<PersistedCloudFlow<'T>> = cloud {
         match flow with
-        | :? CloudVector<'T> as cv -> return cv.WithCacheBehaviour enableCache
+        | :? PersistedCloudFlow<'T> as cv -> return cv.WithCacheBehaviour enableCache
         | _ ->
             let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
                 let results = new List<List<'T>>()
@@ -131,7 +131,7 @@ type CloudVector private () =
 
             let! cts = Cloud.CreateCancellationTokenSource()
             let createVector (ts : 'T []) = local {
-                let! vector = CloudVector.New(ts, cache = enableCache)
+                let! vector = PersistedCloudFlow.New(ts, cache = enableCache)
                 if enableCache then
                     let! objCache = Cloud.TryGetResource<IObjectCache> ()
                     match objCache with
@@ -149,5 +149,5 @@ type CloudVector private () =
                 return vector
             }
 
-            return! flow.Apply (collectorf cts) createVector (fun result -> local { return CloudVector.Concat result })
+            return! flow.Apply (collectorf cts) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
     }
