@@ -10,6 +10,7 @@ open NUnit.Framework
 open MBrace.Flow
 open MBrace.Core
 open MBrace.Store
+open MBrace.Store.Internals
 open System.Text
 
 // Helper type

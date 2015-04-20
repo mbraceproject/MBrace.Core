@@ -135,7 +135,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                         yield textReader.ReadLine()
                 }
 
-            let! seq = CloudSequence.FromFile(file.Path, deserializer)
+            let! seq = CloudSequence.OfCloudFile(file.Path, deserializer)
             let! ch = Cloud.StartChild(cloud { let! e = seq.ToEnumerable() in return Seq.length e })
             return! ch
         } |> runRemote |> shouldEqual 100
