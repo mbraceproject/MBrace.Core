@@ -314,7 +314,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : collect`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.collect (fun n -> [|1..n|] :> _) |> CloudFlow.toArray |> run
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.collect (fun n -> [|1..n|]) |> CloudFlow.toArray |> run
             let y = xs |> Seq.collect (fun n -> [|1..n|]) |> Seq.toArray
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)

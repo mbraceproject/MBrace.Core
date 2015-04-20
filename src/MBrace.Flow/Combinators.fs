@@ -198,7 +198,7 @@ module CloudFlow =
     let inline mapLocal (f : 'T -> Local<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         mapGen (fun ctx x -> f x |> run ctx) flow
 
-    let inline private collectGen (f : ExecutionContext -> 'T -> seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
+    let inline private collectGen (f : ExecutionContext -> 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         { new CloudFlow<'R> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
             member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
@@ -225,14 +225,14 @@ module CloudFlow =
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline collect (f : 'T -> seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
+    let inline collect (f : 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         collectGen (fun ctx x -> f x) flow 
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements using a locally executing cloud function.</summary>
     /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline collectLocal (f : 'T -> Local<seq<'R>>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
+    let inline collectLocal (f : 'T -> Local<#seq<'R>>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         collectGen (fun ctx x -> f x |> run ctx) flow 
 
     let inline private filterGen (predicate : ExecutionContext -> 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
