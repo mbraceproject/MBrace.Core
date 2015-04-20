@@ -29,13 +29,13 @@ type CloudFlowExtensions() =
     /// <param name="this">The input CloudFlow.</param>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
-    static member inline collect (this : CloudFlow<'T>, f : 'T -> seq<'R>) : CloudFlow<'R> = CloudFlow.collect f this
+    static member inline collect (this : CloudFlow<'T>, f : 'T -> #seq<'R>) : CloudFlow<'R> = CloudFlow.collect f this
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements using a locally executing cloud function.</summary>
     /// <param name="this">The input CloudFlow.</param>
     /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
-    static member inline collectLocal (this : CloudFlow<'T>, f : 'T -> Local<seq<'R>>) : CloudFlow<'R> = CloudFlow.collectLocal f this
+    static member inline collectLocal (this : CloudFlow<'T>, f : 'T -> Local<#seq<'R>>) : CloudFlow<'R> = CloudFlow.collectLocal f this
 
     /// <summary>Filters the elements of the input CloudFlow.</summary>
     /// <param name="this">The input CloudFlow.</param>
