@@ -111,6 +111,90 @@ type CloudFlow =
         }
 
     /// <summary>
+    ///     Constructs a CloudFlow of lines from a collection of text files.
+    /// </summary>
+    /// <param name="paths">Paths to input cloud files.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member OfCloudFilesByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let flow = CloudFlow.OfCloudFiles (paths, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.Apply collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow of all files in provided cloud directory using the given deserializer.
+    /// </summary>
+    /// <param name="dirPath">Input CloudDirectory.</param>
+    /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
+    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
+    static member OfCloudDirectory (dirPath : string, ?deserializer : System.IO.Stream -> seq<'T>, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let! files = CloudFile.Enumerate dirPath
+                let paths = files |> Array.map (fun f -> f.Path)
+                let flow = CloudFlow.OfCloudFiles(paths, ?deserializer = deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.Apply collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///      Constructs a CloudFlow of all files in provided cloud directory using the given serializer implementation.
+    /// </summary>
+    /// <param name="dirPath">Input CloudDirectory.</param>
+    /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
+    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
+    static member OfCloudDirectory (dirPath : string, serializer : ISerializer, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let! files = CloudFile.Enumerate dirPath
+                let paths = files |> Array.map (fun f -> f.Path)
+                let flow = CloudFlow.OfCloudFiles(paths, serializer = serializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.Apply collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow from all files in provided directory using the given reader.
+    /// </summary>
+    /// <param name="dirPath">Cloud file input paths.</param>
+    /// <param name="deserializer">A function to transform the contents of a CloudFile to a stream of elements.</param>
+    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
+    static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+        { new CloudFlow<'T> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let! files = CloudFile.Enumerate dirPath
+                let paths = files |> Array.map (fun f -> f.Path)
+                let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.Apply collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a text CloudFlow by line from all files in supplied CloudDirectory.
+    /// </summary>
+    /// <param name="dirPath">Paths to input cloud files.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member OfCloudDirectoryByLine (dirPath : string, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let! files = CloudFile.Enumerate dirPath
+                let paths = files |> Array.map (fun f -> f.Path)
+                let flow = CloudFlow.OfCloudFilesByLine(paths, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.Apply collectorf projection combiner
+            }
+        }
+
+    /// <summary>
     ///     Constructs a CloudFlow of lines from a single large text file.
     /// </summary>
     /// <param name="path">The path to the text file.</param>
@@ -123,20 +207,6 @@ type CloudFlow =
                 let collectionStream = CloudFlow.OfCloudCollection cseq
                 return! collectionStream.Apply collectorf projection combiner
             }  
-        }
-
-    /// <summary>
-    ///     Constructs a CloudFlow of lines from a collection of text files.
-    /// </summary>
-    /// <param name="paths">Paths to input cloud files.</param>
-    /// <param name="encoding">Optional encoding.</param>
-    static member OfCloudFilesByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
-        { new CloudFlow<string> with
-            member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let flow = CloudFlow.OfCloudFiles (paths, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.Apply collectorf projection combiner
-            }
         }
 
     /// <summary>
