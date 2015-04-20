@@ -268,7 +268,7 @@ type CloudSequence =
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to Cloud sequence.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+    /// <param name="serializer">Serializer implementation used for element deserialization.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
     static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache) : Local<CloudSequence<'T>> = local {

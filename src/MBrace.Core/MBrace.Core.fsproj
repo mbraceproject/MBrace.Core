@@ -84,11 +84,11 @@
     <Compile Include="Distribution\InMemory\InMemoryStore.fs" />
     <Compile Include="Distribution\InMemory\InMemoryCombinators.fs" />
     <Compile Include="Distribution\InMemory\InMemoryRuntime.fs" />
-    <Compile Include="Workflows\Common.fs" />
-    <Compile Include="Workflows\Sequential.fs" />
-    <Compile Include="Workflows\Distributed.fs" />
-    <Compile Include="Workflows\CloudValue.fs" />
-    <Compile Include="Workflows\CloudSequence.fs" />
+    <Compile Include="Library\Common.fs" />
+    <Compile Include="Library\Sequential.fs" />
+    <Compile Include="Library\Distributed.fs" />
+    <Compile Include="Library\CloudValue.fs" />
+    <Compile Include="Library\CloudSequence.fs" />
     <Compile Include="Client\StoreClient.fs" />
     <Compile Include="Client\LocalRuntime.fs" />
   </ItemGroup>

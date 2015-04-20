@@ -182,26 +182,6 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(tester, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
-    member __.``2. CloudFlow : ofCloudFiles with ReadAllText`` () =
-        let f(xs : string []) =
-            let cfs = xs 
-                     |> Array.map(fun text -> CloudFile.WriteAllText(text))
-                     |> Cloud.Parallel
-                     |> run
-
-            let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.OfTextFiles
-                        |> CloudFlow.toArray
-                        |> run
-                        |> Set.ofArray
-
-            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllText f.Path }))
-                        |> Set.ofSeq
-
-            Assert.AreEqual(y, x)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
-
-    [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
@@ -210,7 +190,7 @@ type ``CloudFlow tests`` () as self =
                      |> run
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.OfTextFilesByLine
+                        |> CloudFlow.OfCloudFilesByLine
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -231,7 +211,7 @@ type ``CloudFlow tests`` () as self =
                      |> run
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.OfTextFilesByLine
+                        |> CloudFlow.OfCloudFilesByLine
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -258,7 +238,7 @@ type ``CloudFlow tests`` () as self =
 
             let x = 
                 path 
-                |> CloudFlow.OfTextFileByLine
+                |> CloudFlow.OfCloudFileByLine
                 |> CloudFlow.toArray
                 |> run
                 |> Array.sortBy id
@@ -282,7 +262,7 @@ type ``CloudFlow tests`` () as self =
 
             let x = cfs 
                         |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.OfTextFilesByLine
+                        |> CloudFlow.OfCloudFilesByLine
                         |> CloudFlow.toArray
                         |> run
                         |> Set.ofArray
@@ -434,21 +414,6 @@ type ``CloudFlow tests`` () as self =
                 let y = xs |> Seq.forall (fun n -> n = 0) 
                 x = y
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-
-        [<Test>]
-        member __.``2. CloudFlow : forall/CloudFiles`` () =
-            let f(xs : int []) =
-                let cfs = xs 
-                         |> Array.map (fun x -> CloudFile.WriteAllText(string x))
-                         |> Cloud.Parallel
-                         |> run
-                let x = cfs |> Array.map (fun cf -> cf.Path) |> CloudFlow.OfTextFiles |> CloudFlow.forall (fun x -> Int32.Parse(x) = 0) |> run
-                let y = xs |> Seq.forall (fun n -> n = 0) 
-                x = y
-            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-
 
         [<Test>]
         member __.``2. CloudFlow : ofCloudChannel`` () =

@@ -51,5 +51,5 @@ type internal CSharpProxy =
     static member Sum(stream : CloudFlow<decimal>) = 
         CloudFlow.sum stream
 
-    static member OfCloudFiles(sources : seq<string>, reader : Func<IO.Stream, seq<'T>>, sizeThresholdPerCore : Nullable<int64>) =
-        CloudFlow.OfFiles (reader.Invoke, sources, ?sizeThresholdPerCore = Option.ofNullable sizeThresholdPerCore)
+    static member OfCloudFiles(paths : seq<string>, reader : Func<IO.Stream, seq<'T>>, sizeThresholdPerCore : Nullable<int64>) =
+        CloudFlow.OfCloudFiles (paths, reader.Invoke, ?sizeThresholdPerCore = Option.ofNullable sizeThresholdPerCore)
