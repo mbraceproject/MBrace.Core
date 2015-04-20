@@ -4,6 +4,7 @@ open System.Collections.Generic
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Store.Internals
 
 /// Distributed key-value collection.
 type ICloudDictionary<'T> =
@@ -152,7 +153,3 @@ type CloudDictionary =
     static member Remove (key : string) (dictionary : ICloudDictionary<'T>) = local {
         return! dictionary.Remove(key)
     }
-
-    /// Disposes CloudDictionary instance.
-    static member Dispose(dictionary : ICloudDictionary<'T>) = 
-        local { return! dictionary.Dispose() }

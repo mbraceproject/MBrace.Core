@@ -58,7 +58,7 @@ type CloudFlow =
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                    let toCloudSeq (path : string) = CloudSequence.FromFile(path, reader, ?enableCache = enableCache)
+                    let toCloudSeq (path : string) = CloudSequence.OfCloudFile(path, reader, ?enableCache = enableCache)
                     let! cseqs = Sequential.map toCloudSeq sources
                     let collection = new CloudVector<'T>(cseqs)
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore

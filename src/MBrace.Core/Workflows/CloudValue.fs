@@ -12,7 +12,7 @@ open MBrace.Store.Internals
 #nowarn "444"
 
 /// Represents an immutable reference to an
-/// object that is persisted in the underlying store.
+/// object that is persisted as a cloud file.
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type CloudValue<'T> =
 
@@ -88,14 +88,13 @@ type CloudValue<'T> =
 type CloudValue =
     
     /// <summary>
-    ///     Creates a new local reference to the underlying store with provided value.
-    ///     Cloud cells are immutable and cached locally for performance.
+    ///     Creates a new CloudValue by persisting input as a cloud file in the underlying store.
     /// </summary>
-    /// <param name="value">Cloud value value.</param>
+    /// <param name="value">Input value.</param>
     /// <param name="directory">FileStore directory used for cloud value. Defaults to execution context setting.</param>
-    /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
+    /// <param name="serializer">Serializer used for object serialization. Defaults to runtime serializer.</param>
     /// <param name="enableCache">Enables implicit, on-demand caching of cell value across instances. Defaults to true.</param>
-    static member New(value : 'T, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) = local {
+    static member New(value : 'T, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Local<CloudValue<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let directory = defaultArg directory config.DefaultDirectory
         let! _serializer = local {
@@ -115,13 +114,14 @@ type CloudValue =
     }
 
     /// <summary>
-    ///     Creates a CloudValue from file path with user-provided deserialization function.
+    ///     Defines a CloudValue from provided cloud file path with user-provided deserialization function.
+    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
-    /// <param name="path">Path to file.</param>
-    /// <param name="deserializer">Value deserializer function.</param>
-    /// <param name="force">Force evaluation. Defaults to false.</param>
+    /// <param name="path">Path to cloud file.</param>
+    /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
+    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    static member FromFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool, ?enableCache : bool) : Local<CloudValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool, ?enableCache : bool) : Local<CloudValue<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         let cell = new CloudValue<'T>(path, deserializer, ?enableCache = enableCache)
         if defaultArg force false then
@@ -133,26 +133,28 @@ type CloudValue =
     }
 
     /// <summary>
-    ///     Creates a cloud value of given type with provided serializer. If successful, returns the cloud value instance.
+    ///     Defines a CloudValue from provided cloud file path with user-provided serializer implementation.
+    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to cloud value.</param>
-    /// <param name="serializer">Serializer for cloud value.</param>
-    /// <param name="force">Force evaluation. Defaults to false.</param>
+    /// <param name="serializer">Serializer implementation used for value.</param>
+    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    static member FromFile<'T>(path : string, ?serializer : ISerializer, ?force : bool, ?enableCache : bool) = local {
-        let deserializer = serializer |> Option.map (fun ser stream -> ser.Deserialize<'T>(stream, leaveOpen = false))
-        return! CloudValue.FromFile<'T>(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache)
+    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) = local {
+        let deserializer stream = serializer.Deserialize<'T>(stream, leaveOpen = false)
+        return! CloudValue.OfCloudFile<'T>(path, deserializer = deserializer, ?force = force, ?enableCache = enableCache)
     }
 
     /// <summary>
-    ///     Creates a CloudValue parsing a text file.
+    ///     Defines a CloudValue from provided cloud file path with user-provided text deserializer and encoding.
+    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to file.</param>
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
-    /// <param name="force">Force evaluation. Defaults to false.</param>
+    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    static member FromTextFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool, ?enableCache) : Local<CloudValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool, ?enableCache) : Local<CloudValue<'T>> = local {
         let deserializer (stream : Stream) =
             let sr =
                 match encoding with
@@ -161,20 +163,14 @@ type CloudValue =
 
             textDeserializer sr 
 
-        return! CloudValue.FromFile(path, deserializer, ?force = force, ?enableCache = enableCache)
+        return! CloudValue.OfCloudFile(path, deserializer, ?force = force, ?enableCache = enableCache)
     }
 
     /// <summary>
-    ///     Dereference a Cloud value.
+    ///     Dereferences a Cloud value.
     /// </summary>
     /// <param name="cloudCell">CloudValue to be dereferenced.</param>
     static member Read(cloudCell : CloudValue<'T>) : Local<'T> = cloudCell.Value
-
-    /// <summary>
-    ///     Disposes cloud value from store.
-    /// </summary>
-    /// <param name="cloudCell">Cloud value to be deleted.</param>
-    static member Dispose(cloudCell : CloudValue<'T>) : Local<unit> = local { return! (cloudCell :> ICloudDisposable).Dispose() }
 
     /// <summary>
     ///     Creates a copy of CloudValue with updated cache behaviour.

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Store
+﻿namespace MBrace.Store.Internals
 
 open System
 open System.Collections
