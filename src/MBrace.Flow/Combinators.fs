@@ -509,7 +509,7 @@ module CloudFlow =
     /// <summary>Applies a key-generating function to each element of a CloudFlow and return the sum of the keys.</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The sum of the keys.</returns>
-    let inline sumBy projection (flow : CloudFlow< ^T >) : Cloud< ^S > 
+    let inline sumBy projection (flow : CloudFlow< 'T >) : Cloud< ^S >
             when ^S : (static member ( + ) : ^S * ^S -> ^S) 
             and  ^S : (static member Zero : ^S) = 
         fold (fun s x -> s + projection x) (+) (fun () -> LanguagePrimitives.GenericZero) flow
@@ -517,7 +517,7 @@ module CloudFlow =
     /// <summary>Applies a key-generating locally executing cloud function to each element of a CloudFlow and return the sum of the keys.</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The sum of the keys.</returns>
-    let inline sumByLocal (projection : ^T -> Local< ^Key >) (flow : CloudFlow< ^T >) : Cloud< ^Key > 
+    let inline sumByLocal (projection : 'T -> Local< ^Key >) (flow : CloudFlow< 'T >) : Cloud< ^Key >
             when ^Key : (static member ( + ) : ^Key * ^Key -> ^Key) 
             and  ^Key : (static member Zero : ^Key) = 
         foldGen (fun ctx s x -> s + run ctx (projection x)) (fun _ctx x y -> x + y) (fun _ctx -> LanguagePrimitives.GenericZero) flow
