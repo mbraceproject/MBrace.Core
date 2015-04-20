@@ -58,8 +58,6 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Flow.Samples", "samp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Flow.CSharp.Samples", "samples\MBrace.Flow.CSharp.Samples\MBrace.Flow.CSharp.Samples.csproj", "{AB9C6B25-1020-416C-8B82-5672FD4224D5}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Flow.Fluent", "src\MBrace.Flow.Fluent\MBrace.Flow.Fluent.fsproj", "{783FF807-F44A-491B-89FE-3F8E162A657E}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -110,10 +108,6 @@ Global
 		{9120EEF1-157A-4780-8BDF-DDE836B29DE9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AB9C6B25-1020-416C-8B82-5672FD4224D5}.Debug|Any CPU.ActiveCfg = Release|Any CPU
 		{AB9C6B25-1020-416C-8B82-5672FD4224D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{783FF807-F44A-491B-89FE-3F8E162A657E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{783FF807-F44A-491B-89FE-3F8E162A657E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{783FF807-F44A-491B-89FE-3F8E162A657E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{783FF807-F44A-491B-89FE-3F8E162A657E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -133,6 +127,5 @@ Global
 		{82E2F911-4563-4F05-9451-F2DD73622BE1} = {3BA6F0DC-9759-458C-B50D-CF31BBE68B42}
 		{9120EEF1-157A-4780-8BDF-DDE836B29DE9} = {5D412C1B-BCEA-4DFA-A941-C27571F4D6A3}
 		{AB9C6B25-1020-416C-8B82-5672FD4224D5} = {5D412C1B-BCEA-4DFA-A941-C27571F4D6A3}
-		{783FF807-F44A-491B-89FE-3F8E162A657E} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 	EndGlobalSection
 EndGlobal
