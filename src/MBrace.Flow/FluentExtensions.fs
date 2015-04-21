@@ -346,3 +346,11 @@ type CloudFlowExtensions() =
     /// <returns>Nothing.</returns>
     [<System.Runtime.CompilerServices.Extension>]
     static member inline toCloudChannel (this : CloudFlow<'T>, channel : ISendPort<'T>) : Cloud<unit> = CloudFlow.toCloudChannel channel this
+
+    /// <summary>
+    ///     Returs true if the flow is empty and false otherwise.
+    /// </summary>
+    /// <param name="stream">The input flow.</param>
+    /// <returns>true if the input flow is empty, false otherwise</returns>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline isEmpty (this : CloudFlow<'T>) : Cloud<bool> = CloudFlow.isEmpty this
