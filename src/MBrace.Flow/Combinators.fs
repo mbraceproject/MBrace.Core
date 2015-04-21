@@ -958,3 +958,11 @@ module CloudFlow =
     /// <returns>Nothing.</returns>
     let toCloudChannel (channel : ISendPort<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
         flow |> iterLocal (fun v -> CloudChannel.Send(channel, v))
+
+    /// <summary>
+    ///     Returs true if the flow is empty and false otherwise.
+    /// </summary>
+    /// <param name="stream">The input flow.</param>
+    /// <returns>true if the input flow is empty, false otherwise</returns>
+    let inline isEmpty (flow : CloudFlow<'T>) : Cloud<bool> =
+        cloud { let! isNotEmpty = flow |> exists (fun _ -> true) in return not isNotEmpty }
