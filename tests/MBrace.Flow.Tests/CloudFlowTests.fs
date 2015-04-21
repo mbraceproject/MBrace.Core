@@ -395,6 +395,15 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : isEmpty`` () =
+        let f(xs : int[]) =
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.isEmpty |> run
+            let y = xs |> Seq.isEmpty
+            x = y
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : ofCloudChannel`` () =
         let f(_ : int) =
             let x =
