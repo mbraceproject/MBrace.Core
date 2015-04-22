@@ -77,7 +77,7 @@ with
                         resource { 
                             yield runtimeProvider ; yield tem ; yield job.CancellationTokenSource ; 
                             yield job.ProcessInfo.Serializer
-                            yield Config.WithCachedFileStore job.ProcessInfo.FileStoreConfig
+                            yield job.ProcessInfo.FileStoreConfig
                             yield Config.ObjectCache
                             yield job.ProcessInfo.DictionaryProvider
                             yield job.ProcessInfo.AtomConfig ; yield job.ProcessInfo.ChannelConfig

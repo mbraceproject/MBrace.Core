@@ -160,6 +160,22 @@ type ``CloudFlow tests`` () as self =
 
         Check.QuickThrowOnFail(tester, self.FsCheckMaxNumberOfTests)
 
+
+    [<Test>]
+    member __.``2. CloudFlow : ofCloudFiles with custom deserializer`` () =
+        let f(xs : string [][]) =
+            let cfs = xs 
+                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
+                     |> Cloud.Parallel
+                     |> run
+            let paths = cfs |> Array.map (fun cf -> cf.Path)
+            let x =     CloudFlow.OfCloudFiles(paths, (fun (stream : System.IO.Stream) -> seq { yield stream.Length })) 
+                        |> CloudFlow.length
+                        |> run
+
+            Assert.AreEqual(paths.Length, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+
     [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadLines`` () =
         let f(xs : string [][]) =

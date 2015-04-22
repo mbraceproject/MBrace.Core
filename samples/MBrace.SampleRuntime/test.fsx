@@ -2,16 +2,48 @@
 
 #r "MBrace.Core.dll"
 #r "MBrace.SampleRuntime.exe"
+#r "MBrace.Runtime.Core.dll"
+#r "MBrace.Flow.dll"
+#r "Streams.Core.dll"
 
 open System
 open MBrace.Core
 open MBrace.Store
 open MBrace.Workflows
 open MBrace.SampleRuntime
+open MBrace.Flow
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
-let runtime = MBraceRuntime.InitLocal(4)
+let fileStore = MBrace.Runtime.Store.FileSystemStore.Create("D:\\wiki")
+
+
+
+let runtime = MBraceRuntime.InitLocal(4, fileStore = fileStore)
+
+
+
+
+let files = runtime.StoreClient.File.Enumerate("")
+let paths = files |> Array.map (fun file -> file.Path) |> Array.filter (fun path -> not <| path.EndsWith("fool.txt"))
+
+files.[0].Size |> runtime.RunLocally
+
+
+runtime.Run <| cloud { return 42 }
+
+#time "on"
+
+let result = 
+    CloudFlow.OfCloudFiles(paths, (fun (stream : System.IO.Stream) -> seq { yield stream.Length })) 
+    |> CloudFlow.length
+    |> runtime.Run
+
+
+
+
+
+
 
 runtime.Run(
     cloud {
