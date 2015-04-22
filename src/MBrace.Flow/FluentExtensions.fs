@@ -346,3 +346,44 @@ type CloudFlowExtensions() =
     /// <returns>Nothing.</returns>
     [<System.Runtime.CompilerServices.Extension>]
     static member inline toCloudChannel (this : CloudFlow<'T>, channel : ISendPort<'T>) : Cloud<unit> = CloudFlow.toCloudChannel channel this
+
+    /// <summary>
+    ///     Returs true if the flow is empty and false otherwise.
+    /// </summary>
+    /// <param name="stream">The input flow.</param>
+    /// <returns>true if the input flow is empty, false otherwise</returns>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline isEmpty (this : CloudFlow<'T>) : Cloud<bool> = CloudFlow.isEmpty this
+
+
+    /// <summary>Locates the maximum element of the flow by given key.</summary>
+    /// <param name="this">The input flow.</param>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <returns>The maximum item.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline maxBy<'T, 'Key when 'Key : comparison> (this : CloudFlow<'T>, projection : 'T -> 'Key) : Cloud<'T> =
+        CloudFlow.maxBy projection this
+
+    /// <summary>Locates the minimum element of the flow by given key.</summary>
+    /// <param name="this">The input flow.</param>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <returns>The minimum item.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline minBy<'T, 'Key when 'Key : comparison> (this : CloudFlow<'T>, projection : 'T -> 'Key) : Cloud<'T> =
+        CloudFlow.minBy projection this
+
+    /// <summary>
+    ///    Reduces the elements of the input flow to a single value via the given reducer function.
+    ///    The reducer function is first applied to the first two elements of the flow.
+    ///    Then, the reducer is applied on the result of the first reduction and the third element.
+    //     The process continues until all the elements of the flow have been reduced.
+    /// </summary>
+    /// <param name="this">The input flow.</param>
+    /// <param name="reducer">The reducer function.</param>
+    /// <returns>The reduced value.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline reduce (this : CloudFlow<'T>, reducer : 'T -> 'T -> 'T) : Cloud<'T> =
+        CloudFlow.reduce reducer this

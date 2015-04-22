@@ -958,3 +958,94 @@ module CloudFlow =
     /// <returns>Nothing.</returns>
     let toCloudChannel (channel : ISendPort<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
         flow |> iterLocal (fun v -> CloudChannel.Send(channel, v))
+
+    /// <summary>
+    ///     Returs true if the flow is empty and false otherwise.
+    /// </summary>
+    /// <param name="stream">The input flow.</param>
+    /// <returns>true if the input flow is empty, false otherwise</returns>
+    let inline isEmpty (flow : CloudFlow<'T>) : Cloud<bool> =
+        cloud { let! isNotEmpty = flow |> exists (fun _ -> true) in return not isNotEmpty }
+
+
+    /// <summary>Locates the maximum element of the flow by given key.</summary>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>The maximum item.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline maxBy<'T, 'Key when 'Key : comparison> (projection: 'T -> 'Key) (flow: CloudFlow<'T>) : Cloud<'T> =
+        cloud {
+            let! result =
+                foldGen (fun _ state x ->
+                               let keyOfX = projection x
+                               match state with
+                               | None -> Some (x, keyOfX)
+                               | Some (value, keyOfValue) when keyOfValue < keyOfX -> Some (x, keyOfX)
+                               | _ -> state)
+                        (fun _ left right ->
+                             match left, right with
+                             | Some (_, leftKey), Some (_, rightKey) -> if rightKey > leftKey then right else left
+                             | None, _ -> right
+                             | _, None -> left)
+                        (fun _ -> None)
+                        flow
+
+            match result with
+            | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
+            | Some (maxVal, _) -> return maxVal
+        }
+
+    /// <summary>Locates the minimum element of the flow by given key.</summary>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>The minimum item.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline minBy<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : Cloud<'T> =
+        cloud {
+            let! result =
+                foldGen (fun _ state x ->
+                             let keyOfX = projection x
+                             match state with
+                             | None -> Some (x, keyOfX)
+                             | Some (value, keyOfValue) when keyOfValue > keyOfX -> Some (x, keyOfX)
+                             | _ -> state)
+                        (fun _ left right ->
+                             match left, right with
+                             | Some (_, leftKey), Some (_, rightKey) -> if rightKey > leftKey then left else right
+                             | None, _ -> right
+                             | _, None -> left)
+                        (fun _ -> None)
+                        flow
+
+            match result with
+            | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
+            | Some (minVal, _) -> return minVal
+        }
+
+    /// <summary>
+    ///    Reduces the elements of the input flow to a single value via the given reducer function.
+    ///    The reducer function is first applied to the first two elements of the flow.
+    ///    Then, the reducer is applied on the result of the first reduction and the third element.
+    //     The process continues until all the elements of the flow have been reduced.
+    /// </summary>
+    /// <param name="reducer">The reducer function.</param>
+    /// <param name="flow">The input flow.</param>
+    /// <returns>The reduced value.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline reduce (reducer : 'T -> 'T -> 'T) (flow : CloudFlow<'T>) : Cloud<'T> =
+        cloud {
+            let! result =
+                foldGen (fun _ state x -> match state with Some y -> Some (reducer y x) | None -> Some x)
+                        (fun _ left right ->
+                         match left, right with
+                         | Some y, Some x -> Some (reducer y x)
+                         | None, Some x -> Some x
+                         | Some y, None -> Some y
+                         | None, None -> None)
+                        (fun _ -> None)
+                        flow
+
+            match result with
+            | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
+            | Some reducedVal -> return reducedVal
+        }

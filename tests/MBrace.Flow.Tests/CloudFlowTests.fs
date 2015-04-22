@@ -338,6 +338,45 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : maxBy`` () =
+        let f(xs : int[]) =
+            if Array.isEmpty xs then
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.maxBy id |> run in false
+                with :? System.ArgumentException -> true
+            else
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.maxBy id  |> run
+                let y = xs |> Seq.maxBy id
+                x = y
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : minBy`` () =
+        let f(xs : int[]) =
+            if Array.isEmpty xs then
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.minBy id |> run in false
+                with :? System.ArgumentException -> true
+            else
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.minBy id  |> run
+                let y = xs |> Seq.minBy id
+                x = y
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : reduce`` () =
+        let f(xs : int[]) =
+            if Array.isEmpty xs then
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.reduce (+) |> run in false
+                with :? System.ArgumentException -> true
+            else
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.reduce (+) |> run
+                let y = xs |> Seq.reduce (+)
+                x = y
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : take`` () =
         let f (xs : int[], n : int) =
             let n = System.Math.Abs(n)
@@ -408,6 +447,15 @@ type ``CloudFlow tests`` () as self =
             let x = xs |> CloudFlow.OfArray |> CloudFlow.forall (fun n -> n = 0) |> run
             let y = xs |> Seq.forall (fun n -> n = 0) 
             x = y
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : isEmpty`` () =
+        let f(xs : int[]) =
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.isEmpty |> run
+            let y = xs |> Seq.isEmpty
+            x = y
+
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
