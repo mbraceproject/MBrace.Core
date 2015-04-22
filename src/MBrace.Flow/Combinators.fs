@@ -977,14 +977,17 @@ module CloudFlow =
         cloud {
             let! result =
                 foldGen (fun _ state x ->
-                               let keyOfX = projection x
+                               let kx = projection x
                                match state with
-                               | None -> Some (x, keyOfX)
-                               | Some (value, keyOfValue) when keyOfValue < keyOfX -> Some (x, keyOfX)
+                               | None -> Some (ref x, ref kx)
+                               | Some (v, k) when !k < kx ->
+                                   v := x
+                                   k := kx
+                                   state
                                | _ -> state)
                         (fun _ left right ->
                              match left, right with
-                             | Some (_, leftKey), Some (_, rightKey) -> if rightKey > leftKey then right else left
+                             | Some (_, k), Some (_, k') -> if !k' > !k then right else left
                              | None, _ -> right
                              | _, None -> left)
                         (fun _ -> None)
@@ -992,7 +995,7 @@ module CloudFlow =
 
             match result with
             | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
-            | Some (maxVal, _) -> return maxVal
+            | Some (maxVal, _) -> return !maxVal
         }
 
     /// <summary>Locates the minimum element of the flow by given key.</summary>
@@ -1004,14 +1007,17 @@ module CloudFlow =
         cloud {
             let! result =
                 foldGen (fun _ state x ->
-                             let keyOfX = projection x
+                             let kx = projection x
                              match state with
-                             | None -> Some (x, keyOfX)
-                             | Some (value, keyOfValue) when keyOfValue > keyOfX -> Some (x, keyOfX)
+                             | None -> Some (ref x, ref kx)
+                             | Some (v, k) when !k > kx ->
+                                 v := x
+                                 k := kx
+                                 state
                              | _ -> state)
                         (fun _ left right ->
                              match left, right with
-                             | Some (_, leftKey), Some (_, rightKey) -> if rightKey > leftKey then left else right
+                             | Some (_, k), Some (_, k') -> if !k' > !k then left else right
                              | None, _ -> right
                              | _, None -> left)
                         (fun _ -> None)
@@ -1019,7 +1025,7 @@ module CloudFlow =
 
             match result with
             | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
-            | Some (minVal, _) -> return minVal
+            | Some (minVal, _) -> return !minVal
         }
 
     /// <summary>
