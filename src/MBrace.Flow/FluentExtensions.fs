@@ -354,3 +354,13 @@ type CloudFlowExtensions() =
     /// <returns>true if the input flow is empty, false otherwise</returns>
     [<System.Runtime.CompilerServices.Extension>]
     static member inline isEmpty (this : CloudFlow<'T>) : Cloud<bool> = CloudFlow.isEmpty this
+
+
+    /// <summary>Locates the maximum element of the flow by given key.</summary>
+    /// <param name="this">The input flow.</param>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <returns>The maximum item.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline maxBy<'T, 'Key when 'Key : comparison> (this : CloudFlow<'T>, projection : 'T -> 'Key) : Cloud<'T> =
+        CloudFlow.maxBy projection this

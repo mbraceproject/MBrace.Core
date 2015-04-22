@@ -966,3 +966,31 @@ module CloudFlow =
     /// <returns>true if the input flow is empty, false otherwise</returns>
     let inline isEmpty (flow : CloudFlow<'T>) : Cloud<bool> =
         cloud { let! isNotEmpty = flow |> exists (fun _ -> true) in return not isNotEmpty }
+
+
+    /// <summary>Locates the maximum element of the flow by given key.</summary>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>The maximum item.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline maxBy<'T, 'Key when 'Key : comparison> (projection: 'T -> 'Key) (flow: CloudFlow<'T>) : Cloud<'T> =
+        cloud {
+            let! result =
+                foldGen (fun _ state x ->
+                               let keyOfX = projection x
+                               match state with
+                               | None -> Some (x, keyOfX)
+                               | Some (value, keyOfValue) when keyOfValue < keyOfX -> Some (x, keyOfX)
+                               | _ -> state)
+                        (fun _ left right ->
+                             match left, right with
+                             | Some (_, leftKey), Some (_, rightKey) -> if rightKey > leftKey then right else left
+                             | None, _ -> right
+                             | _, None -> left)
+                        (fun _ -> None)
+                        flow
+
+            match result with
+            | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
+            | Some (maxVal, _) -> return maxVal
+        }

@@ -51,5 +51,8 @@ type internal CSharpProxy =
     static member Sum(stream : CloudFlow<decimal>) = 
         CloudFlow.sum stream
 
+    static member MaxBy<'T, 'Key when 'Key :> IComparable and 'Key : comparison>(flow : CloudFlow<'T>, projectionFunc : Func<'T, 'Key>) : Cloud<'T> =
+        CloudFlow.maxBy (fun x -> projectionFunc.Invoke(x)) flow
+
     static member OfCloudFiles(paths : seq<string>, reader : Func<IO.Stream, seq<'T>>, sizeThresholdPerCore : Nullable<int64>) =
         CloudFlow.OfCloudFiles (paths, reader.Invoke, ?sizeThresholdPerCore = Option.ofNullable sizeThresholdPerCore)
