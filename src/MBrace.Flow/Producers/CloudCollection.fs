@@ -104,7 +104,7 @@ type internal CloudCollection =
                                 }
 
                                 let! collector = collectorf
-                                let! seqs = Sequential.map getSeq partitions
+                                let! seqs = Sequential.map getSeq partition
                                 let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
                                 let value = pStream.Apply (collector.ToParStreamCollector())
                                 return! projection value
