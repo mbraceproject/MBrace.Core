@@ -1041,17 +1041,17 @@ module CloudFlow =
     let inline reduce (reducer : 'T -> 'T -> 'T) (flow : CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                foldGen (fun _ state x -> match state with Some y -> Some (reducer y x) | None -> Some x)
+                foldGen (fun _ state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
                         (fun _ left right ->
                          match left, right with
-                         | Some y, Some x -> Some (reducer y x)
-                         | None, Some x -> Some x
-                         | Some y, None -> Some y
-                         | None, None -> None)
+                         | Some y, Some x -> y := reducer !y !x; left
+                         | None, Some x -> right
+                         | Some y, None -> left
+                         | None, None -> left)
                         (fun _ -> None)
                         flow
 
             match result with
             | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
-            | Some reducedVal -> return reducedVal
+            | Some reducedVal -> return !reducedVal
         }
