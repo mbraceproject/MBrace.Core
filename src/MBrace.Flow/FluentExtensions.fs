@@ -373,3 +373,17 @@ type CloudFlowExtensions() =
     [<System.Runtime.CompilerServices.Extension>]
     static member inline minBy<'T, 'Key when 'Key : comparison> (this : CloudFlow<'T>, projection : 'T -> 'Key) : Cloud<'T> =
         CloudFlow.minBy projection this
+
+    /// <summary>
+    ///    Reduces the elements of the input flow to a single value via the given reducer function.
+    ///    The reducer function is first applied to the first two elements of the flow.
+    ///    Then, the reducer is applied on the result of the first reduction and the third element.
+    //     The process continues until all the elements of the flow have been reduced.
+    /// </summary>
+    /// <param name="this">The input flow.</param>
+    /// <param name="reducer">The reducer function.</param>
+    /// <returns>The reduced value.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline reduce (this : CloudFlow<'T>, reducer : 'T -> 'T -> 'T) : Cloud<'T> =
+        CloudFlow.reduce reducer this
