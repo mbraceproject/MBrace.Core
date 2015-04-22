@@ -91,7 +91,7 @@ module Type =
                     | Some 1 -> yield " [*]"
                     | Some rk ->
                         yield "["
-                        for i in 1 .. rk - 1 -> ","
+                        for _ in 1 .. rk - 1 -> ","
                         yield "]"
 
                 | Ptr (true,arg) -> yield! traverse Priority.Postfix arg ; yield "*"

@@ -156,7 +156,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
 /// Collection of client methods for CloudAtom API
 type CloudChannelClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
-    let config = registry.Resolve<CloudChannelConfiguration>()
+    let _ = registry.Resolve<CloudChannelConfiguration>()
     let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
@@ -245,7 +245,7 @@ type CloudChannelClient internal (registry : ResourceRegistry) =
 /// Collection of client methods for CloudDictionary API
 type CloudDictionaryClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
-    let config = registry.Resolve<ICloudDictionaryProvider>()
+    let _ = registry.Resolve<ICloudDictionaryProvider>()
     let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
@@ -753,7 +753,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
 type CloudValueClient internal (registry : ResourceRegistry) =
-    let config = registry.Resolve<CloudFileStoreConfiguration>()
+    let _ = registry.Resolve<CloudFileStoreConfiguration>()
     
     let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
@@ -866,7 +866,7 @@ type CloudValueClient internal (registry : ResourceRegistry) =
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
 type CloudSequenceClient internal (registry : ResourceRegistry) =
-    let config = registry.Resolve<CloudFileStoreConfiguration>()
+    let _ = registry.Resolve<CloudFileStoreConfiguration>()
     
     let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf

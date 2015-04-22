@@ -173,7 +173,7 @@ type CloudFlow =
             member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
-                let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?enableCache = enableCache, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
                 return! flow.Apply collectorf projection combiner
             }
         }
@@ -256,7 +256,7 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline map  (f : 'T -> 'R) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        mapGen (fun ctx x -> f x) flow
+        mapGen (fun _ x -> f x) flow
 
     /// <summary>Transforms each element of the input CloudFlow using a locally executing cloud function.</summary>
     /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
@@ -293,7 +293,7 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline collect (f : 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        collectGen (fun ctx x -> f x) flow 
+        collectGen (fun _ x -> f x) flow 
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements using a locally executing cloud function.</summary>
     /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
@@ -325,7 +325,7 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline filter (predicate : 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        filterGen (fun ctx x -> predicate x) flow 
+        filterGen (fun _ x -> predicate x) flow 
 
     /// <summary>Filters the elements of the input CloudFlow using a locally executing cloud function.</summary>
     /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
@@ -405,7 +405,7 @@ module CloudFlow =
     /// <returns>The final result.</returns>
     let inline fold (folder : 'State -> 'T -> 'State) (combiner : 'State -> 'State -> 'State) 
                     (state : unit -> 'State) (flow : CloudFlow<'T>) : Cloud<'State> =
-        foldGen (fun ctx x y -> folder x y) (fun ctx x y -> combiner x y) (fun ctx -> state ()) flow
+        foldGen (fun _ x y -> folder x y) (fun _ x y -> combiner x y) (fun _ -> state ()) flow
 
     let inline private foldByGen (projection : ExecutionContext -> 'T -> 'Key) 
                                  (folder : ExecutionContext -> 'State -> 'T -> 'State) 
@@ -534,7 +534,7 @@ module CloudFlow =
                       (folder : 'State -> 'T -> 'State) 
                       (combiner : 'State -> 'State -> 'State) 
                       (state : unit -> 'State) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> = 
-        foldByGen (fun ctx x -> projection x) (fun ctx x y -> folder x y) (fun ctx s1 s2 -> combiner s1 s2) (fun ctx -> state ()) flow 
+        foldByGen (fun _ x -> projection x) (fun _ x y -> folder x y) (fun _ s1 s2 -> combiner s1 s2) (fun _ -> state ()) flow 
 
     /// <summary>
     /// Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and their number of occurrences in the original sequence.
@@ -550,7 +550,7 @@ module CloudFlow =
     /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     let countByLocal (projection : 'T -> Local<'Key>) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
-        foldByGen (fun ctx x -> projection x |> run ctx) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun ctx -> 0L) flow
+        foldByGen (fun ctx x -> projection x |> run ctx) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ -> 0L) flow
 
     /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
     /// <param name="flow">The input CloudFlow.</param>
@@ -876,7 +876,7 @@ module CloudFlow =
             let! result = tryFind predicate flow 
             return 
                 match result with
-                | Some value -> true
+                | Some _ -> true
                 | None -> false
         }
 
@@ -889,7 +889,7 @@ module CloudFlow =
             let! result = tryFindLocal predicate flow 
             return 
                 match result with
-                | Some value -> true
+                | Some _ -> true
                 | None -> false
         }
 
@@ -980,7 +980,7 @@ module CloudFlow =
                                let keyOfX = projection x
                                match state with
                                | None -> Some (x, keyOfX)
-                               | Some (value, keyOfValue) when keyOfValue < keyOfX -> Some (x, keyOfX)
+                               | Some (_, keyOfValue) when keyOfValue < keyOfX -> Some (x, keyOfX)
                                | _ -> state)
                         (fun _ left right ->
                              match left, right with
@@ -1007,7 +1007,7 @@ module CloudFlow =
                              let keyOfX = projection x
                              match state with
                              | None -> Some (x, keyOfX)
-                             | Some (value, keyOfValue) when keyOfValue > keyOfX -> Some (x, keyOfX)
+                             | Some (_, keyOfValue) when keyOfValue > keyOfX -> Some (x, keyOfX)
                              | _ -> state)
                         (fun _ left right ->
                              match left, right with

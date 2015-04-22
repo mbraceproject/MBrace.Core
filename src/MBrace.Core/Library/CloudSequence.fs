@@ -168,7 +168,7 @@ type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache 
                 if count < int64 partitionCount then
                     let! lines = cs.ToArray()
                     let partitions = min partitionCount (int count)
-                    let liness = Array.splitByPartitionCount partitionCount lines
+                    let liness = Array.splitByPartitionCount partitions lines
                     return liness |> Array.map (fun lines -> new StringCollection(lines) :> _)
                 else
                     return mkRangedSeqs partitionCount

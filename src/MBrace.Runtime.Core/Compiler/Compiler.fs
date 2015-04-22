@@ -81,7 +81,7 @@ module private CompilerImpl =
             // cloud { ... }
             | CloudBuilderExpr body ->
                 let bindings = gatherTopLevelCloudBindings body
-                for v, metadata in bindings do
+                for v,_ in bindings do
                     if not <| FsPickler.IsSerializableType v.Type then
                         log Error e "%s has binding '%s' of type '%s' that is not serializable." blockName v.Name <| Type.prettyPrint v.Type
                 
