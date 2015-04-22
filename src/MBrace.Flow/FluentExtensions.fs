@@ -364,3 +364,12 @@ type CloudFlowExtensions() =
     [<System.Runtime.CompilerServices.Extension>]
     static member inline maxBy<'T, 'Key when 'Key : comparison> (this : CloudFlow<'T>, projection : 'T -> 'Key) : Cloud<'T> =
         CloudFlow.maxBy projection this
+
+    /// <summary>Locates the minimum element of the flow by given key.</summary>
+    /// <param name="this">The input flow.</param>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <returns>The minimum item.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline minBy<'T, 'Key when 'Key : comparison> (this : CloudFlow<'T>, projection : 'T -> 'Key) : Cloud<'T> =
+        CloudFlow.minBy projection this

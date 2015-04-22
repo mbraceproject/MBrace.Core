@@ -335,6 +335,19 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : minBy`` () =
+        let f(xs : int[]) =
+            if Array.isEmpty xs then
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.minBy id |> run in false
+                with :? System.ArgumentException -> true
+            else
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.minBy id  |> run
+                let y = xs |> Seq.minBy id
+                x = y
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : take`` () =
         let f (xs : int[], n : int) =
             let n = System.Math.Abs(n)
