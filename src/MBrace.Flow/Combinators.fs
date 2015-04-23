@@ -1057,3 +1057,30 @@ module CloudFlow =
             | None -> return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "flow"))
             | Some reducedVal -> return !reducedVal
         }
+
+
+    /// <summary>Computes the average of the projections given by the supplied function on the input flow.</summary>
+    /// <param name="projection">A function to transform items of the input flow into a projection.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>The computed average.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline averageBy (projection : 'T -> ^U) (source : CloudFlow<'T>) : Cloud< ^U >
+            when ^U : (static member (+) : ^U * ^U -> ^U)
+            and  ^U : (static member DivideByInt : ^U * int -> ^U)
+            and  ^U : (static member Zero : ^U) =
+        cloud {
+            let! (y, c) =
+                foldGen (fun _ ((y, c) as state) v ->
+                             y := Checked.(+) !y (projection v)
+                             incr c
+                             state)
+                        (fun _ ((y, c) as state) (y', c') ->
+                             y := Checked.(+) !y !y'
+                             c := !c + !c'
+                             state)
+                        (fun _ -> ref LanguagePrimitives.GenericZero, ref 0)
+                        source
+
+            if !c = 0 then return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "source"))
+            else return LanguagePrimitives.DivideByInt !y !c
+        }
