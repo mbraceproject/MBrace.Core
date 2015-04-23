@@ -23,7 +23,7 @@ type internal CloudChannel =
     static member ToCloudFlow (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = Some degreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let! collector = collectorf 
                     let! workers = Cloud.GetAvailableWorkers() 

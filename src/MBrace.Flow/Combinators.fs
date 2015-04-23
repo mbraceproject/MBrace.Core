@@ -55,7 +55,7 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, ?deserializer : System.IO.Stream -> seq<'T>, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
                     let toCloudSeq (path : string) = CloudSequence.OfCloudFile(path, ?deserializer = deserializer, ?enableCache = enableCache)
@@ -63,7 +63,7 @@ type CloudFlow =
                     let collection = new PersistedCloudFlow<'T>(cseqs)
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                     let collectionFlow = CloudFlow.OfCloudCollection(collection, ?useCache = enableCache, sizeThresholdPerWorker = threshold)
-                    return! collectionFlow.Apply collectorf projection combiner
+                    return! collectionFlow.WithEvaluators collectorf projection combiner
                 }
         }
 
@@ -77,11 +77,11 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, serializer : ISerializer, ?enableCache : bool, ?sizeThresholdPerCore : int64) =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let deserializer (stream : System.IO.Stream) = serializer.SeqDeserialize(stream, leaveOpen = false)
                     let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
-                    return! filesFlow.Apply collectorf projection combiner
+                    return! filesFlow.WithEvaluators collectorf projection combiner
                 }
         }
 
@@ -95,7 +95,7 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let deserializer (stream : System.IO.Stream) =
                         let sr =
@@ -106,7 +106,7 @@ type CloudFlow =
                         deserializer sr
 
                     let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
-                    return! filesFlow.Apply collectorf projection combiner
+                    return! filesFlow.WithEvaluators collectorf projection combiner
                 }
         }
 
@@ -118,9 +118,9 @@ type CloudFlow =
     static member OfCloudFilesByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let flow = CloudFlow.OfCloudFiles (paths, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.Apply collectorf projection combiner
+                return! flow.WithEvaluators collectorf projection combiner
             }
         }
 
@@ -134,11 +134,11 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, ?deserializer : System.IO.Stream -> seq<'T>, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, ?deserializer = deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.Apply collectorf projection combiner
+                return! flow.WithEvaluators collectorf projection combiner
             }
         }
 
@@ -152,11 +152,11 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, serializer : ISerializer, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, serializer = serializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.Apply collectorf projection combiner
+                return! flow.WithEvaluators collectorf projection combiner
             }
         }
 
@@ -170,11 +170,11 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?enableCache = enableCache, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.Apply collectorf projection combiner
+                return! flow.WithEvaluators collectorf projection combiner
             }
         }
 
@@ -186,11 +186,11 @@ type CloudFlow =
     static member OfCloudDirectoryByLine (dirPath : string, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFilesByLine(paths, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.Apply collectorf projection combiner
+                return! flow.WithEvaluators collectorf projection combiner
             }
         }
 
@@ -202,10 +202,10 @@ type CloudFlow =
     static member OfCloudFileByLine (path : string, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! cseq = CloudSequence.FromLineSeparatedTextFile(path, ?encoding = encoding, enableCache = false, force = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
-                return! collectionStream.Apply collectorf projection combiner
+                return! collectionStream.WithEvaluators collectorf projection combiner
             }
         }
 
@@ -235,7 +235,7 @@ module CloudFlow =
     let inline private mapGen  (f : ExecutionContext -> 'T -> 'R) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         { new CloudFlow<'R> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+            member self.WithEvaluators<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
                     let! ctx = Cloud.GetExecutionContext()
@@ -249,7 +249,7 @@ module CloudFlow =
                                 Cts = iterator.Cts }
                         member self.Result = collector.Result  }
                 }
-                flow.Apply collectorf' projection combiner }
+                flow.WithEvaluators collectorf' projection combiner }
 
     /// <summary>Transforms each element of the input CloudFlow.</summary>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
@@ -268,7 +268,7 @@ module CloudFlow =
     let inline private collectGen (f : ExecutionContext -> 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         { new CloudFlow<'R> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.Apply<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+            member self.WithEvaluators<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
                     let! ctx = Cloud.GetExecutionContext()
@@ -286,7 +286,7 @@ module CloudFlow =
                                 Cts = iterator.Cts }
                         member self.Result = collector.Result  }
                 }
-                flow.Apply collectorf' projection combiner }
+                flow.WithEvaluators collectorf' projection combiner }
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements.</summary>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
@@ -305,7 +305,7 @@ module CloudFlow =
     let inline private filterGen (predicate : ExecutionContext -> 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
                     let! ctx = Cloud.GetExecutionContext()
@@ -318,7 +318,7 @@ module CloudFlow =
                                 Cts = iterator.Cts }
                         member self.Result = collector.Result }
                 }
-                flow.Apply collectorf' projection combiner }
+                flow.WithEvaluators collectorf' projection combiner }
 
     /// <summary>Filters the elements of the input CloudFlow.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -344,8 +344,8 @@ module CloudFlow =
         else
             { new CloudFlow<'T> with
                     member self.DegreeOfParallelism = Some degreeOfParallelism
-                    member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
-                        flow.Apply collectorf projection combiner }
+                    member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
+                        flow.WithEvaluators collectorf projection combiner }
 
     // terminal functions
 
@@ -373,7 +373,7 @@ module CloudFlow =
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
             return!
-                flow.Apply
+                flow.WithEvaluators
                    (collectorf cts)
                    (fun x -> local { return x })
                    (fun values -> local {
@@ -447,7 +447,7 @@ module CloudFlow =
                 let combiner' (result : _ []) = local { return Array.concat result }
                 let! totalWorkers = match flow.DegreeOfParallelism with Some n -> local { return n } | None -> Cloud.GetWorkerCount()
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! keyValueArray = flow.Apply (collectorf cts totalWorkers)
+                let! keyValueArray = flow.WithEvaluators (collectorf cts totalWorkers)
                                                   (fun keyValues -> local {
                                                         let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'State>>()
                                                         for (key, value) in keyValues do
@@ -497,16 +497,16 @@ module CloudFlow =
             cloud {
                 let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! keyValueArray = flow.Apply (reducerf cts) (fun keyValues -> PersistedCloudFlow.New(keyValues, cache = false)) combiner'
+                let! keyValueArray = flow.WithEvaluators (reducerf cts) (fun keyValues -> PersistedCloudFlow.New(keyValues, cache = false)) combiner'
                 return keyValueArray
             }
         { new CloudFlow<'Key * 'State> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'Key * 'State, 'S>>) (projection : 'S -> Local<'R>) combiner =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'Key * 'State, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (CloudFlow.OfArray result)
-                    return! (result' :> CloudFlow<_>).Apply collectorf projection combiner
+                    return! (result' :> CloudFlow<_>).WithEvaluators collectorf projection combiner
                 }  }
 
 
@@ -654,7 +654,7 @@ module CloudFlow =
         let sortByComp =
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! results = flow.Apply (collectorf cts) (fun x -> local { return x }) (fun result -> local { match result with [||] -> return List() | _ -> return Array.reduce (fun left right -> left.AddRange(right); left) result })
+                let! results = flow.WithEvaluators (collectorf cts) (fun x -> local { return x }) (fun result -> local { match result with [||] -> return List() | _ -> return Array.reduce (fun left right -> left.AddRange(right); left) result })
                 let result =
                     let count = results |> Seq.sumBy (fun (keys, _) -> keys.Length)
                     let keys = Array.zeroCreate<'Key> count
@@ -675,10 +675,10 @@ module CloudFlow =
             }
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 cloud {
                     let! result = sortByComp
-                    return! (CloudFlow.OfArray result).Apply collectorf projection combiner
+                    return! (CloudFlow.OfArray result).WithEvaluators collectorf projection combiner
                 }
         }
 
@@ -754,7 +754,7 @@ module CloudFlow =
             }
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            return! flow.Apply (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
+            return! flow.WithEvaluators (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
 
 
@@ -819,7 +819,7 @@ module CloudFlow =
             }
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            return! flow.Apply (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
+            return! flow.WithEvaluators (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
         }
 
 
@@ -940,15 +940,15 @@ module CloudFlow =
         let gather =
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! results = flow.Apply (collectorF cts) (local.Return) (fun results -> local { return Array.concat results })
+                let! results = flow.WithEvaluators (collectorF cts) (local.Return) (fun results -> local { return Array.concat results })
                 return results.Take(n).ToArray()
             }
         { new CloudFlow<'T> with
               member __.DegreeOfParallelism = flow.DegreeOfParallelism
-              member __.Apply<'S, 'R>(collectorF: Local<Collector<'T, 'S>>) (projection: 'S -> Local<'R>) combiner =
+              member __.WithEvaluators<'S, 'R>(collectorF: Local<Collector<'T, 'S>>) (projection: 'S -> Local<'R>) combiner =
                   cloud {
                       let! result = gather
-                      return! (CloudFlow.OfArray result).Apply collectorF projection combiner
+                      return! (CloudFlow.OfArray result).WithEvaluators collectorF projection combiner
                   }
         }
 

@@ -26,7 +26,7 @@ type internal CloudCollection =
         let useCache = defaultArg useCache false
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.Apply<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     // TODO: 
                     //   1. take nested partitioning into account
@@ -82,7 +82,7 @@ type internal CloudCollection =
                         }
 
                         let arrayFlow = Array.ToCloudFlow array
-                        return! arrayFlow.Apply collectorf projection combiner
+                        return! arrayFlow.WithEvaluators collectorf projection combiner
 
                     | Some [||] -> return! combiner [||]
                     | Some partitions ->

@@ -50,10 +50,10 @@ type PersistedCloudFlow<'T> internal (partitions : CloudSequence<'T> []) =
 
     interface CloudFlow<'T> with
         member cv.DegreeOfParallelism = None
-        member cv.Apply(collectorf : Local<Collector<'T,'S>>) (projection: 'S -> Local<'R>) (combiner: 'R [] -> Local<'R>): Cloud<'R> = cloud {
+        member cv.WithEvaluators(collectorf : Local<Collector<'T,'S>>) (projection: 'S -> Local<'R>) (combiner: 'R [] -> Local<'R>): Cloud<'R> = cloud {
             // TODO : use ad-hoc implementation with better scheduling
             let flow = CloudCollection.ToCloudFlow(cv, useCache = cv.IsCachingEnabled)
-            return! flow.Apply collectorf projection combiner
+            return! flow.WithEvaluators collectorf projection combiner
         }
 
     interface ICloudDisposable with
@@ -149,5 +149,5 @@ type internal PersistedCloudFlow private () =
                 return vector
             }
 
-            return! flow.Apply (collectorf cts) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
+            return! flow.WithEvaluators (collectorf cts) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
     }

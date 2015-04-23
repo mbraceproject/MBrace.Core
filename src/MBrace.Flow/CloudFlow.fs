@@ -13,8 +13,17 @@ type Collector<'T, 'R> =
     abstract Result : 'R
 
 /// Represents a distributed Stream of values.
-type CloudFlow<'T> = 
-    /// The number of concurrently executing tasks
+type CloudFlow<'T> =
+
+    /// Declared degree of parallelism by the workflow.
     abstract DegreeOfParallelism : int option
-    /// Applies the given collector to the CloudFlow.
-    abstract Apply<'S, 'R> : Local<Collector<'T, 'S>> -> ('S -> Local<'R>) -> ('R []  -> Local<'R>) -> Cloud<'R>
+
+    /// <summary>
+    ///     Creates a cloud workflow that applies CloudFlow to provided evaluation functions.
+    /// </summary>
+    /// <param name="collectorFactory">Local in-memory collector factory.</param>
+    /// <param name="projection">Projection function to intermediate result.</param>
+    /// <param name="combiner">Result combiner.</param>
+    abstract WithEvaluators<'S, 'R> : collectorFactory : Local<Collector<'T, 'S>> -> 
+                                        projection : ('S -> Local<'R>) -> 
+                                        combiner : ('R []  -> Local<'R>) -> Cloud<'R>
