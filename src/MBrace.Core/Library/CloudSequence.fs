@@ -126,22 +126,14 @@ type CloudSequence<'T> =
         }
 
     interface ICloudCollection<'T> with
+        member c.IsKnownCount = Option.isSome c.count
+        member c.IsKnownSize = true
         member c.Count = c.Count
         member c.Size = c.Size
         member c.ToEnumerable() = c.ToEnumerable()
 
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
-    member private c.StructuredFormatDisplay = c.ToString()
-
-/// in-memory CloudCollection of text lines
-[<DataContract>]
-type private StringCollection(lines : string []) =
-    [<DataMember(Name = "Lines")>]
-    let lines = lines
-    interface ICloudCollection<string> with
-        member x.Count: Local<int64> = local { return int64 lines.Length }
-        member x.Size: Local<int64> = local { return int64 lines.Length }
-        member x.ToEnumerable(): Local<seq<string>> = local { return lines :> _ }        
+    member private c.StructuredFormatDisplay = c.ToString()  
 
 /// Partitionable implementation of cloud file line reader
 [<DataContract>]
@@ -168,7 +160,7 @@ type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache 
                 if count < int64 partitionCount then
                     let! lines = cs.ToArray()
                     let liness = Array.splitByPartitionCount partitionCount lines
-                    return liness |> Array.map (fun lines -> new StringCollection(lines) :> _)
+                    return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> _)
                 else
                     return mkRangedSeqs partitionCount
             else

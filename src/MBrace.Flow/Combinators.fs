@@ -42,8 +42,10 @@ type CloudFlow =
     ///     Creates a CloudFlow instance from a finite collection of serializable enumerations.
     /// </summary>
     /// <param name="enumerations">Input enumerations.</param>
-    static member OfSeqs (enumerations : seq<#seq<'T>>) : CloudFlow<'T> =
-        Sequences.OfSeqs enumerations
+    static member OfSeqs (enumerations : seq<#seq<'T>>, ?useCache : bool) : CloudFlow<'T> =
+        let enumerations = enumerations |> Seq.map (fun s -> s :> seq<'T>) |> Seq.toArray
+        let collection = new PartitionedSequenceCollection<'T>(enumerations)
+        CloudCollection.ToCloudFlow(collection, ?useCache = useCache)
 
     /// <summary>
     ///     Constructs a CloudFlow from a collection of CloudFiles using the given deserializer.
