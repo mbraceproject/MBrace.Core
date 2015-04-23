@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Collections.Specialized
 open System.Runtime.Caching
 
+open MBrace.Core.Internals
 open MBrace.Store
 open MBrace.Store.Internals
 
@@ -21,7 +22,7 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
     static member Create(?name, ?physicalMemoryLimitPercentage : int) =
         let name =
             match name with
-            | None -> Guid.NewGuid().ToString()
+            | None -> mkUUID()
             | Some n -> n
 
         let percentage = 

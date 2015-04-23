@@ -10,7 +10,7 @@ type private UntypedRecord = (string * string * Align) list // label * entry * a
 
 and Align = Left | Center | Right
 
-and Field<'Record> =
+and [<NoEquality; NoComparison>] Field<'Record> =
     {
         Label : string
         Align : Align

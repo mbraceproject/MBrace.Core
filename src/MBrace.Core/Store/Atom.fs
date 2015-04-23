@@ -80,6 +80,7 @@ type ICloudAtomProvider =
     abstract DisposeContainer : container:string -> Async<unit>
 
 /// Atom configuration passed to the continuation execution context
+[<NoEquality; NoComparison>]
 type CloudAtomConfiguration =
     {
         /// Atom provider instance

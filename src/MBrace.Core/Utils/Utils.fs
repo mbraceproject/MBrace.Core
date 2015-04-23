@@ -9,6 +9,9 @@ open System.Threading.Tasks
 [<AutoOpen>]
 module Utils =
 
+    /// creates new string identifier
+    let mkUUID () : string = let g = Guid.NewGuid() in g.ToString("N")
+
     type AsyncBuilder with
         member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
         member ab.Bind(t : Task, cont : unit -> Async<'S>) =

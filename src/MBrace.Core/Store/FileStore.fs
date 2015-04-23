@@ -142,6 +142,7 @@ type ICloudStorageEntity =
     abstract Id : string
 
 /// Store configuration passed to the continuation execution context
+[<NoEquality; NoComparison>]
 type CloudFileStoreConfiguration = 
     {
         /// File store.

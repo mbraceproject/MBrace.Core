@@ -57,6 +57,7 @@ type ICloudChannelProvider =
     abstract DisposeContainer : container:string -> Async<unit>
 
 /// Channel configuration passed to the continuation execution context
+[<NoEquality; NoComparison>]
 type CloudChannelConfiguration =
     {
         /// Atom provider instance

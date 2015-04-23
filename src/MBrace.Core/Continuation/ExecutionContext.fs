@@ -6,7 +6,7 @@ open System.Threading
 open MBrace.Core
 
 /// Local, non-distributable continuation execution context.
-[<AutoSerializable(false)>]
+[<AutoSerializable(false) ; NoEquality; NoComparison>]
 type ExecutionContext =
     {
         /// Cloud cancellation token of the current context
@@ -27,7 +27,7 @@ with
         }
 
 /// Distributable continuation context.
-[<AutoSerializable(true)>]
+[<AutoSerializable(true) ; NoEquality; NoComparison>]
 type Continuation<'T> =
     {
         /// Success continuation

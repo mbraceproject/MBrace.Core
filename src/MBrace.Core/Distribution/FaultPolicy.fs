@@ -16,6 +16,7 @@ type FaultException =
 /// Fault recovery policy used in runtime execution;
 /// takes number of attempts and fault exception returning
 /// the recovery action: either fail or retry after given delay.
+[<NoEquality; NoComparison>]
 type FaultPolicy = { Policy : int -> exn -> TimeSpan option }
 with
     /// Makes no attempt at retrying, raising fault exception at the first occurrence.

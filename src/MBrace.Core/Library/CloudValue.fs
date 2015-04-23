@@ -30,7 +30,7 @@ type CloudValue<'T> =
         { uuid = uuid ; path = path ; deserializer = deserializer ; isCacheEnabled = enableCache }
 
     internal new (path, deserializer, ?enableCache) =
-        let uuid = Guid.NewGuid().ToString()
+        let uuid = mkUUID()
         let enableCache = defaultArg enableCache true
         { uuid = uuid ; path = path ; deserializer = deserializer ; isCacheEnabled = enableCache }
 

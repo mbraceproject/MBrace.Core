@@ -67,7 +67,7 @@
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Streams\MBrace.Flow.fsproj">
+    <ProjectReference Include="..\..\src\MBrace.Flow\MBrace.Flow.fsproj">
       <Name>MBrace.Flow</Name>
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
       <Private>True</Private>

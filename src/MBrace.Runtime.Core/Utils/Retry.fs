@@ -3,6 +3,7 @@ module MBrace.Runtime.Utils.Retry
 
 open System
 
+[<NoEquality; NoComparison>]
 type RetryPolicy = Policy of (int -> exn -> TimeSpan option)
 
 /// retries given action based on policy

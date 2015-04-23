@@ -39,6 +39,7 @@ with
         | _ -> None
 
 /// Reflected method/property information.
+[<NoEquality; NoComparison>]
 type FunctionInfo = 
     {
         /// Source metadata.

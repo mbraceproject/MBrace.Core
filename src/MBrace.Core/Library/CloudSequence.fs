@@ -33,7 +33,7 @@ type CloudSequence<'T> =
     val mutable private enableCache : bool
 
     internal new (path, count, deserializer, ?enableCache) = 
-        let uuid = Guid.NewGuid().ToString()
+        let uuid = mkUUID()
         let enableCache = defaultArg enableCache false
         { uuid = uuid ; path = path ; count = count ; deserializer = deserializer ; enableCache = enableCache }
 

@@ -5,6 +5,7 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
+open MBrace.Core.Internals
 open MBrace.Store
 open MBrace.Store.Internals
 open MBrace.Runtime
@@ -75,7 +76,7 @@ type FileSystemStore private (rootPath : string) =
         member __.Combine(paths : string []) = Path.Combine paths
         member __.GetRootDirectory () = rootPath
         member __.TryGetFullPath (path : string) = try normalize path |> Some with _ -> None
-        member __.GetRandomDirectoryName () = Path.Combine(rootPath, Guid.NewGuid().ToString("N"))
+        member __.GetRandomDirectoryName () = Path.Combine(rootPath, mkUUID())
 
         member __.GetFileSize(path : string) = async {
             return let fI = new FileInfo(normalize path) in fI.Length

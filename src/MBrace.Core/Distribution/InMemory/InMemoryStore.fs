@@ -5,12 +5,13 @@ open System.Collections.Generic
 open System.Threading
 
 open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
 open MBrace.Store.Internals
 
 [<AutoSerializable(false)>]
 type private InMemoryAtom<'T> (initial : 'T) =
-    let id = Guid.NewGuid().ToString("N")
+    let id = mkUUID()
     let container = ref (Some initial)
 
     let rec swap (f : 'T -> 'T) = 
@@ -35,7 +36,7 @@ type private InMemoryAtom<'T> (initial : 'T) =
 
 [<Sealed; AutoSerializable(false)>]
 type InMemoryAtomProvider () =
-    let id = Guid.NewGuid().ToString("N")
+    let id = mkUUID()
 
     static member CreateConfiguration () : CloudAtomConfiguration =
         {
@@ -46,7 +47,7 @@ type InMemoryAtomProvider () =
     interface ICloudAtomProvider with
         member __.Name = "InMemoryAtomProvider"
         member __.Id = id
-        member __.CreateUniqueContainerName () = Guid.NewGuid().ToString("N")
+        member __.CreateUniqueContainerName () = mkUUID()
         member __.IsSupportedValue _ = true
         member __.CreateAtom<'T>(_, init : 'T) = async { return new InMemoryAtom<'T>(init) :> _ }
         member __.DisposeContainer _ = raise <| new NotImplementedException()
@@ -54,7 +55,7 @@ type InMemoryAtomProvider () =
 /// Defines an in-memory channel factory using mailbox processor
 [<Sealed; AutoSerializable(false)>]
 type InMemoryChannelProvider () =
-    let id = Guid.NewGuid().ToString("N")
+    let id = mkUUID()
 
     static member CreateConfiguration () : CloudChannelConfiguration =
         {
@@ -65,10 +66,10 @@ type InMemoryChannelProvider () =
     interface ICloudChannelProvider with
         member __.Name = "InMemoryChannelProvider"
         member __.Id = id
-        member __.CreateUniqueContainerName () = Guid.NewGuid().ToString("N")
+        member __.CreateUniqueContainerName () = mkUUID()
 
         member __.CreateChannel<'T> (container : string) = async {
-            let id = sprintf "%s/%s" container <| Guid.NewGuid().ToString()
+            let id = sprintf "%s/%s" container <| mkUUID()
             let mbox = Microsoft.FSharp.Control.MailboxProcessor<'T>.Start(fun _ -> async.Zero())
             let sender =
                 {
@@ -96,7 +97,7 @@ type InMemoryDictionaryProvider() =
     interface ICloudDictionaryProvider with
         member s.IsSupportedValue _ = true
         member s.Create<'T> () = async {
-            let id = Guid.NewGuid().ToString()
+            let id = mkUUID()
             let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
             return {
                 new ICloudDictionary<'T> with
