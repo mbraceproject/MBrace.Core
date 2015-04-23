@@ -331,6 +331,15 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         fileStore'.Id |> shouldEqual fileStore.Id
         fileStore'.Name |> shouldEqual fileStore.Name
 
+        // check that the cloned instance accesses the same store
+        let file = fileStore.GetRandomFilePath testDirectory
+        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+
+        fileStore'.FileExists file |> runSync |> shouldEqual true
+        fileStore'.DeleteFile file |> runSync
+
+        fileStore.FileExists file |> runSync |> shouldEqual false
+
     [<Test>]
     member __.``1. FileStore : Create and delete directory.`` () =
         let dir = fileStore.GetRandomDirectoryName()

@@ -73,6 +73,12 @@ module Atom =
     let force (atom : Atom<'T>) t = atom.Force t
 
 
+[<NoEquality; NoComparison>]
+type private CacheState<'T> =
+    | Undefined
+    | Error of exn * DateTime * 'T option // last successful state
+    | Success of 'T * DateTime
+
 /// thread safe cache with expiry semantics
 [<AutoSerializable(false)>]
 type CacheAtom<'T> internal (provider : 'T option -> 'T, interval : TimeSpan, initial : 'T option) =
@@ -122,13 +128,8 @@ type CacheAtom<'T> internal (provider : 'T option -> 'T, interval : TimeSpan, in
         | Choice1Of2 v -> v
         | Choice2Of2 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
 
-and private CacheState<'T> =
-    | Undefined
-    | Error of exn * DateTime * 'T option // last successful state
-    | Success of 'T * DateTime
-
 /// thread safe cache with expiry semantics
-and CacheAtom =
+type CacheAtom =
 
     /// <summary>
     ///     Creates a new CacheAtom instance.
