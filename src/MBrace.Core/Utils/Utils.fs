@@ -96,7 +96,7 @@ module Utils =
             else
 
             let length = upper - lower
-            if length = 0L then [| for w in weights -> None |] 
+            if length = 0L then [| for _ in weights -> None |] 
             else
 
             // compute weighted chunk sizes
@@ -165,7 +165,7 @@ module Utils =
                 let timerCallBack _ = tcs.TrySetException(new TimeoutException() :> exn) |> ignore
 
                 let _ = t.ContinueWith(onCompletion, TaskContinuationOptions.None)
-                let timer = new Timer(timerCallBack, null, timeoutMilliseconds, Timeout.Infinite)
+                let _ = new Timer(timerCallBack, null, timeoutMilliseconds, Timeout.Infinite)
                 tcs.Task
 
         /// <summary>
@@ -183,7 +183,7 @@ module Utils =
 
             if timeoutMilliseconds <> Timeout.Infinite then
                 let timerCallBack _ = tcs.TrySetResult None |> ignore
-                let timer = new Timer(timerCallBack, null, timeoutMilliseconds, Timeout.Infinite)
+                let _ = new Timer(timerCallBack, null, timeoutMilliseconds, Timeout.Infinite)
                 ()
 
             tcs.Task

@@ -89,13 +89,13 @@ type internal CloudCollection =
                         // have partitions, schedule according to number of partitions.
                         let createTask (partitions : ICloudCollection<'T> []) = local {
                             // further partition according to collection size threshold, if so specified.
-                            let! partitionss =
+                            let! partitionSlices =
                                 match sizeThresholdPerWorker with
                                 | None -> local { return [| partitions |] }
                                 | Some f -> partitions |> Partition.partitionBySize (fun p -> p.Size) (f ())
 
                             // compute a single partition
-                            let computePartition (partition : ICloudCollection<'T> []) = local {
+                            let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
                                 let getSeq (p : ICloudCollection<'T>) = local {
                                     let! cached = tryGetCachedContents p
                                     match cached with
@@ -104,14 +104,14 @@ type internal CloudCollection =
                                 }
 
                                 let! collector = collectorf
-                                let! seqs = Sequential.map getSeq partitions
+                                let! seqs = Sequential.map getSeq slice
                                 let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
                                 let value = pStream.Apply (collector.ToParStreamCollector())
                                 return! projection value
                             }
 
                             // sequentially compute partitions
-                            let! results = Sequential.map computePartition partitionss
+                            let! results = Sequential.map computePartitionSlice partitionSlices
                             return! combiner results
                         }
                         

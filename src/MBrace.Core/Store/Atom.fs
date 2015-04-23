@@ -154,7 +154,7 @@ type CloudAtom =
     /// <param name="transactF">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     static member Transact (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Local<'R> = local {
-        return! atom.Transact transactF
+        return! atom.Transact(transactF, ?maxRetries = maxRetries)
     }
 
     /// <summary>

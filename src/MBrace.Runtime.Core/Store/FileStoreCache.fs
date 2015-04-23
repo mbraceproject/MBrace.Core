@@ -66,7 +66,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
                     if sourceExists then
                         if cacheExists then
                             try return! localCacheStore.BeginRead cachedFileName
-                            with e when retries > 0 ->
+                            with _ when retries > 0 ->
                                 // retry in case of concurrent cache writes
                                 return! attemptRead (retries - 1)
                         else
@@ -77,7 +77,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
                                 let _ = cacheEvent.TriggerAsTask path
 
                                 return! localCacheStore.BeginRead cachedFileName
-                            with e when retries > 0 ->
+                            with _ when retries > 0 ->
                                 // retry in case of concurrent cache writes
                                 return! attemptRead (retries - 1)
                     else

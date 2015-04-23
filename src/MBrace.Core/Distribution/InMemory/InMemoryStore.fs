@@ -29,7 +29,7 @@ type private InMemoryAtom<'T> (initial : 'T) =
     interface ICloudAtom<'T> with
         member __.Id = id
         member __.Value = local { return Option.get container.Value }
-        member __.Update(updater, ?maxRetries) = local { return swap updater }
+        member __.Update(updater, _) = local { return swap updater }
         member __.Force(value) = local { return force value }
         member __.Dispose () = local { return container := None }
 
