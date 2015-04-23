@@ -391,6 +391,19 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : averageBy`` () =
+        let f(xs : int[]) =
+            if Array.isEmpty xs then
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.averageBy (float) |> run in false
+                with :? System.ArgumentException -> true
+            else
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.averageBy (float) |> run
+                let y = xs |> Seq.averageBy (float)
+                x = y
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : take`` () =
         let f (xs : int[], n : int) =
             let n = System.Math.Abs(n)
