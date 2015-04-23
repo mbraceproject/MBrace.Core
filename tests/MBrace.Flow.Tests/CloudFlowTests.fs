@@ -177,6 +177,20 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
     [<Test>]
+    member __.``2. CloudFlow : ofCloudFiles with small threshold`` () =
+        let file = CloudFile.WriteAllText("Lorem ipsum dolor sit amet") |> runLocally
+        let f (size : int) =
+            let size = abs size % 200
+            let repeatedPaths = Array.init size (fun _ -> file.Path)
+            let length =
+                CloudFlow.OfCloudFiles(repeatedPaths, (fun (stream : System.IO.Stream) -> seq { yield stream.Length }), sizeThresholdPerCore = 1L)
+                |> CloudFlow.length
+                |> run
+
+            Assert.AreEqual(int64 size, length)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+
+    [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
