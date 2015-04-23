@@ -387,3 +387,15 @@ type CloudFlowExtensions() =
     [<System.Runtime.CompilerServices.Extension>]
     static member inline reduce (this : CloudFlow<'T>, reducer : 'T -> 'T -> 'T) : Cloud<'T> =
         CloudFlow.reduce reducer this
+
+    /// <summary>Computes the average of the projections given by the supplied function on the input flow.</summary>
+    /// <param name="this">The input flow.</param>
+    /// <param name="projection">A function to transform items of the input flow into a projection.</param>
+    /// <returns>The computed average.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline averageBy (this : CloudFlow<'T>, projection : 'T -> ^U) : Cloud< ^U >
+            when ^U : (static member (+) : ^U * ^U -> ^U)
+            and  ^U : (static member DivideByInt : ^U * int -> ^U)
+            and  ^U : (static member Zero : ^U) =
+        CloudFlow.averageBy projection this
