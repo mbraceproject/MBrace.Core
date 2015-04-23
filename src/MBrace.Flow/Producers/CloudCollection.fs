@@ -14,7 +14,30 @@ open MBrace.Flow.Internals
 
 #nowarn "444"
 
-type internal CloudCollection =
+type internal CloudCollection private () =
+
+    static let rec extractPartitions (c : ICloudCollection<'T>) = local {
+        match c with
+        | :? IPartitionedCollection<'T> as c ->
+            let! partitions = c.GetPartitions()
+            let! extracted = partitions |> Sequential.map extractPartitions
+            return Seq.concat extracted
+        | c -> return Seq.singleton c
+    }
+
+    static let (|Partitionable|_|) (collections : ICloudCollection<'T> []) =
+        let partitionables = collections |> Array.choose (function :? IPartitionableCollection<'T> as pc -> Some pc | _ -> None)
+        if partitionables.Length = collections.Length then Some partitionables
+        else None
+
+    static let computeSizes (collections : ICloudCollection<'T> []) = local {
+        let isSizeKnown = collections |> Array.forall (fun p -> p.IsKnownSize)
+        if isSizeKnown then
+            let! sizes = collections |> Sequential.map (fun p -> p.Size)
+            return Some sizes
+        else
+            return None
+    }
 
     /// <summary>
     ///     Creates a CloudFlow according to partitions of provided cloud collection.
@@ -42,93 +65,101 @@ type internal CloudCollection =
                         | None -> workers
                         | Some dp -> [| for i in 0 .. dp - 1 -> workers.[i % workers.Length] |]
 
-                    // detect partitions for collection, if any
+                    let! partitions = extractPartitions collection |> Cloud.map Seq.toArray
+                    let! sizes = computeSizes partitions
+
                     let! partitions = local {
-                        match collection with
-                        | :? IPartitionedCollection<'T> as pcc -> let! partitions = pcc.GetPartitions() in return Some partitions
-                        | :? IPartitionableCollection<'T> as pcc ->
-                            // got a collection that can be partitioned dynamically;
-                            // partition according core counts per worker
-                            let partitionCount = workers |> Array.map (fun w -> w.ProcessorCount) |> Array.gcdNormalize |> Array.sum
-                            let! partitions = pcc.GetPartitions partitionCount 
-                            return Some partitions
+                        match partitions, sizes with
+                        | Partitionable partitionables, Some sizes ->
+                            let totalSize = Array.sum sizes
 
-                        | _ -> return None
-                    }
-
-                    // use caching, if supported by collection
-                    let tryGetCachedContents (collection : ICloudCollection<'T>) = local {
-                        match box collection with
-                        | :? ICloudCacheable<'T []> as cc -> 
-                            if useCache then 
-                                let! result = CloudCache.GetCachedValue(cc, cacheIfNotExists = true)
-                                return Some result
-                            else 
-                                return! CloudCache.TryGetCachedValue cc
-
-                        | _ -> return None
-                    }
-
-                    match partitions with
-                    | None ->
-                        // no partition scheme, materialize collection in-memory and offload to CloudFlow.ofArray
-                        let! cached = tryGetCachedContents collection
-                        let! array = local {
-                            match cached with
-                            | Some c -> return c
-                            | None ->
-                                let! enum = collection.ToEnumerable()
-                                return Seq.toArray enum
-                        }
-
-                        let arrayFlow = Array.ToCloudFlow array
-                        return! arrayFlow.WithEvaluators collectorf projection combiner
-
-                    | Some [||] -> return! combiner [||]
-                    | Some partitions ->
-                        // have partitions, schedule according to number of partitions.
-                        let createTask (partitions : ICloudCollection<'T> []) = local {
-                            // further partition according to collection size threshold, if so specified.
-                            let! partitionSlices =
-                                match sizeThresholdPerWorker with
-                                | None -> local { return [| partitions |] }
-                                | Some f -> partitions |> Partition.partitionBySize (fun p -> p.Size) (f ())
-
-                            // compute a single partition
-                            let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
-                                let getSeq (p : ICloudCollection<'T>) = local {
-                                    let! cached = tryGetCachedContents p
-                                    match cached with
-                                    | Some c -> return c :> seq<'T>
-                                    | None -> return! p.ToEnumerable()
-                                }
-
-                                let! collector = collectorf
-                                let! seqs = Sequential.map getSeq slice
-                                let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
-                                let value = pStream.Apply (collector.ToParStreamCollector())
-                                return! projection value
-                            }
-
-                            // sequentially compute partitions
-                            let! results = Sequential.map computePartitionSlice partitionSlices
-                            return! combiner results
-                        }
-                        
-                        let! results =
-                            if targetedworkerSupport then
-                                partitions
-                                |> WorkerRef.partitionWeighted (fun w -> w.ProcessorCount) workers
-                                |> Seq.filter (not << Array.isEmpty << snd)
-                                |> Seq.map (fun (w,partitions) -> createTask partitions, w)
-                                |> Cloud.Parallel
-                            else
-                                partitions
-                                |> WorkerRef.partition workers
-                                |> Seq.filter (not << Array.isEmpty << snd)
-                                |> Seq.map (createTask << snd)
-                                |> Cloud.Parallel
-
-                        return! combiner results
-                }
-        }
+//                    // detect partitions for collection, if any
+//                    let! partitions = local {
+//                        match collection with
+//                        | :? IPartitionedCollection<'T> as pcc -> let! partitions = pcc.GetPartitions() in return Some partitions
+//                        | :? IPartitionableCollection<'T> as pcc ->
+//                            // got a collection that can be partitioned dynamically;
+//                            // partition according core counts per worker
+//                            let partitionCount = workers |> Array.map (fun w -> w.ProcessorCount) |> Array.gcdNormalize |> Array.sum
+//                            let! partitions = pcc.GetPartitions partitionCount 
+//                            return Some partitions
+//
+//                        | _ -> return None
+//                    }
+//
+//                    // use caching, if supported by collection
+//                    let tryGetCachedContents (collection : ICloudCollection<'T>) = local {
+//                        match box collection with
+//                        | :? ICloudCacheable<'T []> as cc -> 
+//                            if useCache then 
+//                                let! result = CloudCache.GetCachedValue(cc, cacheIfNotExists = true)
+//                                return Some result
+//                            else 
+//                                return! CloudCache.TryGetCachedValue cc
+//
+//                        | _ -> return None
+//                    }
+//
+//                    match partitions with
+//                    | None ->
+//                        // no partition scheme, materialize collection in-memory and offload to CloudFlow.ofArray
+//                        let! cached = tryGetCachedContents collection
+//                        let! array = local {
+//                            match cached with
+//                            | Some c -> return c
+//                            | None ->
+//                                let! enum = collection.ToEnumerable()
+//                                return Seq.toArray enum
+//                        }
+//
+//                        let arrayFlow = Array.ToCloudFlow array
+//                        return! arrayFlow.WithEvaluators collectorf projection combiner
+//
+//                    | Some [||] -> return! combiner [||]
+//                    | Some partitions ->
+//                        // have partitions, schedule according to number of partitions.
+//                        let createTask (partitions : ICloudCollection<'T> []) = local {
+//                            // further partition according to collection size threshold, if so specified.
+//                            let! partitionSlices =
+//                                match sizeThresholdPerWorker with
+//                                | None -> local { return [| partitions |] }
+//                                | Some f -> partitions |> Partition.partitionBySize (fun p -> p.Size) (f ())
+//
+//                            // compute a single partition
+//                            let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
+//                                let getSeq (p : ICloudCollection<'T>) = local {
+//                                    let! cached = tryGetCachedContents p
+//                                    match cached with
+//                                    | Some c -> return c :> seq<'T>
+//                                    | None -> return! p.ToEnumerable()
+//                                }
+//
+//                                let! collector = collectorf
+//                                let! seqs = Sequential.map getSeq slice
+//                                let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
+//                                let value = pStream.Apply (collector.ToParStreamCollector())
+//                                return! projection value
+//                            }
+//
+//                            // sequentially compute partitions
+//                            let! results = Sequential.map computePartitionSlice partitionSlices
+//                            return! combiner results
+//                        }
+//                        
+//                        let! results =
+//                            if targetedworkerSupport then
+//                                partitions
+//                                |> WorkerRef.partitionWeighted (fun w -> w.ProcessorCount) workers
+//                                |> Seq.filter (not << Array.isEmpty << snd)
+//                                |> Seq.map (fun (w,partitions) -> createTask partitions, w)
+//                                |> Cloud.Parallel
+//                            else
+//                                partitions
+//                                |> WorkerRef.partition workers
+//                                |> Seq.filter (not << Array.isEmpty << snd)
+//                                |> Seq.map (createTask << snd)
+//                                |> Cloud.Parallel
+//
+//                        return! combiner results
+//                }
+//        }
