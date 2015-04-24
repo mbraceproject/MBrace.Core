@@ -399,3 +399,13 @@ type CloudFlowExtensions() =
             and  ^U : (static member DivideByInt : ^U * int -> ^U)
             and  ^U : (static member Zero : ^U) =
         CloudFlow.averageBy projection this
+
+    /// <summary>Computes the average of the elements in the input flow.</summary>
+    /// <param name="this">The input flow.</param>
+    /// <returns>The computed average.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    static member inline average (source : CloudFlow< ^T >) : Cloud< ^T >
+            when ^T : (static member (+) : ^T * ^T -> ^T)
+            and  ^T : (static member DivideByInt : ^T * int -> ^T)
+            and  ^T : (static member Zero : ^T) =
+        CloudFlow.averageBy id source

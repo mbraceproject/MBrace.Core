@@ -1084,3 +1084,13 @@ module CloudFlow =
             if !c = 0 then return! Cloud.Raise (new System.ArgumentException("The input flow was empty.", "source"))
             else return LanguagePrimitives.DivideByInt !y !c
         }
+
+    /// <summary>Computes the average of the elements in the input flow.</summary>
+    /// <param name="source">The input flow.</param>
+    /// <returns>The computed average.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline average (source : CloudFlow< ^T >) : Cloud< ^T >
+        when ^T : (static member (+) : ^T * ^T -> ^T)
+        and  ^T : (static member DivideByInt : ^T * int -> ^T)
+        and  ^T : (static member Zero : ^T) =
+        averageBy id source
