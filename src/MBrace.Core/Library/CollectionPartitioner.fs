@@ -29,7 +29,7 @@ type CloudCollection private () =
 
     static member ExtractPartitions (collection : ICloudCollection<'T>) : Local<ICloudCollection<'T> []> = CloudCollection.ExtractPartitions([|collection|])
 
-    static member PartitionBySize (workers : IWorkerRef [],  isTargetedWorkerEnabled : bool, collections : ICloudCollection<'T> []) = local {
+    static member PartitionBySize (workers : IWorkerRef [], isTargetedWorkerEnabled : bool, collections : ICloudCollection<'T> []) = local {
         let isSizeKnown = collections |> Array.forall (fun c -> c.IsKnownSize)
         if not isSizeKnown then
             if isTargetedWorkerEnabled then

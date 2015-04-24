@@ -94,7 +94,7 @@ module Utils =
         /// <param name="lower">Lower bound of range.</param>
         /// <param name="upper">Upper bound of range.</param>
         let splitWeightedRange (weights : int []) (lower : int64) (upper : int64) : (int64 * int64) option [] =
-            if lower > upper then raise <| new ArgumentOutOfRangeException()
+            if lower > upper then Array.init weights.Length (fun _ -> None)
             elif weights.Length = 0 then invalidArg "weights" "must be non-empty array."
             else
 
