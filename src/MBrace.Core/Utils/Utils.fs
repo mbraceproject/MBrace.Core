@@ -143,6 +143,21 @@ module Utils =
                 |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])
 
 
+        /// computes the gcd for a collection of integers
+        let inline gcd (inputs : 't []) : 't =
+            let rec gcd m n =
+                if n > m then gcd n m
+                elif n = LanguagePrimitives.GenericZero then m
+                else gcd n (m % n)
+
+            Array.fold gcd LanguagePrimitives.GenericZero inputs
+
+        /// normalize a collection of inputs w.r.t. gcd
+        let inline gcdNormalize (inputs : 't []) : 't [] =
+            let gcd = gcd inputs
+            inputs |> Array.map (fun i -> i / gcd)
+
+
     module Seq =
         let fromEnumerator (enum : unit -> IEnumerator<'T>) =
             { new IEnumerable<'T> with

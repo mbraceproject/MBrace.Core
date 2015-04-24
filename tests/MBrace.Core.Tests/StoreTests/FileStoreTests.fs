@@ -168,7 +168,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
         let testPartitioning partitionCount =
             cloud {
-                let! partitions = cseq.GetPartitions partitionCount
+                let! partitions = cseq.GetPartitions (Array.init partitionCount (fun _ -> 4))
                 let! lines' = partitions |> DivideAndConquer.collect (fun e -> e.ToEnumerable())
                 lines'.Length |> shouldEqual 1000
                 lines' |> Array.iteri check 
