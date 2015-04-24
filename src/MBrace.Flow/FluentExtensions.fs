@@ -418,7 +418,7 @@ type CloudFlowExtensions() =
     /// <remarks>
     ///     Note: This combinator may be very expensive; for example if the group sizes are expected to be large.
     ///     If you intend to perform an aggregate operation, such as sum or average,
-    ////    you are advised to use CloudFlow.sumBy or CloudFlow.averageBy respectively, for much better performance.
+    ///     you are advised to use CloudFlow.foldBy or CloudFlow.countBy, for much better performance.
     /// </remarks>
     [<System.Runtime.CompilerServices.Extension>]
     static member inline groupBy (source : CloudFlow<'T>, projection : 'T -> 'Key) : CloudFlow<'Key * seq<'T>> =
