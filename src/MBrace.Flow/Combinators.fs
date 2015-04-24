@@ -1112,3 +1112,49 @@ module CloudFlow =
                (fun () -> new ResizeArray<'T>())
                source
         |> map (fun (k, xs) -> k, xs :> seq<_>)
+
+
+    /// <summary>Returns a flow that contains no duplicate entries according to the generic hash and equality comparisons on the keys returned by the given key-generating function. If an element occurs multiple times in the flow then only one is retained.</summary>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>A flow of elements distinct on their keys.</returns>
+    let inline distinctBy (projection : 'T -> 'Key) (source : CloudFlow<'T>) : CloudFlow<'T> =
+        let collectorF (cloudCts : ICloudCancellationTokenSource) =
+            local {
+                let dict = new ConcurrentDictionary<'Key, 'T>()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
+                return
+                    { new Collector<'T, KeyValuePair<'Key, 'T> []> with
+                      member __.DegreeOfParallelism = source.DegreeOfParallelism
+                      member __.Iterator() =
+                          { Index = ref -1;
+                            Func = (fun v -> let k = projection v in dict.TryAdd(k, v) |> ignore);
+                            Cts = cts }
+                      member __.Result = dict.ToArray()
+                    }
+            }
+
+        let distinctMerge =
+            cloud {
+                let! cts = Cloud.CreateCancellationTokenSource()
+                let! kvs = source.WithEvaluators (collectorF cts)
+                                                 (local.Return)
+                                                 (fun rs -> local { return Array.concat rs })
+
+                let merged =
+                    kvs
+                    |> Seq.distinctBy (fun kv -> kv.Key)
+                    |> Seq.map (fun kv -> kv.Value)
+                    |> Seq.toArray
+
+                return merged
+            }
+
+        { new CloudFlow<'T> with
+            member __.DegreeOfParallelism = source.DegreeOfParallelism
+            member __.WithEvaluators<'S, 'R> (collectorF : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
+                cloud {
+                    let! result = distinctMerge
+                    return! (CloudFlow.OfArray result).WithEvaluators collectorF projection combiner
+                }
+        }
