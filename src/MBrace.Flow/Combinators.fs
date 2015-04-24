@@ -1089,7 +1089,7 @@ module CloudFlow =
     /// <param name="source">The input flow.</param>
     /// <returns>The computed average.</returns>
     /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
-    let inline average (source : CloudFlow< ^T >) : ^T
+    let inline average (source : CloudFlow< ^T >) : Cloud< ^T >
         when ^T : (static member (+) : ^T * ^T -> ^T)
         and  ^T : (static member DivideByInt : ^T * int -> ^T)
         and  ^T : (static member Zero : ^T) =

@@ -404,7 +404,7 @@ type CloudFlowExtensions() =
     /// <param name="this">The input flow.</param>
     /// <returns>The computed average.</returns>
     /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
-    static member inline average (source : ParStream< ^T >) : ^T
+    static member inline average (source : CloudFlow< ^T >) : Cloud< ^T >
             when ^T : (static member (+) : ^T * ^T -> ^T)
             and  ^T : (static member DivideByInt : ^T * int -> ^T)
             and  ^T : (static member Zero : ^T) =
