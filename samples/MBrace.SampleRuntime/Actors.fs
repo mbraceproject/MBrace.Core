@@ -512,6 +512,9 @@ type CloudDictionary<'T> private (id : string, source : ActorRef<CloudDictionary
         
         member x.ContainsKey(key: string): Local<bool> = 
             source <!- fun ch -> ContainsKey(key, ch)
+
+        member x.IsKnownSize = true
+        member x.IsKnownCount = true
         
         member x.Count: Local<int64> = 
             source <!- GetCount

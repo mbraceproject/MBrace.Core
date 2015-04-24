@@ -42,6 +42,8 @@ type PersistedCloudFlow<'T> internal (partitions : CloudSequence<'T> []) =
     member __.ToEnumerable() = local { let! seqs = partitions |> Sequential.map (fun p -> p.ToEnumerable()) in return Seq.concat seqs }
 
     interface IPartitionedCollection<'T> with
+        member cv.IsKnownSize = true
+        member cv.IsKnownCount = true
         member cv.Size: Local<int64> = cv.Size
         member cv.Count: Local<int64> = cv.Count
         member cv.GetPartitions(): Local<ICloudCollection<'T> []> = local { return partitions |> Array.map (fun p -> p :> _) }

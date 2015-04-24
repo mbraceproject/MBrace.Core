@@ -112,6 +112,9 @@ type InMemoryDictionaryProvider() =
                     
                     member x.ContainsKey(key: string): Local<bool> = 
                         local { return dict.ContainsKey key }
+
+                    member x.IsKnownCount = true
+                    member x.IsKnownSize = true
                     
                     member x.Count: Local<int64> = 
                         local { return int64 dict.Count }
