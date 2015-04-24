@@ -401,11 +401,25 @@ type CloudFlowExtensions() =
         CloudFlow.averageBy projection this
 
     /// <summary>Computes the average of the elements in the input flow.</summary>
-    /// <param name="this">The input flow.</param>
+    /// <param name="source">The input flow.</param>
     /// <returns>The computed average.</returns>
     /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    [<System.Runtime.CompilerServices.Extension>]
     static member inline average (source : CloudFlow< ^T >) : Cloud< ^T >
             when ^T : (static member (+) : ^T * ^T -> ^T)
             and  ^T : (static member DivideByInt : ^T * int -> ^T)
             and  ^T : (static member Zero : ^T) =
         CloudFlow.averageBy id source
+
+    /// <summary>Applies a key-generating function to each element of the input flow and yields a flow of unique keys and a sequence of all elements that have each key.</summary>
+    /// <param name="source">The input flow.</param>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <returns>A flow of tuples where each tuple contains the unique key and a sequence of all the elements that match the key.</returns>
+    /// <remarks>
+    ///     Note: This combinator may be very expensive; for example if the group sizes are expected to be large.
+    ///     If you intend to perform an aggregate operation, such as sum or average,
+    ////    you are advised to use CloudFlow.sumBy or CloudFlow.averageBy respectively, for much better performance.
+    /// </remarks>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline groupBy (source : CloudFlow<'T>, projection : 'T -> 'Key) : CloudFlow<'Key * seq<'T>> =
+        CloudFlow.groupBy projection source
