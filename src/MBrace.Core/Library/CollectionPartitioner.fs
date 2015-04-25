@@ -42,7 +42,7 @@ type CloudCollection private () =
         let totalSize = Array.sum sizes
         let coreCount = workers |> Array.sumBy (fun w -> if isTargetedWorkerEnabled then w.ProcessorCount else 1)
         let sizePerCore = totalSize / int64 coreCount
-        let sizesPerWorker = [| for w in workers -> if isTargetedWorkerEnabled then sizePerCore else int64 w.ProcessorCount * sizePerCore |]
+        let sizesPerWorker = [| for w in workers -> if isTargetedWorkerEnabled then int64 w.ProcessorCount * sizePerCore else sizePerCore |]
 
         let rec aux acc accWorker (accWorkerSize : int64) (workerIndex : int) (collectionSlices : (int * int64) list) (collectionIndex : int) = local {
             let mkPartition i (collected : ICloudCollection<'T> list) = workers.[i], collected |> List.rev |> List.toArray
@@ -50,8 +50,12 @@ type CloudCollection private () =
                 match accWorker with
                 | [] -> return acc |> List.rev |> List.toArray
                 | _ -> return mkPartition workerIndex accWorker :: acc |> List.rev |> List.toArray
+
+            elif workerIndex = workers.Length - 1 then
+                let remainingPartitions = collections.[collectionIndex ..] |> Array.toList |> List.rev
+                return! aux acc (remainingPartitions @ accWorker) 0L workerIndex [] collections.Length
             else
-                match [], collections.[collectionIndex] with
+                match collectionSlices, collections.[collectionIndex] with
                 | [], collection when accWorkerSize + sizes.[collectionIndex] <= sizesPerWorker.[workerIndex] ->
                     return! aux acc (collection :: accWorker) (accWorkerSize + sizes.[collectionIndex]) workerIndex [] (collectionIndex + 1)
 
@@ -80,9 +84,6 @@ type CloudCollection private () =
                     if (sizesPerWorker.[workerIndex] - accWorkerSize) * 2L > sizes.[collectionIndex] then
                         let partitions = mkPartition workerIndex (collection :: accWorker)
                         return! aux (partitions :: acc) [] 0L (workerIndex + 1) [] (collectionIndex + 1)
-                    elif workerIndex = workers.Length - 1 then
-                        let remainingPartitions = collections.[collectionIndex ..] |> Array.toList |> List.rev
-                        return! aux acc (remainingPartitions @ accWorker) 0L workerIndex [] collections.Length
                     else
                         let partitions = mkPartition workerIndex accWorker
                         return! aux (partitions :: acc) [] 0L (workerIndex + 1)  [] collectionIndex

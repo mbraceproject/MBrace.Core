@@ -113,7 +113,3 @@ module ``Collection Partitioning Tests`` =
             partitionss |> Array.collect snd |> shouldEqual partitions
 
         Check.QuickThrowOnFail(tester)
-
-    let isTargeted = true
-    let sizes = [|8u; 8u; 16u; 8u|]
-    let workers = 1us
