@@ -47,23 +47,23 @@ module ``Collection Partitioning Tests`` =
     type RangeCollection(lower : int64, upper : int64, discloseSize : bool) =
         static member Empty(discloseSize) = new RangeCollection(0L, -1L, discloseSize)
         interface ICloudCollection<int64> with
-            member x.Count: Local<int64> = local { return upper - lower }
+            member x.Count: Local<int64> = local { return max 0L (upper - lower) }
             member x.IsKnownCount: bool = discloseSize
             member x.IsKnownSize: bool = discloseSize
-            member x.Size: Local<int64> = local { return upper - lower }
+            member x.Size: Local<int64> = local { return max 0L (upper - lower) }
             member x.ToEnumerable(): Local<seq<int64>> = local { return seq { lower .. upper - 1L } }
 
         override x.Equals y = obj.ReferenceEquals(x,y)
         override x.GetHashCode() = (lower,upper).GetHashCode()
 
-    type PartitionableRangeCollection(lower : int64, upper : int64, discloseSize : bool) =
-        inherit RangeCollection(lower, upper, discloseSize)
+    type PartitionableRangeCollection(lower : int64, upper : int64) =
+        inherit RangeCollection(lower, upper, true)
         interface IPartitionableCollection<int64> with
             member x.GetPartitions(weights: int []): Local<ICloudCollection<int64> []> = local {
                 return
                     Array.splitWeightedRange weights lower upper
-                    |> Array.map (function Some(l,u) -> new RangeCollection(l,u + 1L,discloseSize) :> ICloudCollection<int64>
-                                            | None -> RangeCollection.Empty(discloseSize) :> _)
+                    |> Array.map (function Some(l,u) -> new RangeCollection(l,u + 1L,true) :> ICloudCollection<int64>
+                                            | None -> RangeCollection.Empty(true) :> _)
             }
 
     [<Test>]
@@ -76,7 +76,7 @@ module ``Collection Partitioning Tests`` =
             range.Count |> run |> shouldEqual length
             range.ToEnumerable() |> run |> Seq.length |> int64 |> shouldEqual length
 
-        Check.QuickThrowOnFail(tester)
+        Check.QuickThrowOnFail(tester, maxRuns = 500)
 
     [<Test>]
     let ``Partitionable Range collection tests`` () =
@@ -85,12 +85,12 @@ module ``Collection Partitioning Tests`` =
             let length = int64 length
             let upper = lower + length
             let weights = weights |> Array.map (fun i -> int i + 1)
-            let range = new PartitionableRangeCollection(lower, upper, true) :> IPartitionableCollection<int64>
+            let range = new PartitionableRangeCollection(lower, upper) :> IPartitionableCollection<int64>
             let partitions = range.GetPartitions weights |> run
             let partitionedSeqs = partitions |> Sequential.map (fun p -> p.ToEnumerable()) |> run |> Seq.concat
             partitionedSeqs |> Seq.length |> int64 |> shouldEqual length
 
-        Check.QuickThrowOnFail(tester)
+        Check.QuickThrowOnFail(tester, maxRuns = 500)
 
     [<Test>]
     let ``Partition collections that do not disclose size`` () =
@@ -101,7 +101,7 @@ module ``Collection Partitioning Tests`` =
             partitionss |> Array.map fst |> shouldEqual (workers |> Seq.take partitionss.Length |> Seq.toArray)
             partitionss |> Array.collect snd |> shouldEqual partitions
 
-        Check.QuickThrowOnFail(tester)
+        Check.QuickThrowOnFail(tester, maxRuns = 500)
 
     [<Test>]
     let ``Partition collections that disclose size`` () =
@@ -112,4 +112,22 @@ module ``Collection Partitioning Tests`` =
             partitionss |> Array.map fst |> shouldEqual (workers |> Seq.take partitionss.Length |> Seq.toArray)
             partitionss |> Array.collect snd |> shouldEqual partitions
 
-        Check.QuickThrowOnFail(tester)
+        Check.QuickThrowOnFail(tester, maxRuns = 500)
+
+    [<Test>]
+    let ``Partitionable collection`` () =
+        let tester (isTargeted : bool, totalSize : int64, workerCores : uint16 []) =
+            if workerCores.Length = 0 then () else
+            let totalSize = abs totalSize
+            let partitionable = new PartitionableRangeCollection(0L, totalSize - 1L)
+            let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
+            let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, [|partitionable|]) |> run
+            partitionss.Length |> shouldEqual workers.Length
+            let sizes = partitionss |> Seq.collect snd |> Sequential.map (fun c -> c.Size) |> run
+            Array.sum sizes |> shouldEqual totalSize
+
+        Check.QuickThrowOnFail(tester, maxRuns = 500)
+
+    let isTargeted = false
+    let totalSize = 0L
+    let workerCores = [|0L;0L|]
