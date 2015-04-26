@@ -20,6 +20,14 @@ let runtime = MBraceRuntime.InitLocal(4)
 open Nessos.Streams
 open MBrace.Flow
 
+let source = [| 1; 3; 1; 4; 2; 5; 2; 42; 42; 7; 8; 10; 8;|]
+
+CloudFlow.OfArray source
+|> CloudFlow.distinctBy id
+|> CloudFlow.toArray
+|> runtime.Run
+
+
 for i in 1..100 do
     let source = [| 1..10 |]
     let q = source |> CloudFlow.ofArray |> CloudFlow.sortBy id 10 |> CloudFlow.toArray

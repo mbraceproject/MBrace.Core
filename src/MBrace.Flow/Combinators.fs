@@ -1118,43 +1118,76 @@ module CloudFlow =
     /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
     /// <param name="source">The input flow.</param>
     /// <returns>A flow of elements distinct on their keys.</returns>
-    let inline distinctBy (projection : 'T -> 'Key) (source : CloudFlow<'T>) : CloudFlow<'T> =
-        let collectorF (cloudCts : ICloudCancellationTokenSource) =
+    let distinctBy (projection : 'T -> 'Key) (source : CloudFlow<'T>) : CloudFlow<'T> =
+        let collectorF (cloudCts : ICloudCancellationTokenSource) (totalWorkers : int) =
             local {
                 let dict = new ConcurrentDictionary<'Key, 'T>()
                 let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return
-                    { new Collector<'T, KeyValuePair<'Key, 'T> []> with
+                    { new Collector<'T, seq<int * seq<'Key * 'T>>> with
                       member __.DegreeOfParallelism = source.DegreeOfParallelism
                       member __.Iterator() =
                           { Index = ref -1;
                             Func = (fun v -> let k = projection v in dict.TryAdd(k, v) |> ignore);
                             Cts = cts }
-                      member __.Result = dict.ToArray()
+                      member __.Result =
+                           dict
+                           |> Seq.groupBy (fun kv -> Math.Abs(kv.Key.GetHashCode()) % totalWorkers)
+                           |> Seq.map (fun (pk, kvs) -> (pk, kvs |> Seq.map (fun kv -> (kv.Key, kv.Value))))
                     }
             }
-
-        let distinctMerge =
+        let shuffling =
             cloud {
+                let combiner' (result : _ []) = local { return Array.concat result }
+                let! totalWorkers = match source.DegreeOfParallelism with Some n -> local.Return n | None -> Cloud.GetWorkerCount()
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! kvs = source.WithEvaluators (collectorF cts)
-                                                 (local.Return)
-                                                 (fun rs -> local { return Array.concat rs })
-
+                let! kvs = source.WithEvaluators (collectorF cts totalWorkers)
+                                                 (fun kvs ->
+                                                      local {
+                                                         let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'T>>()
+                                                         for (k, kvs') in kvs do
+                                                             let! pkvs = PersistedCloudFlow.New(kvs', cache = false)
+                                                             dict.[k] <- pkvs;
+                                                         return dict |> Seq.map (fun kv -> kv.Key, kv.Value) |> Seq.toArray
+                                                      })
+                                                 combiner'
                 let merged =
                     kvs
-                    |> Seq.distinctBy (fun kv -> kv.Key)
-                    |> Seq.map (fun kv -> kv.Value)
+                    |> Seq.groupBy fst
+                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> PersistedCloudFlow.Concat)
                     |> Seq.toArray
-
                 return merged
             }
-
+        let reducerF (cloudCts : ICloudCancellationTokenSource) =
+            local {
+                let dict = new ConcurrentDictionary<'Key, 'T>()
+                let! ctx = Cloud.GetExecutionContext()
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
+                return
+                    { new Collector<int * PersistedCloudFlow<'Key * 'T>, seq<'T>> with
+                      member __.DegreeOfParallelism = source.DegreeOfParallelism
+                      member __.Iterator() =
+                          { Index = ref -1;
+                            Func = (fun (_, pkvs) ->
+                                        let kvs = Cloud.RunSynchronously(pkvs.ToEnumerable(), ctx.Resources, ctx.CancellationToken)
+                                        for (k, v) in kvs do dict.TryAdd(k, v) |> ignore);
+                            Cts = cts }
+                      member __.Result = dict |> Seq.map (fun kv -> kv.Value)
+                    }
+            }
+        let reducer (flow : CloudFlow<int * PersistedCloudFlow<'Key * 'T>>) : Cloud<PersistedCloudFlow<'T>> =
+            cloud {
+                let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
+                let! cts = Cloud.CreateCancellationTokenSource()
+                let! pkvs = flow.WithEvaluators (reducerF cts) (fun kvs -> PersistedCloudFlow.New(kvs, cache = false)) combiner'
+                return pkvs
+            }
         { new CloudFlow<'T> with
             member __.DegreeOfParallelism = source.DegreeOfParallelism
             member __.WithEvaluators<'S, 'R> (collectorF : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
                 cloud {
-                    let! result = distinctMerge
-                    return! (CloudFlow.OfArray result).WithEvaluators collectorF projection combiner
+                    let! result = shuffling
+                    let! result' = reducer (CloudFlow.OfArray result)
+                    return! (result' :> CloudFlow<_>).WithEvaluators collectorF projection combiner
                 }
         }
