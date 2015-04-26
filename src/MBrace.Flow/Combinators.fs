@@ -460,9 +460,10 @@ module CloudFlow =
 
                 let merged =
                     keyValueArray
-                    |> Seq.groupBy fst
-                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> PersistedCloudFlow.Concat)
-                    |> Seq.toArray
+                    |> Stream.ofArray
+                    |> Stream.groupBy fst
+                    |> Stream.map (fun (i,kva) -> i, kva |> Seq.map snd |> PersistedCloudFlow.Concat)
+                    |> Stream.toArray
                 return merged
             }
         let reducerf (cloudCts : ICloudCancellationTokenSource) = local {
@@ -1153,9 +1154,10 @@ module CloudFlow =
                                                  combiner'
                 let merged =
                     kvs
-                    |> Seq.groupBy fst
-                    |> Seq.map (fun (i,kva) -> i, kva |> Seq.map snd |> PersistedCloudFlow.Concat)
-                    |> Seq.toArray
+                    |> Stream.ofArray
+                    |> Stream.groupBy fst
+                    |> Stream.map (fun (i,kva) -> i, kva |> Seq.map snd |> PersistedCloudFlow.Concat)
+                    |> Stream.toArray
                 return merged
             }
         let reducerF (cloudCts : ICloudCancellationTokenSource) =
