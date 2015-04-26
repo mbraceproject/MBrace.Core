@@ -1193,3 +1193,9 @@ module CloudFlow =
                     return! (result' :> CloudFlow<_>).WithEvaluators collectorF projection combiner
                 }
         }
+
+    /// <summary>Returns a flow that contains no duplicate elements according to their generic hash and equality comparisons. If an element occurs multiple times in the flow then only one is retained.</summary>
+    /// <param name="source">The input flow.</param>
+    /// <returns>A flow of distinct elements.</returns>
+    let inline distinct (source : CloudFlow<'T>) : CloudFlow<'T> =
+        distinctBy id source

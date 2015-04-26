@@ -431,3 +431,10 @@ type CloudFlowExtensions() =
     [<System.Runtime.CompilerServices.Extension>]
     static member inline distinctBy (source : CloudFlow<'T>, projection : 'T -> 'Key) : CloudFlow<'T> =
         CloudFlow.distinctBy projection source
+
+    /// <summary>Returns a flow that contains no duplicate elements according to their generic hash and equality comparisons. If an element occurs multiple times in the flow then only one is retained.</summary>
+    /// <param name="source">The input flow.</param>
+    /// <returns>A flow of distinct elements.</returns>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline distinct (source : CloudFlow<'T>) : CloudFlow<'T> =
+        CloudFlow.distinct source
