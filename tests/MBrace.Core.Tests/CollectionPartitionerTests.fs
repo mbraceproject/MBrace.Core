@@ -141,5 +141,5 @@ module ``Collection Partitioning Tests`` =
         Check.QuickThrowOnFail(tester, maxRuns = 500)
 
     let isTargeted = false
-    let totalSizes = [| 2L ; 1L |]
-    let workerCores = [|0us ; 0us ; 0us|]
+    let totalSizes = [|1L;1L|]
+    let workerCores = [|0us ; 0us |]
