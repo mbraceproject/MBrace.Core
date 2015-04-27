@@ -26,6 +26,7 @@ module ``Collection Partitioning Tests`` =
            new obj() with
               member x.Equals(obj) =
                 match obj with :? IWorkerRef as w -> id = w.Id | _ -> false
+              member x.ToString() = sprintf "worker%s" id
 
            interface IWorkerRef with
               member x.CompareTo(obj: obj): int = 
@@ -115,19 +116,30 @@ module ``Collection Partitioning Tests`` =
         Check.QuickThrowOnFail(tester, maxRuns = 500)
 
     [<Test>]
-    let ``Partitionable collection`` () =
+    let ``Partitionable collection simple`` () =
         let tester (isTargeted : bool, totalSize : int64, workerCores : uint16 []) =
             if workerCores.Length = 0 then () else
             let totalSize = abs totalSize
-            let partitionable = new PartitionableRangeCollection(0L, totalSize - 1L)
+            let partitionable = new PartitionableRangeCollection(0L, totalSize)
             let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
             let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, [|partitionable|]) |> run
-            partitionss.Length |> shouldEqual workers.Length
             let sizes = partitionss |> Seq.collect snd |> Sequential.map (fun c -> c.Size) |> run
             Array.sum sizes |> shouldEqual totalSize
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
 
+    [<Test>]
+    let ``Partitionable collections combined`` () =
+        let tester (isTargeted : bool, totalSizes : int64 [], workerCores : uint16 []) =
+            if workerCores.Length = 0 then () else
+            let partitionables = totalSizes |> Array.map (fun s -> new PartitionableRangeCollection(0L, abs s) :> ICloudCollection<int64>)
+            let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
+            let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitionables) |> run
+            let sizes = partitionss |> Seq.collect snd |> Sequential.map (fun c -> c.Size) |> run
+            Array.sum sizes |> shouldEqual (totalSizes |> Array.sumBy (fun s -> abs s))
+
+        Check.QuickThrowOnFail(tester, maxRuns = 500)
+
     let isTargeted = false
-    let totalSize = 0L
-    let workerCores = [|0L;0L|]
+    let totalSizes = [| 2L ; 1L |]
+    let workerCores = [|0us ; 0us ; 0us|]
