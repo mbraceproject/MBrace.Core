@@ -442,6 +442,25 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : distinct`` () =
+        let f(xs : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.map (fun v -> Math.Abs v)
+                |> CloudFlow.distinctBy id
+                |> CloudFlow.toArray
+                |> run
+            let y =
+                xs
+                |> Seq.map (fun v -> Math.Abs v)
+                |> Seq.distinctBy id
+                |> Seq.toArray
+            (x |> Array.sortBy id) = (y |> Array.sortBy id)
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : take`` () =
         let f (xs : int[], n : int) =
             let n = System.Math.Abs(n)
