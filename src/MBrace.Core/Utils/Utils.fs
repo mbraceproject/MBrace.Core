@@ -96,6 +96,8 @@ module Utils =
         let splitWeightedRange (weights : int []) (lower : int64) (upper : int64) : (int64 * int64) option [] =
             if lower > upper then Array.init weights.Length (fun _ -> None)
             elif weights.Length = 0 then invalidArg "weights" "must be non-empty array."
+            elif weights |> Array.exists (fun w -> w < 0) then invalidArg "weights" "weights must be non-negative."
+            elif weights |> Array.forall (fun w -> w = 0) then invalidArg "weights" "must contain at least one positive weight."
             else
 
             let length = upper - lower
@@ -107,14 +109,14 @@ module Utils =
             // 2. compute x_i, where x_i / N = w_i / Σ w_i
             // 3. compute R = N - Σ (floor x_i), the number of padding elements.
             // 4. compute chunk sizes, adding an extra padding element to the first R x_i's of largest decimal component.
-            let total = weights |> Array.sumBy (fun w -> if w > 0 then w else invalidArg "weights" "weights must contain positive values.") |> uint64
+            let total = weights |> Array.sumBy uint64
             let chunkInfo = weights |> Array.map (fun w -> let C = uint64 w * uint64 length in int64 (C / total), int64 (C % total))
             let R = length - (chunkInfo |> Array.sumBy fst)
             let chunkSizes = 
                 chunkInfo 
                 |> Seq.mapi (fun i (q,r) -> i,q,r) 
                 |> Seq.sortBy (fun (_,_,r) -> -r)
-                |> Seq.mapi (fun j (i,q,_) -> if int64 j < R then (i, q + 1L) else (i,q))
+                |> Seq.mapi (fun j (i,q,r) -> if int64 j < R && q + r > 0L then (i, q + 1L) else (i,q))
                 |> Seq.sortBy fst
                 |> Seq.map snd
                 |> Seq.toArray
