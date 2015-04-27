@@ -21,8 +21,9 @@ type internal CloudCollection private () =
     /// </summary>
     /// <param name="collection">Input cloud collection.</param>
     /// <param name="useCache">Make use of caching, if the collection supports it. Defaults to false.</param>
+    /// <param name="weight">Worker weighing function. Defaults to processor count.</param>
     /// <param name="sizeThresholdPerWorker">Restricts concurrent processing of collection partitions up to specified size per worker.</param>
-    static member ToCloudFlow (collection : ICloudCollection<'T>, ?useCache:bool, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
+    static member ToCloudFlow (collection : ICloudCollection<'T>, ?useCache:bool, ?weight : IWorkerRef -> int, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
         let useCache = defaultArg useCache false
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
@@ -38,7 +39,7 @@ type internal CloudCollection private () =
                     | Some dp -> [| for i in 0 .. dp - 1 -> workers.[i % workers.Length] |]
 
                 let! partitions = CloudCollection.ExtractPartitions collection
-                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported)
+                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported, ?weight = weight)
                 if Array.isEmpty partitionss then return! combiner [||] else
 
                 // use caching, if supported by collection
