@@ -38,7 +38,7 @@ type internal CloudCollection private () =
                     | Some dp -> [| for i in 0 .. dp - 1 -> workers.[i % workers.Length] |]
 
                 let! partitions = CloudCollection.ExtractPartitions collection
-                let! partitionss = CloudCollection.PartitionBySize(workers, isTargetedWorkerSupported, partitions)
+                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported)
                 if Array.isEmpty partitionss then return! combiner [||] else
 
                 // use caching, if supported by collection

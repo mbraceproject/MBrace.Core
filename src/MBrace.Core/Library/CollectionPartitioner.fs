@@ -9,6 +9,11 @@ open MBrace.Workflows
 
 type CloudCollection private () =
 
+    /// <summary>
+    ///     Traverses provided cloud collections for partitions,
+    ///     returning their irreducible components while preserving ordering.
+    /// </summary>
+    /// <param name="collections">Input cloud collections.</param>
     static member ExtractPartitions (collections : seq<ICloudCollection<'T>>) : Local<ICloudCollection<'T> []> = local {
         let rec extractCollection (c : ICloudCollection<'T>) = 
             local {
@@ -29,10 +34,26 @@ type CloudCollection private () =
         return Seq.toArray extracted
     }
 
+    /// <summary>
+    ///     Traverses provided cloud collection for partitions,
+    ///     returning its irreducible components while preserving ordering.
+    /// </summary>
+    /// <param name="collections">Input cloud collections.</param>
     static member ExtractPartitions (collection : ICloudCollection<'T>) : Local<ICloudCollection<'T> []> = CloudCollection.ExtractPartitions([|collection|])
 
-    static member PartitionBySize (workers : IWorkerRef [], isTargetedWorkerEnabled : bool, collections : ICloudCollection<'T> [], ?weight : IWorkerRef -> int) = local {
+    /// <summary>
+    ///     Performs partitioning of provided irreducible CloudCollections to supplied workers.
+    ///     This partitioning scheme takes collection sizes as well as worker capacities into account
+    ///     in order to achieve uniformity. It also takes IPartitionableCollection<_> (i.e. dynamically partitionable collections)
+    ///     into account when traversing.
+    /// </summary>
+    /// <param name="collections">Collections to be partitioned.</param>
+    /// <param name="workers">Workers to partition among.</param>
+    /// <param name="isTargetedWorkerEnabled">Enable targeted (i.e. weighted) worker support. Defaults to true.</param>
+    /// <param name="weight">Worker weight function. Default to processor count map.</param>
+    static member PartitionBySize (collections : ICloudCollection<'T> [], workers : IWorkerRef [], ?isTargetedWorkerEnabled : bool, ?weight : IWorkerRef -> int) = local {
         let weight = defaultArg weight (fun w -> w.ProcessorCount)
+        let isTargetedWorkerEnabled = defaultArg isTargetedWorkerEnabled true
 
         let rec aux (accPartitions : (IWorkerRef * ICloudCollection<'T> []) list) 
                     (currWorker : IWorkerRef) (remWorkerSize : int64) (accWorkerCollections : ICloudCollection<'T> list)
@@ -65,6 +86,7 @@ type CloudCollection private () =
 
                     match workers with
                     | [] -> failwith "CloudCollection.PartitionBySize: internal error."
+                    | (w, _) :: [] -> getSizes ((w, remSize) :: acc) [(w, 0L)] 0L
                     | (w, wsize) :: rest when wsize >= remSize -> getSizes ((w, remSize) :: acc) ((w, wsize - remSize) :: rest) 0L
                     | (_, wsize) as w :: rest -> getSizes (w :: acc) rest (remSize - wsize)
 
@@ -106,6 +128,13 @@ type CloudCollection private () =
             | (w, wsz) :: rw, _, (c, csz) :: rc when remWorkerSize * 2L > csz ->
                 let partition = mkPartition currWorker (c :: accWorkerCollections)
                 return! aux (partition :: accPartitions) w wsz [] rw rc
+
+            // include if no other collection has been accumulated in current worker and
+            // remaining capacity is more than a third of the partition size
+            | (w, wsz) :: rw, [], (c, csz) :: rc when remWorkerSize * 3L > csz ->
+                let partition = mkPartition currWorker (c :: accWorkerCollections)
+                return! aux (partition :: accPartitions) w wsz [] rw rc
+
             // move partition to next worker otherwise
             | (w, wsz) :: rw, _, _ ->
                 let partition = mkPartition currWorker accWorkerCollections

@@ -77,6 +77,8 @@ module ``Collection Partitioning Tests`` =
                                             | None -> RangeCollection.Empty(true) :> _)
             }
 
+    // Section 1: tests verifying that the test collections have been implemented correctly
+
     [<Test>]
     let ``Range collection tests`` () =
         let tester (lower : int64, length : uint32) =
@@ -103,12 +105,14 @@ module ``Collection Partitioning Tests`` =
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
 
+    // Section 2: Actual partitioner tests
+
     [<Test>]
     let ``Partition collections that do not disclose size`` () =
         let tester (isTargeted : bool, partitions : uint16, workers : uint16) =
             let partitions = [| for p in 0us .. partitions - 1us -> RangeCollection.Empty(discloseSize = false) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
-            let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitions) |> run
+            let partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargeted) |> run
             partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.collect snd |> shouldEqual partitions
 
@@ -125,7 +129,7 @@ module ``Collection Partitioning Tests`` =
         let tester (isTargeted : bool, sizes : uint32 [], workers : uint16) =
             let partitions = [| for size in sizes -> new RangeCollection(0L, int64 size, discloseSize = true) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
-            let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitions) |> run
+            let partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargeted) |> run
             partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.collect snd |> shouldEqual partitions
 
@@ -133,39 +137,87 @@ module ``Collection Partitioning Tests`` =
 
     [<Test>]
     let ``Partitionable collection simple`` () =
+        // create a single partitionable collection and deal among heterogeneous workers
         let tester (isTargeted : bool, totalSize : int64, workerCores : uint16 []) =
             if workerCores.Length = 0 then () else
             let totalSize = abs totalSize
-            let partitionable = new PartitionableRangeCollection(0L, totalSize)
+            let partitionable = new PartitionableRangeCollection(0L, totalSize) :> ICloudCollection<int64>
             let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
-            let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, [|partitionable|]) |> run
+            let partitionss = CloudCollection.PartitionBySize([|partitionable|], workers, isTargeted) |> run
             partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.forall (fun (_,ps) -> ps.Length <= 1) |> shouldEqual true
             let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Sequential.map (fun p -> p.Size) |> run |> Array.sum)
             sizes |> Array.sumBy snd |> shouldEqual totalSize
             
+            // check that collection is uniformly distributed
             sizes
             |> Seq.map (fun (w,size) -> if isTargeted then size / int64 w.ProcessorCount else size)
             |> variance 
             |> shouldBe (fun v -> v <= 0.5)
 
+            let original = partitionable.ToEnumerable() |> run |> Seq.toArray
+            partitionss 
+            |> Seq.collect snd 
+            |> Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> run
+            |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
 
     [<Test>]
     let ``Partitionable collections combined`` () =
+        // create a multiple partitionable collections and deal among heterogeneous workers
         let tester (isTargeted : bool, totalSizes : int64 [], workerCores : uint16 []) =
             if workerCores.Length = 0 then () else
+            // set up collection & worker mocks
             let partitionables = totalSizes |> Array.map (fun s -> new PartitionableRangeCollection(0L, abs s) :> ICloudCollection<int64>)
             let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
-            let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitionables) |> run
+            // perform partitioning
+            let partitionss = CloudCollection.PartitionBySize(partitionables, workers, isTargeted) |> run
+            // test that all workers are assigned partitions
             partitionss |> Array.map fst |> shouldEqual workers
+            // compute size per partition
             let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Sequential.map (fun p -> p.Size) |> run |> Array.sum)
             sizes |> Array.sumBy snd |> shouldEqual (totalSizes |> Array.sumBy (fun s -> abs s))
 
+            // check that collection is uniformly distributed
             sizes
             |> Seq.map (fun (w,size) -> if isTargeted then size / int64 w.ProcessorCount else size)
             |> variance 
             |> shouldBe (fun v -> v <= 0.5)
+
+            // test that partitions contain identical sequences to source
+            let original = partitionables |> Sequential.collect (fun p -> p.ToEnumerable()) |> run
+            partitionss 
+            |> Seq.collect snd 
+            |> Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> run
+            |> shouldEqual original
+
+        Check.QuickThrowOnFail(tester, maxRuns = 500)
+
+    [<Test>]
+    let ``Heterogeneous collections`` () =
+        let tester (isTargeted : bool, collectionSizes : (bool * int64) [], workerCores : uint16 []) =
+            if workerCores.Length = 0 then () else
+            let collections = 
+                collectionSizes 
+                |> Array.map (fun (isPartitionable, sz) -> 
+                                    if isPartitionable then new PartitionableRangeCollection(0L, abs sz) :> ICloudCollection<int64>
+                                    else new RangeCollection(0L, abs sz, true) :> _)
+
+            let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
+            let partitionss = CloudCollection.PartitionBySize(collections, workers, isTargeted) |> run
+            partitionss |> Array.map fst |> shouldEqual workers
+            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Sequential.map (fun p -> p.Size) |> run |> Array.sum)
+            sizes |> Array.sumBy snd |> shouldEqual (collectionSizes |> Array.sumBy (snd >> abs))
+
+            // test that partitions contain identical sequences to source
+            let original = collections |> Sequential.collect (fun p -> p.ToEnumerable()) |> run
+            partitionss 
+            |> Seq.collect snd 
+            |> Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> run
+            |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
