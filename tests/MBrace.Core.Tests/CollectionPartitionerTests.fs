@@ -147,7 +147,7 @@ module ``Collection Partitioning Tests`` =
             sizes
             |> Seq.map (fun (w,size) -> if isTargeted then size / int64 w.ProcessorCount else size)
             |> variance 
-            |> shouldBe (fun v -> v <= 1.)
+            |> shouldBe (fun v -> v <= 0.5)
 
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
@@ -166,10 +166,6 @@ module ``Collection Partitioning Tests`` =
             sizes
             |> Seq.map (fun (w,size) -> if isTargeted then size / int64 w.ProcessorCount else size)
             |> variance 
-            |> shouldBe (fun v -> v <= 1.0)
+            |> shouldBe (fun v -> v <= 0.5)
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
-
-    let isTargeted = false
-    let totalSize = 3L
-    let workerCores = [|0us; 0us; 0us;|]
