@@ -65,7 +65,7 @@ type CloudCollection private () =
 
                     match workers with
                     | [] -> failwith "CloudCollection.PartitionBySize: internal error."
-                    | (w, wsize) :: rest when wsize > remSize -> getSizes ((w, remSize) :: acc) ((w, wsize - remSize) :: rest) 0L
+                    | (w, wsize) :: rest when wsize >= remSize -> getSizes ((w, remSize) :: acc) ((w, wsize - remSize) :: rest) 0L
                     | (_, wsize) as w :: rest -> getSizes (w :: acc) rest (remSize - wsize)
 
                 let sizes, remWorkers2 = getSizes [] ((currWorker, remWorkerSize) :: remWorkers) csz
@@ -98,8 +98,9 @@ type CloudCollection private () =
                             yield (w, [| cpartitions.[i] |])
                     ]
                 
-                let newCurrWorker, newCurrSize = remWorkers.[cpartitions.Length - 2]
-                return! aux (List.rev (firstPartition :: intermediatePartitions) @ accPartitions) newCurrWorker newCurrSize [lastPartition] remWorkers2 rc
+                let newCurrWorker, newCurrSize = List.head remWorkers2
+                let remWorkers3 = List.tail remWorkers2
+                return! aux (List.rev (firstPartition :: intermediatePartitions) @ accPartitions) newCurrWorker newCurrSize [lastPartition] remWorkers3 rc
 
             // include if remaining capacity is more than half the partition size
             | (w, wsz) :: rw, _, (c, csz) :: rc when remWorkerSize * 2L > csz ->
@@ -128,15 +129,16 @@ type CloudCollection private () =
                     |> Array.mapi (fun i cs -> workers.[i], cs)
         else
 
+        // compute size per collection and allocate expected size per worker according to weight.
         let! wsizes = collections |> Sequential.map (fun c -> local { let! sz = c.Size in return c, sz })
         let totalSize = wsizes |> Array.sumBy snd
-        let coreCount = workers |> Array.sumBy (fun w -> if isTargetedWorkerEnabled then w.ProcessorCount else 1)
+        let coreCount = workers |> Array.sumBy (fun w -> if isTargetedWorkerEnabled then weight w else 1)
         let sizePerCore = totalSize / int64 coreCount
         let rem = ref <| totalSize % int64 coreCount
         let workers = 
             [
                 for w in workers do
-                    let deg = if isTargetedWorkerEnabled then int64 w.ProcessorCount else 1L
+                    let deg = if isTargetedWorkerEnabled then int64 (weight w) else 1L
                     let r = min deg !rem
                     rem := !rem - r
                     let size = deg * sizePerCore + r

@@ -21,6 +21,15 @@ module ``Collection Partitioning Tests`` =
     let imem = LocalRuntime.Create(ResourceRegistry.Empty)
     let run c = imem.Run c
 
+    let inline mean (ts : seq<'T>) = ts |> Seq.averageBy float
+    let inline meanBy (f : 'T -> 'U) (ts : seq<'T>) = ts |> Seq.averageBy (float << f)
+
+    let inline variance (ts : seq<'T>) =
+        let ts = ts |> Seq.map float |> Seq.toArray
+        if Array.isEmpty ts then 0. else
+        let m = Array.average ts
+        ts |> Array.averageBy (fun t -> pown (t - m) 2) |> sqrt
+
     let mkDummyWorker id cores =
         { 
            new obj() with
@@ -56,6 +65,7 @@ module ``Collection Partitioning Tests`` =
 
         override x.Equals y = obj.ReferenceEquals(x,y)
         override x.GetHashCode() = (lower,upper).GetHashCode()
+        override x.ToString() = sprintf "[%d .. %d]" lower upper
 
     type PartitionableRangeCollection(lower : int64, upper : int64) =
         inherit RangeCollection(lower, upper, true)
@@ -96,11 +106,17 @@ module ``Collection Partitioning Tests`` =
     [<Test>]
     let ``Partition collections that do not disclose size`` () =
         let tester (isTargeted : bool, partitions : uint16, workers : uint16) =
-            let partitions = [| for p in 0us .. partitions -> RangeCollection.Empty(discloseSize = false) :> ICloudCollection<int64> |]
+            let partitions = [| for p in 0us .. partitions - 1us -> RangeCollection.Empty(discloseSize = false) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
             let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitions) |> run
             partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.collect snd |> shouldEqual partitions
+
+            partitionss
+            |> meanBy (fun (_,ps) -> ps.Length) 
+            |> round
+            |> int
+            |> shouldBe (fun m -> abs (m - partitions.Length / workers.Length) <= 1)
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
 
@@ -123,8 +139,16 @@ module ``Collection Partitioning Tests`` =
             let partitionable = new PartitionableRangeCollection(0L, totalSize)
             let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
             let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, [|partitionable|]) |> run
-            let sizes = partitionss |> Seq.collect snd |> Sequential.map (fun c -> c.Size) |> run
-            Array.sum sizes |> shouldEqual totalSize
+            partitionss |> Array.map fst |> shouldEqual workers
+            partitionss |> Array.forall (fun (_,ps) -> ps.Length <= 1) |> shouldEqual true
+            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Sequential.map (fun p -> p.Size) |> run |> Array.sum)
+            sizes |> Array.sumBy snd |> shouldEqual totalSize
+            
+            sizes
+            |> Seq.map (fun (w,size) -> if isTargeted then size / int64 w.ProcessorCount else size)
+            |> variance 
+            |> shouldBe (fun v -> v <= 1.)
+
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
 
@@ -135,7 +159,17 @@ module ``Collection Partitioning Tests`` =
             let partitionables = totalSizes |> Array.map (fun s -> new PartitionableRangeCollection(0L, abs s) :> ICloudCollection<int64>)
             let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
             let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitionables) |> run
-            let sizes = partitionss |> Seq.collect snd |> Sequential.map (fun c -> c.Size) |> run
-            Array.sum sizes |> shouldEqual (totalSizes |> Array.sumBy (fun s -> abs s))
+            partitionss |> Array.map fst |> shouldEqual workers
+            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Sequential.map (fun p -> p.Size) |> run |> Array.sum)
+            sizes |> Array.sumBy snd |> shouldEqual (totalSizes |> Array.sumBy (fun s -> abs s))
+
+            sizes
+            |> Seq.map (fun (w,size) -> if isTargeted then size / int64 w.ProcessorCount else size)
+            |> variance 
+            |> shouldBe (fun v -> v <= 1.0)
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
+
+    let isTargeted = false
+    let totalSize = 3L
+    let workerCores = [|0us; 0us; 0us;|]
