@@ -31,16 +31,9 @@ type CloudCollection private () =
 
     static member ExtractPartitions (collection : ICloudCollection<'T>) : Local<ICloudCollection<'T> []> = CloudCollection.ExtractPartitions([|collection|])
 
-    static member PartitionBySize (workers : IWorkerRef [], isTargetedWorkerEnabled : bool, collections : ICloudCollection<'T> []) = local {
-        if workers.Length = 0 then return invalidArg "workers" "must be non-empty."
-        let isSizeKnown = collections |> Array.forall (fun c -> c.IsKnownSize)
-        if not isSizeKnown then
-            if isTargetedWorkerEnabled then
-                return WorkerRef.partitionWeighted (fun w -> w.ProcessorCount) workers collections
-            else
-                return WorkerRef.partition workers collections
-        else
-            
+    static member PartitionBySize (workers : IWorkerRef [], isTargetedWorkerEnabled : bool, collections : ICloudCollection<'T> [], ?weight : IWorkerRef -> int) = local {
+        let weight = defaultArg weight (fun w -> w.ProcessorCount)
+
         let rec aux (accPartitions : (IWorkerRef * ICloudCollection<'T> []) list) 
                     (currWorker : IWorkerRef) (remWorkerSize : int64) (accWorkerCollections : ICloudCollection<'T> list)
                     (remWorkers : (IWorkerRef * int64) list) (remCollections : (ICloudCollection<'T> * int64) list) = local {
@@ -117,6 +110,23 @@ type CloudCollection private () =
                 let partition = mkPartition currWorker accWorkerCollections
                 return! aux (partition :: accPartitions) w wsz [] rw remCollections
         }
+
+        if workers.Length = 0 then return invalidArg "workers" "must be non-empty."
+        let isSizeKnown = collections |> Array.forall (fun c -> c.IsKnownSize)
+        if not isSizeKnown then
+            // size of collections not known a priori, do not take it into account.
+            if isTargetedWorkerEnabled then
+                return
+                    collections
+                    |> Array.splitWeighted (workers |> Array.map weight)
+                    |> Array.mapi (fun i cs -> workers.[i], cs)
+            // partitions according to worker length.
+            else
+                return
+                    collections
+                    |> Array.splitByPartitionCount workers.Length
+                    |> Array.mapi (fun i cs -> workers.[i], cs)
+        else
 
         let! wsizes = collections |> Sequential.map (fun c -> local { let! sz = c.Size in return c, sz })
         let totalSize = wsizes |> Array.sumBy snd

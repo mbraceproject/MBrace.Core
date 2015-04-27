@@ -99,7 +99,7 @@ module ``Collection Partitioning Tests`` =
             let partitions = [| for p in 0us .. partitions -> RangeCollection.Empty(discloseSize = false) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
             let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitions) |> run
-            partitionss |> Array.map fst |> shouldEqual (workers |> Seq.take partitionss.Length |> Seq.toArray)
+            partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.collect snd |> shouldEqual partitions
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
@@ -110,7 +110,7 @@ module ``Collection Partitioning Tests`` =
             let partitions = [| for size in sizes -> new RangeCollection(0L, int64 size, discloseSize = true) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
             let partitionss = CloudCollection.PartitionBySize(workers, isTargeted, partitions) |> run
-            partitionss |> Array.map fst |> shouldEqual (workers |> Seq.take partitionss.Length |> Seq.toArray)
+            partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.collect snd |> shouldEqual partitions
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
@@ -139,7 +139,3 @@ module ``Collection Partitioning Tests`` =
             Array.sum sizes |> shouldEqual (totalSizes |> Array.sumBy (fun s -> abs s))
 
         Check.QuickThrowOnFail(tester, maxRuns = 500)
-
-    let isTargeted = false
-    let totalSizes = [|1L;1L|]
-    let workerCores = [|0us ; 0us |]

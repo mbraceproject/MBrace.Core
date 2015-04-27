@@ -39,9 +39,9 @@ module Utils =
             else
 
             let length = endRange - startRange
-            if length = 0L then [||] else
+            if length = 0L then Array.init partitions (fun _ -> (startRange + 1L, startRange)) else
 
-            let partitions = if length < int64 partitions then length else int64 partitions
+            let partitions = int64 partitions
             let chunkSize = length / partitions
             let r = length % partitions
             let ranges = new ResizeArray<int64 * int64>()
