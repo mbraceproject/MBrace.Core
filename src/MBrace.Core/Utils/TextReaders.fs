@@ -107,10 +107,12 @@ type private RangedStreamLineEnumerator (stream : Stream, beginPos : int64, endP
         let bytesRead = reader.BytesRead
         if beginPos + bytesRead <= endPos then
             let line = reader.ReadLine()
+            if line = null then
+                false
             // include line if:
             //   1. is the first line of the starting segment of a stream.
             //   2. is any successive line that fits within the stream boundary.
-            if beginPos = 0L || bytesRead > 0L then
+            else if beginPos = 0L || bytesRead > 0L then
                 currentLine <- line
                 true
             else
