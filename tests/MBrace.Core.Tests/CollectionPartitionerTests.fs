@@ -18,6 +18,13 @@ open MBrace.Client
 [<Category("CollectionPartitioner")>]
 module ``Collection Partitioning Tests`` =
 
+    let fsCheckRetries =
+#if DEBUG
+        500
+#else
+        100
+#endif
+
     let imem = LocalRuntime.Create(ResourceRegistry.Empty)
     let run c = imem.Run c
 
@@ -89,7 +96,7 @@ module ``Collection Partitioning Tests`` =
             range.Count |> run |> shouldEqual length
             range.ToEnumerable() |> run |> Seq.length |> int64 |> shouldEqual length
 
-        Check.QuickThrowOnFail(tester, maxRuns = 500)
+        Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
 
     [<Test>]
     let ``Partitionable Range collection tests`` () =
@@ -103,7 +110,7 @@ module ``Collection Partitioning Tests`` =
             let partitionedSeqs = partitions |> Sequential.map (fun p -> p.ToEnumerable()) |> run |> Seq.concat
             partitionedSeqs |> Seq.length |> int64 |> shouldEqual length
 
-        Check.QuickThrowOnFail(tester, maxRuns = 500)
+        Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
 
     // Section 2: Actual partitioner tests
 
@@ -122,7 +129,7 @@ module ``Collection Partitioning Tests`` =
             |> int
             |> shouldBe (fun m -> abs (m - partitions.Length / workers.Length) <= 1)
 
-        Check.QuickThrowOnFail(tester, maxRuns = 500)
+        Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
 
     [<Test>]
     let ``Partition collections that disclose size`` () =
@@ -133,7 +140,7 @@ module ``Collection Partitioning Tests`` =
             partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.collect snd |> shouldEqual partitions
 
-        Check.QuickThrowOnFail(tester, maxRuns = 500)
+        Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
 
     [<Test>]
     let ``Partitionable collection simple`` () =
@@ -162,7 +169,7 @@ module ``Collection Partitioning Tests`` =
             |> run
             |> shouldEqual original
 
-        Check.QuickThrowOnFail(tester, maxRuns = 500)
+        Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
 
     [<Test>]
     let ``Partitionable collections combined`` () =
@@ -194,7 +201,7 @@ module ``Collection Partitioning Tests`` =
             |> run
             |> shouldEqual original
 
-        Check.QuickThrowOnFail(tester, maxRuns = 500)
+        Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
 
     [<Test>]
     let ``Heterogeneous collections`` () =
@@ -220,4 +227,4 @@ module ``Collection Partitioning Tests`` =
             |> run
             |> shouldEqual original
 
-        Check.QuickThrowOnFail(tester, maxRuns = 500)
+        Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
