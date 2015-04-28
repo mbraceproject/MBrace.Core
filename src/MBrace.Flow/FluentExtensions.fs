@@ -388,6 +388,18 @@ type CloudFlowExtensions() =
     static member inline reduce (this : CloudFlow<'T>, reducer : 'T -> 'T -> 'T) : Cloud<'T> =
         CloudFlow.reduce reducer this
 
+    /// <summary>
+    ///    Groups the elements of the input flow according to given key generating function
+    ///    and reduces the elements of each group to a single value via the given reducer function.
+    /// </summary>
+    /// <param name="source">The input flow.</param>
+    /// <param name="projection">A function to transform items of the input flow into a key.</param>
+    /// <param name="reducer">The reducer function.</param>
+    /// <returns>A flow of key - reduced value pairs.</returns>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline reduceBy (source : CloudFlow<'T>, projection : 'T -> 'Key, reducer : 'T -> 'T -> 'T) : CloudFlow<'Key * 'T> =
+        CloudFlow.reduceBy projection reducer source
+
     /// <summary>Computes the average of the projections given by the supplied function on the input flow.</summary>
     /// <param name="this">The input flow.</param>
     /// <param name="projection">A function to transform items of the input flow into a projection.</param>
