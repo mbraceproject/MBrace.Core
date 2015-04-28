@@ -30,7 +30,9 @@ open MBrace.SampleRuntime.Types
 /// IWorkerRef implementation for the runtime
 type Worker(procId : string) =
     let id = sprintf "sample runtime worker (pid %s)" procId
+    let name = System.Net.Dns.GetHostName()
     interface IWorkerRef with
+        member __.Hostname = name
         member __.Id = id
         member __.Type = "sample runtime worker node"
         // this assumes that workers are constrained to local machine
