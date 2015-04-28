@@ -141,30 +141,30 @@ type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache 
     inherit CloudSequence<string>(path, None, Some(fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?enableCache = enableCache)
 
     interface IPartitionableCollection<string> with
-        member cs.GetPartitions(partitionCount : int) = local {
-            if partitionCount <= 0 || partitionCount > int UInt16.MaxValue then
-                raise <| new ArgumentOutOfRangeException("partitionCount")
-
+        member cs.GetPartitions(weights : int []) = local {
             let! size = CloudFile.GetSize cs.Path
 
-            let mkRangedSeqs (partitionCount : int) =
-                let getDeserializer s e stream =
-                    TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
-                let mkRangedSeq (s,e) =  new CloudSequence<string>(cs.Path, None, Some(getDeserializer s e), ?enableCache = enableCache) :> ICloudCollection<string>
-                let partitions = Array.splitByPartitionCountRange (int partitionCount) 0L size
+            let mkRangedSeqs (weights : int[]) =
+                let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
+                let mkRangedSeq rangeOpt =
+                    match rangeOpt with
+                    | Some(s,e) -> new CloudSequence<string>(cs.Path, None, Some(getDeserializer s e), ?enableCache = enableCache) :> ICloudCollection<string>
+                    | None -> new SequenceCollection<string>([||]) :> _
+
+                let partitions = Array.splitWeightedRange weights 0L size
                 Array.map mkRangedSeq partitions
 
             if size < 512L * 1024L then
                 // partition lines in-memory if file is particularly small.
                 let! count = cs.Count
-                if count < int64 partitionCount then
+                if count < int64 weights.Length then
                     let! lines = cs.ToArray()
-                    let liness = Array.splitByPartitionCount partitionCount lines
+                    let liness = Array.splitWeighted weights lines
                     return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> _)
                 else
-                    return mkRangedSeqs partitionCount
+                    return mkRangedSeqs weights
             else
-                return mkRangedSeqs partitionCount
+                return mkRangedSeqs weights
         }
 
 type CloudSequence =

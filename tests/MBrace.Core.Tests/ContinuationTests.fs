@@ -607,7 +607,7 @@ module ``Continuation Tests`` =
             let arraySize = int arraySize
             let ts = [|1 .. arraySize|]
             let tss = Array.splitByPartitionCount partitionCount ts
-            tss.Length |> shouldEqual (min arraySize partitionCount)
+            tss.Length |> shouldEqual partitionCount
             Array.concat tss |> shouldEqual ts)
 
     [<Test>]

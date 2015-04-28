@@ -21,21 +21,6 @@ module internal Utils =
                 member self.Iterator() = collector.Iterator()
                 member self.Result = collector.Result }
 
-    module Array =
-        /// computes the gcd for a collection of integers
-        let gcd (inputs : int []) =
-            let rec gcd m n =
-                if n > m then gcd n m
-                elif n = 0 then m
-                else gcd n (m % n)
-
-            Array.fold gcd 0 inputs
-
-        /// normalize a collection of inputs w.r.t. gcd
-        let gcdNormalize (inputs : int []) =
-            let gcd = gcd inputs
-            inputs |> Array.map (fun i -> i / gcd)
-
     module Option =
         /// converts nullable to optional
         let ofNullable (t : Nullable<'T>) =
