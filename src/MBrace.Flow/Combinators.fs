@@ -1064,6 +1064,28 @@ module CloudFlow =
             | Some reducedVal -> return !reducedVal
         }
 
+    /// <summary>
+    ///    Groups the elements of the input flow according to given key generating function
+    ///    and reduces the elements of each group to a single value via the given reducer function.
+    /// </summary>
+    /// <param name="projection">A function to transform items of the input flow into a key.</param>
+    /// <param name="reducer">The reducer function.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>A flow of key - reduced value pairs.</returns>
+    let inline reduceBy (projection : 'T -> 'Key) (reducer : 'T -> 'T -> 'T) (source : CloudFlow<'T>) : CloudFlow<'Key * 'T> =
+        foldBy (fun v -> projection v)
+               (fun state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
+               (fun left right ->
+                   match left, right with
+                   | Some y, Some x -> y := reducer !y !x; left
+                   | None, Some _ -> right
+                   | Some _, None -> left
+                   | None, None -> left)
+               (fun _ -> None)
+               source
+        |> filter (fun (_, v) -> v.IsSome)
+        |> map (fun (k, v) -> k, v.Value.Value)
+
 
     /// <summary>Computes the average of the projections given by the supplied function on the input flow.</summary>
     /// <param name="projection">A function to transform items of the input flow into a projection.</param>
