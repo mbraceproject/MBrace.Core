@@ -113,20 +113,6 @@ type CloudFlow =
         }
 
     /// <summary>
-    ///     Constructs a CloudFlow of lines from a collection of text files.
-    /// </summary>
-    /// <param name="paths">Paths to input cloud files.</param>
-    /// <param name="encoding">Optional encoding.</param>
-    static member OfCloudFilesByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
-        { new CloudFlow<string> with
-            member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let flow = CloudFlow.OfCloudFiles (paths, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.WithEvaluators collectorf projection combiner
-            }
-        }
-
-    /// <summary>
     ///     Constructs a CloudFlow of all files in provided cloud directory using the given deserializer.
     /// </summary>
     /// <param name="dirPath">Input CloudDirectory.</param>
@@ -177,6 +163,25 @@ type CloudFlow =
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?enableCache = enableCache, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
                 return! flow.WithEvaluators collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow of lines from a collection of text files.
+    /// </summary>
+    /// <param name="paths">Paths to input cloud files.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member OfCloudFilesByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
+                let toLineReader (path : string) = CloudSequence.FromLineSeparatedTextFile(path, ?encoding = encoding)
+                let! cseqs = Sequential.map toLineReader paths
+                let collection = new PersistedCloudFlow<string>(cseqs)
+                let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
+                let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)
+                return! collectionFlow.WithEvaluators collectorf projection combiner
             }
         }
 

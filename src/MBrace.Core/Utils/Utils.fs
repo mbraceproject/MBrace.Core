@@ -39,9 +39,9 @@ module Utils =
             else
 
             let length = endRange - startRange
-            if length = 0L then [||] else
+            if length = 0L then Array.init partitions (fun _ -> (startRange + 1L, startRange)) else
 
-            let partitions = if length < int64 partitions then length else int64 partitions
+            let partitions = int64 partitions
             let chunkSize = length / partitions
             let r = length % partitions
             let ranges = new ResizeArray<int64 * int64>()
@@ -94,8 +94,10 @@ module Utils =
         /// <param name="lower">Lower bound of range.</param>
         /// <param name="upper">Upper bound of range.</param>
         let splitWeightedRange (weights : int []) (lower : int64) (upper : int64) : (int64 * int64) option [] =
-            if lower > upper then raise <| new ArgumentOutOfRangeException()
+            if lower > upper then Array.init weights.Length (fun _ -> None)
             elif weights.Length = 0 then invalidArg "weights" "must be non-empty array."
+            elif weights |> Array.exists (fun w -> w < 0) then invalidArg "weights" "weights must be non-negative."
+            elif weights |> Array.forall (fun w -> w = 0) then invalidArg "weights" "must contain at least one positive weight."
             else
 
             let length = upper - lower
@@ -107,14 +109,14 @@ module Utils =
             // 2. compute x_i, where x_i / N = w_i / Σ w_i
             // 3. compute R = N - Σ (floor x_i), the number of padding elements.
             // 4. compute chunk sizes, adding an extra padding element to the first R x_i's of largest decimal component.
-            let total = weights |> Array.sumBy (fun w -> if w > 0 then w else invalidArg "weights" "weights must contain positive values.") |> uint64
+            let total = weights |> Array.sumBy uint64
             let chunkInfo = weights |> Array.map (fun w -> let C = uint64 w * uint64 length in int64 (C / total), int64 (C % total))
             let R = length - (chunkInfo |> Array.sumBy fst)
             let chunkSizes = 
                 chunkInfo 
                 |> Seq.mapi (fun i (q,r) -> i,q,r) 
                 |> Seq.sortBy (fun (_,_,r) -> -r)
-                |> Seq.mapi (fun j (i,q,_) -> if int64 j < R then (i, q + 1L) else (i,q))
+                |> Seq.mapi (fun j (i,q,r) -> if int64 j < R && q + r > 0L then (i, q + 1L) else (i,q))
                 |> Seq.sortBy fst
                 |> Seq.map snd
                 |> Seq.toArray
@@ -141,6 +143,21 @@ module Utils =
             else
                 splitWeightedRange weights 0L (int64 input.Length)
                 |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])
+
+
+        /// computes the gcd for a collection of integers
+        let inline gcd (inputs : 't []) : 't =
+            let rec gcd m n =
+                if n > m then gcd n m
+                elif n = LanguagePrimitives.GenericZero then m
+                else gcd n (m % n)
+
+            Array.fold gcd LanguagePrimitives.GenericZero inputs
+
+        /// normalize a collection of inputs w.r.t. gcd
+        let inline gcdNormalize (inputs : 't []) : 't [] =
+            let gcd = gcd inputs
+            inputs |> Array.map (fun i -> i / gcd)
 
 
     module Seq =

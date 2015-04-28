@@ -52,6 +52,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="TestTypes.fs" />
     <Compile Include="ContinuationTests.fs" />
+    <Compile Include="CollectionPartitionerTests.fs" />
     <Compile Include="ParallelismTests.fs" />
     <Compile Include="StoreTests\FileStoreTests.fs" />
     <Compile Include="StoreTests\CloudAtomTests.fs" />
