@@ -65,6 +65,7 @@ type internal InMemoryWorker private () =
     static let singleton = new InMemoryWorker()
     let name = System.Net.Dns.GetHostName()
     interface IWorkerRef with
+        member __.Hostname = name
         member __.Type = "InMemory worker"
         member __.Id = name
         member __.ProcessorCount = Environment.ProcessorCount
