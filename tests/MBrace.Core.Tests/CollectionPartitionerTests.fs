@@ -39,17 +39,19 @@ module ``Collection Partitioning Tests`` =
 
     let mkDummyWorker id cores =
         { 
-           new obj() with
-              member x.Equals(obj) =
-                match obj with :? IWorkerRef as w -> id = w.Id | _ -> false
-              member x.ToString() = sprintf "worker%s" id
+            new obj() with
+                member x.Equals(obj) =
+                    match obj with :? IWorkerRef as w -> id = w.Id | _ -> false
+                member x.ToString() = sprintf "worker%s" id
 
-           interface IWorkerRef with
-              member x.CompareTo(obj: obj): int = 
-                match obj with :? IWorkerRef as w -> compare id w.Id | _ -> invalidArg "obj" "invalid comparand."
-              member x.Id: string = id
-              member x.ProcessorCount: int = cores
-              member x.Type: string = "dummy"
+            interface IWorkerRef with
+                member x.CompareTo(obj: obj): int = 
+                    match obj with :? IWorkerRef as w -> compare id w.Id | _ -> invalidArg "obj" "invalid comparand."
+
+                member x.Id: string = id
+                member x.Hostname = System.Net.Dns.GetHostName()
+                member x.ProcessorCount: int = cores
+                member x.Type: string = "dummy"
         }
 
     let concat (collections : seq<#ICloudCollection<'T>>) =
