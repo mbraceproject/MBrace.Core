@@ -19,20 +19,16 @@ type CloudValue<'T> =
     // https://visualfsharp.codeplex.com/workitem/199
     [<DataMember(Name = "Path")>]
     val mutable private path : string
-    [<DataMember(Name = "UUID")>]
-    val mutable private uuid : string
+    [<DataMember(Name = "ETag")>]
+    val mutable private etag : ETag
     [<DataMember(Name = "Deserializer")>]
     val mutable private deserializer : (Stream -> 'T) option
     [<DataMember(Name = "IsCacheEnabled")>]
     val mutable private isCacheEnabled : bool
 
-    private new (uuid, path, deserializer, enableCache) =
-        { uuid = uuid ; path = path ; deserializer = deserializer ; isCacheEnabled = enableCache }
-
-    internal new (path, deserializer, ?enableCache) =
-        let uuid = mkUUID()
+    internal new (path, etag, deserializer, ?enableCache) =
         let enableCache = defaultArg enableCache true
-        { uuid = uuid ; path = path ; deserializer = deserializer ; isCacheEnabled = enableCache }
+        { path = path ; etag = etag ; deserializer = deserializer ; isCacheEnabled = enableCache }
 
     /// Path to cloud value payload in store
     member c.Path = c.path
@@ -41,13 +37,17 @@ type CloudValue<'T> =
     member c.EnableCache = c.isCacheEnabled
 
     /// immutable update to the cache behaviour
-    member internal c.WithCacheBehaviour b = new CloudValue<'T>(c.uuid, c.path, c.deserializer, b)
+    member internal c.WithCacheBehaviour b = new CloudValue<'T>(c.path, c.etag, c.deserializer, b)
 
     interface ICloudCacheable<'T> with
-        member c.UUID = c.uuid
+        member c.UUID = sprintf "CloudValue:%s:%s" c.path c.etag
         member c.GetSourceValue() = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            use! stream = ofAsync <| config.FileStore.BeginRead c.path
+            let! etag,stream = ofAsync <| config.FileStore.BeginRead c.path
+            use stream = stream
+            if c.etag <> etag then
+                raise <| new InvalidDataException(sprintf "CloudValue: incorrect etag in file '%s'." c.path)
+            
             match c.deserializer with 
             | Some ds -> return ds stream
             | None -> 
@@ -109,8 +109,8 @@ type CloudValue =
             // write value
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
-        do! ofAsync <| config.FileStore.Write(path, writer)
-        return new CloudValue<'T>(path, deserializer, ?enableCache = enableCache)
+        let! etag,_ = ofAsync <| config.FileStore.Write(path, writer)
+        return new CloudValue<'T>(path, etag, deserializer, ?enableCache = enableCache)
     }
 
     /// <summary>
@@ -123,13 +123,14 @@ type CloudValue =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
     static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool, ?enableCache : bool) : Local<CloudValue<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        let cell = new CloudValue<'T>(path, deserializer, ?enableCache = enableCache)
-        if defaultArg force false then
-            let! _ = cell.Value in ()
-        else
-            let! exists = ofAsync <| config.FileStore.FileExists path
-            if not exists then return raise <| new FileNotFoundException(path)
-        return cell
+        let! etag = ofAsync <| config.FileStore.TryGetETag path
+        match etag with
+        | None -> return raise <| new FileNotFoundException(path)
+        | Some et ->
+            let cell = new CloudValue<'T>(path, et, deserializer, ?enableCache = enableCache)
+            if defaultArg force false then
+                let! _ = cell.Value in ()
+            return cell
     }
 
     /// <summary>

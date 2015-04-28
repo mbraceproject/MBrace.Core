@@ -18,13 +18,6 @@ module Utils =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
 
-    type Async with
-        static member Parallel(left : Async<'T>, right : Async<'S>) = async {
-            let box wf = async { let! r = wf in return box r }
-            let! results = Async.Parallel [| box left ; box right |]
-            return results.[0] :?> 'T, results.[1] :?> 'S
-        }
-
 
     type ConcurrentDictionary<'K,'V> with
         member dict.TryAdd(key : 'K, value : 'V, ?forceUpdate) =

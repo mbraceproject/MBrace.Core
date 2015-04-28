@@ -21,10 +21,10 @@ open MBrace.Store.Internals
 type CloudSequence<'T> =
 
     // https://visualfsharp.codeplex.com/workitem/199
-    [<DataMember(Name = "UUID")>]
-    val mutable private uuid : string
     [<DataMember(Name = "Path")>]
     val mutable private path : string
+    [<DataMember(Name = "ETag")>]
+    val mutable private etag : ETag
     [<DataMember(Name = "Count")>]
     val mutable private count : int64 option
     [<DataMember(Name = "Deserializer")>]
@@ -32,13 +32,9 @@ type CloudSequence<'T> =
     [<DataMember(Name = "IsCacheEnabled")>]
     val mutable private enableCache : bool
 
-    internal new (path, count, deserializer, ?enableCache) = 
-        let uuid = mkUUID()
+    internal new (path, etag, count, deserializer, ?enableCache : bool) =
         let enableCache = defaultArg enableCache false
-        { uuid = uuid ; path = path ; count = count ; deserializer = deserializer ; enableCache = enableCache }
-
-    private new (uuid, path, count, deserializer, enableCache) =
-        { uuid = uuid ; path = path ; count = count ; deserializer = deserializer ; enableCache = enableCache }
+        { path = path ; etag = etag ; count = count ; deserializer = deserializer ; enableCache = enableCache }
 
     member private c.GetSequenceFromStore () = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
@@ -54,14 +50,17 @@ type CloudSequence<'T> =
         let fileStore = config.FileStore
         let path = c.path
         let mkEnumerator () =
-            let stream = fileStore.BeginRead path |> Async.RunSync
+            let etag, stream = fileStore.BeginRead path |> Async.RunSync
+            if etag <> c.etag then
+                raise <| new InvalidDataException(sprintf "CloudSequence: incorrect etag in file '%s'." c.path)
+
             deserializer(stream).GetEnumerator()
 
         return Seq.fromEnumerator mkEnumerator
     }
 
     interface ICloudCacheable<'T []> with
-        member c.UUID = c.uuid
+        member c.UUID = sprintf "CloudSequence:%s:%s" c.path c.etag
         member c.GetSourceValue () = local {
             let! seq = c.GetSequenceFromStore()
             return Seq.toArray seq
@@ -91,11 +90,13 @@ type CloudSequence<'T> =
     /// Path to Cloud sequence in store
     member c.Path = c.path
 
+    member c.ETag = c.etag
+
     /// Enables implicit, on-demand caching of values when first dereferenced.
     member c.CacheByDefault = c.enableCache
 
     /// immutable update to the cache behaviour
-    member internal c.WithCacheBehaviour b = new CloudSequence<'T>(c.uuid, c.path, c.count, c.deserializer, b)
+    member internal c.WithCacheBehaviour b = new CloudSequence<'T>(c.path, c.etag, c.count, c.deserializer, b)
 
     /// Cloud sequence element count
     member c.Count = local {
@@ -137,8 +138,8 @@ type CloudSequence<'T> =
 
 /// Partitionable implementation of cloud file line reader
 [<DataContract>]
-type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache : bool) =
-    inherit CloudSequence<string>(path, None, Some(fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?enableCache = enableCache)
+type private TextLineSequence(path : string, etag : ETag, ?encoding : Encoding, ?enableCache : bool) =
+    inherit CloudSequence<string>(path, etag, None, Some(fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)), ?enableCache = enableCache)
 
     interface IPartitionableCollection<string> with
         member cs.GetPartitions(weights : int []) = local {
@@ -148,7 +149,7 @@ type private TextLineSequence(path : string, ?encoding : Encoding, ?enableCache 
                 let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
                 let mkRangedSeq rangeOpt =
                     match rangeOpt with
-                    | Some(s,e) -> new CloudSequence<string>(cs.Path, None, Some(getDeserializer s e), ?enableCache = enableCache) :> ICloudCollection<string>
+                    | Some(s,e) -> new CloudSequence<string>(cs.Path, cs.ETag, None, Some(getDeserializer s e), ?enableCache = enableCache) :> ICloudCollection<string>
                     | None -> new SequenceCollection<string>([||]) :> _
 
                 let partitions = Array.splitWeightedRange weights 0L size
@@ -190,8 +191,8 @@ type CloudSequence =
         let writer (stream : Stream) = async {
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }
-        let! length = ofAsync <| config.FileStore.Write(path, writer)
-        return new CloudSequence<'T>(path, Some length, deserializer, ?enableCache = enableCache)
+        let! etag, length = ofAsync <| config.FileStore.Write(path, writer)
+        return new CloudSequence<'T>(path, etag, Some length, deserializer, ?enableCache = enableCache)
     }
 
     /// <summary>
@@ -226,8 +227,8 @@ type CloudSequence =
                     currentStream := stream
                     return _serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false) |> int64
                 }
-                let! length = config.FileStore.Write(path, writer)
-                let seq = new CloudSequence<'T>(path, Some length, deserializer, ?enableCache = enableCache)
+                let! etag, length = config.FileStore.Write(path, writer)
+                let seq = new CloudSequence<'T>(path, etag, Some length, deserializer, ?enableCache = enableCache)
                 seqs.Add seq
 
             return seqs.ToArray()
@@ -244,14 +245,15 @@ type CloudSequence =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
     static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let cseq = new CloudSequence<'T>(path, None, deserializer, ?enableCache = enableCache)
-        if defaultArg force false then
-            let! _ = cseq.Count in ()
-        else
-            let! exists = ofAsync <| config.FileStore.FileExists path
-            if not exists then return raise <| new FileNotFoundException(path)
-            
-        return cseq
+        let! etag = ofAsync <| config.FileStore.TryGetETag path
+        match etag with
+        | None -> return raise <| new FileNotFoundException(path)
+        | Some et ->
+            let cseq = new CloudSequence<'T>(path, et, None, deserializer, ?enableCache = enableCache)
+            if defaultArg force false then
+                let! _ = cseq.Count in ()
+
+            return cseq
     }
 
     /// <summary>
@@ -298,14 +300,15 @@ type CloudSequence =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
     static member FromLineSeparatedTextFile(path : string, ?encoding : Encoding, ?force : bool, ?enableCache : bool) : Local<CloudSequence<string>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let cseq = new TextLineSequence(path, ?encoding = encoding, ?enableCache = enableCache)
-        if defaultArg force false then
-            let! _ = cseq.Count in ()
-        else
-            let! exists = ofAsync <| config.FileStore.FileExists path
-            if not exists then return raise <| new FileNotFoundException(path)
+        let! etag = ofAsync <| config.FileStore.TryGetETag path
+        match etag with
+        | None -> return raise <| new FileNotFoundException(path)
+        | Some et ->
+            let cseq = new TextLineSequence(path, et, ?encoding = encoding, ?enableCache = enableCache)
+            if defaultArg force false then
+                let! _ = cseq.Count in ()
 
-        return cseq :> _
+            return cseq :> _
     }
 
     /// <summary>

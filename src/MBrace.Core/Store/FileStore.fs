@@ -6,6 +6,8 @@ open System.IO
 open MBrace.Core
 open MBrace.Core.Internals
 
+type ETag = string
+
 /// Cloud file storage abstraction
 type ICloudFileStore =
 
@@ -107,31 +109,37 @@ type ICloudFileStore =
     //
 
     /// <summary>
+    ///     Asynchronously returns the ETag for provided file, if it exists.
+    /// </summary>
+    /// <param name="path">Path to file.</param>
+    abstract TryGetETag : path:string -> Async<ETag option>
+
+    /// <summary>
     ///     Creates a new file in store. If successful returns a writing stream.
     /// </summary>
     /// <param name="path">Path to new file.</param>
     /// <param name="writer">Asynchronous writer function.</param>
-    abstract Write : path:string * writer:(Stream -> Async<'R>) -> Async<'R>
+    abstract Write : path:string * writer:(Stream -> Async<'R>) -> Async<ETag * 'R>
 
     /// <summary>
     ///     Reads from an existing file in store. If successful returns a reading stream.
     /// </summary>
     /// <param name="path">Path to existing file.</param>
-    abstract BeginRead : path:string -> Async<Stream>
+    abstract BeginRead : path:string -> Async<ETag * Stream>
 
     /// <summary>
     ///     Creates a new file from provided stream.
     /// </summary>
     /// <param name="targetFile">Target file.</param>
     /// <param name="source">Source stream.</param>
-    abstract OfStream : source:Stream * target:string -> Async<unit>
+    abstract OfStream : source:Stream * target:string -> Async<ETag>
 
     /// <summary>
     ///     Reads an existing file to target stream.
     /// </summary>
     /// <param name="sourceFile">Source file.</param>
     /// <param name="target">Target stream.</param>
-    abstract ToStream : sourceFile:string * target:Stream -> Async<unit>
+    abstract ToStream : sourceFile:string * target:Stream -> Async<ETag>
 
 /// Cloud storage entity identifier
 type ICloudStorageEntity =
@@ -174,7 +182,8 @@ module CloudFileStoreUtils =
         /// <param name="deserializer">Deserializer function.</param>
         /// <param name="path">Path to file.</param>
         member cfs.Read<'T>(deserializer : Stream -> Async<'T>, path : string) = async {
-            use! stream = cfs.BeginRead path
+            let! _,stream = cfs.BeginRead path
+            use stream = stream
             return! deserializer stream
         }
 
@@ -441,7 +450,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     static member Create(serializer : Stream -> Async<unit>, ?path : string) : Local<CloudFile> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let path = match path with Some p -> p | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
-        do! ofAsync <| config.FileStore.Write(path, serializer)
+        let! _ = ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
     }
 
@@ -454,7 +463,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     static member Create(serializer : Stream -> Async<unit>, dirPath : string, fileName : string) : Local<CloudFile> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let path = config.FileStore.Combine [|dirPath ; fileName|]
-        do! ofAsync <| config.FileStore.Write(path, serializer)
+        let! _ = ofAsync <| config.FileStore.Write(path, serializer)
         return new CloudFile(path)
     }
 
@@ -469,7 +478,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         return! ofAsync <| async {
             if leaveOpen then
-                let! stream = config.FileStore.BeginRead(path)
+                let! _,stream = config.FileStore.BeginRead(path)
                 return! deserializer stream
             else
                 return! config.FileStore.Read(deserializer, path)
@@ -607,6 +616,6 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
         use fs = File.OpenRead localFile
         let fileName = Path.GetFileName localFile
         let targetPath = config.FileStore.Combine(targetDirectory, fileName)
-        do! ofAsync <| config.FileStore.OfStream(fs, targetPath)
+        let! _ = ofAsync <| config.FileStore.OfStream(fs, targetPath)
         return new CloudFile(targetPath)
     }
