@@ -134,20 +134,7 @@ type internal PersistedCloudFlow private () =
             let! cts = Cloud.CreateCancellationTokenSource()
             let createVector (ts : 'T []) = local {
                 let! vector = PersistedCloudFlow.New(ts, cache = enableCache)
-                if enableCache then
-                    let! objCache = Cloud.TryGetResource<IObjectCache> ()
-                    match objCache with
-                    | None -> ()
-                    | Some oc ->
-                        // inject result array directly to cache
-                        let i = ref 0
-                        for p in vector.Partitions do
-                            let! count = p.Count
-                            let j = !i + int count
-                            let sub = ts.[!i .. j - 1]
-                            let _ = oc.Add((p :> ICloudCacheable<'T[]>).UUID, sub)
-                            i := j
-
+                // TODO: Revisit in-memory caching effect
                 return vector
             }
 
