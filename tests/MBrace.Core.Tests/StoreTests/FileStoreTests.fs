@@ -12,6 +12,8 @@ open MBrace.Store.Internals
 open MBrace.Workflows
 open MBrace.Client
 
+#nowarn "444"
+
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
 type ``FileStore Tests`` (parallelismFactor : int) as self =
@@ -62,6 +64,34 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
 
     [<Test>]
+    member __.``2. MBrace : CloudValue - should retain cached value even if persisted file was deleted`` () =
+        if __.IsObjectCacheInstalled then
+            cloud {
+                let! c = CloudValue.New [1..10000]
+                let! r = c.ForceCache()
+                r |> shouldEqual true
+                do! CloudFile.Delete c.Path
+                let! v = c.Value
+                return ()
+            } |> runRemote
+
+    [<Test>]
+    member __.``2. MBrace : CloudValue - should error if reading from changed persist file`` () =
+        if __.IsObjectCacheInstalled then
+            fun () ->
+                cloud {
+                    let! c = CloudValue.New [1..10000]
+                    do! CloudFile.Delete c.Path
+                    // overwrite persist file with payload of compatible type
+                    // cloudvalue should use etag implementation to infer that content has changed
+                    let! serializer = Cloud.GetResource<ISerializer> ()
+                    let! _ = CloudFile.Create((fun s -> async { return serializer.Serialize(s, [1..100], false)}), c.Path)
+                    return! c.Value
+                } |> runRemote
+
+            |> shouldFailwith<_,InvalidDataException>
+
+    [<Test>]
     member __.``2. MBrace : CloudValue - Parallel`` () =
         cloud {
             let! ref = CloudValue.New [1 .. 100]
@@ -100,6 +130,34 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         if __.IsObjectCacheInstalled then
             let seq = runRemote <| CloudSequence.New([1..1000], enableCache = true)
             cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
+
+    [<Test>]
+    member __.``2. MBrace : CloudSequence - should retain cached value even if persisted file was deleted`` () =
+        if __.IsObjectCacheInstalled then
+            cloud {
+                let! c = CloudSequence.New [1..10000]
+                let! r = c.ForceCache()
+                r |> shouldEqual true
+                do! CloudFile.Delete c.Path
+                let! v = c.ToArray()
+                return ()
+            } |> runRemote
+
+    [<Test>]
+    member __.``2. MBrace : CloudSequence - should error if reading from changed persist file`` () =
+        if __.IsObjectCacheInstalled then
+            fun () ->
+                cloud {
+                    let! c = CloudSequence.New [1..10000]
+                    do! CloudFile.Delete c.Path
+                    let! serializer = Cloud.GetResource<ISerializer> ()
+                    // overwrite persist file with payload of compatible type
+                    // cloudsequence should use etag implementation to infer that content has changed
+                    let! _ = CloudFile.Create((fun s -> async { return ignore <| serializer.SeqSerialize(s, [1..100], false)}), c.Path)
+                    return! c.ToArray()
+                } |> runRemote
+
+            |> shouldFailwith<_,InvalidDataException>
 
     [<Test>]
     member __.``2. MBrace : CloudSequence - parallel`` () =
@@ -333,7 +391,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
 
         // check that the cloned instance accesses the same store
         let file = fileStore.GetRandomFilePath testDirectory
-        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let _ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
         fileStore'.FileExists file |> runSync |> shouldEqual true
         fileStore'.DeleteFile file |> runSync
@@ -376,7 +434,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         fileStore.FileExists file |> runSync |> shouldEqual false
 
         // write to file
-        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let _ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
 
         fileStore.FileExists file |> runSync |> shouldEqual true
@@ -384,7 +442,8 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
 
         // read from file
         do
-            use stream = fileStore.BeginRead file |> runSync
+            let _,stream = fileStore.BeginRead file |> runSync
+            use stream = stream
             for i = 1 to 100 do
                 stream.ReadByte() |> shouldEqual i
 
@@ -393,10 +452,44 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         fileStore.FileExists file |> runSync |> shouldEqual false
 
     [<Test>]
+    member __.``1. FileStore : simple etag verification`` () =
+        let file = fileStore.GetRandomFilePath testDirectory
+
+        fileStore.TryGetETag file |> runSync |> shouldEqual None
+
+        // write to file
+        let writeEtag,_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+
+        // get etag from file
+        fileStore.TryGetETag file |> runSync |> shouldEqual (Some writeEtag)
+
+        fileStore.DeleteFile file |> runSync
+
+        fileStore.TryGetETag file |> runSync |> shouldEqual None
+
+    [<Test>]
+    member __.``1. FileStore : etag should change after file overwritten`` () =
+        let file = fileStore.GetRandomFilePath testDirectory
+
+        fileStore.TryGetETag file |> runSync |> shouldEqual None
+
+        // write to file
+        let writeEtag,_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+
+        fileStore.DeleteFile file |> runSync
+
+        // write to file
+        let writeEtag',_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+
+        Assert.AreNotEqual(writeEtag', writeEtag)
+
+        fileStore.DeleteFile file |> runSync
+
+    [<Test>]
     member __.``1. FileStore : Get byte count`` () =
         let file = fileStore.GetRandomFilePath testDirectory
         // write to file
-        fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let _ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
         fileStore.GetFileSize file |> runSync |> shouldEqual 100L
 
@@ -407,11 +500,12 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         let data = Array.init (1024 * 1024 * 4) byte
         let file = fileStore.GetRandomFilePath testDirectory
         
-        fileStore.Write(file, fun stream -> async { stream.Write(data, 0, data.Length) }) |> runSync
+        let _ = fileStore.Write(file, fun stream -> async { stream.Write(data, 0, data.Length) }) |> runSync
 
         do
             use m = new MemoryStream()
-            use stream = fileStore.BeginRead file |> runSync
+            let _,stream = fileStore.BeginRead file |> runSync
+            use stream = stream
             stream.CopyTo m
             m.ToArray() |> shouldEqual data
         
@@ -423,11 +517,12 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         let file = fileStore.GetRandomFilePath testDirectory
         do
             use m = new MemoryStream(data)
-            fileStore.OfStream(m, file) |> runSync
+            let _ = fileStore.OfStream(m, file) |> runSync
+            ()
 
         do
             use m = new MemoryStream()
-            fileStore.ToStream(file, m) |> runSync
+            let _ = fileStore.ToStream(file, m) |> runSync
             m.ToArray() |> shouldEqual data
 
         fileStore.DeleteFile file |> runSync
