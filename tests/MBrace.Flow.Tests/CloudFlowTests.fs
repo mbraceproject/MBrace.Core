@@ -96,18 +96,9 @@ type ``CloudFlow tests`` () as self =
             Assert.AreEqual(y, int x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
-    [<Test>]
-    member __.``2. CloudFlow : ofCloudVector`` () =
-        let f(xs : int []) =
-            let cv = xs |> CloudFlow.OfArray |> CloudFlow.persist |> run
-            let x = cv |> CloudFlow.length |> run
-            let y = xs |> Seq.map ((+)1) |> Seq.length
-            Assert.AreEqual(y, int x)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
 
     [<Test>]
-    member __.``2. CloudFlow : toCloudVector`` () =
+    member __.``2. CloudFlow : persist`` () =
         let f(xs : int[]) =            
             let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
@@ -116,28 +107,12 @@ type ``CloudFlow tests`` () as self =
 
 
     [<Test>]
-    member __.``2. CloudFlow : toCachedCloudVector`` () =
+    member __.``2. CloudFlow : persistCached`` () =
         let f(xs : string[]) =            
             let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.persistCached |> run
             let x = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
             let y = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
             Assert.AreEqual(x, y)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-    [<Test>]
-    member __.``2. CloudFlow : cache`` () =
-        let f(xs : int[]) =
-            let v = xs |> CloudFlow.OfArray |> CloudFlow.persist |> run
-//            v.Cache() |> run 
-            let x = v |> CloudFlow.map  (fun x -> x * x) |> CloudFlow.persist |> run
-            let x' = v |> CloudFlow.map (fun x -> x * x) |> CloudFlow.persist |> run
-            let y = xs |> Array.map (fun x -> x * x)
-            
-            let _x = cloud { return! x.ToEnumerable() } |> runLocally |> Seq.toArray
-            let _x' = cloud { return! x'.ToEnumerable() } |> runLocally |> Seq.toArray
-            
-            Assert.AreEqual(y, _x)
-            Assert.AreEqual(_x', _x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
@@ -234,7 +209,7 @@ type ``CloudFlow tests`` () as self =
     
     
     [<Test>]
-    member __.``2. CloudFlow : ofTextFileByLine`` () =
+    member __.``2. CloudFlow : OfCloudFileByLine`` () =
         
         let f(xs : string [], separator : Separator) =
             let separator = 
