@@ -115,17 +115,32 @@ type ICloudFileStore =
     abstract TryGetETag : path:string -> Async<ETag option>
 
     /// <summary>
-    ///     Creates a new file in store. If successful returns a writing stream.
+    ///     Creates a new file in store. If successful returns a writer stream.
+    /// </summary>
+    /// <param name="path">Path to new file.</param>
+    /// <param name="writer">Asynchronous writer function.</param>
+    abstract BeginWrite : path:string -> Async<Stream>
+
+    /// <summary>
+    ///     Reads from an existing file in store. If successful returns a reader stream.
+    /// </summary>
+    /// <param name="path">Path to existing file.</param>
+    abstract BeginRead : path:string -> Async<Stream>
+
+    /// <summary>
+    ///     Creates a new file in store. If successful returns a writer stream.
     /// </summary>
     /// <param name="path">Path to new file.</param>
     /// <param name="writer">Asynchronous writer function.</param>
     abstract Write : path:string * writer:(Stream -> Async<'R>) -> Async<ETag * 'R>
 
     /// <summary>
-    ///     Reads from an existing file in store. If successful returns a reading stream.
+    ///     Attempts to begin reading file from given path,
+    ///     provided that supplied etag matches payload.
     /// </summary>
-    /// <param name="path">Path to existing file.</param>
-    abstract BeginRead : path:string -> Async<ETag * Stream>
+    /// <param name="path">Path to file.</param>
+    /// <param name="etag">ETag to be matched.</param>
+    abstract TryBeginRead : path:string * etag:ETag -> Async<Stream option>
 
     /// <summary>
     ///     Creates a new file from provided stream.
@@ -139,7 +154,16 @@ type ICloudFileStore =
     /// </summary>
     /// <param name="sourceFile">Source file.</param>
     /// <param name="target">Target stream.</param>
-    abstract ToStream : sourceFile:string * target:Stream -> Async<ETag>
+    abstract ToStream : sourceFile:string * target:Stream -> Async<unit>
+
+    /// <summary>
+    ///     Attempts to read an existing file to target stream,
+    ///     provided that supplied etag matches payload.
+    /// </summary>
+    /// <param name="sourceFile">Source file.</param>
+    /// <param name="etag">ETag to be matched.</param>
+    /// <param name="target">Target stream.</param>
+    abstract TryToStream : sourceFile:string * etag:ETag * target:Stream -> Async<bool>
 
 /// Cloud storage entity identifier
 type ICloudStorageEntity =
@@ -182,8 +206,7 @@ module CloudFileStoreUtils =
         /// <param name="deserializer">Deserializer function.</param>
         /// <param name="path">Path to file.</param>
         member cfs.Read<'T>(deserializer : Stream -> Async<'T>, path : string) = async {
-            let! _,stream = cfs.BeginRead path
-            use stream = stream
+            use! stream = cfs.BeginRead path
             return! deserializer stream
         }
 
@@ -472,17 +495,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    /// <param name="leaveOpen">Do not dispose stream after deserialization. Defaults to false.</param>
-    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Local<'T> = local {
-        let leaveOpen = defaultArg leaveOpen false
+    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Local<'T> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| async {
-            if leaveOpen then
-                let! _,stream = config.FileStore.BeginRead(path)
-                return! deserializer stream
-            else
-                return! config.FileStore.Read(deserializer, path)
-        }
+        return! ofAsync <| config.FileStore.Read(deserializer, path)
     }
 
     /// <summary>
@@ -529,8 +544,14 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadLines(path : string, ?encoding : Encoding) : Local<seq<string>> = local {
-        let reader (stream : Stream) = async { return TextReaders.ReadLines(stream, ?encoding = encoding) }
-        return! CloudFile.Read(path, reader, leaveOpen = true)
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let store = config.FileStore
+        let mkEnumerator () =
+            let stream = store.BeginRead path |> Async.RunSync
+            let seq = TextReaders.ReadLines(stream, ?encoding = encoding)
+            seq.GetEnumerator()
+
+        return Seq.fromEnumerator mkEnumerator
     }
 
     /// <summary>

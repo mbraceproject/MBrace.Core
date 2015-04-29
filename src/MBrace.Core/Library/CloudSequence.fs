@@ -50,11 +50,10 @@ type CloudSequence<'T> =
         let fileStore = config.FileStore
         let path = c.path
         let mkEnumerator () =
-            let etag, stream = fileStore.BeginRead path |> Async.RunSync
-            if etag <> c.etag then
-                raise <| new InvalidDataException(sprintf "CloudSequence: incorrect etag in file '%s'." c.path)
-
-            deserializer(stream).GetEnumerator()
+            let streamOpt = fileStore.TryBeginRead(path, c.etag) |> Async.RunSync
+            match streamOpt with
+            | None -> raise <| new InvalidDataException(sprintf "CloudSequence: incorrect etag in file '%s'." c.path)
+            | Some stream -> deserializer(stream).GetEnumerator()
 
         return Seq.fromEnumerator mkEnumerator
     }

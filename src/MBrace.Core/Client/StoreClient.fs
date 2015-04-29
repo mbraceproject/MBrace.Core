@@ -559,18 +559,16 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    /// <param name="leaveOpen">Leave stream open after deserialization. Defaults to false.</param>
-    member c.ReadAsync<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : Async<'T> = 
-        CloudFile.Read<'T>(path, deserializer, ?leaveOpen = leaveOpen) |> toAsync
+    member c.ReadAsync<'T>(path : string, deserializer : Stream -> Async<'T>) : Async<'T> = 
+        CloudFile.Read<'T>(path, deserializer) |> toAsync
 
     /// <summary>
     ///     Reads file in store with provided deserializer function.
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
-    /// <param name="leaveOpen">Leave stream open after deserialization. Defaults to false.</param>
-    member c.Read<'T>(path : string, deserializer : Stream -> Async<'T>, ?leaveOpen : bool) : 'T = 
-        c.ReadAsync<'T>(path, deserializer, ?leaveOpen = leaveOpen) |> toSync
+    member c.Read<'T>(path : string, deserializer : Stream -> Async<'T>) : 'T = 
+        c.ReadAsync<'T>(path, deserializer) |> toSync
 
     /// <summary>
     ///     Gets all files that exist in given container.

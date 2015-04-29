@@ -122,6 +122,14 @@ type FileSystemStore private (rootPath : string) =
             return Directory.EnumerateDirectories(normalize directory) |> Seq.toArray
         }
 
+        member __.BeginWrite(path : string) = async {
+            return new FileStream(normalize path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
+        }
+
+        member __.BeginRead(path : string) = async {
+            return new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream
+        }
+
         member __.Write(path : string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = async {
             let path = normalize path
             initDir <| Path.GetDirectoryName path
@@ -132,10 +140,13 @@ type FileSystemStore private (rootPath : string) =
             return getETag path, r
         }
 
-        member __.BeginRead(path : string) = async {
-            let fs = new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream
-            let etag = getETag path
-            return etag, fs
+        member __.TryBeginRead(path : string, etag : ETag) = async {
+            let path = normalize path
+            let fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)
+            if etag = getETag path then
+                return Some(fs :> Stream)
+            else
+                return None
         }
 
         member self.OfStream(source : Stream, target : string) = async {
@@ -149,8 +160,16 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member self.ToStream(source : string, target : Stream) = async {
-            let! etag, fs = (self :> ICloudFileStore).BeginRead source
-            use fs = fs
+            use! fs = (self :> ICloudFileStore).BeginRead source
             do! fs.CopyToAsync target
-            return etag
+        }
+
+        member self.TryToStream(source : string, etag : ETag, target : Stream) = async {
+            let! streamOpt = (self :> ICloudFileStore).TryBeginRead(source, etag)
+            match streamOpt with
+            | None -> return false
+            | Some stream ->
+                use stream = stream
+                do! stream.CopyToAsync(target)
+                return true
         }

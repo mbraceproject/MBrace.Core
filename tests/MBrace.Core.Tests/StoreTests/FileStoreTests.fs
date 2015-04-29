@@ -442,7 +442,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
 
         // read from file
         do
-            let _,stream = fileStore.BeginRead file |> runSync
+            let stream = fileStore.BeginRead file |> runSync
             use stream = stream
             for i = 1 to 100 do
                 stream.ReadByte() |> shouldEqual i
@@ -504,7 +504,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
 
         do
             use m = new MemoryStream()
-            let _,stream = fileStore.BeginRead file |> runSync
+            let stream = fileStore.BeginRead file |> runSync
             use stream = stream
             stream.CopyTo m
             m.ToArray() |> shouldEqual data

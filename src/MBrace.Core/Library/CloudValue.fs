@@ -43,16 +43,16 @@ type CloudValue<'T> =
         member c.UUID = sprintf "CloudValue:%s:%s" c.path c.etag
         member c.GetSourceValue() = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            let! etag,stream = ofAsync <| config.FileStore.BeginRead c.path
-            use stream = stream
-            if c.etag <> etag then
-                raise <| new InvalidDataException(sprintf "CloudValue: incorrect etag in file '%s'." c.path)
-            
-            match c.deserializer with 
-            | Some ds -> return ds stream
-            | None -> 
-                let! defaultSerializer = Cloud.GetResource<ISerializer> ()
-                return defaultSerializer.Deserialize<'T>(stream, leaveOpen = false)
+            let! streamOpt = ofAsync <| config.FileStore.TryBeginRead(c.path, c.etag)
+            match streamOpt with
+            | None -> return raise <| new InvalidDataException(sprintf "CloudValue: incorrect etag in file '%s'." c.path)
+            | Some stream ->
+                use stream = stream
+                match c.deserializer with 
+                | Some ds -> return ds stream
+                | None -> 
+                    let! defaultSerializer = Cloud.GetResource<ISerializer> ()
+                    return defaultSerializer.Deserialize<'T>(stream, leaveOpen = false)
         }
 
     /// Dereference the cloud value
