@@ -391,7 +391,9 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
 
         // check that the cloned instance accesses the same store
         let file = fileStore.GetRandomFilePath testDirectory
-        let _ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        do
+            use stream = fileStore.BeginWrite file |> runSync
+            for i = 1 to 100 do stream.WriteByte(byte i)
 
         fileStore'.FileExists file |> runSync |> shouldEqual true
         fileStore'.DeleteFile file |> runSync
@@ -434,16 +436,16 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         fileStore.FileExists file |> runSync |> shouldEqual false
 
         // write to file
-        let _ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
-
+        do
+            use stream = fileStore.BeginWrite file |> runSync
+            for i = 1 to 100 do stream.WriteByte(byte i)
 
         fileStore.FileExists file |> runSync |> shouldEqual true
         fileStore.EnumerateFiles testDirectory |> runSync |> Array.exists ((=) file) |> shouldEqual true
 
         // read from file
         do
-            let stream = fileStore.BeginRead file |> runSync
-            use stream = stream
+            use stream = fileStore.BeginRead file |> runSync
             for i = 1 to 100 do
                 stream.ReadByte() |> shouldEqual i
 
@@ -458,7 +460,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         fileStore.TryGetETag file |> runSync |> shouldEqual None
 
         // write to file
-        let writeEtag,_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let writeEtag,_ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
         // get etag from file
         fileStore.TryGetETag file |> runSync |> shouldEqual (Some writeEtag)
@@ -474,12 +476,12 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         fileStore.TryGetETag file |> runSync |> shouldEqual None
 
         // write to file
-        let writeEtag,_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let writeEtag,_ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
         fileStore.DeleteFile file |> runSync
 
         // write to file
-        let writeEtag',_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 200 do stream.WriteByte(byte i) }) |> runSync
+        let writeEtag',_ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 200 do stream.WriteByte(byte i) }) |> runSync
 
         Assert.AreNotEqual(writeEtag', writeEtag)
 
@@ -489,7 +491,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
     member __.``1. FileStore : Get byte count`` () =
         let file = fileStore.GetRandomFilePath testDirectory
         // write to file
-        let _ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let _ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
         fileStore.GetFileSize file |> runSync |> shouldEqual 100L
 
@@ -500,7 +502,9 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         let data = Array.init (1024 * 1024 * 4) byte
         let file = fileStore.GetRandomFilePath testDirectory
         
-        let _ = fileStore.Write(file, fun stream -> async { stream.Write(data, 0, data.Length) }) |> runSync
+        do
+            use stream = fileStore.BeginWrite file |> runSync
+            stream.Write(data, 0, data.Length)
 
         do
             use m = new MemoryStream()
@@ -517,12 +521,12 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         let file = fileStore.GetRandomFilePath testDirectory
         do
             use m = new MemoryStream(data)
-            let _ = fileStore.OfStream(m, file) |> runSync
+            let _ = fileStore.CopyOfStream(m, file) |> runSync
             ()
 
         do
             use m = new MemoryStream()
-            let _ = fileStore.ToStream(file, m) |> runSync
+            let _ = fileStore.CopyToStream(file, m) |> runSync
             m.ToArray() |> shouldEqual data
 
         fileStore.DeleteFile file |> runSync

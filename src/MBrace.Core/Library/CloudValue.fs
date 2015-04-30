@@ -43,7 +43,7 @@ type CloudValue<'T> =
         member c.UUID = sprintf "CloudValue:%s:%s" c.path c.etag
         member c.GetSourceValue() = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            let! streamOpt = ofAsync <| config.FileStore.TryBeginRead(c.path, c.etag)
+            let! streamOpt = ofAsync <| config.FileStore.ReadETag(c.path, c.etag)
             match streamOpt with
             | None -> return raise <| new InvalidDataException(sprintf "CloudValue: incorrect etag in file '%s'." c.path)
             | Some stream ->
@@ -80,7 +80,7 @@ type CloudValue<'T> =
         }
 
     interface ICloudStorageEntity with
-        member c.Type = sprintf "cloudref:%O" typeof<'T>
+        member c.Type = sprintf "CloudValue"
         member c.Id = c.path
 
 #nowarn "444"
@@ -109,7 +109,7 @@ type CloudValue =
             // write value
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
-        let! etag,_ = ofAsync <| config.FileStore.Write(path, writer)
+        let! etag,_ = ofAsync <| config.FileStore.WriteETag(path, writer)
         return new CloudValue<'T>(path, etag, deserializer, ?enableCache = enableCache)
     }
 

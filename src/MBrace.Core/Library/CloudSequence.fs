@@ -50,7 +50,7 @@ type CloudSequence<'T> =
         let fileStore = config.FileStore
         let path = c.path
         let mkEnumerator () =
-            let streamOpt = fileStore.TryBeginRead(path, c.etag) |> Async.RunSync
+            let streamOpt = fileStore.ReadETag(path, c.etag) |> Async.RunSync
             match streamOpt with
             | None -> raise <| new InvalidDataException(sprintf "CloudSequence: incorrect etag in file '%s'." c.path)
             | Some stream -> deserializer(stream).GetEnumerator()
@@ -116,7 +116,7 @@ type CloudSequence<'T> =
     }
 
     interface ICloudStorageEntity with
-        member c.Type = sprintf "CloudSequence:%O" typeof<'T>
+        member c.Type = "CloudSequence"
         member c.Id = c.path
 
     interface ICloudDisposable with
@@ -190,7 +190,7 @@ type CloudSequence =
         let writer (stream : Stream) = async {
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }
-        let! etag, length = ofAsync <| config.FileStore.Write(path, writer)
+        let! etag, length = ofAsync <| config.FileStore.WriteETag(path, writer)
         return new CloudSequence<'T>(path, etag, Some length, deserializer, ?enableCache = enableCache)
     }
 
@@ -226,7 +226,7 @@ type CloudSequence =
                     currentStream := stream
                     return _serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false) |> int64
                 }
-                let! etag, length = config.FileStore.Write(path, writer)
+                let! etag, length = config.FileStore.WriteETag(path, writer)
                 let seq = new CloudSequence<'T>(path, etag, Some length, deserializer, ?enableCache = enableCache)
                 seqs.Add seq
 

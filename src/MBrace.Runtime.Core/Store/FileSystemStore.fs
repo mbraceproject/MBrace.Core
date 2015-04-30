@@ -83,13 +83,6 @@ type FileSystemStore private (rootPath : string) =
         member __.Combine(paths : string []) = Path.Combine paths
         member __.GetRootDirectory () = rootPath
         member __.TryGetFullPath (path : string) = try normalize path |> Some with _ -> None
-        member __.TryGetETag (path : string) = async {
-            return
-                let path = normalize path in
-                if File.Exists path then Some(getETag path)
-                else None
-        }
-
         member __.GetRandomDirectoryName () = Path.Combine(rootPath, mkUUID())
 
         member __.GetFileSize(path : string) = async {
@@ -125,6 +118,7 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member __.BeginWrite(path : string) = async {
+            initDir <| Path.GetDirectoryName path
             return new FileStream(normalize path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
         }
 
@@ -132,7 +126,26 @@ type FileSystemStore private (rootPath : string) =
             return new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream
         }
 
-        member __.Write(path : string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = async {
+        member self.CopyOfStream(source : Stream, target : string) = async {
+            let path = normalize target
+            initDir <| Path.GetDirectoryName path
+            use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
+            do! source.CopyToAsync fs
+        }
+
+        member self.CopyToStream(source : string, target : Stream) = async {
+            use! fs = (self :> ICloudFileStore).BeginRead source
+            do! fs.CopyToAsync target
+        }
+
+        member __.TryGetETag (path : string) = async {
+            return
+                let path = normalize path in
+                if File.Exists path then Some(getETag path)
+                else None
+        }
+
+        member __.WriteETag(path : string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = async {
             let path = normalize path
             initDir <| Path.GetDirectoryName path
             use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
@@ -142,36 +155,11 @@ type FileSystemStore private (rootPath : string) =
             return getETag path, r
         }
 
-        member __.TryBeginRead(path : string, etag : ETag) = async {
+        member __.ReadETag(path : string, etag : ETag) = async {
             let path = normalize path
             let fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)
             if etag = getETag path then
                 return Some(fs :> Stream)
             else
                 return None
-        }
-
-        member self.OfStream(source : Stream, target : string) = async {
-            let path = normalize target
-            initDir <| Path.GetDirectoryName path
-            use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
-            do! source.CopyToAsync fs
-            // flush to disk before closing stream to ensure etag is correct
-            if fs.CanWrite then fs.Flush(flushToDisk = true)
-            return getETag path
-        }
-
-        member self.ToStream(source : string, target : Stream) = async {
-            use! fs = (self :> ICloudFileStore).BeginRead source
-            do! fs.CopyToAsync target
-        }
-
-        member self.TryToStream(source : string, etag : ETag, target : Stream) = async {
-            let! streamOpt = (self :> ICloudFileStore).TryBeginRead(source, etag)
-            match streamOpt with
-            | None -> return false
-            | Some stream ->
-                use stream = stream
-                do! stream.CopyToAsync(target)
-                return true
         }

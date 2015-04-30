@@ -79,7 +79,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
                         return! attemptRead (retries - 1)
                 else
                     try
-                        let! streamOpt = sourceStore.TryBeginRead(path, tag)
+                        let! streamOpt = sourceStore.ReadETag(path, tag)
                         match streamOpt with
                         | None -> 
                             do! Async.Sleep 1000
@@ -88,7 +88,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
                         | Some stream ->
                             use stream = stream
                             let cachedFileName = getCachedFileName path tag
-                            let! _ = localCacheStore.OfStream(stream, cachedFileName)
+                            let! _ = localCacheStore.CopyOfStream(stream, cachedFileName)
                             let _ = cacheEvent.TriggerAsTask path
                             return! localCacheStore.BeginRead cachedFileName
 
