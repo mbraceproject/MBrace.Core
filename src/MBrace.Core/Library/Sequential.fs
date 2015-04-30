@@ -6,7 +6,7 @@ open MBrace.Core.Internals
 #nowarn "443"
 #nowarn "444"
 
-/// Collection of cloud combinators with sequential execution semantics.
+/// Set of localized collection combinators that operate locally and sequentially on the inputs.
 [<RequireQualifiedAccess>]
 module Sequential =
 

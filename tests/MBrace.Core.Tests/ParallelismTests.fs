@@ -248,60 +248,93 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     [<Test>]
     member __.``1. Parallel : MapReduce balanced`` () =
         // balanced, core implemented MapReduce algorithm
-        repeat(fun () -> WordCount.run 1000 DivideAndConquer.mapReduce |> run |> Choice.shouldEqual 5000)
+        repeat(fun () -> WordCount.run 1000 CloudBalanced.mapReduceLocal |> run |> Choice.shouldEqual 5000)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.map`` () =
+    member __.``1. Parallel : CloudBalanced.map`` () =
         let checker (ints : int list) =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints
-            |> DivideAndConquer.map (fun i -> local { return i + 1})
+            |> CloudBalanced.mapLocal (fun i -> local { return i + 1})
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.filter`` () =
+    member __.``1. Parallel : CloudBalanced.filter`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints
-            |> DivideAndConquer.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 })
+            |> CloudBalanced.filterLocal (fun i -> local { return i % 5 = 0 || i % 7 = 0 })
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.choose`` () =
+    member __.``1. Parallel : CloudBalanced.choose`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
             ints
-            |> DivideAndConquer.choose (fun i -> local { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
+            |> CloudBalanced.chooseLocal (fun i -> local { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.fold`` () =
+    member __.``1. Parallel : CloudBalanced.fold`` () =
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             ints
-            |> DivideAndConquer.fold2 (fun s i -> s + i) (fun s i -> s + i) 0
+            |> CloudBalanced.fold (fun s i -> s + i) (fun s i -> s + i) 0
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.collect`` () =
-        let checker (ints : int list) =
-            let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> set
+    member __.``1. Parallel : CloudBalanced.collect`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Array.collect (fun i -> [|(i,1) ; (i,2) ; (i,3)|])
             ints
-            |> DivideAndConquer.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
+            |> CloudBalanced.collectLocal (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
             |> run
-            |> Choice.shouldBe (fun r -> set r = expected)
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : CloudBalanced.groupBy`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.toArray v) |> Seq.toArray
+            ints
+            |> CloudBalanced.groupBy id
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : CloudBalanced.foldBy`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
+            ints
+            |> CloudBalanced.foldBy id (+) (+) (fun _ -> 0)
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : CloudBalanced.foldByLocal`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
+            ints
+            |> CloudBalanced.foldByLocal id (Local.lift2 (+)) (Local.lift2 (+)) (fun _ -> local { return 0 })
+            |> run
+            |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
@@ -500,24 +533,46 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldEqual (Some (parallelismFactor / 2)))
 
     [<Test>]
-    member __.``2. Choice : DivideAndConquer.tryFind`` () =
+    member __.``2. Choice : CloudBalanced.tryFind`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
             ints
-            |> DivideAndConquer.tryFind (fun i -> local { return i % 7 = 0 && i % 5 = 0 })
+            |> CloudBalanced.tryFindLocal (fun i -> local { return i % 7 = 0 && i % 5 = 0 })
             |> run
             |> Choice.shouldBe(function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``2. Choice : DivideAndConquer.tryPick`` () =
+    member __.``2. Choice : CloudBalanced.tryPick`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
             ints
-            |> DivideAndConquer.tryPick (fun i -> local { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
+            |> CloudBalanced.tryPickLocal (fun i -> local { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
             |> run
             |> Choice.shouldBe (function None -> Set.isEmpty expected | Some r -> expected.Contains r)
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``2. Choice : CloudBalanced.exists`` () =
+        let checker (bools : bool []) =
+            let expected = Array.exists id bools
+            bools
+            |> CloudBalanced.exists id
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``2. Choice : CloudBalanced.forall`` () =
+        let checker (bools : bool []) =
+            let expected = Array.forall id bools
+            bools
+            |> CloudBalanced.forall id
+            |> run
+            |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 

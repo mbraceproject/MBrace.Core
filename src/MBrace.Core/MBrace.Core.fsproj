@@ -88,7 +88,7 @@
     <Compile Include="Distribution\InMemory\InMemoryRuntime.fs" />
     <Compile Include="Library\Common.fs" />
     <Compile Include="Library\Sequential.fs" />
-    <Compile Include="Library\Distributed.fs" />
+    <Compile Include="Library\Balanced.fs" />
     <Compile Include="Library\CloudValue.fs" />
     <Compile Include="Library\CloudSequence.fs" />
     <Compile Include="Library\CollectionPartitioner.fs" />
