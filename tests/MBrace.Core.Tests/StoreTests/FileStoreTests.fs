@@ -479,7 +479,7 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
         fileStore.DeleteFile file |> runSync
 
         // write to file
-        let writeEtag',_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let writeEtag',_ = fileStore.Write(file, fun stream -> async { do for i = 1 to 200 do stream.WriteByte(byte i) }) |> runSync
 
         Assert.AreNotEqual(writeEtag', writeEtag)
 

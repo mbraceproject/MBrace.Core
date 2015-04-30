@@ -38,7 +38,9 @@ type FileSystemStore private (rootPath : string) =
     static let getETag (path : string) : ETag = 
         let fI = new FileInfo(path)
         let lwt = fI.LastWriteTimeUtc
-        lwt.ToBinary() |> string
+        let lwtB = BitConverter.GetBytes lwt.Ticks
+        let size = BitConverter.GetBytes fI.Length
+        Array.append lwtB size |> Convert.ToBase64String
 
     /// <summary>
     ///     Creates a new FileSystemStore instance on given path.
