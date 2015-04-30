@@ -93,12 +93,6 @@ type internal PersistedCloudFlow private () =
         new PersistedCloudFlow<'T>(partitions)
 
     /// <summary>
-    ///     Downcasts a persisted cloud flow.
-    /// </summary>
-    /// <param name="vector">Input Cloud Vector.</param>
-    static member internal ToCloudFlow (vector : PersistedCloudFlow<'T>) : CloudFlow<'T> = vector :> CloudFlow<'T>
-
-    /// <summary>
     ///     Persists given flow to store.
     /// </summary>
     /// <param name="flow">Input CloudFlow.</param>

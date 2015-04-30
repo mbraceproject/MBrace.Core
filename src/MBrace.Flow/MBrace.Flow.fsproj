@@ -58,6 +58,12 @@
     <Compile Include="Producers\CloudCollection.fs" />
     <Compile Include="Producers\CloudChannel.fs" />
     <Compile Include="PersistedCloudFlow.fs" />
+    <Compile Include="Consumers\Transformers.fs" />
+    <Compile Include="Consumers\Take.fs" />
+    <Compile Include="Consumers\Fold.fs" />
+    <Compile Include="Consumers\Sort.fs" />
+    <Compile Include="Consumers\NonDeterminstic.fs" />
+    <Compile Include="Consumers\Distinct.fs" />
     <Compile Include="Combinators.fs" />
     <Compile Include="CSharpProxy.fs" />
     <Compile Include="FluentExtensions.fs" />
