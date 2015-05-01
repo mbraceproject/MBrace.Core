@@ -35,11 +35,11 @@ type PersistedCloudFlow<'T> internal (partitions : CloudSequence<'T> []) =
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.Partitions = partitions
     /// Computes the size (in bytes) of the PersistedCloudFlow
-    member __.Size: Local<int64> = local { let! sizes = partitions |> Sequential.map (fun p -> p.Size) in return Array.sum sizes }
+    member __.Size: Local<int64> = local { let! sizes = partitions |> Local.Sequential.map (fun p -> p.Size) in return Array.sum sizes }
     /// Computes the element count of the PersistedCloudFlow
-    member __.Count: Local<int64> = local { let! counts = partitions |> Sequential.map (fun p -> p.Count) in return Array.sum counts }
+    member __.Count: Local<int64> = local { let! counts = partitions |> Local.Sequential.map (fun p -> p.Count) in return Array.sum counts }
     /// Gets an enumerable for all elements in the PersistedCloudFlow
-    member __.ToEnumerable() = local { let! seqs = partitions |> Sequential.map (fun p -> p.ToEnumerable()) in return Seq.concat seqs }
+    member __.ToEnumerable() = local { let! seqs = partitions |> Local.Sequential.map (fun p -> p.ToEnumerable()) in return Seq.concat seqs }
 
     interface IPartitionedCollection<'T> with
         member cv.IsKnownSize = true

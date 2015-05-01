@@ -26,7 +26,7 @@ type CloudCollection private () =
 
         and extractCollections (cs : seq<ICloudCollection<'T>>) =
             local {
-                let! extracted = cs |> Sequential.map extractCollection
+                let! extracted = cs |> Local.Sequential.map extractCollection
                 return Seq.concat extracted
             }
 
@@ -159,7 +159,7 @@ type CloudCollection private () =
         else
 
         // compute size per collection and allocate expected size per worker according to weight.
-        let! wsizes = collections |> Sequential.map (fun c -> local { let! sz = c.Size in return c, sz })
+        let! wsizes = collections |> Local.Sequential.map (fun c -> local { let! sz = c.Size in return c, sz })
         let totalSize = wsizes |> Array.sumBy snd
         let coreCount = workers |> Array.sumBy (fun w -> if isTargetedWorkerEnabled then weight w else 1)
         let sizePerCore = totalSize / int64 coreCount

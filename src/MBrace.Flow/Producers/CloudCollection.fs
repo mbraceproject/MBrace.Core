@@ -73,14 +73,14 @@ type internal CloudCollection private () =
                         }
 
                         let! collector = collectorf
-                        let! seqs = Sequential.map getSeq slice
+                        let! seqs = Local.Sequential.map getSeq slice
                         let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
                         let value = pStream.Apply (collector.ToParStreamCollector())
                         return! projection value
                     }
 
                     // sequentially compute partitions
-                    let! results = Sequential.map computePartitionSlice partitionSlices
+                    let! results = Local.Sequential.map computePartitionSlice partitionSlices
                     return! combiner results
                 }
                         
