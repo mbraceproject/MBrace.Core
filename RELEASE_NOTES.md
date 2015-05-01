@@ -1,3 +1,9 @@
+#### 0.9.10-alpha
+* Improve partitioning in CloudFlow.
+* Add missing combinators to CloudFlow.
+* Add ETags to FileStore API.
+* Rename CloudVector to PersistedCloudFlow.
+
 #### 0.9.9-alpha
 * Introduce ICloudCollection and ICloudDictionary.
 * Refactor namespaces in MBrace.Core.

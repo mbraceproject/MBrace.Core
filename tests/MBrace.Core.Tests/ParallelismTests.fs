@@ -251,7 +251,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         repeat(fun () -> WordCount.run 1000 Cloud.Balanced.mapReduceLocal |> run |> Choice.shouldEqual 5000)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.map`` () =
+    member __.``1. Parallel : Cloud.Balanced.map`` () =
         let checker (ints : int list) =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints
@@ -262,7 +262,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.filter`` () =
+    member __.``1. Parallel : Cloud.Balanced.filter`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints
@@ -273,7 +273,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.choose`` () =
+    member __.``1. Parallel : Cloud.Balanced.choose`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
             ints
@@ -284,7 +284,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.fold`` () =
+    member __.``1. Parallel : Cloud.Balanced.fold`` () =
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             ints
@@ -295,7 +295,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.collect`` () =
+    member __.``1. Parallel : Cloud.Balanced.collect`` () =
         let checker (ints : int []) =
             let expected = ints |> Array.collect (fun i -> [|(i,1) ; (i,2) ; (i,3)|])
             ints
@@ -306,7 +306,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.groupBy`` () =
+    member __.``1. Parallel : Cloud.Balanced.groupBy`` () =
         let checker (ints : int []) =
             let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.toArray v) |> Seq.toArray
             ints
@@ -317,7 +317,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.foldBy`` () =
+    member __.``1. Parallel : Cloud.Balanced.foldBy`` () =
         let checker (ints : int []) =
             let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
             ints
@@ -328,7 +328,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.BalancedParallel.foldByLocal`` () =
+    member __.``1. Parallel : Cloud.Balanced.foldByLocal`` () =
         let checker (ints : int []) =
             let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
             ints
@@ -533,7 +533,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldEqual (Some (parallelismFactor / 2)))
 
     [<Test>]
-    member __.``2. Choice : Cloud.BalancedParallel.tryFind`` () =
+    member __.``2. Choice : Cloud.Balanced.tryFind`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
             ints
@@ -544,7 +544,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``2. Choice : Cloud.BalancedParallel.tryPick`` () =
+    member __.``2. Choice : Cloud.Balanced.tryPick`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
             ints
@@ -555,7 +555,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``2. Choice : Cloud.BalancedParallel.exists`` () =
+    member __.``2. Choice : Cloud.Balanced.exists`` () =
         let checker (bools : bool []) =
             let expected = Array.exists id bools
             bools
@@ -566,7 +566,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``2. Choice : Cloud.BalancedParallel.forall`` () =
+    member __.``2. Choice : Cloud.Balanced.forall`` () =
         let checker (bools : bool []) =
             let expected = Array.forall id bools
             bools
