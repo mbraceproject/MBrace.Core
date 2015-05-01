@@ -22,7 +22,8 @@ module ``Collection Partitioning Tests`` =
 #if DEBUG
         500
 #else
-        100
+        // for whatever reason there is significant delay when running in AppVeyor
+        if isAppVeyorInstance then 10 else 100
 #endif
 
     let imem = LocalRuntime.Create(ResourceRegistry.Empty)
@@ -164,13 +165,11 @@ module ``Collection Partitioning Tests`` =
             |> variance 
             |> shouldBe (fun v -> v <= 0.5)
 
-            let original = partitionable.ToEnumerable() |> run |> Seq.sum
-            partitionss
+            let original = partitionable.ToEnumerable() |> run |> Seq.toArray
+            partitionss 
             |> Seq.collect snd 
-            |> Sequential.map (fun p -> p.ToEnumerable())
+            |> Sequential.collect (fun p -> p.ToEnumerable()) 
             |> run
-            |> Seq.concat
-            |> Seq.sum
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -198,13 +197,11 @@ module ``Collection Partitioning Tests`` =
             |> shouldBe (fun v -> v <= 0.5)
 
             // test that partitions contain identical sequences to source
-            let original = partitionables |> Sequential.map (fun p -> p.ToEnumerable()) |> run |> Seq.concat |> Seq.sum
+            let original = partitionables |> Sequential.collect (fun p -> p.ToEnumerable()) |> run
             partitionss 
-            |> Seq.collect snd
-            |> Sequential.map (fun p -> p.ToEnumerable())
+            |> Seq.collect snd 
+            |> Sequential.collect (fun p -> p.ToEnumerable()) 
             |> run
-            |> Seq.concat
-            |> Seq.sum
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -226,13 +223,11 @@ module ``Collection Partitioning Tests`` =
             sizes |> Array.sumBy snd |> shouldEqual (collectionSizes |> Array.sumBy (snd >> abs))
 
             // test that partitions contain identical sequences to source
-            let original = collections |> Sequential.map (fun p -> p.ToEnumerable()) |> run |> Seq.concat |> Seq.sum
+            let original = collections |> Sequential.collect (fun p -> p.ToEnumerable()) |> run
             partitionss 
             |> Seq.collect snd 
-            |> Sequential.map (fun p -> p.ToEnumerable()) 
+            |> Sequential.collect (fun p -> p.ToEnumerable()) 
             |> run
-            |> Seq.concat
-            |> Seq.sum
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
