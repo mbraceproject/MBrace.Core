@@ -507,7 +507,7 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``start as task`` () =
-        let t = Cloud.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
+        let t = Cloud.StartAsSystemTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
         t.Result |> shouldEqual 42
 
     //
@@ -520,7 +520,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.map (fun i -> local { return i + 1 }) 
+            |> Local.Sequential.map (fun i -> local { return i + 1 }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -530,7 +530,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 }) 
+            |> Local.Sequential.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -540,7 +540,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 then Some i else None) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.choose (fun i -> local { return if i % 5 = 0 then Some i else None }) 
+            |> Local.Sequential.choose (fun i -> local { return if i % 5 = 0 then Some i else None }) 
             |> run
             |> Choice.shouldEqual expected)
 
@@ -550,7 +550,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.fold (fun s i -> i + s) 0
             ints 
             |> dseq 
-            |> Sequential.fold (fun s i -> local { return s + i }) 0
+            |> Local.Sequential.fold (fun s i -> local { return s + i }) 0
             |> run
             |> Choice.shouldEqual expected)
 
@@ -560,7 +560,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> List.toArray
             ints 
             |> dseq 
-            |> Sequential.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
+            |> Local.Sequential.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
             |> run
             |> Choice.shouldEqual expected)
 
@@ -570,7 +570,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.tryFind (fun i -> i % 13 = 0 || i % 7 = 0)
             ints 
             |> dseq 
-            |> Sequential.tryFind (fun i -> local { return i % 13 = 0 || i % 7 = 0 })
+            |> Local.Sequential.tryFind (fun i -> local { return i % 13 = 0 || i % 7 = 0 })
             |> run
             |> Choice.shouldEqual expected)
 
@@ -580,7 +580,7 @@ module ``Continuation Tests`` =
             let expected = ints |> List.tryPick (fun i -> if i % 13 = 0 || i % 7 = 0 then Some i else None)
             ints 
             |> dseq 
-            |> Sequential.tryPick (fun i -> local { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
+            |> Local.Sequential.tryPick (fun i -> local { return if i % 13 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected)
 

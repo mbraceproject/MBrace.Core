@@ -1,12 +1,12 @@
-﻿namespace MBrace.Workflows
+﻿/// Assortment of workflow combinators that act on collections within the local process.
+module MBrace.Workflows.Local
 
 open MBrace.Core
 open MBrace.Core.Internals
 
-#nowarn "443"
 #nowarn "444"
 
-/// Collection of cloud combinators with sequential execution semantics.
+/// Combinators that operate on inputs sequentially within the local process.
 [<RequireQualifiedAccess>]
 module Sequential =
 
@@ -140,4 +140,81 @@ module Sequential =
     /// <param name="source">Input sequence.</param>
     let iter (body : 'T -> Local<unit>) (source : seq<'T>) : Local<unit> = local {
         for t in source do do! body t
+    }
+
+
+/// Collection of combinators that operate on inputs in parallel within the local process.
+[<RequireQualifiedAccess>]
+module Parallel =
+
+    /// <summary>
+    ///     Parallel map combinator.
+    /// </summary>
+    /// <param name="mapper">Mapper function.</param>
+    /// <param name="source">Source sequence.</param>
+    let map (mapper : 'T -> Local<'S>) (source : seq<'T>) : Local<'S []> = local {
+        return! source |> Seq.map (fun t -> local { return! mapper t }) |> Local.Parallel
+    }
+
+    /// <summary>
+    ///     Parallel filter combinator.
+    /// </summary>
+    /// <param name="predicate">Predicate function.</param>
+    /// <param name="source">Input sequence.</param>
+    let filter (predicate : 'T -> Local<bool>) (source : seq<'T>) : Local<'T []> = local {
+        let! results = 
+            source
+            |> Seq.map (fun t -> local { let! result = predicate t in return if result then Some t else None })
+            |> Local.Parallel
+
+        return results |> Array.choose id
+    }
+
+    /// <summary>
+    ///     Parallel choose combinator.
+    /// </summary>
+    /// <param name="chooser">Choice function.</param>
+    /// <param name="source">Input sequence.</param>
+    let choose (chooser : 'T -> Local<'S option>) (source : seq<'T>) : Local<'S []> = local {
+        let! results = map chooser source
+        return Array.choose id results
+    }
+
+    /// <summary>
+    ///     Sequential eager collect combinator.
+    /// </summary>
+    /// <param name="collector">Collector function.</param>
+    /// <param name="source">Source data.</param>
+    let collect (collector : 'T -> Local<#seq<'S>>) (source : seq<'T>) : Local<'S []> = local {
+        let! results = map (fun t -> local { let! rs = collector t in return Seq.toArray rs }) source
+        return Array.concat results
+    }
+
+    /// <summary>
+    ///     Sequential tryFind combinator.
+    /// </summary>
+    /// <param name="predicate">Predicate function.</param>
+    /// <param name="source">Input sequence.</param>
+    let tryFind (predicate : 'T -> Local<bool>) (source : seq<'T>) : Local<'T option> = local {
+        let finder (t : 'T) = local { let! r = predicate t in return if r then Some t else None }
+        return! source |> Seq.map finder |> Local.Choice
+    }
+
+    /// <summary>
+    ///     Sequential tryPick combinator.
+    /// </summary>
+    /// <param name="chooser">Choice function.</param>
+    /// <param name="source">Input sequence.</param>
+    let tryPick (chooser : 'T -> Local<'S option>) (source : seq<'T>) : Local<'S option> = local {
+        return! source |> Seq.map chooser |> Local.Choice
+    }
+
+    /// <summary>
+    ///     Sequential iter combinator.
+    /// </summary>
+    /// <param name="body">Iterator body.</param>
+    /// <param name="source">Input sequence.</param>
+    let iter (body : 'T -> Local<unit>) (source : seq<'T>) : Local<unit> = local {
+        let! _ = source |> Seq.map (fun t -> local { return! body t }) |> Local.Parallel
+        return ()
     }

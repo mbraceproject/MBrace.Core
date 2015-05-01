@@ -62,7 +62,7 @@ type CloudFlow =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
                     let toCloudSeq (path : string) = CloudSequence.OfCloudFile(path, ?deserializer = deserializer, ?enableCache = enableCache)
-                    let! cseqs = Sequential.map toCloudSeq paths
+                    let! cseqs = Local.Sequential.map toCloudSeq paths
                     let collection = new PersistedCloudFlow<'T>(cseqs)
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                     let collectionFlow = CloudFlow.OfCloudCollection(collection, ?useCache = enableCache, sizeThresholdPerWorker = threshold)
@@ -178,7 +178,7 @@ type CloudFlow =
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
                 let toLineReader (path : string) = CloudSequence.FromLineSeparatedTextFile(path, ?encoding = encoding)
-                let! cseqs = Sequential.map toLineReader paths
+                let! cseqs = Local.Sequential.map toLineReader paths
                 let collection = new PersistedCloudFlow<string>(cseqs)
                 let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                 let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)

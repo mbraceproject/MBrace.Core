@@ -176,9 +176,9 @@ type Cloud =
     /// <param name="resources">Resource registry used with workflows.</param>
     /// <param name="taskCreationOptions">Resource registry used with workflows.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    [<CompilerMessage("'StartAsTask' only intended for runtime implementers.", 444)>]
-    static member StartAsTask(workflow : Cloud<'T>, resources : ResourceRegistry, 
-                                cancellationToken : ICloudCancellationToken, ?taskCreationOptions : TaskCreationOptions) : Task<'T> =
+    [<CompilerMessage("'StartAsSystemTask' only intended for runtime implementers.", 444)>]
+    static member StartAsSystemTask(workflow : Cloud<'T>, resources : ResourceRegistry, 
+                                        cancellationToken : ICloudCancellationToken, ?taskCreationOptions : TaskCreationOptions) : Task<'T> =
 
         let taskCreationOptions = defaultArg taskCreationOptions TaskCreationOptions.None
         let tcs = new TaskCompletionSource<'T>(taskCreationOptions)
@@ -267,4 +267,4 @@ type Cloud =
     /// <param name="cancellationToken">Cancellation token to be used.</param>
     [<CompilerMessage("'RunSynchronously' only intended for runtime implementers.", 444)>]
     static member RunSynchronously(workflow : Cloud<'T>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : 'T =
-        Cloud.StartAsTask(workflow, resources, cancellationToken).GetResult()
+        Cloud.StartAsSystemTask(workflow, resources, cancellationToken).GetResult()

@@ -136,6 +136,6 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
             let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
             let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
             let resources' = resources.Register (runtimeP :> IDistributionProvider)
-            let task = Cloud.StartAsTask(workflow, resources', cancellationToken)
+            let task = Cloud.StartAsSystemTask(workflow, resources', cancellationToken)
             return new InMemoryTask<'T>(task) :> _
         }

@@ -248,60 +248,93 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     [<Test>]
     member __.``1. Parallel : MapReduce balanced`` () =
         // balanced, core implemented MapReduce algorithm
-        repeat(fun () -> WordCount.run 1000 DivideAndConquer.mapReduce |> run |> Choice.shouldEqual 5000)
+        repeat(fun () -> WordCount.run 1000 Cloud.Balanced.mapReduceLocal |> run |> Choice.shouldEqual 5000)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.map`` () =
+    member __.``1. Parallel : Cloud.BalancedParallel.map`` () =
         let checker (ints : int list) =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             ints
-            |> DivideAndConquer.map (fun i -> local { return i + 1})
+            |> Cloud.Balanced.mapLocal (fun i -> local { return i + 1})
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.filter`` () =
+    member __.``1. Parallel : Cloud.BalancedParallel.filter`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             ints
-            |> DivideAndConquer.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 })
+            |> Cloud.Balanced.filterLocal (fun i -> local { return i % 5 = 0 || i % 7 = 0 })
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.choose`` () =
+    member __.``1. Parallel : Cloud.BalancedParallel.choose`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
             ints
-            |> DivideAndConquer.choose (fun i -> local { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
+            |> Cloud.Balanced.chooseLocal (fun i -> local { return if i % 5 = 0 || i % 7 = 0 then Some i else None })
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.fold`` () =
+    member __.``1. Parallel : Cloud.BalancedParallel.fold`` () =
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             ints
-            |> DivideAndConquer.fold2 (fun s i -> s + i) (fun s i -> s + i) 0
+            |> Cloud.Balanced.fold (fun s i -> s + i) (fun s i -> s + i) 0
             |> run
             |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``1. Parallel : DivideAndConquer.collect`` () =
-        let checker (ints : int list) =
-            let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> set
+    member __.``1. Parallel : Cloud.BalancedParallel.collect`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Array.collect (fun i -> [|(i,1) ; (i,2) ; (i,3)|])
             ints
-            |> DivideAndConquer.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
+            |> Cloud.Balanced.collectLocal (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] })
             |> run
-            |> Choice.shouldBe (fun r -> set r = expected)
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Cloud.BalancedParallel.groupBy`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.toArray v) |> Seq.toArray
+            ints
+            |> Cloud.Balanced.groupBy id
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Cloud.BalancedParallel.foldBy`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
+            ints
+            |> Cloud.Balanced.foldBy id (+) (+) (fun _ -> 0)
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``1. Parallel : Cloud.BalancedParallel.foldByLocal`` () =
+        let checker (ints : int []) =
+            let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
+            ints
+            |> Cloud.Balanced.foldByLocal id (fun x y -> local { return x + y }) (fun x y -> local { return x + y }) (fun _ -> local { return 0 })
+            |> run
+            |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
@@ -500,24 +533,46 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldEqual (Some (parallelismFactor / 2)))
 
     [<Test>]
-    member __.``2. Choice : DivideAndConquer.tryFind`` () =
+    member __.``2. Choice : Cloud.BalancedParallel.tryFind`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
             ints
-            |> DivideAndConquer.tryFind (fun i -> local { return i % 7 = 0 && i % 5 = 0 })
+            |> Cloud.Balanced.tryFindLocal (fun i -> local { return i % 7 = 0 && i % 5 = 0 })
             |> run
             |> Choice.shouldBe(function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
-    member __.``2. Choice : DivideAndConquer.tryPick`` () =
+    member __.``2. Choice : Cloud.BalancedParallel.tryPick`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
             ints
-            |> DivideAndConquer.tryPick (fun i -> local { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
+            |> Cloud.Balanced.tryPickLocal (fun i -> local { return if i % 7 = 0 && i % 5 = 0 then Some i else None })
             |> run
             |> Choice.shouldBe (function None -> Set.isEmpty expected | Some r -> expected.Contains r)
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``2. Choice : Cloud.BalancedParallel.exists`` () =
+        let checker (bools : bool []) =
+            let expected = Array.exists id bools
+            bools
+            |> Cloud.Balanced.exists id
+            |> run
+            |> Choice.shouldEqual expected
+
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+
+    [<Test>]
+    member __.``2. Choice : Cloud.BalancedParallel.forall`` () =
+        let checker (bools : bool []) =
+            let expected = Array.forall id bools
+            bools
+            |> Cloud.Balanced.forall id
+            |> run
+            |> Choice.shouldEqual expected
 
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
@@ -555,7 +610,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     return! count.Value
                 }
 
-                let! task = Cloud.StartAsCloudTask(tworkflow)
+                let! task = Cloud.StartAsTask(tworkflow)
                 let! value = count.Value
                 value |> shouldEqual 0
                 return! Cloud.AwaitCloudTask task
@@ -573,7 +628,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     return invalidOp "failure"
                 }
 
-                let! task = Cloud.StartAsCloudTask(tworkflow)
+                let! task = Cloud.StartAsTask(tworkflow)
                 let! value = count.Value
                 value |> shouldEqual 0
                 do! Cloud.Sleep (delayFactor / 10)
@@ -597,7 +652,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     do! Cloud.Sleep delayFactor
                     do! CloudAtom.Incr count
                 }
-                let! task = Cloud.StartAsCloudTask(tworkflow, cancellationToken = cts.Token)
+                let! task = Cloud.StartAsTask(tworkflow, cancellationToken = cts.Token)
                 do! Cloud.Sleep (delayFactor / 3)
                 let! value = count.Value
                 value |> shouldEqual 1
@@ -615,7 +670,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             repeat(fun () ->
                 cloud {
                     let! currentWorker = Cloud.CurrentWorker
-                    let! task = Cloud.StartAsCloudTask(Cloud.CurrentWorker, target = currentWorker)
+                    let! task = Cloud.StartAsTask(Cloud.CurrentWorker, target = currentWorker)
                     let! result = Cloud.AwaitCloudTask task
                     return result = currentWorker
                 } |> run |> Choice.shouldEqual true)
@@ -625,7 +680,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let delayFactor = delayFactor
         repeat(fun () ->
             cloud {
-                let! task = Cloud.StartAsCloudTask(Cloud.Sleep delayFactor)
+                let! task = Cloud.StartAsTask(Cloud.Sleep delayFactor)
                 return! Cloud.AwaitCloudTask(task, timeoutMilliseconds = 1)
             } |> run |> Choice.shouldFailwith<_, TimeoutException>)
         
@@ -665,7 +720,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            let! _ = Cloud.StartAsCloudTask(cloud { cts.Cancel() })
+            let! _ = Cloud.StartAsTask(cloud { cts.Cancel() })
             do! Cloud.Sleep delayFactor
             cts.Token.IsCancellationRequested |> shouldEqual true
         } |> run |> Choice.shouldEqual ()
