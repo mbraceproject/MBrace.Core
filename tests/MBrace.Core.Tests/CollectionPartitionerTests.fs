@@ -164,11 +164,13 @@ module ``Collection Partitioning Tests`` =
             |> variance 
             |> shouldBe (fun v -> v <= 0.5)
 
-            let original = partitionable.ToEnumerable() |> run |> Seq.toArray
-            partitionss 
+            let original = partitionable.ToEnumerable() |> run |> Seq.sum
+            partitionss
             |> Seq.collect snd 
-            |> Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> Sequential.map (fun p -> p.ToEnumerable())
             |> run
+            |> Seq.concat
+            |> Seq.sum
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -196,11 +198,13 @@ module ``Collection Partitioning Tests`` =
             |> shouldBe (fun v -> v <= 0.5)
 
             // test that partitions contain identical sequences to source
-            let original = partitionables |> Sequential.collect (fun p -> p.ToEnumerable()) |> run
+            let original = partitionables |> Sequential.map (fun p -> p.ToEnumerable()) |> run |> Seq.concat |> Seq.sum
             partitionss 
-            |> Seq.collect snd 
-            |> Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> Seq.collect snd
+            |> Sequential.map (fun p -> p.ToEnumerable())
             |> run
+            |> Seq.concat
+            |> Seq.sum
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -222,11 +226,13 @@ module ``Collection Partitioning Tests`` =
             sizes |> Array.sumBy snd |> shouldEqual (collectionSizes |> Array.sumBy (snd >> abs))
 
             // test that partitions contain identical sequences to source
-            let original = collections |> Sequential.collect (fun p -> p.ToEnumerable()) |> run
+            let original = collections |> Sequential.map (fun p -> p.ToEnumerable()) |> run |> Seq.concat |> Seq.sum
             partitionss 
             |> Seq.collect snd 
-            |> Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> Sequential.map (fun p -> p.ToEnumerable()) 
             |> run
+            |> Seq.concat
+            |> Seq.sum
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
