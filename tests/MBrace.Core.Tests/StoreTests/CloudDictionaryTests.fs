@@ -62,14 +62,15 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``concurrent adds`` () =
+        let parallelismFactor = parallelismFactor
         cloud {
             let! dict = CloudDictionary.New<int> ()
             let add i = dict.Add(string i, i)
 
-            do! Cloud.Parallel [ for i in 1 .. 100 -> add i ] |> Cloud.Ignore
+            do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 
             return! dict.Count
-        } |> runRemote |> shouldEqual 100L
+        } |> runRemote |> shouldEqual (int64 parallelismFactor)
 
     [<Test>]
     member __.``concurrent add or update`` () =
@@ -84,6 +85,6 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
                     return ()
                 }
 
-                do! Cloud.Parallel [ for i in 1 .. 100 -> incr i ] |> Cloud.Ignore
+                do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> incr i ] |> Cloud.Ignore
                 return! dict.TryFind "key"
-            } |> runRemote |> shouldEqual (Some 5050)
+            } |> runRemote |> shouldEqual (Some (Array.sum [|1 .. parallelismFactor|]))
