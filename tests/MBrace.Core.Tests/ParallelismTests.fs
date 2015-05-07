@@ -772,3 +772,12 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             let! results = Cloud.WithFaultPolicy (FaultPolicy.ExponentialDelay(3)) workflow
             return ()
         } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. DomainLocal`` () =
+        let domainLocal = DomainLocal.Create(local { let! w = Cloud.CurrentWorker in return Guid.NewGuid(), w })
+        cloud {
+            let! results = Cloud.ParallelEverywhere domainLocal.Value 
+            let! results' = Cloud.ParallelEverywhere domainLocal.Value
+            return (set results') |> shouldEqual (set results)
+        } |> run |> Choice.shouldEqual ()
