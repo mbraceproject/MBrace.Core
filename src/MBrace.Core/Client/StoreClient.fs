@@ -711,42 +711,83 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="localFile">Local file system path to file.</param>
     /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
-    member __.UploadAsync(localFile : string, ?targetDirectory : string) : Async<CloudFile> =
-        CloudFile.Upload(localFile, ?targetDirectory = targetDirectory) |> toAsync
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.UploadAsync(localFile : string, ?targetDirectory : string, ?overwrite : bool) : Async<CloudFile> =
+        CloudFile.Upload(localFile, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toAsync
 
     /// <summary>
     ///     Uploads a local file to store.
     /// </summary>
     /// <param name="localFile">Local file system path to file.</param>
     /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
-    member __.Upload(localFile : string, ?targetDirectory : string) : CloudFile =
-        __.UploadAsync(localFile, ?targetDirectory = targetDirectory) |> toSync
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.Upload(localFile : string, ?targetDirectory : string, ?overwrite : bool) : CloudFile =
+        __.UploadAsync(localFile, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
 
     /// <summary>
     ///     Uploads a collection local files to store.
     /// </summary>
     /// <param name="localFiles">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
-    member __.UploadAsync(localFiles : seq<string>, ?targetDirectory : string) : Async<CloudFile []> =
-        local {
-            let localFiles = Seq.toArray localFiles
-            match localFiles |> Array.tryFind (not << File.Exists) with
-            | Some notFound -> raise <| new FileNotFoundException(notFound)
-            | None -> ()
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.UploadAsync(localFiles : seq<string>, ?targetDirectory : string, ?overwrite : bool) : Async<CloudFile []> = async {
+        let localFiles = Seq.toArray localFiles
+        match localFiles |> Array.tryFind (not << File.Exists) with
+        | Some notFound -> raise <| new FileNotFoundException(notFound)
+        | None -> ()
 
-            return!
-                localFiles
-                |> Array.map (fun f -> CloudFile.Upload(f, ?targetDirectory = targetDirectory))
-                |> Local.Parallel
-        } |> toAsync
+        return!
+            localFiles
+            |> Array.map (fun f -> __.UploadAsync(f, ?targetDirectory = targetDirectory, ?overwrite = overwrite))
+            |> Async.Parallel
+    }
 
     /// <summary>
     ///     Uploads a collection local files to store.
     /// </summary>
     /// <param name="localFiles">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
-    member __.Upload(localFiles : seq<string>, ?targetDirectory : string) : CloudFile [] = 
-        __.UploadAsync(localFiles, ?targetDirectory = targetDirectory) |> toSync
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.Upload(localFiles : seq<string>, ?targetDirectory : string, ?overwrite : bool) : CloudFile [] = 
+        __.UploadAsync(localFiles, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
+
+    /// <summary>
+    ///     Asynchronously downloads a file from store to local disk.
+    /// </summary>
+    /// <param name="path">Path to file in store.</param>
+    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.DownloadAsync(path : string, ?targetDirectory : string, ?overwrite : bool) : Async<string> =
+        CloudFile.Download(path, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toAsync
+
+    /// <summary>
+    ///     Downloads a file from store to local disk.
+    /// </summary>
+    /// <param name="path">Path to file in store.</param>
+    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.Download(path : string, ?targetDirectory : string, ?overwrite : bool) : string =
+        __.DownloadAsync(path, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
+
+    /// <summary>
+    ///     Asynchronously downloads a collection of cloud files to local disk.
+    /// </summary>
+    /// <param name="paths">Paths to files in store.</param>
+    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.DownloadAsync(paths : seq<string>, ?targetDirectory : string, ?overwrite : bool) : Async<string []> =
+        paths 
+        |> Seq.map (fun p -> __.DownloadAsync(p, ?targetDirectory = targetDirectory, ?overwrite = overwrite))
+        |> Async.Parallel
+
+    /// <summary>
+    ///     Downloads a collection of cloud files to local disk.
+    /// </summary>
+    /// <param name="paths">Paths to files in store.</param>
+    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member __.Download(paths : seq<string>, ?targetDirectory : string, ?overwrite : bool) : string [] =
+        __.DownloadAsync(paths, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
