@@ -236,6 +236,31 @@ type ``CloudFlow tests`` () as self =
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
+
+    [<Test>]
+    member __.``2. CloudFlow : OfCloudFileByLine with Big TextFile `` () =
+        
+        let f(count : int, separator : Separator) =
+            let separator = 
+                match separator with
+                | N -> "\n" 
+                | R -> "\r"
+                | RN -> "\r\n"
+            let cf = CloudFile.WriteAllText([|1..(Math.Abs(count) * 1000)|] |> Array.map string |> String.concat separator) |> runLocally
+            let path = cf.Path
+
+            let x = 
+                path 
+                |> CloudFlow.OfCloudFileByLine
+                |> CloudFlow.length
+                |> run
+                
+            let y = 
+                __.RunLocally(cloud { let! lines = CloudFile.ReadLines path in return lines |> Seq.length })
+                            
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+
     [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadAllLines`` () =
         let f(xs : string [][]) =
