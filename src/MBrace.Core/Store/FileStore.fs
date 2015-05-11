@@ -641,20 +641,16 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Uploads a file from local disk to store.
     /// </summary>
     /// <param name="localFile">Path to file in local disk.</param>
-    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Upload(localFile : string, ?targetDirectory : string, ?overwrite : bool) : Local<CloudFile> = local {
+    static member Upload(localFile : string, targetPath : string, ?overwrite : bool) : Local<CloudFile> = local {
         let overwrite = defaultArg overwrite false
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        let targetDirectory = defaultArg targetDirectory config.DefaultDirectory
-        let fileName = Path.GetFileName localFile
-        let targetPath = config.FileStore.Combine(targetDirectory, fileName)
-
         if not overwrite then
             let! exists = ofAsync <| config.FileStore.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use fs = File.OpenRead localFile
+        use fs = File.OpenRead (Path.GetFullPath localFile)
         do! ofAsync <| config.FileStore.CopyOfStream(fs, targetPath)
         return new CloudFile(targetPath)
     }
@@ -662,20 +658,16 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Downloads a file from store to local disk.
     /// </summary>
-    /// <param name="path">Path to file in store.</param>
-    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="sourcePath">Source path to file in store.</param>
+    /// <param name="targetPath">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Download(path : string, ?targetDirectory : string, ?overwrite : bool) : Local<string> = local {
+    static member Download(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<unit> = local {
         let overwrite = defaultArg overwrite false
-        let targetDirectory = match targetDirectory with None -> Path.GetTempPath() | Some td -> td
-        if not <| Directory.Exists targetDirectory then raise <| new DirectoryNotFoundException(targetDirectory)
+        let targetPath = Path.GetFullPath targetPath
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let fileName = config.FileStore.GetFileName path
-        let localFile = Path.Combine(targetDirectory, fileName) |> Path.GetFullPath
-        if not overwrite && File.Exists localFile then
-            raise <| new IOException(sprintf "The file '%s' already exists." localFile)
+        if not overwrite && File.Exists targetPath then
+            raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use fs = File.OpenWrite localFile
-        do! ofAsync <| config.FileStore.CopyToStream(path, fs)
-        return localFile
+        use fs = File.OpenWrite targetPath
+        do! ofAsync <| config.FileStore.CopyToStream(sourcePath, fs)
     }

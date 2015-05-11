@@ -73,8 +73,9 @@
     <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
-    <Compile Include="Vagabond\Vagabond.fs" />
+    <Compile Include="Vagabond\Registry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
+    <Compile Include="Vagabond\StoreAssemblyManager.fs" />
     <Compile Include="Compiler\Types.fs" />
     <Compile Include="Compiler\CloudUtils.fs" />
     <Compile Include="Compiler\Compiler.fs" />

@@ -710,19 +710,19 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     ///     Uploads a local file to store.
     /// </summary>
     /// <param name="localFile">Local file system path to file.</param>
-    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.UploadAsync(localFile : string, ?targetDirectory : string, ?overwrite : bool) : Async<CloudFile> =
-        CloudFile.Upload(localFile, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toAsync
+    member __.UploadAsync(localFile : string, targetPath : string, ?overwrite : bool) : Async<CloudFile> =
+        CloudFile.Upload(localFile, targetPath = targetPath, ?overwrite = overwrite) |> toAsync
 
     /// <summary>
     ///     Uploads a local file to store.
     /// </summary>
     /// <param name="localFile">Local file system path to file.</param>
-    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Upload(localFile : string, ?targetDirectory : string, ?overwrite : bool) : CloudFile =
-        __.UploadAsync(localFile, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
+    member __.Upload(localFile : string, targetPath : string, ?overwrite : bool) : CloudFile =
+        __.UploadAsync(localFile, targetPath = targetPath, ?overwrite = overwrite) |> toSync
 
     /// <summary>
     ///     Uploads a collection local files to store.
