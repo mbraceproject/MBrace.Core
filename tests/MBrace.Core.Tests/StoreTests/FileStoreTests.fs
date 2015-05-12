@@ -211,9 +211,9 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - read lines partitioned`` () =
         let text = "lorem ipsum dolor sit amet consectetur adipiscing elit"
-        let lines = Seq.init 1000 (fun i -> text.Substring(0, i % 37))
+        let lines = Seq.init 1000 (fun i -> text.Substring(0, i % 41))
         let check i (line:string) = 
-            if line.Length = i % 37 && text.StartsWith line then ()
+            if line.Length = i % 41 && text.StartsWith line then ()
             else
                 raise <| new AssertionException(sprintf "unexpected line '%s' in position %d." line i)
 
