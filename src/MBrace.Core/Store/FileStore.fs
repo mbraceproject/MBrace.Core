@@ -259,6 +259,14 @@ type FileStore =
     }
 
     /// <summary>
+    ///     Gets the default directory used by the runtime.
+    /// </summary>
+    static member DefaultDirectory : Local<string> = local {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return config.DefaultDirectory
+    }
+
+    /// <summary>
     ///     Returns the directory name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
@@ -364,14 +372,6 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
 
     override __.ToString() = __.path
     member private r.StructuredFormatDisplay = r.ToString()
-
-    /// <summary>
-    ///     Gets the default directory used by the runtime.
-    /// </summary>
-    static member DefaultDirectory : Local<string> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.DefaultDirectory
-    }
 
     /// <summary>
     ///     Checks if directory exists in given path
