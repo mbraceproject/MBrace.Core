@@ -50,8 +50,9 @@ type private StreamLineReader(stream : Stream, ?encoding : Encoding) =
                                     posInBuffer <- i + 1
                                     numberOfBytesRead <- numberOfBytesRead + 1L
                             else 
-                                let currentChar = char <| reader.Read()
+                                let currentChar = char <| reader.Peek()
                                 if currentChar = '\n' then
+                                    reader.Read() |> ignore 
                                     stringBuilder.Append(buffer, posInBuffer, i - posInBuffer) |> ignore
                                     lineEndFlag <- true
                                     posInBuffer <- -1
@@ -59,7 +60,6 @@ type private StreamLineReader(stream : Stream, ?encoding : Encoding) =
                                 else
                                     stringBuilder.Append(buffer, posInBuffer, i - posInBuffer) |> ignore
                                     lineEndFlag <- true
-                                    buffer.[0] <- currentChar
                                     posInBuffer <- -1
                                     numberOfBytesRead <- numberOfBytesRead + 1L
                         i <- i + 1
