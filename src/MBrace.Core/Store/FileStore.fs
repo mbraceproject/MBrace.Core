@@ -366,6 +366,14 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     member private r.StructuredFormatDisplay = r.ToString()
 
     /// <summary>
+    ///     Gets the default directory used by the runtime.
+    /// </summary>
+    static member DefaultDirectory : Local<string> = local {
+        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        return config.DefaultDirectory
+    }
+
+    /// <summary>
     ///     Checks if directory exists in given path
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
