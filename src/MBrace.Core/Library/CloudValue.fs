@@ -91,12 +91,16 @@ type CloudValue =
     ///     Creates a new CloudValue by persisting input as a cloud file in the underlying store.
     /// </summary>
     /// <param name="value">Input value.</param>
-    /// <param name="directory">FileStore directory used for cloud value. Defaults to execution context setting.</param>
+    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime serializer.</param>
     /// <param name="enableCache">Enables implicit, on-demand caching of cell value across instances. Defaults to true.</param>
-    static member New(value : 'T, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Local<CloudValue<'T>> = local {
+    static member New(value : 'T, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : Local<CloudValue<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        let directory = defaultArg directory config.DefaultDirectory
+        let path = 
+            match path with
+            | Some p -> p
+            | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
+
         let! _serializer = local {
             match serializer with 
             | Some s -> return s 
@@ -104,7 +108,6 @@ type CloudValue =
         }
 
         let deserializer = serializer |> Option.map (fun ser stream -> ser.Deserialize<'T>(stream, leaveOpen = false))
-        let path = config.FileStore.GetRandomFilePath directory
         let writer (stream : Stream) = async {
             // write value
             _serializer.Serialize(stream, value, leaveOpen = false)

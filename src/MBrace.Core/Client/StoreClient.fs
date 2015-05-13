@@ -19,6 +19,8 @@ module internal ClientUtils =
         return! Cloud.ToAsync(wf, resources, new InMemoryCancellationToken(ct))
     }
 
+    let toSync resources wf = Cloud.RunSynchronously(wf, resources, new InMemoryCancellationToken())
+
 [<Sealed; AutoSerializable(false)>]
 /// Collection of client methods for CloudAtom API
 type CloudAtomClient internal (registry : ResourceRegistry) =
@@ -406,6 +408,12 @@ type CloudPathClient internal (registry : ResourceRegistry) =
     /// Generates a random, uniquely specified path to directory
     member __.GetRandomDirectoryName() = config.FileStore.GetRandomDirectoryName()
 
+    /// <summary>
+    ///     Creates a uniquely defined file path for given container.
+    /// </summary>
+    /// <param name="container">Path to containing directory. Defaults to process directory.</param>
+    member __.GetRandomFilePath(?container:string) = CloudPath.GetRandomFileName(?container = container) |> toSync registry
+
 [<Sealed; AutoSerializable(false)>]
 /// Collection of file store operations
 type CloudDirectoryClient internal (registry : ResourceRegistry) =
@@ -430,16 +438,16 @@ type CloudDirectoryClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
-    /// <param name="dirPath">Path to directory. Defaults to randomly generated directory.</param>
-    member c.CreateAsync(?dirPath : string) : Async<CloudDirectory> =
-        CloudDirectory.Create(?dirPath = dirPath) |> toAsync
+    /// <param name="dirPath">Path to directory.</param>
+    member c.CreateAsync(dirPath : string) : Async<CloudDirectory> =
+        CloudDirectory.Create(dirPath = dirPath) |> toAsync
 
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
-    /// <param name="dirPath">Path to directory. Defaults to randomly generated directory.</param>
-    member c.Create(?dirPath : string) : CloudDirectory =
-        c.CreateAsync(?dirPath = dirPath) |> toSync
+    /// <param name="dirPath">Path to directory.</param>
+    member c.Create(dirPath : string) : CloudDirectory =
+        c.CreateAsync(dirPath = dirPath) |> toSync
 
     /// <summary>
     ///     Deletes directory from store.
@@ -460,16 +468,16 @@ type CloudDirectoryClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
-    /// <param name="dirPath">Path to directory to be enumerated. Defaults to root directory.</param>
-    member c.EnumerateAsync(?dirPath : string) : Async<CloudDirectory []> = 
-        CloudDirectory.Enumerate(?dirPath = dirPath) |> toAsync
+    /// <param name="dirPath">Path to directory to be enumerated.</param>
+    member c.EnumerateAsync(dirPath : string) : Async<CloudDirectory []> = 
+        CloudDirectory.Enumerate(dirPath = dirPath) |> toAsync
 
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
-    /// <param name="dirPath">Path to directory to be enumerated. Defaults to root directory.</param>
-    member c.Enumerate(?dirPath : string) : CloudDirectory [] = 
-        c.EnumerateAsync(?dirPath = dirPath) |> toSync
+    /// <param name="dirPath">Path to directory to be enumerated.</param>
+    member c.Enumerate(dirPath : string) : CloudDirectory [] = 
+        c.EnumerateAsync(dirPath = dirPath) |> toSync
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of file store operations
@@ -523,36 +531,18 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Creates a new file in store with provided serializer function.
     /// </summary>
+    /// <param name="path">Path to file.</param>
     /// <param name="serializer">Serializer function.</param>
-    /// <param name="path">Path to file. Defaults to auto-generated path.</param>
-    member c.CreateAsync(serializer : Stream -> Async<unit>, ?path : string) : Async<CloudFile> = 
-        CloudFile.Create(serializer, ?path = path) |> toAsync
+    member c.CreateAsync(path : string, serializer : Stream -> Async<unit>) : Async<CloudFile> = 
+        CloudFile.Create(path, serializer) |> toAsync
 
     /// <summary>
     ///     Creates a new file in store with provided serializer function.
     /// </summary>
+    /// <param name="path">Path to file.</param>
     /// <param name="serializer">Serializer function.</param>
-    /// <param name="dirPath">Path to containing directory.</param>
-    /// <param name="fileName">File name.</param>
-    member c.CreateAsync(serializer : Stream -> Async<unit>, dirPath : string, fileName : string) : Async<CloudFile> = 
-        CloudFile.Create(serializer, dirPath, fileName) |> toAsync
-
-    /// <summary>
-    ///     Creates a new file in store with provided serializer function.
-    /// </summary>
-    /// <param name="serializer">Serializer function.</param>
-    /// <param name="path">Path to file. Defaults to auto-generated path.</param>
-    member c.Create(serializer : Stream -> Async<unit>, ?path : string) : CloudFile = 
-        c.CreateAsync(serializer, ?path = path) |> toSync
-
-    /// <summary>
-    ///     Creates a new file in store with provided serializer function.
-    /// </summary>
-    /// <param name="serializer">Serializer function.</param>
-    /// <param name="dirPath">Path to containing directory.</param>
-    /// <param name="fileName">File name.</param>
-    member c.Create(serializer : Stream -> Async<unit>, dirPath : string, fileName : string) : CloudFile = 
-        c.CreateAsync(serializer, dirPath, fileName) |> toSync
+    member c.Create(path : string, serializer : Stream -> Async<unit>) : CloudFile = 
+        c.CreateAsync(path, serializer) |> toSync
 
     /// <summary>
     ///     Reads file in store with provided deserializer function.
@@ -573,16 +563,16 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
-    /// <param name="dirPath">Path to directory. Defaults to the process directory.</param>
-    member c.EnumerateAsync(?dirPath : string) : Async<CloudFile []> = 
-        CloudFile.Enumerate(?dirPath = dirPath) |> toAsync
+    /// <param name="dirPath">Path to directory.</param>
+    member c.EnumerateAsync(dirPath : string) : Async<CloudFile []> = 
+        CloudFile.Enumerate(dirPath = dirPath) |> toAsync
 
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
-    /// <param name="dirPath">Path to directory. Defaults to the process directory.</param>
-    member c.Enumerate(?dirPath : string) : CloudFile [] = 
-        c.EnumerateAsync(?dirPath = dirPath) |> toSync
+    /// <param name="dirPath">Path to directory.</param>
+    member c.Enumerate(dirPath : string) : CloudFile [] = 
+        c.EnumerateAsync(dirPath = dirPath) |> toSync
 
     //
     //  Cloud file text utilities
@@ -591,20 +581,20 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Writes a sequence of lines to a given CloudFile path.
     /// </summary>
+    /// <param name="path">Path to file.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    /// <param name="path">Path to file.</param>
-    member c.WriteAllLinesAsync(lines : seq<string>, ?encoding : Encoding, ?path : string) : Async<CloudFile> = 
-        CloudFile.WriteAllLines(lines, ?encoding = encoding, ?path = path) |> toAsync
+    member c.WriteAllLinesAsync(path : string, lines : seq<string>, ?encoding : Encoding) : Async<CloudFile> = 
+        CloudFile.WriteAllLines(path, lines, ?encoding = encoding) |> toAsync
 
     /// <summary>
     ///     Writes a sequence of lines to a given CloudFile path.
     /// </summary>
+    /// <param name="path">Path to CloudFile.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    /// <param name="path">Path to CloudFile.</param>
-    member c.WriteAllLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : CloudFile = 
-        c.WriteAllLinesAsync(lines, ?encoding = encoding, ?path = path) |> toSync
+    member c.WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : CloudFile = 
+        c.WriteAllLinesAsync(path, lines, ?encoding = encoding) |> toSync
 
 
     /// <summary>
@@ -643,20 +633,20 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Writes string contents to given CloudFile.
     /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    /// <param name="path">Path to Cloud file.</param>
-    member __.WriteAllTextAsync(text : string, ?encoding : Encoding, ?path : string) : Async<CloudFile> = 
-        CloudFile.WriteAllText(text, ?encoding = encoding, ?path = path) |> toAsync
+    member __.WriteAllTextAsync(path : string, text : string, ?encoding : Encoding) : Async<CloudFile> = 
+        CloudFile.WriteAllText(path, text, ?encoding = encoding) |> toAsync
 
     /// <summary>
     ///     Writes string contents to given CloudFile.
     /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    /// <param name="path">Path to Cloud file.</param>
-    member __.WriteAllText(text : string, ?encoding : Encoding, ?path : string) : CloudFile = 
-        __.WriteAllTextAsync(text, ?encoding = encoding, ?path = path) |> toSync
+    member __.WriteAllText(path : string, text : string, ?encoding : Encoding) : CloudFile = 
+        __.WriteAllTextAsync(path, text, ?encoding = encoding) |> toSync
 
 
     /// <summary>
@@ -678,18 +668,18 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Write buffer contents to CloudFile.
     /// </summary>
-    /// <param name="buffer">Source buffer.</param>
     /// <param name="path">Path to file.</param>
-    member __.WriteAllBytesAsync(buffer : byte [], ?path : string) : Async<CloudFile> =
-       CloudFile.WriteAllBytes(buffer, ?path = path) |> toAsync
+    /// <param name="buffer">Source buffer.</param>
+    member __.WriteAllBytesAsync(path : string, buffer : byte []) : Async<CloudFile> =
+       CloudFile.WriteAllBytes(path, buffer) |> toAsync
 
     /// <summary>
     ///     Write buffer contents to CloudFile.
     /// </summary>
-    /// <param name="buffer">Source buffer.</param>
     /// <param name="path">Path to Cloud file.</param>
-    member __.WriteAllBytes(buffer : byte [], ?path : string) : CloudFile =
-       __.WriteAllBytesAsync(buffer, ?path = path) |> toSync
+    /// <param name="buffer">Source buffer.</param>
+    member __.WriteAllBytes(path : string, buffer : byte []) : CloudFile =
+       __.WriteAllBytesAsync(path, buffer) |> toSync
         
         
     /// <summary>
@@ -709,85 +699,74 @@ type CloudFileClient internal (registry : ResourceRegistry) =
     /// <summary>
     ///     Uploads a local file to store.
     /// </summary>
-    /// <param name="localFile">Local file system path to file.</param>
+    /// <param name="sourcePath">Local file system path to file.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.UploadAsync(localFile : string, targetPath : string, ?overwrite : bool) : Async<CloudFile> =
-        CloudFile.Upload(localFile, targetPath = targetPath, ?overwrite = overwrite) |> toAsync
+    member __.UploadAsync(sourcePath : string, targetPath : string, ?overwrite : bool) : Async<CloudFile> =
+        CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> toAsync
 
     /// <summary>
     ///     Uploads a local file to store.
     /// </summary>
-    /// <param name="localFile">Local file system path to file.</param>
+    /// <param name="sourcePath">Local file system path to file.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Upload(localFile : string, targetPath : string, ?overwrite : bool) : CloudFile =
-        __.UploadAsync(localFile, targetPath = targetPath, ?overwrite = overwrite) |> toSync
+    member __.Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : CloudFile =
+        __.UploadAsync(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> toSync
 
     /// <summary>
     ///     Uploads a collection local files to store.
     /// </summary>
-    /// <param name="localFiles">Local paths to files.</param>
-    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    /// <param name="sourcePaths">Local paths to files.</param>
+    /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.UploadAsync(localFiles : seq<string>, ?targetDirectory : string, ?overwrite : bool) : Async<CloudFile []> = async {
-        let localFiles = Seq.toArray localFiles
-        match localFiles |> Array.tryFind (not << File.Exists) with
-        | Some notFound -> raise <| new FileNotFoundException(notFound)
-        | None -> ()
-
-        return!
-            localFiles
-            |> Array.map (fun f -> __.UploadAsync(f, ?targetDirectory = targetDirectory, ?overwrite = overwrite))
-            |> Async.Parallel
-    }
+    member __.UploadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Async<CloudFile []> =
+        CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> toAsync
 
     /// <summary>
     ///     Uploads a collection local files to store.
     /// </summary>
-    /// <param name="localFiles">Local paths to files.</param>
-    /// <param name="targetDirectory">Containing directory in cloud store. Defaults to process default.</param>
+    /// <param name="sourcePaths">Local paths to files.</param>
+    /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Upload(localFiles : seq<string>, ?targetDirectory : string, ?overwrite : bool) : CloudFile [] = 
-        __.UploadAsync(localFiles, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
+    member __.Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : CloudFile [] = 
+        __.UploadAsync(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
 
     /// <summary>
     ///     Asynchronously downloads a file from store to local disk.
     /// </summary>
-    /// <param name="path">Path to file in store.</param>
-    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="sourcePath">Path to file in store.</param>
+    /// <param name="targetPath">Path to target file in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.DownloadAsync(path : string, ?targetDirectory : string, ?overwrite : bool) : Async<string> =
-        CloudFile.Download(path, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toAsync
+    member __.DownloadAsync(sourcePath : string, targetPath : string, ?overwrite : bool) : Async<unit> =
+        CloudFile.Download(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> toAsync
 
     /// <summary>
     ///     Downloads a file from store to local disk.
     /// </summary>
-    /// <param name="path">Path to file in store.</param>
-    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="sourcePath">Path to file in store.</param>
+    /// <param name="targetPath">Path to target file in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Download(path : string, ?targetDirectory : string, ?overwrite : bool) : string =
-        __.DownloadAsync(path, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
+    member __.Download(sourcePath : string, targetPath : string, ?overwrite : bool) : unit =
+        __.DownloadAsync(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> toSync
 
     /// <summary>
     ///     Asynchronously downloads a collection of cloud files to local disk.
     /// </summary>
-    /// <param name="paths">Paths to files in store.</param>
-    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="sourcePaths">Paths to files in store.</param>
+    /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.DownloadAsync(paths : seq<string>, ?targetDirectory : string, ?overwrite : bool) : Async<string []> =
-        paths 
-        |> Seq.map (fun p -> __.DownloadAsync(p, ?targetDirectory = targetDirectory, ?overwrite = overwrite))
-        |> Async.Parallel
+    member __.DownloadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Async<string []> =
+        CloudFile.Download(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> toAsync
 
     /// <summary>
     ///     Downloads a collection of cloud files to local disk.
     /// </summary>
-    /// <param name="paths">Paths to files in store.</param>
-    /// <param name="targetDirectory">Path to target directory in local disk. Defaults to temp directory.</param>
+    /// <param name="sourcePaths">Paths to files in store.</param>
+    /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Download(paths : seq<string>, ?targetDirectory : string, ?overwrite : bool) : string [] =
-        __.DownloadAsync(paths, ?targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
+    member __.Download(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : string [] =
+        __.DownloadAsync(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> toSync
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
@@ -802,22 +781,22 @@ type CloudValueClient internal (registry : ResourceRegistry) =
     ///     Cloud cells are immutable and cached locally for performance.
     /// </summary>
     /// <param name="value">Cloud value value.</param>
-    /// <param name="directory">FileStore directory used for cloud value. Defaults to execution context setting.</param>
+    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.NewAsync(value : 'T, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) =
-        CloudValue.New(value, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
+    member __.NewAsync(value : 'T, ?path : string, ?serializer : ISerializer, ?enableCache : bool) =
+        CloudValue.New(value, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Creates a new cloud value to the underlying store with provided value.
     ///     Cloud cells are immutable and cached locally for performance.
     /// </summary>
     /// <param name="value">Cloud value value.</param>
-    /// <param name="directory">FileStore directory used for cloud value. Defaults to execution context setting.</param>
+    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.New(value : 'T, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) =
-        __.NewAsync(value, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toSync
+    member __.New(value : 'T, ?path : string, ?serializer : ISerializer, ?enableCache : bool) =
+        __.NewAsync(value, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toSync
 
     /// <summary>
     ///     Defines a CloudValue from provided cloud file path with user-provided deserialization function.
@@ -915,22 +894,22 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     ///     Cloud sequences are cached locally for performance.
     /// </summary>
     /// <param name="values">Input sequence.</param>
-    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
-    member __.NewAsync(values : seq<'T>, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T>> = 
-        CloudSequence.New(values, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
+    member __.NewAsync(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T>> = 
+        CloudSequence.New(values, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
 
     /// <summary>
     ///     Creates a new Cloud sequence with given values in the underlying store.
     ///     Cloud sequences are cached locally for performance.
     /// </summary>
     /// <param name="values">Input sequence.</param>
-    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
-    member __.New(values : seq<'T>, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : CloudSequence<'T> = 
-        __.NewAsync(values, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toSync
+    member __.New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : CloudSequence<'T> = 
+        __.NewAsync(values, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toSync
 
 
     /// <summary>

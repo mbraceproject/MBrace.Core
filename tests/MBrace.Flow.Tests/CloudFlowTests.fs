@@ -140,9 +140,10 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : ofCloudFiles with custom deserializer`` () =
         let f(xs : string [][]) =
             let cfs = xs 
-                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
+                     |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> run
+                     |> runLocally
+
             let paths = cfs |> Array.map (fun cf -> cf.Path)
             let x =     CloudFlow.OfCloudFiles(paths, (fun (stream : System.IO.Stream) -> seq { yield stream.Length })) 
                         |> CloudFlow.length
@@ -153,7 +154,8 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with small threshold`` () =
-        let file = CloudFile.WriteAllText("Lorem ipsum dolor sit amet") |> runLocally
+        let path = CloudPath.GetRandomFileName() |> runLocally
+        let file = CloudFile.WriteAllText(path, "Lorem ipsum dolor sit amet") |> runLocally
         let f (size : int) =
             let size = abs size % 200
             let repeatedPaths = Array.init size (fun _ -> file.Path)
@@ -169,9 +171,9 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : ofCloudFiles with ReadLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
-                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
+                     |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> run
+                     |> runLocally
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
                         |> CloudFlow.OfCloudFilesByLine
@@ -190,9 +192,9 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : ofCloudFilesByLine with ReadLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
-                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
+                     |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> run
+                     |> runLocally
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
                         |> CloudFlow.OfCloudFilesByLine
@@ -217,7 +219,9 @@ type ``CloudFlow tests`` () as self =
                 | N -> "\n" 
                 | R -> "\r"
                 | RN -> "\r\n"
-            let cf = CloudFile.WriteAllText(xs |> String.concat separator) |> run
+
+            let path = CloudPath.GetRandomFileName() |> runLocally
+            let cf = CloudFile.WriteAllText(path, xs |> String.concat separator) |> runLocally
             let path = cf.Path
 
             let x = 
@@ -246,7 +250,9 @@ type ``CloudFlow tests`` () as self =
                 | N -> "\n" 
                 | R -> "\r"
                 | RN -> "\r\n"
-            let cf = CloudFile.WriteAllText([|1..(Math.Abs(count) * 1000)|] |> Array.map string |> String.concat separator) |> runLocally
+
+            let path = CloudPath.GetRandomFileName() |> runLocally
+            let cf = CloudFile.WriteAllText(path, [|1..(Math.Abs(count) * 1000)|] |> Array.map string |> String.concat separator) |> runLocally
             let path = cf.Path
 
             let x = 
@@ -265,9 +271,9 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : ofCloudFiles with ReadAllLines`` () =
         let f(xs : string [][]) =
             let cfs = xs 
-                     |> Array.map(fun text -> CloudFile.WriteAllLines(text))
+                     |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> run
+                     |> runLocally
 
             let x = cfs 
                         |> Array.map (fun cf -> cf.Path)

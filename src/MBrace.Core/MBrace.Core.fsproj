@@ -87,6 +87,7 @@
     <Compile Include="Distribution\InMemory\InMemoryCombinators.fs" />
     <Compile Include="Distribution\InMemory\InMemoryRuntime.fs" />
     <Compile Include="Library\LocalWorkflows.fs" />
+    <Compile Include="Library\StoreExtensions.fs" />
     <Compile Include="Library\CloudWorkflows.fs" />
     <Compile Include="Library\CloudValue.fs" />
     <Compile Include="Library\CloudSequence.fs" />

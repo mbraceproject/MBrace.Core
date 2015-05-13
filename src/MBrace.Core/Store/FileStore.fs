@@ -249,14 +249,8 @@ open MBrace.Store.Internals
 
 #nowarn "444"
 
-/// Generic FileStore utilities
-type FileStore =
-
-    /// Returns the file store instance carried in current execution context.
-    static member Current = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore
-    }
+/// Generic FileStore path utilities
+type CloudPath =
 
     /// <summary>
     ///     Gets the default directory used by the runtime.
@@ -340,14 +334,6 @@ type FileStore =
         return config.FileStore.GetRandomFilePath(container)
     }
 
-    /// <summary>
-    ///     Creates a uniquely defined file path for given container.
-    /// </summary>
-    /// <param name="container">Path to containing directory. Defaults to process directory.</param>
-    static member GetRandomFileName(?container : CloudDirectory) : Local<string> =
-        let container : string option = container |> Option.map (fun d -> d.Path)
-        FileStore.GetRandomFileName(?container = container)
-
 /// Represents a directory found in the cloud store
 and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] CloudDirectory =
 
@@ -385,14 +371,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
-    /// <param name="dirPath">Path to directory. Defaults to randomly generated directory.</param>
-    static member Create(?dirPath : string) : Local<CloudDirectory> = local {
+    /// <param name="dirPath">Path to newly created directory.</param>
+    static member Create(dirPath : string) : Local<CloudDirectory> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let dirPath =
-            match dirPath with
-            | Some p -> p
-            | None -> config.FileStore.GetRandomDirectoryName()
-
         do! ofAsync <| config.FileStore.CreateDirectory(dirPath)
         return new CloudDirectory(dirPath)
     }
@@ -411,14 +392,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
-    /// <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
-    static member Enumerate(?dirPath : string) : Local<CloudDirectory []> = local {
+    /// <param name="directory">Directory to be enumerated.</param>
+    static member Enumerate(dirPath : string) : Local<CloudDirectory []> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let dirPath =
-            match dirPath with
-            | Some p -> p
-            | None -> config.FileStore.GetRootDirectory()
-
         let! dirs = ofAsync <| config.FileStore.EnumerateDirectories(dirPath)
         return dirs |> Array.map (fun d -> new CloudDirectory(d))
     }
@@ -481,27 +457,10 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Creates a new file in store with provided serializer function.
     /// </summary>
+    /// <param name="path">Path to new cloud file.</param>
     /// <param name="serializer">Serializer function.</param>
-    /// <param name="path">Path to file. Defaults to auto-generated path.</param>
-    static member Create(serializer : Stream -> Async<unit>, ?path : string) : Local<CloudFile> = local {
+    static member Create(path : string, serializer : Stream -> Async<unit>) : Local<CloudFile> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let path = match path with Some p -> p | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
-        do! ofAsync <| async {
-            use! stream = config.FileStore.BeginWrite path
-            do! serializer stream
-        }
-        return new CloudFile(path)
-    }
-
-    /// <summary>
-    ///     Creates a new file in store with provided serializer function.
-    /// </summary>
-    /// <param name="serializer">Serializer function.</param>
-    /// <param name="dirPath">Path to containing directory.</param>
-    /// <param name="fileName">File name.</param>
-    static member Create(serializer : Stream -> Async<unit>, dirPath : string, fileName : string) : Local<CloudFile> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let path = config.FileStore.Combine [|dirPath ; fileName|]
         do! ofAsync <| async {
             use! stream = config.FileStore.BeginWrite path
             do! serializer stream
@@ -522,14 +481,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
-    /// <param name="dirPath">Path to directory. Defaults to the process directory.</param>
-    static member Enumerate(?dirPath : string) : Local<CloudFile []> = local {
+    /// <param name="dirPath">Path to directory.</param>
+    static member Enumerate(dirPath : string) : Local<CloudFile []> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let dirPath =
-            match dirPath with
-            | Some d -> d
-            | None -> config.DefaultDirectory
-
         let! paths = ofAsync <| config.FileStore.EnumerateFiles(dirPath)
         return paths |> Array.map (fun path -> new CloudFile(path))
     }
@@ -541,10 +495,10 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Writes a sequence of lines to a given CloudFile path.
     /// </summary>
+    /// <param name="path">Path to new cloud file.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    /// <param name="path">Path to cloud file.</param>
-    static member WriteAllLines(lines : seq<string>, ?encoding : Encoding, ?path : string) : Local<CloudFile> = local {
+    static member WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : Local<CloudFile> = local {
         let writer (stream : Stream) = async {
             use sw = 
                 match encoding with
@@ -554,7 +508,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
             do for line in lines do sw.WriteLine(line)
         }
 
-        return! CloudFile.Create(writer, ?path = path)
+        return! CloudFile.Create(path, writer)
     }
 
     /// <summary>
@@ -590,10 +544,10 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Writes string contents to given CloudFile.
     /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    /// <param name="path">Path to Cloud file.</param>
-    static member WriteAllText(text : string, ?path : string, ?encoding : Encoding) : Local<CloudFile> = local {
+    static member WriteAllText(path : string, text : string, ?encoding : Encoding) : Local<CloudFile> = local {
         let writer (stream : Stream) = async {
             use sw = 
                 match encoding with
@@ -602,7 +556,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
             do! sw.WriteAsync text
         }
 
-        return! CloudFile.Create(writer, ?path = path)
+        return! CloudFile.Create(path, writer)
     }
 
     /// <summary>
@@ -624,11 +578,11 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Write buffer contents to CloudFile.
     /// </summary>
-    /// <param name="buffer">Source buffer.</param>
     /// <param name="path">Path to Cloud file.</param>
-    static member WriteAllBytes(buffer : byte [], ?path : string) : Local<CloudFile> = local {
+    /// <param name="buffer">Source buffer.</param>
+    static member WriteAllBytes(path : string, buffer : byte []) : Local<CloudFile> = local {
         let writer (stream : Stream) = stream.AsyncWrite(buffer, 0, buffer.Length)
-        return! CloudFile.Create(writer, ?path = path)
+        return! CloudFile.Create(path, writer)
     }
         
     /// <summary>
@@ -648,17 +602,17 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Uploads a file from local disk to store.
     /// </summary>
-    /// <param name="localFile">Path to file in local disk.</param>
+    /// <param name="sourcePath">Path to file in local disk.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Upload(localFile : string, targetPath : string, ?overwrite : bool) : Local<CloudFile> = local {
+    static member Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<CloudFile> = local {
         let overwrite = defaultArg overwrite false
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         if not overwrite then
             let! exists = ofAsync <| config.FileStore.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use fs = File.OpenRead (Path.GetFullPath localFile)
+        use fs = File.OpenRead (Path.GetFullPath sourcePath)
         do! ofAsync <| config.FileStore.CopyOfStream(fs, targetPath)
         return new CloudFile(targetPath)
     }

@@ -85,7 +85,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                     // overwrite persist file with payload of compatible type
                     // cloudvalue should use etag implementation to infer that content has changed
                     let! serializer = Cloud.GetResource<ISerializer> ()
-                    let! _ = CloudFile.Create((fun s -> async { return serializer.Serialize(s, [1..100], false)}), c.Path)
+                    let! _ = CloudFile.Create(c.Path, fun s -> async { return serializer.Serialize(s, [1..100], false)})
                     return! c.Value
                 } |> runRemote
 
@@ -153,7 +153,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                     let! serializer = Cloud.GetResource<ISerializer> ()
                     // overwrite persist file with payload of compatible type
                     // cloudsequence should use etag implementation to infer that content has changed
-                    let! _ = CloudFile.Create((fun s -> async { return ignore <| serializer.SeqSerialize(s, [1..100], false)}), c.Path)
+                    let! _ = CloudFile.Create(c.Path, fun s -> async { return ignore <| serializer.SeqSerialize(s, [1..100], false)})
                     return! c.ToArray()
                 } |> runRemote
 
@@ -185,7 +185,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - of deserializer`` () =
         cloud {
-            use! file = CloudFile.WriteAllLines([1..100] |> List.map (fun i -> string i))
+            let! path = CloudPath.GetRandomFileName()
+            use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
             let deserializer (s : System.IO.Stream) =
                 seq {
                     use textReader = new System.IO.StreamReader(s)
@@ -201,7 +202,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudSequence - read lines`` () =
         cloud {
-            use! file = CloudFile.WriteAllLines([1..100] |> List.map (fun i -> string i))
+            let! path = CloudPath.GetRandomFileName()
+            use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
             let! cseq = CloudSequence.FromLineSeparatedTextFile(file.Path)
             let! _ = cseq.ForceCache()
             let! elem = cseq.ToArray()
@@ -219,7 +221,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
         let cseq = 
             cloud {
-                let! file = CloudFile.WriteAllLines lines
+                let! path = CloudPath.GetRandomFileName()
+                let! file = CloudFile.WriteAllLines(path, lines)
                 let! cseq = CloudSequence.FromLineSeparatedTextFile file.Path   
                 return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
             } |> runLocally
@@ -243,7 +246,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
-        let file = CloudFile.WriteAllBytes [|1uy .. 100uy|] |> runRemote
+        let path = CloudPath.GetRandomFileName() |> runLocally
+        let file = CloudFile.WriteAllBytes(path, [|1uy .. 100uy|]) |> runRemote
         file.Size |> runLocally |> shouldEqual 100L
         cloud {
             let! bytes = CloudFile.ReadAllBytes file.Path
@@ -255,7 +259,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         let file =
             cloud {
                 let text = Seq.init 1000 (fun _ -> "lorem ipsum dolor sit amet")
-                return! CloudFile.WriteAllLines(text)
+                let! path = CloudPath.GetRandomFileName()
+                return! CloudFile.WriteAllLines(path, text)
             } |> runRemote
 
         cloud {
@@ -268,8 +273,9 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
         let mk a = Array.init (a * 1024) byte
         let n = 512
         cloud {
+            let! path = CloudPath.GetRandomFileName()
             use! f = 
-                CloudFile.Create(fun stream -> async {
+                CloudFile.Create(path, fun stream -> async {
                     let b = mk n
                     stream.Write(b, 0, b.Length)
                     stream.Flush()
@@ -281,7 +287,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - get by name`` () =
         cloud {
-            use! f = CloudFile.WriteAllBytes([|1uy..100uy|])
+            let! path = CloudPath.GetRandomFileName()
+            use! f = CloudFile.WriteAllBytes(path, [|1uy..100uy|])
             let! t = Cloud.StartChild(CloudFile.ReadAllBytes f.Path)
             let! bytes = t
             return bytes
@@ -290,7 +297,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - disposable`` () =
         cloud {
-            let! file = CloudFile.WriteAllText "lorem ipsum dolor"
+            let! path = CloudPath.GetRandomFileName()
+            let! file = CloudFile.WriteAllText(path, "lorem ipsum dolor")
             do! cloud { use file = file in () }
             return! CloudFile.ReadAllText file.Path
         } |> runProtected |> Choice.shouldFailwith<_,exn>
@@ -298,11 +306,11 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - get files in container`` () =
         cloud {
-            let! container = FileStore.GetRandomDirectoryName()
-            let! fileNames = FileStore.Combine(container, Seq.map (sprintf "file%d") [1..10])
+            let! container = CloudPath.GetRandomDirectoryName()
+            let! fileNames = CloudPath.Combine(container, Seq.map (sprintf "file%d") [1..10])
             let! files =
                 fileNames
-                |> Seq.map (fun f -> CloudFile.WriteAllBytes([|1uy .. 100uy|], f))
+                |> Seq.map (fun f -> CloudFile.WriteAllBytes(f, [|1uy .. 100uy|]))
                 |> Cloud.Parallel
 
             let! files' = CloudFile.Enumerate container
@@ -312,7 +320,8 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
         cloud {
-            use! cf = CloudFile.Create(fun stream -> async { stream.WriteByte(10uy) })
+            let! path = CloudPath.GetRandomFileName()
+            use! cf = CloudFile.Create(path, fun stream -> async { stream.WriteByte(10uy) })
             return! CloudFile.Read(cf.Path, fun stream -> async { stream.WriteByte(20uy) })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
@@ -326,12 +335,13 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudDirectory - Create; populate; delete`` () =
         cloud {
-            let! dir = CloudDirectory.Create ()
+            let! dirPath = CloudPath.GetRandomDirectoryName()
+            let! dir = CloudDirectory.Create dirPath
             let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual true
             let write i = cloud {
-                let! path = FileStore.GetRandomFileName dir
-                let! _ = CloudFile.WriteAllText("lorem ipsum dolor", path = path)
+                let! path = CloudPath.GetRandomFileName dir.Path
+                let! _ = CloudFile.WriteAllText(path, "lorem ipsum dolor")
                 ()
             }
 
@@ -348,9 +358,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     member __.``2. MBrace : CloudDirectory - dispose`` () =
         let dir, file =
             cloud {
-                use! dir = CloudDirectory.Create ()
-                let! path = FileStore.GetRandomFileName dir
-                let! file = CloudFile.WriteAllText("lorem ipsum dolor", path = path)
+                let! dirPath = CloudPath.GetRandomDirectoryName()
+                use! dir = CloudDirectory.Create dirPath
+                let! path = CloudPath.GetRandomFileName dir.Path
+                let! file = CloudFile.WriteAllText(path, "lorem ipsum dolor")
                 return dir, file
             } |> runRemote
 
@@ -535,7 +546,8 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
     member __.``1. FileStore : StoreClient - CloudFile`` () =
         let sc = __.StoreClient
         let lines = Array.init 10 string
-        let file = sc.File.WriteAllLines(lines)
+        let path = sc.Path.GetRandomFilePath()
+        let file = sc.File.WriteAllLines(path, lines)
         sc.File.ReadLines(file.Path)
         |> Seq.toArray
         |> shouldEqual lines

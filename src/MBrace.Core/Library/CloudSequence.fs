@@ -173,12 +173,16 @@ type CloudSequence =
     ///     Creates a new Cloud sequence by persisting provided sequence as a cloud file in the underlying store.
     /// </summary>
     /// <param name="values">Input sequence.</param>
-    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
-    static member New(values : seq<'T>, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Local<CloudSequence<'T>> = local {
+    static member New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let directory = defaultArg directory config.DefaultDirectory
+        let path = 
+            match path with
+            | Some p -> p
+            | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
+
         let! _serializer = local {
             match serializer with
             | None -> return! Cloud.GetResource<ISerializer> ()
@@ -186,7 +190,6 @@ type CloudSequence =
         }
 
         let deserializer = serializer |> Option.map (fun ser stream -> ser.SeqDeserialize<'T>(stream, leaveOpen = false))
-        let path = config.FileStore.GetRandomFilePath directory
         let writer (stream : Stream) = async {
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }

@@ -31,103 +31,108 @@ module private Common =
     let metadataName append id = append <| filename id + ".vgb"
     let dataFile append id (dd : DataDependencyInfo) = append <| sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
 
-/// Assembly to blob store uploader implementation
-type private StoreAssemblyUploader(resource : ResourceRegistry, container : string, logger : ICloudLogger) =
-    let config = resource.Resolve<CloudFileStoreConfiguration>()
-    let imem = LocalRuntime.Create(resource.Register(logger))
+///// Assembly to blob store uploader implementation
+//type private StoreAssemblyUploader(resource : ResourceRegistry, container : string, logger : ICloudLogger) =
+//    let config = resource.Resolve<CloudFileStoreConfiguration>()
+//    let imem = LocalRuntime.Create(resource.Register(logger))
+//
+//    let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
+//    let append (fileName : string) = config.FileStore.Combine(container, fileName)
+//
+//    let getAssemblyLoadInfo (id : AssemblyId) = local {
+//        let! assemblyExists = CloudFile.Exists (assemblyName append id)
+//        if not assemblyExists then return NotLoaded id
+//        else
+//            let! cell = local {
+//                try let! c = CloudValue.OfCloudFile<VagabondMetadata>(metadataName append id) in return Some c
+//                with :? FileNotFoundException -> return None
+//            }
+//            match cell with
+//            | None -> return NotLoaded(id)
+//            | Some c -> 
+//                let! md = c.Value
+//                return Loaded(id, false, md)
+//    }
+//
+//    /// upload assembly to blob store
+//    let uploadAssembly (va : VagabondAssembly) = local {
+//        let assemblyName = assemblyName append va.Id
+//        let! assemblyExists = CloudFile.Exists assemblyName
+//
+//        // 1. Upload assembly image.
+//        if not assemblyExists then
+//            /// print upload sizes for given assembly
+//            let uploadSizes = 
+//                seq {
+//                    yield sprintf "IMG %s" (sizeOfFile va.Image)
+//                    match va.Symbols with
+//                    | Some s -> yield sprintf "PDB %s" (sizeOfFile s)
+//                    | None -> ()
+//                } |> String.concat ", "
+//
+//            do! Cloud.Logf "Uploading '%s' [%s]" va.FullName uploadSizes
+//            do! CloudFile.Upload(va.Image, )
+////            let! _ = Blob.UploadFromFile(config, prefix, assemblyName, va.Image)
+//            return ()
+//
+//            // 2. Upload symbols if applicable.
+//            match va.Symbols with
+//            | None -> ()
+//            | Some symbolsPath ->
+//                let symbolsName = symbolsName va.Id
+//                let! symbolsExist = Blob.Exists(config, prefix, symbolsName)
+//                if not symbolsExist then
+//                    let! _ = Blob.UploadFromFile(config, prefix, symbolsName, symbolsPath)
+//                    return ()
+//
+//        // 3. Upload metadata
+//        // check current metadata in store
+//        let metadataName = metadataName va.Id
+//        let metadataCell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName)
+//        let! currentMetadata = metadataCell.TryGetValue()
+//
+//        // detect if metadata in blob store is stale
+//        let isRequiredUpdate =
+//            match currentMetadata with
+//            | None -> true
+//            | Some md ->
+//                // require a data dependency whose store generation is older than local
+//                (md.DataDependencies, va.Metadata.DataDependencies)
+//                ||> Array.exists2 (fun store local -> local.Generation > store.Generation)
+//
+//        if not isRequiredUpdate then return Loaded(va.Id, false, va.Metadata) else
+//
+//        // upload data dependencies
+//        let files = va.PersistedDataDependencies |> Map.ofArray
+//        let dataFiles = 
+//            va.Metadata.DataDependencies 
+//            |> Seq.filter (fun dd -> match dd.Data with Persisted _ -> true | _ -> false)
+//            |> Seq.map (fun dd -> dd, files.[dd.Id])
+//            |> Seq.toArray
+//
+//        let uploadDataFile (dd : DataDependencyInfo, localPath : string) = async {
+//            let blobPath = dataFile va.Id dd
+//            let! dataExists = Blob.Exists(config, prefix, blobPath)
+//            if not dataExists then
+//                logger.Logf "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
+//                let! _ = Blob.UploadFromFile(config, prefix, blobPath, localPath)
+//                ()
+//        }
+//
+//        // only print metadata message if updating data dependencies
+//        if assemblyExists then logger.Logf "Updating metadata for '%s'" va.FullName
+//
+//        do! dataFiles |> Seq.map uploadDataFile |> Async.Parallel |> Async.Ignore
+//
+//        // upload metadata record; TODO: use table store?
+//        let! _ = Blob<VagabondMetadata>.Create(config, prefix, metadataName, fun () -> va.Metadata)
+//        return Loaded(va.Id, false, va.Metadata)
+//    }
 
-    let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
-    let append (fileName : string) = config.FileStore.Combine(container, fileName)
 
-    let getAssemblyLoadInfo (id : AssemblyId) = local {
-        let! assemblyExists = CloudFile.Exists (assemblyName append id)
-        if not assemblyExists then return NotLoaded id
-        else
-            let! cell = local {
-                try let! c = CloudValue.OfCloudFile<VagabondMetadata>(metadataName append id) in return Some c
-                with :? FileNotFoundException -> return None
-            }
-            match cell with
-            | None -> return NotLoaded(id)
-            | Some c -> 
-                let! md = c.Value
-                return Loaded(id, false, md)
-    }
 
-    /// upload assembly to blob store
-    let uploadAssembly (va : VagabondAssembly) = local {
-        let assemblyName = assemblyName append va.Id
-        let! assemblyExists = CloudFile.Exists assemblyName
 
-        // 1. Upload assembly image.
-        if not assemblyExists then
-            /// print upload sizes for given assembly
-            let uploadSizes = 
-                seq {
-                    yield sprintf "IMG %s" (sizeOfFile va.Image)
-                    match va.Symbols with
-                    | Some s -> yield sprintf "PDB %s" (sizeOfFile s)
-                    | None -> ()
-                } |> String.concat ", "
 
-            do! Cloud.Logf "Uploading '%s' [%s]" va.FullName uploadSizes
-            do! CloudFile.Upload(va.Image, )
-//            let! _ = Blob.UploadFromFile(config, prefix, assemblyName, va.Image)
-            return ()
-
-            // 2. Upload symbols if applicable.
-            match va.Symbols with
-            | None -> ()
-            | Some symbolsPath ->
-                let symbolsName = symbolsName va.Id
-                let! symbolsExist = Blob.Exists(config, prefix, symbolsName)
-                if not symbolsExist then
-                    let! _ = Blob.UploadFromFile(config, prefix, symbolsName, symbolsPath)
-                    return ()
-
-        // 3. Upload metadata
-        // check current metadata in store
-        let metadataName = metadataName va.Id
-        let metadataCell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName)
-        let! currentMetadata = metadataCell.TryGetValue()
-
-        // detect if metadata in blob store is stale
-        let isRequiredUpdate =
-            match currentMetadata with
-            | None -> true
-            | Some md ->
-                // require a data dependency whose store generation is older than local
-                (md.DataDependencies, va.Metadata.DataDependencies)
-                ||> Array.exists2 (fun store local -> local.Generation > store.Generation)
-
-        if not isRequiredUpdate then return Loaded(va.Id, false, va.Metadata) else
-
-        // upload data dependencies
-        let files = va.PersistedDataDependencies |> Map.ofArray
-        let dataFiles = 
-            va.Metadata.DataDependencies 
-            |> Seq.filter (fun dd -> match dd.Data with Persisted _ -> true | _ -> false)
-            |> Seq.map (fun dd -> dd, files.[dd.Id])
-            |> Seq.toArray
-
-        let uploadDataFile (dd : DataDependencyInfo, localPath : string) = async {
-            let blobPath = dataFile va.Id dd
-            let! dataExists = Blob.Exists(config, prefix, blobPath)
-            if not dataExists then
-                logger.Logf "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
-                let! _ = Blob.UploadFromFile(config, prefix, blobPath, localPath)
-                ()
-        }
-
-        // only print metadata message if updating data dependencies
-        if assemblyExists then logger.Logf "Updating metadata for '%s'" va.FullName
-
-        do! dataFiles |> Seq.map uploadDataFile |> Async.Parallel |> Async.Ignore
-
-        // upload metadata record; TODO: use table store?
-        let! _ = Blob<VagabondMetadata>.Create(config, prefix, metadataName, fun () -> va.Metadata)
-        return Loaded(va.Id, false, va.Metadata)
-    }
 //
 //    interface IRemoteAssemblyReceiver with
 //        member x.GetLoadedAssemblyInfo(dependencies: AssemblyId list): Async<AssemblyLoadInfo list> = async {
