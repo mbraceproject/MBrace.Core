@@ -159,7 +159,6 @@ module Utils =
             let gcd = gcd inputs
             inputs |> Array.map (fun i -> i / gcd)
 
-
     module Seq =
         let fromEnumerator (enum : unit -> IEnumerator<'T>) =
             { new IEnumerable<'T> with

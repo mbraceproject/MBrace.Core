@@ -13,12 +13,14 @@ let maxConcurrentTasks = 10
 let main (args : string []) =
     try
         do Config.Init()
-        let logger = new ConsoleJobLogger()
+        let logger = new ConsoleLogger()
+        Config.Logger <- logger
+
         let evaluator =
 #if APPDOMAIN_ISOLATION
             new AppDomainJobEvaluator() :> IJobEvaluator
 #else
-            new LocalTaskEvaluator() :> ITaskEvaluator
+            new LocalJobEvaluator() :> IJobEvaluator
 #endif
         if args.Length > 0 then
             let runtime = Argument.toRuntime args
@@ -30,7 +32,8 @@ let main (args : string []) =
             |> Actor.publish [ Protocols.utcp() ]
             |> Actor.start
             |> ignore
-            Async.RunSynchronously <| async { while true do do! Async.Sleep 10000 }
+            
+            while true do System.Threading.Thread.Sleep 10000
             0
     with e ->
         printfn "Unhandled exception : %O" e

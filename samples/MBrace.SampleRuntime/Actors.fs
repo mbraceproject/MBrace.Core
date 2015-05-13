@@ -15,10 +15,6 @@ open System.Runtime.Serialization
 open Nessos.Thespian
 open Nessos.Thespian.Remote.Protocols
 
-open Nessos.Vagabond
-open Nessos.Vagabond.AssemblyProtocols
-open Nessos.Vagabond.ExportableAssembly
-
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Store
@@ -885,65 +881,6 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
             |> Actor.ref
 
         new ResourceFactory(ref)
-
-//
-// Assembly exporter : provides assembly uploading facility for Vagabond
-//
-
-type private AssemblyExporterMsg =
-    | GetAssemblyMetadata of AssemblyId list * IReplyChannel<(AssemblyId * VagabondMetadata) list>
-    | RequestAssemblies of AssemblyId list * IReplyChannel<ExportableAssembly list> 
-
-/// Provides assembly uploading facility for Vagabond.
-type AssemblyExporter private (exporter : ActorRef<AssemblyExporterMsg>) =
-    static member Init() =
-        let behaviour (msg : AssemblyExporterMsg) = async {
-            match msg with
-            | GetAssemblyMetadata(ids, ch) ->
-                let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
-                let md = vas |> List.map (fun va -> va.Id, va.Metadata)
-                do! ch.Reply md
-
-            | RequestAssemblies(ids, ch) ->
-                let vas = VagabondRegistry.Instance.GetVagabondAssemblies(ids)
-                let packages = VagabondRegistry.Instance.CreateRawAssemblies vas
-                do! ch.Reply packages
-        }
-
-        let ref = 
-            Actor.Stateless behaviour
-            |> Actor.Publish
-            |> Actor.ref
-
-        new AssemblyExporter(ref)
-
-    /// <summary>
-    ///     Request the loading of assembly dependencies from remote
-    ///     assembly exporter to the local application domain.
-    /// </summary>
-    /// <param name="ids">Assembly id's to be loaded in app domain.</param>
-    member __.LoadDependencies(ids : AssemblyId list) = async {
-        let publisher =
-            {
-                new IRemoteAssemblyPublisher with
-                    member __.GetRequiredAssemblyInfo () = async { return! exporter <!- fun ch -> GetAssemblyMetadata(ids, ch) }
-                    member __.PullAssemblies ids = async {
-                        let! eas = exporter <!- fun ch -> RequestAssemblies(ids, ch)
-                        return VagabondRegistry.Instance.CacheRawAssemblies(eas)
-                    }
-            }
-
-        do! VagabondRegistry.Instance.ReceiveDependencies publisher
-    }
-
-    /// <summary>
-    ///     Compute assembly dependencies for provided object graph.
-    /// </summary>
-    /// <param name="graph">Object graph to be analyzed</param>
-    member __.ComputeDependencies (graph:'T) =
-        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true)
-        |> List.map Vagabond.ComputeAssemblyId
-
 
 type WorkerManager =
     | SubscribeToRuntime of IReplyChannel<unit> * string * int

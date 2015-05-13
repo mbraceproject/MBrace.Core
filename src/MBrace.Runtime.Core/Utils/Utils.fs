@@ -3,12 +3,43 @@
 open System.IO
 open System.Diagnostics
 open System.Collections.Concurrent
+open System.Runtime.Serialization
 open System.Threading.Tasks
 
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Runtime.Utils.Retry
 
 [<AutoOpen>]
 module Utils =
+
+    /// Value or exception
+    type Exn<'T> =
+        | Success of 'T
+        | Error of exn
+    with
+        /// evaluate, re-raising the exception if failed
+        member inline e.Value =
+            match e with
+            | Success t -> t
+            | Error e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
+
+    module Exn =
+        let inline catch (f : unit -> 'T) =
+            try f () |> Success with e -> Error e
+
+        let inline protect f t = try f t |> Success with e -> Error e
+        let inline protect2 f t s = try f t s |> Success with e -> Error e
+
+        let map (f : 'T -> 'S) (x : Exn<'T>) =
+            match x with
+            | Success x -> Success (f x)
+            | Error e -> Error e
+
+        let bind (f : 'T -> 'S) (x : Exn<'T>) =
+            match x with
+            | Success x -> try Success <| f x with e -> Error e
+            | Error e -> Error e
     
     let hset (xs : 'T seq) = new System.Collections.Generic.HashSet<'T>(xs)
 
@@ -40,6 +71,8 @@ module Utils =
         member e.TriggerAsTask(t : 'T) =
             System.Threading.Tasks.Task.Factory.StartNew(fun () -> e.Trigger t)
 
+    type ICloudLogger with
+        member inline l.Logf fmt = Printf.ksprintf l.Log fmt
     
     type WorkingDirectory =
         /// Generates a working directory path that is unique to the current process
@@ -64,3 +97,18 @@ module Utils =
                             ignore <| Directory.CreateDirectory path
                     else
                         ignore <| Directory.CreateDirectory path)
+
+
+    type ReplyChannel<'T> internal (rc : AsyncReplyChannel<Exn<'T>>) =
+        member __.Reply (t : 'T) = rc.Reply <| Success t
+        member __.Reply (t : Exn<'T>) = rc.Reply t
+        member __.ReplyWithError (e : exn) = rc.Reply <| Error e
+
+    and MailboxProcessor<'T> with
+        member m.PostAndAsyncReply (msgB : ReplyChannel<'R> -> 'T) = async {
+            let! result = m.PostAndAsyncReply(fun ch -> msgB(new ReplyChannel<_>(ch)))
+            return result.Value
+        }
+
+        member m.PostAndReply (msgB : ReplyChannel<'R> -> 'T) =
+            m.PostAndAsyncReply msgB |> Async.RunSync

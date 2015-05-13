@@ -167,8 +167,8 @@ type RuntimeState =
         IPEndPoint : System.Net.IPEndPoint
         /// Reference to the global job queue employed by the runtime
         JobQueue : Queue<PickledJob, IWorkerRef>
-        /// Reference to a Vagabond assembly exporting actor.
-        AssemblyExporter : AssemblyExporter
+        /// File store configuration for runtime
+        AssemblyManager : DomainLocal<StoreAssemblyManager>
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
@@ -179,7 +179,10 @@ type RuntimeState =
     }
 with
     /// Initialize a new runtime state in the local process
-    static member InitLocal (logger : string -> unit) (getWorkers : unit -> IWorkerRef []) =
+    static member InitLocal storeConfig serializer (logger : ICloudLogger) (getWorkers : unit -> IWorkerRef []) =
+        let mkAssemblyManager () =
+            StoreAssemblyManager.Create(storeConfig, serializer = serializer, container = "vagabond", logger = Config.Logger)
+            
         // job dequeue predicate -- checks if job is assigned to particular target
         let shouldDequeue (dequeueingWorker : IWorkerRef) (pt : PickledJob) =
             match pt.Target with
@@ -195,10 +198,10 @@ with
         {
             IPEndPoint = MBrace.SampleRuntime.Config.LocalEndPoint
             Workers = Cell.Init getWorkers
-            Logger = Logger.Init logger
+            Logger = Logger.Init logger.Log
             JobQueue = Queue<_,_>.Init shouldDequeue
-            AssemblyExporter = AssemblyExporter.Init()
             ResourceFactory = ResourceFactory.Init ()
+            AssemblyManager = DomainLocal.Create mkAssemblyManager
         }
 
     /// <summary>
@@ -254,6 +257,7 @@ with
     /// </summary>
     /// <param name="pJob">Job to unpickle.</param>
     member rt.UnPickle(pJob : PickledJob) = async {
-        do! rt.AssemblyExporter.LoadDependencies (Array.toList pJob.Dependencies)
+        let! vas = rt.AssemblyManager.Value.DownloadDependencies pJob.Dependencies
+        let info = rt.AssemblyManager.Value.LoadAssemblies vas
         return Config.Pickler.UnPickleTyped pJob.Pickle
     }

@@ -6,28 +6,20 @@ open System.Threading
 
 open Nessos.Vagabond.AppDomainPool
 
+open MBrace.Core.Internals
+
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
 
 open MBrace.SampleRuntime.Actors
 open MBrace.SampleRuntime.Types
 open MBrace.SampleRuntime.RuntimeProvider
 
-type IWorkerLogger =
-    abstract Log : string -> unit
-
 type IJobEvaluator =
     abstract Id : string
-    abstract Evaluate : state:RuntimeState * logger:IWorkerLogger * pjob:PickledJob * leaseMonitor:LeaseMonitor * faultCount:int -> Async<unit>
+    abstract Evaluate : state:RuntimeState * logger:ICloudLogger * pjob:PickledJob * leaseMonitor:LeaseMonitor * faultCount:int -> Async<unit>
 
-type ConsoleJobLogger () =
-    interface IWorkerLogger with
-        member __.Log msg = System.Console.WriteLine msg
-
-[<AutoOpen>]
-module LogUtils =
-    type IWorkerLogger with
-        member l.Logf fmt = Printf.ksprintf l.Log fmt
 
 /// <summary>
 ///     Initializes a worker loop. Worker polls job queue of supplied
@@ -35,7 +27,7 @@ module LogUtils =
 /// </summary>
 /// <param name="runtime">Runtime to subscribe to.</param>
 /// <param name="maxConcurrentJobs">Maximum jobs to be executed concurrently by worker.</param>
-let initWorker (runtime : RuntimeState) (logger : IWorkerLogger) (maxConcurrentJobs : int) (evaluator : IJobEvaluator) = async {
+let initWorker (runtime : RuntimeState) (logger : ICloudLogger) (maxConcurrentJobs : int) (evaluator : IJobEvaluator) = async {
 
     let localEndPoint = MBrace.SampleRuntime.Config.LocalEndPoint
     logger.Logf "MBrace worker (%s) initialized on %O." evaluator.Id localEndPoint
@@ -80,7 +72,7 @@ type LocalJobEvaluator(?showAppDomain : bool) =
 
     interface IJobEvaluator with
         member __.Id = "InDomain"
-        member __.Evaluate(runtime : RuntimeState, logger : IWorkerLogger, pjob : PickledJob, leaseMonitor : LeaseMonitor, faultCount : int) = async {
+        member __.Evaluate(runtime : RuntimeState, logger : ICloudLogger, pjob : PickledJob, leaseMonitor : LeaseMonitor, faultCount : int) = async {
             logger.Logf "%sStarting job %s of type '%s'." appDomainPrefix pjob.JobId pjob.TypeName
 
             use! hb = leaseMonitor.InitHeartBeat()
@@ -98,11 +90,11 @@ type LocalJobEvaluator(?showAppDomain : bool) =
             match fault with
             | Choice1Of2 () -> 
                 leaseMonitor.Release()
-                printfn "%sJob %s completed after %O." appDomainPrefix pjob.JobId sw.Elapsed
+                logger.Logf "%sJob %s completed after %O." appDomainPrefix pjob.JobId sw.Elapsed
                                 
             | Choice2Of2 e -> 
                 leaseMonitor.DeclareFault()
-                printfn "%sJob %s faulted with:\n %O." appDomainPrefix pjob.JobId e
+                logger.Logf "%sJob %s faulted with:\n %O." appDomainPrefix pjob.JobId e
         }
 
 type AppDomainJobEvaluator() =
@@ -115,7 +107,7 @@ type AppDomainJobEvaluator() =
 
     interface IJobEvaluator with
         member __.Id = "AppDomain isolated"
-        member __.Evaluate(runtime : RuntimeState, logger : IWorkerLogger, pjob : PickledJob, leaseMonitor : LeaseMonitor, faultCount : int) = async {
+        member __.Evaluate(runtime : RuntimeState, logger : ICloudLogger, pjob : PickledJob, leaseMonitor : LeaseMonitor, faultCount : int) = async {
             let eval() = async {
                 let local = new LocalJobEvaluator(showAppDomain = true) :> IJobEvaluator
                 return! local.Evaluate(runtime, logger, pjob, leaseMonitor, faultCount)
@@ -128,7 +120,7 @@ type AppDomainJobEvaluator() =
 
 open Nessos.Thespian
 
-let workerManager (logger : IWorkerLogger) (evaluator : IJobEvaluator) (cts: CancellationTokenSource) (msg: WorkerManager) =
+let workerManager (logger : ICloudLogger) (evaluator : IJobEvaluator) (cts: CancellationTokenSource) (msg: WorkerManager) =
     async {
         match msg with
         | SubscribeToRuntime(rc, runtimeStateStr, maxConcurrentJobs) ->
@@ -138,10 +130,10 @@ let workerManager (logger : IWorkerLogger) (evaluator : IJobEvaluator) (cts: Can
                 Config.Pickler.UnPickle<RuntimeState> bytes
 
             Async.Start(initWorker runtimeState logger maxConcurrentJobs evaluator, cts.Token)
-            try do! rc.Reply() with e -> printfn "Failed to confirm worker subscription to client: %O" e
+            try do! rc.Reply() with e -> logger.Logf "Failed to confirm worker subscription to client: %O" e
             return cts
         | Unsubscribe rc ->
             cts.Cancel()
-            try do! rc.Reply() with e -> printfn "Failed to confirm worker unsubscription to client: %O" e
+            try do! rc.Reply() with e -> logger.Logf "Failed to confirm worker unsubscription to client: %O" e
             return new CancellationTokenSource()
     }

@@ -12,6 +12,7 @@ open Nessos.Thespian.Serialization
 open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
 
+open MBrace.Core.Internals
 open MBrace.Store
 open MBrace.Store.Internals
 open MBrace.Runtime.Utils
@@ -23,22 +24,23 @@ type Config private () =
     static let isInitialized = ref false
     static let mutable workingDirectory = Unchecked.defaultof<string>
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
+    static let mutable _logger = Unchecked.defaultof<ICloudLogger>
 
     static let checkInitialized () =
         if not isInitialized.Value then
             invalidOp "Runtime configuration has not been initialized."
 
-    static let init (workDir : string option) (createDir : bool option) =
+    static let init (workDir : string option) (createDir : bool option) (logger : ICloudLogger option) =
         if isInitialized.Value then invalidOp "Runtime configuration has already been initialized."
         let wd = match workDir with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
         let createDir = defaultArg createDir true
         let vagabondPath = Path.Combine(wd, "vagabond")
-        let fileCachePath = Path.Combine(wd, "fileCache")
 
         let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
         objectCache <- InMemoryCache.Create()
         workingDirectory <- wd
+        _logger <- match logger with Some l -> l | None -> new NullLogger() :> ICloudLogger
 
         // vagabond initialization
         VagabondRegistry.Initialize(cachePath = vagabondPath, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
@@ -49,11 +51,14 @@ type Config private () =
         TcpListenerPool.RegisterListener(IPEndPoint.any)
         isInitialized := true
 
-    static member Init(?workDir : string, ?cleanup : bool) = lock isInitialized (fun () -> init workDir cleanup)
+    static member Init(?workDir : string, ?cleanup : bool, ?logger : ICloudLogger) = lock isInitialized (fun () -> init workDir cleanup logger)
 
     static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Pickler
     static member WorkingDirectory = checkInitialized() ; workingDirectory
     static member ObjectCache = checkInitialized() ; objectCache :> IObjectCache
     static member LocalEndPoint = checkInitialized() ; TcpListenerPool.GetListener().LocalEndPoint
-    static member LocalAddress = 
-        checkInitialized() ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
+    static member LocalAddress = checkInitialized() ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
+
+    static member Logger
+        with get () = _logger
+        and set l = _logger <- l

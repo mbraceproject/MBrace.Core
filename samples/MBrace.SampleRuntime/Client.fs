@@ -54,9 +54,14 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
         else workerManagers |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
 
     let logEvent = new Event<string> ()
-    let state = RuntimeState.InitLocal logEvent.Trigger getWorkerRefs
+    let mutable d = { new System.IDisposable with member __.Dispose () = () }
+
+    let eventLogger = { new ICloudLogger with member __.Log msg = logEvent.Trigger msg }
     let fileStore = match fileStore with Some f -> f | None -> FileSystemStore.CreateSharedLocal() :> _
+    let fileConfig = CloudFileStoreConfiguration.Create(fileStore)
     let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> _
+    let state = RuntimeState.InitLocal fileConfig serializer eventLogger getWorkerRefs
+
     let atomProvider = new ActorAtomProvider(state) :> ICloudAtomProvider
     let channelProvider = new ActorChannelProvider(state) :> ICloudChannelProvider
     let dictionaryProvider = new ActorDictionaryProvider(state) :> ICloudDictionaryProvider
@@ -79,10 +84,14 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
         }
         
     let imem =
-        let fileConfig    = CloudFileStoreConfiguration.Create(fileStore)
         let atomConfig    = CloudAtomConfiguration.Create(atomProvider)
         let channelConfig = CloudChannelConfiguration.Create(channelProvider)
         LocalRuntime.Create(fileConfig = fileConfig, objectCache = Config.ObjectCache, serializer = serializer, atomConfig = atomConfig, channelConfig = channelConfig)
+
+    member __.AttachLogger(logger : ICloudLogger) =
+        d.Dispose()
+        Config.Logger <- logger
+        d <- logEvent.Publish.Subscribe logger.Log
 
     /// Creates a fresh cloud cancellation token source for this runtime
     member __.CreateCancellationTokenSource () =
@@ -96,7 +105,8 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
     member __.StartAsTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : Async<ICloudTask<'T>> = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
-        let dependencies = VagabondRegistry.ComputeObjectDependencies ((workflow, fileStore, serializer))
+        let dependencies = state.AssemblyManager.Value.ComputeDependencies ((workflow, fileStore, serializer))
+        let! _ = state.AssemblyManager.Value.UploadDependencies(dependencies)
         let processInfo = createProcessInfo ()
         return! state.StartAsTask processInfo (List.toArray dependencies) cancellationToken faultPolicy None workflow
     }
