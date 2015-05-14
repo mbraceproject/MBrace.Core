@@ -25,10 +25,10 @@ module private Common =
     /// Gets a unique blob filename for provided assembly
     let filename (id : AssemblyId) = Vagabond.GetFileName id
 
-    let assemblyName append id = append <| filename id + id.Extension
-    let symbolsName append id = append <| filename id + ".pdb"
-    let metadataName append id = append <| filename id + ".vgb"
-    let dataFile append id (dd : DataDependencyInfo) = append <| sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
+    let getStoreAssemblyPath k id = k <| filename id + id.Extension
+    let getStoreSymbolsPath k id = k <| filename id + ".pdb"
+    let getStoreMetadataPath k id = k <| filename id + ".vgb"
+    let getStoreDataPath k id (dd : DataDependencyInfo) = k <| sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
 
 /// Assembly to file store uploader implementation
 type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : LocalRuntime, container : string) =
@@ -37,7 +37,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
-            let! c = CloudValue.OfCloudFile<VagabondMetadata>(metadataName append id, enableCache = false)
+            let! c = CloudValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id, enableCache = false)
             let! md = c.Value
             return Some md
 
@@ -45,7 +45,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
     }
 
     let getAssemblyLoadInfo (id : AssemblyId) = local {
-        let! assemblyExists = CloudFile.Exists (assemblyName append id)
+        let! assemblyExists = CloudFile.Exists (getStoreAssemblyPath append id)
         if not assemblyExists then return NotLoaded id
         else
             let! metadata = tryGetCurrentMetadata id
@@ -57,7 +57,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
     /// upload assembly to blob store
     let uploadAssembly (va : VagabondAssembly) = local {
-        let assemblyStorePath = assemblyName append va.Id
+        let assemblyStorePath = getStoreAssemblyPath append va.Id
         let! assemblyExists = CloudFile.Exists assemblyStorePath
 
         // 1. Upload assembly image.
@@ -79,7 +79,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
             match va.Symbols with
             | None -> ()
             | Some symbolsPath ->
-                let symbolsStorePath = symbolsName append va.Id
+                let symbolsStorePath = getStoreSymbolsPath append va.Id
                 let! symbolsExist = CloudFile.Exists symbolsStorePath
                 if not symbolsExist then
                     let! _ = CloudFile.Upload(symbolsPath, symbolsStorePath, overwrite = true)
@@ -109,7 +109,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
             |> Seq.toArray
 
         let uploadDataFile (dd : DataDependencyInfo, localPath : string) = local {
-            let blobPath = dataFile append va.Id dd
+            let blobPath = getStoreDataPath append va.Id dd
             let! dataExists = CloudFile.Exists blobPath
             if not dataExists then
                 do! Cloud.Logf "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
@@ -123,7 +123,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
         do! dataFiles |> Seq.map uploadDataFile |> Local.Parallel |> Local.Ignore
 
         // upload metadata record; TODO: use CloudAtom for synchronization?
-        let! _ = CloudValue.New<VagabondMetadata>(va.Metadata, path = metadataName append va.Id)
+        let! _ = CloudValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
         return Loaded(va.Id, false, va.Metadata)
     }
 
@@ -146,11 +146,11 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
     interface IAssemblyImporter with
         member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
             logger.Logf "Downloading '%s'" id.FullName
-            return! config.FileStore.BeginRead (assemblyName append id)
+            return! config.FileStore.BeginRead (getStoreAssemblyPath append id)
         }
         
         member x.TryGetSymbolReader(id: AssemblyId): Async<Stream option> = async {
-            let symbolsStorePath = symbolsName append id
+            let symbolsStorePath = getStoreSymbolsPath append id
             let! exists = config.FileStore.FileExists symbolsStorePath
             if exists then
                 let! stream = config.FileStore.BeginRead symbolsStorePath
@@ -161,13 +161,13 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
         
         member x.ReadMetadata(id: AssemblyId): Async<VagabondMetadata> = 
             local {
-                let! c = CloudValue.OfCloudFile<VagabondMetadata>(metadataName append id, enableCache = false)
+                let! c = CloudValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id, enableCache = false)
                 return! c.Value
             } |> imem.RunAsync
 
         member x.GetPersistedDataDependencyReader(id: AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {
             logger.Logf "Downloading data dependency '%s'." dd.Name
-            return! config.FileStore.BeginRead(dataFile append id dd)
+            return! config.FileStore.BeginRead(getStoreDataPath append id dd)
         }
 
 type private AssemblyManagerMsg =
