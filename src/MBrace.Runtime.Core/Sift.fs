@@ -12,7 +12,7 @@ type SiftAction =
 
 type ParentContext =
     | Field of parent:obj * field:FieldInfo
-    | Array of parent:Array * index:uint64
+    | Array of parent:Array * index:int
     | ArrayMultiDimensional of parent:Array * indices:int[]
 
 type SiftContext =
@@ -30,17 +30,11 @@ type SiftValue =
 let  getDimensions (array:Array) =
     [| for i in 0 .. array.Rank - 1 -> array.GetLength i |]
 
-let private ofSmallIndices (bounds:int[]) (indices:int[]) =
-    let mutable gI = 0uL
-    for i = 0 to bounds.Length - 1 do
-        gI <- uint64 bounds.[i] * gI + uint64 indices.[i]
-    gI
-
-let private toSmallIndices (bounds:int[]) (index:uint64) =
+let private toSmallIndices (bounds:int[]) (index:int64) =
     let mutable index = index
     let indices = Array.zeroCreate<int> bounds.Length
     for i = bounds.Length - 1 downto 0 do
-        let b = uint64 bounds.[i]
+        let b = int64 bounds.[i]
         indices.[i] <- int (index % b)
         index <- index / b
     indices
@@ -99,75 +93,54 @@ let sift (selector : obj -> SiftAction) (obj:obj) =
                 if isFirst then sifted.Add(id, (ctx, obj))
                 match ctx with
                 | Field(parent = p; field = f) -> f.SetValue(p, null)
-                | Array(parent = p; index = is) -> p.SetValue(null, is)
+                | Array(parent = p; index = i) -> p.SetValue(null, i)
+                | ArrayMultiDimensional(parent = p; indices = is) -> p.SetValue(null, is)
 
             | _ when isFirst ->
                 match obj with
                 | :? Array as array ->
                     if array.GetType().GetElementType().IsValueType then ()
                     elif array.Rank <= 1 then
-                        for i = 0L to array.LongLength - 1L do
+                        for i = 0 to array.Length - 1 do
                             let e = array.GetValue(i)
                             traverse (Some (Array(array, i))) e
                     else
                         let dimensions = [| for i in 0 .. array.Rank - 1 -> array.GetLength i |]
-                        for i = 0L to array.LongLength - 1L do
-                            let e = array.GetValue(toSmallIndices dimensions i)
-                            traverse (Some (Array(array, i))) e
+                        for i in 0L .. array.LongLength - 1L do
+                            let indices = toSmallIndices dimensions i
+                            let e = array.GetValue indices
+                            traverse (Some (ArrayMultiDimensional(array, indices))) e
                 | _ ->
                     let t = obj.GetType()
                     for f in gatherFields t do
                         let value = f.GetValue(obj)
                         traverse (Some (Field(obj, f))) value
 
-        | _ -> ()
+            | _ -> ()
 
     do traverse None obj
-                    
-                
-                
-            
-//        | :? Array as array ->
-//            array.Set
-//            
-//       
-//let xs = Array3D.init 10 10 10 (fun i j k -> (i,j,k)) :> System.Array
-//
-//([|1..100|]).GetValue [|0;1;1|]
-//
-//let foo = xs.GetLongLength (4)
+
+    let holes, siftedValues =
+        sifted 
+        |> Seq.map (function KeyValue(id, (ctx, obj)) -> (id, ctx), { Id = id ; Value = obj })
+        |> Seq.toArray
+        |> Array.unzip
+
+    { Graph = obj; Holes = holes }, siftedValues
+
+        
+let unsift (ctx : SiftContext) (values : SiftValue []) =
+    let map = values |> Seq.map (fun sv -> sv.Id, sv.Value) |> Map.ofSeq
+    let data = ctx.Holes |> Array.map (fun (id, ctx) -> ctx, map.[id])
+    for ctx, value in data do
+        match ctx with
+        | Field(p, f) -> f.SetValue(p, value)
+        | Array(p, i) -> p.SetValue(value, i)
+        | ArrayMultiDimensional(p, is) -> p.SetValue(p, is)
+
+    ctx.Graph
 
 
+let graph = (Some (12, [|1 .. 10000|]), [1;2;3], Some("hello", [|"bye"|]))
 
-//let gatherObjs (o : obj) =
-//    let gen = new ObjectIDGenerator()
-//
-//    let rec traverse (gathered : obj list) : obj list -> obj list =
-//        function
-//        | [] -> gathered
-//        | o :: rest when o = null -> traverse gathered rest
-//        | o :: rest ->
-//            let firstTime = ref false
-//            gen.GetId(o, firstTime) |> ignore
-//            if firstTime.Value then
-//                let t = o.GetType()
-//                let nested =
-//                    if t.IsValueType then []
-//                    elif t.IsArray then
-//                        [ for e in (o :?> Array) -> e ]
-//                    else
-//                        let fields = t.GetFields(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic)
-//                        [ for fInfo in fields -> fInfo.GetValue o ]
-//
-//                traverse (o :: gathered) (nested @ rest)
-//
-//            else traverse gathered rest
-//
-//    traverse [] [o]
-
-
-//let gatherTypes : obj -> _ =
-//    gatherObjs
-//    >> Seq.map (fun o -> o.GetType())
-//    >> Seq.distinctBy (fun t -> t.AssemblyQualifiedName)
-//    >> Seq.toList
+let ctx, values = sift (function :? Array -> Sift | _ -> Resume) graph
