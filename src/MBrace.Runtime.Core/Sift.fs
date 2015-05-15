@@ -144,3 +144,5 @@ let unsift (ctx : SiftContext) (values : SiftValue []) =
 let graph = (Some (12, [|1 .. 10000|]), [1;2;3], Some("hello", [|"bye"|]))
 
 let ctx, values = sift (function :? Array -> Sift | _ -> Resume) graph
+
+let _ = unsift ctx values

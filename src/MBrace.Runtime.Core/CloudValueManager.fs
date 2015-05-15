@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Runtime
 
 open System
+open System.Collections.Concurrent
 open System.IO
 open System.Reflection
 
@@ -17,6 +18,8 @@ open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Vagabond
 
 type CloudValueManager(container : string) =
+    let cvalues = new ConcurrentDictionary<HashResult, CloudValue<obj>> ()
+
     let getPathByHash(hash : HashResult) = local {
         let truncate n (text : string) = 
             if text.Length <= n then text
@@ -33,13 +36,17 @@ type CloudValueManager(container : string) =
         match VagabondRegistry.Instance.TryGetBindingByHash hash with
         | Some fI -> return fI.GetValue() |> Some
         | None ->
-            let! path = getPathByHash hash
-            try
-                let! cval = CloudValue.OfCloudFile<obj>(path, enableCache = false)
-                let! value = cval.Value
-                return Some value
+            let ok, cval = cvalues.TryGetValue hash
+            if ok then let! value = cval.Value in return Some value
+            else
+                let! path = getPathByHash hash
+                try
+                    let! cval = CloudValue.OfCloudFile<obj>(path, enableCache = true)
+                    let cval = cvalues.GetOrAdd(hash, cval)
+                    let! value = cval.Value
+                    return Some value
 
-            with :? FileNotFoundException -> return None
+                with :? FileNotFoundException -> return None
     }
 
     member __.ContainsValue(hash : HashResult) = local {
@@ -57,6 +64,7 @@ type CloudValueManager(container : string) =
             let! path = getPathByHash hash
             let! exists = CloudFile.Exists path
             if not exists then
-                let! _ = CloudValue.New<obj>(value, path = path, enableCache = true)
+                let! cval = CloudValue.New<obj>(value, path = path, enableCache = true)
+                let _ = cvalues.GetOrAdd(hash, cval)
                 return ()
     }
