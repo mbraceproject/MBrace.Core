@@ -8,6 +8,7 @@ nuget NUnit.Runners
 nuget Thespian.Core 0.1.1-alpha
 nuget FSharp.Core
 nuget FsCheck
+nuget Mono.Cecil 0.9.5.4
 nuget Unquote
 nuget Streams
 nuget Streams.CSharp
