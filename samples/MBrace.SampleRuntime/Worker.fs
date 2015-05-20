@@ -127,7 +127,7 @@ let workerManager (logger : ICloudLogger) (evaluator : IJobEvaluator) (cts: Canc
             let runtimeState =
                 let bytes = System.Convert.FromBase64String(runtimeStateStr)
 
-                Config.Pickler.UnPickle<RuntimeState> bytes
+                Config.Serializer.UnPickle<RuntimeState> bytes
 
             Async.Start(initWorker runtimeState logger maxConcurrentJobs evaluator, cts.Token)
             try do! rc.Reply() with e -> logger.Logf "Failed to confirm worker subscription to client: %O" e

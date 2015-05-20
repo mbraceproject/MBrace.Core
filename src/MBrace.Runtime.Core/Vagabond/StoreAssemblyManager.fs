@@ -170,6 +170,7 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
             return! config.FileStore.BeginRead(getStoreDataPath append id dd)
         }
 
+[<NoEquality; NoComparison>]
 type private AssemblyManagerMsg =
     | Upload of seq<AssemblyId> * ReplyChannel<DataDependencyInfo []>
     | Download of seq<AssemblyId> * ReplyChannel<VagabondAssembly list>

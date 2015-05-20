@@ -4,6 +4,8 @@
 //  Provides distributed implementations for Cloud.Parallel, Cloud.Choice and Cloud.StartChild
 //
 
+open Nessos.FsPickler
+
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
@@ -27,7 +29,7 @@ let Parallel (state : RuntimeState) procInfo dependencies fp (computations : seq
         // schedule single-child parallel workflows in current job
         // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
-            let (comp, cont) = Config.Pickler.Clone (comp, cont)
+            let (comp, cont) = FsPickler.Clone ((comp, cont))
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
@@ -85,7 +87,7 @@ let Choice (state : RuntimeState) procInfo dependencies fp (computations : seq<#
         // schedule single-child parallel workflows in current job
         // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] -> 
-            let (comp, cont) = Config.Pickler.Clone (comp, cont)
+            let (comp, cont) = FsPickler.Clone ((comp, cont))
             Cloud.StartWithContinuations(comp, cont, ctx)
 
         | Choice1Of2 computations ->

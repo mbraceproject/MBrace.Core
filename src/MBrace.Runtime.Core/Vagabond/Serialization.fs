@@ -50,7 +50,7 @@ type FsPicklerBinaryStoreSerializer () =
     inherit FsPicklerStoreSerializer()
 
     override __.Id = "FsPickler binary serializer"
-    override __.CreateLocalSerializerInstance () = VagabondRegistry.Instance.Pickler :> _
+    override __.CreateLocalSerializerInstance () = VagabondRegistry.Instance.Serializer :> _
 
 
 [<AutoSerializable(true)>]

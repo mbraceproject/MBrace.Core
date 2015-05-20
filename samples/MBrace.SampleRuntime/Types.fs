@@ -148,7 +148,7 @@ with
                 CancellationTokenSource = cts
             }
 
-        let jobP = Config.Pickler.PickleTyped job
+        let jobP = Config.Serializer.PickleTyped job
 
         { 
             JobId = jobId ;
@@ -259,5 +259,5 @@ with
     member rt.UnPickle(pJob : PickledJob) = async {
         let! vas = rt.AssemblyManager.Value.DownloadDependencies pJob.Dependencies
         let info = rt.AssemblyManager.Value.LoadAssemblies vas
-        return Config.Pickler.UnPickleTyped pJob.Pickle
+        return Config.Serializer.UnPickleTyped pJob.Pickle
     }

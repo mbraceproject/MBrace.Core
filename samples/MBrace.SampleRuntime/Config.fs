@@ -46,14 +46,14 @@ type Config private () =
         VagabondRegistry.Initialize(cachePath = vagabondPath, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
 
         // thespian initialization
-        Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Pickler)
+        Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
         Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
         TcpListenerPool.RegisterListener(IPEndPoint.any)
         isInitialized := true
 
     static member Init(?workDir : string, ?cleanup : bool, ?logger : ICloudLogger) = lock isInitialized (fun () -> init workDir cleanup logger)
 
-    static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Pickler
+    static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
     static member WorkingDirectory = checkInitialized() ; workingDirectory
     static member ObjectCache = checkInitialized() ; objectCache :> IObjectCache
     static member LocalEndPoint = checkInitialized() ; TcpListenerPool.GetListener().LocalEndPoint

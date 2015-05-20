@@ -26,12 +26,12 @@ open MBrace.SampleRuntime.RuntimeProvider
 /// BASE64 serialized argument parsing schema
 module internal Argument =
     let ofRuntime (runtime : RuntimeState) =
-        let pickle = Config.Pickler.Pickle(runtime)
+        let pickle = Config.Serializer.Pickle(runtime)
         System.Convert.ToBase64String pickle
 
     let toRuntime (args : string []) =
         let bytes = System.Convert.FromBase64String(args.[0])
-        Config.Pickler.UnPickle<RuntimeState> bytes
+        Config.Serializer.UnPickle<RuntimeState> bytes
 
 /// MBrace Sample runtime client instance.
 type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISerializer) =
