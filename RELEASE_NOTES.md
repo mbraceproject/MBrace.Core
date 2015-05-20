@@ -1,3 +1,9 @@
+#### 0.9.11-alpha
+* Add more combinators in MBrace.Workflows.
+* Improvide FileStore client API and helper methods
+* Add DomainLocal utility.
+* Misc bugfixes.
+
 #### 0.9.10-alpha
 * Improve partitioning in CloudFlow.
 * Add missing combinators to CloudFlow.
