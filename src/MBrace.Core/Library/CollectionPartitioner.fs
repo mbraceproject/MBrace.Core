@@ -44,7 +44,7 @@ type CloudCollection private () =
     /// <summary>
     ///     Performs partitioning of provided irreducible CloudCollections to supplied workers.
     ///     This partitioning scheme takes collection sizes as well as worker capacities into account
-    ///     in order to achieve uniformity. It also takes IPartitionableCollection<_> (i.e. dynamically partitionable collections)
+    ///     in order to achieve uniformity. It also takes IPartitionableCollection (i.e. dynamically partitionable collections)
     ///     into account when traversing.
     /// </summary>
     /// <param name="collections">Collections to be partitioned.</param>

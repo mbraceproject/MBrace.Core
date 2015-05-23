@@ -366,6 +366,11 @@ type CloudPathClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
 
     /// <summary>
+    ///     Default store directory used by store configuration.
+    /// </summary>
+    member __.DefaultDirectory = config.DefaultDirectory
+
+    /// <summary>
     ///     Returns the directory name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
@@ -1004,6 +1009,34 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
     member __.OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool, ?enableCache : bool) : CloudSequence<'T> =
         __.OfCloudFileAsync(path, textDeserializer = textDeserializer, ?encoding = encoding, ?force = force, ?enableCache = enableCache) |> toSync
+
+    /// <summary>
+    ///     Returns an enumerable that lazily fetches sequence elements from store.
+    /// </summary>
+    /// <param name="cloudSeq">Cloud sequence to be enumerated.</param>
+    member __.ToEnumerableAsync<'T>(cloudSeq : CloudSequence<'T>) : Async<seq<'T>> =
+        cloudSeq.ToEnumerable() |> toAsync
+
+    /// <summary>
+    ///     Returns an enumerable that lazily fetches sequence elements from store.
+    /// </summary>
+    /// <param name="cloudSeq">Cloud sequence to be enumerated.</param>
+    member __.ToEnumerable(cloudSeq : CloudSequence<'T>) : seq<'T> =
+        __.ToEnumerableAsync(cloudSeq) |> toSync
+
+    /// <summary>
+    ///     Asynchronously aggregates sequence elements to a local array.
+    /// </summary>
+    /// <param name="cloudSeq">Cloud sequence to be evaluated.</param>
+    member __.ToArrayAsync<'T>(cloudSeq : CloudSequence<'T>) : Async<'T[]> =
+        cloudSeq.ToArray() |> toAsync
+
+    /// <summary>
+    ///     Aggregates sequence elements to a local array.
+    /// </summary>
+    /// <param name="cloudSeq">Cloud sequence to be evaluated.</param>
+    member __.ToArray<'T>(cloudSeq : CloudSequence<'T>) : 'T[] =
+        __.ToArrayAsync<'T>(cloudSeq) |> toSync
 
 /// Client-side API for cloud store operations
 [<Sealed; AutoSerializable(false)>]

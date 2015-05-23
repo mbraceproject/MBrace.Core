@@ -40,6 +40,13 @@ type CloudFlow =
         CloudCollection.ToCloudFlow(collection, ?useCache = useCache, ?sizeThresholdPerWorker = sizeThresholdPerWorker)
 
     /// <summary>
+    ///     Creates a CloudFlow from a collection of provided cloud sequences.
+    /// </summary>
+    /// <param name="cloudSequences">Cloud sequences to be evaluated.</param>
+    static member OfCloudSequences (cloudSequences : seq<CloudSequence<'T>>) : CloudFlow<'T> =
+        new PersistedCloudFlow<'T>(Seq.toArray cloudSequences) :> CloudFlow<'T>
+
+    /// <summary>
     ///     Creates a CloudFlow instance from a finite collection of serializable enumerations.
     /// </summary>
     /// <param name="enumerations">Input enumerations.</param>
