@@ -366,6 +366,11 @@ type CloudPathClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
 
     /// <summary>
+    ///     Default store directory used by store configuration.
+    /// </summary>
+    member __.DefaultDirectory = config.DefaultDirectory
+
+    /// <summary>
     ///     Returns the directory name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>

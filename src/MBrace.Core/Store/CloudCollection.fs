@@ -43,8 +43,7 @@ type IPartitionedCollection<'T> =
 /// A cloud collection that can be partitioned into smaller collections of provided size.
 type IPartitionableCollection<'T> =
     inherit ICloudCollection<'T>
-//    /// Partitions the collection into collections of given count
-//    abstract GetPartitions : partitionCount:int -> Local<ICloudCollection<'T> []>
+    /// Partitions the collection into collections of given count
     abstract GetPartitions : weights:int[] -> Local<ICloudCollection<'T> []>
 
 
