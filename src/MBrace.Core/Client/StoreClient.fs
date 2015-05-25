@@ -310,7 +310,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
         __.TryAddAsync key value dictionary |> toSync
 
     /// <summary>
-    ///     Asynchronously updates a key/value entry on a dictionary.
+    ///     Asynchronously adds or updates a key/value entry on a dictionary.
     /// </summary>
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Value updater function.</param>
@@ -319,13 +319,31 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
         CloudDictionary.AddOrUpdate key updater dictionary |> toAsync
 
     /// <summary>
-    ///     Updates a key/value entry on a dictionary.
+    ///     Adds or Updates a key/value entry on a dictionary.
     /// </summary>
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Value updater function.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
     member __.AddOrUpdate (key : string) (updater : 'T option -> 'T) (dictionary : ICloudDictionary<'T>) : 'T =
         __.AddOrUpdateAsync key updater dictionary |> toSync
+
+    /// <summary>
+    ///     Updates a key/value entry on a dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Value updater function.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.UpdateAsync (key : string) (updater : 'T -> 'T) (dictionary : ICloudDictionary<'T>) : Async<'T> =
+        CloudDictionary.Update key updater dictionary |> toAsync
+
+    /// <summary>
+    ///     Updates a key/value entry on a dictionary.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Value updater function.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    member __.Update (key : string) (updater : 'T -> 'T) (dictionary : ICloudDictionary<'T>) : 'T =
+        __.UpdateAsync key updater dictionary |> toSync
 
     /// <summary>
     ///     Asynchronously removes an entry of given id from dictionary.

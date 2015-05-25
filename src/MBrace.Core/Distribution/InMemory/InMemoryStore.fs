@@ -108,7 +108,10 @@ type InMemoryDictionaryProvider() =
                         local { return dict.TryAdd(key, value) }
                     
                     member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Local<'T> = 
-                        local { return dict.AddOrUpdate(key, updater None, fun _ curr -> updater (Some curr))}
+                        local { return dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))}
+
+                    member x.Update(key: string, updater: 'T -> 'T): Local<'T> = 
+                        local { return dict.AddOrUpdate(key, (fun key -> raise <| new KeyNotFoundException(key)), (fun _ t -> updater t)) }
                     
                     member x.ContainsKey(key: string): Local<bool> = 
                         local { return dict.ContainsKey key }

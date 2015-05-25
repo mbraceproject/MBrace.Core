@@ -42,6 +42,13 @@ type ICloudDictionary<'T> =
     abstract AddOrUpdate : key:string * updater:('T option -> 'T) -> Local<'T>
 
     /// <summary>
+    ///     Atomically updates an existing value in dictionary.
+    /// </summary>
+    /// <param name="key">Key for entry.</param>
+    /// <param name="updater">Entry updater function.</param>
+    abstract Update : key:string * updater:('T -> 'T) -> Local<'T>
+
+    /// <summary>
     ///     Removes entry of supplied key from dictionary.
     ///     Returns true if successful.
     /// </summary>
@@ -70,6 +77,8 @@ type ICloudDictionaryProvider =
     abstract Create<'T> : unit -> Async<ICloudDictionary<'T>>
 
 namespace MBrace.Store
+
+open System.Collections.Generic
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -137,6 +146,17 @@ type CloudDictionary =
     }
 
     /// <summary>
+    ///     Atomically updates a key/value entry.
+    ///     Returns the updated value.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="newValue">Value to be inserted in case of missing entry.</param>
+    /// <param name="updater">Entry updater function.</param>
+    static member Update (key : string) (updater : 'T -> 'T) (dictionary : ICloudDictionary<'T>) = local {
+        return! dictionary.Update(key, updater)
+    }
+
+    /// <summary>
     ///     Try reading value for entry of supplied key.
     /// </summary>
     /// <param name="key">Key to entry.</param>
@@ -152,4 +172,21 @@ type CloudDictionary =
     /// <param name="dictionary">Dictionary to be updated.</param>
     static member Remove (key : string) (dictionary : ICloudDictionary<'T>) = local {
         return! dictionary.Remove(key)
+    }
+
+    /// <summary>
+    ///     Performs a transaction on value contained in provided key
+    /// </summary>
+    /// <param name="transacter">Transaction funtion.</param>
+    /// <param name="key">Key to perform transaction on.</param>
+    /// <param name="dictionary">Input dictionary.</param>
+    static member Transact (transacter : 'T -> 'R * 'T) (key : string) (dictionary : ICloudDictionary<'T>) = local {
+        let result = ref Unchecked.defaultof<'R>
+        let updater t = 
+            let r,t' = transacter t 
+            result := r
+            t'
+
+        let! _ = dictionary.Update(key, updater)
+        return result.Value
     }

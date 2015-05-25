@@ -10,6 +10,8 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime.Utils.Retry
 
+#nowarn "444"
+
 [<AutoOpen>]
 module Utils =
 
@@ -59,6 +61,18 @@ module Utils =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
 
+    type Async with
+        static member OfCloud(workflow : Local<'T>, ?resources : ResourceRegistry) = async {
+            let! ct = Async.CancellationToken
+            let cct = new InMemoryRuntime.InMemoryCancellationToken(ct)
+            let resources = defaultArg resources ResourceRegistry.Empty
+            return! Cloud.ToAsync(workflow, resources, cct)
+        }
+
+    module MBraceAsyncExtensions =
+        
+        type AsyncBuilder with
+            member inline ab.Bind(workflow : Local<'T>, f : 'T -> Async<'S>) = ab.Bind(Async.OfCloud(workflow), f)
 
     type ConcurrentDictionary<'K,'V> with
         member dict.TryAdd(key : 'K, value : 'V, ?forceUpdate) =
