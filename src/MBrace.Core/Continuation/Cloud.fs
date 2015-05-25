@@ -35,14 +35,6 @@ type Cloud<'T> =
 type Local<'T> internal (body : Body<'T>) = 
     inherit Cloud<'T>(body)
 
-/// Adding this attribute to a let-binding marks that
-/// the value definition contains cloud expressions.
-type CloudAttribute = ReflectedDefinitionAttribute
-
-/// Disable static check warnings being generated for current workflow.
-[<Sealed>]
-type NoWarnAttribute() = inherit System.Attribute()
-
 /// Denotes handle to a distributable resource that can be disposed of.
 type ICloudDisposable =
     /// Releases any storage resources used by this object.

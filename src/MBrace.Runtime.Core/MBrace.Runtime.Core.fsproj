@@ -76,9 +76,6 @@
     <Compile Include="Vagabond\Registry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="Vagabond\StoreAssemblyManager.fs" />
-    <Compile Include="Compiler\Types.fs" />
-    <Compile Include="Compiler\CloudUtils.fs" />
-    <Compile Include="Compiler\Compiler.fs" />
     <Compile Include="CloudValueManager.fs" />
     <None Include="paket.references" />
   </ItemGroup>
