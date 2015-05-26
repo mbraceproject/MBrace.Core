@@ -491,6 +491,7 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
 type private CloudDictionaryMsg<'T> =
     | Add of key:string * value:'T * force:bool * IReplyChannel<bool>
     | AddOrUpdate of key:string * updater:('T option -> 'T) * IReplyChannel<'T>
+    | Update of key:string * updater:('T -> 'T) * IReplyChannel<'T>
     | ContainsKey of key:string * IReplyChannel<bool>
     | Remove of key:string * IReplyChannel<bool>
     | TryFind of key:string * IReplyChannel<'T option>
@@ -505,6 +506,9 @@ type CloudDictionary<'T> private (id : string, source : ActorRef<CloudDictionary
         
         member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Local<'T> = 
             source <!- fun ch -> AddOrUpdate(key, updater, ch)
+
+        member x.Update(key : string, updater : 'T -> 'T) : Local<'T> =
+            source <!- fun ch -> Update(key, updater, ch)
         
         member x.ContainsKey(key: string): Local<bool> = 
             source <!- fun ch -> ContainsKey(key, ch)
@@ -549,6 +553,15 @@ type CloudDictionary<'T> private (id : string, source : ActorRef<CloudDictionary
                 let t = updater (state.TryFind key)
                 do! rc.Reply t
                 return state.Add(key, t)
+            | Update(key, updater, rc) ->
+                match state.TryFind key with
+                | None ->
+                    do! rc.ReplyWithException(new KeyNotFoundException(key))
+                    return state
+                | Some t ->
+                    do! rc.Reply t
+                    return state.Add(key, t)
+
             | ContainsKey(key, rc) ->
                 do! rc.Reply (state.ContainsKey key)
                 return state

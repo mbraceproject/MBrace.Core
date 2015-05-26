@@ -13,42 +13,48 @@ open MBrace.Store.Internals
 open MBrace.Runtime.Utils
 
 type ICancellationTokenSourceFactory =
-    abstract CreateCancellationTokenSource : unit -> ICloudCancellationTokenSource
-    abstract CreateLinkedCancellationTokenSource : parents:ICloudCancellationToken -> ICloudCancellationTokenSource
+    abstract CreateCancellationTokenSource : unit -> Async<ICloudCancellationTokenSource>
+    abstract CreateLinkedCancellationTokenSource : parent:ICloudCancellationToken -> Async<ICloudCancellationTokenSource>
 
+type internal DistributedCancellationTokenInfo =
+    {
+        IsCancellationRequested : bool
+        Children : string list
+    }
 
 [<AutoOpen>]
 module private DistributedCancellationTokenSourceImpl =
 
     open MBraceAsyncExtensions
 
-    type DistributedCancellationTokenInfo =
-        {
-            IsCancellationRequested : bool
-            Children : string list
-        }
+    /// check cancellation 
+    let checkCancellation (source : ICloudDictionary<DistributedCancellationTokenInfo>) (tokenId : string) = async {
+        let! contents = source.TryFind tokenId
+        return
+            match contents with
+            | None -> true
+            | Some c -> c.IsCancellationRequested
+    }
 
     /// cancels a distributed token entity and all its children
     let cancelTokenEntity (source : ICloudDictionary<DistributedCancellationTokenInfo>) (id : string) = async {
         let visited = new ConcurrentDictionary<string, unit> ()
         let rec cancel id = async {
             if visited.TryAdd(id, ()) then
-                let! info = source.TryFind id
-                match info with
-                | Some info when not info.IsCancellationRequested ->
-                    let! info = Async.OfCloud(source.Update(id, fun info -> { info with IsCancellationRequested = true }))
+                let! isCancelled = checkCancellation source id
+                if isCancelled then
+                    let! info = source.Update(id, fun info -> { info with IsCancellationRequested = true })
                     do! info.Children |> Seq.map cancel |> Async.Parallel |> Async.Ignore
-
-                | _ -> return ()
         }
 
         do! cancel id
     }
 
+    /// creates a new cancellation token id with provided parent id
     let tryCreateToken (source : ICloudDictionary<DistributedCancellationTokenInfo>) (parentId : string option) = async {
         let createEntry() = async {
             let id = mkUUID()
-            do! Async.OfCloud(source.Add(id, { IsCancellationRequested = false ; Children = [] }))
+            do! source.Add(id, { IsCancellationRequested = false ; Children = [] })
             return id
         }
 
@@ -58,23 +64,18 @@ module private DistributedCancellationTokenSourceImpl =
             return Some id
 
         | Some parentId ->
-            let! parent = Async.OfCloud(source.TryFind parentId)
+            let! parent = source.TryFind parentId
             match parent with
             | Some p when not p.IsCancellationRequested ->
                 let! id = createEntry()
 
-                let! parentInfo = Async.OfCloud(source.Update(parentId, fun info -> { info with Children = id :: info.Children }))
+                let! parentInfo = source.Update(parentId, fun info -> { info with Children = id :: info.Children })
 
                 // parent has been cancelled in the meantime, do a cancel of current token
                 if parentInfo.IsCancellationRequested then do! cancelTokenEntity source id
 
                 return Some id
             | _ -> return None
-    }
-
-    let checkCancellation (source : ICloudDictionary<DistributedCancellationTokenInfo>) (tokenId : string) = async {
-        let! contents = Async.OfCloud(source.TryFind tokenId)
-        return contents |> Option.forall (fun c -> c.IsCancellationRequested)
     }
 
     let localTokens = new System.Collections.Concurrent.ConcurrentDictionary<string, CancellationToken> ()
@@ -107,9 +108,16 @@ module private DistributedCancellationTokenSourceImpl =
 
             localTokens.AddOrUpdate(id, createToken, fun _ t -> t)
 
+
+[<NoEquality; NoComparison>]
+type private DistributedCancellationTokenState =
+    | Canceled
+    | Localized of parent:DistributedCancellationToken option
+    | Distributed of id:string
+
 /// Distributed ICloudCancellationTokenSource implementation
-[<Sealed; DataContract>] 
-type DistributedCancellationTokenSource private (source : ICloudDictionary<DistributedCancellationTokenInfo>, state : DistributedCancellationTokenState) =
+and [<Sealed; DataContract; NoEquality; NoComparison>] 
+    DistributedCancellationToken private (source : ICloudDictionary<DistributedCancellationTokenInfo>, state : DistributedCancellationTokenState) =
 
     // A DistributedCancellationTokenSource has three possible internal states: Distributed, Local and Canceled
     // A local state is just an in-memory cancellation token without storage backing
@@ -120,7 +128,7 @@ type DistributedCancellationTokenSource private (source : ICloudDictionary<Distr
     [<DataMember(Name = "Source")>]
     let source = source
     [<DataMember(Name = "State")>]
-    let state = state
+    let mutable state = state
 
     // nonserializable cancellation token source that is initialized only in case of localized semantics
     [<IgnoreDataMember>]
@@ -161,26 +169,106 @@ type DistributedCancellationTokenSource private (source : ICloudDictionary<Distr
             lock state (fun () ->
                 match state with
                 | Canceled -> None
-                | Distributed rk -> Some rk
+                | Distributed id -> Some id
                 | Localized None ->
-                    match tryCreateTokenEntity config partitionKey metadata None |> Async.RunSync with
+                    match tryCreateToken source None |> Async.RunSync with
                     | None -> state <- Canceled ; None
-                    | Some rowKey -> state <- Distributed rowKey ; localToken <- None ; Some rowKey
+                    | Some id -> state <- Distributed id ; localToken <- None ; Some id
 
-                | Localized (metadata, Some parent) ->
+                | Localized (Some parent) ->
                     // elevate parent to distributed source
                     match parent.TryElevateToDistributed() with
                     | None -> state <- Canceled ; None // parent canceled ; declare canceled
-                    | Some parentRowKey ->
+                    | Some parentId ->
                         // create token entity using for current cts
-                        match tryCreateTokenEntity config partitionKey metadata (Some (parent.PartitionKey, parentRowKey)) |> Async.RunSync with
+                        match tryCreateToken source (Some parentId) |> Async.RunSync with
                         | None -> state <- Canceled ; None
-                        | Some rowKey -> state <- Distributed rowKey ; localToken <- None ; Some rowKey)
+                        | Some id -> state <- Distributed id ; localToken <- None ; Some id)
 
+    /// Triggers elevation in event of serialization
+    [<OnSerializing>]
+    member private c.OnDeserializing (_ : StreamingContext) = c.TryElevateToDistributed() |> ignore
+
+    /// Elevates cancellation token to global scope. Returns true if succesful, false if already canceled.
+    member __.ElevateCancellationToken () = __.TryElevateToDistributed() |> Option.isSome
+
+    /// Elevated cancellation token id
+    member __.CancellationId =
+        match state with
+        | Distributed id -> Some id
+        | _ -> None
+
+    /// System.Threading.Token for distributed cancellation token
     member __.LocalToken = getLocalToken()
+    /// Returns true if has been cancelled
+    member __.IsCancellationRequested = let t = getLocalToken() in t.IsCancellationRequested
+    /// Cancel cancellation token
+    member __.Cancel() =
+        if (let t = getLocalToken() in t.IsCancellationRequested) then ()
+        else
+            lock state (fun () ->
+                match state with
+                | Canceled _ -> ()
+                | Localized _ -> localCancellationTokenSource.Cancel()
+                | Distributed id -> cancelTokenEntity source id |> Async.RunSync)
 
+    member internal __.Source = source
 
-and private DistributedCancellationTokenState =
-    | Canceled
-    | Localized of parent:DistributedCancellationTokenSource option
-    | Distributed of id:string
+    interface ICloudCancellationToken with
+        member this.IsCancellationRequested : bool = this.IsCancellationRequested
+        member this.LocalToken : CancellationToken = getLocalToken ()
+
+    interface ICloudCancellationTokenSource with
+        member this.Cancel() : unit = this.Cancel()
+        member this.Token : ICloudCancellationToken = this :> ICloudCancellationToken
+
+    /// <summary>
+    ///     Creates a distributed cancellation token source with lazy elevation to distributed cancellation semantics.
+    /// </summary>
+    /// <param name="source">Backend source for distributed cancellation tokens.</param>
+    /// <param name="parent">Parent distributed cancellation token source. Defaults to no parent.</param>
+    /// <param name="elevate">Directly elevate cancellation token to distributed. Defaults to false.</param>
+    static member internal Create(source : ICloudDictionary<DistributedCancellationTokenInfo>, ?parent : DistributedCancellationToken, ?elevate : bool) = async {
+        let elevate = defaultArg elevate false
+        match parent with
+        | None when elevate ->
+            let! id = tryCreateToken source None
+            return new DistributedCancellationToken(source, Distributed <| Option.get id)
+        | _ ->
+            let dcts = new DistributedCancellationToken(source, Localized(parent))
+            if elevate then dcts.TryElevateToDistributed() |> ignore
+            return dcts
+    }
+
+and [<Sealed;DataContract>] DistributedCancellationTokenFactory private (source : ICloudDictionary<DistributedCancellationTokenInfo>) =
+    
+    [<DataMember(Name = "Source")>]
+    let source = source
+
+    /// <summary>
+    ///     Creates a distributed cancellation token source with lazy elevation to distributed cancellation semantics.
+    /// </summary>
+    /// <param name="source">Backend source for distributed cancellation tokens.</param>
+    /// <param name="parent">Parent distributed cancellation token source. Defaults to no parent.</param>
+    /// <param name="elevate">Directly elevate cancellation token to distributed. Defaults to false.</param>
+    member __.Create(?parent : DistributedCancellationToken, ?elevate : bool) =
+        DistributedCancellationToken.Create(source, ?parent = parent, ?elevate = elevate)
+
+    static member Create(dictionaryProvider : ICloudDictionaryProvider) = async {
+        let! dict = dictionaryProvider.Create<DistributedCancellationTokenInfo>()
+        return new DistributedCancellationTokenFactory(dict)
+    }
+
+    interface ICancellationTokenSourceFactory with
+        member x.CreateCancellationTokenSource() = async {
+            let! dcts = DistributedCancellationToken.Create(source)
+            return dcts :> ICloudCancellationTokenSource
+        }
+        
+        member x.CreateLinkedCancellationTokenSource(parent: ICloudCancellationToken) = async {
+            match parent with
+            | :? DistributedCancellationToken as pdcts ->
+                let! dcts = DistributedCancellationToken.Create(pdcts.Source, parent = pdcts)
+                return dcts :> ICloudCancellationTokenSource        
+            | _ -> return invalidArg "parent" "invalid cancellation token type."
+        }
