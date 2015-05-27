@@ -77,7 +77,8 @@
     <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="Vagabond\StoreAssemblyManager.fs" />
     <Compile Include="CloudValueManager.fs" />
-    <Compile Include="CancellationTokenSource.fs" />
+    <Compile Include="CancellationToken.fs" />
+    <Compile Include="ResultAggregator.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

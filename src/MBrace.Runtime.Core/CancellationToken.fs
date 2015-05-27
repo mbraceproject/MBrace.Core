@@ -19,7 +19,7 @@ type IGlobalCancellationToken =
 
 type IGlobalCancellationTokenFactory<'Token when 'Token :> IGlobalCancellationToken> =
     abstract CreateCancellationTokenSource : unit -> Async<'Token>
-    abstract TryCreateLinkedCancellationTokenSource : parent:'Token -> Async<'Token option>
+    abstract TryCreateLinkedCancellationTokenSource : parents:'Token [] -> Async<'Token option>
 
 type private LocalCancellationTokenManager<'Token when 'Token :> IGlobalCancellationToken> () =
     let localTokens = new ConcurrentDictionary<string, CancellationToken> ()
@@ -66,7 +66,7 @@ type private LocalCancellationTokenManager<'Token when 'Token :> IGlobalCancella
 [<NoEquality; NoComparison>]
 type private DistributedCancellationTokenState<'Token when 'Token :> IGlobalCancellationToken> =
     | Canceled
-    | Localized of parent:DistributedCancellationToken<'Token> option
+    | Localized of parents:DistributedCancellationToken<'Token> []
     | Distributed of token:'Token
 
 /// Distributed ICloudCancellationTokenSource implementation
@@ -91,8 +91,8 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
     [<IgnoreDataMember>]
     let localCancellationTokenSource =
         match state with
-        | Localized None -> new CancellationTokenSource()
-        | Localized (Some parent) -> CancellationTokenSource.CreateLinkedTokenSource [| parent.LocalToken |]
+        | Localized [||] -> new CancellationTokenSource()
+        | Localized parents -> CancellationTokenSource.CreateLinkedTokenSource (parents |> Array.map (fun p -> p.LocalToken))
         | _ -> null
 
     // local cancellation token instace for source    
@@ -127,18 +127,20 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
                 match state with
                 | Canceled -> None
                 | Distributed token -> Some token
-                | Localized None ->
+                | Localized [||] ->
                     let token = source.CreateCancellationTokenSource() |> Async.RunSync
                     state <- Distributed token ; localToken <- None ; 
                     Some token
 
-                | Localized (Some parent) ->
-                    // elevate parent to distributed source
-                    match parent.TryElevateToDistributed() with
-                    | None -> state <- Canceled ; None // parent canceled ; declare canceled
-                    | Some parentToken ->
+                | Localized parents ->
+                    // elevate parents to distributed source
+                    let elevatedParents = parents |> Array.Parallel.map (fun p -> p.TryElevateToDistributed()) |> Array.choose id
+
+                    if Array.isEmpty elevatedParents then
+                        state <- Canceled ; None
+                    else
                         // create token entity using for current cts
-                        match source.TryCreateLinkedCancellationTokenSource parentToken |> Async.RunSync with
+                        match source.TryCreateLinkedCancellationTokenSource elevatedParents |> Async.RunSync with
                         | None -> state <- Canceled ; None
                         | Some id -> state <- Distributed id ; localToken <- None ; Some id)
 
@@ -179,20 +181,20 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
         member this.Cancel() : unit = this.Cancel()
         member this.Token : ICloudCancellationToken = this :> ICloudCancellationToken
 
-//    /// <summary>
-//    ///     Creates a distributed cancellation token source with lazy elevation to distributed cancellation semantics.
-//    /// </summary>
-//    /// <param name="source">Backend source for distributed cancellation tokens.</param>
-//    /// <param name="parent">Parent distributed cancellation token source. Defaults to no parent.</param>
-//    /// <param name="elevate">Directly elevate cancellation token to distributed. Defaults to false.</param>
-    static member internal Create(source : IGlobalCancellationTokenFactory<'Token>, ?parent : DistributedCancellationToken<'Token>, ?elevate : bool) = async {
+    /// <summary>
+    ///     Creates a distributed cancellation token source with lazy elevation to distributed cancellation semantics.
+    /// </summary>
+    /// <param name="source">Backend source for distributed cancellation tokens.</param>
+    /// <param name="parent">Parent distributed cancellation token sources.</param>
+    /// <param name="elevate">Directly elevate cancellation token to distributed. Defaults to false.</param>
+    static member internal Create(source : IGlobalCancellationTokenFactory<'Token>, parents : DistributedCancellationToken<'Token> [], ?elevate : bool) = async {
         let elevate = defaultArg elevate false
-        match parent with
-        | None when elevate ->
+        match parents with
+        | [||] when elevate ->
             let! token = source.CreateCancellationTokenSource()
             return new DistributedCancellationToken<'Token>(source, Distributed token)
         | _ ->
-            let dcts = new DistributedCancellationToken<'Token>(source, Localized(parent))
+            let dcts = new DistributedCancellationToken<'Token>(source, Localized(parents))
             if elevate then dcts.TryElevateToDistributed() |> ignore
             return dcts
     }
@@ -207,11 +209,26 @@ type DistributedCancellationTokenFactory<'Token when 'Token :> IGlobalCancellati
     /// <summary>
     ///     Creates a distributed cancellation token source with lazy elevation to distributed cancellation semantics.
     /// </summary>
-    /// <param name="source">Backend source for distributed cancellation tokens.</param>
-    /// <param name="parent">Parent distributed cancellation token source. Defaults to no parent.</param>
     /// <param name="elevate">Directly elevate cancellation token to distributed. Defaults to false.</param>
-    member __.Create(?parent : DistributedCancellationToken<'Token>, ?elevate : bool) =
-        DistributedCancellationToken.Create(factory, ?parent = parent, ?elevate = elevate)
+    member __.Create(?elevate : bool) = DistributedCancellationToken.Create(factory, parents = [||], ?elevate = elevate)
+
+    /// <summary>
+    ///     Creates a linked distributed cancellation token source with lazy elevation to distributed cancellation semantics.
+    /// </summary>
+    /// <param name="parent">Parent distributed cancellation token source.</param>
+    /// <param name="elevate">Directly elevate cancellation token to distributed. Defaults to false.</param>
+    member __.CreateLinked(parent : DistributedCancellationToken<'Token>, ?elevate : bool) = 
+        DistributedCancellationToken.Create(factory, parents = [|parent|], ?elevate = elevate)
+
+    /// <summary>
+    ///     Creates a linked distributed cancellation token source with lazy elevation to distributed cancellation semantics.
+    /// </summary>
+    /// <param name="parents">Parent distributed cancellation token sources.</param>
+    /// <param name="elevate">Directly elevate cancellation token to distributed. Defaults to false.</param>
+    member __.CreateLinked(parents : seq<DistributedCancellationToken<'Token>>, ?elevate : bool) = 
+        match Seq.toArray parents with
+        | [||] -> invalidArg "parents" "must be non-empty."
+        | ps -> DistributedCancellationToken.Create(factory, parents = ps, ?elevate = elevate)
 
 
 type DistributedCancellationToken =
