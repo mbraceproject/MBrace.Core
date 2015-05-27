@@ -45,8 +45,7 @@ type JobExecutionMonitor () =
 
     /// Asynchronously await completion of provided TaskExecutionMonitor
     static member AwaitCompletion (tem : JobExecutionMonitor) = async {
-        try
-            return! Async.AwaitTask tem.Task
+        try return! Async.AwaitTask tem.Task
         with :? System.AggregateException as e when e.InnerException <> null ->
             return! Async.Raise e.InnerException
     }

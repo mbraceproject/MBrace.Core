@@ -22,6 +22,12 @@ type private InMemoryAtom<'T> (initial : 'T) =
             if obj.ReferenceEquals(result, cv) then ()
             else Thread.SpinWait 20; swap f
 
+    let transact f =
+        let cell = ref Unchecked.defaultof<'R>
+        let f t = let r,t' = f t in cell := r ; t'
+        swap f
+        !cell
+
     let force (t : 'T) =
         match container.Value with
         | None -> raise <| new ObjectDisposedException("CloudAtom")
@@ -30,7 +36,7 @@ type private InMemoryAtom<'T> (initial : 'T) =
     interface ICloudAtom<'T> with
         member __.Id = id
         member __.Value = local { return Option.get container.Value }
-        member __.Update(updater, _) = local { return swap updater }
+        member __.Transact(updater, _) = local { return transact updater }
         member __.Force(value) = local { return force value }
         member __.Dispose () = local { return container := None }
 

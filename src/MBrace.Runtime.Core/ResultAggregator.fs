@@ -8,12 +8,6 @@ open MBrace.Store.Internals
 
 open MBrace.Runtime.Utils
 
-type IResultAggregator<'T> =
-    abstract Capacity : int
-    abstract IsCompleted : Local<bool>
-    abstract SetResult : index:int * value:'T * overwrite:bool -> Local<bool>
-    abstract ToArray : unit -> Local<'T []>
-
 type StoreResultAggregator<'T> private (container : string, atom : ICloudAtom<Map<int, CloudValue<'T>>>, capacity : int) = 
     interface IResultAggregator<'T> with
         member __.Capacity = capacity
@@ -47,4 +41,7 @@ type StoreResultAggregator<'T> private (container : string, atom : ICloudAtom<Ma
     }
 
 type StoreResultAggregator =
-    static member Create<'T>(container : string, capacity : int) = StoreResultAggregator<'T>.Create(container, capacity)
+    static member Create<'T>(container : string, capacity : int) = local {
+        let! result = StoreResultAggregator<'T>.Create(container, capacity)
+        return result :> IResultAggregator<'T>
+    }
