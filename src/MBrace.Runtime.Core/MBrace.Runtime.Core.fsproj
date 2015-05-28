@@ -77,13 +77,14 @@
     <Compile Include="Vagabond\Registry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="Vagabond\StoreAssemblyManager.fs" />
-    <Compile Include="CloudValueManager.fs" />
-    <Compile Include="ResultAggregator.fs" />
-    <None Include="paket.references" />
     <Compile Include="Runtime\Resources.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\DistributionProvider.fs" />
+    <Compile Include="Runtime\JobEvaluator.fs" />
+    <Compile Include="CloudValueManager.fs" />
+    <Compile Include="ResultAggregator.fs" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
