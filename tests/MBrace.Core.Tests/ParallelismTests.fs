@@ -80,7 +80,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let parallelismFactor = parallelismFactor
         let c = CloudAtom.New 0 |> runLocally
         cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = CloudAtom.Incr c }
+            use foo = { new ICloudDisposable with member __.Dispose () = CloudAtom.Incr c |> Local.Ignore }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Incr c) |> Cloud.Parallel
             return! c.Value
         } |> run |> Choice.shouldEqual parallelismFactor
@@ -103,7 +103,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let trigger = runLocally <| CloudAtom.New 0
         Cloud.TryFinally( cloud {
             let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
-            return () }, CloudAtom.Incr trigger)
+            return () }, CloudAtom.Incr trigger |> Local.Ignore)
         |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
         trigger.Value |> runLocally |> shouldEqual 1
@@ -139,7 +139,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     let! _ = Array.init parallelismFactor (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
                     return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
                 with :? InvalidOperationException ->
-                    do! CloudAtom.Incr atom
+                    let! _ = CloudAtom.Incr atom
                     return ()
 
                 do! Cloud.Sleep 500
@@ -157,7 +157,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                         invalidOp "failure"
                     else
                         do! Cloud.Sleep delayFactor
-                        do! CloudAtom.Incr counter
+                        do! CloudAtom.Incr counter |> Local.Ignore
                 }
 
                 try
@@ -178,7 +178,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                         invalidOp "failure"
                     else
                         do! Cloud.Sleep delayFactor
-                        do! CloudAtom.Incr counter
+                        do! CloudAtom.Incr counter |> Local.Ignore
                 }
 
                 let cluster i = Array.init 10 (worker i) |> Cloud.Parallel |> Cloud.Ignore
@@ -200,7 +200,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 let f i = cloud {
                     if i = 0 then cts.Cancel() 
                     do! Cloud.Sleep delayFactor
-                    do! CloudAtom.Incr counter
+                    do! CloudAtom.Incr counter |> Local.Ignore
                 }
 
                 let! _ = Array.init 10 f |> Cloud.Parallel
@@ -382,7 +382,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             let count = CloudAtom.New 0 |> runLocally
             cloud {
                 let worker _ = cloud {
-                    do! CloudAtom.Incr count
+                    let! _ = CloudAtom.Incr count
                     return None
                 }
 
@@ -403,7 +403,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     else
                         do! Cloud.Sleep delayFactor
                         // check proper cancellation while we're at it.
-                        do! CloudAtom.Incr count
+                        let! _ = CloudAtom.Incr count
                         return None
                 }
 
@@ -418,7 +418,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             cloud {
                 let worker _ = cloud { return Some 42 }
                 let! result = Array.init 100 worker |> Cloud.Choice
-                do! CloudAtom.Incr successcounter
+                let! _ = CloudAtom.Incr successcounter
                 return result
             } |> run |> Choice.shouldEqual (Some 42)
 
@@ -438,7 +438,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                         return Some(i,j)
                     else
                         do! Cloud.Sleep delayFactor
-                        do! CloudAtom.Incr counter
+                        let! _ = CloudAtom.Incr counter
                         return None
                 }
 
@@ -460,7 +460,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                         return invalidOp "failure"
                     else
                         do! Cloud.Sleep delayFactor
-                        do! CloudAtom.Incr counter
+                        let! _ = CloudAtom.Incr counter
                         return Some 42
                 }
 
@@ -481,7 +481,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     let worker i = cloud {
                         if i = 0 then cts.Cancel()
                         do! Cloud.Sleep delayFactor
-                        do! CloudAtom.Incr counter
+                        let! _ = CloudAtom.Incr counter
                         return Some 42
                     }
 
@@ -606,7 +606,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 use! count = CloudAtom.New 0
                 let tworkflow = cloud {
                     do! Cloud.Sleep delayFactor
-                    do! CloudAtom.Incr count
+                    let! _ = CloudAtom.Incr count
                     return! count.Value
                 }
 
@@ -624,7 +624,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             cloud {
                 let tworkflow = cloud {
                     do! Cloud.Sleep delayFactor
-                    do! CloudAtom.Incr count
+                    let! _ = CloudAtom.Incr count
                     return invalidOp "failure"
                 }
 
@@ -634,7 +634,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 do! Cloud.Sleep (delayFactor / 10)
                 // ensure no exception is raised in parent workflow
                 // before the child workflow is properly evaluated
-                do! CloudAtom.Incr count
+                let! _ = CloudAtom.Incr count
                 return! Cloud.AwaitCloudTask task
             } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
@@ -648,9 +648,9 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
                 let tworkflow = cloud {
-                    do! CloudAtom.Incr count
+                    let! _ = CloudAtom.Incr count
                     do! Cloud.Sleep delayFactor
-                    do! CloudAtom.Incr count
+                    do! CloudAtom.Incr count |> Local.Ignore
                 }
                 let! task = Cloud.StartAsTask(tworkflow, cancellationToken = cts.Token)
                 do! Cloud.Sleep (delayFactor / 3)

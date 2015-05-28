@@ -741,13 +741,15 @@ type Atom<'T> private (id : string, source : ActorRef<AtomMsg<'T>>) =
         member __.Dispose() = Cloud.OfAsync <| async { return! source <!- Dispose }
 
         member __.Force(value : 'T) = Cloud.OfAsync <| async { return! source <!- fun ch -> ForceValue(value, ch) }
-        member __.Update(f : 'T -> 'T, ?maxRetries) = Cloud.OfAsync <| async {
+        member __.Transact(f : 'T -> 'R * 'T, ?maxRetries) = Cloud.OfAsync <| async {
             if maxRetries |> Option.exists (fun i -> i < 0) then
                 invalidArg "maxRetries" "must be non-negative."
 
+            let cell = ref Unchecked.defaultof<'R>
             let rec tryUpdate retries = async {
                 let! tag, value = source <!- GetValue
-                let value' = f value
+                let r, value' = f value
+                cell := r
                 let! success = source <!- fun ch -> TrySetValue(tag, value', ch)
                 if success then return ()
                 else
@@ -757,7 +759,8 @@ type Atom<'T> private (id : string, source : ActorRef<AtomMsg<'T>>) =
                     | Some i -> return! tryUpdate (Some (i-1))
             }
 
-            return! tryUpdate maxRetries
+            do! tryUpdate maxRetries
+            return cell.Value
         }
 
     static member Init(id : string, init : 'T) =
