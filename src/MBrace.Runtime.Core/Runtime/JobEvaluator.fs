@@ -20,11 +20,6 @@ type ICloudJobEvaluator =
 [<RequireQualifiedAccess>]
 module JobEvaluator =
 
-//    let donwloadDependencies (assemblyManager : StoreAssemblyManager) (jobtoken : ICloudJobLeaseToken) = async {
-//        let! assemblies = assemblyManager.DownloadDependencies(jobtoken.Dependencies)
-//        return List.toArray assemblies
-//    }
-
     /// <summary>
     ///     Asynchronously evaluates job in the local application domain.
     /// </summary>

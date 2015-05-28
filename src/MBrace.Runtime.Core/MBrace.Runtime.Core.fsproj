@@ -82,6 +82,7 @@
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\DistributionProvider.fs" />
     <Compile Include="Runtime\JobEvaluator.fs" />
+    <Compile Include="Runtime\Worker.fs" />
     <Compile Include="CloudValueManager.fs" />
     <Compile Include="ResultAggregator.fs" />
     <None Include="paket.references" />
