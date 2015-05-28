@@ -12,6 +12,29 @@ module Utils =
     /// creates new string identifier
     let mkUUID () : string = let g = Guid.NewGuid() in g.ToString("N")
 
+    type Async with
+        /// <summary>
+        ///     TryFinally with asynchronous 'finally' body.
+        /// </summary>
+        /// <param name="body">Body to be executed.</param>
+        /// <param name="finallyF">Finally logic.</param>
+        static member TryFinally(body : Async<'T>, finallyF : Async<unit>) = async {
+            let! ct = Async.CancellationToken
+            return! Async.FromContinuations(fun (sc,ec,cc) ->
+                let sc' (t : 'T) = Async.StartWithContinuations(finallyF, (fun () -> sc t), ec, cc, ct)
+                let ec' (e : exn) = Async.StartWithContinuations(finallyF, (fun () -> ec e), ec, cc, ct)
+                Async.StartWithContinuations(body, sc', ec', cc, ct))
+        }
+
+    /// Resource that can be disposed of asynchronouslys
+    type IAsyncDisposable =
+        /// Asynchronously disposes of resource.
+        abstract Dispose : unit -> Async<unit>
+
+    type AsyncBuilder with
+        member __.Using<'T, 'U when 'T :> IAsyncDisposable>(value : 'T, bindF : 'T -> Async<'U>) : Async<'U> =
+            Async.TryFinally(async { return! bindF value }, async { return! value.Dispose() })
+
     type AsyncBuilder with
         member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
         member ab.Bind(t : Task, cont : unit -> Async<'S>) =

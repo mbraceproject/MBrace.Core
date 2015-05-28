@@ -5,6 +5,7 @@ open MBrace.Core.Internals
 open MBrace.Store
 
 open Nessos.FsPickler
+open Nessos.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -13,15 +14,19 @@ open MBrace.Runtime.Utils
 
 #nowarn "444"
 
-
 let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
     { ctx with CancellationToken = cts }
 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
 
-let runParallel (queue : IJobQueue) (resources : IRuntimeResourceManager) 
-                (currentJob : Job) (computations : seq<#Cloud<'T> * IWorkerRef option>) =
+/// <summary>
+///     Defines a workflow that schedules provided cloud workflows for parallel computation.
+/// </summary>
+/// <param name="resources">Runtime resource object.</param>
+/// <param name="currentJob">Current cloud job being executed.</param>
+/// <param name="computations">Computations to be executed in parallel.</param>
+let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
 
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -36,9 +41,9 @@ let runParallel (queue : IJobQueue) (resources : IRuntimeResourceManager)
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
-            let currentCts = ctx.CancellationToken
             let faultPolicy = ctx.Resources.Resolve<FaultPolicy> ()
-            let! childCts = resources.RequestCancellationToken(parents = [|currentCts|])
+            let currentCts = ctx.CancellationToken
+            let! childCts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, [|currentCts|], elevate = true)
             let! resultAggregator = resources.RequestResultAggregator<'T>(capacity = computations.Length)
             let! cancellationLatch = resources.RequestCounter(0)
 
@@ -77,13 +82,18 @@ let runParallel (queue : IJobQueue) (resources : IRuntimeResourceManager)
             // Create jobs and enqueue
             do!
                 computations
-                |> Array.mapi (fun i (c,w) -> Job.Create currentJob.ProcessId currentJob.Dependencies childCts.Token faultPolicy (onSuccess i) onException onCancellation c, w)
-                |> queue.BatchEnqueue
+                |> Array.mapi (fun i (c,w) -> CloudJob.Create(currentJob.Dependencies, currentJob.ProcessId, currentJob.ParentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, c), w)
+                |> resources.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
-let runChoice (queue : IJobQueue) (resources : IRuntimeResourceManager) 
-                (currentJob : Job) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
+/// <summary>
+///     Defines a workflow that schedules provided nondeterministic cloud workflows for parallel computation.
+/// </summary>
+/// <param name="resources">Runtime resource object.</param>
+/// <param name="currentJob">Current cloud job being executed.</param>
+/// <param name="computations">Computations to be executed in parallel.</param>
+let runChoice (resources : IRuntimeResourceManager) (currentJob : CloudJob) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
 
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -98,9 +108,9 @@ let runChoice (queue : IJobQueue) (resources : IRuntimeResourceManager)
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
-            let currentCts = ctx.CancellationToken
             let faultPolicy = ctx.Resources.Resolve<FaultPolicy> ()
-            let! childCts = resources.RequestCancellationToken(parents = [|currentCts|])
+            let currentCts = ctx.CancellationToken
+            let! childCts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, [|currentCts|], elevate = true)
             let! completionLatch = resources.RequestCounter(0)
             let! cancellationLatch = resources.RequestCounter(0)
 
@@ -150,33 +160,43 @@ let runChoice (queue : IJobQueue) (resources : IRuntimeResourceManager)
             // create child jobs
             do!
                 computations
-                |> Array.map (fun (c,w) -> Job.Create currentJob.ProcessId currentJob.Dependencies childCts.Token faultPolicy onSuccess onException onCancellation c, w)
-                |> queue.BatchEnqueue
+                |> Array.map (fun (c,w) -> CloudJob.Create(currentJob.Dependencies, currentJob.ProcessId, currentJob.ParentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, c), w)
+                |> resources.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
-let runStartAsCloudTask (queue : IJobQueue) (resources : IRuntimeResourceManager) (currentJob : Job) 
+/// <summary>
+///     Executes provided cloud workflow as a cloud task using the provided resources and parameters.
+/// </summary>
+/// <param name="resources">Runtime resource object.</param>
+/// <param name="dependencies">Vagabond dependencies for computation.</param>
+/// <param name="processId">Process id for computation.</param>
+/// <param name="faultPolicy">Fault policy for computation.</param>
+/// <param name="token">Optional cancellation token for computation.</param>
+/// <param name="target">Optional target worker identifier.</param>
+/// <param name="computation">Computation to be executed.</param>
+let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : AssemblyId[]) (processId : string)
                         (faultPolicy:FaultPolicy) (token : ICloudCancellationToken option) 
                         (target : IWorkerRef option) (computation : Cloud<'T>) = async {
     let! cts = async {
         match token with
-        | Some ct -> return! resources.RequestCancellationToken(parents = [|ct|])
-        | None -> return! resources.RequestCancellationToken()
+        | Some ct -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, parents = [|ct|], elevate = true)
+        | None -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, elevate = true)
     }
 
-    let! cell = resources.RequestResultCell<'T>()
-    let setResult ctx r = 
+    let! tcs = resources.RequestTaskCompletionSource<'T>()
+    let setResult ctx f = 
         async {
-            do! cell.SetResult r
+            do! f
             cts.Cancel()
             JobExecutionMonitor.TriggerCompletion ctx
         } |> JobExecutionMonitor.ProtectAsync ctx
 
-    let scont ctx t = setResult ctx (Completed t)
-    let econt ctx e = setResult ctx (Exception e)
-    let ccont ctx c = setResult ctx (Cancelled c)
+    let scont ctx t = setResult ctx (tcs.SetCompleted t)
+    let econt ctx e = setResult ctx (tcs.SetException e)
+    let ccont ctx c = setResult ctx (tcs.SetCancelled c)
 
-    let job = Job.Create currentJob.ProcessId currentJob.Dependencies cts.Token faultPolicy scont econt ccont computation
-    do! queue.Enqueue(job, ?target = target)
-    return cell
+    let job = CloudJob.Create (dependencies, processId, tcs, cts, faultPolicy, scont, econt, ccont, computation)
+    do! resources.JobQueue.Enqueue(job, ?target = target)
+    return tcs
 }
