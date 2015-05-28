@@ -116,8 +116,9 @@ type AppDomainConfig =
         SystemLogger    : ICloudLogger
     }
 
-type AppDomainJobEvaluator(config : DomainLocal<AppDomainConfig>, ?threshold : TimeSpan, 
-                                ?minConcurrentDomains : int, ?maxConcurrentDomains : int, ?initializer : unit -> unit) =
+type AppDomainJobEvaluator(config : DomainLocal<AppDomainConfig>,   
+                                ?initializer : unit -> unit, ?threshold : TimeSpan, 
+                                ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 
     let domainInitializer () = initializer |> Option.iter (fun f -> f ()) ; ignore config.Value
     let pool = AppDomainEvaluatorPool.Create(domainInitializer, ?threshold = threshold, 
