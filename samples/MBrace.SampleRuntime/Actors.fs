@@ -28,6 +28,7 @@ type Actor =
 
     /// Publishes an actor instance to the default TCP protocol
     static member Publish(actor : Actor<'T>) =
+        ignore Config.Serializer
         let name = Guid.NewGuid().ToString()
         actor
         |> Actor.rename name
@@ -56,23 +57,25 @@ type Actor =
 //  Distributed latch implementation
 //
 
-type private LatchMessage =
-    | Increment of IReplyChannel<int>
+type private CounterMessage =
+    | IncreaseBy of int * IReplyChannel<int>
     | GetValue of IReplyChannel<int>
 
-/// Distributed latch implementation
-type Latch private (source : ActorRef<LatchMessage>) =
-    /// Atomically increment the latch
-    member __.Increment () = source <!- Increment
-    /// Returns the current latch value
-    member __.Value = source <!= GetValue
+/// Distributed counter implementation
+type Counter private (source : ActorRef<CounterMessage>) =
+    interface ICloudCounter with
+        member __.Increment () = source <!- fun ch -> IncreaseBy(1,ch)
+        member __.Decrement () = source <!- fun ch -> IncreaseBy(-1,ch)
+        member __.Value = source <!- GetValue
+        member __.Dispose () = async.Zero()
+
     /// Initialize a new latch instance in the current process
     static member Init(init : int) =
         let behaviour count msg = async {
             match msg with
-            | Increment rc ->
-                do! rc.Reply (count + 1)
-                return (count + 1)
+            | IncreaseBy (i, rc) ->
+                do! rc.Reply (count + i)
+                return (count + i)
             | GetValue rc ->
                 do! rc.Reply count
                 return count
@@ -83,7 +86,7 @@ type Latch private (source : ActorRef<LatchMessage>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Latch(ref)
+        new Counter(ref)
 
 //
 //  Distributed read-only cell
@@ -119,29 +122,43 @@ type Logger private (target : ActorRef<string>) =
 //
 
 type private ResultAggregatorMsg<'T> =
-    | SetResult of index:int * value:'T * completed:IReplyChannel<bool>
+    | SetResult of index:int * value:'T * overwrite:bool * completed:IReplyChannel<bool>
+    | GetCompleted of IReplyChannel<int>
     | IsCompleted of IReplyChannel<bool>
     | ToArray of IReplyChannel<'T []>
 
 /// A distributed resource that aggregates an array of results.
-type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
-    /// Asynchronously assign a value at given index.
-    member __.SetResult(index : int, value : 'T) = source <!- fun ch -> SetResult(index, value, ch)
-    /// Results the completed
-    member __.ToArray () = source <!- ToArray
+type ResultAggregator<'T> private (capacity : int, source : ActorRef<ResultAggregatorMsg<'T>>) =
+    interface IResultAggregator<'T> with
+        member __.Capacity = capacity
+        member __.CurrentSize = source <!- GetCompleted
+        member __.IsCompleted = source <!- IsCompleted
+        member __.SetResult(index : int, value : 'T, overwrite : bool) = source <!- fun ch -> SetResult(index, value, overwrite, ch)
+        member __.ToArray () = source <!- ToArray
+        member __.Dispose () = async.Zero()
+
     /// Initializes a result aggregator of given size at the current process.
     static member Init(size : int) =
         let behaviour (results : Map<int, 'T>) msg = async {
             match msg with
-            | SetResult(i, value, rc) when i < 0 || i >= size ->
+            | SetResult(i, value, _, rc) when i < 0 || i >= size ->
                 let e = new IndexOutOfRangeException()
                 do! rc.ReplyWithException e
                 return results
 
-            | SetResult(i, value, rc) ->
+            | SetResult(i, value, false, rc) when results.ContainsKey i ->
+                let e = new InvalidOperationException(sprintf "result at position '%d' has already been set." i)
+                do! rc.ReplyWithException e
+                return results
+
+            | SetResult(i, value, _, rc) ->
                 let results = results.Add(i, value)
                 let isCompleted = results.Count = size
                 do! rc.Reply isCompleted
+                return results
+
+            | GetCompleted rc ->
+                do! rc.Reply results.Count
                 return results
 
             | IsCompleted rc ->
@@ -164,214 +181,65 @@ type ResultAggregator<'T> private (source : ActorRef<ResultAggregatorMsg<'T>>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new ResultAggregator<'T>(ref)
+        new ResultAggregator<'T>(size, ref)
 
 //
 //  Distributed Cancellation token sources
 //
 
-[<AutoOpen>]
-module private CancellationTokenActor =
+type private CancellationEntryMsg =
+    | IsCancellationRequested of IReplyChannel<bool>
+    | RequestChild of IReplyChannel<CancellationEntry option>
+    | Cancel
 
-    type CancellationTokenSourceMsg =
-        | IsCancellationRequested of IReplyChannel<bool>
-        | RequestChild of childId:string * IReplyChannel<ActorRef<CancellationTokenSourceMsg> option>
-        | Cancel
+and CancellationEntry private (id : string, source : ActorRef<CancellationEntryMsg>) =
+    member __.Id = id
+    member __.Cancel () = source.AsyncPost Cancel
+    member __.IsCancellationRequested = source <!- IsCancellationRequested
+    member __.TryCreateChild () = source <!- RequestChild
+    
+    interface ICancellationEntry with
+        member __.UUID = id
+        member __.Cancel() = __.Cancel()
+        member __.IsCancellationRequested = __.IsCancellationRequested
+        member __.Dispose () = async.Zero()
 
-    let rec behaviour (state : Map<string, ActorRef<CancellationTokenSourceMsg>> option) (msg : CancellationTokenSourceMsg) = 
-        async {
+    static member Init() =
+        let behaviour (state : Map<string, CancellationEntry> option) (msg : CancellationEntryMsg) = async {
             match msg, state with
             | IsCancellationRequested rc, _ ->
                 do! rc.Reply (Option.isNone state)
                 return state
             // has been cancelled, do not return a child actor
-            | RequestChild(id, rc), None ->
+            | RequestChild rc, None ->
                 return! rc.Reply None
                 return state
             // cancellation token active, create a child actor
-            | RequestChild(id, rc), Some children ->
-                match children.TryFind id with
-                | Some child -> 
-                    // child with provided id alread exists, return that
-                    do! rc.Reply (Some child)
-                    return state
-                | None ->
-                    // child with provided id does not exist, create it
-                    let newChild = createCancellationTokenActor()
-                    do! rc.Reply (Some newChild)
-                    let children2 = children.Add(id, newChild)
-                    return (Some children2)
+            | RequestChild rc, Some children ->
+                let child = CancellationEntry.Init()
+                do! rc.Reply (Some child)
+                return Some <| children.Add(child.Id, child)
+
             // token is already canceled, nothing to do
             | Cancel, None -> return None
             // token canceled, cancel children and update state
             | Cancel, Some children ->
-                for KeyValue(_,child) in children do
-                    child <-- Cancel
+                do! 
+                    children
+                    |> Seq.map (fun kv -> kv.Value.Cancel())
+                    |> Async.Parallel
+                    |> Async.Ignore
 
                 return None
         }
 
-    and createCancellationTokenActor () =
-        Actor.Stateful (Some Map.empty) behaviour
-        |> Actor.Publish
-        |> Actor.ref
+        let id = mkUUID()
+        let aref =
+            Actor.Stateful (Some Map.empty) behaviour
+            |> Actor.Publish
+            |> Actor.ref
 
-type private CancellationTokenState =
-    | Distributed of ActorRef<CancellationTokenSourceMsg> option // 'None' denotes a canceled token
-    | Localized of parent:DistributedCancellationTokenSource
-
-/// Defines a distributed cancellation token source that can be cancelled in the context of a distributed runtime.
-and DistributedCancellationTokenSource private (id : string, state : CancellationTokenState) =
-
-    // Distributed cancellation tokens can be initialized either as global actors or used for consumption within a local process
-    // Local cancellation tokens still carry global semantics since they enforce a lazy 'globalization' scheme.
-    // Attempting to serialize an instance will trigger this elevation mechanism and will result in an actor being created.
-
-    static let localTokens = new System.Collections.Concurrent.ConcurrentDictionary<string, CancellationToken> ()
-    /// creates a cancellation token that is updated by polling the cancellation token actor
-    static let createLocalCancellationToken id (source : ActorRef<CancellationTokenSourceMsg>) =
-        let ok, t = localTokens.TryGetValue id
-        if ok then t
-        elif source <!= IsCancellationRequested then
-            new CancellationToken(canceled = true)
-        else
-            let createToken _ =
-                let cts = new System.Threading.CancellationTokenSource()
-
-                let rec checkCancellation () = async {
-                    let! isCancelled = Async.Catch(source <!- IsCancellationRequested)
-                    match isCancelled with
-                    | Choice1Of2 true -> 
-                        cts.Cancel()
-                        localTokens.TryRemove id |> ignore
-                    | Choice1Of2 false ->
-                        do! Async.Sleep 200
-                        return! checkCancellation ()
-                    | Choice2Of2 e ->
-                        do! Async.Sleep 1000
-                        return! checkCancellation ()
-                }
-
-                do Async.Start(checkCancellation())
-                cts.Token
-
-            localTokens.AddOrUpdate(id, createToken, fun _ t -> t)
-
-    // serializable state for the cancellatoin token
-    let mutable state = state
-
-    // nonserializable cancellation token source that is initialized only in case
-    // of localized semantics
-    [<NonSerialized>]
-    let localCancellationTokenSource =
-        match state with
-        | Localized parentCts -> CancellationTokenSource.CreateLinkedTokenSource [| parentCts.LocalToken |]
-        | _ -> null
-
-    // nonserializable cancellation token bound to local process
-    // can either be bound to local cancellation token source or remote actor polling loop
-    [<NonSerialized>]
-    let mutable localToken : CancellationToken option = None
-
-    // lazily initializes the local cancellatoin token
-    let getLocalCancellationToken () =
-        match localToken with
-        | Some ct -> ct
-        | None ->
-            lock state (fun () ->
-                match state with
-                | Localized parentCts ->
-                    let ct = localCancellationTokenSource.Token
-                    localToken <- Some ct
-                    ct
-                | Distributed None ->
-                    let ct = new CancellationToken(canceled = true)
-                    localToken <- Some ct
-                    ct
-                | Distributed (Some source) ->
-                    let ct = createLocalCancellationToken id source
-                    localToken <- Some ct
-                    ct)
-    
-    /// Gets distributed actor cancellation token, elevating to distributed cts if necessary
-    member private c.GetDistributedSource() =
-        match state with
-        | Distributed source -> source
-        | Localized dcts ->
-            // elevate parent to distributed source
-            lock state (fun () ->
-                let parentSource = dcts.GetDistributedSource()
-                let source =
-                    match parentSource with
-                    | Some ps -> ps <!= fun ch -> RequestChild(id, ch)
-                    | None -> None
-
-                state <- Distributed source
-                localToken <- None
-                source)
-
-    /// Triggers elevation in event of serialization
-    [<OnSerializing>]
-    member private c.ElevateCancellationToken (_ : StreamingContext) =
-        c.GetDistributedSource() |> ignore
-
-    /// Returns an actor ref that is subscribed to current parent actor
-    member private c.RequestNewChildActor(childId : string) =
-        let _ = c.GetDistributedSource() // elevate
-        match state with
-        | Distributed None -> None
-        | Distributed (Some source) -> source <!= fun ch -> RequestChild(childId, ch)
-        | Localized _ -> invalidOp "DistributedCancellationTokenSource : internal error."
-
-    /// Creates a System.Threading.CancellationToken that is linked
-    /// to the distributed cancellation token.
-    member __.LocalToken = getLocalCancellationToken ()
-
-    /// Force cancellation of the CTS
-    member __.Cancel () = 
-        lock state (fun () ->
-            match state with
-            | Localized _ -> 
-                localCancellationTokenSource.Cancel()
-                state <- Distributed None
-            | Distributed (Some source) ->
-                source <-- Cancel
-                state <- Distributed None
-            | Distributed None -> ())
-
-    interface ICloudCancellationToken with
-        member __.IsCancellationRequested = getLocalCancellationToken().IsCancellationRequested
-        member __.LocalToken = getLocalCancellationToken()
-
-    interface ICloudCancellationTokenSource with
-        member __.Cancel () = __.Cancel()
-        member __.Token = __ :> ICloudCancellationToken
-
-
-    /// <summary>
-    ///     Initializes a new distributed cancellation token source in the current process.
-    /// </summary>
-    /// <param name="parent">Linked parent cancellation token source.</param>
-    static member Init() =
-        let id = Guid.NewGuid().ToString()
-        let actor = Some <| createCancellationTokenActor ()
-        new DistributedCancellationTokenSource(id, Distributed actor)
-
-    /// <summary>
-    ///     Creates a linked cancellation token source with localized semantics.
-    /// </summary>
-    /// <param name="parent">Parent cancellation token source.</param>
-    /// <param name="forceElevation">Force immediate elevation of cancellation token source. Defaults to false.</param>
-    static member CreateLinkedCancellationTokenSource(parent : DistributedCancellationTokenSource, ?forceElevation : bool) =
-        let id = Guid.NewGuid().ToString()
-        let state =
-            if defaultArg forceElevation false then
-                Distributed <| parent.RequestNewChildActor id
-            else
-                Localized parent
-
-        new DistributedCancellationTokenSource(id, state)
-
+        new CancellationEntry(id, aref)
 
 //
 //  Distributed result cell
@@ -394,7 +262,7 @@ type private ResultCellMsg<'T> =
     | TryGetResult of IReplyChannel<Result<'T> option>
 
 /// Defines a reference to a distributed result cell instance.
-type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) as self =
+type TaskCompletionSource<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) as self =
     [<NonSerialized>]
     let mutable localCell : CacheAtom<Result<'T> option> option = None
     let getLocalCell() =
@@ -418,7 +286,7 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
             do! Async.Sleep 500
             return! c.AwaitResult()
         | Some r -> return r
-    }
+    }   
 
     interface ICloudTask<'T> with
         member c.Id = id
@@ -460,8 +328,23 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
                 return r.Value
             } |> Async.RunSync
 
+    interface ICloudTaskCompletionSource<'T> with
+        member x.Dispose(): Async<unit> = async.Zero()
+
+        member x.SetCompleted(t : 'T): Async<unit> = 
+            x.SetResult(Completed t) |> Async.Ignore
+        
+        member x.SetException(edi: ExceptionDispatchInfo): Async<unit> = 
+            x.SetResult(Exception edi) |> Async.Ignore
+        
+        member x.SetCancelled(exn: OperationCanceledException): Async<unit> =
+            x.SetResult(Cancelled exn) |> Async.Ignore
+        
+        member x.Task: ICloudTask<'T> = x :> _
+        
+
     /// Initialize a new result cell in the local process
-    static member Init() : ResultCell<'T> =
+    static member Init() : TaskCompletionSource<'T> =
         let behavior state msg = async {
             match msg with
             | SetResult (_, rc) when Option.isSome state -> 
@@ -482,7 +365,7 @@ type ResultCell<'T> private (id : string, source : ActorRef<ResultCellMsg<'T>>) 
             |> Actor.ref
 
         let id = Guid.NewGuid().ToString()
-        new ResultCell<'T>(id, ref)
+        new TaskCompletionSource<'T>(id, ref)
 
 //
 //  CloudDictionary implementation
@@ -875,10 +758,10 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
         return resource :?> 'T
     }
 
-    member __.RequestLatch(count) = __.RequestResource(fun () -> Latch.Init(count))
+    member __.RequestCounter(count) = __.RequestResource(fun () -> Counter.Init(count))
     member __.RequestResultAggregator<'T>(count : int) = __.RequestResource(fun () -> ResultAggregator<'T>.Init(count))
-    member __.RequestCancellationTokenSource() = __.RequestResource(fun () -> DistributedCancellationTokenSource.Init())
-    member __.RequestResultCell<'T>() = __.RequestResource(fun () -> ResultCell<'T>.Init())
+    member __.RequestCancellationEntry() = __.RequestResource(fun () -> CancellationEntry.Init())
+    member __.RequestResultCell<'T>() = __.RequestResource(fun () -> TaskCompletionSource<'T>.Init())
     member __.RequestChannel<'T>(id) = __.RequestResource(fun () -> Channel<'T>.Init(id))
     member __.RequestDictionary<'T>() = __.RequestResource(fun () -> CloudDictionary<'T>.Init())
     member __.RequestAtom<'T>(id, init) = __.RequestResource(fun () -> Atom<'T>.Init(id, init))
