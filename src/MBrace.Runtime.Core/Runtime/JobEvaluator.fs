@@ -10,7 +10,6 @@ open Nessos.Vagabond
 open Nessos.Vagabond.AppDomainPool
 
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Vagabond
 
 /// Job evaluator abstraction
 type ICloudJobEvaluator =
@@ -65,10 +64,11 @@ module JobEvaluator =
                             (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
 
         sysLogger.Log "Loading assemblies."
-        let loadInfo = VagabondRegistry.Instance.LoadVagabondAssemblies assemblies
-        loadInfo |> List.iter (function NotLoaded id -> sysLogger.Logf "could not load assembly '%s'" id.FullName 
-                                        | LoadFault(id, e) -> sysLogger.Logf "error loading assembly '%s':\n%O" id.FullName e
-                                        | Loaded _ -> ())
+        for li in manager.AssemblyManager.LoadAssemblies assemblies do
+            match li with
+            | NotLoaded id -> sysLogger.Logf "could not load assembly '%s'" id.FullName 
+            | LoadFault(id, e) -> sysLogger.Logf "error loading assembly '%s':\n%O" id.FullName e
+            | Loaded _ -> ()
 
         sysLogger.Log "Loading job."
         let! jobResult = joblt.GetJob() |> Async.Catch

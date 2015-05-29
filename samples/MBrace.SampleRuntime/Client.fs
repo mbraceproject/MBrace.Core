@@ -106,9 +106,9 @@ type MBraceRuntime private (?fileStore : ICloudFileStore, ?serializer : ISeriali
     member __.StartAsTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) : Async<ICloudTask<'T>> = async {
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
         let dependencies = state.AssemblyManager.Value.ComputeDependencies ((workflow, fileStore, serializer))
-        let! _ = state.AssemblyManager.Value.UploadDependencies(dependencies)
+        let! _ = state.AssemblyManager.Value.UploadAssemblies(dependencies)
         let processInfo = createProcessInfo ()
-        return! state.StartAsTask processInfo (List.toArray dependencies) cancellationToken faultPolicy None workflow
+        return! state.StartAsTask processInfo (dependencies |> Array.map (fun d -> d.Id)) cancellationToken faultPolicy None workflow
     }
 
     /// <summary>

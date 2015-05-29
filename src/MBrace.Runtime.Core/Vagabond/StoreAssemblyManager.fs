@@ -15,6 +15,7 @@ open MBrace.Core.Internals
 open MBrace.Store
 open MBrace.Store.Internals
 open MBrace.Client
+open MBrace.Runtime
 open MBrace.Runtime.Utils
 
 #nowarn "1571"
@@ -172,12 +173,11 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
 
 [<NoEquality; NoComparison>]
 type private AssemblyManagerMsg =
-    | Upload of seq<AssemblyId> * ReplyChannel<DataDependencyInfo []>
-    | Download of seq<AssemblyId> * ReplyChannel<VagabondAssembly list>
+    | Upload of seq<VagabondAssembly> * ReplyChannel<DataDependencyInfo []>
+    | Download of seq<AssemblyId> * ReplyChannel<VagabondAssembly []>
 
 /// Assembly manager instance
-type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ICloudLogger, ?includeUnmanagedDependencies : bool) =
-    let includeUnmanagedDependencies = defaultArg includeUnmanagedDependencies true
+type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ICloudLogger) =
     let logger = match logger with Some l -> l | None -> new NullLogger() :> _
     let imem = LocalRuntime.Create(fileConfig = storeConfig, serializer = serializer, logger = logger)
     let uploader = new StoreAssemblyUploader(storeConfig, imem, container)
@@ -186,9 +186,10 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     let rec loop (inbox : MailboxProcessor<AssemblyManagerMsg>) = async {
         let! msg = inbox.Receive()
         match msg with
-        | Upload (ids, rc) ->
+        | Upload (assemblies, rc) ->
             try
                 logger.Logf "Uploading dependencies"
+                let ids = assemblies |> Seq.map (fun va -> va.Id)
                 let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, ids)
                 if errors.Length > 0 then
                     let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
@@ -201,7 +202,7 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
         | Download (ids, rc) ->
             try
                 let! vas = VagabondRegistry.Instance.ImportAssemblies(downloader, ids)
-                rc.Reply vas
+                rc.Reply (List.toArray vas)
 
             with e -> rc.ReplyWithError e
 
@@ -212,54 +213,74 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     let actor = MailboxProcessor.Start(loop, cancellationToken = cts.Token)
 
     /// <summary>
+    ///     Creates a new StoreAssemblyManager instance with provided cloud resources. 
+    /// </summary>
+    /// <param name="storeConfig">ResourceRegistry collection.</param>
+    /// <param name="container">Containing directory in store for persisting assemblies.</param>
+    /// <param name="logger">Logger used by uploader. Defaults to no logging.</param>
+    static member Create(storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ICloudLogger) =
+        ignore VagabondRegistry.Instance
+        new StoreAssemblyManager(storeConfig, serializer, container, ?logger = logger)
+
+
+    /// <summary>
     ///     Asynchronously upload provided dependencies to store.
     /// </summary>
-    /// <param name="ids">Assembly ids to be uploaded.</param>
+    /// <param name="ids">Assemblies to be uploaded.</param>
     /// <returns>List of data dependencies that failed to be serialized.</returns>
-    member __.UploadDependencies(ids : seq<AssemblyId>) : Async<DataDependencyInfo []> = actor.PostAndAsyncReply(fun ch -> Upload(ids, ch))
+    member __.UploadAssemblies(assemblies : seq<VagabondAssembly>) : Async<DataDependencyInfo []> = 
+        actor.PostAndAsyncReply(fun ch -> Upload(assemblies, ch))
 
     /// <summary>
     ///     Asynchronously download provided dependencies from store.
     /// </summary>
     /// <param name="ids">Assembly id's requested for download.</param>
     /// <returns>Vagabond assemblies downloaded to local disk.</returns>
-    member __.DownloadDependencies(ids : seq<AssemblyId>) : Async<VagabondAssembly list> = actor.PostAndAsyncReply(fun ch -> Download(ids, ch))
+    member __.DownloadAssemblies(ids : seq<AssemblyId>) : Async<VagabondAssembly []> = 
+        actor.PostAndAsyncReply(fun ch -> Download(ids, ch))
 
     /// Load local assemblies to current AppDomain
-    member __.LoadAssemblies(assemblies : VagabondAssembly list) =
-        VagabondRegistry.Instance.LoadVagabondAssemblies(assemblies)
+    member __.LoadAssemblies(assemblies : seq<VagabondAssembly>) =
+        VagabondRegistry.Instance.LoadVagabondAssemblies(assemblies) |> Array.ofList
 
     /// Compute dependencies for provided object graph
-    member __.ComputeDependencies(graph : 'T) : AssemblyId list =
+    member __.ComputeDependencies(graph : 'T) : VagabondAssembly [] =
         let managedDependencies = VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
-        [
+        [|
             yield! managedDependencies |> VagabondRegistry.Instance.GetVagabondAssemblies
-            if includeUnmanagedDependencies then 
-                yield! VagabondRegistry.Instance.NativeDependencies
-        ] |> List.map (fun va -> va.Id)
-
-    /// <summary>
-    ///     Creates a new StoreAssemblyManager instance with provided cloud resources. 
-    /// </summary>
-    /// <param name="storeConfig">ResourceRegistry collection.</param>
-    /// <param name="container">Containing directory in store for persisting assemblies.</param>
-    /// <param name="logger">Logger used by uploader. Defaults to no logging.</param>
-    /// <param name="includeUnmanagedDependencies">Include unmanaged assemblies. Defaults to true.</param>
-    static member Create(storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ICloudLogger, ?includeUnmanagedDependencies : bool) =
-        ignore VagabondRegistry.Instance
-        new StoreAssemblyManager(storeConfig, serializer, container, ?logger = logger, ?includeUnmanagedDependencies = includeUnmanagedDependencies)
+            yield! VagabondRegistry.Instance.NativeDependencies
+        |]
 
     /// <summary>
     ///     Registers a native assembly dependency to client state.
     /// </summary>
     /// <param name="assemblyPath">Path to native assembly.</param>
-    static member RegisterNativeDependency(assemblyPath : string) : VagabondAssembly =
+    member __.RegisterNativeDependency(assemblyPath : string) : VagabondAssembly =
         VagabondRegistry.Instance.RegisterNativeDependency assemblyPath
 
     /// Gets all native dependencies registered in current instance
-    static member NativeDependencies =
-        VagabondRegistry.Instance.NativeDependencies |> List.map (fun m -> m.Image)
+    member __.NativeDependencies = VagabondRegistry.Instance.NativeDependencies |> Array.ofList
 
-    member __.Dispose() = cts.Cancel()
+    interface IAssemblyManager with
+        member x.ComputeDependencies(graph: obj): VagabondAssembly [] =
+            x.ComputeDependencies graph 
+    
+        member x.DownloadAssemblies(ids: seq<AssemblyId>): Async<VagabondAssembly []> = 
+            x.DownloadAssemblies(ids)
+    
+        member x.LoadAssemblies(assemblies: seq<VagabondAssembly>): AssemblyLoadInfo [] = 
+            x.LoadAssemblies(assemblies)
+    
+        member x.NativeDependencies: VagabondAssembly [] = 
+            x.NativeDependencies
+    
+        member x.RegisterNativeDependency(path: string): VagabondAssembly =
+            x.RegisterNativeDependency path
+    
+        member x.UploadAssemblies(assemblies: seq<VagabondAssembly>): Async<unit> = async {
+            let! _ = x.UploadAssemblies assemblies
+            return ()
+        }
+
     interface IDisposable with
         member __.Dispose() = cts.Cancel()

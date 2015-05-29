@@ -257,7 +257,7 @@ with
     /// </summary>
     /// <param name="pJob">Job to unpickle.</param>
     member rt.UnPickle(pJob : PickledJob) = async {
-        let! vas = rt.AssemblyManager.Value.DownloadDependencies pJob.Dependencies
+        let! vas = rt.AssemblyManager.Value.DownloadAssemblies pJob.Dependencies
         let info = rt.AssemblyManager.Value.LoadAssemblies vas
         return Config.Serializer.UnPickleTyped pJob.Pickle
     }

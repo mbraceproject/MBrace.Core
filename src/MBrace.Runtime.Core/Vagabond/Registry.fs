@@ -50,7 +50,7 @@ type VagabondRegistry private () =
     /// <param name="loadPolicy">Specify a default assembly load policy.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
     /// <param name="cleanup">Cleanup vagrant cache directory. Defaults to false.</param>
-    static member Initialize (?cachePath : string, ?ignoredAssemblies : seq<Assembly>, ?loadPolicy, ?throwOnError, ?cleanup) =
+    static member Initialize (?cachePath : string, ?ignoredAssemblies : seq<Assembly>, ?loadPolicy, ?throwOnError : bool, ?cleanup : bool) =
         let ignoredAssemblies = seq { 
             yield Assembly.GetExecutingAssembly() 
             match ignoredAssemblies with 

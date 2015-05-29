@@ -70,6 +70,12 @@
     <Compile Include="Utils\RecordPrinter.fs" />
     <Compile Include="Utils\JobExecutionMonitor.fs" />
     <Compile Include="Utils\PerformanceMonitor.fs" />
+    <Compile Include="Runtime\Resources.fs" />
+    <Compile Include="Runtime\CancellationToken.fs" />
+    <Compile Include="Runtime\Combinators.fs" />
+    <Compile Include="Runtime\DistributionProvider.fs" />
+    <Compile Include="Runtime\JobEvaluator.fs" />
+    <Compile Include="Runtime\Worker.fs" />
     <Compile Include="Store\InMemoryCache.fs" />
     <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
@@ -77,12 +83,6 @@
     <Compile Include="Vagabond\Registry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="Vagabond\StoreAssemblyManager.fs" />
-    <Compile Include="Runtime\Resources.fs" />
-    <Compile Include="Runtime\CancellationToken.fs" />
-    <Compile Include="Runtime\Combinators.fs" />
-    <Compile Include="Runtime\DistributionProvider.fs" />
-    <Compile Include="Runtime\JobEvaluator.fs" />
-    <Compile Include="Runtime\Worker.fs" />
     <Compile Include="CloudValueManager.fs" />
     <Compile Include="ResultAggregator.fs" />
     <None Include="paket.references" />

@@ -5,11 +5,12 @@ open System.Threading
 
 open Microsoft.FSharp.Control
 
+open Nessos.Vagabond
+
 open MBrace.Core
 open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Vagabond
 
 /// Worker management object used for updating with execution metadata.
 type IWorkerManager =
@@ -23,6 +24,7 @@ type IWorkerManager =
     abstract DeclareFaulted : exn -> Async<unit>
     /// Declare the current job count for worker instance.
     abstract DeclareJobCount : jobCount:int -> Async<unit>
+    
 
 /// Worker configuration record.
 [<NoEquality; NoComparison>]
@@ -30,14 +32,10 @@ type WorkerConfig =
     { 
         /// Maximum jobs allowed for concurrent execution
         MaxConcurrentJobs   : int
-        /// Cloud Job queue implementation
-        JobQueue            : IJobQueue
-        /// Worker manager imeplementation
+        /// Runtime resource manager
+        Resources           : IRuntimeResourceManager
+        /// Worker manager implementation
         WorkerManager       : IWorkerManager
-        /// Vagabond store assembly manager implementation
-        AssemblyManager     : StoreAssemblyManager
-        /// System logger for worker instance
-        SystemLogger        : ICloudLogger
         /// Job evaluator implementation
         JobEvaluator        : ICloudJobEvaluator
     }
@@ -63,17 +61,17 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
     let mutable currentJobCount = 0
 
     let waitForPendingJobs (config : WorkerConfig) = async {
-        config.SystemLogger.Log "Stop requested. Waiting for pending jobs."
+        config.Resources.Logger.Log "Stop requested. Waiting for pending jobs."
         let rec wait () = async {
             if currentJobCount > 0 then
                 do! Async.Sleep receiveInterval
                 return! wait ()
         }
         do! wait ()
-        config.SystemLogger.Log "No active jobs."
-        config.SystemLogger.Log "Unregister current worker."
+        config.Resources.Logger.Log "No active jobs."
+        config.Resources.Logger.Log "Unregister current worker."
         do! config.WorkerManager.DeclareStopped()
-        config.SystemLogger.Log "Worker stopped."
+        config.Resources.Logger.Log "Worker stopped."
     }
 
     let rec workerLoop (queueFault : bool) (state : WorkerState) 
@@ -86,13 +84,13 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
                 do! Async.Sleep receiveInterval
                 return! workerLoop false state inbox
             else
-                let! job = Async.Catch <| config.JobQueue.TryDequeue config.WorkerManager.CurrentWorker
+                let! job = Async.Catch <| config.Resources.JobQueue.TryDequeue config.WorkerManager.CurrentWorker
                 match job with
                 | Choice1Of2 None ->
                     if queueFault then 
-                        config.SystemLogger.Log "Reverting state to Running"
+                        config.Resources.Logger.Log "Reverting state to Running"
                         do! config.WorkerManager.DeclareRunning()
-                        config.SystemLogger.Log "Done"
+                        config.Resources.Logger.Log "Done"
 
                     do! Async.Sleep receiveInterval
                     return! workerLoop false state inbox
@@ -102,26 +100,27 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
                     let jc = Interlocked.Increment &currentJobCount
 
                     if queueFault then 
-                        config.SystemLogger.Log "Reverting state to Running"
+                        config.Resources.Logger.Log "Reverting state to Running"
                         do! config.WorkerManager.DeclareRunning()
-                        config.SystemLogger.Logf "Done"
+                        config.Resources.Logger.Logf "Done"
 
                     do! config.WorkerManager.DeclareJobCount jc
-                    config.SystemLogger.Logf "Increase Dequeued Jobs to %d." jc
+                    config.Resources.Logger.Logf "Increase Dequeued Jobs to %d." jc
                     let! _ = Async.StartChild <| async { 
                         try
-                            let! assemblies = config.AssemblyManager.DownloadDependencies jobToken.Dependencies
-                            do! config.JobEvaluator.Evaluate (List.toArray assemblies, jobToken)
+                            do config.Resources.Logger.Log "Downloading dependencies."
+                            let! assemblies = config.Resources.AssemblyManager.DownloadAssemblies jobToken.Dependencies
+                            do! config.JobEvaluator.Evaluate (assemblies, jobToken)
                         finally
                             let jc = Interlocked.Decrement &currentJobCount
                             config.WorkerManager.DeclareJobCount jc |> Async.RunSync
-                            config.SystemLogger.Logf "Decrease Dequeued Jobs %d" jc
+                            config.Resources.Logger.Logf "Decrease Dequeued Jobs %d" jc
                     }
 
                     return! workerLoop false state inbox
 
                 | Choice2Of2 ex ->
-                    config.SystemLogger.Logf "Worker JobQueue fault\n%A" ex
+                    config.Resources.Logger.Logf "Worker JobQueue fault\n%A" ex
                     do! config.WorkerManager.DeclareFaulted ex
                     do! Async.Sleep errorInterval
                     return! workerLoop true state inbox
@@ -168,6 +167,14 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
     }
 
     let agent = MailboxProcessor.Start(workerLoop false Idle, cts.Token)
+
+    /// <summary>
+    ///     Creates a blank Worker agent instance.
+    /// </summary>
+    /// <param name="receiveInterval">Queue message receive interval. Defaults to 100ms.</param>
+    /// <param name="errorInterval">Queue error wait interval. Defaults to 1000ms.</param>
+    static member Create(?receiveInterval : TimeSpan, ?errorInterval : TimeSpan) =
+        new WorkerAgent(?receiveInterval = receiveInterval, ?errorInterval = errorInterval)
     
     /// Checks whether worker agent is active.
     member w.IsActive = agent.PostAndReply IsActive |> Option.isSome
