@@ -78,13 +78,13 @@
     <Compile Include="Runtime\Worker.fs" />
     <Compile Include="Vagabond\Registry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
-    <Compile Include="Vagabond\StoreAssemblyManager.fs" />
     <Compile Include="Store\InMemoryCache.fs" />
     <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
     <Compile Include="Store\CloudValueManager.fs" />
-    <Compile Include="Store\ResultAggregator.fs" />
+    <Compile Include="Store\StoreAssemblyManager.fs" />
+    <Compile Include="Store\StoreResultAggregator.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

@@ -23,6 +23,11 @@ open MBrace.Runtime.Vagabond
 //  TODO : should be replaced by distributed caching
 //
 
+[<NoEquality; NoComparison>]
+type ObjectRepresentation<'T> =
+    | Intact of 'T
+    | Sifted of HashSift<'T>
+
 [<AutoSerializable(false)>]
 type CloudValueManager(storeConfig : CloudFileStoreConfiguration, container : string, serializer : ISerializer, cache : IObjectCache) =
     let cvalues = new ConcurrentDictionary<HashResult, CloudValue<obj>> ()
@@ -97,10 +102,10 @@ type CloudValueManager(storeConfig : CloudFileStoreConfiguration, container : st
 
         } |> imem.RunAsync
 
-    member cv.TrySiftObject (graph : 'T, ?siftThreshold:int64) : Async<HashSift<'T> option> = async {
+    member cv.TrySiftObject (graph : 'T, ?siftThreshold:int64) : Async<ObjectRepresentation<'T>> = async {
         let siftThreshold = defaultArg siftThreshold (5L * 1024L * 1024L)
         let serializer = VagabondRegistry.Instance.Serializer
-        if serializer.ComputeSize graph < 2L * siftThreshold then return None else
+        if serializer.ComputeSize graph < 2L * siftThreshold then return Intact graph else
 
         let siftValue (obj:obj) (hash:HashResult) =
             if hash.Length < siftThreshold then false
@@ -111,18 +116,21 @@ type CloudValueManager(storeConfig : CloudFileStoreConfiguration, container : st
                 | _ -> false
 
         let sifted, hashObjs = serializer.HashSift(graph, siftValue)
-        if hashObjs.Length = 0 then return None else
+        if hashObjs.Length = 0 then return Intact graph else
 
         do! hashObjs |> Seq.map (fun (o,h) -> cv.UploadValue(h,o)) |> Async.Parallel |> Async.Ignore
 
-        return Some sifted
+        return Sifted sifted
     }
 
-    member cv.UnsiftObject(sifted : HashSift<'T>) = async {
-        let! hashObjs =
-            sifted.Hashes
-            |> Seq.map (fun h -> async { let! obj = cv.GetValueByHash h in return (obj,h)})
-            |> Async.Parallel
+    member cv.UnsiftObject(orepr : ObjectRepresentation<'T>) = async {
+        match orepr with
+        | Intact t -> return t
+        | Sifted sifted ->
+            let! hashObjs =
+                sifted.Hashes
+                |> Seq.map (fun h -> async { let! obj = cv.GetValueByHash h in return (obj,h)})
+                |> Async.Parallel
 
-        return VagabondRegistry.Instance.Serializer.HashUnsift(sifted, hashObjs)
+            return VagabondRegistry.Instance.Serializer.HashUnsift(sifted, hashObjs)
     }
