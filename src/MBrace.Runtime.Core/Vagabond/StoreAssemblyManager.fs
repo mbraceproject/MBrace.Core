@@ -177,6 +177,7 @@ type private AssemblyManagerMsg =
     | Download of seq<AssemblyId> * ReplyChannel<VagabondAssembly []>
 
 /// Assembly manager instance
+[<Sealed; AutoSerializable(false)>]
 type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ICloudLogger) =
     let logger = match logger with Some l -> l | None -> new NullLogger() :> _
     let imem = LocalRuntime.Create(fileConfig = storeConfig, serializer = serializer, logger = logger)
