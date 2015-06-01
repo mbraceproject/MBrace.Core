@@ -25,6 +25,7 @@ type StorageEntity =
                     | :? ICloudStorageEntity as e when not <| gathered.ContainsKey e.Id ->
                         gathered.Add(e.Id, e)
                     | _ -> ()
+                    true
             }
 
         FsPickler.VisitObject(visitor, graph)
