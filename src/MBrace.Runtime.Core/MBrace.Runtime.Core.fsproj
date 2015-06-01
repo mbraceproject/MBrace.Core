@@ -76,6 +76,7 @@
     <Compile Include="Runtime\DistributionProvider.fs" />
     <Compile Include="Runtime\JobEvaluator.fs" />
     <Compile Include="Runtime\Worker.fs" />
+    <Compile Include="Runtime\Client.fs" />
     <Compile Include="Vagabond\Registry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="Store\InMemoryCache.fs" />

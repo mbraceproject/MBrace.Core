@@ -26,7 +26,7 @@ module ``Collection Partitioning Tests`` =
         if isAppVeyorInstance then 10 else 100
 #endif
 
-    let imem = LocalRuntime.Create(ResourceRegistry.Empty)
+    let imem = LocalRuntime.Create()
     let run c = imem.Run c
 
     let inline mean (ts : seq<'T>) = ts |> Seq.averageBy float

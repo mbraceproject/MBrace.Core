@@ -9,7 +9,6 @@ open MBrace.Core.Tests
 open MBrace.Store
 open MBrace.Store.Internals
 open MBrace.Runtime.Vagabond
-open MBrace.Runtime.Serialization
 open MBrace.Runtime.Store
 
 #nowarn "044"
