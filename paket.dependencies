@@ -1,17 +1,16 @@
 source https://nuget.org/api/v2
 
-nuget FAKE
-nuget FsPickler 1.2.4
-nuget FsPickler.Json
-nuget FsUnit 1.3.0.1
-nuget NUnit 2.6.3
+nuget FsPickler 1.2.5
+nuget FsPickler.Json 1.2.5
+nuget Vagabond 0.6.9
+nuget FsUnit >= 1.3.0.1
+nuget NUnit >= 2.6.3
 nuget NUnit.Runners
-nuget Thespian.Core
+nuget Thespian.Core 0.1.4-alpha
 nuget FSharp.Core
-nuget FsCheck
-nuget Unquote
-nuget Streams
-nuget Streams.CSharp
-nuget Streams
+nuget FsCheck >= 2.0.1
+nuget Unquote >= 2.2.2
+nuget Streams 0.3.0
+nuget Streams.CSharp 0.3.0
 nuget NuGet.CommandLine
-nuget Vagabond 0.6.8
+nuget FAKE

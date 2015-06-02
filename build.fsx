@@ -13,36 +13,7 @@ open Fake.ReleaseNotesHelper
 open System
 open System.IO
 
-
 let project = "MBrace.Core"
-let authors = [ "Eirik Tsarpalis" ; "Nick Palladinos" ; "Kostas Rontogiannis" ]
-
-let description = """Cloud workflow core libraries."""
-
-let tags = "F# cloud mapreduce distributed"
-
-let coreSummary = """
-    The MBrace core library contains all cloud workflow essentials,
-    libraries and local execution tools for authoring distributed code.
-"""
-
-let flowSummary = """
-    MBrace library for distributing flow computations.
-"""
-
-let csharpSummary = """
-    MBrace programming model API for C#.
-"""
-
-let testsSummary = """
-    A collection of abstract NUnit-based test suites for evaluating
-    MBrace runtime implementations.
-"""
-
-let runtimeSummary = """
-    MBrace runtime core library containing the foundations
-    for implementing distributed runtimes that support cloud workflows.
-"""
 
 // --------------------------------------------------------------------------------------
 // Read release notes & version info from RELEASE_NOTES.md
@@ -66,9 +37,9 @@ Target "AssemblyInfo" (fun _ ->
             Attribute.FileVersion release.AssemblyVersion
         ]
 
-    !! "./src/**/AssemblyInfo.fs"
+    !! "./**/AssemblyInfo.fs"
     |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
-    !! "./src/**/AssemblyInfo.cs"
+    !! "./**/AssemblyInfo.cs"
     |> Seq.iter (fun info -> CreateCSharpAssemblyInfo info attributes)
 )
 
@@ -127,180 +98,16 @@ FinalTarget "CloseTestRunner" (fun _ ->
 //// --------------------------------------------------------------------------------------
 //// Build a NuGet package
 
-let addFile (target : string) (file : string) =
-    if File.Exists (Path.Combine("nuget", file)) then (file, Some target, None)
-    else raise <| new FileNotFoundException(file)
-
-let addAssembly reqXml (target : string) assembly =
-    let includeFile force file =
-        let file = file
-        if File.Exists (Path.Combine("nuget", file)) then [(file, Some target, None)]
-        elif force then raise <| new FileNotFoundException(file)
-        else []
-
-    seq {
-        yield! includeFile true assembly
-        yield! includeFile reqXml <| Path.ChangeExtension(assembly, "xml")
-        yield! includeFile true <| Path.ChangeExtension(assembly, "pdb")
-        yield! includeFile false <| assembly + ".config"
-    }
-
-Target "NuGet.Core" (fun _ ->
-    NuGet (fun p -> 
-        { p with   
-            Authors = authors
-            Project = "MBrace.Core"
-            Summary = coreSummary
-            Description = coreSummary
-            Version = nugetVersion
-            ReleaseNotes = String.concat " " release.Notes
-            Tags = tags
-            OutputPath = "bin"
-            AccessKey = getBuildParamOrDefault "nugetkey" ""
-            Dependencies = []
-            Publish = hasBuildParam "nugetkey" 
-            Files =
-                [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Core.dll"
-                ]
-        })
-        ("nuget/MBrace.nuspec")
+Target "NuGet" (fun _ ->    
+    Paket.Pack (fun p -> 
+        { p with 
+            ToolPath = ".paket/paket.exe" 
+            OutputPath = "bin/"
+            Version = release.NugetVersion
+            ReleaseNotes = toLines release.Notes })
 )
 
-Target "NuGet.Flow" (fun _ ->
-    NuGet (fun p -> 
-        { p with   
-            Authors = authors
-            Project = "MBrace.Flow"
-            Summary = flowSummary
-            Description = flowSummary
-            Version = nugetVersion
-            ReleaseNotes = String.concat " " release.Notes
-            Tags = tags
-            OutputPath = "bin"
-            AccessKey = getBuildParamOrDefault "nugetkey" ""
-            Dependencies = 
-                [
-                    "MBrace.Core", RequireExactly nugetVersion
-                    "Streams", "0.2.9"
-                ]
-            Publish = hasBuildParam "nugetkey" 
-            Files =
-                [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.dll"
-                ]
-        })
-        ("nuget/MBrace.nuspec")
-)
-
-Target "NuGet.CSharp" (fun _ ->
-    NuGet (fun p -> 
-        { p with   
-            Authors = authors
-            Project = "MBrace.CSharp"
-            Summary = csharpSummary
-            Description = csharpSummary
-            Version = nugetVersion
-            ReleaseNotes = String.concat " " release.Notes
-            Tags = tags
-            OutputPath = "bin"
-            AccessKey = getBuildParamOrDefault "nugetkey" ""
-            Dependencies = 
-                [
-                    ("FSharp.Core", "3.1.2.1")
-                    ("MBrace.Core", RequireExactly release.NugetVersion)
-                ]
-            Publish = hasBuildParam "nugetkey" 
-            Files =
-                [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.CSharp.dll"
-                ]
-        })
-        ("nuget/MBrace.nuspec")
-)
-
-Target "NuGet.Flow.CSharp" (fun _ ->
-    NuGet (fun p -> 
-        { p with   
-            Authors = authors
-            Project = "MBrace.Flow.CSharp"
-            Summary = flowSummary
-            Description = flowSummary
-            Version = nugetVersion
-            ReleaseNotes = String.concat " " release.Notes
-            Tags = tags
-            OutputPath = "bin"
-            AccessKey = getBuildParamOrDefault "nugetkey" ""
-            Dependencies = 
-                [
-                    "MBrace.CSharp", RequireExactly nugetVersion
-                    "MBrace.Flow", RequireExactly nugetVersion
-                ]
-            Publish = hasBuildParam "nugetkey" 
-            Files =
-                [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.CSharp.dll"
-                ]
-        })
-        ("nuget/MBrace.nuspec")
-)
-
-Target "NuGet.Runtime.Core" (fun _ ->
-    NuGet (fun p -> 
-        { p with   
-            Authors = authors
-            Project = "MBrace.Runtime.Core"
-            Summary = runtimeSummary
-            Description = runtimeSummary
-            Version = nugetVersion
-            ReleaseNotes = String.concat " " release.Notes
-            Tags = tags
-            OutputPath = "bin"
-            AccessKey = getBuildParamOrDefault "nugetkey" ""
-            Dependencies = 
-                [
-                    ("MBrace.Core", RequireExactly release.NugetVersion)
-                    ("FsPickler", "1.0.16")
-                    ("Vagabond", "0.6.6")
-                    ("Unquote", "2.2.2")
-                ]
-            Publish = hasBuildParam "nugetkey" 
-            Files =
-                [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Runtime.Core.dll"
-                ]
-        })
-        ("nuget/MBrace.nuspec")
-)
-
-Target "NuGet.Tests" (fun _ ->
-    NuGet (fun p -> 
-        { p with   
-            Authors = authors
-            Project = "MBrace.Tests"
-            Summary = testsSummary
-            Description = testsSummary
-            Version = nugetVersion
-            ReleaseNotes = String.concat " " release.Notes
-            Tags = tags
-            OutputPath = "bin"
-            AccessKey = getBuildParamOrDefault "nugetkey" ""
-            Dependencies = 
-                [
-                    ("MBrace.Core", RequireExactly release.NugetVersion)
-                    ("MBrace.Flow", RequireExactly release.NugetVersion)
-                    ("NUnit", "2.6.3")
-                    ("FsCheck", "1.0.4")
-                ]
-            Publish = hasBuildParam "nugetkey" 
-            Files =
-                [
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Core.Tests.dll"
-                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Flow.Tests.dll"
-                ]
-        })
-        ("nuget/MBrace.nuspec")
-)
+Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }))
 
 // --------------------------------------------------------------------------------------
 // documentation
@@ -326,7 +133,6 @@ Target "ReleaseDocs" (fun _ ->
 
 Target "Default" DoNothing
 Target "Release" DoNothing
-Target "NuGet" DoNothing
 Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
@@ -338,14 +144,11 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Build"
   ==> "PrepareRelease"
-  ==> "NuGet.Core"
-  ==> "NuGet.Flow"
-//  ==> "NuGet.CSharp" // disable for now
-//  ==> "NuGet.Flow.CSharp"
-  ==> "NuGet.Tests"
-  ==> "NuGet.Runtime.Core"
   ==> "NuGet"
   ==> "Release"
+
+"NuGet" 
+  ==> "NuGetPush"
 
 //// start build
 RunTargetOrDefault "Default"
