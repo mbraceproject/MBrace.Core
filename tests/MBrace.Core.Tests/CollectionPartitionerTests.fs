@@ -124,10 +124,7 @@ module ``Collection Partitioning Tests`` =
         let upper = lower + length
         let range = new PartitionableRangeCollection(lower, upper) :> IPartitionableCollection<int64>
         let partitions = range.GetPartitions weights |> run
-        let partitionedSeqs = partitions |> Local.Sequential.map (fun p -> p.ToEnumerable()) |> run 
-
-        partitionedSeqs |> Seq.map (Seq.length >> int64) |> Seq.sum |> shouldEqual length
-
+        partitions |> Local.Sequential.map (fun p -> p.Count) |> run |> Array.sum |> shouldEqual length
         
 
     // Section 2: Actual partitioner tests
