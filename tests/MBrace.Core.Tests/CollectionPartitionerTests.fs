@@ -115,6 +115,18 @@ module ``Collection Partitioning Tests`` =
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
 
+
+    [<Test>]
+    let ``Case from wiki - Partitionable Range collection tests`` () =            
+        let weights = [|1745250503; 1745250503; 1745250503; 1745250503; 1745250502; 1745250502; 1745250502; 1745250502; 1745250502; 1745250502|]
+        let lower = 0L
+        let length = 34905010048L
+        let upper = lower + length
+        let range = new PartitionableRangeCollection(lower, upper) :> IPartitionableCollection<int64>
+        let partitions = range.GetPartitions weights |> run
+        partitions |> Local.Sequential.map (fun p -> p.Count) |> run |> Array.sum |> shouldEqual length
+        
+
     // Section 2: Actual partitioner tests
 
     [<Test>]

@@ -93,14 +93,17 @@ type CloudCollection private () =
                 let sizes, remWorkers2 = getSizes [] ((currWorker, remWorkerSize) :: remWorkers) csz
 
                 // compute partition weights based on calculated worker sizes
-                let weights =
-                    let sizes = sizes |> Seq.map snd |> Seq.toArray
-                    let gcdNormalized = Array.gcdNormalize sizes
-                    let max = Array.max gcdNormalized
-                    if max <= int64 Int32.MaxValue then gcdNormalized |> Array.map int
-                    else
-                        let min = gcdNormalized |> Array.min |> decimal
-                        [| for s in gcdNormalized -> (decimal s / min) |> round |> int |]
+
+                // normalize weights so that they fit in int32
+                let normalize (weights : int64[]) =
+                    let rec aux i n =
+                        if n > int64 Int32.MaxValue then aux (2L * i) (n / 2L)
+                        else i
+
+                    let n = aux 1L (Array.max weights)
+                    weights |> Array.map (fun w -> w / n |> int)
+
+                let weights = sizes |> Seq.map snd |> Seq.toArray |> normalize
 
                 // extract partitions based on weights
                 let! cpartitions = pc.GetPartitions weights

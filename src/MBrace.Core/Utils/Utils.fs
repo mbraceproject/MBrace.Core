@@ -51,6 +51,8 @@ module Utils =
     [<RequireQualifiedAccess>]
     module Array =
 
+        open Operators.Checked
+
         /// <summary>
         ///     partitions an array into a predetermined number of uniformly sized chunks.
         /// </summary>
@@ -126,6 +128,19 @@ module Utils =
             let length = upper - lower
             if length = 0L then [| for _ in weights -> None |] 
             else
+
+            // Weight normalization; normalize weights in order to avoid overflows
+            // log2 weight + log2 length < 60 => weight * length < Int64.MaxValue
+            let maxWeight = Array.max weights |> int64
+            let rec aux i n =
+                let log2 n = log (float n) / log 2.
+                if log2 maxWeight + log2 n >= 60. then
+                    aux (2 * i) (n / 2L)
+                else
+                    i
+
+            let d = aux 1 length
+            let weights = weights |> Array.map (fun w -> w / d)
 
             // compute weighted chunk sizes
             // 1. compute total = Σ w_i
