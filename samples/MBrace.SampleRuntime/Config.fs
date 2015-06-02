@@ -62,3 +62,34 @@ type Config private () =
     static member Logger
         with get () = _logger
         and set l = _logger <- l
+
+
+/// Actor publication utilities
+type Actor =
+
+    /// Publishes an actor instance to the default TCP protocol
+    static member Publish(actor : Actor<'T>) =
+        ignore Config.Serializer
+        let name = Guid.NewGuid().ToString()
+        actor
+        |> Actor.rename name
+        |> Actor.publish [ Protocols.utcp() ]
+        |> Actor.start
+
+    /// Exception-safe stateful actor behavior combinator
+    static member Stateful (init : 'State) f = 
+        let rec aux state (self : Actor<'T>) = async {
+            let! msg = self.Receive()
+            let! state' = async { 
+                try return! f state msg 
+                with e -> printfn "Actor fault (%O): %O" typeof<'T> e ; return state
+            }
+
+            return! aux state' self
+        }
+
+        Actor.bind (aux init)
+
+    /// Exception-safe stateless actor behavior combinator
+    static member Stateless (f : 'T -> Async<unit>) =
+        Actor.Stateful () (fun () t -> f t)

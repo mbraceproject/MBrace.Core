@@ -25,7 +25,7 @@ module JobEvaluator =
     /// <param name="manager">Runtime resource manager.</param>
     /// <param name="faultState">Job fault state.</param>
     /// <param name="job">Job instance to be executed.</param>
-    let runJobAsync (manager : IRuntimeResourceManager) (faultState : (int * exn) option) (job : CloudJob) = async {
+    let runJobAsync (manager : IRuntimeResourceManager) (faultState : (int * ExceptionDispatchInfo) option) (job : CloudJob) = async {
         let jem = new JobExecutionMonitor()
         let distributionProvider = DistributionProvider.Create(manager, job)
         let resources = resource {
@@ -37,7 +37,8 @@ module JobEvaluator =
         let ctx = { Resources = resources ; CancellationToken = job.CancellationToken }
 
         match faultState with
-        | Some(faultCount, e) ->
+        | Some(faultCount, edi) ->
+            let e = edi.Reify(prepareForRaise = false)
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
             | None ->
                 let msg = sprintf "Fault exception when running job '%s', faultCount '%d'" job.JobId faultCount

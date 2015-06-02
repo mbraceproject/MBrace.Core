@@ -59,7 +59,18 @@
   -->
   <ItemGroup>
     <Compile Include="Config.fs" />
-    <Compile Include="Actors.fs" />
+    <Compile Include="Primitives\Logger.fs" />
+    <Compile Include="Primitives\Counter.fs" />
+    <Compile Include="Primitives\CancellationToken.fs" />
+    <Compile Include="Primitives\TaskCompletionSource.fs" />
+    <Compile Include="Primitives\ResultAggregator.fs" />
+    <Compile Include="Primitives\ResourceFactory.fs" />
+    <Compile Include="WorkerMonitor.fs" />
+    <Compile Include="JobQueue.fs" />
+    <Compile Include="Store\CloudAtom.fs" />
+    <Compile Include="Store\CloudChannel.fs" />
+    <Compile Include="Store\CloudDictionary.fs" />
+    <Compile Include="ResourceManager.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Combinators.fs" />
     <Compile Include="DistributionProvider.fs" />

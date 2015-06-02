@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime.Vagabond
+﻿namespace MBrace.Runtime
 
 open System
 open System.IO
@@ -17,6 +17,7 @@ open MBrace.Store.Internals
 open MBrace.Client
 open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Vagabond
 
 #nowarn "1571"
 
