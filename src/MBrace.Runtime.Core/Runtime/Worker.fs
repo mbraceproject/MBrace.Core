@@ -80,7 +80,7 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
     let rec workerLoop (queueFault : bool) (state : WorkerState) 
                         (inbox : MailboxProcessor<WorkerMessage>) = async {
 
-        let! message = inbox.TryReceive()
+        let! message = inbox.TryReceive(timeout = 10)
         match message, state with
         | None, Running config ->
             let logger = config.Resources.SystemLogger
