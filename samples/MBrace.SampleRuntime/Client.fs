@@ -36,7 +36,7 @@ module internal Argument =
         Config.Serializer.UnPickle<RuntimeState> bytes
 
 /// MBrace Sample runtime client instance.
-type MBraceRuntime private (state : RuntimeState, logs : Event<string>) =
+type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
     inherit MBraceClient()
     static do Config.Init()
     static let mutable exe = None
@@ -50,19 +50,11 @@ type MBraceRuntime private (state : RuntimeState, logs : Event<string>) =
         for i = 1 to count do
             ignore <| Process.Start psi
 
-//    let attachedLoggers = new ConcurrentDictionary<string, ICloudLogger>()
-//    let logger = { new ICloudLogger with member __.Log msg = for kv in attachedLoggers do kv.Value.Log msg }
-//    let state = RuntimeState.InitLocal(logger, storeConfig)
-    let manager = new ResourceManager(state, Config.Logger) :> IRuntimeResourceManager
+    let manager = new ResourceManager(state, logger) :> IRuntimeResourceManager
 
     override __.Resources = manager
-    member __.Logs = logs.Publish
 
-//    member __.AttachLogger(logger : ICloudLogger) =
-//        let id = mkUUID()
-//        ignore <| attachedLoggers.TryAdd(id, logger)
-//        { new IDisposable with member __.Dispose () = attachedLoggers.TryRemove id |> ignore }
-
+    member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () =
@@ -97,11 +89,10 @@ type MBraceRuntime private (state : RuntimeState, logs : Event<string>) =
                 let fs = FileSystemStore.CreateSharedLocal()
                 CloudFileStoreConfiguration.Create fs
 
-        let event = new Event<string>()
-        let logger = { new ICloudLogger with member __.Log msg = event.Trigger msg }
+        let logger = new AttacheableLogger()
         let state = RuntimeState.InitLocal(logger, storeConfig, ?miscResources = resource)
         let _ = initWorkers state workerCount
-        new MBraceRuntime(state, event)
+        new MBraceRuntime(state, logger)
 
     /// Gets or sets the worker executable location.
     static member WorkerExecutable

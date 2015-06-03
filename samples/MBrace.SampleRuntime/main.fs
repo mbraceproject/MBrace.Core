@@ -11,8 +11,7 @@ let maxConcurrentJobs = 10
 let main (args : string []) =
     try
         do Config.Init()
-        let logger = new ConsoleLogger()
-        Config.Logger <- logger
+        let logger = new ConsoleSystemLogger()
 
         let worker =
 #if APPDOMAIN_ISOLATION

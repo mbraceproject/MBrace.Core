@@ -1,14 +1,28 @@
 ﻿namespace MBrace.SampleRuntime
 
-open Nessos.Thespian
-open MBrace.Core.Internals
+open System
+open System.Runtime.Serialization
 
-type Logger private (target : ActorRef<string>) =
-    interface ICloudLogger with member __.Log txt = target <-- txt
-    static member Init(logger : ICloudLogger) =
+open Nessos.Thespian
+
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Runtime
+
+[<AutoSerializable(true)>]
+type ActorCloudLogger private (target : ActorRef<string * DateTime>) =
+
+    member __.CreateLogger (worker : IWorkerRef, currentJob : CloudJob) =
+        { new ICloudLogger with
+            member __.Log (message : string) =
+                let message = sprintf "User Log[Worker:%s, Process:%s, Job:%s]: %s" worker.Id currentJob.ProcessId currentJob.JobId message
+                target <-- (message, DateTime.Now)
+        }
+
+    static member Init(logger : ISystemLogger) =
         let ref =
-            Actor.Stateless (fun msg -> async { return logger.Log msg })
+            Actor.Stateless (fun (m,d) -> async { return logger.LogEntry(LogLevel.Info, d, m) })
             |> Actor.Publish
             |> Actor.ref
 
-        new Logger(ref)
+        new ActorCloudLogger(ref)

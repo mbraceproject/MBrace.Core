@@ -239,8 +239,10 @@ type IRuntimeResourceManager =
     abstract GetAvailableWorkers : unit -> Async<IWorkerRef []>
     /// Gets the WorkerRef identifying the current worker instance.
     abstract CurrentWorker : IWorkerRef
-    /// Logger abstraction used for cloud workflows.
-    abstract Logger : ICloudLogger
+    /// Logger abstraction for user-specified cloud logging.
+    abstract GetCloudLogger : CloudJob -> ICloudLogger
+    /// Logger abstraction used for local worker logging.
+    abstract SystemLogger : ISystemLogger
     /// Serializable distributed cancellation entry manager.
     abstract CancellationEntryFactory : ICancellationEntryFactory
     /// Gets the job queue instance for the runtime.

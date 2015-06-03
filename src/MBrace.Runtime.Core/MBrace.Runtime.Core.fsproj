@@ -70,6 +70,7 @@
     <Compile Include="Utils\RecordPrinter.fs" />
     <Compile Include="Utils\JobExecutionMonitor.fs" />
     <Compile Include="Utils\PerformanceMonitor.fs" />
+    <Compile Include="Utils\Logging.fs" />
     <Compile Include="Runtime\Resources.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
     <Compile Include="Runtime\Combinators.fs" />

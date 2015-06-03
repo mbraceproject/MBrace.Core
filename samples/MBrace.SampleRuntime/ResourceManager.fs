@@ -11,13 +11,13 @@ type RuntimeState =
     {
         Factory : ResourceFactory
         WorkerMonitor : WorkerMonitor
-        Logger  : ICloudLogger
+        CloudLogger  : ActorCloudLogger
         JobQueue : IJobQueue
         Resources : ResourceRegistry
         AssemblyDirectory : string
     }
 with
-    static member InitLocal(logger : ICloudLogger, fileStoreConfig : CloudFileStoreConfiguration, 
+    static member InitLocal(localLogger : ISystemLogger, fileStoreConfig : CloudFileStoreConfiguration, 
                                 ?assemblyDirectory : string, ?miscResources : ResourceRegistry) =
 
         let wmon = WorkerMonitor.Init()
@@ -34,18 +34,17 @@ with
         {
             Factory = factory
             WorkerMonitor = wmon
-            Logger = Logger.Init(logger)
+            CloudLogger = ActorCloudLogger.Init(localLogger)
             JobQueue = JobQueue.Init(wmon)
             Resources = resources
             AssemblyDirectory = assemblyDirectory
         }
 
 [<AutoSerializable(false)>]
-type ResourceManager(state : RuntimeState, sysLogger : ICloudLogger) =
+type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
     let storeConfig = state.Resources.Resolve<CloudFileStoreConfiguration>()
     let serializer = FsPicklerBinaryStoreSerializer()
-    let assemblyManager = StoreAssemblyManager.Create(storeConfig, serializer, state.AssemblyDirectory, logger = sysLogger)
-    let localWorker = WorkerRef.LocalWorker
+    let assemblyManager = StoreAssemblyManager.Create(storeConfig, serializer, state.AssemblyDirectory, logger = logger)
 
     member __.State = state
 
@@ -63,7 +62,9 @@ type ResourceManager(state : RuntimeState, sysLogger : ICloudLogger) =
         
         member x.JobQueue: IJobQueue = state.JobQueue
         
-        member x.Logger: ICloudLogger = state.Logger
+        member x.GetCloudLogger (job:CloudJob) : ICloudLogger = state.CloudLogger.CreateLogger(WorkerRef.LocalWorker, job)
+
+        member x.SystemLogger : ISystemLogger = logger
         
         member x.RequestCounter(initialValue: int): Async<ICloudCounter> = async {
             let! c = state.Factory.RequestCounter initialValue

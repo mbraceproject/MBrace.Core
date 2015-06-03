@@ -1,17 +1,18 @@
 ﻿namespace MBrace.SampleRuntime.Tests
 
 open MBrace.Core.Tests
+open MBrace.Runtime
 open MBrace.SampleRuntime
 
-type LogTester(runtime : MBraceRuntime) =
+type LogTester() =
     let logs = new ResizeArray<string>()
-    let d = runtime.Logs.Subscribe(logs.Add)
+
+    interface ISystemLogger with
+        member __.LogEntry(_,_,m) = logs.Add m
 
     interface ILogTester with
         member __.GetLogs() = logs.ToArray()
         member __.Clear() = lock logs logs.Clear
-
-    member __.Dispose() = d.Dispose()
 
 type RuntimeSession(nodes : int) =
     
@@ -21,12 +22,13 @@ type RuntimeSession(nodes : int) =
 
     member __.Start () = 
         let runtime = MBraceRuntime.InitLocal(nodes)
-        let logger = new LogTester(runtime)
+        let logger = new LogTester()
+        let _ = runtime.AttachLogger logger
         state <- Some(runtime, logger)
         do System.Threading.Thread.Sleep 2000
 
     member __.Stop () =
-        state |> Option.iter (fun (r,d) -> r.KillAllWorkers() ; d.Dispose())
+        state |> Option.iter (fun (r,d) -> r.KillAllWorkers())
         state <- None
 
     member __.Runtime =

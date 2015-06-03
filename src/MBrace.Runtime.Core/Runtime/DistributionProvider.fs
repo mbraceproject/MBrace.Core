@@ -10,6 +10,8 @@ open MBrace.Core.Internals.InMemoryRuntime
 [<Sealed; AutoSerializable(false)>]
 type DistributionProvider private (resources : IRuntimeResourceManager, currentJob : CloudJob, faultPolicy : FaultPolicy, isForcedLocalParallelism : bool) =
 
+    let logger = resources.GetCloudLogger currentJob
+
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
         let! dcts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, parents, elevate = elevate) 
         return dcts :> ICloudCancellationTokenSource
@@ -67,4 +69,4 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
 
         member __.GetAvailableWorkers () = resources.GetAvailableWorkers()
         member __.CurrentWorker = resources.CurrentWorker
-        member __.Logger = resources.Logger
+        member __.Logger = logger

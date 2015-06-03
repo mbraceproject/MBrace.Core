@@ -58,24 +58,22 @@ module JobEvaluator =
     ///     loads job to local application domain and evaluates it locally.
     /// </summary>
     /// <param name="manager">Runtime resource manager.</param>
-    /// <param name="sysLogger">System logger for evaluator.</param>
     /// <param name="assemblies">Vagabond assemblies to be used for computation.</param>
     /// <param name="joblt">Job lease token.</param>
-    let loadAndRunJobAsync (manager : IRuntimeResourceManager) (sysLogger : ICloudLogger) 
-                            (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
-
-        sysLogger.Log "Loading assemblies."
+    let loadAndRunJobAsync (manager : IRuntimeResourceManager) (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
+        let logger = manager.SystemLogger
+        logger.Log LogLevel.Info "Loading assemblies."
         for li in manager.AssemblyManager.LoadAssemblies assemblies do
             match li with
-            | NotLoaded id -> sysLogger.Logf "could not load assembly '%s'" id.FullName 
-            | LoadFault(id, e) -> sysLogger.Logf "error loading assembly '%s':\n%O" id.FullName e
+            | NotLoaded id -> logger.Logf LogLevel.Error "could not load assembly '%s'" id.FullName 
+            | LoadFault(id, e) -> logger.Logf LogLevel.Error "error loading assembly '%s':\n%O" id.FullName e
             | Loaded _ -> ()
 
-        sysLogger.Log "Loading job."
+        logger.Log LogLevel.Info "Loading job."
         let! jobResult = joblt.GetJob() |> Async.Catch
         match jobResult with
         | Choice2Of2 e ->
-            sysLogger.Logf "Failed to load job '%s': %A" joblt.JobId e
+            logger.Logf LogLevel.Error "Failed to load job '%s': %A" joblt.JobId e
             do! joblt.ParentTask.SetException (ExceptionDispatchInfo.Capture e)
 
         | Choice1Of2 job ->
@@ -83,7 +81,7 @@ module JobEvaluator =
 //                logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
 //                do! staticConfiguration.State.ProcessManager.SetRunning(job.ProcessInfo.Id)
 
-            sysLogger.Logf "Starting job '%s'." job.JobId
+            logger.Logf LogLevel.Info "Starting job '%s'." job.JobId
             let sw = Stopwatch.StartNew()
             let! result = runJobAsync manager joblt.FaultState job |> Async.Catch
             sw.Stop()
@@ -91,45 +89,37 @@ module JobEvaluator =
             match result with
             | Choice1Of2 () -> 
                 do! joblt.DeclareCompleted ()
-                sysLogger.Logf "Completed job\n%O\nTime : %O" job sw.Elapsed
+                logger.Logf LogLevel.Info "Completed job\n%O\nTime : %O" job sw.Elapsed
             | Choice2Of2 e ->
-                sysLogger.Logf "Faulted job\n%O\nTime : %O" job sw.Elapsed
+                logger.Logf LogLevel.Error "Faulted job\n%O\nTime : %O" job sw.Elapsed
                 do! joblt.DeclareFaulted (ExceptionDispatchInfo.Capture e)
     }
        
 
-type LocalJobEvaluator(manager : IRuntimeResourceManager, sysLogger : ICloudLogger) =
+type LocalJobEvaluator(manager : IRuntimeResourceManager) =
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
-            return! JobEvaluator.loadAndRunJobAsync manager sysLogger assemblies jobtoken
+            return! JobEvaluator.loadAndRunJobAsync manager assemblies jobtoken
         }
 
+type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager>, pool : AppDomainEvaluatorPool) =
 
-[<NoEquality; NoComparison>]
-type AppDomainConfig =
-    {
-        ResourceManager : IRuntimeResourceManager
-        SystemLogger    : ICloudLogger
-    }
-
-type AppDomainJobEvaluator(config : DomainLocal<AppDomainConfig>, pool : AppDomainEvaluatorPool) =
-
-    static member Create(config : DomainLocal<AppDomainConfig>,
+    static member Create(managerF : DomainLocal<IRuntimeResourceManager>,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
                                 ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 
-        let domainInitializer () = initializer |> Option.iter (fun f -> f ()) ; ignore config.Value
+        let domainInitializer () = initializer |> Option.iter (fun f -> f ()) ; ignore managerF.Value
         let pool = AppDomainEvaluatorPool.Create(domainInitializer, ?threshold = threshold, 
                                                     ?minimumConcurrentDomains = minConcurrentDomains,
                                                     ?maximumConcurrentDomains = maxConcurrentDomains)
 
-        new AppDomainJobEvaluator(config, pool)
+        new AppDomainJobEvaluator(managerF, pool)
 
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
             let eval () = async { 
-                let config = config.Value 
-                return! JobEvaluator.loadAndRunJobAsync config.ResourceManager config.SystemLogger assemblies jobtoken 
+                let manager = managerF.Value 
+                return! JobEvaluator.loadAndRunJobAsync manager assemblies jobtoken 
             }
 
             return! pool.EvaluateAsync(jobtoken.Dependencies, eval ())

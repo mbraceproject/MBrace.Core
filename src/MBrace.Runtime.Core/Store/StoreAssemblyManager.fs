@@ -33,9 +33,9 @@ module private Common =
     let getStoreDataPath k id (dd : DataDependencyInfo) = k <| sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
 
 /// Assembly to file store uploader implementation
-type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : LocalRuntime, container : string) =
+type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
-    let append (fileName : string) = config.FileStore.Combine(container, fileName)
+    let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
@@ -73,7 +73,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
                     | None -> ()
                 } |> String.concat ", "
 
-            do! Cloud.Logf "Uploading '%s' [%s]" va.FullName uploadSizes
+            logger.Logf LogLevel.Info "Uploading '%s' [%s]" va.FullName uploadSizes
             let! _ = CloudFile.Upload(va.Image, assemblyStorePath, overwrite = true)
             return ()
 
@@ -114,13 +114,13 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
             let blobPath = getStoreDataPath append va.Id dd
             let! dataExists = CloudFile.Exists blobPath
             if not dataExists then
-                do! Cloud.Logf "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
+                logger.Logf LogLevel.Info "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
                 let! _ = CloudFile.Upload(localPath, blobPath, overwrite = true)
                 ()
         }
 
         // only print metadata message if updating data dependencies
-        if assemblyExists then do! Cloud.Logf "Updating metadata for '%s'" va.FullName
+        if assemblyExists then logger.Logf LogLevel.Info "Updating metadata for '%s'" va.FullName
 
         do! dataFiles |> Seq.map uploadDataFile |> Local.Parallel |> Local.Ignore
 
@@ -142,12 +142,12 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
 
 /// File store assembly downloader implementation
-type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : LocalRuntime, container : string, logger : ICloudLogger) =
-    let append (fileName : string) = config.FileStore.Combine(container, fileName)
+type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
+    let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
     interface IAssemblyImporter with
         member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
-            logger.Logf "Downloading '%s'" id.FullName
+            logger.Logf LogLevel.Info "Downloading '%s'" id.FullName
             return! config.FileStore.BeginRead (getStoreAssemblyPath append id)
         }
         
@@ -168,7 +168,7 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
             } |> imem.RunAsync
 
         member x.GetPersistedDataDependencyReader(id: AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {
-            logger.Logf "Downloading data dependency '%s'." dd.Name
+            logger.Logf LogLevel.Info "Downloading data dependency '%s'." dd.Name
             return! config.FileStore.BeginRead(getStoreDataPath append id dd)
         }
 
@@ -179,10 +179,10 @@ type private AssemblyManagerMsg =
 
 /// Assembly manager instance
 [<Sealed; AutoSerializable(false)>]
-type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ICloudLogger) =
-    let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-    let imem = LocalRuntime.Create(fileConfig = storeConfig, serializer = serializer, logger = logger)
-    let uploader = new StoreAssemblyUploader(storeConfig, imem, container)
+type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ISystemLogger) =
+    let logger = match logger with Some l -> l | None -> new NullSystemLogger() :> _
+    let imem = LocalRuntime.Create(fileConfig = storeConfig, serializer = serializer)
+    let uploader = new StoreAssemblyUploader(storeConfig, imem, container, logger)
     let downloader = new StoreAssemblyDownloader(storeConfig, imem, container, logger)
 
     let rec loop (inbox : MailboxProcessor<AssemblyManagerMsg>) = async {
@@ -190,12 +190,12 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
         match msg with
         | Upload (assemblies, rc) ->
             try
-                logger.Logf "Uploading dependencies"
+                logger.Logf LogLevel.Info "Uploading dependencies"
                 let ids = assemblies |> Seq.map (fun va -> va.Id)
                 let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, ids)
                 if errors.Length > 0 then
                     let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
-                    logger.Logf "Failed to upload bindings: %s" errors
+                    logger.Logf LogLevel.Warning "Failed to upload bindings: %s" errors
 
                 rc.Reply errors
 
@@ -220,7 +220,7 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     /// <param name="storeConfig">ResourceRegistry collection.</param>
     /// <param name="container">Containing directory in store for persisting assemblies.</param>
     /// <param name="logger">Logger used by uploader. Defaults to no logging.</param>
-    static member Create(storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ICloudLogger) =
+    static member Create(storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ISystemLogger) =
         ignore VagabondRegistry.Instance
         new StoreAssemblyManager(storeConfig, serializer, container, ?logger = logger)
 

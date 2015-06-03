@@ -70,7 +70,6 @@ module private JobLeaseMonitor =
         }
 
         Async.Start(poller(), cts.Token)
-
         ref
 
 type JobLeaseToken internal (pjob : PickledJob, faultState : (int * ExceptionDispatchInfo) option, 

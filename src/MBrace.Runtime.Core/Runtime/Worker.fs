@@ -52,6 +52,8 @@ type private WorkerState =
     | Idle
     | Running of WorkerConfig
 
+// TODO: remove agent logic and pass workerconfig as ctor argument with proper disposal
+
 /// Worker agent with updatable configuration
 type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan) =
 
@@ -61,17 +63,18 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
     let mutable currentJobCount = 0
 
     let waitForPendingJobs (config : WorkerConfig) = async {
-        config.Resources.Logger.Log "Stop requested. Waiting for pending jobs."
+        let logger = config.Resources.SystemLogger
+        logger.Log LogLevel.Info "Stop requested. Waiting for pending jobs."
         let rec wait () = async {
             if currentJobCount > 0 then
                 do! Async.Sleep receiveInterval
                 return! wait ()
         }
         do! wait ()
-        config.Resources.Logger.Log "No active jobs."
-        config.Resources.Logger.Log "Unregister current worker."
+        logger.Log LogLevel.Info "No active jobs."
+        logger.Log LogLevel.Info "Unregister current worker."
         do! config.WorkerManager.DeclareStopped()
-        config.Resources.Logger.Log "Worker stopped."
+        logger.Log LogLevel.Info "Worker stopped."
     }
 
     let rec workerLoop (queueFault : bool) (state : WorkerState) 
@@ -80,6 +83,7 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
         let! message = inbox.TryReceive()
         match message, state with
         | None, Running config ->
+            let logger = config.Resources.SystemLogger
             if currentJobCount >= config.MaxConcurrentJobs then
                 do! Async.Sleep receiveInterval
                 return! workerLoop false state inbox
@@ -88,9 +92,9 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
                 match job with
                 | Choice1Of2 None ->
                     if queueFault then 
-                        config.Resources.Logger.Log "Reverting state to Running"
+                        logger.Log LogLevel.Info "Reverting state to Running"
                         do! config.WorkerManager.DeclareRunning()
-                        config.Resources.Logger.Log "Done"
+                        logger.Log LogLevel.Info "Done"
 
                     do! Async.Sleep receiveInterval
                     return! workerLoop false state inbox
@@ -100,27 +104,27 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
                     let jc = Interlocked.Increment &currentJobCount
 
                     if queueFault then 
-                        config.Resources.Logger.Log "Reverting state to Running"
+                        logger.Log LogLevel.Info "Reverting state to Running"
                         do! config.WorkerManager.DeclareRunning()
-                        config.Resources.Logger.Logf "Done"
+                        logger.Log LogLevel.Info "Done"
 
                     do! config.WorkerManager.DeclareJobCount jc
-                    config.Resources.Logger.Logf "Increase Dequeued Jobs to %d." jc
+                    logger.Logf LogLevel.Info "Increase Dequeued Jobs to %d." jc
                     let! _ = Async.StartChild <| async { 
                         try
-                            do config.Resources.Logger.Log "Downloading dependencies."
+                            logger.Log LogLevel.Info "Downloading dependencies."
                             let! assemblies = config.Resources.AssemblyManager.DownloadAssemblies jobToken.Dependencies
                             do! config.JobEvaluator.Evaluate (assemblies, jobToken)
                         finally
                             let jc = Interlocked.Decrement &currentJobCount
                             config.WorkerManager.DeclareJobCount jc |> Async.RunSync
-                            config.Resources.Logger.Logf "Decrease Dequeued Jobs %d" jc
+                            logger.Logf LogLevel.Info "Decrease Dequeued Jobs %d" jc
                     }
 
                     return! workerLoop false state inbox
 
                 | Choice2Of2 ex ->
-                    config.Resources.Logger.Logf "Worker JobQueue fault\n%A" ex
+                    logger.Logf LogLevel.Info "Worker JobQueue fault\n%A" ex
                     do! config.WorkerManager.DeclareFaulted (ExceptionDispatchInfo.Capture ex)
                     do! Async.Sleep errorInterval
                     return! workerLoop true state inbox

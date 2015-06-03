@@ -10,6 +10,11 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 
 type WorkerRef private (hostname : string, pid : int) =
+    static let localWorker = lazy(
+        let hostname = System.Net.Dns.GetHostName()
+        let pid = System.Diagnostics.Process.GetCurrentProcess().Id
+        new WorkerRef(hostname, pid))
+
     let id = sprintf "mbrace-worker://%s/pid:%d" hostname pid
     member __.Pid = pid
     interface IWorkerRef with
@@ -31,10 +36,7 @@ type WorkerRef private (hostname : string, pid : int) =
 
     override __.GetHashCode() = hash id
 
-    static member LocalWorker = 
-        let hostname = System.Net.Dns.GetHostName()
-        let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-        new WorkerRef(hostname, pid)
+    static member LocalWorker = localWorker.Value
 
 type private HeartbeatMonitorMsg = 
     | SendHeartbeat

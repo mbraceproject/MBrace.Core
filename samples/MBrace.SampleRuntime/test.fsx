@@ -16,7 +16,7 @@ open MBrace.Flow
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
 let runtime = MBraceRuntime.InitLocal 4
-runtime.AttachLogger(new Internals.ConsoleLogger())
+runtime.AttachLogger(new MBrace.Runtime.ConsoleSystemLogger())
 
 #time "on"
 
