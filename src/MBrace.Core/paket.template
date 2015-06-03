@@ -5,7 +5,7 @@ description
 authors
     Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis
 copyright
-	Copyright 2015
+    Copyright 2015
 summary
     The MBrace core library contains all cloud workflow essentials,
     libraries and local execution tools for authoring distributed code.

@@ -5,7 +5,7 @@ description
 authors
     Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis
 copyright
-	Copyright 2015
+    Copyright 2015
 summary
     MBrace library for distributing flow computations.
 licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
@@ -14,4 +14,4 @@ iconurl https://avatars2.githubusercontent.com/u/9674757
 tags
     F#, cloud, mapreduce, distributed
 dependencies
-	MBrace.Core CURRENTVERSION
+    MBrace.Core CURRENTVERSION
