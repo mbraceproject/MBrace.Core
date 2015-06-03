@@ -112,14 +112,18 @@ type AppDomainConfig =
         SystemLogger    : ICloudLogger
     }
 
-type AppDomainJobEvaluator(config : DomainLocal<AppDomainConfig>,   
+type AppDomainJobEvaluator(config : DomainLocal<AppDomainConfig>, pool : AppDomainEvaluatorPool) =
+
+    static member Create(config : DomainLocal<AppDomainConfig>,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
                                 ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 
-    let domainInitializer () = initializer |> Option.iter (fun f -> f ()) ; ignore config.Value
-    let pool = AppDomainEvaluatorPool.Create(domainInitializer, ?threshold = threshold, 
-                                                ?minimumConcurrentDomains = minConcurrentDomains,
-                                                ?maximumConcurrentDomains = maxConcurrentDomains)
+        let domainInitializer () = initializer |> Option.iter (fun f -> f ()) ; ignore config.Value
+        let pool = AppDomainEvaluatorPool.Create(domainInitializer, ?threshold = threshold, 
+                                                    ?minimumConcurrentDomains = minConcurrentDomains,
+                                                    ?maximumConcurrentDomains = maxConcurrentDomains)
+
+        new AppDomainJobEvaluator(config, pool)
 
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {

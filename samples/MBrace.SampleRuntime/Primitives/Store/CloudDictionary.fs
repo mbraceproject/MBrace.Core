@@ -7,6 +7,7 @@ open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Store
+open MBrace.Store.Internals
 
 type private CloudDictionaryMsg<'T> =
     | Add of key:string * value:'T * force:bool * IReplyChannel<bool>
@@ -107,10 +108,10 @@ type CloudDictionary<'T> private (id : string, source : ActorRef<CloudDictionary
 
         new CloudDictionary<'T>(id, ref)
 
-//type ActorDictionaryProvider (state : RuntimeState) =
-//    interface ICloudDictionaryProvider with
-//        member __.IsSupportedValue _ = true
-//        member __.Create<'T> () = async {
-//            let! dict = state.ResourceFactory.RequestDictionary()
-//            return dict :> ICloudDictionary<'T>
-//        }
+type ActorDictionaryProvider (factory : ResourceFactory) =
+    interface ICloudDictionaryProvider with
+        member __.IsSupportedValue _ = true
+        member __.Create<'T> () = async {
+            let! dict = factory.RequestResource(fun () -> CloudDictionary<'T>.Init())
+            return dict :> ICloudDictionary<'T>
+        }

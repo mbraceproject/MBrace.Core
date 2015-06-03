@@ -2,38 +2,82 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime
-open MBrace.SampleRuntime.Actors
+open MBrace.Runtime.Vagabond
+
+type RuntimeState =
+    {
+        Factory : ResourceFactory
+        WorkerMonitor : WorkerMonitor
+        Logger  : ICloudLogger
+        JobQueue : IJobQueue
+        Resources : ResourceRegistry
+        AssemblyDirectory : string
+    }
+with
+    static member InitLocal(logger : ICloudLogger, fileStoreConfig : CloudFileStoreConfiguration, 
+                                ?assemblyDirectory : string, ?miscResources : ResourceRegistry) =
+
+        let wmon = WorkerMonitor.Init()
+        let factory = ResourceFactory.Init()
+        let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
+        let resources = resource {
+            yield fileStoreConfig
+            yield CloudAtomConfiguration.Create(new ActorAtomProvider(factory))
+            yield CloudChannelConfiguration.Create(new ActorChannelProvider(factory))
+            yield new ActorDictionaryProvider(factory) :> ICloudDictionaryProvider
+            match miscResources with Some r -> yield! r | None -> ()
+        }
+
+        {
+            Factory = factory
+            WorkerMonitor = wmon
+            Logger = Logger.Init(logger)
+            JobQueue = JobQueue.Init(wmon)
+            Resources = resources
+            AssemblyDirectory = assemblyDirectory
+        }
 
 [<AutoSerializable(false)>]
-type ResourceManager(factory : ResourceFactory, jobQueue : IJobQueue, logger : ICloudLogger, assemblyManager, resources : ResourceRegistry) =
+type ResourceManager(state : RuntimeState, sysLogger : ICloudLogger) =
+    let storeConfig = state.Resources.Resolve<CloudFileStoreConfiguration>()
+    let serializer = FsPicklerBinaryStoreSerializer()
+    let assemblyManager = StoreAssemblyManager.Create(storeConfig, serializer, state.AssemblyDirectory, logger = sysLogger)
+    let localWorker = WorkerRef.LocalWorker
+
+    member __.State = state
+
     interface IRuntimeResourceManager with
-        member x.AssemblyManager: IAssemblyManager = assemblyManager
+        member x.AssemblyManager: IAssemblyManager = assemblyManager :> _
         
-        member x.CancellationEntryFactory: ICancellationEntryFactory = factory :> _
+        member x.CancellationEntryFactory: ICancellationEntryFactory = state.Factory :> _
         
         member x.CurrentWorker: IWorkerRef = WorkerRef.LocalWorker :> _
         
-        member x.GetAvailableWorkers(): Async<IWorkerRef []> = 
-            failwith "Not implemented yet"
+        member x.GetAvailableWorkers(): Async<IWorkerRef []> = async {
+            let! workers = state.WorkerMonitor.GetAllWorkers()
+            return workers |> Array.map (fun (_,_,w) -> w)
+        }
         
-        member x.JobQueue: IJobQueue = jobQueue
+        member x.JobQueue: IJobQueue = state.JobQueue
         
-        member x.Logger: ICloudLogger = logger
+        member x.Logger: ICloudLogger = state.Logger
         
         member x.RequestCounter(initialValue: int): Async<ICloudCounter> = async {
-            let! c = factory.RequestCounter initialValue
+            let! c = state.Factory.RequestCounter initialValue
             return c :> ICloudCounter
         }
         
         member x.RequestResultAggregator(capacity: int): Async<IResultAggregator<'T>> =  async {
-            let! c = factory.RequestResultAggregator<'T>(capacity)
+            let! c = state.Factory.RequestResultAggregator<'T>(capacity)
             return c :> IResultAggregator<'T>
         }
         
         member x.RequestTaskCompletionSource(): Async<ICloudTaskCompletionSource<'T>> = async {
-            let! c = factory.RequestTaskCompletionSource<'T> ()
+            let! c = state.Factory.RequestTaskCompletionSource<'T> ()
             return c :> ICloudTaskCompletionSource<'T>
         }
         
-        member x.ResourceRegistry: ResourceRegistry = resources
+        member x.ResourceRegistry: ResourceRegistry = state.Resources

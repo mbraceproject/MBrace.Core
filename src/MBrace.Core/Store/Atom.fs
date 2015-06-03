@@ -37,8 +37,8 @@ type ICloudAtomProvider =
     /// Implementation name
     abstract Name : string
 
-//    /// Cloud atom identifier
-//    abstract Id : string
+    /// Cloud atom identifier
+    abstract Id : string
 
     /// Create a uniquely specified container name.
     abstract CreateUniqueContainerName : unit -> string

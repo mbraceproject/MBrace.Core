@@ -6,7 +6,9 @@ open System.Collections.Generic
 open Nessos.Thespian
 
 open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 
 type private tag = uint64
 
@@ -89,21 +91,21 @@ type Atom<'T> private (id : string, source : ActorRef<AtomMsg<'T>>) =
 
         new Atom<'T>(id, ref)
 
-//type ActorAtomProvider (state : RuntimeState) =
-//    let id = state.IPEndPoint.ToString()
-//    interface ICloudAtomProvider with
-//        member x.CreateAtom(container: string, initValue: 'T): Async<ICloudAtom<'T>> = async {
-//            let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
-//            let! atom = state.ResourceFactory.RequestAtom<'T>(id, initValue)
-//            return atom :> ICloudAtom<'T>
-//        }
-//
-//        member x.CreateUniqueContainerName () = System.Guid.NewGuid().ToString()
-//
-//        member x.DisposeContainer (_ : string) = async.Zero()
-//        
-//        member x.Id: string = id
-//        
-//        member x.IsSupportedValue(value: 'T): bool = true
-//        
-//        member x.Name: string = "ActorAtom"
+
+type ActorAtomProvider (factory : ResourceFactory) =
+    let id = mkUUID()
+    interface ICloudAtomProvider with
+        member x.CreateAtom(container: string, initValue: 'T): Async<ICloudAtom<'T>> = async {
+            let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
+            let! atom = factory.RequestResource(fun () -> Atom<'T>.Init(id, initValue))
+            return atom :> ICloudAtom<'T>
+        }
+
+        member x.CreateUniqueContainerName () = System.Guid.NewGuid().ToString()
+
+        member x.DisposeContainer (_ : string) = async.Zero()
+        
+        member x.IsSupportedValue(value: 'T): bool = true
+        
+        member x.Name: string = "ActorAtom"
+        member x.Id = id

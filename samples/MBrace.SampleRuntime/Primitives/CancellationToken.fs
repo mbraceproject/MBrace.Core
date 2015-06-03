@@ -62,6 +62,3 @@ and CancellationEntry private (id : string, source : ActorRef<CancellationEntryM
             |> Actor.ref
 
         new CancellationEntry(id, aref)
-
-type CancellationEntryFactory(rf : ResourceFactory) =
-    let getEntry () = rf.RequestResource(fun () -> CancellationEntry.Init())

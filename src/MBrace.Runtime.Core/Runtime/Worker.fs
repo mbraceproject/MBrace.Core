@@ -21,7 +21,7 @@ type IWorkerManager =
     /// Declare current worker instance as stopped.
     abstract DeclareStopped : unit -> Async<unit>
     /// Declare current worker instance as faulted.
-    abstract DeclareFaulted : exn -> Async<unit>
+    abstract DeclareFaulted : ExceptionDispatchInfo -> Async<unit>
     /// Declare the current job count for worker instance.
     abstract DeclareJobCount : jobCount:int -> Async<unit>
     
@@ -121,7 +121,7 @@ type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan
 
                 | Choice2Of2 ex ->
                     config.Resources.Logger.Logf "Worker JobQueue fault\n%A" ex
-                    do! config.WorkerManager.DeclareFaulted ex
+                    do! config.WorkerManager.DeclareFaulted (ExceptionDispatchInfo.Capture ex)
                     do! Async.Sleep errorInterval
                     return! workerLoop true state inbox
 

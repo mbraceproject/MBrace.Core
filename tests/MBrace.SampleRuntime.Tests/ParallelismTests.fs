@@ -12,7 +12,6 @@ open MBrace.Workflows
 open MBrace.Runtime
 open MBrace.Core.Tests
 open MBrace.SampleRuntime
-open MBrace.SampleRuntime.Actors
 
 type ``SampleRuntime Parallelism Tests`` () as self =
     inherit ``Parallelism Tests`` (parallelismFactor = 20, delayFactor = 3000)

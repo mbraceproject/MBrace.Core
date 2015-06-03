@@ -6,7 +6,9 @@ open System.Collections.Generic
 open Nessos.Thespian
 
 open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 
 type private ChannelMsg<'T> =
     | Send of 'T
@@ -59,17 +61,17 @@ type Channel<'T> private (id : string, source : ActorRef<ChannelMsg<'T>>) =
 
         new Channel<'T>(id, self.Value)
 
-//type ActorChannelProvider (state : RuntimeState) =
-//    let id = state.IPEndPoint.ToString()
-//    interface ICloudChannelProvider with
-//        member __.Name = "ActorChannel"
-//        member __.Id = id
-//        member __.CreateUniqueContainerName () = ""
-//
-//        member __.CreateChannel<'T> (container : string) = async {
-//            let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
-//            let! ch = state.ResourceFactory.RequestChannel<'T> id
-//            return ch :> ISendPort<'T>, ch :> IReceivePort<'T>
-//        }
-//
-//        member __.DisposeContainer _ = async.Zero()
+type ActorChannelProvider (state : ResourceFactory) =
+    let id = mkUUID()
+    interface ICloudChannelProvider with
+        member __.Name = "ActorChannel"
+        member __.Id = id
+        member __.CreateUniqueContainerName () = ""
+
+        member __.CreateChannel<'T> (container : string) = async {
+            let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
+            let! ch = state.RequestResource(fun () -> Channel<'T>.Init(id))
+            return ch :> ISendPort<'T>, ch :> IReceivePort<'T>
+        }
+
+        member __.DisposeContainer _ = async.Zero()

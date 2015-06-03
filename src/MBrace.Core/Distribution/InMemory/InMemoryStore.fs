@@ -42,6 +42,7 @@ type private InMemoryAtom<'T> (initial : 'T) =
 
 [<Sealed; AutoSerializable(false)>]
 type InMemoryAtomProvider () =
+    let id = mkUUID()
     static member CreateConfiguration () : CloudAtomConfiguration =
         {
             AtomProvider = new InMemoryAtomProvider() :> ICloudAtomProvider
@@ -50,6 +51,7 @@ type InMemoryAtomProvider () =
 
     interface ICloudAtomProvider with
         member __.Name = "InMemoryAtomProvider"
+        member __.Id = id
         member __.CreateUniqueContainerName () = mkUUID()
         member __.IsSupportedValue _ = true
         member __.CreateAtom<'T>(_, init : 'T) = async { return new InMemoryAtom<'T>(init) :> _ }
