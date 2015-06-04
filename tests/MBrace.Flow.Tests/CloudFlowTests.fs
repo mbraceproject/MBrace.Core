@@ -612,17 +612,14 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : toTextCloudFiles`` () =
         let f(xs : int[]) =
             let xs = xs |> Array.map string
-            printfn "xs: %A" xs
             let dir = CloudPath.GetRandomDirectoryName() |> __.RunLocally
             let cfs = 
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.toTextCloudFiles dir
                 |> run
-            printfn "cfs: %A" cfs
             let ys = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Seq.toArray
-            printfn "ys: %A" ys
             Assert.AreEqual(xs, ys)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)

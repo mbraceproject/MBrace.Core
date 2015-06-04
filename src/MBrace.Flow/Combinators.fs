@@ -425,7 +425,7 @@ module CloudFlow =
         let collectorf (cloudCts : ICloudCancellationTokenSource) =
             local {
                 let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
-                let results = new List<string * Stream>()
+                let results = new List<string * StreamWriter>()
                 let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
                 config.FileStore.CreateDirectory dirPath |> Async.RunSynchronously
                 let! worker = Cloud.CurrentWorker
@@ -435,13 +435,13 @@ module CloudFlow =
                         member self.Iterator() =
                             let path = config.FileStore.Combine(dirPath, sprintf "Part-%s-%d.txt" worker.Id results.Count)
                             let stream = config.FileStore.BeginWrite(path) |> Async.RunSynchronously
-                            results.Add((path, stream))
                             let writer = new StreamWriter(stream)
+                            results.Add((path, writer))
                             {   Index = ref -1;
                                 Func = (fun line -> writer.WriteLine(line));
                                 Cts = cts }
                         member self.Result =
-                            results |> Seq.iter (fun (_, stream) -> stream.Dispose())
+                            results |> Seq.iter (fun (_, writer) -> writer.Dispose())
                             results |> Seq.map (fun (path, _) -> new CloudFile(path)) |> Seq.toArray }
             }
 
