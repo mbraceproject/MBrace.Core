@@ -9,11 +9,12 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 
-type WorkerRef private (hostname : string, pid : int) =
+type WorkerRef private (hostname : string, pid : int, processorCount : int) =
     static let localWorker = lazy(
         let hostname = System.Net.Dns.GetHostName()
         let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-        new WorkerRef(hostname, pid))
+        let pc = System.Environment.ProcessorCount
+        new WorkerRef(hostname, pid, pc))
 
     let id = sprintf "mbrace-worker://%s/pid:%d" hostname pid
     member __.Pid = pid
@@ -21,8 +22,7 @@ type WorkerRef private (hostname : string, pid : int) =
         member __.Hostname = hostname
         member __.Id = id
         member __.Type = "sample runtime worker node"
-        // this assumes that workers are constrained to local machine
-        member __.ProcessorCount = System.Environment.ProcessorCount
+        member __.ProcessorCount = processorCount
         member __.CompareTo(other : obj) =
             match other with
             | :? WorkerRef as w -> compare id (w :> IWorkerRef).Id
