@@ -36,6 +36,7 @@ module JobEvaluator =
         let resources = resource {
             yield! manager.ResourceRegistry
             yield jem
+            yield job.FaultPolicy
             yield distributionProvider :> IDistributionProvider
         }
 
