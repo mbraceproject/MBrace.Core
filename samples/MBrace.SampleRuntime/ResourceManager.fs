@@ -7,43 +7,16 @@ open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Vagabond
 
-type RuntimeState =
-    {
-        Factory : ResourceFactory
-        WorkerMonitor : WorkerMonitor
-        CloudLogger  : ActorCloudLogger
-        JobQueue : IJobQueue
-        Resources : ResourceRegistry
-        AssemblyDirectory : string
-    }
-with
-    static member InitLocal(localLogger : ISystemLogger, fileStoreConfig : CloudFileStoreConfiguration, 
-                                ?assemblyDirectory : string, ?miscResources : ResourceRegistry) =
-
-        let wmon = WorkerMonitor.Init()
-        let factory = ResourceFactory.Init()
-        let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
-        let resources = resource {
-            yield fileStoreConfig
-            yield CloudAtomConfiguration.Create(new ActorAtomProvider(factory))
-            yield CloudChannelConfiguration.Create(new ActorChannelProvider(factory))
-            yield new ActorDictionaryProvider(factory) :> ICloudDictionaryProvider
-            match miscResources with Some r -> yield! r | None -> ()
-        }
-
-        {
-            Factory = factory
-            WorkerMonitor = wmon
-            CloudLogger = ActorCloudLogger.Init(localLogger)
-            JobQueue = JobQueue.Init(wmon)
-            Resources = resources
-            AssemblyDirectory = assemblyDirectory
-        }
-
 [<AutoSerializable(false)>]
 type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
-    let storeConfig = state.Resources.Resolve<CloudFileStoreConfiguration>()
-    let serializer = FsPicklerBinaryStoreSerializer()
+    let resources = resource {
+        yield! state.Resources
+        yield Config.ObjectCache
+    }
+
+    let storeConfig = resources.Resolve<CloudFileStoreConfiguration>()
+    let serializer = resources.Resolve<ISerializer>()
+
     let assemblyManager = StoreAssemblyManager.Create(storeConfig, serializer, state.AssemblyDirectory, logger = logger)
 
     member __.State = state
@@ -57,7 +30,7 @@ type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
         
         member x.GetAvailableWorkers(): Async<IWorkerRef []> = async {
             let! workers = state.WorkerMonitor.GetAllWorkers()
-            return workers |> Array.map (fun (_,_,w) -> w)
+            return workers |> Array.map fst
         }
         
         member x.JobQueue: IJobQueue = state.JobQueue
@@ -81,4 +54,4 @@ type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
             return c :> ICloudTaskCompletionSource<'T>
         }
         
-        member x.ResourceRegistry: ResourceRegistry = state.Resources
+        member x.ResourceRegistry: ResourceRegistry = resources

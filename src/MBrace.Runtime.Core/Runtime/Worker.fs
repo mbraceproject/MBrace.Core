@@ -12,189 +12,193 @@ open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
 
-/// Worker management object used for updating with execution metadata.
-type IWorkerManager =
-    /// Gets the current worker reference object.
-    abstract CurrentWorker : IWorkerRef
-    /// Declare current worker instance as running.
-    abstract DeclareRunning : unit -> Async<unit>
-    /// Declare current worker instance as stopped.
-    abstract DeclareStopped : unit -> Async<unit>
-    /// Declare current worker instance as faulted.
-    abstract DeclareFaulted : ExceptionDispatchInfo -> Async<unit>
-    /// Declare the current job count for worker instance.
-    abstract DeclareJobCount : jobCount:int -> Async<unit>
-    
-
-/// Worker configuration record.
 [<NoEquality; NoComparison>]
-type WorkerConfig = 
-    { 
-        /// Maximum jobs allowed for concurrent execution
-        MaxConcurrentJobs   : int
-        /// Runtime resource manager
-        Resources           : IRuntimeResourceManager
-        /// Worker manager implementation
-        WorkerManager       : IWorkerManager
-        /// Job evaluator implementation
-        JobEvaluator        : ICloudJobEvaluator
+type WorkerStatus =
+    | Running
+    | Stopped
+    | QueueFault of ExceptionDispatchInfo
+
+[<NoEquality; NoComparison>]
+type WorkerState =
+    {
+        Status : WorkerStatus
+        CurrentJobCount : int
+        MaxJobCount : int
     }
 
 [<NoEquality; NoComparison>]
-type private WorkerMessage =
-    | Start of WorkerConfig  * ReplyChannel<unit>
-    | Stop of ReplyChannel<unit>
-    | Restart of WorkerConfig * ReplyChannel<unit>
-    | IsActive of ReplyChannel<WorkerConfig option>
-
-[<NoEquality; NoComparison>]
-type private WorkerState =
-    | Idle
-    | Running of WorkerConfig
-
-// TODO: remove agent logic and pass workerconfig as ctor argument with proper disposal
+type private WorkerAgentMessage = 
+    | Stop of waitTimeout:int * ReplyChannel<unit>
+    | Start of ReplyChannel<unit>
 
 /// Worker agent with updatable configuration
-type WorkerAgent private (?receiveInterval : TimeSpan, ?errorInterval : TimeSpan) =
-
+type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) =
     let cts = new CancellationTokenSource()
-    let receiveInterval = match receiveInterval with Some t -> int t.TotalMilliseconds | None -> 100
-    let errorInterval = match errorInterval with Some t -> int t.TotalMilliseconds | None -> 1000
+    let event = new Event<WorkerState>()
     let mutable currentJobCount = 0
+    [<VolatileField>]
+    let mutable status = Stopped
 
-    let waitForPendingJobs (config : WorkerConfig) = async {
-        let logger = config.Resources.SystemLogger
-        logger.Log LogLevel.Info "Stop requested. Waiting for pending jobs."
-        let rec wait () = async {
-            if currentJobCount > 0 then
-                do! Async.Sleep receiveInterval
-                return! wait ()
-        }
-        do! wait ()
-        logger.Log LogLevel.Info "No active jobs."
-        logger.Log LogLevel.Info "Unregister current worker."
-        do! config.WorkerManager.DeclareStopped()
-        logger.Log LogLevel.Info "Worker stopped."
-    }
+    let getState () = { Status = status ; CurrentJobCount = currentJobCount ; MaxJobCount = maxConcurrentJobs }
+    let triggerStateUpdate () = 
+        let state = getState ()
+        event.TriggerAsTask state |> ignore
 
-    let rec workerLoop (queueFault : bool) (state : WorkerState) 
-                        (inbox : MailboxProcessor<WorkerMessage>) = async {
+    let logger = resourceManager.SystemLogger
+    let waitInterval = 100
+    let errorInterval = 1000
 
-        let! message = inbox.TryReceive(timeout = 10)
-        match message, state with
-        | None, Running config ->
-            let logger = config.Resources.SystemLogger
-            if currentJobCount >= config.MaxConcurrentJobs then
-                do! Async.Sleep receiveInterval
-                return! workerLoop false state inbox
+    let rec workerLoop (inbox : MailboxProcessor<WorkerAgentMessage>) = async {
+        let! controlMessage = async {
+            if inbox.CurrentQueueLength > 0 then
+                let! m = inbox.Receive()
+                return Some m
             else
-                let! job = Async.Catch <| config.Resources.JobQueue.TryDequeue config.WorkerManager.CurrentWorker
+                return None
+        }
+
+        match controlMessage with
+        | None ->
+            match status with
+            | Stopped ->
+                do! Async.Sleep waitInterval
+                return! workerLoop inbox
+
+            | _ when currentJobCount >= maxConcurrentJobs ->
+                do! Async.Sleep waitInterval
+                return! workerLoop inbox
+
+            | _ ->
+                let! job = Async.Catch <| resourceManager.JobQueue.TryDequeue resourceManager.CurrentWorker
                 match job with
-                | Choice1Of2 None ->
-                    if queueFault then 
-                        logger.Log LogLevel.Info "Reverting state to Running"
-                        do! config.WorkerManager.DeclareRunning()
-                        logger.Log LogLevel.Info "Done"
+                | Choice2Of2 e ->
+                    status <- QueueFault (ExceptionDispatchInfo.Capture e)
+                    triggerStateUpdate ()
 
-                    do! Async.Sleep receiveInterval
-                    return! workerLoop false state inbox
-
-                | Choice1Of2(Some jobToken) ->
-                    // run job
-                    let jc = Interlocked.Increment &currentJobCount
-
-                    if queueFault then 
-                        logger.Log LogLevel.Info "Reverting state to Running"
-                        do! config.WorkerManager.DeclareRunning()
-                        logger.Log LogLevel.Info "Done"
-
-                    do! config.WorkerManager.DeclareJobCount jc
-                    logger.Logf LogLevel.Info "Increase Dequeued Jobs to %d." jc
-                    let! _ = Async.StartChild <| async { 
-                        try
-                            logger.Log LogLevel.Info "Downloading dependencies."
-                            let! assemblies = config.Resources.AssemblyManager.DownloadAssemblies jobToken.Dependencies
-                            do! config.JobEvaluator.Evaluate (assemblies, jobToken)
-                        finally
-                            let jc = Interlocked.Decrement &currentJobCount
-                            config.WorkerManager.DeclareJobCount jc |> Async.RunSync
-                            logger.Logf LogLevel.Info "Decrease Dequeued Jobs %d" jc
-                    }
-
-                    return! workerLoop false state inbox
-
-                | Choice2Of2 ex ->
-                    logger.Logf LogLevel.Info "Worker JobQueue fault\n%A" ex
-                    do! config.WorkerManager.DeclareFaulted (ExceptionDispatchInfo.Capture ex)
+                    logger.Logf LogLevel.Info "Worker Job Queue fault:\n%O" e
                     do! Async.Sleep errorInterval
-                    return! workerLoop true state inbox
+                    return! workerLoop inbox
 
-        | None, Idle -> 
-            do! Async.Sleep receiveInterval
-            return! workerLoop false state inbox
+                | Choice1Of2 result ->
+                    match status with
+                    | QueueFault _ ->
+                        status <- Running
+                        triggerStateUpdate ()
+                        logger.Log LogLevel.Info "Worker Job Queue restored."
 
-        | Some(Start(config, ch)), Idle ->
-            do ch.Reply (())
-            return! workerLoop false (Running config) inbox
+                    | _ -> ()
 
-        | Some(Start (_,ch)), Running _  ->
-            let e = new InvalidOperationException("Called Start, but worker is not Idle.")
-            ch.ReplyWithError e
-            return! workerLoop queueFault state inbox
+                    match result with
+                    | None ->
+                        do! Async.Sleep waitInterval
+                        return! workerLoop inbox
 
-        | Some(Stop ch), Running config ->
-            do! waitForPendingJobs config
-            ch.Reply (())
-            return! workerLoop false Idle inbox
+                    | Some jobToken ->
+                        // Successfully dequeued job, run it.
+                        let jc = Interlocked.Increment &currentJobCount
+                        triggerStateUpdate()
 
-        | Some(Stop ch), Idle ->
-            let e = new InvalidOperationException("Worker is Idle, cannot stop.")
-            ch.ReplyWithError e
-            return! workerLoop queueFault state inbox
+                        logger.Logf LogLevel.Info "Dequeued job '%s' from queue." jobToken.JobId
+                        logger.Logf LogLevel.Info "Concurrent job count is %d/%d." jc maxConcurrentJobs
 
-        | Some(Restart (config, ch)), Idle ->
-            ch.Reply (())
-            return! workerLoop queueFault (Running config) inbox
+                        let! _ = Async.StartChild <| async { 
+                            try
+                                try
+                                    logger.Log LogLevel.Info "Downloading dependencies."
+                                    let! assemblies = resourceManager.AssemblyManager.DownloadAssemblies jobToken.Dependencies
+                                    do! jobEvaluator.Evaluate (assemblies, jobToken)
+                                with e ->
+                                    logger.Logf LogLevel.Error "Faulted job '%s':\n%A" jobToken.JobId e
+                                    return ()
+                            finally
+                                let jc = Interlocked.Decrement &currentJobCount
+                                triggerStateUpdate()
 
-        | Some(Restart (config, ch)), Running _ ->
-            do! waitForPendingJobs config
-            ch.Reply (())
-            return! workerLoop false (Running config) inbox
+                                logger.Logf LogLevel.Info "Completed cloud job '%s'." jobToken.JobId
+                                logger.Logf LogLevel.Info "Concurrent job count is %d/%d." jc maxConcurrentJobs
 
-        | Some(IsActive ch), Idle ->
-            ch.Reply None
-            return! workerLoop false state inbox
+                        }
 
-        | Some(IsActive ch), Running config ->
-            ch.Reply (Some config)
-            return! workerLoop false state inbox
+                        return! workerLoop inbox
+
+        | Some(Stop (waitTimeout, rc)) ->
+            match status with
+            | Running | QueueFault _ ->
+                logger.Log LogLevel.Info "Stop requested. Waiting for pending jobs."
+                let rec wait () = async {
+                    let jc = currentJobCount
+                    if jc > 0 then
+                        logger.Logf LogLevel.Info "Waiting for (%d) active jobs to complete." jc
+                        do! Async.Sleep 1000
+                        return! wait ()
+                }
+
+                let! result = Async.WithTimeout(wait (), waitTimeout) |> Async.Catch
+                match result with
+                | Choice1Of2 () -> logger.Log LogLevel.Info "No active jobs."
+                | Choice2Of2 _ -> logger.Logf LogLevel.Error "Timeout while waiting for active jobs to complete."
+
+                status <- Stopped
+                triggerStateUpdate()
+                do rc.Reply (())
+
+                logger.Log LogLevel.Info "Worker stopped."
+                return! workerLoop inbox
+
+            | _ ->
+                rc.ReplyWithError (new InvalidOperationException("Worker is not running."))
+                return! workerLoop inbox
+
+        | Some(Start rc) ->
+            match status with
+            | Stopped ->
+                logger.Log LogLevel.Info "Starting Worker."
+                status <- Running
+                triggerStateUpdate()
+                do rc.Reply (())
+                return! workerLoop inbox
+            | _ ->
+                rc.ReplyWithError (new InvalidOperationException "Worker is already running.")
+                return! workerLoop inbox
     }
 
-    let agent = MailboxProcessor.Start(workerLoop false Idle, cts.Token)
+    let agent = MailboxProcessor.Start(workerLoop, cts.Token)
 
     /// <summary>
-    ///     Creates a blank Worker agent instance.
+    ///     Creates a new Worker agent instance with provided runtime configuration.
     /// </summary>
-    /// <param name="receiveInterval">Queue message receive interval. Defaults to 100ms.</param>
-    /// <param name="errorInterval">Queue error wait interval. Defaults to 1000ms.</param>
-    static member Create(?receiveInterval : TimeSpan, ?errorInterval : TimeSpan) =
-        new WorkerAgent(?receiveInterval = receiveInterval, ?errorInterval = errorInterval)
-    
-    /// Checks whether worker agent is active.
-    member w.IsActive = agent.PostAndReply IsActive |> Option.isSome
+    /// <param name="resourceManager">Runtime resource management object.</param>
+    /// <param name="jobEvaluator">Abstract job evaluator.</param>
+    /// <param name="maxConcurrentJobs">Maximum number of jobs to be executed concurrently in this worker.</param>
+    static member Create(resourceManager : IRuntimeResourceManager, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) =
+        if maxConcurrentJobs < 1 then invalidArg "maxConcurrentJobs" "must be positive."
+        new WorkerAgent(resourceManager, jobEvaluator, maxConcurrentJobs)
 
-    /// Gets the current configuration for the agent.
-    member w.Configuration = agent.PostAndReply IsActive
+    /// Worker ref representing the current worker instance.
+    member w.CurrentWorker = resourceManager.CurrentWorker
 
     /// Starts agent with supplied configuration
-    member w.Start(configuration : WorkerConfig) =
-        agent.PostAndReply(fun ch -> Start(configuration, ch))
+    member w.Start() = async {
+        return! agent.PostAndAsyncReply Start
+    }
         
     /// Removes current configuration from agent.
-    member w.Stop() = agent.PostAndReply(fun ch -> Stop(ch))
+    member w.Stop(?timeout:int) = async {
+        let timeout = defaultArg timeout Timeout.Infinite
+        return! agent.PostAndAsyncReply (fun ch -> Stop(timeout, ch))
+    }
 
-    /// Restarts agent with new configuration
-    member w.Restart(configuration : WorkerConfig) = agent.PostAndReply(fun ch -> Restart(configuration,ch))
+    /// Gets Current worker state configuration
+    member w.CurrentState = getState()
+
+    /// Worker state change observable
+    member w.OnStateChange = event.Publish
+
+    /// Gets whether worker agent is currently running
+    member w.IsRunning = 
+        match status with Running | QueueFault _ -> true | _ -> false
 
     interface IDisposable with
-        member w.Dispose () = w.Stop() ; cts.Cancel()
+        member w.Dispose () =
+            if w.IsRunning then w.Stop(timeout = 5000) |> Async.RunSync
+            cts.Cancel()

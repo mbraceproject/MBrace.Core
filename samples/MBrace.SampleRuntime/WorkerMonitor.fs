@@ -44,19 +44,16 @@ type private HeartbeatMonitorMsg =
     | Stop of IReplyChannel<unit>
 
 and private WorkerMonitorMsg =
-    | Subscribe of IWorkerRef * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
-    | DeclareDead of IWorkerRef
-    | DeclareFaulted of IWorkerRef * ExceptionDispatchInfo
-    | DeclareWorking of IWorkerRef
-    | DeclareJobCount of IWorkerRef * int
+    | Subscribe of IWorkerRef * WorkerState * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
     | UnSubscribe of IWorkerRef
+    | DeclareState of IWorkerRef * WorkerState
+    | DeclareDead of IWorkerRef
     | IsAlive of IWorkerRef * IReplyChannel<bool>
-    | GetAllWorkers of IReplyChannel<(ExceptionDispatchInfo option * int * IWorkerRef) []>
+    | GetAllWorkers of IReplyChannel<(IWorkerRef * WorkerState) []>
 
 type private WorkerInfo =
     {
-        Fault : ExceptionDispatchInfo option
-        JobCount : int
+        State : WorkerState
         HeartbeatMonitor : ActorRef<HeartbeatMonitorMsg>
     }
 
@@ -105,20 +102,23 @@ module private HeartbeatMonitor =
 
 [<AutoSerializable(true)>]
 type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
-    member __.Subscribe(worker : IWorkerRef) = async {
-        let! heartbeatMon,threshold = source <!- fun ch -> Subscribe(worker, ch)
+    member __.Subscribe(worker : IWorkerRef, initial : WorkerState) = async {
+        let! heartbeatMon,threshold = source <!- fun ch -> Subscribe(worker, initial, ch)
         return! HeartbeatMonitor.initHeartbeat threshold heartbeatMon
     }
 
-    member __.DeclareFaulted(worker : IWorkerRef, edi : ExceptionDispatchInfo) =
-        source <-- DeclareFaulted (worker, edi)
+    member __.DeclareState(worker : IWorkerRef, state : WorkerState) =
+        source <-- DeclareState (worker, state)
 
-    member __.DeclareJobCount(worker : IWorkerRef, jobCount : int) =
-        source <-- DeclareJobCount (worker, jobCount)
-
-    member __.DeclareRunning(worker : IWorkerRef) =
-        source <-- DeclareWorking worker
-
+//    member __.DeclareFaulted(worker : IWorkerRef, edi : ExceptionDispatchInfo) =
+//        source <-- DeclareFaulted (worker, edi)
+//
+//    member __.DeclareJobCount(worker : IWorkerRef, jobCount : int) =
+//        source <-- DeclareJobCount (worker, jobCount)
+//
+//    member __.DeclareRunning(worker : IWorkerRef) =
+//        source <-- DeclareNormal worker
+//
     member __.UnSubscribe(worker : IWorkerRef) =
         source <-- UnSubscribe worker
 
@@ -135,11 +135,18 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
         let rec behaviour (state : Map<IWorkerRef, WorkerInfo>) (self : Actor<WorkerMonitorMsg>) = async {
             let! msg = self.Receive()
             match msg with
-            | Subscribe(w, rc) ->
+            | Subscribe(w, ws, rc) ->
                 let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
                 do! rc.Reply(hmon, heartbeatThreshold)
-                let info = { Fault = None ; HeartbeatMonitor = hmon ; JobCount = 0 }
+                let info = { State = ws ; HeartbeatMonitor = hmon }
                 return! behaviour (state.Add(w, info)) self
+
+            | UnSubscribe w ->
+                match state.TryFind w with
+                | None -> return! behaviour state self
+                | Some info -> 
+                    do! info.HeartbeatMonitor <!- Stop
+                    return! behaviour (state.Remove w) self
             
             | DeclareDead w ->
                 match state.TryFind w with
@@ -148,30 +155,13 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
                     do! hmon <!- Stop
                     return! behaviour (state.Remove w) self
 
-            | DeclareFaulted (w, edi) ->
+            | DeclareState (w, ws) ->
                 match state.TryFind w with
                 | None -> return! behaviour state self
-                | Some info -> return! behaviour (state.Add(w, {info with Fault = Some edi })) self
-
-            | DeclareWorking w ->
-                match state.TryFind w with
-                | None -> return! behaviour state self
-                | Some info -> return! behaviour (state.Add(w, {info with Fault = None })) self
-
-            | DeclareJobCount (w, j) ->
-                match state.TryFind w with
-                | None -> return! behaviour state self
-                | Some info -> return! behaviour (state.Add(w, {info with JobCount = j})) self
-
-            | UnSubscribe w ->
-                match state.TryFind w with
-                | None -> return! behaviour state self
-                | Some info -> 
-                    do! info.HeartbeatMonitor <!- Stop
-                    return! behaviour (state.Remove w) self
+                | Some info -> return! behaviour (state.Add(w, { info with State = ws })) self
 
             | GetAllWorkers rc ->
-                let workers = state |> Seq.map (fun kv -> kv.Value.Fault, kv.Value.JobCount, kv.Key) |> Seq.toArray
+                let workers = state |> Seq.map (fun kv -> kv.Key, kv.Value.State) |> Seq.toArray
                 do! rc.Reply workers
                 return! behaviour state self
 
@@ -189,31 +179,26 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
 
 
 [<AutoSerializable(false)>]
-type WorkerManager private (wmon : WorkerMonitor, currentWorker : IWorkerRef, unsubscriber : IDisposable) =
+type WorkerSubscriptionManager private (wmon : WorkerMonitor, worker : WorkerAgent, heartbeatDisposer : IDisposable, stateChangeDisposer : IDisposable) =
 
-    let mutable unsubscriber = unsubscriber
+    let mutable isDisposed = false
+    let lockObj = obj()
 
-    static member Create(wmon : WorkerMonitor) = async {
-        let currentWorker = WorkerRef.LocalWorker
-        let! unsubscriber = wmon.Subscribe(currentWorker)
-        return new WorkerManager(wmon, currentWorker, unsubscriber)
+    /// Initializes a subscribption and heartbeat for provider worker agent instance
+    static member Init(wmon : WorkerMonitor, worker : WorkerAgent) = async {
+        let! heartbeatDisposer = wmon.Subscribe(worker.CurrentWorker, worker.CurrentState)
+        let stateChangeDisposer = worker.OnStateChange.Subscribe(fun state -> wmon.DeclareState(worker.CurrentWorker, state))
+        return new WorkerSubscriptionManager(wmon, worker, heartbeatDisposer, stateChangeDisposer)
     }
 
-    interface IWorkerManager with
-        member x.CurrentWorker: IWorkerRef = currentWorker
-        
-        member x.DeclareFaulted(edi: ExceptionDispatchInfo) = async {
-            return wmon.DeclareFaulted(currentWorker, edi)
-        }
-        
-        member x.DeclareJobCount(jobCount: int): Async<unit> = async {
-            return wmon.DeclareJobCount(currentWorker, jobCount)
-        }
-        
-        member x.DeclareRunning(): Async<unit> = async {
-            return wmon.DeclareRunning currentWorker
-        }
+    /// Unsubscribes worker from global worker monitor
+    member __.UnSubscribe() =
+        lock lockObj (fun () ->
+            if isDisposed then () else
+            stateChangeDisposer.Dispose()
+            heartbeatDisposer.Dispose()
+            wmon.UnSubscribe worker.CurrentWorker
+            isDisposed <- true)
 
-        member x.DeclareStopped(): Async<unit> = async {
-            return wmon.UnSubscribe currentWorker
-        }
+    interface IDisposable with
+        member __.Dispose() = __.UnSubscribe()

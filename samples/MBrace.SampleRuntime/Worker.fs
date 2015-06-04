@@ -1,4 +1,4 @@
-﻿namespace MBrace.SampleRuntime
+﻿module internal MBrace.SampleRuntime.Worker
 
 open System
 
@@ -8,62 +8,30 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 
-type private WorkerControl =
-    | Subscribe of state:RuntimeState
-    | UnSubscribe
+let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
+                    (logger : ISystemLogger) (maxConcurrentJobs : int) = async {
 
-type Worker private (actor : ActorRef<WorkerControl>) =
+    ignore Config.Serializer
+    let resourceManager = new ResourceManager(state, logger)
 
-    member __.Subscribe(state : RuntimeState) = actor <-- Subscribe state
-    member __.UnSubscribe () = actor <-- UnSubscribe
+    let jobEvaluator =
+        if useAppDomainIsolation then
+            logger.LogInfo "Initializing AppDomain pool evaluator."
+            let workingDirectory = Config.WorkingDirectory 
+            let initializer () =
+                Config.Init(workingDirectory, cleanup = false) 
+                logger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
 
-    static member InitLocal(logger : ISystemLogger, maxConcurrentJobs:int, useAppDomainIsolation:bool) =
-        ignore Config.Serializer
-        if maxConcurrentJobs < 1 then invalidArg "maxConcurrentJobs" "must be positive."
-        let agent = WorkerAgent.Create()
-        let behaviour (disposable : IDisposable option) (msg : WorkerControl) = async {
-            disposable |> Option.iter (fun d -> d.Dispose())
-            match msg with
-            | Subscribe state when useAppDomainIsolation ->
-                let workingDirectory = Config.WorkingDirectory 
-                let initResourceManager () =
-                    Config.Init(workingDirectory, cleanup = false)
-                    new ResourceManager(state, logger) :> IRuntimeResourceManager
+            let managerF = DomainLocal.Create(fun () -> new ResourceManager(state, logger) :> IRuntimeResourceManager)
 
-                let resourceManager = DomainLocal.Create initResourceManager
+            AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
+        else
+            new LocalJobEvaluator(resourceManager) :> ICloudJobEvaluator
 
-                let! wmanager = WorkerManager.Create(state.WorkerMonitor)
-                let jobEvaluator = AppDomainJobEvaluator.Create(resourceManager)
-                let config = 
-                    {
-                        MaxConcurrentJobs = maxConcurrentJobs
-                        Resources = new ResourceManager(state, logger) :> IRuntimeResourceManager
-                        WorkerManager = wmanager
-                        JobEvaluator = jobEvaluator
-                    }
-
-                agent.Restart config
-                return (Some (jobEvaluator :> IDisposable))
-
-            | Subscribe state ->
-                let resourceManager = new ResourceManager(state, logger)
-                let! wmanager = WorkerManager.Create(state.WorkerMonitor)
-                let jobEvaluator = new LocalJobEvaluator(resourceManager)
-                let config =
-                    {
-                        MaxConcurrentJobs = maxConcurrentJobs ;
-                        Resources = resourceManager ;
-                        WorkerManager = wmanager
-                        JobEvaluator = jobEvaluator
-                    }
-
-                agent.Restart config
-                return None
-
-            | UnSubscribe -> 
-                try agent.Stop() with _ -> ()
-                return None
-        }
-
-        let aref = Actor.Stateful None behaviour |> Actor.Publish |> Actor.ref
-        new Worker(aref)
+    logger.LogInfo "Creating worker agent."
+    let agent = WorkerAgent.Create(resourceManager, jobEvaluator, maxConcurrentJobs)
+    logger.LogInfo "Setting up worker subscription."
+    let! subscription = WorkerSubscriptionManager.Init(state.WorkerMonitor, agent)
+    do! agent.Start()
+    return agent, subscription
+}

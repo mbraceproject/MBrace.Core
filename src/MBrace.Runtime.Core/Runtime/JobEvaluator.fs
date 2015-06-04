@@ -13,7 +13,12 @@ open MBrace.Runtime.Utils
 
 /// Job evaluator abstraction
 type ICloudJobEvaluator =
-    /// Asynchronously evaluates a job in the local worker.
+
+    /// <summary>
+    ///     Asynchronously evaluates a job in the local worker.  
+    /// </summary>
+    /// <param name="dependencies">Local assemblies that the job depends on.</param>
+    /// <param name="jobtoken">Cloud job token.</param>
     abstract Evaluate : dependencies:VagabondAssembly [] * jobtoken:ICloudJobLeaseToken -> Async<unit>
 
 [<RequireQualifiedAccess>]
@@ -96,19 +101,21 @@ module JobEvaluator =
     }
        
 
+[<AutoSerializable(false)>]
 type LocalJobEvaluator(manager : IRuntimeResourceManager) =
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
             return! JobEvaluator.loadAndRunJobAsync manager assemblies jobtoken
         }
 
+[<AutoSerializable(false)>]
 type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager>, pool : AppDomainEvaluatorPool) =
 
     static member Create(managerF : DomainLocal<IRuntimeResourceManager>,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
                                 ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 
-        let domainInitializer () = initializer |> Option.iter (fun f -> f ()) ; ignore managerF.Value
+        let domainInitializer () = initializer |> Option.iter (fun f -> f ())
         let pool = AppDomainEvaluatorPool.Create(domainInitializer, ?threshold = threshold, 
                                                     ?minimumConcurrentDomains = minConcurrentDomains,
                                                     ?maximumConcurrentDomains = maxConcurrentDomains)
@@ -117,6 +124,8 @@ type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager>, pool
 
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
+            // avoid capturing evaluator in closure
+            let managerF = managerF
             let eval () = async { 
                 let manager = managerF.Value 
                 return! JobEvaluator.loadAndRunJobAsync manager assemblies jobtoken 

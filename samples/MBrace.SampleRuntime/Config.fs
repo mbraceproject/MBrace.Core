@@ -25,7 +25,6 @@ type Config private () =
     static let isInitialized = ref false
     static let mutable workingDirectory = Unchecked.defaultof<string>
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
-//    static let mutable _logger = Unchecked.defaultof<ISystemLogger>
 
     static let checkInitialized () =
         if not isInitialized.Value then
@@ -41,7 +40,6 @@ type Config private () =
 
         objectCache <- InMemoryCache.Create()
         workingDirectory <- wd
-//        _logger <- match logger with Some l -> l | None -> new NullSystemLogger() :> ISystemLogger
 
         // vagabond initialization
         VagabondRegistry.Initialize(cachePath = vagabondPath, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
@@ -59,11 +57,6 @@ type Config private () =
     static member ObjectCache = checkInitialized() ; objectCache :> IObjectCache
     static member LocalEndPoint = checkInitialized() ; TcpListenerPool.GetListener().LocalEndPoint
     static member LocalAddress = checkInitialized() ; sprintf "%s:%d" TcpListenerPool.DefaultHostname (TcpListenerPool.GetListener().LocalEndPoint.Port)
-
-//    static member Logger
-//        with get () = _logger
-//        and set l = _logger <- l
-
 
 /// Actor publication utilities
 type Actor =

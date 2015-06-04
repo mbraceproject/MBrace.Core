@@ -192,7 +192,6 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                     let jlm = JobLeaseMonitor.create wmon self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
                     do! rc.Reply(Some(pj, fs, jlm))
                     return! behaviour lastCleanup state' self
-
         }
 
         let ref =

@@ -7,33 +7,14 @@ open System.Diagnostics
 open System.Threading
 
 open MBrace.Runtime
-//
-//open Nessos.Thespian
-//open Nessos.Thespian.Remote
-//
+
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Store
 open MBrace.Store.Internals
-//open MBrace.Client
 
 open MBrace.Runtime
 open MBrace.Runtime.Store
-//open MBrace.Runtime.Vagabond
-//open MBrace.Runtime.Serialization
-//open MBrace.SampleRuntime.Actors
-//open MBrace.SampleRuntime.Types
-//open MBrace.SampleRuntime.RuntimeProvider
-
-/// BASE64 serialized argument parsing schema
-module internal Argument =
-    let ofRuntime (runtime : RuntimeState) =
-        let pickle = Config.Serializer.Pickle(runtime)
-        System.Convert.ToBase64String pickle
-
-    let toRuntime (args : string []) =
-        let bytes = System.Convert.FromBase64String(args.[0])
-        Config.Serializer.UnPickle<RuntimeState> bytes
 
 /// MBrace Sample runtime client instance.
 type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
@@ -43,7 +24,7 @@ type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
     static let initWorkers (target : RuntimeState) (count : int) =
         if count < 1 then invalidArg "workerCount" "must be positive."
         let exe = MBraceRuntime.WorkerExecutable    
-        let args = Argument.ofRuntime target
+        let args = target.ToBase64()
         let psi = new ProcessStartInfo(exe, args)
         psi.WorkingDirectory <- Path.GetDirectoryName exe
         psi.UseShellExecute <- true
@@ -79,8 +60,7 @@ type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
     /// </summary>
     /// <param name="workerCount"></param>
     /// <param name="fileStore"></param>
-    /// <param name="serializer"></param>
-    static member InitLocal(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, ?serializer : ISerializer, ?resource : ResourceRegistry) =
+    static member InitLocal(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, ?resource : ResourceRegistry) =
         if workerCount < 1 then invalidArg "workerCount" "must be positive."
         let storeConfig = 
             match storeConfig with 

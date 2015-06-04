@@ -179,8 +179,7 @@ type private AssemblyManagerMsg =
 
 /// Assembly manager instance
 [<Sealed; AutoSerializable(false)>]
-type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ISystemLogger) =
-    let logger = match logger with Some l -> l | None -> new NullSystemLogger() :> _
+type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, logger : ISystemLogger) =
     let imem = LocalRuntime.Create(fileConfig = storeConfig, serializer = serializer)
     let uploader = new StoreAssemblyUploader(storeConfig, imem, container, logger)
     let downloader = new StoreAssemblyDownloader(storeConfig, imem, container, logger)
@@ -222,7 +221,8 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     /// <param name="logger">Logger used by uploader. Defaults to no logging.</param>
     static member Create(storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ISystemLogger) =
         ignore VagabondRegistry.Instance
-        new StoreAssemblyManager(storeConfig, serializer, container, ?logger = logger)
+        let logger = match logger with Some l -> l | None -> new NullSystemLogger() :> _
+        new StoreAssemblyManager(storeConfig, serializer, container, logger)
 
 
     /// <summary>
