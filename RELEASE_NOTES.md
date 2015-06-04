@@ -1,3 +1,6 @@
+#### 0.9.12-alpha
+* Bugfixes in partitioner.
+
 #### 0.9.11-alpha
 * Add more combinators in MBrace.Workflows.
 * Improvide FileStore client API and helper methods
