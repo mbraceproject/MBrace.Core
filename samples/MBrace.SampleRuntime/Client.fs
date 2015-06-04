@@ -47,9 +47,6 @@ type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
                 p.Kill()
             | _ -> ()
 
-    /// Gets all worker processes in the runtime
-    member __.Workers = manager.GetAvailableWorkers() |> Async.RunSync
-
     /// Appens count of new worker processes to the runtime.
     member __.AppendWorkers (count : int) =
         let _ = initWorkers state count

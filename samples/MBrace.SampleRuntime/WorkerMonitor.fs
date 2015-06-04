@@ -63,7 +63,8 @@ module private HeartbeatMonitor =
         let rec behaviour (lastRenew : DateTime) (self : Actor<HeartbeatMonitorMsg>) = async {
             let! msg = self.Receive()
             match msg with
-            | SendHeartbeat -> return! behaviour DateTime.Now self
+            | SendHeartbeat -> 
+                return! behaviour DateTime.Now self
             | CheckHeartbeat ->
                 if DateTime.Now - lastRenew > threshold then
                     wmon <-- DeclareDead worker
@@ -80,8 +81,9 @@ module private HeartbeatMonitor =
             |> Actor.ref
 
         let rec poll () = async {
-            aref <-- SendHeartbeat
-            do! Async.Sleep (5 * int threshold.TotalMilliseconds)
+            aref <-- CheckHeartbeat
+            do! Async.Sleep (int threshold.TotalMilliseconds / 3)
+            return! poll()
         }
 
         Async.Start(poll(), cts.Token)
@@ -91,7 +93,7 @@ module private HeartbeatMonitor =
         let cts = new CancellationTokenSource()
         let rec loop () = async {
             try target <-- SendHeartbeat with _ -> ()
-            do! Async.Sleep(int threshold.TotalMilliseconds / 4)
+            do! Async.Sleep(int threshold.TotalMilliseconds / 5)
             return! loop ()
         }
 
@@ -110,15 +112,6 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
     member __.DeclareState(worker : IWorkerRef, state : WorkerState) =
         source <-- DeclareState (worker, state)
 
-//    member __.DeclareFaulted(worker : IWorkerRef, edi : ExceptionDispatchInfo) =
-//        source <-- DeclareFaulted (worker, edi)
-//
-//    member __.DeclareJobCount(worker : IWorkerRef, jobCount : int) =
-//        source <-- DeclareJobCount (worker, jobCount)
-//
-//    member __.DeclareRunning(worker : IWorkerRef) =
-//        source <-- DeclareNormal worker
-//
     member __.UnSubscribe(worker : IWorkerRef) =
         source <-- UnSubscribe worker
 
@@ -131,7 +124,7 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
     }
 
     static member Init(?heartbeatThreshold : TimeSpan) =
-        let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 2.)
+        let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 10.)
         let rec behaviour (state : Map<IWorkerRef, WorkerInfo>) (self : Actor<WorkerMonitorMsg>) = async {
             let! msg = self.Receive()
             match msg with

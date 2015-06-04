@@ -78,8 +78,11 @@ type MBraceClient () as self =
     /// <param name="workflow">Workflow to execute</param>
     member __.RunLocallyAsync(workflow : Cloud<'T>) : Async<'T> = imem.Value.RunAsync workflow
 
-    /// Returns the store client for provided runtime
+    /// Returns the store client for provided runtime.
     member __.StoreClient = imem.Value.StoreClient
+
+    /// Gets all available workers for current runtime.
+    member __.Workers = __.Resources.GetAvailableWorkers() |> Async.RunSynchronously
 
     /// <summary>
     ///     Run workflow as local, in-memory computation
