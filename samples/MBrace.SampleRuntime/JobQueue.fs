@@ -178,7 +178,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                 let state =
                     if DateTime.Now - state.LastCleanup > cleanupThreshold then
                         // remove jobs from worker topics if inactive.
-                        let removed, state' = state.Queue.Cleanup (wmon.IsAlive >> Async.RunSync)
+                        let removed, state' = state.Queue.Cleanup (wmon.IsAlive >> Async.RunSync >> not)
                         let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : (int * ExceptionDispatchInfo) option) =
                             let j = { j with Target = None }
                             let faultCount = match faultState with Some(fc,_) -> fc + 1 | None -> 1

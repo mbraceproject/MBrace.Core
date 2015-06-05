@@ -94,3 +94,16 @@ type ``SampleRuntime Parallelism Tests`` () as self =
             do Thread.Sleep 4000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
+
+    [<Test>]
+    member __.``Z5. Fault Tolerance : targeted workers`` () =
+        repeat(fun () ->
+            let runtime = session.Runtime
+            let workflow = cloud {
+                let! current = Cloud.CurrentWorker
+                return! Cloud.Parallel [for i in 1 .. 20 -> Cloud.CurrentWorker, current ]
+            }
+            let t = runtime.StartAsTask(workflow, faultPolicy = FaultPolicy.InfiniteRetry())
+            do Thread.Sleep 1000
+            session.Chaos()
+            Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

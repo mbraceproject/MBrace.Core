@@ -362,7 +362,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             repeat(fun () ->
                 cloud {
                     let! thisWorker = Cloud.CurrentWorker
-                    let! results = Cloud.Parallel [ for i in 1 .. 5 -> (Cloud.CurrentWorker, thisWorker) ]
+                    let! results = Cloud.Parallel [ for i in 1 .. 20 -> (Cloud.CurrentWorker, thisWorker) ]
                     return results |> Array.forall ((=) thisWorker)
                 } |> run |> Choice.shouldEqual true)
 
