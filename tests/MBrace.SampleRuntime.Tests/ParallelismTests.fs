@@ -74,8 +74,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
             let runtime = session.Runtime
             let t = runtime.StartAsTask(WordCount.run 20 WordCount.mapReduceRec)
             do Thread.Sleep 4000
-            runtime.KillAllWorkers()
-            runtime.AppendWorkers 4
+            session.Chaos()
             t.Result |> shouldEqual 100)
 
     [<Test>]
@@ -84,8 +83,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
             let runtime = session.Runtime
             let t = runtime.StartAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
             do Thread.Sleep 4000
-            runtime.KillAllWorkers()
-            runtime.AppendWorkers 4
+            session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
@@ -94,6 +92,5 @@ type ``SampleRuntime Parallelism Tests`` () as self =
             let runtime = session.Runtime
             let t = runtime.StartAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
             do Thread.Sleep 4000
-            runtime.KillAllWorkers()
-            runtime.AppendWorkers 4
+            session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

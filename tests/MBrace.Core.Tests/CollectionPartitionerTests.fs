@@ -50,6 +50,7 @@ module ``Collection Partitioning Tests`` =
                     match obj with :? IWorkerRef as w -> compare id w.Id | _ -> invalidArg "obj" "invalid comparand."
 
                 member x.Id: string = id
+                member x.ProcessId = 0
                 member x.Hostname = System.Net.Dns.GetHostName()
                 member x.ProcessorCount: int = cores
                 member x.Type: string = "dummy"

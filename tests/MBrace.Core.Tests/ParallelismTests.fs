@@ -193,6 +193,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     do! Array.init 10 cluster |> Cloud.Parallel |> Cloud.Ignore
                     return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
                 with :? InvalidOperationException ->
+                    do! Cloud.Sleep delayFactor
                     return! counter.Value
 
             } |> run |> Choice.shouldEqual 0)
@@ -361,8 +362,8 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             repeat(fun () ->
                 cloud {
                     let! thisWorker = Cloud.CurrentWorker
-                    let! results = Cloud.Parallel [(Cloud.CurrentWorker, thisWorker)]
-                    return results.[0] = thisWorker
+                    let! results = Cloud.Parallel [ for i in 1 .. 5 -> (Cloud.CurrentWorker, thisWorker) ]
+                    return results |> Array.forall ((=) thisWorker)
                 } |> run |> Choice.shouldEqual true)
 
     [<Test>]
@@ -630,7 +631,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             repeat(fun () ->
                 cloud {
                     let! thisWorker = Cloud.CurrentWorker
-                    let! results = Cloud.Choice [(cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
+                    let! results = Cloud.Choice [ for i in 1 .. 5 -> (cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
                     return results.Value = thisWorker
                 } |> run |> Choice.shouldEqual true)
 
@@ -763,20 +764,23 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         
 
     [<Test>]
-    member __.``4. Logging`` () =
+    member t.``4. Logging`` () =
         let delayFactor = delayFactor
-        __.Logs.Clear()
+        t.Logs.Clear()
         cloud {
             let logSeq _ = cloud {
                 for i in [1 .. 100] do
-                    do! Cloud.Logf "message %d" i
+                    do! Cloud.Logf "user cloud message %d" i
             }
 
             do! Seq.init 20 logSeq |> Cloud.Parallel |> Cloud.Ignore
             do! Cloud.Sleep delayFactor
-        } |> __.Run |> ignore
+        } |> t.Run |> ignore
         
-        __.Logs.GetLogs().Length |> shouldEqual 2000
+        t.Logs.GetLogs() 
+        |> Seq.filter (fun m -> m.Contains "user cloud message") 
+        |> Seq.length 
+        |> shouldEqual 2000
 
     [<Test>]
     member __.``4. IsTargetWorkerSupported`` () =
@@ -803,6 +807,20 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         } |> run |> Choice.shouldEqual ()
 
     [<Test>]
+    member __.``4. Cancellation token: simple parent cancellation`` () =
+        let delayFactor = delayFactor
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            let! cts0 = Cloud.CreateLinkedCancellationTokenSource(cts.Token)
+            cts.Token.IsCancellationRequested |> shouldEqual false
+            cts0.Token.IsCancellationRequested |> shouldEqual false
+            do cts.Cancel()
+            do! Cloud.Sleep delayFactor
+            cts.Token.IsCancellationRequested |> shouldEqual true
+            cts0.Token.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
     member __.``4. Cancellation token: simple child cancellation`` () =
         let delayFactor = delayFactor
         cloud {
@@ -826,6 +844,22 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             do! Cloud.Sleep delayFactor
             cts0.Token.IsCancellationRequested |> shouldEqual true
             cts1.Token.IsCancellationRequested |> shouldEqual true
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``4. Cancellation token: nested distributed child cancellation`` () =
+        let delayFactor = delayFactor
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            let mkNested () = Cloud.CreateLinkedCancellationTokenSource() <||> Cloud.CreateLinkedCancellationTokenSource()
+            let! (cts0, cts1), (cts2, cts3) = mkNested () <||> mkNested ()
+            cts.Cancel()
+            do! Cloud.Sleep delayFactor
+            cts0.Token.IsCancellationRequested |> shouldEqual true
+            cts1.Token.IsCancellationRequested |> shouldEqual true
+            cts2.Token.IsCancellationRequested |> shouldEqual true
+            cts3.Token.IsCancellationRequested |> shouldEqual true
+
         } |> run |> Choice.shouldEqual ()
 
     [<Test>]

@@ -41,11 +41,12 @@ type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
     member __.KillAllWorkers () =
         let workers = manager.GetAvailableWorkers() |> Async.RunSync
         for w in workers do
-            match w with
-            | :? WorkerRef as w -> 
-                let p = Process.GetProcessById w.Pid
-                p.Kill()
-            | _ -> ()
+            try 
+                if w.Hostname = Environment.MachineName then
+                    let p = Process.GetProcessById w.ProcessId
+                    if p.ProcessName = "MBrace.SampleRuntime" then
+                        p.Kill()
+            with _ -> ()
 
     /// Appens count of new worker processes to the runtime.
     member __.AppendWorkers (count : int) =

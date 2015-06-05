@@ -102,7 +102,15 @@ type JobLeaseToken internal (pjob : PickledJob, faultState : (int * ExceptionDis
         member x.ProcessId: string = pjob.ProcessId
 
 
-type private QueueState = QueueTopic<IWorkerRef, PickledJob * (int * ExceptionDispatchInfo) option>
+type private QueueState = 
+    {
+        Queue : JobQueueTopic
+        LastCleanup : DateTime
+    }
+with
+    static member Empty = { Queue = JobQueueTopic.Empty ; LastCleanup = DateTime.Now }
+
+and private JobQueueTopic = QueueTopic<IWorkerRef, PickledJob * (int * ExceptionDispatchInfo) option>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
@@ -156,22 +164,22 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
     static member Init(wmon : WorkerMonitor, ?cleanupThreshold : TimeSpan) =
         let cleanupThreshold = defaultArg cleanupThreshold (TimeSpan.FromSeconds 10.)
 
-        let rec behaviour (lastCleanup:DateTime) (state : QueueState) (self : Actor<JobQueueMsg>) = async {
-            let! msg = self.Receive()
+        let behaviour (self : Actor<JobQueueMsg>) (state : QueueState) (msg : JobQueueMsg) = async {
             match msg with
             | Enqueue (pJob, faultState) -> 
-                return! behaviour lastCleanup (state.Enqueue(pJob.Target, (pJob, faultState))) self
+                let queue' = state.Queue.Enqueue(pJob.Target, (pJob, faultState))
+                return { state with Queue = queue' }
 
             | BatchEnqueue(pJobs) ->
-                let state = pJobs |> Array.fold (fun (s:QueueState) j -> s.Enqueue(j.Target,(j, None))) state
-                return! behaviour lastCleanup state self
+                let queue' = (state.Queue, pJobs) ||> Array.fold (fun q j -> q.Enqueue(j.Target,(j, None)))
+                return { state with Queue = queue' }
 
             | TryDequeue(worker, rc) ->
-                let state, lastCleanup =
-                    if DateTime.Now - lastCleanup > cleanupThreshold then
+                let state =
+                    if DateTime.Now - state.LastCleanup > cleanupThreshold then
                         // remove jobs from worker topics if inactive.
-                        let removed, state' = state.Cleanup (wmon.IsAlive >> Async.RunSync)
-                        let appendRemoved (s:QueueState) (j : PickledJob, faultState : (int * ExceptionDispatchInfo) option) =
+                        let removed, state' = state.Queue.Cleanup (wmon.IsAlive >> Async.RunSync)
+                        let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : (int * ExceptionDispatchInfo) option) =
                             let j = { j with Target = None }
                             let faultCount = match faultState with Some(fc,_) -> fc + 1 | None -> 1
                             let e = new FaultException(sprintf "Worker '%O'is unresponsive." worker)
@@ -179,23 +187,24 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                             let msg = j, Some(faultCount, edi)
                             s.Enqueue(None, msg)
 
-                        removed |> Seq.fold appendRemoved state', DateTime.Now
+                        let queue2 = removed |> Seq.fold appendRemoved state'
+                        { Queue = queue2 ; LastCleanup = DateTime.Now }
                     else
-                        state, lastCleanup
+                        state
 
-                match state.Dequeue worker with
+                match state.Queue.Dequeue worker with
                 | None ->
                     do! rc.Reply None
-                    return! behaviour lastCleanup state self
+                    return state
 
-                | Some((pj,fs), state') ->
+                | Some((pj,fs), queue') ->
                     let jlm = JobLeaseMonitor.create wmon self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
                     do! rc.Reply(Some(pj, fs, jlm))
-                    return! behaviour lastCleanup state' self
+                    return { state with Queue = queue' }
         }
 
         let ref =
-            Actor.bind (behaviour DateTime.Now QueueState.Empty)
+            Actor.SelfStateful QueueState.Empty behaviour
             |> Actor.Publish
             |> Actor.ref
 

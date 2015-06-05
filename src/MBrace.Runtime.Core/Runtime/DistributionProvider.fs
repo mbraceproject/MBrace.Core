@@ -49,17 +49,17 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
             if isForcedLocalParallelism then
                 return! ThreadPool.Parallel(mkNestedCts false, Seq.map fst computations)
             else
-                return! Combinators.runParallel resources currentJob computations
+                return! Combinators.runParallel resources currentJob faultPolicy computations
         }
 
         member __.ScheduleChoice computations = cloud {
             if isForcedLocalParallelism then
                 return! ThreadPool.Choice(mkNestedCts false, Seq.map fst computations)
             else
-                return! Combinators.runChoice resources currentJob computations
+                return! Combinators.runChoice resources currentJob faultPolicy computations
         }
 
-        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, ?cancellationToken, ?target:IWorkerRef) = cloud {
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : FaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef) = cloud {
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating as local semantics."
             else

@@ -13,8 +13,10 @@ type IWorkerRef =
     abstract Id : string
     /// Worker processor count
     abstract ProcessorCount : int
-    /// Machine's hostname
+    /// Hostname of worker machine
     abstract Hostname : string
+    /// Worker Process Id
+    abstract ProcessId : int
 
 /// Denotes a task that is being executed in the cluster.
 type ICloudTask<'T> =

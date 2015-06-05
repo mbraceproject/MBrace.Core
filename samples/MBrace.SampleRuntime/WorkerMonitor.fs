@@ -9,6 +9,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 
+[<AutoSerializable(true)>]
 type WorkerRef private (hostname : string, pid : int, processorCount : int) =
     static let localWorker = lazy(
         let hostname = System.Net.Dns.GetHostName()
@@ -17,12 +18,12 @@ type WorkerRef private (hostname : string, pid : int, processorCount : int) =
         new WorkerRef(hostname, pid, pc))
 
     let id = sprintf "mbrace-worker://%s/pid:%d" hostname pid
-    member __.Pid = pid
     interface IWorkerRef with
         member __.Hostname = hostname
         member __.Id = id
         member __.Type = "sample runtime worker node"
         member __.ProcessorCount = processorCount
+        member __.ProcessId = pid
         member __.CompareTo(other : obj) =
             match other with
             | :? WorkerRef as w -> compare id (w :> IWorkerRef).Id
@@ -60,29 +61,29 @@ type private WorkerInfo =
 module private HeartbeatMonitor =
     let create (threshold : TimeSpan) (wmon : ActorRef<WorkerMonitorMsg>) (worker : IWorkerRef) =
         let cts = new CancellationTokenSource()
-        let rec behaviour (lastRenew : DateTime) (self : Actor<HeartbeatMonitorMsg>) = async {
-            let! msg = self.Receive()
+        let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTime) (msg : HeartbeatMonitorMsg) = async {
             match msg with
             | SendHeartbeat -> 
-                return! behaviour DateTime.Now self
+                return DateTime.Now
             | CheckHeartbeat ->
                 if DateTime.Now - lastRenew > threshold then
                     wmon <-- DeclareDead worker
-                return! behaviour lastRenew self
+                return lastRenew
             | Stop ch -> 
                 cts.Cancel()
                 do! ch.Reply (())
-                return ()
+                self.Stop ()
+                return lastRenew
         }
 
         let aref =
-            Actor.bind (behaviour DateTime.Now)
+            Actor.SelfStateful DateTime.Now behaviour
             |> Actor.Publish
             |> Actor.ref
 
         let rec poll () = async {
             aref <-- CheckHeartbeat
-            do! Async.Sleep (int threshold.TotalMilliseconds / 3)
+            do! Async.Sleep (int threshold.TotalMilliseconds / 5)
             return! poll()
         }
 
@@ -124,47 +125,46 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
     }
 
     static member Init(?heartbeatThreshold : TimeSpan) =
-        let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 10.)
-        let rec behaviour (state : Map<IWorkerRef, WorkerInfo>) (self : Actor<WorkerMonitorMsg>) = async {
-            let! msg = self.Receive()
+        let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 4.)
+        let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<IWorkerRef, WorkerInfo>) (msg : WorkerMonitorMsg) = async {
             match msg with
             | Subscribe(w, ws, rc) ->
                 let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
                 do! rc.Reply(hmon, heartbeatThreshold)
                 let info = { State = ws ; HeartbeatMonitor = hmon }
-                return! behaviour (state.Add(w, info)) self
+                return (state.Add(w, info))
 
             | UnSubscribe w ->
                 match state.TryFind w with
-                | None -> return! behaviour state self
+                | None -> return state
                 | Some info -> 
                     do! info.HeartbeatMonitor <!- Stop
-                    return! behaviour (state.Remove w) self
+                    return state.Remove w
             
             | DeclareDead w ->
                 match state.TryFind w with
-                | None -> return! behaviour state self
+                | None -> return state
                 | Some { HeartbeatMonitor = hmon } ->
                     do! hmon <!- Stop
-                    return! behaviour (state.Remove w) self
+                    return state.Remove w
 
             | DeclareState (w, ws) ->
                 match state.TryFind w with
-                | None -> return! behaviour state self
-                | Some info -> return! behaviour (state.Add(w, { info with State = ws })) self
+                | None -> return state
+                | Some info -> return state.Add(w, { info with State = ws })
 
             | GetAllWorkers rc ->
                 let workers = state |> Seq.map (fun kv -> kv.Key, kv.Value.State) |> Seq.toArray
                 do! rc.Reply workers
-                return! behaviour state self
+                return state
 
             | IsAlive (w,rc) ->
                 do! rc.Reply (state.ContainsKey w)
-                return! behaviour state self
+                return state
         }
 
         let aref =
-            Actor.bind (behaviour Map.empty)
+            Actor.SelfStateful Map.empty behaviour
             |> Actor.Publish
             |> Actor.ref
 

@@ -36,7 +36,6 @@ module JobEvaluator =
         let resources = resource {
             yield! manager.ResourceRegistry
             yield jem
-            yield job.FaultPolicy
             yield distributionProvider :> IDistributionProvider
         }
 
@@ -47,7 +46,7 @@ module JobEvaluator =
             let e = edi.Reify(prepareForRaise = false)
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
             | None ->
-                let msg = sprintf "Fault exception when running job '%s', faultCount '%d'" job.JobId faultCount
+                let msg = sprintf "Fault exception when running job '%s', faultCount '%d'." job.JobId faultCount
                 let faultException = new FaultException(msg, e)
                 job.Econt ctx (ExceptionDispatchInfo.Capture faultException)
 

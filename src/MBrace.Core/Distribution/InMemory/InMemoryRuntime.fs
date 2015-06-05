@@ -64,11 +64,13 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
 type internal InMemoryWorker private () =
     static let singleton = new InMemoryWorker()
     let name = System.Net.Dns.GetHostName()
+    let pid = System.Diagnostics.Process.GetCurrentProcess().Id
     interface IWorkerRef with
         member __.Hostname = name
         member __.Type = "InMemory worker"
         member __.Id = name
         member __.ProcessorCount = Environment.ProcessorCount
+        member __.ProcessId = pid
         member __.CompareTo(other : obj) =
             match other with
             | :? InMemoryWorker -> 0

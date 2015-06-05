@@ -32,8 +32,11 @@ let private ensureSerializable (t : 'T) =
 /// </summary>
 /// <param name="resources">Runtime resource object.</param>
 /// <param name="currentJob">Current cloud job being executed.</param>
+/// <param name="faultPolicy">Current cloud job being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
+let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) 
+                (faultPolicy : FaultPolicy) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
+
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -69,7 +72,6 @@ let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) (c
             | None ->
 
             // request runtime resources required for distribution coordination
-            let faultPolicy = ctx.Resources.Resolve<FaultPolicy> ()
             let currentCts = ctx.CancellationToken
             let! childCts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, [|currentCts|], elevate = true)
             let! resultAggregator = resources.RequestResultAggregator<'T>(capacity = computations.Length)
@@ -134,8 +136,10 @@ let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) (c
 /// </summary>
 /// <param name="resources">Runtime resource object.</param>
 /// <param name="currentJob">Current cloud job being executed.</param>
+/// <param name="faultPolicy">Current cloud job being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runChoice (resources : IRuntimeResourceManager) (currentJob : CloudJob) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
+let runChoice (resources : IRuntimeResourceManager) (currentJob : CloudJob) 
+                (faultPolicy : FaultPolicy) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
 
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -164,7 +168,6 @@ let runChoice (resources : IRuntimeResourceManager) (currentJob : CloudJob) (com
 
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
-            let faultPolicy = ctx.Resources.Resolve<FaultPolicy> ()
             let currentCts = ctx.CancellationToken
             let! childCts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, [|currentCts|], elevate = true)
             let! completionLatch = resources.RequestCounter(0)

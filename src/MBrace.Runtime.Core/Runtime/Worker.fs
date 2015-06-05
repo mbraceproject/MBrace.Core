@@ -119,6 +119,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
 
                         }
 
+                        do! Async.Sleep waitInterval
                         return! workerLoop inbox
 
         | Some(Stop (waitTimeout, rc)) ->
