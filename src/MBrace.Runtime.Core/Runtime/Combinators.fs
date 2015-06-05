@@ -126,7 +126,7 @@ let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob)
             // Create jobs and enqueue
             do!
                 computations
-                |> Array.mapi (fun i (c,w) -> CloudJob.Create(currentJob.Dependencies, currentJob.ProcessId, currentJob.ParentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, c), w)
+                |> Array.mapi (fun i (c,w) -> CloudJob.Create(currentJob.Dependencies, currentJob.ProcessId, currentJob.ParentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, JobType.ChildParallel, c, ?target = w))
                 |> resources.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
@@ -219,7 +219,7 @@ let runChoice (resources : IRuntimeResourceManager) (currentJob : CloudJob)
             // create child jobs
             do!
                 computations
-                |> Array.map (fun (c,w) -> CloudJob.Create(currentJob.Dependencies, currentJob.ProcessId, currentJob.ParentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, c), w)
+                |> Array.map (fun (c,w) -> CloudJob.Create(currentJob.Dependencies, currentJob.ProcessId, currentJob.ParentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, JobType.ChildChoice, c, ?target = w))
                 |> resources.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
@@ -275,7 +275,7 @@ let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : As
         let econt ctx e = setResult ctx e (tcs.SetException e)
         let ccont ctx c = setResult ctx c (tcs.SetCancelled c)
 
-        let job = CloudJob.Create (dependencies, processId, tcs, cts, faultPolicy, scont, econt, ccont, computation)
-        do! resources.JobQueue.Enqueue(job, ?target = target)
+        let job = CloudJob.Create (dependencies, processId, tcs, cts, faultPolicy, scont, econt, ccont, JobType.TaskRoot, computation, ?target = target)
+        do! resources.JobQueue.Enqueue job
         return tcs
 }

@@ -30,7 +30,7 @@ module JobEvaluator =
     /// <param name="manager">Runtime resource manager.</param>
     /// <param name="faultState">Job fault state.</param>
     /// <param name="job">Job instance to be executed.</param>
-    let runJobAsync (manager : IRuntimeResourceManager) (faultState : (int * ExceptionDispatchInfo) option) (job : CloudJob) = async {
+    let runJobAsync (manager : IRuntimeResourceManager) (faultState : JobFaultInfo) (job : CloudJob) = async {
         let jem = new JobExecutionMonitor()
         let distributionProvider = DistributionProvider.Create(manager, job)
         let resources = resource {
@@ -42,11 +42,18 @@ module JobEvaluator =
         let ctx = { Resources = resources ; CancellationToken = job.CancellationToken }
 
         match faultState with
-        | Some(faultCount, edi) ->
-            let e = edi.Reify(prepareForRaise = false)
+        | IsTargetedJobOfDeadWorker ->
+            // always throw a fault exception if dead worker
+            let worker = Option.get job.TargetWorker // this is assumed to be 'Some' here
+            let e = new FaultException(sprintf "Could not communicate with target worker '%O'." worker)
+            job.Econt ctx (ExceptionDispatchInfo.Capture e)
+
+        | FaultDeclaredByWorker(faultCount, latestError) ->
+            // consult user-supplied fault policy to decide on further action
+            let e = latestError.Reify(prepareForRaise = false)
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
             | None ->
-                let msg = sprintf "Fault exception when running job '%s', faultCount '%d'." job.JobId faultCount
+                let msg = sprintf "Job '%s' given up after it faulted %d times." job.JobId faultCount
                 let faultException = new FaultException(msg, e)
                 job.Econt ctx (ExceptionDispatchInfo.Capture faultException)
 
@@ -54,7 +61,20 @@ module JobEvaluator =
                 do! Async.Sleep (int retryTimeout.TotalMilliseconds)
                 do job.StartJob ctx
 
-        | None -> do job.StartJob ctx
+        | WorkerDeathWhileProcessingJob (faultCount, latestWorker) ->
+            // consult user-supplied fault policy to decide on further action
+            let msg = sprintf "Job '%s' was being processed by worker '%O' which has died." job.JobId latestWorker
+            let e = new FaultException(msg) :> exn
+            match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
+            | None -> job.Econt ctx (ExceptionDispatchInfo.Capture e)
+
+            | Some retryTimeout ->
+                do! Async.Sleep (int retryTimeout.TotalMilliseconds)
+                do job.StartJob ctx
+
+        | NoFault ->  
+            // no faults, proceed normally  
+            do job.StartJob ctx
 
         return! JobExecutionMonitor.AwaitCompletion jem
     }
@@ -82,13 +102,13 @@ module JobEvaluator =
             do! joblt.ParentTask.SetException (ExceptionDispatchInfo.Capture e)
 
         | Choice1Of2 job ->
-//            if job.JobType = JobType.Root then
+//            if job.JobType = JobType.TaskRoot then
 //                logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
 //                do! staticConfiguration.State.ProcessManager.SetRunning(job.ProcessInfo.Id)
 
             logger.Logf LogLevel.Info "Starting job '%s'." job.JobId
             let sw = Stopwatch.StartNew()
-            let! result = runJobAsync manager joblt.FaultState job |> Async.Catch
+            let! result = runJobAsync manager joblt.FaultInfo job |> Async.Catch
             sw.Stop()
 
             match result with
