@@ -9,9 +9,10 @@ open MBrace.Core.Internals
 /// LogLevel enumeration
 type LogLevel =
     | None      = 0
-    | Info      = 1
+    | Error     = 1
     | Warning   = 2
-    | Error     = 3
+    | Info      = 3
+    | Debug     = 4
 
 type ISystemLogger =
 
