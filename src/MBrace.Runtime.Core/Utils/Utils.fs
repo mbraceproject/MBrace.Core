@@ -14,6 +14,7 @@ open MBrace.Runtime.Utils.Retry
 module Utils =
 
     /// Value or exception
+    [<NoEquality; NoComparison>]
     type Exn<'T> =
         | Success of 'T
         | Error of exn
