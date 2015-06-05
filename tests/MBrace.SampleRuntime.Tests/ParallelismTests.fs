@@ -45,6 +45,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
 
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10
+    override __.UsesSerialization = true
 #if DEBUG
     override __.Repeats = 10
 #else

@@ -15,7 +15,7 @@ open MBrace.Flow
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
-let runtime = MBraceRuntime.InitLocal 4
+let runtime = MBraceRuntime.InitLocal 1
 runtime.AttachLogger(new MBrace.Runtime.ConsoleSystemLogger())
 
 runtime.Workers
@@ -39,3 +39,8 @@ runtime.Run(cloud { return enabled })
 enabled <- false
 
 runtime.Run(cloud { return enabled })
+
+cloud {
+    let client = new System.Net.WebClient()
+    return client
+} |> runtime.Run

@@ -1,5 +1,7 @@
 ﻿module internal MBrace.Runtime.Combinators
 
+open System.Runtime.Serialization
+
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Store
@@ -11,6 +13,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.PrettyPrinters
 
 #nowarn "444"
 
@@ -20,6 +23,10 @@ let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
 
+let private ensureSerializable (t : 'T) =
+    try FsPickler.EnsureSerializable t ; None
+    with e -> Some e
+
 /// <summary>
 ///     Defines a workflow that schedules provided cloud workflows for parallel computation.
 /// </summary>
@@ -27,7 +34,6 @@ let private asyncFromContinuations f =
 /// <param name="currentJob">Current cloud job being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
 let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
-
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -35,11 +41,33 @@ let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) (c
         // schedule single-child parallel workflows in current job
         // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
-            let (comp, cont) = FsPickler.Clone ((comp, cont))
-            let cont' = Continuation.map (fun t -> [| t |]) cont
-            Cloud.StartWithContinuations(comp, cont', ctx)
+            let clone = try FsPickler.Clone ((comp, cont)) |> Choice1Of2 with e -> Choice2Of2 e
+            match clone with
+            | Choice1Of2 (comp, cont) -> 
+                let cont' = Continuation.map (fun t -> [| t |]) cont
+                Cloud.StartWithContinuations(comp, cont', ctx)
+
+            | Choice2Of2 e ->
+                let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                let se = new SerializationException(msg, e)
+                cont.Exception ctx (ExceptionDispatchInfo.Capture se)
+
+        // Early detect if return type is not serializable.
+        | Choice1Of2 _ when not <| FsPickler.IsSerializableType<'T>() ->
+            let msg = sprintf "Cloud.Parallel workflow uses non-serializable type '%s'." (Type.prettyPrint typeof<'T>)
+            let e = new SerializationException(msg)
+            cont.Exception ctx (ExceptionDispatchInfo.Capture e)
 
         | Choice1Of2 computations ->
+            // distributed computation, ensure that closures are serializable
+            match ensureSerializable (computations, cont) with
+            | Some e ->
+                let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                let se = new SerializationException(msg, e)
+                cont.Exception ctx (ExceptionDispatchInfo.Capture se)
+
+            | None ->
+
             // request runtime resources required for distribution coordination
             let faultPolicy = ctx.Resources.Resolve<FaultPolicy> ()
             let currentCts = ctx.CancellationToken
@@ -49,14 +77,28 @@ let runParallel (resources : IRuntimeResourceManager) (currentJob : CloudJob) (c
 
             let onSuccess i ctx (t : 'T) = 
                 async {
-                    let! isCompleted = resultAggregator.SetResult(i, t, overwrite = true)
-                    if isCompleted then 
-                        // this is the last child callback, aggregate result and call parent continuation
-                        let! results = resultAggregator.ToArray()
-                        childCts.Cancel()
-                        cont.Success (withCancellationToken currentCts ctx) results
-                    else // results pending, declare job completed.
-                        JobExecutionMonitor.TriggerCompletion ctx
+                    // check if result value can be serialized first.
+                    match ensureSerializable t with
+                    | Some e ->
+                        let! latchCount = cancellationLatch.Increment()
+                        if latchCount = 1 then // is first job to request workflow cancellation, grant access
+                            childCts.Cancel()
+                            let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." (Type.prettyPrint typeof<'T>) 
+                            let se = new SerializationException(msg, e)
+                            cont.Exception (withCancellationToken currentCts ctx) (ExceptionDispatchInfo.Capture se)
+
+                        else // cancellation already triggered by different party, just declare job completed.
+                            JobExecutionMonitor.TriggerCompletion ctx
+                    | None ->
+                        let! isCompleted = resultAggregator.SetResult(i, t, overwrite = true)
+                        if isCompleted then 
+                            // this is the last child callback, aggregate result and call parent continuation
+                            let! results = resultAggregator.ToArray()
+                            childCts.Cancel()
+                            cont.Success (withCancellationToken currentCts ctx) results
+
+                        else // results pending, just declare job completed.
+                            JobExecutionMonitor.TriggerCompletion ctx
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onException ctx e =
@@ -102,10 +144,24 @@ let runChoice (resources : IRuntimeResourceManager) (currentJob : CloudJob) (com
         // schedule single-child parallel workflows in current job
         // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] -> 
-            let (comp, cont) = FsPickler.Clone ((comp, cont))
-            Cloud.StartWithContinuations(comp, cont, ctx)
+            let clone = try FsPickler.Clone ((comp, cont)) |> Choice1Of2 with e -> Choice2Of2 e
+            match clone with
+            | Choice1Of2 (comp, cont) -> Cloud.StartWithContinuations(comp, cont, ctx)
+            | Choice2Of2 e ->
+                let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                let se = new SerializationException(msg, e)
+                cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
         | Choice1Of2 computations ->
+            // distributed computation, ensure that closures are serializable
+            match ensureSerializable (computations, cont) with
+            | Some e ->
+                let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                let se = new SerializationException(msg, e)
+                cont.Exception ctx (ExceptionDispatchInfo.Capture se)
+
+            | None ->
+
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
             let faultPolicy = ctx.Resources.Resolve<FaultPolicy> ()
@@ -178,25 +234,45 @@ let runChoice (resources : IRuntimeResourceManager) (currentJob : CloudJob) (com
 let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : AssemblyId[]) (processId : string)
                         (faultPolicy:FaultPolicy) (token : ICloudCancellationToken option) 
                         (target : IWorkerRef option) (computation : Cloud<'T>) = async {
-    let! cts = async {
-        match token with
-        | Some ct -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, parents = [|ct|], elevate = true)
-        | None -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, elevate = true)
-    }
 
-    let! tcs = resources.RequestTaskCompletionSource<'T>()
-    let setResult ctx f = 
-        async {
-            do! f
-            cts.Cancel()
-            JobExecutionMonitor.TriggerCompletion ctx
-        } |> JobExecutionMonitor.ProtectAsync ctx
+    if not <| FsPickler.IsSerializableType<'T> () then
+        let msg = sprintf "Cloud task returns non-serializable type '%s'." (Type.prettyPrint typeof<'T>)
+        return raise <| new SerializationException(msg)
+    else
 
-    let scont ctx t = setResult ctx (tcs.SetCompleted t)
-    let econt ctx e = setResult ctx (tcs.SetException e)
-    let ccont ctx c = setResult ctx (tcs.SetCancelled c)
+    match ensureSerializable computation with
+    | Some e ->
+        let msg = sprintf "Cloud task of type '%s' uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+        return raise <| new SerializationException(msg, e)
 
-    let job = CloudJob.Create (dependencies, processId, tcs, cts, faultPolicy, scont, econt, ccont, computation)
-    do! resources.JobQueue.Enqueue(job, ?target = target)
-    return tcs
+    | None ->
+
+        let! cts = async {
+            match token with
+            | Some ct -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, parents = [|ct|], elevate = true)
+            | None -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, elevate = true)
+        }
+
+        let! tcs = resources.RequestTaskCompletionSource<'T>()
+        let setResult ctx value f = 
+            async {
+                match ensureSerializable value with
+                | Some e ->
+                    let msg = sprintf "Could not serialize result for task '%s' of type '%s'." tcs.Task.Id (Type.prettyPrint typeof<'T>)
+                    let se = new SerializationException(msg, e)
+                    do! tcs.SetException (ExceptionDispatchInfo.Capture se)
+                | None ->
+                    do! f
+
+                cts.Cancel()
+                JobExecutionMonitor.TriggerCompletion ctx
+            } |> JobExecutionMonitor.ProtectAsync ctx
+
+        let scont ctx t = setResult ctx t (tcs.SetCompleted t)
+        let econt ctx e = setResult ctx e (tcs.SetException e)
+        let ccont ctx c = setResult ctx c (tcs.SetCancelled c)
+
+        let job = CloudJob.Create (dependencies, processId, tcs, cts, faultPolicy, scont, econt, ccont, computation)
+        do! resources.JobQueue.Enqueue(job, ?target = target)
+        return tcs
 }

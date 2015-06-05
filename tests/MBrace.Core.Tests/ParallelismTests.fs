@@ -2,6 +2,7 @@
     
 open System
 open System.Threading
+open System.Runtime.Serialization
 
 open NUnit.Framework
 
@@ -46,8 +47,14 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
     abstract Repeats : int
     /// Enables targeted worker tests
     abstract IsTargetWorkerSupported : bool
+    /// Declares that this runtime uses serialization/distribution
+    abstract UsesSerialization : bool
     /// Log tester
     abstract Logs : ILogTester
+
+    //
+    //  1. Parallelism tests
+    //
 
     [<Test>]
     member __.``1. Parallel : empty input`` () =
@@ -359,6 +366,35 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 } |> run |> Choice.shouldEqual true)
 
     [<Test>]
+    member __.``1. Parallel : nonserializable type`` () =
+        if __.UsesSerialization then
+            cloud { 
+                let! _ = Cloud.Parallel [ for i in 1 .. 5 -> cloud { return new System.Net.WebClient() } ]
+                return ()
+            } |> run |> Choice.shouldFailwith<_, SerializationException>
+
+    [<Test>]
+    member __.``1. Parallel : nonserializable object`` () =
+        if __.UsesSerialization then
+            cloud { 
+                let! _ = Cloud.Parallel [ for i in 1 .. 5 -> cloud { return box (new System.Net.WebClient()) } ]
+                return ()
+            } |> run |> Choice.shouldFailwith<_, SerializationException>
+
+    [<Test>]
+    member __.``1. Parallel : nonserializable closure`` () =
+        if __.UsesSerialization then
+            cloud { 
+                let client = new System.Net.WebClient()
+                let! _ = Cloud.Parallel [ for i in 1 .. 5 -> cloud { return box client } ]
+                return ()
+            } |> run |> Choice.shouldFailwith<_, SerializationException>
+
+    //
+    //  2. Choice tests
+    //
+
+    [<Test>]
     member __.``2. Choice : empty input`` () =
         Cloud.Choice List.empty<Cloud<int option>> |> run |> Choice.shouldEqual None
 
@@ -599,7 +635,22 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 } |> run |> Choice.shouldEqual true)
 
     [<Test>]
-    member __.``3. StartAsTask: task with success`` () =
+    member __.``2. Choice : nonserializable closure`` () =
+        if __.UsesSerialization then
+            cloud { 
+                let client = new System.Net.WebClient()
+                let! _ = Cloud.Choice [ for i in 1 .. 5 -> cloud { return Some (box client) } ]
+                return ()
+            } |> run |> Choice.shouldFailwith<_, SerializationException>
+
+
+
+    //
+    //  3. Task tests
+    //
+
+    [<Test>]
+    member __.``3. Task: task with success`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             cloud {
@@ -617,7 +668,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldEqual 1)
 
     [<Test>]
-    member __.``3. StartAsTask: task with exception`` () =
+    member __.``3. Task: task with exception`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let count = CloudAtom.New 0 |> runLocally
@@ -641,7 +692,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             count.Value |> runLocally |> shouldEqual 2)
 
     [<Test>]
-    member __.``3. StartAsTask: with cancellation token`` () =
+    member __.``3. Task: with cancellation token`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let count = CloudAtom.New 0 |> runLocally
@@ -664,7 +715,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             count.Value |> runLocally |> shouldEqual 1)
 
     [<Test>]
-    member __.``3. StartAsTask: to current worker`` () =
+    member __.``3. Task: to current worker`` () =
         let delayFactor = delayFactor
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
@@ -676,13 +727,39 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 } |> run |> Choice.shouldEqual true)
 
     [<Test>]
-    member __.``3. StartAsTask: await with timeout`` () =
+    member __.``3. Task: await with timeout`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             cloud {
                 let! task = Cloud.StartAsTask(Cloud.Sleep delayFactor)
                 return! Cloud.AwaitCloudTask(task, timeoutMilliseconds = 1)
             } |> run |> Choice.shouldFailwith<_, TimeoutException>)
+
+    [<Test>]
+    member __.``1. Task : nonserializable type`` () =
+        if __.UsesSerialization then
+            cloud { return new System.Net.WebClient() }
+            |> run |> Choice.shouldFailwith<_, SerializationException>
+
+    [<Test>]
+    member __.``1. Task : nonserializable object`` () =
+        if __.UsesSerialization then
+            cloud { return box (new System.Net.WebClient()) }
+            |> run |> Choice.shouldFailwith<_, SerializationException>
+
+    [<Test>]
+    member __.``1. Task : nonserializable closure`` () =
+        if __.UsesSerialization then
+            cloud { 
+                let client = new System.Net.WebClient()
+                return! Cloud.StartAsTask(cloud { return box client })
+
+            } |> run |> Choice.shouldFailwith<_, SerializationException>
+
+
+    //
+    //  4. Misc tests
+    //
         
 
     [<Test>]

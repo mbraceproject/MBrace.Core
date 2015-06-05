@@ -34,6 +34,7 @@ type ``ThreadPool Parallelism Tests`` () =
     override __.IsTargetWorkerSupported = false
     override __.Logs = logger :> _
     override __.FsCheckMaxTests = 100
+    override __.UsesSerialization = false
 #if DEBUG
     override __.Repeats = 10
 #else

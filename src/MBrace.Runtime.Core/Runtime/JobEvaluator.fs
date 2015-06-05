@@ -95,9 +95,9 @@ module JobEvaluator =
             match result with
             | Choice1Of2 () -> 
                 do! joblt.DeclareCompleted ()
-                logger.Logf LogLevel.Info "Completed job\n%O\nTime : %O" job sw.Elapsed
+                logger.Logf LogLevel.Info "Completed job '%s' after %O" job.JobId sw.Elapsed
             | Choice2Of2 e ->
-                logger.Logf LogLevel.Error "Faulted job\n%O\nTime : %O" job sw.Elapsed
+                logger.Logf LogLevel.Error "Faulted job '%s' after %O\n%O" job.JobId sw.Elapsed e
                 do! joblt.DeclareFaulted (ExceptionDispatchInfo.Capture e)
     }
        
