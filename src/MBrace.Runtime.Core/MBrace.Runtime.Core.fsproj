@@ -71,7 +71,9 @@
     <Compile Include="Utils\JobExecutionMonitor.fs" />
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\Logging.fs" />
-    <Compile Include="Runtime\Resources.fs" />
+    <Compile Include="Runtime\Primitives.fs" />
+    <Compile Include="Runtime\CloudJob.fs" />
+    <Compile Include="Runtime\ResourceManager.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\DistributionProvider.fs" />
