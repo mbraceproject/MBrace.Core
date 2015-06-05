@@ -242,7 +242,7 @@ let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : As
 
     match ensureSerializable computation with
     | Some e ->
-        let msg = sprintf "Cloud task of type '%s' uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+        let msg = sprintf "Cloud task of type '%s' uses non-serializable closure." (Type.prettyPrint typeof<'T>)
         return raise <| new SerializationException(msg, e)
 
     | None ->
