@@ -234,6 +234,7 @@ type CloudFlow =
 /// Provides basic operations on CloudFlows.
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module CloudFlow =
+    open System.IO
 
     let inline private run ctx a = Cloud.RunSynchronously(a, ctx.Resources,ctx.CancellationToken)
 
@@ -415,6 +416,39 @@ module CloudFlow =
 
         return arrayCollector.ToArray()
     }
+
+    /// <summary>Returns an array of line separated CloudFiles from the given CloudFlow of strings.</summary>
+    /// <param name="dirPath">The directory where the cloudfiles are going to be saved.</param>
+    /// <param name="flow">The input CloudFlow.</param>
+    /// <returns>The result array of CloudFiles.</returns>
+    let toTextCloudFiles (dirPath : string) (flow : CloudFlow<string>) : Cloud<CloudFile []> = 
+        let collectorf (cloudCts : ICloudCancellationTokenSource) =
+            local {
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
+                let results = new List<string * StreamWriter>()
+                let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+                config.FileStore.CreateDirectory dirPath |> Async.RunSynchronously
+                let! worker = Cloud.CurrentWorker
+                return
+                    { new Collector<string, CloudFile []> with
+                        member self.DegreeOfParallelism = flow.DegreeOfParallelism
+                        member self.Iterator() =
+                            let path = config.FileStore.Combine(dirPath, sprintf "Part-%s-%d.txt" worker.Id results.Count)
+                            let stream = config.FileStore.BeginWrite(path) |> Async.RunSynchronously
+                            let writer = new StreamWriter(stream)
+                            results.Add((path, writer))
+                            {   Index = ref -1;
+                                Func = (fun line -> writer.WriteLine(line));
+                                Cts = cts }
+                        member self.Result =
+                            results |> Seq.iter (fun (_, writer) -> writer.Dispose())
+                            results |> Seq.map (fun (path, _) -> new CloudFile(path)) |> Seq.toArray }
+            }
+
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            return! flow.WithEvaluators (collectorf cts) (fun cloudFiles -> local { return cloudFiles }) (fun result -> local { return Array.concat result })
+        }
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
     /// <param name="flow">The input CloudFlow.</param>
