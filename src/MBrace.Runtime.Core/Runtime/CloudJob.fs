@@ -25,11 +25,20 @@ type JobFaultInfo =
     /// No faults associated with specified job
     | NoFault
     /// Faults have been declared by worker while processing job
-    | FaultDeclaredByWorker of faultCount:int * latestException:ExceptionDispatchInfo
+    | FaultDeclaredByWorker of faultCount:int * latestException:ExceptionDispatchInfo * worker:IWorkerRef
     /// Worker has died while processing job
-    | WorkerDeathWhileProcessingJob of faultCount:int * latestWorker:IWorkerRef
+    | WorkerDeathWhileProcessingJob of faultCount:int * worker:IWorkerRef
     /// Job salvaged from targeted queue of a dead worker
-    | IsTargetedJobOfDeadWorker
+    | IsTargetedJobOfDeadWorker of faultCount:int * worker:IWorkerRef
+with
+    /// Number of faults that occurred with current job.
+    member jfi.FaultCount =
+        match jfi with
+        | NoFault -> 0
+        | FaultDeclaredByWorker (fc,_,_) -> fc
+        | WorkerDeathWhileProcessingJob (fc,_) -> fc
+        | IsTargetedJobOfDeadWorker (fc,_) -> fc
+
 
 /// A cloud job is fragment of a cloud process to be executed in a single machine.
 [<NoEquality; NoComparison>]

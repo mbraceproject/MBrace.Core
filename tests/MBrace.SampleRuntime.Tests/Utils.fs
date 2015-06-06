@@ -21,20 +21,21 @@ type RuntimeSession(nodes : int) =
     
     static do MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
+    let lockObj = obj ()
     let mutable state : (MBraceRuntime * LogTester) option = None
-    let mutable lastInit = DateTime.Now
 
-    member __.Start () = 
-        let runtime = MBraceRuntime.InitLocal(nodes)
-        let logger = new LogTester()
-        let _ = runtime.AttachLogger logger
-        state <- Some(runtime, logger)
-        lastInit <- DateTime.Now
-        Thread.Sleep 2000
+    member __.Start () =
+        lock lockObj (fun () -> 
+            let runtime = MBraceRuntime.InitLocal(nodes)
+            let logger = new LogTester()
+            let _ = runtime.AttachLogger logger
+            while runtime.Workers.Length <> nodes do Thread.Sleep 200
+            state <- Some(runtime, logger))
 
     member __.Stop () =
-        state |> Option.iter (fun (r,d) -> r.KillAllWorkers())
-        state <- None
+        lock lockObj (fun () ->
+            state |> Option.iter (fun (r,d) -> r.KillAllWorkers())
+            state <- None)
 
     member __.Runtime =
         match state with
@@ -47,9 +48,9 @@ type RuntimeSession(nodes : int) =
         | Some (_,l) -> l
 
     member __.Chaos() =
-        let runtime = __.Runtime
-        let timeSinceLastUpdate = int (DateTime.Now - lastInit).TotalMilliseconds
-        if timeSinceLastUpdate < 10000 then Thread.Sleep (10000 - timeSinceLastUpdate)
-        runtime.KillAllWorkers()
-        runtime.AppendWorkers nodes
-        lastInit <- DateTime.Now
+        lock lockObj (fun () ->
+            let runtime = __.Runtime
+            runtime.KillAllWorkers()
+            while runtime.Workers.Length <> 0 do Thread.Sleep 200
+            runtime.AppendWorkers nodes
+            while runtime.Workers.Length <> nodes do Thread.Sleep 200) 

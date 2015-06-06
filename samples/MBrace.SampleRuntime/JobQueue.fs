@@ -10,6 +10,7 @@ open Nessos.Thespian
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils.PrettyPrinters
 
 type internal Pickle =
     | Single of Pickle<CloudJob>
@@ -17,8 +18,9 @@ type internal Pickle =
 
 type internal PickledJob =
     {
-        JobId : string
         ProcessId : string
+        JobId : string
+        JobType : JobType
         Type : string
         Target : IWorkerRef option
         Pickle : Pickle
@@ -28,17 +30,18 @@ type internal PickledJob =
 
 type internal JobLeaseMonitorMsg =
     | Completed
-    | Faulted of ExceptionDispatchInfo
+    | WorkerDeclaredFault of ExceptionDispatchInfo
+    | WorkerDeath
 
 type private JobQueueMsg =
-    | Enqueue of PickledJob * faultState:(int * ExceptionDispatchInfo) option
+    | Enqueue of PickledJob * JobFaultInfo
     | BatchEnqueue of PickledJob []
-    | TryDequeue of IWorkerRef * IReplyChannel<(PickledJob * (int * ExceptionDispatchInfo) option * ActorRef<JobLeaseMonitorMsg>) option>
+    | TryDequeue of IWorkerRef * IReplyChannel<(PickledJob * JobFaultInfo * ActorRef<JobLeaseMonitorMsg>) option>
 
 module private JobLeaseMonitor =
     
     let create (wmon : WorkerMonitor) (queue : ActorRef<JobQueueMsg>) 
-                (faultState : (int * ExceptionDispatchInfo) option) (job : PickledJob) 
+                (faultInfo : JobFaultInfo) (job : PickledJob) 
                 (interval : TimeSpan) (worker : IWorkerRef) =
 
         let cts = new CancellationTokenSource()
@@ -48,9 +51,15 @@ module private JobLeaseMonitor =
             let! msg = self.Receive()
             match msg with
             | Completed -> return ()
-            | Faulted edi ->
-                let faultCount = match faultState with Some(count,_) -> count + 1 | None -> 1
-                do! queue.AsyncPost(Enqueue (job, Some(faultCount, edi)))
+            | WorkerDeclaredFault edi ->
+                let faultCount = faultInfo.FaultCount + 1
+                let faultInfo = FaultDeclaredByWorker(faultCount, edi, worker)
+                do! queue.AsyncPost(Enqueue (job, faultInfo))
+
+            | WorkerDeath ->
+                let faultCount = faultInfo.FaultCount + 1
+                let faultInfo = WorkerDeathWhileProcessingJob(faultCount, worker)
+                do! queue.AsyncPost(Enqueue (job, faultInfo))
 
             cts.Cancel()
         }
@@ -64,16 +73,13 @@ module private JobLeaseMonitor =
                 return! poller ()
 
             | Choice1Of2 false ->
-                let e = new FaultException(sprintf "Worker '%O' is unresponsive." worker)
-                let edi = ExceptionDispatchInfo.Capture e
-                ref <-- Faulted edi
+                ref <-- WorkerDeath
         }
 
         Async.Start(poller(), cts.Token)
         ref
 
-type JobLeaseToken internal (pjob : PickledJob, faultState : (int * ExceptionDispatchInfo) option, 
-                                                leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
+type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
 
     interface ICloudJobLeaseToken with
         member x.DeclareCompleted() = async {
@@ -81,12 +87,18 @@ type JobLeaseToken internal (pjob : PickledJob, faultState : (int * ExceptionDis
         }
         
         member x.DeclareFaulted(edi: ExceptionDispatchInfo) = async {
-            leaseMonitor <-- Faulted edi
+            leaseMonitor <-- WorkerDeclaredFault edi
         }
+
+        member x.Type = pjob.Type
+
+        member x.JobType = pjob.JobType
+
+        member x.TargetWorker = pjob.Target
         
         member x.Dependencies: AssemblyId [] = pjob.Dependencies
         
-        member x.FaultState: (int * ExceptionDispatchInfo) option = faultState
+        member x.FaultInfo = faultInfo
         
         member x.GetJob(): Async<CloudJob> = async {
             return
@@ -110,45 +122,46 @@ type private QueueState =
 with
     static member Empty = { Queue = JobQueueTopic.Empty ; LastCleanup = DateTime.Now }
 
-and private JobQueueTopic = QueueTopic<IWorkerRef, PickledJob * (int * ExceptionDispatchInfo) option>
+and private JobQueueTopic = QueueTopic<IWorkerRef, PickledJob * JobFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
 type JobQueue private (source : ActorRef<JobQueueMsg>) =
 
     interface IJobQueue with
-        member x.BatchEnqueue(jobs: (CloudJob * IWorkerRef option) []) = async {
+        member x.BatchEnqueue(jobs: CloudJob []) = async {
             // TODO: sifting & cloud values
-            let jjobs = jobs |> Array.map fst
-            let pickle = Config.Serializer.PickleTyped jjobs
-            let mkPickle (index:int) (target : IWorkerRef option) (job : CloudJob) =
+            let pickle = Config.Serializer.PickleTyped jobs
+            let mkPickle (index:int) (job : CloudJob) =
                 {
                     ProcessId = job.ProcessId
                     JobId = job.JobId
-                    Type = job.Type.ToString()
-                    Target = target
+                    Type = Type.prettyPrint job.Type
+                    Target = job.TargetWorker
+                    JobType = job.JobType
                     Dependencies = job.Dependencies
                     Pickle = Batch(index, pickle)
                     ParentTask = job.ParentTask
                 }
 
-            let items = jobs |> Array.mapi (fun i (j,w) -> mkPickle i w j)
+            let items = jobs |> Array.mapi mkPickle
             do! source.AsyncPost (BatchEnqueue items)
         }
         
-        member x.Enqueue(job: CloudJob, target: IWorkerRef option) = async {
+        member x.Enqueue (job: CloudJob) = async {
             let item =
                 {
                     ProcessId = job.ProcessId
                     JobId = job.JobId
-                    Type = job.Type.ToString()
-                    Target = target
+                    JobType = job.JobType
+                    Type = Type.prettyPrint job.Type
+                    Target = job.TargetWorker
                     Dependencies = job.Dependencies
                     Pickle = Single(Config.Serializer.PickleTyped job)
                     ParentTask = job.ParentTask
                 }
 
-            do! source.AsyncPost (Enqueue (item, None))
+            do! source.AsyncPost (Enqueue (item, NoFault))
         }
         
         member x.TryDequeue(worker : IWorkerRef) = async {
@@ -171,7 +184,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                 return { state with Queue = queue' }
 
             | BatchEnqueue(pJobs) ->
-                let queue' = (state.Queue, pJobs) ||> Array.fold (fun q j -> q.Enqueue(j.Target,(j, None)))
+                let queue' = (state.Queue, pJobs) ||> Array.fold (fun q j -> q.Enqueue(j.Target,(j, NoFault)))
                 return { state with Queue = queue' }
 
             | TryDequeue(worker, rc) ->
@@ -179,13 +192,12 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                     if DateTime.Now - state.LastCleanup > cleanupThreshold then
                         // remove jobs from worker topics if inactive.
                         let removed, state' = state.Queue.Cleanup (wmon.IsAlive >> Async.RunSync >> not)
-                        let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : (int * ExceptionDispatchInfo) option) =
+                        let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : JobFaultInfo) =
+                            let worker = Option.get j.Target
                             let j = { j with Target = None }
-                            let faultCount = match faultState with Some(fc,_) -> fc + 1 | None -> 1
-                            let e = new FaultException(sprintf "Worker '%O'is unresponsive." worker)
-                            let edi = ExceptionDispatchInfo.Capture e
-                            let msg = j, Some(faultCount, edi)
-                            s.Enqueue(None, msg)
+                            let faultCount = faultState.FaultCount + 1
+                            let faultState = IsTargetedJobOfDeadWorker(faultCount, worker)
+                            s.Enqueue(None, (j, faultState))
 
                         let queue2 = removed |> Seq.fold appendRemoved state'
                         { Queue = queue2 ; LastCleanup = DateTime.Now }

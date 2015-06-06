@@ -19,6 +19,7 @@ open MBrace.Runtime.Store
 /// MBrace Sample runtime client instance.
 type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
     inherit MBraceClient()
+    static let processName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name
     static do Config.Init()
     static let mutable exe = None
     static let initWorkers (target : RuntimeState) (count : int) =
@@ -42,9 +43,9 @@ type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
         let workers = manager.GetAvailableWorkers() |> Async.RunSync
         for w in workers do
             try 
-                if w.Hostname = Environment.MachineName then
+                if w.Hostname = (WorkerRef.LocalWorker :> IWorkerRef).Hostname then
                     let p = Process.GetProcessById w.ProcessId
-                    if p.ProcessName = "MBrace.SampleRuntime" then
+                    if p.ProcessName = processName then
                         p.Kill()
             with _ -> ()
 

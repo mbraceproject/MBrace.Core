@@ -101,9 +101,9 @@ type ``SampleRuntime Parallelism Tests`` () as self =
             let runtime = session.Runtime
             let workflow = cloud {
                 let! current = Cloud.CurrentWorker
-                return! Cloud.Parallel [for i in 1 .. 20 -> Cloud.CurrentWorker, current ]
+                return! Cloud.Parallel [for i in 1 .. 20 -> Cloud.Sleep 20000, current ]
             }
             let t = runtime.StartAsTask(workflow, faultPolicy = FaultPolicy.InfiniteRetry())
-            do Thread.Sleep 1000
+            do Thread.Sleep 4000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

@@ -42,13 +42,13 @@ module JobEvaluator =
         let ctx = { Resources = resources ; CancellationToken = job.CancellationToken }
 
         match faultState with
-        | IsTargetedJobOfDeadWorker ->
+        | IsTargetedJobOfDeadWorker _ ->
             // always throw a fault exception if dead worker
             let worker = Option.get job.TargetWorker // this is assumed to be 'Some' here
             let e = new FaultException(sprintf "Could not communicate with target worker '%O'." worker)
             job.Econt ctx (ExceptionDispatchInfo.Capture e)
 
-        | FaultDeclaredByWorker(faultCount, latestError) ->
+        | FaultDeclaredByWorker(faultCount, latestError, _) ->
             // consult user-supplied fault policy to decide on further action
             let e = latestError.Reify(prepareForRaise = false)
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
@@ -67,7 +67,6 @@ module JobEvaluator =
             let e = new FaultException(msg) :> exn
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
             | None -> job.Econt ctx (ExceptionDispatchInfo.Capture e)
-
             | Some retryTimeout ->
                 do! Async.Sleep (int retryTimeout.TotalMilliseconds)
                 do job.StartJob ctx
