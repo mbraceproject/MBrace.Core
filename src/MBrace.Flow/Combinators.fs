@@ -236,6 +236,8 @@ type CloudFlow =
 module CloudFlow =
     open System.IO
 
+    let private cloudFlowStaticId = Guid.NewGuid().ToString()
+
     let inline private run ctx a = Cloud.RunSynchronously(a, ctx.Resources,ctx.CancellationToken)
 
     //#region Intermediate functions
@@ -417,6 +419,7 @@ module CloudFlow =
         return arrayCollector.ToArray()
     }
 
+    //static let workerGuid = Guid.NewGuid().ToString()
     /// <summary>Returns an array of line separated CloudFiles from the given CloudFlow of strings.</summary>
     /// <param name="dirPath">The directory where the cloudfiles are going to be saved.</param>
     /// <param name="flow">The input CloudFlow.</param>
@@ -433,7 +436,7 @@ module CloudFlow =
                     { new Collector<string, CloudFile []> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
-                            let path = config.FileStore.Combine(dirPath, sprintf "Part-%s-%d.txt" worker.Id results.Count)
+                            let path = config.FileStore.Combine(dirPath, sprintf "Part-%s-%d.txt" cloudFlowStaticId results.Count)
                             let stream = config.FileStore.BeginWrite(path) |> Async.RunSynchronously
                             let writer = new StreamWriter(stream)
                             results.Add((path, writer))
