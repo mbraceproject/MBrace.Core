@@ -102,16 +102,23 @@ module Utils =
         /// <param name="cleanup">Cleanup the working directory if it exists. Defaults to true.</param>
         static member CreateWorkingDirectory(?path : string, ?retries : int, ?cleanup : bool) =
             let path = match path with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
-            let retries = defaultArg retries 3
+            let retries = defaultArg retries 2
             let cleanup = defaultArg cleanup true
             retry (RetryPolicy.Retry(retries, 0.2<sec>)) 
                 (fun () ->
                     if Directory.Exists path then
                         if cleanup then 
                             Directory.Delete(path, true)
+                            if Directory.Exists path then
+                                raise <| new IOException(sprintf "Could not delete directory '%s'." path)
+
                             ignore <| Directory.CreateDirectory path
+                            if not <| Directory.Exists path then
+                                raise <| new IOException(sprintf "Could not create directory '%s'." path)
                     else
-                        ignore <| Directory.CreateDirectory path)
+                        ignore <| Directory.CreateDirectory path
+                        if not <| Directory.Exists path then
+                           raise <| new IOException(sprintf "Could not create directory '%s'." path))
 
 
     type ReplyChannel<'T> internal (rc : AsyncReplyChannel<Exn<'T>>) =
