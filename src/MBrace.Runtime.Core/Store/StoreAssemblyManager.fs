@@ -130,14 +130,12 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
     }
 
     interface IRemoteAssemblyReceiver with
-        member x.GetLoadedAssemblyInfo(dependencies: AssemblyId list): Async<AssemblyLoadInfo list> = async {
-            let! loadInfo = dependencies |> Seq.map getAssemblyLoadInfo |> Local.Parallel |> imem.RunAsync
-            return Array.toList loadInfo
+        member x.GetLoadedAssemblyInfo(dependencies: AssemblyId []): Async<AssemblyLoadInfo []> = async {
+            return! dependencies |> Seq.map getAssemblyLoadInfo |> Local.Parallel |> imem.RunAsync
         }
         
-        member x.PushAssemblies(assemblies: VagabondAssembly list): Async<AssemblyLoadInfo list> =  async {
-            let! loadInfo = assemblies |> Seq.map uploadAssembly |> Local.Parallel |> imem.RunAsync
-            return Array.toList loadInfo
+        member x.PushAssemblies(assemblies: VagabondAssembly []): Async<AssemblyLoadInfo []> =  async {
+            return! assemblies |> Seq.map uploadAssembly |> Local.Parallel |> imem.RunAsync
         }
 
 
@@ -145,7 +143,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
-    interface IAssemblyImporter with
+    interface IAssemblyDownloader with
         member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
             logger.Logf LogLevel.Info "Downloading '%s'" id.FullName
             return! config.FileStore.BeginRead (getStoreAssemblyPath append id)
@@ -190,8 +188,7 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
         | Upload (assemblies, rc) ->
             try
                 logger.Logf LogLevel.Info "Uploading dependencies"
-                let ids = assemblies |> Seq.map (fun va -> va.Id)
-                let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, ids)
+                let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, assemblies)
                 if errors.Length > 0 then
                     let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
                     logger.Logf LogLevel.Warning "Failed to upload bindings: %s" errors
@@ -202,8 +199,8 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
 
         | Download (ids, rc) ->
             try
-                let! vas = VagabondRegistry.Instance.ImportAssemblies(downloader, ids)
-                rc.Reply (List.toArray vas)
+                let! vas = VagabondRegistry.Instance.DownloadAssemblies(downloader, ids)
+                rc.Reply vas
 
             with e -> rc.ReplyWithError e
 
@@ -243,15 +240,11 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
 
     /// Load local assemblies to current AppDomain
     member __.LoadAssemblies(assemblies : seq<VagabondAssembly>) =
-        VagabondRegistry.Instance.LoadVagabondAssemblies(assemblies) |> Array.ofList
+        VagabondRegistry.Instance.LoadVagabondAssemblies(assemblies)
 
     /// Compute dependencies for provided object graph
     member __.ComputeDependencies(graph : 'T) : VagabondAssembly [] =
-        let managedDependencies = VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
-        [|
-            yield! managedDependencies |> VagabondRegistry.Instance.GetVagabondAssemblies
-            yield! VagabondRegistry.Instance.NativeDependencies
-        |]
+        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true, includeNativeDependencies = true) 
 
     /// <summary>
     ///     Registers a native assembly dependency to client state.
@@ -261,7 +254,7 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
         VagabondRegistry.Instance.RegisterNativeDependency assemblyPath
 
     /// Gets all native dependencies registered in current instance
-    member __.NativeDependencies = VagabondRegistry.Instance.NativeDependencies |> Array.ofList
+    member __.NativeDependencies = VagabondRegistry.Instance.NativeDependencies
 
     interface IAssemblyManager with
         member x.ComputeDependencies(graph: obj): VagabondAssembly [] =

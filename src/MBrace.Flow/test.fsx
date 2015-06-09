@@ -2,23 +2,20 @@
 
 #r "MBrace.Core.dll"
 #r "MBrace.SampleRuntime.exe"
+#r "MBrace.Runtime.Core.dll"
+#r "MBrace.Flow.dll"
+#r "Streams.Core.dll"
 
 open System
-open MBrace
+open MBrace.Core
+open MBrace.Store
+open MBrace.Workflows
 open MBrace.SampleRuntime
+open MBrace.Flow
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
 let runtime = MBraceRuntime.InitLocal(4)
-
-
-#I "../../bin"
-#r "Streams.Core.dll"
-#r "MBrace.Flow.dll"
-#time "on"
-
-open Nessos.Streams
-open MBrace.Flow
 
 let source = [| 1; 3; 1; 4; 2; 5; 2; 42; 42; 7; 8; 10; 8;|]
 

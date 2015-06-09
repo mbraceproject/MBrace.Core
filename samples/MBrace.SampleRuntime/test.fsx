@@ -15,7 +15,7 @@ open MBrace.Flow
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
 
-let runtime = MBraceRuntime.InitLocal 4
+let runtime = MBraceRuntime.InitLocal 1
 runtime.AttachLogger(new MBrace.Runtime.ConsoleSystemLogger())
 
 runtime.Workers
@@ -44,3 +44,17 @@ cloud {
     let client = new System.Net.WebClient()
     return client
 } |> runtime.Run
+
+
+let inputs = [|1L .. 1000000L|]
+let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> runtime.Run
+let workers = Cloud.GetWorkerCount() |> runtime.Run
+vector.PartitionCount 
+vector.IsCachingEnabled
+cloud { return! vector.ToEnumerable() } |> runtime.RunLocally
+vector |> CloudFlow.sum |> runtime.RunLocally
+
+
+[|0|] |> CloudFlow.OfArray |> CloudFlow.filter (fun n -> n % 2 = 0) |> CloudFlow.toArray |> runtime.Run
+
+runtime.Run (cloud { return System.AppDomain.CurrentDomain.GetAssemblies() |> Seq.groupBy (fun a -> a.FullName) |> Seq.map (fun (_,ids) -> ids |> Seq.map (fun id -> id.Location)|> Seq.toArray) |> Seq.filter (fun ids -> ids.Length > 1) |> Seq.toArray })

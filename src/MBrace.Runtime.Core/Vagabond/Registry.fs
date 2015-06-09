@@ -23,14 +23,6 @@ type VagabondRegistry private () =
         | Some instance -> instance
 
     /// <summary>
-    ///     Computes assembly dependencies for given serializable object graph.
-    /// </summary>
-    /// <param name="graph">Object graph.</param>
-    static member ComputeObjectDependencies(graph : obj) =
-        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true)
-        |> List.map Vagabond.ComputeAssemblyId
-
-    /// <summary>
     ///     Initializes the registry using provided factory.
     /// </summary>
     /// <param name="factory">Vagabond instance factory.</param>

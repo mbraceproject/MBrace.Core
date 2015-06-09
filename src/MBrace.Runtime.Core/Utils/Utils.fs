@@ -102,7 +102,7 @@ module Utils =
         /// <param name="cleanup">Cleanup the working directory if it exists. Defaults to true.</param>
         static member CreateWorkingDirectory(?path : string, ?retries : int, ?cleanup : bool) =
             let path = match path with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
-            let retries = defaultArg retries 2
+            let retries = defaultArg retries 3
             let cleanup = defaultArg cleanup true
             retry (RetryPolicy.Retry(retries, 0.2<sec>)) 
                 (fun () ->

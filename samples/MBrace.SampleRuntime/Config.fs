@@ -35,7 +35,6 @@ type Config private () =
         let wd = match workDir with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
         let createDir = defaultArg createDir true
         let vagabondDir = Path.Combine(wd, "vagabond")
-        if createDir then ignore <| Directory.CreateDirectory vagabondDir
 
         let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
@@ -43,7 +42,7 @@ type Config private () =
         workingDirectory <- wd
 
         // vagabond initialization
-        VagabondRegistry.Initialize(cachePath = vagabondDir, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = AssemblyLoadPolicy.ResolveAll)
+        VagabondRegistry.Initialize(cachePath = vagabondDir, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = (AssemblyLookupPolicy.Runtime ||| AssemblyLookupPolicy.VagabondCache))
 
         // thespian initialization
         Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
