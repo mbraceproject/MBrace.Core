@@ -23,26 +23,26 @@ open MBrace.Runtime.Vagabond
 type Config private () =
 
     static let isInitialized = ref false
-    static let mutable workingDirectory = Unchecked.defaultof<string>
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
+    static let mutable workingDirectory = Unchecked.defaultof<string>
+
+    static let initVagabond populateDirs (path:string) =
+        if populateDirs then ignore <| Directory.CreateDirectory path
+        let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
+        Vagabond.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], cacheDirectory = path, lookupPolicy = policy)
 
     static let checkInitialized () =
         if not isInitialized.Value then
             invalidOp "Runtime configuration has not been initialized."
 
-    static let init (workDir : string option) (createDir : bool option) =
+    static let init (populateDirs : bool) =
         if isInitialized.Value then invalidOp "Runtime configuration has already been initialized."
-        let wd = match workDir with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
-        let createDir = defaultArg createDir true
-        let vagabondDir = Path.Combine(wd, "vagabond")
+        workingDirectory <- WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
+        let vagabondDir = Path.Combine(workingDirectory, "vagabond")
+        VagabondRegistry.Initialize(fun () -> initVagabond populateDirs vagabondDir)
 
         let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-
         objectCache <- InMemoryCache.Create()
-        workingDirectory <- wd
-
-        // vagabond initialization
-        VagabondRegistry.Initialize(cachePath = vagabondDir, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], lookupPolicy = (AssemblyLookupPolicy.ResolveRuntime ||| AssemblyLookupPolicy.ResolveVagabondCache))
 
         // thespian initialization
         Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
@@ -50,7 +50,8 @@ type Config private () =
         TcpListenerPool.RegisterListener(IPEndPoint.any)
         isInitialized := true
 
-    static member Init(?workDir : string, ?cleanup : bool) = lock isInitialized (fun () -> init workDir cleanup)
+
+    static member Init(?populateDirs : bool) = lock isInitialized (fun () -> init (defaultArg populateDirs true))
 
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
     static member WorkingDirectory = checkInitialized() ; workingDirectory

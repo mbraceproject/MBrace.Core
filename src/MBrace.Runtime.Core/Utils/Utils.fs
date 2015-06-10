@@ -100,7 +100,7 @@ module Utils =
         /// <param name="path">Path to working directory. Defaults to default process-bound working directory.</param>
         /// <param name="retries">Retries on creating directory. Defaults to 3.</param>
         /// <param name="cleanup">Cleanup the working directory if it exists. Defaults to true.</param>
-        static member CreateWorkingDirectory(?path : string, ?retries : int, ?cleanup : bool) =
+        static member CreateWorkingDirectory(?path : string, ?retries : int, ?cleanup : bool) : string =
             let path = match path with Some p -> p | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess()
             let retries = defaultArg retries 2
             let cleanup = defaultArg cleanup true
@@ -119,6 +119,7 @@ module Utils =
                         ignore <| Directory.CreateDirectory path
                         if not <| Directory.Exists path then
                            raise <| new IOException(sprintf "Could not create directory '%s'." path))
+            path
 
 
     type ReplyChannel<'T> internal (rc : AsyncReplyChannel<Exn<'T>>) =

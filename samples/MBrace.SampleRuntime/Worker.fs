@@ -19,7 +19,7 @@ let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
             logger.LogInfo "Initializing AppDomain pool evaluator."
             let workingDirectory = Config.WorkingDirectory 
             let initializer () =
-                Config.Init(workingDirectory, cleanup = false) 
+                Config.Init(populateDirs = false) 
                 logger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
 
             let managerF = DomainLocal.Create(fun () -> new ResourceManager(state, logger) :> IRuntimeResourceManager)

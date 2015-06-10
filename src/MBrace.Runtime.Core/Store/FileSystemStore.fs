@@ -48,11 +48,11 @@ type FileSystemStore private (rootPath : string) =
     /// <param name="path">Local or UNC path.</param>
     /// <param name="create">Create directory if missing. Defaults to false.</param>
     /// <param name="cleanup">Cleanup directory if it exists. Defaults to false.</param>
-    static member Create(path : string, ?create, ?cleanup) =
+    static member Create(path : string, ?create : bool, ?cleanup : bool) =
         let create = defaultArg create false
         let rootPath = Path.GetFullPath path
         if create then
-            WorkingDirectory.CreateWorkingDirectory(rootPath, ?cleanup = cleanup)
+            ignore <| WorkingDirectory.CreateWorkingDirectory(rootPath, ?cleanup = cleanup)
         elif not <| Directory.Exists rootPath then
             raise <| new DirectoryNotFoundException(rootPath)
 

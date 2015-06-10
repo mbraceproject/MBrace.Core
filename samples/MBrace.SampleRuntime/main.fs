@@ -23,7 +23,7 @@ let main (args : string []) =
         logger.Logf LogLevel.Info "Hostname: %s" hostname
         logger.Logf LogLevel.Info "Process Id: %d" pid
 
-        do Config.Init()
+        do Config.Init(populateDirs = true)
         logger.Logf LogLevel.Info "Thespian initialized with address: %s" Config.LocalAddress
 
         let state = RuntimeState.FromBase64 args.[0]
