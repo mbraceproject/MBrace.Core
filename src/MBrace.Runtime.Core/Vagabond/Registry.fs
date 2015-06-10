@@ -39,10 +39,10 @@ type VagabondRegistry private () =
     /// </summary>
     /// <param name="cachePath">Vagrant cache path.</param>
     /// <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
-    /// <param name="loadPolicy">Specify a default assembly load policy.</param>
+    /// <param name="lookupPolicy">Specify a default assembly load policy.</param>
     /// <param name="throwOnError">Throw exception on error.</param>
     /// <param name="cleanup">Cleanup vagrant cache directory. Defaults to false.</param>
-    static member Initialize (?cachePath : string, ?ignoredAssemblies : seq<Assembly>, ?loadPolicy, ?throwOnError : bool, ?cleanup : bool) =
+    static member Initialize (?cachePath : string, ?ignoredAssemblies : seq<Assembly>, ?lookupPolicy, ?throwOnError : bool, ?cleanup : bool) =
         let ignoredAssemblies = seq { 
             yield Assembly.GetExecutingAssembly() 
             match ignoredAssemblies with 
@@ -57,4 +57,4 @@ type VagabondRegistry private () =
 
         VagabondRegistry.Initialize((fun () ->
             WorkingDirectory.CreateWorkingDirectory(cachePath, cleanup = defaultArg cleanup false)
-            Vagabond.Initialize(cacheDirectory = cachePath, ignoredAssemblies = ignoredAssemblies, ?loadPolicy = loadPolicy)), ?throwOnError = throwOnError)
+            Vagabond.Initialize(cacheDirectory = cachePath, ignoredAssemblies = ignoredAssemblies, ?lookupPolicy = lookupPolicy)), ?throwOnError = throwOnError)

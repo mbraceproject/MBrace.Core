@@ -42,7 +42,7 @@ type Config private () =
         workingDirectory <- wd
 
         // vagabond initialization
-        VagabondRegistry.Initialize(cachePath = vagabondDir, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], loadPolicy = (AssemblyLookupPolicy.Runtime ||| AssemblyLookupPolicy.VagabondCache))
+        VagabondRegistry.Initialize(cachePath = vagabondDir, cleanup = createDir, ignoredAssemblies = [Assembly.GetExecutingAssembly()], lookupPolicy = (AssemblyLookupPolicy.ResolveRuntime ||| AssemblyLookupPolicy.ResolveVagabondCache))
 
         // thespian initialization
         Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
