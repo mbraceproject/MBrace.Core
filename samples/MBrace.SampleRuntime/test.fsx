@@ -30,7 +30,7 @@ for i in 1 .. 10 do
 // vagabond data initialization test 2.
 let mutable enabled = false
 
-runtime.Run(cloud { return enabled })
+runtime.Run(cloud { return enabled }, taskName = "test")
 
 enabled <- true
 

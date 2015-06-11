@@ -31,24 +31,28 @@ module JobEvaluator =
     /// <param name="faultState">Job fault state.</param>
     /// <param name="job">Job instance to be executed.</param>
     let runJobAsync (manager : IRuntimeResourceManager) (faultState : JobFaultInfo) (job : CloudJob) = async {
+        let logger = manager.SystemLogger
         let jem = new JobExecutionMonitor()
         let distributionProvider = DistributionProvider.Create(manager, job)
         let resources = resource {
             yield! manager.ResourceRegistry
             yield jem
+            yield manager.SystemLogger
             yield distributionProvider :> IDistributionProvider
         }
 
         let ctx = { Resources = resources ; CancellationToken = job.CancellationToken }
 
         match faultState with
-        | IsTargetedJobOfDeadWorker _ ->
+        | IsTargetedJobOfDeadWorker (_,w) ->
             // always throw a fault exception if dead worker
+            logger.Logf LogLevel.Info "Job '%s' originally assigned to dead worker '%s'." job.JobId w.Id
             let worker = Option.get job.TargetWorker // this is assumed to be 'Some' here
             let e = new FaultException(sprintf "Could not communicate with target worker '%O'." worker)
             job.Econt ctx (ExceptionDispatchInfo.Capture e)
 
-        | FaultDeclaredByWorker(faultCount, latestError, _) ->
+        | FaultDeclaredByWorker(faultCount, latestError, w) ->
+            logger.Logf LogLevel.Info "Job '%s' faulted %d times while executed in worker '%O'." job.JobId faultCount w
             // consult user-supplied fault policy to decide on further action
             let e = latestError.Reify(prepareForRaise = false)
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
@@ -62,6 +66,7 @@ module JobEvaluator =
                 do job.StartJob ctx
 
         | WorkerDeathWhileProcessingJob (faultCount, latestWorker) ->
+            logger.Logf LogLevel.Info "Job '%s' faulted %d times while being processed by nonresponsive worker '%O'." job.JobId faultCount latestWorker
             // consult user-supplied fault policy to decide on further action
             let msg = sprintf "Job '%s' was being processed by worker '%O' which has died." job.JobId latestWorker
             let e = new FaultException(msg) :> exn
@@ -86,26 +91,29 @@ module JobEvaluator =
     /// <param name="joblt">Job lease token.</param>
     let loadAndRunJobAsync (manager : IRuntimeResourceManager) (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
         let logger = manager.SystemLogger
-        logger.Log LogLevel.Info "Loading assemblies."
+        logger.Logf LogLevel.Debug "Loading assembly dependencies for job '%s'." joblt.JobId
         for li in manager.AssemblyManager.LoadAssemblies assemblies do
             match li with
             | NotLoaded id -> logger.Logf LogLevel.Error "could not load assembly '%s'" id.FullName 
             | LoadFault(id, e) -> logger.Logf LogLevel.Error "error loading assembly '%s':\n%O" id.FullName e
             | Loaded _ -> ()
 
-        logger.Log LogLevel.Info "Loading job."
+        logger.Logf LogLevel.Debug "Deserializing job '%s'." joblt.JobId
         let! jobResult = joblt.GetJob() |> Async.Catch
         match jobResult with
         | Choice2Of2 e ->
-            logger.Logf LogLevel.Error "Failed to load job '%s': %A" joblt.JobId e
-            do! joblt.ParentTask.SetException (ExceptionDispatchInfo.Capture e)
+            logger.Logf LogLevel.Error "Failed to deserialize job '%s':\n%O" joblt.JobId e
+            do! joblt.TaskInfo.Canceller.SetException (ExceptionDispatchInfo.Capture e)
 
         | Choice1Of2 job ->
-//            if job.JobType = JobType.TaskRoot then
-//                logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
+            if job.JobType = JobType.TaskRoot then
+                match job.TaskInfo.Name with
+                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskInfo.TaskId job.TaskInfo.Type
+                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskInfo.Type
+                // TODO : task monitor
 //                do! staticConfiguration.State.ProcessManager.SetRunning(job.ProcessInfo.Id)
 
-            logger.Logf LogLevel.Info "Starting job '%s'." job.JobId
+
             let sw = Stopwatch.StartNew()
             let! result = runJobAsync manager joblt.FaultInfo job |> Async.Catch
             sw.Stop()
@@ -150,7 +158,7 @@ type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager>, pool
                 return! JobEvaluator.loadAndRunJobAsync manager assemblies jobtoken 
             }
 
-            return! pool.EvaluateAsync(jobtoken.Dependencies, eval ())
+            return! pool.EvaluateAsync(jobtoken.TaskInfo.Dependencies, eval ())
         }
 
     interface IDisposable with

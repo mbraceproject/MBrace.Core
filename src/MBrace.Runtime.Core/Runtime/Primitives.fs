@@ -68,8 +68,9 @@ type IResultAggregator<'T> =
 
 
 /// Defines a distributed task completion source.
-type ICloudTaskCompletionSource =
+type ICloudTaskCanceller =
     inherit IAsyncDisposable
+
     /// <summary>
     ///     Asynchronously sets the the result to be an exception.
     /// </summary>
@@ -84,8 +85,22 @@ type ICloudTaskCompletionSource =
 
 /// Defines a distributed task completion source.
 type ICloudTaskCompletionSource<'T> =
-    inherit ICloudTaskCompletionSource
+    inherit IAsyncDisposable
+
     /// Gets the underlying cloud task for the task completion source.
     abstract Task : ICloudTask<'T>
+    /// Gets an untyped task cancellation object.
+    abstract Canceller : ICloudTaskCanceller
     /// Asynchronously sets a completed result for the task.
     abstract SetCompleted : 'T -> Async<unit>
+    /// <summary>
+    ///     Asynchronously sets the the result to be an exception.
+    /// </summary>
+    /// <param name="edi">Exception dispatch info to be submitted.</param>
+    abstract SetException : edi:ExceptionDispatchInfo -> Async<unit>
+
+    /// <summary>
+    ///     Asynchronously declares the the result to be cancelled.
+    /// </summary>
+    /// <param name="edi">Exception dispatch info to be submitted.</param>
+    abstract SetCancelled : exn:OperationCanceledException -> Async<unit>

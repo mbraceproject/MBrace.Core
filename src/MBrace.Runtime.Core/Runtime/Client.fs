@@ -27,15 +27,16 @@ type MBraceClient () as self =
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
+    /// <param name="taskName">User-specified process name.</param>
     member c.StartAsTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                                ?faultPolicy : FaultPolicy, ?target : IWorkerRef) : Async<ICloudTask<'T>> = async {
+                                ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<ICloudTask<'T>> = async {
 
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
         let processId = mkUUID()
         let dependencies = c.Resources.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! c.Resources.AssemblyManager.UploadAssemblies(dependencies)
-        let! tcs = Combinators.runStartAsCloudTask c.Resources assemblyIds processId faultPolicy cancellationToken target workflow
+        let! tcs = Combinators.runStartAsCloudTask c.Resources assemblyIds processId taskName faultPolicy cancellationToken target workflow
         return tcs.Task
     }
 
@@ -46,8 +47,9 @@ type MBraceClient () as self =
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
-    member __.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef) : ICloudTask<'T> =
-        __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target) |> Async.RunSync
+    /// <param name="taskName">User-specified process name.</param>
+    member __.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : ICloudTask<'T> =
+        __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
 
     /// <summary>
@@ -57,8 +59,9 @@ type MBraceClient () as self =
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
-    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef) = async {
-        let! task = __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target)
+    /// <param name="taskName">User-specified process name.</param>
+    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) = async {
+        let! task = __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName)
         return task.Result
     }
 
@@ -69,8 +72,9 @@ type MBraceClient () as self =
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
-    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef) =
-        __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target) |> Async.RunSync
+    /// <param name="taskName">User-specified process name.</param>
+    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) =
+        __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
     /// <summary>
     ///     Run workflow as local, in-memory computation

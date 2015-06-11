@@ -32,6 +32,7 @@ module private LoggerImpl =
         | LogLevel.Info -> "INFO"
         | LogLevel.Warning -> "WARNING"
         | LogLevel.Error -> "ERROR"
+        | LogLevel.Debug -> "DEBUG"
         | _ -> ""
 
     let inline entryToString showDate (level : LogLevel) (time : DateTime) (message : string) =

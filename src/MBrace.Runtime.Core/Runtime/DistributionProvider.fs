@@ -28,7 +28,7 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
         new DistributionProvider(resources, job, job.FaultPolicy, false)
         
     interface IDistributionProvider with
-        member __.ProcessId = currentJob.ProcessId
+        member __.ProcessId = currentJob.TaskInfo.TaskId
         member __.JobId = currentJob.JobId
 
         member __.FaultPolicy = faultPolicy
@@ -49,21 +49,21 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
             if isForcedLocalParallelism then
                 return! ThreadPool.Parallel(mkNestedCts false, Seq.map fst computations)
             else
-                return! Combinators.runParallel resources currentJob faultPolicy computations
+                return! Combinators.runParallel resources currentJob.TaskInfo faultPolicy computations
         }
 
         member __.ScheduleChoice computations = cloud {
             if isForcedLocalParallelism then
                 return! ThreadPool.Choice(mkNestedCts false, Seq.map fst computations)
             else
-                return! Combinators.runChoice resources currentJob faultPolicy computations
+                return! Combinators.runChoice resources currentJob.TaskInfo faultPolicy computations
         }
 
         member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : FaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef) = cloud {
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating as local semantics."
             else
-                let! tcs = Cloud.OfAsync <| Combinators.runStartAsCloudTask resources currentJob.Dependencies currentJob.ProcessId faultPolicy cancellationToken target workflow 
+                let! tcs = Cloud.OfAsync <| Combinators.runStartAsCloudTask resources currentJob.TaskInfo.Dependencies currentJob.TaskInfo.TaskId None faultPolicy cancellationToken target workflow 
                 return tcs.Task
         }
 

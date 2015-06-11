@@ -93,8 +93,18 @@ type TaskCompletionSource<'T> private (id : string, source : ActorRef<ResultCell
                 return r.Value
             } |> Async.RunSync
 
-    interface ICloudTaskCompletionSource<'T> with
+
+    interface ICloudTaskCanceller with
+        member x.SetCancelled(exn: OperationCanceledException): Async<unit> = 
+            x.SetResult(Cancelled exn) |> Async.Ignore
+        
+        member x.SetException(edi: ExceptionDispatchInfo): Async<unit> = 
+            x.SetResult(Exception edi) |> Async.Ignore
+        
+    interface IAsyncDisposable with
         member x.Dispose(): Async<unit> = async.Zero()
+
+    interface ICloudTaskCompletionSource<'T> with
 
         member x.SetCompleted(t : 'T): Async<unit> = 
             x.SetResult(Completed t) |> Async.Ignore
@@ -106,6 +116,8 @@ type TaskCompletionSource<'T> private (id : string, source : ActorRef<ResultCell
             x.SetResult(Cancelled exn) |> Async.Ignore
         
         member x.Task: ICloudTask<'T> = x :> _
+
+        member x.Canceller = x :> _
         
 
     /// Initialize a new result cell in the local process

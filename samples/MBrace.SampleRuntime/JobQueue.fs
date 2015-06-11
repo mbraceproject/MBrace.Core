@@ -18,14 +18,12 @@ type internal Pickle =
 
 type internal PickledJob =
     {
-        ProcessId : string
+        TaskInfo : CloudTaskInfo
         JobId : string
         JobType : JobType
         Type : string
         Target : IWorkerRef option
         Pickle : Pickle
-        Dependencies : AssemblyId []
-        ParentTask : ICloudTaskCompletionSource
     }
 
 type internal JobLeaseMonitorMsg =
@@ -95,8 +93,8 @@ type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseM
         member x.JobType = pjob.JobType
 
         member x.TargetWorker = pjob.Target
-        
-        member x.Dependencies: AssemblyId [] = pjob.Dependencies
+
+        member x.TaskInfo = pjob.TaskInfo
         
         member x.FaultInfo = faultInfo
         
@@ -108,10 +106,8 @@ type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseM
         }
         
         member x.JobId: string = pjob.JobId
-
-        member x.ParentTask: ICloudTaskCompletionSource = pjob.ParentTask
         
-        member x.ProcessId: string = pjob.ProcessId
+        member x.TaskId: string = pjob.TaskInfo.TaskId
 
 
 type private QueueState = 
@@ -134,14 +130,12 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             let pickle = Config.Serializer.PickleTyped jobs
             let mkPickle (index:int) (job : CloudJob) =
                 {
-                    ProcessId = job.ProcessId
+                    TaskInfo = job.TaskInfo
                     JobId = job.JobId
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
                     JobType = job.JobType
-                    Dependencies = job.Dependencies
                     Pickle = Batch(index, pickle)
-                    ParentTask = job.ParentTask
                 }
 
             let items = jobs |> Array.mapi mkPickle
@@ -151,14 +145,12 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
         member x.Enqueue (job: CloudJob) = async {
             let item =
                 {
-                    ProcessId = job.ProcessId
+                    TaskInfo = job.TaskInfo
                     JobId = job.JobId
                     JobType = job.JobType
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
-                    Dependencies = job.Dependencies
                     Pickle = Single(Config.Serializer.PickleTyped job)
-                    ParentTask = job.ParentTask
                 }
 
             do! source.AsyncPost (Enqueue (item, NoFault))

@@ -98,24 +98,21 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
                         let jc = Interlocked.Increment &currentJobCount
                         triggerStateUpdate()
 
-                        logger.Logf LogLevel.Info "Dequeued job '%s' from queue." jobToken.JobId
-                        logger.Logf LogLevel.Info "Concurrent job count is %d/%d." jc maxConcurrentJobs
+                        logger.Logf LogLevel.Info "Dequeued cloud job '%s'." jobToken.JobId
+                        logger.Logf LogLevel.Info "Concurrent job count increased to %d/%d." jc maxConcurrentJobs
 
                         let! _ = Async.StartChild <| async { 
                             try
                                 try
-                                    logger.Log LogLevel.Info "Downloading dependencies."
-                                    let! assemblies = resourceManager.AssemblyManager.DownloadAssemblies jobToken.Dependencies
+                                    let! assemblies = resourceManager.AssemblyManager.DownloadAssemblies jobToken.TaskInfo.Dependencies
                                     do! jobEvaluator.Evaluate (assemblies, jobToken)
                                 with e ->
-                                    logger.Logf LogLevel.Error "Faulted job '%s':\n%A" jobToken.JobId e
+                                    logger.Logf LogLevel.Error "Job '%s' faulted at initialization:\n%A" jobToken.JobId e
                                     return ()
                             finally
                                 let jc = Interlocked.Decrement &currentJobCount
                                 triggerStateUpdate()
-
-                                logger.Logf LogLevel.Info "Completed cloud job '%s'." jobToken.JobId
-                                logger.Logf LogLevel.Info "Concurrent job count is %d/%d." jc maxConcurrentJobs
+                                logger.Logf LogLevel.Info "Concurrent job count decreased to %d/%d." jc maxConcurrentJobs
 
                         }
 

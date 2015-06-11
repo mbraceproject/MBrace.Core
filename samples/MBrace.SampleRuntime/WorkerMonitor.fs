@@ -17,7 +17,7 @@ type WorkerRef private (hostname : string, pid : int, processorCount : int) =
         let pc = System.Environment.ProcessorCount
         new WorkerRef(hostname, pid, pc))
 
-    let id = sprintf "mbrace-worker://%s/pid:%d" hostname pid
+    let id = sprintf "mbrace://%s/pid:%d" hostname pid
     interface IWorkerRef with
         member __.Hostname = hostname
         member __.Id = id
