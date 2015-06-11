@@ -27,7 +27,7 @@ type ILogTester =
 [<AbstractClass>]
 type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
-    let nNested = parallelismFactor |> float |> ceil |> int
+    let nNested = parallelismFactor |> float |> sqrt |> ceil |> int
 
     let repeat f = repeat self.Repeats f
 
@@ -496,7 +496,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     if i = 0 && j = 0 then
                         return invalidOp "failure"
                     else
-                        do! Cloud.Sleep delayFactor
+                        do! Cloud.Sleep (2 * delayFactor)
                         let! _ = CloudAtom.Incr counter
                         return Some 42
                 }

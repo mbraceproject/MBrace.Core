@@ -82,7 +82,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
         repeat(fun () ->
             let runtime = session.Runtime
             let t = runtime.StartAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
-            do Thread.Sleep 4000
+            do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
@@ -91,7 +91,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
         repeat(fun () ->
             let runtime = session.Runtime
             let t = runtime.StartAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
-            do Thread.Sleep 4000
+            do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 

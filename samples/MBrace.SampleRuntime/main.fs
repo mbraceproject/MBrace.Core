@@ -7,7 +7,7 @@ open Nessos.Thespian.Remote.Protocols
 open MBrace.Core.Internals
 open MBrace.Runtime
 
-let maxConcurrentJobs = 10
+let maxConcurrentJobs = 20
 let useAppDomainIsolation = true
 
 [<EntryPoint>]
