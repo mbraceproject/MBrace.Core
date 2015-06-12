@@ -9,6 +9,7 @@ open MBrace.Client
 type MBraceClient () as self =
 
     let imem = lazy(LocalRuntime.Create(resources = self.Resources.ResourceRegistry))
+    let processManager = lazy(new CloudProcessManager(self.Resources))
 
     abstract Resources : IRuntimeResourceManager
 
@@ -28,15 +29,15 @@ type MBraceClient () as self =
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member c.StartAsTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                                ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<ICloudTask<'T>> = async {
+    member c.CreateProcessAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
+                                ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<CloudProcess<'T>> = async {
 
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
         let dependencies = c.Resources.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! c.Resources.AssemblyManager.UploadAssemblies(dependencies)
         let! tcs = Combinators.runStartAsCloudTask c.Resources assemblyIds taskName faultPolicy cancellationToken target workflow
-        return tcs.Task
+        return processManager.Value.GetProcess tcs
     }
 
     /// <summary>
@@ -47,8 +48,8 @@ type MBraceClient () as self =
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : ICloudTask<'T> =
-        __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
+    member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : CloudProcess<'T> =
+        __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
 
     /// <summary>
@@ -60,7 +61,7 @@ type MBraceClient () as self =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) = async {
-        let! task = __.StartAsTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName)
+        let! task = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName)
         return task.Result
     }
 
@@ -74,6 +75,26 @@ type MBraceClient () as self =
     /// <param name="taskName">User-specified process name.</param>
     member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
+
+    /// Gets all processes of provided cluster
+    member __.GetAllProcesses () = processManager.Value.GetAllProcesses() |> Async.RunSync
+
+    /// <summary>
+    ///     Gets process object by process id.
+    /// </summary>
+    /// <param name="id">Task id.</param>
+    member __.GetProcessById(id:string) = processManager.Value.GetProcessById(id) |> Async.RunSync
+
+    /// <summary>
+    ///     Clear cluster data for provided process.
+    /// </summary>
+    /// <param name="process">Process to be cleared.</param>
+    member __.ClearProcess(p:CloudProcess) = processManager.Value.ClearProcess(p) |> Async.RunSync
+
+    /// <summary>
+    ///     Clear all process data from cluster.
+    /// </summary>
+    member __.ClearAllProcesses() = processManager.Value.ClearAllProcesses() |> Async.RunSync
 
     /// <summary>
     ///     Run workflow as local, in-memory computation

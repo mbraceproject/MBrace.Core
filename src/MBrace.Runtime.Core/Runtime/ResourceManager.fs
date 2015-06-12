@@ -74,3 +74,8 @@ type IRuntimeResourceManager =
     /// </summary>
     /// <param name="capacity">Number of items to be aggregated.</param>
     abstract RequestResultAggregator<'T> : capacity:int -> Async<IResultAggregator<'T>>
+
+    /// <summary>
+    ///     Resets *all* cluster state.
+    /// </summary>
+    abstract ResetClusterState : unit -> Async<unit>

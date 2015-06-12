@@ -52,3 +52,5 @@ type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
         member x.TaskManager = state.TaskManager :> _
         
         member x.ResourceRegistry: ResourceRegistry = resources
+
+        member x.ResetClusterState () = async { return raise <| new System.NotImplementedException("cluster reset") }

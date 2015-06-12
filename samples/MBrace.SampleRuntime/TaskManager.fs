@@ -157,6 +157,8 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
                 do for KeyValue(_,ts) in state do
                     ts.TaskCompletionSource.CancellationTokenSource.Cancel()
 
+                do! rc.Reply()
+
                 return Map.empty
 
             | ClearTask (taskId, rc) ->

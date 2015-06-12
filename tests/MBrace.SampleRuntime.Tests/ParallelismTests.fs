@@ -72,7 +72,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
     member __.``Z5. Fault Tolerance : map/reduce`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.StartAsTask(WordCount.run 20 WordCount.mapReduceRec)
+            let t = runtime.CreateProcess(WordCount.run 20 WordCount.mapReduceRec)
             do Thread.Sleep 4000
             session.Chaos()
             t.Result |> shouldEqual 100)
@@ -81,7 +81,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
     member __.``Z5. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.StartAsTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+            let t = runtime.CreateProcess(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
             do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
@@ -90,7 +90,7 @@ type ``SampleRuntime Parallelism Tests`` () as self =
     member __.``Z5. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.StartAsTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+            let t = runtime.CreateProcess(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
             do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
