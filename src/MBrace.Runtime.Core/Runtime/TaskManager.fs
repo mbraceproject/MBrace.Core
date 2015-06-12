@@ -56,6 +56,9 @@ type ICloudTaskCompletionSource =
     /// Task metadata object.
     abstract Info : CloudTaskInfo
 
+    /// Type of the TaskCompletionSource
+    abstract Type : Type
+
     /// Gets the cancellation token source for the task.
     abstract CancellationTokenSource : ICloudCancellationTokenSource
 

@@ -14,8 +14,13 @@ open MBrace.Core.Internals
 type InMemoryTask<'T> internal (task : Task<'T>) =
     interface ICloudTask<'T> with
         member __.Id = sprintf ".NET task %d" task.Id
-        member __.AwaitResult(?timeoutMilliseconds:int) = Cloud.AwaitTask(task, ?timeoutMilliseconds = timeoutMilliseconds)
-        member __.TryGetResult () = local { return task.TryGetResult() }
+        member __.AwaitResult(?timeoutMilliseconds:int) = async {
+            match timeoutMilliseconds with
+            | None -> return! Async.AwaitTask(task)
+            | Some t -> return! Async.AwaitTask(task.WithTimeout(t))
+        }
+
+        member __.TryGetResult () = async { return task.TryGetResult() }
         member __.Status = task.Status
         member __.IsCompleted = task.IsCompleted
         member __.IsFaulted = task.IsFaulted
@@ -140,5 +145,5 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
             let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
             let resources' = resources.Register (runtimeP :> IDistributionProvider)
             let task = Cloud.StartAsSystemTask(workflow, resources', cancellationToken)
-            return new InMemoryTask<'T>(task) :> _
+            return new InMemoryTask<'T>(task) :> ICloudTask<'T>
         }

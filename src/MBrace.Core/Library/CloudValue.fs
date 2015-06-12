@@ -43,7 +43,7 @@ type CloudValue<'T> =
         member c.UUID = sprintf "CloudValue:%s:%s" c.path c.etag
         member c.GetSourceValue() = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            let! streamOpt = ofAsync <| config.FileStore.ReadETag(c.path, c.etag)
+            let! streamOpt = config.FileStore.ReadETag(c.path, c.etag)
             match streamOpt with
             | None -> return raise <| new InvalidDataException(sprintf "CloudValue: incorrect etag in file '%s'." c.path)
             | Some stream ->
@@ -67,7 +67,7 @@ type CloudValue<'T> =
     /// Gets the size of cloud value in bytes
     member c.Size = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        return! ofAsync <| config.FileStore.GetFileSize c.path
+        return! config.FileStore.GetFileSize c.path
     }
 
     override c.ToString() = sprintf "CloudValue[%O] at %s" typeof<'T> c.path
@@ -76,7 +76,7 @@ type CloudValue<'T> =
     interface ICloudDisposable with
         member c.Dispose () = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            return! ofAsync <| config.FileStore.DeleteFile c.path
+            return! config.FileStore.DeleteFile c.path
         }
 
     interface ICloudStorageEntity with
@@ -112,7 +112,7 @@ type CloudValue =
             // write value
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
-        let! etag,_ = ofAsync <| config.FileStore.WriteETag(path, writer)
+        let! etag,_ = config.FileStore.WriteETag(path, writer)
         return new CloudValue<'T>(path, etag, deserializer, ?enableCache = enableCache)
     }
 
@@ -126,7 +126,7 @@ type CloudValue =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
     static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool, ?enableCache : bool) : Local<CloudValue<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        let! etag = ofAsync <| config.FileStore.TryGetETag path
+        let! etag = config.FileStore.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->

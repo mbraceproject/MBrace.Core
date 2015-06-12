@@ -20,46 +20,50 @@ type private CloudDictionaryMsg<'T> =
     | ToArray of IReplyChannel<KeyValuePair<string, 'T> []>
 
 type CloudDictionary<'T> private (id : string, source : ActorRef<CloudDictionaryMsg<'T>>) =
-    let (<!-) ar msgB = local { return! Cloud.OfAsync(ar <!- msgB)}
+        
     interface ICloudDictionary<'T> with
-        member x.Add(key: string, value: 'T): Local<unit> = 
-            local { let! _ = source <!- fun ch -> Add(key, value, true, ch) in return () }
+        member x.Add(key: string, value: 'T): Async<unit> = 
+            async { let! _ = source <!- fun ch -> Add(key, value, true, ch) in return () }
         
-        member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Local<'T> = 
-            source <!- fun ch -> AddOrUpdate(key, updater, ch)
+        member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Async<'T> = 
+            async { return! source <!- fun ch -> AddOrUpdate(key, updater, ch) }
 
-        member x.Update(key : string, updater : 'T -> 'T) : Local<'T> =
-            source <!- fun ch -> Update(key, updater, ch)
+        member x.Update(key : string, updater : 'T -> 'T) : Async<'T> =
+            async { return! source <!- fun ch -> Update(key, updater, ch) }
         
-        member x.ContainsKey(key: string): Local<bool> = 
-            source <!- fun ch -> ContainsKey(key, ch)
-
-        member x.IsKnownSize = true
-        member x.IsKnownCount = true
-        
-        member x.Count: Local<int64> = 
-            source <!- GetCount
-
-        member x.Size : Local<int64> =
-            source <!- GetCount
-        
-        member x.Dispose(): Local<unit> = local.Zero ()
+        member x.ContainsKey(key: string): Async<bool> = 
+            async { return! source <!- fun ch -> ContainsKey(key, ch) }
         
         member x.Id: string = id
         
-        member x.Remove(key: string): Local<bool> = 
-            source <!- fun ch -> Remove(key, ch)
+        member x.Remove(key: string): Async<bool> = 
+            async { return! source <!- fun ch -> Remove(key, ch) }
         
+        member x.TryAdd(key: string, value: 'T): Async<bool> = 
+            async { return! source <!- fun ch -> Add(key, value, false, ch) }
+        
+        member x.TryFind(key: string): Async<'T option> = 
+            async { return! source <!- fun ch -> TryFind(key, ch) }
+
+    interface ICloudCollection<KeyValuePair<string,'T>> with
+        member x.Count: Local<int64> = local {
+            return! source <!- GetCount
+        }
+
+        member x.IsKnownSize = true
+        member x.IsKnownCount = true
+
+        member x.Size : Local<int64> = local {
+            return! source <!- GetCount
+        }
+
         member x.ToEnumerable() = local {
             let! pairs = source <!- ToArray
             return pairs :> seq<_>
         }
-        
-        member x.TryAdd(key: string, value: 'T): Local<bool> = 
-            source <!- fun ch -> Add(key, value, false, ch)
-        
-        member x.TryFind(key: string): Local<'T option> = 
-            source <!- fun ch -> TryFind(key, ch)
+
+    interface ICloudDisposable with
+        member x.Dispose(): Local<unit> = local.Zero ()
 
     static member Init() =
         let behaviour (state : Map<string, 'T>) (msg : CloudDictionaryMsg<'T>) = async {

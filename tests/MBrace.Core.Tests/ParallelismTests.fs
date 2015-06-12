@@ -92,7 +92,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             return! c.Value
         } |> run |> Choice.shouldEqual parallelismFactor
 
-        c.Value |> runLocally |> shouldEqual (parallelismFactor + 1)
+        c.Value |> Async.RunSync |> shouldEqual (parallelismFactor + 1)
 
     [<Test>]
     member  __.``1. Parallel : exception handler`` () =
@@ -113,7 +113,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             return () }, CloudAtom.Incr trigger |> Local.Ignore)
         |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-        trigger.Value |> runLocally |> shouldEqual 1
+        trigger.Value |> Async.RunSync |> shouldEqual 1
 
     [<Test>]
     member __.``1. Parallel : simple nested`` () =
@@ -216,7 +216,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return ()
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-            counter.Value |> runLocally |> shouldEqual 0)
+            counter.Value |> Async.RunSync |> shouldEqual 0)
 
     [<Test>]
     member __.``1. Parallel : as local`` () =
@@ -426,7 +426,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Array.init parallelismFactor worker |> Cloud.Choice
             } |> run |> Choice.shouldEqual None
 
-            count.Value |> runLocally |> shouldEqual parallelismFactor)
+            count.Value |> Async.RunSync |> shouldEqual parallelismFactor)
 
     [<Test>]
     member __.``2. Choice : one input 'Some'`` () =
@@ -446,7 +446,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
 
                 return! Array.init parallelismFactor worker |> Cloud.Choice
             } |> run |> Choice.shouldEqual (Some 0)
-            count.Value |> runLocally |> shouldEqual 0)
+            count.Value |> Async.RunSync |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : all inputs 'Some'`` () =
@@ -460,7 +460,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldEqual (Some 42)
 
             // ensure only one success continuation call
-            successcounter.Value |> runLocally |> shouldEqual 1)
+            successcounter.Value |> Async.RunSync |> shouldEqual 1)
 
     [<Test>]
     member __.``2. Choice : simple nested`` () =
@@ -483,7 +483,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Array.init nNested cluster |> Cloud.Choice
             } |> run |> Choice.shouldEqual (Some(0,0))
 
-            counter.Value |> runLocally |> shouldBe (fun i ->  i < parallelismFactor / 2))
+            counter.Value |> Async.RunSync |> shouldBe (fun i ->  i < parallelismFactor / 2))
 
     [<Test>]
     member __.``2. Choice : nested exception cancellation`` () =
@@ -505,7 +505,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Array.init nNested cluster |> Cloud.Choice
             } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-            counter.Value |> runLocally |> shouldEqual 0)
+            counter.Value |> Async.RunSync |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : simple cancellation`` () =
@@ -525,7 +525,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                     return! Array.init parallelismFactor worker |> Cloud.Choice
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-            counter.Value |> runLocally |> shouldEqual 0)
+            counter.Value |> Async.RunSync |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : as local`` () =
@@ -690,7 +690,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
                 return! Cloud.AwaitCloudTask task
             } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-            count.Value |> runLocally |> shouldEqual 2)
+            count.Value |> Async.RunSync |> shouldEqual 2)
 
     [<Test>]
     member __.``3. Task: with cancellation token`` () =
@@ -713,7 +713,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
             } |> run |> Choice.shouldFailwith<_, OperationCanceledException>
             
             // ensure final increment was cancelled.
-            count.Value |> runLocally |> shouldEqual 1)
+            count.Value |> Async.RunSync |> shouldEqual 1)
 
     [<Test>]
     member __.``3. Task: to current worker`` () =

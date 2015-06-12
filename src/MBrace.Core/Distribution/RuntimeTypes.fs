@@ -31,9 +31,9 @@ type ICloudTask<'T> =
     /// Gets a boolean indicating that the task has been canceled.
     abstract IsCanceled : bool
     /// Awaits task for completion, returning its eventual result
-    abstract AwaitResult : ?timeoutMilliseconds:int -> Local<'T>
+    abstract AwaitResult : ?timeoutMilliseconds:int -> Async<'T>
     /// Rreturns the task result if completed or None if still pending.
-    abstract TryGetResult : unit -> Local<'T option>
+    abstract TryGetResult : unit -> Async<'T option>
     /// Synchronously gets the task result, blocking until it completes.
     abstract Result : 'T
 

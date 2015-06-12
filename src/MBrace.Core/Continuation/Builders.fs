@@ -53,10 +53,10 @@ module internal BuilderImpl =
     let zero : Body<unit> = ret ()
 
     let inline raiseM e : Body<'T> = fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx (capture e)
-    let inline ofAsync (asyncWorkflow : Async<'T>) : Local<'T> = 
-        mkLocal(fun ctx cont ->
+    let inline ofAsync (asyncWorkflow : Async<'T>) : Body<'T> = 
+        fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
-            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken))
+            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken)
 
     let inline bind (f : Body<'T>) (g : 'T -> #Cloud<'S>) : Body<'S> =
         fun ctx cont ->
@@ -286,8 +286,10 @@ module Builders =
         member __.Zero () : Cloud<unit> = czero
         member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| delay f
         member __.ReturnFrom (c : Cloud<'T>) : Cloud<'T> = c
+        member __.ReturnFrom (c : Async<'T>) : Cloud<'T> = mkCloud <| ofAsync c
         member __.Combine(f : Cloud<unit>, g : Cloud<'T>) : Cloud<'T> = mkCloud <| combine f.Body g.Body
         member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = mkCloud <| bind f.Body g
+        member __.Bind (f : Async<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = mkCloud <| bind (ofAsync f) g
 
         member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingICloudDisposable value bindF
@@ -315,8 +317,10 @@ module Builders =
         member __.Zero () : Local<unit> = lzero
         member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| delay f
         member __.ReturnFrom (c : Local<'T>) : Local<'T> = c
+        member __.ReturnFrom (c : Async<'T>) : Local<'T> = mkLocal (ofAsync c)
         member __.Combine(f : Local<unit>, g : Local<'T>) : Local<'T> = mkLocal <| combine f.Body g.Body
         member __.Bind (f : Local<'T>, g : 'T -> Local<'S>) : Local<'S> = mkLocal <| bind f.Body g
+        member __.Bind (f : Async<'T>, g : 'T -> Local<'S>) : Local<'S> = mkLocal <| bind (ofAsync f) g
 
         member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Local<'U>) : Local<'U> = 
             mkLocal <| usingIDisposable value bindF

@@ -58,17 +58,17 @@ type TaskCompletionSource<'T> private (id : string, source : ActorRef<ResultCell
                 match localAtom with
                 | Some c -> c
                 | None ->
-                    let cell = CacheAtom.Create(tryGetResult, intervalMilliseconds = 200)
+                    let cell = CacheAtom.Create(tryGetResult (), intervalMilliseconds = 200)
                     localAtom <- Some cell
                     cell)
 
     /// Try setting the result
     member c.SetResult result = source <!- fun ch -> SetResult(Config.Serializer.PickleTyped result, ch)
     /// Try getting the result
-    member c.TryGetResult () = getCell().Value
+    member c.TryGetResult () = getCell().GetValueAsync()
     /// Asynchronously poll for result
     member c.AwaitResult() = async {
-        let! result = getCell().Value
+        let! result = getCell().GetValueAsync()
         match result with
         | None -> 
             do! Async.Sleep 500
@@ -78,33 +78,33 @@ type TaskCompletionSource<'T> private (id : string, source : ActorRef<ResultCell
 
     interface ICloudTask<'T> with
         member c.Id = id
-        member c.AwaitResult(?timeout:int) = local {
-            let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
+        member c.AwaitResult(?timeout:int) = async {
+            let! r = Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
             return r.Value :?> 'T
         }
 
-        member c.TryGetResult() = local {
-            let! r = Cloud.OfAsync <| c.TryGetResult()
+        member c.TryGetResult() = async {
+            let! r = c.TryGetResult()
             return r |> Option.map (fun r -> r.Value :?> 'T)
         }
 
         member c.IsCompleted = 
-            match getCell().Value |> Async.RunSync with
+            match getCell().Value with
             | Some(Completed _) -> true
             | _ -> false
 
         member c.IsFaulted =
-            match getCell().Value |> Async.RunSync with
+            match getCell().Value with
             | Some(Exception _) -> true
             | _ -> false
 
         member c.IsCanceled =
-            match getCell().Value |> Async.RunSync with
+            match getCell().Value with
             | Some(Cancelled _) -> true
             | _ -> false
 
         member c.Status =
-            match getCell().Value |> Async.RunSync with
+            match getCell().Value with
             | Some (Completed _) -> Tasks.TaskStatus.RanToCompletion
             | Some (Exception _) -> Tasks.TaskStatus.Faulted
             | Some (Cancelled _) -> Tasks.TaskStatus.Canceled
@@ -119,6 +119,8 @@ type TaskCompletionSource<'T> private (id : string, source : ActorRef<ResultCell
 
     interface ICloudTaskCompletionSource<'T> with
         member x.Info = taskInfo
+
+        member x.Type = typeof<'T>
 
         member x.CancellationTokenSource = cts
 

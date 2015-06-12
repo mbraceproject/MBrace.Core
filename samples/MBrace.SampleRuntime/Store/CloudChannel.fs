@@ -18,12 +18,12 @@ type Channel<'T> private (id : string, source : ActorRef<ChannelMsg<'T>>) =
 
     interface IReceivePort<'T> with
         member __.Id = id
-        member __.Receive(?timeout : int) = Cloud.OfAsync <| async { return! source.PostWithReply(Receive, ?timeout = timeout) }
+        member __.Receive(?timeout : int) = async { return! source.PostWithReply(Receive, ?timeout = timeout) }
         member __.Dispose () = local.Zero()
 
     interface ISendPort<'T> with
         member __.Id = id
-        member __.Send(msg : 'T) =  Cloud.OfAsync <| async { return! source.AsyncPost(Send msg) }
+        member __.Send(msg : 'T) = async { return! source.AsyncPost(Send msg) }
 
     /// Initializes a new distributed queue instance.
     static member Init(id : string) =

@@ -18,48 +18,48 @@ type ICloudDictionary<'T> =
     ///     Checks if entry of supplied key exists in dictionary.
     /// </summary>
     /// <param name="key">Input key.</param>
-    abstract ContainsKey : key:string -> Local<bool>
+    abstract ContainsKey : key:string -> Async<bool>
 
     /// <summary>
     ///     Try adding a new key-value pair to dictionary.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="value">Value for entry.</param>
-    abstract TryAdd : key:string * value:'T -> Local<bool>
+    abstract TryAdd : key:string * value:'T -> Async<bool>
 
     /// <summary>
     ///     Add a new key-value pair to dictionary, overwriting if one already exists.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="value">Value for entry.</param>
-    abstract Add : key:string * value:'T -> Local<unit>
+    abstract Add : key:string * value:'T -> Async<unit>
 
     /// <summary>
     ///     Atomically adds or updates a value in dictionary.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="updater">Entry updater function.</param>
-    abstract AddOrUpdate : key:string * updater:('T option -> 'T) -> Local<'T>
+    abstract AddOrUpdate : key:string * updater:('T option -> 'T) -> Async<'T>
 
     /// <summary>
     ///     Atomically updates an existing value in dictionary.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="updater">Entry updater function.</param>
-    abstract Update : key:string * updater:('T -> 'T) -> Local<'T>
+    abstract Update : key:string * updater:('T -> 'T) -> Async<'T>
 
     /// <summary>
     ///     Removes entry of supplied key from dictionary.
     ///     Returns true if successful.
     /// </summary>
     /// <param name="key">Key to be removed.</param>
-    abstract Remove : key:string -> Local<bool>
+    abstract Remove : key:string -> Async<bool>
 
     /// <summary>
     ///     Attempt reading a value of provided key from dictionary.
     /// </summary>
     /// <param name="key">Key to be read.</param>
-    abstract TryFind : key:string -> Local<'T option>
+    abstract TryFind : key:string -> Async<'T option>
 
 namespace MBrace.Store.Internals
 
@@ -102,7 +102,7 @@ type CloudDictionary =
     /// Creates a new CloudDictionary instance.
     static member New<'T>() = local {
         let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
-        return! ofAsync <| provider.Create<'T> ()
+        return! provider.Create<'T> ()
     }
 
     /// <summary>

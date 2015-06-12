@@ -54,7 +54,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         cloud {
             let! dict = CloudDictionary.New<int> ()
             for i in [1 .. 100] do
-                do! dict.Add(string i, i) |> Cloud.Ignore
+                do! dict.Add(string i, i) |> Async.Ignore
 
             let! values = dict.ToEnumerable()
             return values |> Seq.map (fun kv -> kv.Value) |> Seq.sum
@@ -65,7 +65,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         let parallelismFactor = parallelismFactor
         cloud {
             let! dict = CloudDictionary.New<int> ()
-            let add i = dict.Add(string i, i)
+            let add i = local { return! dict.Add(string i, i) }
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 

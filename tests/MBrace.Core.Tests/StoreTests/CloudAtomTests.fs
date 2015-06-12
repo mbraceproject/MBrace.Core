@@ -67,7 +67,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 return a
             } |> runRemote
             
-        atom.Value |> runLocally |> shouldEqual nSequential
+        atom.Value |> Async.RunSync |> shouldEqual nSequential
 
     [<Test>]
     member __.``CloudAtom - Parallel updates`` () =
@@ -85,7 +85,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     return a
                 } |> runRemote
         
-            atom.Value |> runLocally |> shouldEqual (parallelismFactor * nSequential))
+            atom.Value |> Async.RunSync |> shouldEqual (parallelismFactor * nSequential))
 
     [<Test>]
     member __.``CloudAtom - Parallel updates with large obj`` () =

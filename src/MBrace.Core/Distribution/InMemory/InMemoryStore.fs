@@ -35,9 +35,9 @@ type private InMemoryAtom<'T> (initial : 'T) =
 
     interface ICloudAtom<'T> with
         member __.Id = id
-        member __.Value = local { return Option.get container.Value }
-        member __.Transact(updater, _) = local { return transact updater }
-        member __.Force(value) = local { return force value }
+        member __.Value = async { return Option.get container.Value }
+        member __.Transact(updater, _) = async { return transact updater }
+        member __.Force(value) = async { return force value }
         member __.Dispose () = local { return container := None }
 
 [<Sealed; AutoSerializable(false)>]
@@ -80,14 +80,14 @@ type InMemoryChannelProvider () =
                 {
                     new ISendPort<'T> with
                         member __.Id = id
-                        member __.Send(msg : 'T) = local { return mbox.Post msg }
+                        member __.Send(msg : 'T) = async { return mbox.Post msg }
                 }
 
             let receiver =
                 {
                     new IReceivePort<'T> with
                         member __.Id = id
-                        member __.Receive(?timeout : int) = local { return! Cloud.OfAsync <| mbox.Receive(?timeout = timeout) }
+                        member __.Receive(?timeout : int) = async { return! mbox.Receive(?timeout = timeout) }
                         member __.Dispose() = raise <| new NotSupportedException()
                 }
 
@@ -106,20 +106,20 @@ type InMemoryDictionaryProvider() =
             let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
             return {
                 new ICloudDictionary<'T> with
-                    member x.Add(key : string, value : 'T) : Local<unit> =
-                        local { return dict.[key] <- value }
+                    member x.Add(key : string, value : 'T) : Async<unit> =
+                        async { return dict.[key] <- value }
 
-                    member x.TryAdd(key: string, value: 'T): Local<bool> = 
-                        local { return dict.TryAdd(key, value) }
+                    member x.TryAdd(key: string, value: 'T): Async<bool> = 
+                        async { return dict.TryAdd(key, value) }
                     
-                    member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Local<'T> = 
-                        local { return dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))}
+                    member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Async<'T> = 
+                        async { return dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))}
 
-                    member x.Update(key: string, updater: 'T -> 'T): Local<'T> = 
-                        local { return dict.AddOrUpdate(key, (fun key -> raise <| new KeyNotFoundException(key)), (fun _ t -> updater t)) }
+                    member x.Update(key: string, updater: 'T -> 'T): Async<'T> = 
+                        async { return dict.AddOrUpdate(key, (fun key -> raise <| new KeyNotFoundException(key)), (fun _ t -> updater t)) }
                     
-                    member x.ContainsKey(key: string): Local<bool> = 
-                        local { return dict.ContainsKey key }
+                    member x.ContainsKey(key: string): Async<bool> = 
+                        async { return dict.ContainsKey key }
 
                     member x.IsKnownCount = true
                     member x.IsKnownSize = true
@@ -135,13 +135,13 @@ type InMemoryDictionaryProvider() =
                     // capture provider in closure it avoid it being serialized
                     member x.Id: string = let _ = s.GetHashCode() in id
                     
-                    member x.Remove(key: string): Local<bool> = 
-                        local { return dict.TryRemove key |> fst }
+                    member x.Remove(key: string): Async<bool> = 
+                        async { return dict.TryRemove key |> fst }
                     
                     member x.ToEnumerable(): Local<seq<KeyValuePair<string, 'T>>> = 
                         local { return dict :> _ }
                     
-                    member x.TryFind(key: string): Local<'T option> = 
-                        local { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
+                    member x.TryFind(key: string): Async<'T option> = 
+                        async { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
                     
             } }

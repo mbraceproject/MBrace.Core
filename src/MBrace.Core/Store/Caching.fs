@@ -53,11 +53,11 @@ type CloudCache =
         match cache with
         | None -> return false
         | Some c ->
-            let! containsKey = ofAsync <| c.ContainsKey entity.UUID
+            let! containsKey = c.ContainsKey entity.UUID
             if containsKey then return true
             else
                 let! value = entity.GetSourceValue()
-                return! ofAsync <| c.Add (entity.UUID, value)
+                return! c.Add (entity.UUID, value)
     }
 
     /// <summary>
@@ -68,7 +68,7 @@ type CloudCache =
         let! cache = Cloud.TryGetResource<IObjectCache> ()
         match cache with
         | None -> return false
-        | Some c -> return! ofAsync <| c.ContainsKey entity.UUID
+        | Some c -> return! c.ContainsKey entity.UUID
     }
 
     /// <summary>
@@ -81,7 +81,7 @@ type CloudCache =
         match cache with
         | None -> return None
         | Some c ->
-            let! cacheResult = ofAsync <| c.TryFind entity.UUID
+            let! cacheResult = c.TryFind entity.UUID
             match cacheResult with
             | None -> return None
             | Some(:? 'T as t) -> return Some t
@@ -103,7 +103,7 @@ type CloudCache =
         match cache with
         | None -> return! entity.GetSourceValue()
         | Some c ->
-            let! cacheResult = ofAsync <| c.TryFind entity.UUID
+            let! cacheResult = c.TryFind entity.UUID
             match cacheResult with
             | Some(:? 'T as t) -> return t
             | Some null -> return raise <| new NullReferenceException("CloudCache entity.")
@@ -112,8 +112,8 @@ type CloudCache =
                 return raise <| new InvalidCastException(msg)
             | None ->
                 let! t = entity.GetSourceValue()
-                if cacheIfNotExists then 
-                    let! _ = ofAsync <| c.Add(entity.UUID, t) in ()
+                if cacheIfNotExists then
+                    let! _ = c.Add(entity.UUID, t) in ()
 
                 return t
     }

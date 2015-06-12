@@ -10,20 +10,20 @@ type ICloudAtom<'T> =
     abstract Id : string
 
     /// Gets the current value of the atom.
-    abstract Value : Local<'T>
+    abstract Value : Async<'T>
 
     /// <summary>
     ///     Atomically updates table entry of given id using updating function.
     /// </summary>
     /// <param name="updater">Value transaction function.</param>
     /// <param name="maxRetries">Maximum retries under optimistic semantics. Defaults to infinite.</param>
-    abstract Transact : transaction:('T -> 'R * 'T) * ?maxRetries:int -> Local<'R>
+    abstract Transact : transaction:('T -> 'R * 'T) * ?maxRetries:int -> Async<'R>
 
     /// <summary>
     ///      Forces a value on atom.
     /// </summary>
     /// <param name="value">value to be set.</param>
-    abstract Force : value:'T -> Local<unit>
+    abstract Force : value:'T -> Async<unit>
 
 namespace MBrace.Store.Internals
  
@@ -101,7 +101,7 @@ type CloudAtom =
     static member New<'T>(initial : 'T, ?container : string) : Local<ICloudAtom<'T>> = local {
         let! config = Cloud.GetResource<CloudAtomConfiguration> ()
         let container = defaultArg container config.DefaultContainer
-        return! ofAsync <| config.AtomProvider.CreateAtom(container, initial)
+        return! config.AtomProvider.CreateAtom(container, initial)
     }
 
     /// <summary>
@@ -153,7 +153,7 @@ type CloudAtom =
     /// <param name="container"></param>
     static member DeleteContainer (container : string) : Local<unit> = local {
         let! config = Cloud.GetResource<CloudAtomConfiguration> ()
-        return! ofAsync <| config.AtomProvider.DisposeContainer container
+        return! config.AtomProvider.DisposeContainer container
     }
 
     /// Generates a unique container name.

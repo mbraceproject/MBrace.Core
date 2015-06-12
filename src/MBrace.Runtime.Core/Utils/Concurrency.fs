@@ -135,7 +135,7 @@ type CacheAtom<'T> internal (provider : 'T option -> Async<'T>, interval : TimeS
     }
 
     /// Asynchronously returns the latest cached value
-    member __.Value = async {
+    member __.GetValueAsync() = async {
         let! result = container.TransactAsync (update false)
         return
             match result with
@@ -144,7 +144,7 @@ type CacheAtom<'T> internal (provider : 'T option -> Async<'T>, interval : TimeS
     }
 
     /// Asynchronously returns the latest cached value
-    member __.TryGetValue () = async {
+    member __.TryGetValueAsync () = async {
         let! result = container.TransactAsync (update false)
         return
             match result with
@@ -153,8 +153,8 @@ type CacheAtom<'T> internal (provider : 'T option -> Async<'T>, interval : TimeS
     }
 
     /// Asynchronously returns the latest successful value
-    member __.TryGetLastSuccessfulValue () = async {
-        let! result = __.TryGetValue()
+    member __.TryGetLastSuccessfulValueAsync () = async {
+        let! result = __.TryGetValueAsync()
         return
             match result with
             | Some _ as v -> v
@@ -167,13 +167,18 @@ type CacheAtom<'T> internal (provider : 'T option -> Async<'T>, interval : TimeS
     }
 
     /// Forces update of a new value
-    member __.Force () = async {
+    member __.ForceAsync () = async {
         let! result = container.TransactAsync (update true)
         return
             match result with
             | Choice1Of2 v -> v
             | Choice2Of2 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
     }
+
+    member __.Value = __.GetValueAsync() |> Async.RunSync
+    member __.TryGetValue () = __.TryGetValueAsync() |> Async.RunSync
+    member __.TryGetLastSuccessfulValue () = __.TryGetLastSuccessfulValueAsync() |> Async.RunSync
+    member __.Force () = __.ForceAsync() |> Async.RunSync
 
 /// thread safe cache with expiry semantics
 type CacheAtom =
@@ -185,11 +190,11 @@ type CacheAtom =
     /// <param name="keepLastResultOnError">Return previous result on exception or throw. Defaults to the latter.</param>
     /// <param name="intervalMilliseconds">Value renew threshold in milliseconds. Defaults to 200.</param>
     /// <param name="initial">Initial value for cell. Defaults to no value.</param>
-    static member Create(provider : unit -> Async<'T>, ?keepLastResultOnError, ?intervalMilliseconds, ?initial) : CacheAtom<'T> =
+    static member Create(provider : Async<'T>, ?keepLastResultOnError, ?intervalMilliseconds, ?initial) : CacheAtom<'T> =
         let keepLastResultOnError = defaultArg keepLastResultOnError false
         let interval = defaultArg intervalMilliseconds 200 |> float |> TimeSpan.FromMilliseconds
         let providerW (state : 'T option) = async {
-            try return! provider ()
+            try return! provider
             with e ->
                 match state with
                 | Some t when keepLastResultOnError -> return t

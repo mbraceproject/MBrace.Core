@@ -22,15 +22,15 @@ type Atom<'T> private (id : string, source : ActorRef<AtomMsg<'T>>) =
 
     interface ICloudAtom<'T> with
         member __.Id = id
-        member __.Value = Cloud.OfAsync <| async {
+        member __.Value = async {
             let! _,value = source <!- GetValue
             return value
         }
 
         member __.Dispose() = Cloud.OfAsync <| async { return! source <!- Dispose }
 
-        member __.Force(value : 'T) = Cloud.OfAsync <| async { return! source <!- fun ch -> ForceValue(value, ch) }
-        member __.Transact(f : 'T -> 'R * 'T, ?maxRetries) = Cloud.OfAsync <| async {
+        member __.Force(value : 'T) = async { return! source <!- fun ch -> ForceValue(value, ch) }
+        member __.Transact(f : 'T -> 'R * 'T, ?maxRetries) = async {
             if maxRetries |> Option.exists (fun i -> i < 0) then
                 invalidArg "maxRetries" "must be non-negative."
 

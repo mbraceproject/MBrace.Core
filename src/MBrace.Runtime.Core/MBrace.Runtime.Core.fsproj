@@ -80,6 +80,7 @@
     <Compile Include="Runtime\DistributionProvider.fs" />
     <Compile Include="Runtime\JobEvaluator.fs" />
     <Compile Include="Runtime\Worker.fs" />
+    <Compile Include="Runtime\Process.fs" />
     <Compile Include="Runtime\Client.fs" />
     <Compile Include="Vagabond\VagabondRegistry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
