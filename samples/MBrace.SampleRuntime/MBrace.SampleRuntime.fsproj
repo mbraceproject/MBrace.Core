@@ -69,7 +69,7 @@
     <Compile Include="Store\CloudAtom.fs" />
     <Compile Include="Store\CloudChannel.fs" />
     <Compile Include="Store\CloudDictionary.fs" />
-    <Compile Include="WorkerMonitor.fs" />
+    <Compile Include="WorkerManager.fs" />
     <Compile Include="TaskManager.fs" />
     <Compile Include="JobQueue.fs" />
     <Compile Include="RuntimeState.fs" />

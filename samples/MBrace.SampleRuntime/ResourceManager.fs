@@ -26,12 +26,7 @@ type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
         
         member x.CancellationEntryFactory: ICancellationEntryFactory = state.Factory :> _
         
-        member x.CurrentWorker: IWorkerRef = WorkerRef.LocalWorker :> _
-        
-        member x.GetAvailableWorkers(): Async<IWorkerRef []> = async {
-            let! workers = state.WorkerMonitor.GetAllWorkers()
-            return workers |> Array.map fst
-        }
+        member x.WorkerManager = state.WorkerManager :> _
         
         member x.JobQueue: IJobQueue = state.JobQueue
         

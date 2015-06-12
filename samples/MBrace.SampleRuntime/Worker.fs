@@ -13,6 +13,7 @@ let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
 
     ignore Config.Serializer
     let resourceManager = new ResourceManager(state, logger)
+    let currentWorker = WorkerRef.LocalWorker :> IWorkerRef
 
     let jobEvaluator =
         if useAppDomainIsolation then
@@ -22,16 +23,14 @@ let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
                 Config.Init(populateDirs = false) 
                 logger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
 
-            let managerF = DomainLocal.Create(fun () -> new ResourceManager(state, logger) :> IRuntimeResourceManager)
+            let managerF = DomainLocal.Create(fun () -> new ResourceManager(state, logger) :> IRuntimeResourceManager, currentWorker)
 
             AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
         else
-            new LocalJobEvaluator(resourceManager) :> ICloudJobEvaluator
+            new LocalJobEvaluator(resourceManager, currentWorker) :> ICloudJobEvaluator
 
     logger.LogInfo "Creating worker agent."
-    let agent = WorkerAgent.Create(resourceManager, jobEvaluator, maxConcurrentJobs)
-    logger.LogInfo "Setting up worker subscription."
-    let! subscription = WorkerSubscriptionManager.Init(state.WorkerMonitor, agent)
+    let! agent = WorkerAgent.Create(resourceManager, currentWorker, jobEvaluator, maxConcurrentJobs)
     do! agent.Start()
-    return agent, subscription
+    return agent
 }

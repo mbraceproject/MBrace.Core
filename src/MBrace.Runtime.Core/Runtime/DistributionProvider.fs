@@ -8,7 +8,7 @@ open MBrace.Core.Internals.InMemoryRuntime
 
 /// Scheduling implementation provider
 [<Sealed; AutoSerializable(false)>]
-type DistributionProvider private (resources : IRuntimeResourceManager, currentJob : CloudJob, faultPolicy : FaultPolicy, isForcedLocalParallelism : bool) =
+type DistributionProvider private (currentWorker : IWorkerRef, resources : IRuntimeResourceManager, currentJob : CloudJob, faultPolicy : FaultPolicy, isForcedLocalParallelism : bool) =
 
     let logger = resources.GetCloudLogger currentJob
 
@@ -22,10 +22,11 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
     /// <summary>
     ///     Creates a distribution provider instance for given cloud job.
     /// </summary>
+    /// <param name="currentWorker">Worker ref instance identifying current worker.</param>
     /// <param name="resources">Runtime resource manager.</param>
     /// <param name="job">Job to be executed.</param>
-    static member Create(resources : IRuntimeResourceManager, job : CloudJob) =
-        new DistributionProvider(resources, job, job.FaultPolicy, false)
+    static member Create(currentWorker : IWorkerRef, resources : IRuntimeResourceManager, job : CloudJob) =
+        new DistributionProvider(currentWorker, resources, job, job.FaultPolicy, false)
         
     interface IDistributionProvider with
         member __.ProcessId = currentJob.TaskInfo.Id
@@ -33,14 +34,14 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy (newPolicy : FaultPolicy) =
-            new DistributionProvider(resources, currentJob, newPolicy, isForcedLocalParallelism) :> IDistributionProvider
+            new DistributionProvider(currentWorker, resources, currentJob, newPolicy, isForcedLocalParallelism) :> IDistributionProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = mkCts false parents
 
         member __.IsTargetedWorkerSupported = true
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting (setting : bool) = 
-            new DistributionProvider(resources, currentJob, faultPolicy, setting) :> IDistributionProvider
+            new DistributionProvider(currentWorker, resources, currentJob, faultPolicy, setting) :> IDistributionProvider
 
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts false, computations)
         member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts false, computations)
@@ -63,10 +64,14 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating as local semantics."
             else
-                let! tcs = Cloud.OfAsync <| Combinators.runStartAsCloudTask resources currentJob.TaskInfo.Dependencies taskName faultPolicy cancellationToken target workflow 
+                let! tcs = Combinators.runStartAsCloudTask resources currentJob.TaskInfo.Dependencies taskName faultPolicy cancellationToken target workflow 
                 return tcs.Task
         }
 
-        member __.GetAvailableWorkers () = resources.GetAvailableWorkers()
-        member __.CurrentWorker = resources.CurrentWorker
+        member __.GetAvailableWorkers () = async {
+            let! workers = resources.WorkerManager.GetAvailableWorkers()
+            return workers |> Array.map (fun (w,_,_) -> w)
+        }
+
+        member __.CurrentWorker = currentWorker
         member __.Logger = logger

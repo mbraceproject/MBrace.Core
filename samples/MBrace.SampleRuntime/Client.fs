@@ -14,11 +14,12 @@ open MBrace.Store
 open MBrace.Store.Internals
 
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
 
 /// MBrace Sample runtime client instance.
-type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
-    inherit MBraceClient()
+type MBraceRuntime private (manager : IRuntimeResourceManager, state : RuntimeState, logger : AttacheableLogger) =
+    inherit MBraceClient(manager)
     static let processName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name
     static do Config.Init()
     static let mutable exe = None
@@ -32,16 +33,11 @@ type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
         for i = 1 to count do
             ignore <| Process.Start psi
 
-    let manager = new ResourceManager(state, logger) :> IRuntimeResourceManager
-
-    override __.Resources = manager
-
     member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () =
-        let workers = manager.GetAvailableWorkers() |> Async.RunSync
-        for w in workers do
+        for w in base.Workers do
             try 
                 if w.Hostname = (WorkerRef.LocalWorker :> IWorkerRef).Hostname then
                     let p = Process.GetProcessById w.ProcessId
@@ -70,8 +66,9 @@ type MBraceRuntime private (state : RuntimeState, logger : AttacheableLogger) =
 
         let logger = new AttacheableLogger()
         let state = RuntimeState.InitLocal(logger, storeConfig, ?miscResources = resource)
+        let manager = new ResourceManager(state, logger)
         let _ = initWorkers state workerCount
-        new MBraceRuntime(state, logger)
+        new MBraceRuntime(manager, state, logger)
 
     /// Gets or sets the worker executable location.
     static member WorkerExecutable

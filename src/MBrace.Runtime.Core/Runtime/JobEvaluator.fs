@@ -28,12 +28,15 @@ module JobEvaluator =
     ///     Asynchronously evaluates job in the local application domain.
     /// </summary>
     /// <param name="manager">Runtime resource manager.</param>
+    /// <param name="currentWorker">Current worker executing job.</param>
     /// <param name="faultState">Job fault state.</param>
     /// <param name="job">Job instance to be executed.</param>
-    let runJobAsync (manager : IRuntimeResourceManager) (faultState : JobFaultInfo) (job : CloudJob) = async {
+    let runJobAsync (manager : IRuntimeResourceManager) (currentWorker : IWorkerRef) 
+                    (faultState : JobFaultInfo) (job : CloudJob) = async {
+
         let logger = manager.SystemLogger
         let jem = new JobExecutionMonitor()
-        let distributionProvider = DistributionProvider.Create(manager, job)
+        let distributionProvider = DistributionProvider.Create(currentWorker, manager, job)
         let resources = resource {
             yield! manager.ResourceRegistry
             yield jem
@@ -87,9 +90,12 @@ module JobEvaluator =
     ///     loads job to local application domain and evaluates it locally.
     /// </summary>
     /// <param name="manager">Runtime resource manager.</param>
+    /// <param name="currentWorker">Current worker executing job.</param>
     /// <param name="assemblies">Vagabond assemblies to be used for computation.</param>
     /// <param name="joblt">Job lease token.</param>
-    let loadAndRunJobAsync (manager : IRuntimeResourceManager) (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
+    let loadAndRunJobAsync (manager : IRuntimeResourceManager) (currentWorker : IWorkerRef) 
+                            (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
+
         let logger = manager.SystemLogger
         logger.Logf LogLevel.Debug "Loading assembly dependencies for job '%s'." joblt.Id
         for li in manager.AssemblyManager.LoadAssemblies assemblies do
@@ -115,7 +121,7 @@ module JobEvaluator =
 
             do! manager.TaskManager.IncrementJobCount(joblt.TaskInfo.Id)
             let sw = Stopwatch.StartNew()
-            let! result = runJobAsync manager joblt.FaultInfo job |> Async.Catch
+            let! result = runJobAsync manager currentWorker joblt.FaultInfo job |> Async.Catch
             sw.Stop()
             do! manager.TaskManager.DecrementJobCount(joblt.TaskInfo.Id)
 
@@ -130,16 +136,16 @@ module JobEvaluator =
        
 
 [<AutoSerializable(false)>]
-type LocalJobEvaluator(manager : IRuntimeResourceManager) =
+type LocalJobEvaluator(manager : IRuntimeResourceManager, currentWorker : IWorkerRef) =
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
-            return! JobEvaluator.loadAndRunJobAsync manager assemblies jobtoken
+            return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken
         }
 
 [<AutoSerializable(false)>]
-type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager>, pool : AppDomainEvaluatorPool) =
+type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager * IWorkerRef>, pool : AppDomainEvaluatorPool) =
 
-    static member Create(managerF : DomainLocal<IRuntimeResourceManager>,
+    static member Create(managerF : DomainLocal<IRuntimeResourceManager * IWorkerRef>,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
                                 ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 
@@ -155,8 +161,8 @@ type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager>, pool
             // avoid capturing evaluator in closure
             let managerF = managerF
             let eval () = async { 
-                let manager = managerF.Value 
-                return! JobEvaluator.loadAndRunJobAsync manager assemblies jobtoken 
+                let manager, currentWorker = managerF.Value 
+                return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken 
             }
 
             return! pool.EvaluateAsync(jobtoken.TaskInfo.Dependencies, eval ())

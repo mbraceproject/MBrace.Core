@@ -27,6 +27,20 @@ let private ensureSerializable (t : 'T) =
     try FsPickler.EnsureSerializable t ; None
     with e -> Some e
 
+let private checkWorker (resources : IRuntimeResourceManager) (worker : IWorkerRef) = async {
+    let! isValid = resources.WorkerManager.IsValidTargetWorker worker
+    if not isValid then
+        invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to cluster." worker
+}
+
+let private checkWorkers (resources : IRuntimeResourceManager) (workers : seq<IWorkerRef>) = async {
+    do!
+        workers
+        |> Seq.map (checkWorker resources)
+        |> Async.Parallel
+        |> Async.Ignore
+}
+
 /// <summary>
 ///     Defines a workflow that schedules provided cloud workflows for parallel computation.
 /// </summary>
@@ -70,6 +84,9 @@ let runParallel (resources : IRuntimeResourceManager) (parentTask : CloudTaskInf
                 cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
             | None ->
+
+            // ensure that target workers are valid in the current cluster context
+            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers resources
 
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken
@@ -166,6 +183,9 @@ let runChoice (resources : IRuntimeResourceManager) (parentTask : CloudTaskInfo)
 
             | None ->
 
+            // ensure that target workers are valid in the current cluster context
+            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers resources
+
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
             let currentCts = ctx.CancellationToken
@@ -249,6 +269,12 @@ let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : As
         return raise <| new SerializationException(msg, e)
 
     | None ->
+
+        // ensure that target worker is valid in current cluster context
+        match target with
+        | None -> ()
+        | Some w -> do! checkWorker resources w
+
         let! cts = async {
             match token with
             | Some ct -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, parents = [|ct|], elevate = true)

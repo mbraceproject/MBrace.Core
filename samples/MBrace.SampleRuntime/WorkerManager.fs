@@ -8,6 +8,7 @@ open Nessos.Thespian
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils.PerformanceMonitor
 
 [<AutoSerializable(true)>]
 type WorkerRef private (hostname : string, pid : int, processorCount : int) =
@@ -48,13 +49,15 @@ and private WorkerMonitorMsg =
     | Subscribe of IWorkerRef * WorkerState * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
     | UnSubscribe of IWorkerRef
     | DeclareState of IWorkerRef * WorkerState
+    | DeclarePerformanceMetrics of IWorkerRef * NodePerformanceInfo
     | DeclareDead of IWorkerRef
     | IsAlive of IWorkerRef * IReplyChannel<bool>
-    | GetAllWorkers of IReplyChannel<(IWorkerRef * WorkerState) []>
+    | GetAvailableWorkers of IReplyChannel<(IWorkerRef * WorkerState * NodePerformanceInfo) []>
 
 type private WorkerInfo =
     {
         State : WorkerState
+        Perf : NodePerformanceInfo
         HeartbeatMonitor : ActorRef<HeartbeatMonitorMsg>
     }
 
@@ -104,25 +107,51 @@ module private HeartbeatMonitor =
 
 
 [<AutoSerializable(true)>]
-type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
+type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
+
     member __.Subscribe(worker : IWorkerRef, initial : WorkerState) = async {
         let! heartbeatMon,threshold = source <!- fun ch -> Subscribe(worker, initial, ch)
         return! HeartbeatMonitor.initHeartbeat threshold heartbeatMon
     }
 
-    member __.DeclareState(worker : IWorkerRef, state : WorkerState) =
-        source <-- DeclareState (worker, state)
+    member __.DeclareState(worker : IWorkerRef, state : WorkerState) = async {
+        return! source.AsyncPost <| DeclareState (worker, state)
+    }
 
-    member __.UnSubscribe(worker : IWorkerRef) =
-        source <-- UnSubscribe worker
+    member __.UnSubscribe(worker : IWorkerRef) = async {
+        return! source.AsyncPost <| UnSubscribe worker
+    }
 
     member __.GetAllWorkers() = async {
-        return! source <!- GetAllWorkers
+        return! source <!- GetAvailableWorkers
     }
 
     member __.IsAlive(worker : IWorkerRef) = async {
         return! source <!- fun ch -> IsAlive(worker, ch)
     }
+
+    interface IWorkerManager with
+        member x.DeclareWorkerState(worker: IWorkerRef, state: WorkerState): Async<unit> = 
+            x.DeclareState(worker, state)
+        
+        member x.GetAvailableWorkers(): Async<(IWorkerRef * WorkerState * NodePerformanceInfo) []> = 
+            x.GetAllWorkers()
+        
+        member x.IsValidTargetWorker(target: IWorkerRef): Async<bool> = async {
+            match target with
+            | :? WorkerRef -> return! x.IsAlive(target)
+            | _ -> return false
+        }
+        
+        member x.SubmitPerformanceMetrics(worker: IWorkerRef, perf: NodePerformanceInfo): Async<unit> = async {
+            return! source <!- fun ch -> DeclarePerformanceMetrics(worker, perf)
+        }
+        
+        member x.SubscribeWorker(worker: IWorkerRef, initial: WorkerState): Async<IDisposable> = async {
+            let! heartbeatMon, threshold = source <!- fun ch -> Subscribe(worker, initial, ch)
+            let! unsubscriber = HeartbeatMonitor.initHeartbeat threshold heartbeatMon
+            return new WorkerSubscriptionManager(x, worker, unsubscriber) :> IDisposable
+        }
 
     static member Init(?heartbeatThreshold : TimeSpan) =
         let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 4.)
@@ -131,7 +160,7 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
             | Subscribe(w, ws, rc) ->
                 let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
                 do! rc.Reply(hmon, heartbeatThreshold)
-                let info = { State = ws ; HeartbeatMonitor = hmon }
+                let info = { State = ws ; HeartbeatMonitor = hmon ; Perf = Unchecked.defaultof<_> }
                 return (state.Add(w, info))
 
             | UnSubscribe w ->
@@ -153,8 +182,13 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
                 | None -> return state
                 | Some info -> return state.Add(w, { info with State = ws })
 
-            | GetAllWorkers rc ->
-                let workers = state |> Seq.map (fun kv -> kv.Key, kv.Value.State) |> Seq.toArray
+            | DeclarePerformanceMetrics(w, perf) ->
+                match state.TryFind w with
+                | None -> return state
+                | Some info -> return state.Add(w, { info with Perf = perf })
+
+            | GetAvailableWorkers rc ->
+                let workers = state |> Seq.map (fun kv -> kv.Key, kv.Value.State, kv.Value.Perf) |> Seq.toArray
                 do! rc.Reply workers
                 return state
 
@@ -168,29 +202,22 @@ type WorkerMonitor private (source : ActorRef<WorkerMonitorMsg>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new WorkerMonitor(aref)
+        new WorkerManager(aref)
 
 
-[<AutoSerializable(false)>]
-type WorkerSubscriptionManager private (wmon : WorkerMonitor, worker : WorkerAgent, heartbeatDisposer : IDisposable, stateChangeDisposer : IDisposable) =
+
+and [<AutoSerializable(false)>] private 
+    WorkerSubscriptionManager (wmon : WorkerManager, currentWorker : IWorkerRef, heartbeatDisposer : IDisposable) =
 
     let mutable isDisposed = false
     let lockObj = obj()
-
-    /// Initializes a subscribption and heartbeat for provider worker agent instance
-    static member Init(wmon : WorkerMonitor, worker : WorkerAgent) = async {
-        let! heartbeatDisposer = wmon.Subscribe(worker.CurrentWorker, worker.CurrentState)
-        let stateChangeDisposer = worker.OnStateChange.Subscribe(fun state -> wmon.DeclareState(worker.CurrentWorker, state))
-        return new WorkerSubscriptionManager(wmon, worker, heartbeatDisposer, stateChangeDisposer)
-    }
 
     /// Unsubscribes worker from global worker monitor
     member __.UnSubscribe() =
         lock lockObj (fun () ->
             if isDisposed then () else
-            stateChangeDisposer.Dispose()
             heartbeatDisposer.Dispose()
-            wmon.UnSubscribe worker.CurrentWorker
+            wmon.UnSubscribe currentWorker |> Async.RunSync
             isDisposed <- true)
 
     interface IDisposable with

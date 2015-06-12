@@ -11,20 +11,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
-
-[<NoEquality; NoComparison>]
-type WorkerStatus =
-    | Running
-    | Stopped
-    | QueueFault of ExceptionDispatchInfo
-
-[<NoEquality; NoComparison>]
-type WorkerState =
-    {
-        Status : WorkerStatus
-        CurrentJobCount : int
-        MaxJobCount : int
-    }
+open MBrace.Runtime.Utils.PerformanceMonitor
 
 [<NoEquality; NoComparison>]
 type private WorkerAgentMessage = 
@@ -32,7 +19,7 @@ type private WorkerAgentMessage =
     | Start of ReplyChannel<unit>
 
 /// Worker agent with updatable configuration
-type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) =
+type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int, unsubscriber : IDisposable) =
     let cts = new CancellationTokenSource()
     let event = new Event<WorkerState>()
     let mutable currentJobCount = 0
@@ -40,6 +27,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
     let mutable status = Stopped
 
     let getState () = { Status = status ; CurrentJobCount = currentJobCount ; MaxJobCount = maxConcurrentJobs }
+    let _ = event.Publish.Subscribe(fun s -> resourceManager.WorkerManager.DeclareWorkerState(currentWorker, s) |> Async.StartAsTask |> ignore)
     let triggerStateUpdate () = 
         let state = getState ()
         event.TriggerAsTask state |> ignore
@@ -69,10 +57,10 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
                 return! workerLoop inbox
 
             | _ ->
-                let! job = Async.Catch <| resourceManager.JobQueue.TryDequeue resourceManager.CurrentWorker
+                let! job = Async.Catch <| resourceManager.JobQueue.TryDequeue currentWorker
                 match job with
                 | Choice2Of2 e ->
-                    status <- QueueFault (ExceptionDispatchInfo.Capture e)
+                    status <- QueueFault
                     triggerStateUpdate ()
 
                     logger.Logf LogLevel.Info "Worker Job Queue fault:\n%O" e
@@ -82,7 +70,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
                 | Choice1Of2 result ->
                     match status with
                     | QueueFault _ ->
-                        status <- Running
+                        status <- WorkerStatus.Running
                         triggerStateUpdate ()
                         logger.Log LogLevel.Info "Worker Job Queue restored."
 
@@ -121,7 +109,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
 
         | Some(Stop (waitTimeout, rc)) ->
             match status with
-            | Running | QueueFault _ ->
+            | WorkerStatus.Running | QueueFault _ ->
                 logger.Log LogLevel.Info "Stop requested. Waiting for pending jobs."
                 let rec wait () = async {
                     let jc = currentJobCount
@@ -151,7 +139,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
             match status with
             | Stopped ->
                 logger.Log LogLevel.Info "Starting Worker."
-                status <- Running
+                status <- WorkerStatus.Running
                 triggerStateUpdate()
                 do rc.Reply (())
                 return! workerLoop inbox
@@ -161,19 +149,39 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
     }
 
     let agent = MailboxProcessor.Start(workerLoop, cts.Token)
+    let perfmon = new PerformanceMonitor()
+    do perfmon.Start()
+
+    let rec perfLoop () = async {
+        let perf = perfmon.GetCounters()
+        try 
+            do! resourceManager.WorkerManager.SubmitPerformanceMetrics(currentWorker, perf)
+            do! Async.Sleep 1000
+        with e -> 
+            resourceManager.SystemLogger.Logf LogLevel.Error "Error submitting performance metrics:\n%O" e
+            do! Async.Sleep 2000
+
+        return! perfLoop ()
+    }
+
+    do Async.Start(perfLoop(), cts.Token)
 
     /// <summary>
     ///     Creates a new Worker agent instance with provided runtime configuration.
     /// </summary>
     /// <param name="resourceManager">Runtime resource management object.</param>
+    /// <param name="currentWorker">Worker ref for current instance.</param>
     /// <param name="jobEvaluator">Abstract job evaluator.</param>
     /// <param name="maxConcurrentJobs">Maximum number of jobs to be executed concurrently in this worker.</param>
-    static member Create(resourceManager : IRuntimeResourceManager, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) =
+    static member Create(resourceManager : IRuntimeResourceManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) = async {
         if maxConcurrentJobs < 1 then invalidArg "maxConcurrentJobs" "must be positive."
-        new WorkerAgent(resourceManager, jobEvaluator, maxConcurrentJobs)
+        let workerState = { MaxJobCount = maxConcurrentJobs ; Status = WorkerStatus.Stopped ; CurrentJobCount = 0 }
+        let! unsubscriber = resourceManager.WorkerManager.SubscribeWorker (currentWorker, workerState)
+        return new WorkerAgent(resourceManager, currentWorker, jobEvaluator, maxConcurrentJobs, unsubscriber)
+    }
 
     /// Worker ref representing the current worker instance.
-    member w.CurrentWorker = resourceManager.CurrentWorker
+    member w.CurrentWorker = currentWorker
 
     /// Starts agent with supplied configuration
     member w.Start() = async {
@@ -194,9 +202,10 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, jobEvaluato
 
     /// Gets whether worker agent is currently running
     member w.IsRunning = 
-        match status with Running | QueueFault _ -> true | _ -> false
+        match status with WorkerStatus.Running | QueueFault _ -> true | _ -> false
 
     interface IDisposable with
         member w.Dispose () =
             if w.IsRunning then w.Stop(timeout = 5000) |> Async.RunSync
+            unsubscriber.Dispose()
             cts.Cancel()

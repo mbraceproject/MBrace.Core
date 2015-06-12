@@ -38,7 +38,7 @@ type private JobQueueMsg =
 
 module private JobLeaseMonitor =
     
-    let create (wmon : WorkerMonitor) (queue : ActorRef<JobQueueMsg>) 
+    let create (wmon : WorkerManager) (queue : ActorRef<JobQueueMsg>) 
                 (faultInfo : JobFaultInfo) (job : PickledJob) 
                 (interval : TimeSpan) (worker : IWorkerRef) =
 
@@ -163,7 +163,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
         }
 
     /// Initializes a new distribued queue instance.
-    static member Init(wmon : WorkerMonitor, ?cleanupThreshold : TimeSpan) =
+    static member Init(wmon : WorkerManager, ?cleanupThreshold : TimeSpan) =
         let cleanupThreshold = defaultArg cleanupThreshold (TimeSpan.FromSeconds 10.)
 
         let behaviour (self : Actor<JobQueueMsg>) (state : QueueState) (msg : JobQueueMsg) = async {

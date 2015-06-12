@@ -29,7 +29,7 @@ let main (args : string []) =
         let state = RuntimeState.FromBase64 args.[0]
         logger.Logf LogLevel.Info "Connected to MBrace cluster '%s' at %s. " state.Id state.Address
 
-        let agent, subscription =
+        let agent =
             Worker.initialize useAppDomainIsolation state logger maxConcurrentJobs 
             |> Async.RunSync
             

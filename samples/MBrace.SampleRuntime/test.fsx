@@ -34,6 +34,8 @@ runtime.GetAllProcesses()
 
 runtime.ClearAllProcesses()
 
+runtime.GetWorkerInfo()
+
 runtime.Run(cloud { return enabled }, taskName = "test")
 
 enabled <- true

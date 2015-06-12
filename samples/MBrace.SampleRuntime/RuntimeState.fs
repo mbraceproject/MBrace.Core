@@ -12,7 +12,7 @@ type RuntimeState =
         Address : string
 
         Factory : ResourceFactory
-        WorkerMonitor : WorkerMonitor
+        WorkerManager : WorkerManager
         CloudLogger  : ActorCloudLogger
         JobQueue : IJobQueue
         Resources : ResourceRegistry
@@ -23,7 +23,7 @@ with
     static member InitLocal(localLogger : ISystemLogger, fileStoreConfig : CloudFileStoreConfiguration, 
                                 ?assemblyDirectory : string, ?miscResources : ResourceRegistry) =
 
-        let wmon = WorkerMonitor.Init()
+        let wmon = WorkerManager.Init()
         let factory = ResourceFactory.Init()
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let resources = resource {
@@ -40,7 +40,7 @@ with
             Address = Config.LocalAddress
 
             Factory = factory
-            WorkerMonitor = wmon
+            WorkerManager = wmon
             TaskManager = CloudTaskManager.Init()
             CloudLogger = ActorCloudLogger.Init(localLogger)
             JobQueue = JobQueue.Init(wmon)

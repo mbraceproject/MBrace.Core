@@ -46,10 +46,8 @@ type IAssemblyManager =
 type IRuntimeResourceManager =
     /// Local MBrace resources to be supplied to workflow.
     abstract ResourceRegistry : ResourceRegistry
-    /// Asynchronously returns all workers in the current cluster.
-    abstract GetAvailableWorkers : unit -> Async<IWorkerRef []>
-    /// Gets the WorkerRef identifying the current worker instance.
-    abstract CurrentWorker : IWorkerRef
+    /// Runtime worker manager object.
+    abstract WorkerManager : IWorkerManager
     /// Logger abstraction for user-specified cloud logging.
     abstract GetCloudLogger : CloudJob -> ICloudLogger
     /// Logger abstraction used for local worker logging.

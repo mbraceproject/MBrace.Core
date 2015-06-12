@@ -4,20 +4,21 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Client
 
+open MBrace.Runtime.Utils
+
 /// MBrace Sample runtime client instance.
 [<AbstractClass>]
-type MBraceClient () as self =
+type MBraceClient (resources : IRuntimeResourceManager) =
 
-    let imem = lazy(LocalRuntime.Create(resources = self.Resources.ResourceRegistry))
-    let processManager = lazy(new CloudProcessManager(self.Resources))
-
-    abstract Resources : IRuntimeResourceManager
+    let imem = LocalRuntime.Create(resources = resources.ResourceRegistry)
+    let processManager = new CloudProcessManager(resources)
+    let workerCache = CacheAtom.Create(async { return! resources.WorkerManager.GetAvailableWorkers() }, intervalMilliseconds = 500)
 
     /// Creates a fresh cloud cancellation token source for this runtime
     member c.CreateCancellationTokenSource (?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
         async {
             let parents = parents |> Option.map Seq.toArray
-            let! dcts = DistributedCancellationToken.Create(c.Resources.CancellationEntryFactory, ?parents = parents, elevate = true)
+            let! dcts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, ?parents = parents, elevate = true)
             return dcts :> ICloudCancellationTokenSource
         } |> Async.RunSync
 
@@ -33,11 +34,11 @@ type MBraceClient () as self =
                                 ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<CloudProcess<'T>> = async {
 
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
-        let dependencies = c.Resources.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
+        let dependencies = resources.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
-        do! c.Resources.AssemblyManager.UploadAssemblies(dependencies)
-        let! tcs = Combinators.runStartAsCloudTask c.Resources assemblyIds taskName faultPolicy cancellationToken target workflow
-        return processManager.Value.GetProcess tcs
+        do! resources.AssemblyManager.UploadAssemblies(dependencies)
+        let! tcs = Combinators.runStartAsCloudTask resources assemblyIds taskName faultPolicy cancellationToken target workflow
+        return processManager.GetProcess tcs
     }
 
     /// <summary>
@@ -77,40 +78,51 @@ type MBraceClient () as self =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
     /// Gets all processes of provided cluster
-    member __.GetAllProcesses () = processManager.Value.GetAllProcesses() |> Async.RunSync
+    member __.GetAllProcesses () = processManager.GetAllProcesses() |> Async.RunSync
 
     /// <summary>
     ///     Gets process object by process id.
     /// </summary>
     /// <param name="id">Task id.</param>
-    member __.GetProcessById(id:string) = processManager.Value.GetProcessById(id) |> Async.RunSync
+    member __.GetProcessById(id:string) = processManager.GetProcessById(id) |> Async.RunSync
 
     /// <summary>
     ///     Clear cluster data for provided process.
     /// </summary>
     /// <param name="process">Process to be cleared.</param>
-    member __.ClearProcess(p:CloudProcess) = processManager.Value.ClearProcess(p) |> Async.RunSync
+    member __.ClearProcess(p:CloudProcess) = processManager.ClearProcess(p) |> Async.RunSync
 
     /// <summary>
     ///     Clear all process data from cluster.
     /// </summary>
-    member __.ClearAllProcesses() = processManager.Value.ClearAllProcesses() |> Async.RunSync
+    member __.ClearAllProcesses() = processManager.ClearAllProcesses() |> Async.RunSync
 
     /// <summary>
     ///     Run workflow as local, in-memory computation
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
-    member __.RunLocallyAsync(workflow : Cloud<'T>) : Async<'T> = imem.Value.RunAsync workflow
+    member __.RunLocallyAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
 
     /// Returns the store client for provided runtime.
-    member __.StoreClient = imem.Value.StoreClient
+    member __.StoreClient = imem.StoreClient
 
     /// Gets all available workers for current runtime.
-    member __.Workers = __.Resources.GetAvailableWorkers() |> Async.RunSynchronously
+    member __.Workers = workerCache.Value |> Array.map (fun (w,_,_) -> w)
+
+    /// Gets worker info for all workers in runtime.
+    member __.GetWorkerInfo () = workerCache.Value
+
+    /// <summary>
+    ///     Gets node performance info for supplied worker.
+    /// </summary>
+    /// <param name="worker">Worker to be evaluated.</param>
+    member __.GetPerformanceInfo(worker : IWorkerRef) = 
+        let _,_,p = workerCache.Value |> Array.find (fun (w,_,_) -> w = worker)
+        p
 
     /// <summary>
     ///     Run workflow as local, in-memory computation
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    member __.RunLocally(workflow, ?cancellationToken) : 'T = imem.Value.Run(workflow, ?cancellationToken = cancellationToken)
+    member __.RunLocally(workflow, ?cancellationToken) : 'T = imem.Run(workflow, ?cancellationToken = cancellationToken)
