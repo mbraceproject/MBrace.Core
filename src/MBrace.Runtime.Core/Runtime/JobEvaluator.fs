@@ -37,7 +37,7 @@ module JobEvaluator =
         let resources = resource {
             yield! manager.ResourceRegistry
             yield jem
-            yield manager.SystemLogger
+            yield manager
             yield distributionProvider :> IDistributionProvider
         }
 
@@ -46,18 +46,18 @@ module JobEvaluator =
         match faultState with
         | IsTargetedJobOfDeadWorker (_,w) ->
             // always throw a fault exception if dead worker
-            logger.Logf LogLevel.Info "Job '%s' originally assigned to dead worker '%s'." job.JobId w.Id
+            logger.Logf LogLevel.Info "Job '%s' originally assigned to dead worker '%s'." job.Id w.Id
             let worker = Option.get job.TargetWorker // this is assumed to be 'Some' here
             let e = new FaultException(sprintf "Could not communicate with target worker '%O'." worker)
             job.Econt ctx (ExceptionDispatchInfo.Capture e)
 
         | FaultDeclaredByWorker(faultCount, latestError, w) ->
-            logger.Logf LogLevel.Info "Job '%s' faulted %d times while executed in worker '%O'." job.JobId faultCount w
+            logger.Logf LogLevel.Info "Job '%s' faulted %d times while executed in worker '%O'." job.Id faultCount w
             // consult user-supplied fault policy to decide on further action
             let e = latestError.Reify(prepareForRaise = false)
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
             | None ->
-                let msg = sprintf "Job '%s' given up after it faulted %d times." job.JobId faultCount
+                let msg = sprintf "Job '%s' given up after it faulted %d times." job.Id faultCount
                 let faultException = new FaultException(msg, e)
                 job.Econt ctx (ExceptionDispatchInfo.Capture faultException)
 
@@ -66,9 +66,9 @@ module JobEvaluator =
                 do job.StartJob ctx
 
         | WorkerDeathWhileProcessingJob (faultCount, latestWorker) ->
-            logger.Logf LogLevel.Info "Job '%s' faulted %d times while being processed by nonresponsive worker '%O'." job.JobId faultCount latestWorker
+            logger.Logf LogLevel.Info "Job '%s' faulted %d times while being processed by nonresponsive worker '%O'." job.Id faultCount latestWorker
             // consult user-supplied fault policy to decide on further action
-            let msg = sprintf "Job '%s' was being processed by worker '%O' which has died." job.JobId latestWorker
+            let msg = sprintf "Job '%s' was being processed by worker '%O' which has died." job.Id latestWorker
             let e = new FaultException(msg) :> exn
             match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
             | None -> job.Econt ctx (ExceptionDispatchInfo.Capture e)
@@ -91,39 +91,40 @@ module JobEvaluator =
     /// <param name="joblt">Job lease token.</param>
     let loadAndRunJobAsync (manager : IRuntimeResourceManager) (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
         let logger = manager.SystemLogger
-        logger.Logf LogLevel.Debug "Loading assembly dependencies for job '%s'." joblt.JobId
+        logger.Logf LogLevel.Debug "Loading assembly dependencies for job '%s'." joblt.Id
         for li in manager.AssemblyManager.LoadAssemblies assemblies do
             match li with
             | NotLoaded id -> logger.Logf LogLevel.Error "could not load assembly '%s'" id.FullName 
             | LoadFault(id, e) -> logger.Logf LogLevel.Error "error loading assembly '%s':\n%O" id.FullName e
             | Loaded _ -> ()
 
-        logger.Logf LogLevel.Debug "Deserializing job '%s'." joblt.JobId
+        logger.Logf LogLevel.Debug "Deserializing job '%s'." joblt.Id
         let! jobResult = joblt.GetJob() |> Async.Catch
         match jobResult with
         | Choice2Of2 e ->
-            logger.Logf LogLevel.Error "Failed to deserialize job '%s':\n%O" joblt.JobId e
-            do! joblt.TaskInfo.Canceller.SetException (ExceptionDispatchInfo.Capture e)
+            logger.Logf LogLevel.Error "Failed to deserialize job '%s':\n%O" joblt.Id e
+            do! joblt.DeclareFaulted(ExceptionDispatchInfo.Capture e)
+            do! manager.TaskManager.DeclareStatus(joblt.TaskInfo.Id, Faulted)
 
         | Choice1Of2 job ->
             if job.JobType = JobType.TaskRoot then
                 match job.TaskInfo.Name with
-                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskInfo.TaskId job.TaskInfo.Type
+                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskInfo.Id job.TaskInfo.Type
                 | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskInfo.Type
-                // TODO : task monitor
-//                do! staticConfiguration.State.ProcessManager.SetRunning(job.ProcessInfo.Id)
+                do! manager.TaskManager.DeclareStatus(joblt.TaskInfo.Id, Running)
 
-
+            do! manager.TaskManager.IncrementJobCount(joblt.TaskInfo.Id)
             let sw = Stopwatch.StartNew()
             let! result = runJobAsync manager joblt.FaultInfo job |> Async.Catch
             sw.Stop()
+            do! manager.TaskManager.DecrementJobCount(joblt.TaskInfo.Id)
 
             match result with
             | Choice1Of2 () -> 
                 do! joblt.DeclareCompleted ()
-                logger.Logf LogLevel.Info "Completed job '%s' after %O" job.JobId sw.Elapsed
+                logger.Logf LogLevel.Info "Completed job '%s' after %O" job.Id sw.Elapsed
             | Choice2Of2 e ->
-                logger.Logf LogLevel.Error "Faulted job '%s' after %O\n%O" job.JobId sw.Elapsed e
+                logger.Logf LogLevel.Error "Faulted job '%s' after %O\n%O" job.Id sw.Elapsed e
                 do! joblt.DeclareFaulted (ExceptionDispatchInfo.Capture e)
     }
        

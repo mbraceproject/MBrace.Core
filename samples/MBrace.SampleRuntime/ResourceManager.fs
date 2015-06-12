@@ -49,9 +49,6 @@ type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
             return c :> IResultAggregator<'T>
         }
         
-        member x.RequestTaskCompletionSource(): Async<ICloudTaskCompletionSource<'T>> = async {
-            let! c = state.Factory.RequestTaskCompletionSource<'T> ()
-            return c :> ICloudTaskCompletionSource<'T>
-        }
+        member x.TaskManager = state.TaskManager :> _
         
         member x.ResourceRegistry: ResourceRegistry = resources

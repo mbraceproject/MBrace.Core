@@ -234,8 +234,7 @@ let runChoice (resources : IRuntimeResourceManager) (parentTask : CloudTaskInfo)
 /// <param name="token">Optional cancellation token for computation.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
-let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : AssemblyId[]) 
-                        (taskId : string) (taskName : string option)
+let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy:FaultPolicy) (token : ICloudCancellationToken option) 
                         (target : IWorkerRef option) (computation : Cloud<'T>) = async {
 
@@ -250,41 +249,36 @@ let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : As
         return raise <| new SerializationException(msg, e)
 
     | None ->
-        let! tcs = resources.RequestTaskCompletionSource<'T>()
         let! cts = async {
             match token with
             | Some ct -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, parents = [|ct|], elevate = true)
             | None -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, elevate = true)
         }
 
-        let setResult ctx value f = 
+        let! tcs = resources.TaskManager.RequestTaskCompletionSource<'T>(dependencies, cts, ?taskName = taskName)
+
+        let setResult ctx value f status = 
             async {
+                let manager = ctx.Resources.Resolve<IRuntimeResourceManager> ()
                 match ensureSerializable value with
                 | Some e ->
                     let msg = sprintf "Could not serialize result for task '%s' of type '%s'." tcs.Task.Id (Type.prettyPrint typeof<'T>)
                     let se = new SerializationException(msg, e)
                     do! tcs.SetException (ExceptionDispatchInfo.Capture se)
+                    do! manager.TaskManager.DeclareStatus(tcs.Info.Id, Faulted)
                 | None ->
                     do! f
+                    do! manager.TaskManager.DeclareStatus(tcs.Info.Id, status)
 
                 cts.Cancel()
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
 
-        let scont ctx t = setResult ctx t (tcs.SetCompleted t)
-        let econt ctx e = setResult ctx e (tcs.SetException e)
-        let ccont ctx c = setResult ctx c (tcs.SetCancelled c)
+        let scont ctx t = setResult ctx t (tcs.SetCompleted t) Completed
+        let econt ctx e = setResult ctx e (tcs.SetException e) UserException
+        let ccont ctx c = setResult ctx c (tcs.SetCancelled c) CloudTaskStatus.Canceled
 
-        let taskInfo = 
-            { 
-                Name = taskName
-                TaskId = taskId
-                Dependencies = dependencies
-                Canceller = tcs.Canceller 
-                Type = Type.prettyPrint typeof<'T> 
-            }
-
-        let job = CloudJob.Create (taskInfo, cts, faultPolicy, scont, econt, ccont, JobType.TaskRoot, computation, ?target = target)
+        let job = CloudJob.Create (tcs.Info, cts, faultPolicy, scont, econt, ccont, JobType.TaskRoot, computation, ?target = target)
         do! resources.JobQueue.Enqueue job
         return tcs
 }

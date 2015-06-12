@@ -32,11 +32,10 @@ type MBraceClient () as self =
                                 ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<ICloudTask<'T>> = async {
 
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
-        let processId = mkUUID()
         let dependencies = c.Resources.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! c.Resources.AssemblyManager.UploadAssemblies(dependencies)
-        let! tcs = Combinators.runStartAsCloudTask c.Resources assemblyIds processId taskName faultPolicy cancellationToken target workflow
+        let! tcs = Combinators.runStartAsCloudTask c.Resources assemblyIds taskName faultPolicy cancellationToken target workflow
         return tcs.Task
     }
 

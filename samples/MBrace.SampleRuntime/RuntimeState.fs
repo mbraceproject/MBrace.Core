@@ -17,6 +17,7 @@ type RuntimeState =
         JobQueue : IJobQueue
         Resources : ResourceRegistry
         AssemblyDirectory : string
+        TaskManager : CloudTaskManager
     }
 with
     static member InitLocal(localLogger : ISystemLogger, fileStoreConfig : CloudFileStoreConfiguration, 
@@ -40,6 +41,7 @@ with
 
             Factory = factory
             WorkerMonitor = wmon
+            TaskManager = CloudTaskManager.Init()
             CloudLogger = ActorCloudLogger.Init(localLogger)
             JobQueue = JobQueue.Init(wmon)
             Resources = resources

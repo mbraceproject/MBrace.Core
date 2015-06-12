@@ -70,6 +70,7 @@
     <Compile Include="Store\CloudChannel.fs" />
     <Compile Include="Store\CloudDictionary.fs" />
     <Compile Include="WorkerMonitor.fs" />
+    <Compile Include="TaskManager.fs" />
     <Compile Include="JobQueue.fs" />
     <Compile Include="RuntimeState.fs" />
     <Compile Include="ResourceManager.fs" />

@@ -28,8 +28,8 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
         new DistributionProvider(resources, job, job.FaultPolicy, false)
         
     interface IDistributionProvider with
-        member __.ProcessId = currentJob.TaskInfo.TaskId
-        member __.JobId = currentJob.JobId
+        member __.ProcessId = currentJob.TaskInfo.Id
+        member __.JobId = currentJob.Id
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy (newPolicy : FaultPolicy) =
@@ -59,11 +59,11 @@ type DistributionProvider private (resources : IRuntimeResourceManager, currentJ
                 return! Combinators.runChoice resources currentJob.TaskInfo faultPolicy computations
         }
 
-        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : FaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef) = cloud {
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : FaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating as local semantics."
             else
-                let! tcs = Cloud.OfAsync <| Combinators.runStartAsCloudTask resources currentJob.TaskInfo.Dependencies currentJob.TaskInfo.TaskId None faultPolicy cancellationToken target workflow 
+                let! tcs = Cloud.OfAsync <| Combinators.runStartAsCloudTask resources currentJob.TaskInfo.Dependencies taskName faultPolicy cancellationToken target workflow 
                 return tcs.Task
         }
 

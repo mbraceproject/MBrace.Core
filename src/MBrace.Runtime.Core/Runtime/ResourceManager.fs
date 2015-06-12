@@ -60,6 +60,8 @@ type IRuntimeResourceManager =
     abstract JobQueue : IJobQueue
     /// Gets the Vagabond assembly manager for this runtime.
     abstract AssemblyManager : IAssemblyManager
+    /// Gets the CloudTask manager instance for this runtime.
+    abstract TaskManager : ICloudTaskManager
 
     /// <summary>
     ///     Asynchronously creates a new distributed counter with supplied initial value.
@@ -72,6 +74,3 @@ type IRuntimeResourceManager =
     /// </summary>
     /// <param name="capacity">Number of items to be aggregated.</param>
     abstract RequestResultAggregator<'T> : capacity:int -> Async<IResultAggregator<'T>>
-
-    /// Asynchronously creates a new distributed task completion source.
-    abstract RequestTaskCompletionSource<'T> : unit -> Async<ICloudTaskCompletionSource<'T>>

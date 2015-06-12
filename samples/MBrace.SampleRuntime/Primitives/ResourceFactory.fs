@@ -31,7 +31,7 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
     member __.RequestResource<'T>(factory : unit -> 'T) = getResource factory
     member __.RequestCounter(initial:int) = getResource (fun () -> Counter.Init(initial))
     member __.RequestResultAggregator<'T>(capacity:int) = getResource (fun () -> ResultAggregator<'T>.Init capacity)
-    member __.RequestTaskCompletionSource<'T>() = getResource(fun () -> TaskCompletionSource<'T>.Init())
+//    member __.RequestTaskCompletionSource<'T>() = getResource(fun () -> TaskCompletionSource<'T>.Init())
     member __.RequestCancellationEntry() = getResource(fun () -> CancellationEntry.Init())
 
     interface ICancellationEntryFactory with

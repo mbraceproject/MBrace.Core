@@ -39,22 +39,6 @@ with
         | WorkerDeathWhileProcessingJob (fc,_) -> fc
         | IsTargetedJobOfDeadWorker (fc,_) -> fc
 
-/// Cloud task information
-[<NoEquality; NoComparison>]
-type CloudTaskInfo =
-    {
-        /// Vagabond dependencies for computation
-        Dependencies : AssemblyId []
-        /// Cloud task unique identifier
-        TaskId : string
-        /// User-specified task name
-        Name : string option
-        /// Task return type
-        Type : string
-        /// Task cancellation object; used for emergency fault declarations.
-        Canceller : ICloudTaskCanceller
-    }
-
 /// A cloud job is fragment of a cloud process to be executed in a single machine.
 [<NoEquality; NoComparison>]
 type CloudJob = 
@@ -62,8 +46,10 @@ type CloudJob =
         /// Task information
         TaskInfo : CloudTaskInfo
         /// Cloud Job unique identifier
-        JobId : string
-        /// Job workflow 'return type'
+        Id : string
+        /// Job workflow 'return type';
+        /// Jobs have no return type per se but this indicates the return type of 
+        /// the initial computation that is being passed to its continuations.
         Type : Type
         /// Job creation metadata
         JobType : JobType
@@ -104,7 +90,7 @@ with
 
         {
             TaskInfo = taskInfo
-            JobId = jobId
+            Id = jobId
             Type = typeof<'T>
             JobType = jobType
             StartJob = runJob
@@ -116,18 +102,16 @@ with
 
 /// Cloud job lease token given to workers that dequeue it
 type ICloudJobLeaseToken =
-    /// Task identifier
-    abstract TaskId : string
-    /// Job identifier
-    abstract JobId : string
+    /// Parent Cloud Task info
+    abstract TaskInfo : CloudTaskInfo
+    /// Cloud Job identifier
+    abstract Id : string
     /// Declared target worker for job
     abstract TargetWorker : IWorkerRef option
     /// String identifier of workflow return type.
     abstract Type : string
     /// Job creation metadata
     abstract JobType : JobType
-    /// Parent cloud task info
-    abstract TaskInfo : CloudTaskInfo
     /// Gets fault metadata associated with this job instance.
     abstract FaultInfo  : JobFaultInfo
     /// Asynchronously fetches the actual job instance.

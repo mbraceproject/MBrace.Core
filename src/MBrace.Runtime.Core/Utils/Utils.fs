@@ -1,5 +1,7 @@
 ﻿namespace MBrace.Runtime.Utils
 
+open System
+open System.Reflection
 open System.IO
 open System.Diagnostics
 open System.Collections.Concurrent
@@ -135,3 +137,45 @@ module Utils =
 
         member m.PostAndReply (msgB : ReplyChannel<'R> -> 'T) =
             m.PostAndAsyncReply msgB |> Async.RunSync
+
+
+    /// Type existential container
+    [<AbstractClass>]
+    type Existential internal () =
+        /// System.Type representation of type
+        abstract Type : Type
+        /// Accepts a generic thunk to encapsulated type
+        abstract Apply<'R> : IFunc<'R> -> 'R
+        /// Accepts a generic asynchronous thunk to encapsulated type
+        abstract Apply<'R> : IAsyncFunc<'R> -> Async<'R>
+
+        /// <summary>
+        ///     Use reflection to initialize an encapsulated type.
+        /// </summary>
+        /// <param name="t"></param>
+        static member FromType(t : Type) =
+            let et = typedefof<Existential<_>>.MakeGenericType([|t|])
+            let ctor = et.GetConstructor [||]
+            ctor.Invoke [||] :?> Existential
+
+    /// Existential container of type 'T
+    and [<Sealed; AutoSerializable(true)>] Existential<'T> () =
+        inherit Existential()
+
+        override e.Type = typeof<'T>
+        override e.Apply<'R> (f : IFunc<'R>) = f.Invoke<'T> ()
+        override e.Apply<'R> (f : IAsyncFunc<'R>) = f.Invoke<'T> ()
+        override e.Equals(other:obj) =
+            match other with
+            | :? Existential<'T> -> true
+            | _ -> false
+
+        override e.GetHashCode() = typeof<'T>.GetHashCode()
+
+    /// Generic function
+    and IFunc<'R> =
+        abstract Invoke<'T> : unit -> 'R
+
+    /// Generic asynchronous function
+    and IAsyncFunc<'R> =
+        abstract Invoke<'T> : unit -> Async<'R>

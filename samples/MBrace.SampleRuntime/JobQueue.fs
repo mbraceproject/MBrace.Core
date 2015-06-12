@@ -105,10 +105,7 @@ type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseM
                 | Batch(i,pjs) -> let js = Config.Serializer.UnPickleTyped pjs in js.[i]
         }
         
-        member x.JobId: string = pjob.JobId
-        
-        member x.TaskId: string = pjob.TaskInfo.TaskId
-
+        member x.Id: string = pjob.JobId
 
 type private QueueState = 
     {
@@ -131,7 +128,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             let mkPickle (index:int) (job : CloudJob) =
                 {
                     TaskInfo = job.TaskInfo
-                    JobId = job.JobId
+                    JobId = job.Id
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
                     JobType = job.JobType
@@ -146,7 +143,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             let item =
                 {
                     TaskInfo = job.TaskInfo
-                    JobId = job.JobId
+                    JobId = job.Id
                     JobType = job.JobType
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
