@@ -83,6 +83,9 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
 
                     | Some jobToken ->
                         // Successfully dequeued job, run it.
+                        if jobToken.JobType = JobType.TaskRoot then
+                            do! resourceManager.TaskManager.DeclareStatus(jobToken.TaskInfo.Id, Dequeued)
+
                         let jc = Interlocked.Increment &currentJobCount
                         triggerStateUpdate()
 

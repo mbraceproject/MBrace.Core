@@ -12,6 +12,8 @@ open MBrace.Core.Internals
 type CloudTaskStatus =
     /// Task posted to cluster for execution
     | Posted
+    /// Root job for task dequeued
+    | Dequeued 
     /// Task being executed by the cluster
     | Running
     /// Task encountered a cluster fault
