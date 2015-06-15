@@ -9,24 +9,6 @@ open MBrace.Core.Internals
 
 #nowarn "444"
 
-/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
-[<AutoSerializable(false)>]
-type InMemoryTask<'T> internal (task : Task<'T>) =
-    interface ICloudTask<'T> with
-        member __.Id = sprintf ".NET task %d" task.Id
-        member __.AwaitResult(?timeoutMilliseconds:int) = async {
-            match timeoutMilliseconds with
-            | None -> return! Async.AwaitTask(task)
-            | Some t -> return! Async.AwaitTask(task.WithTimeout(t))
-        }
-
-        member __.TryGetResult () = async { return task.TryGetResult() }
-        member __.Status = task.Status
-        member __.IsCompleted = task.IsCompleted
-        member __.IsFaulted = task.IsFaulted
-        member __.IsCanceled = task.IsCanceled
-        member __.Result = task.GetResult()
-
 /// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
 [<AutoSerializable(false)>]
 type InMemoryCancellationToken (token : CancellationToken) =
@@ -64,6 +46,26 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
                 CancellationTokenSource.CreateLinkedTokenSource ltokens
 
         new InMemoryCancellationTokenSource(lcts)
+
+/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
+[<AutoSerializable(false)>]
+type InMemoryTask<'T> internal (task : Task<'T>) =
+    interface ICloudTask<'T> with
+        member __.Id = sprintf ".NET task %d" task.Id
+        member __.AwaitResult(?timeoutMilliseconds:int) = async {
+            // TODO : create a correct Async.AwaitTask implementation
+            // that avoids wrapping in System.AggregateException instead
+            let! ct = Async.CancellationToken
+            let wf = Cloud.AwaitTask(task, ?timeoutMilliseconds = timeoutMilliseconds) 
+            return! Cloud.ToAsync(wf, ResourceRegistry.Empty, new InMemoryCancellationToken(ct))
+        }
+
+        member __.TryGetResult () = async { return task.TryGetResult() }
+        member __.Status = task.Status
+        member __.IsCompleted = task.IsCompleted
+        member __.IsFaulted = task.IsFaulted
+        member __.IsCanceled = task.IsCanceled
+        member __.Result = task.GetResult()
 
 [<Sealed; AutoSerializable(false)>]
 type internal InMemoryWorker private () =
