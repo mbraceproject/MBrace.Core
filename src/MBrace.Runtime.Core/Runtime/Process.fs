@@ -24,8 +24,28 @@ type CloudProcess internal (tcs : ICloudTaskCompletionSource, manager : ICloudTa
     abstract TryGetResultBoxed : unit -> Async<obj option>
     /// Awaits the boxed result of the process.
     abstract ResultBoxed : obj
-    /// Process execution status
+
+    /// Date of process execution start.
+    member __.StartTime =
+        match cell.Value.ExecutionTime with
+        | None -> None
+        | Some dt -> Some dt
+
+    /// TimeSpan of executing process.
+    member __.ExecutionTime =
+        match cell.Value.ExecutionTime with
+        | None -> None
+        | Some(_,et) -> Some et
+
+    /// Active number of jobs related to the process.
+    member __.ActiveJobCount = cell.Value.ActiveJobCount
+    /// Max number of concurrently executing jobs for process.
+    member __.MaxActiveJobCount = cell.Value.MaxActiveJobCount
+    /// Total number of jobs related to the process.
+    member __.TotalJobCount = cell.Value.TotalJobCount
+    /// Process execution status.
     member __.Status = cell.Value.Status
+
     /// Process identifier
     member __.Id = tcs.Info.Id
     /// Process name

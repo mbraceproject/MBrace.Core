@@ -15,7 +15,8 @@ type private TaskManagerMsg =
     | RequestTaskCompletionSource of Existential * AssemblyId[] * ICloudCancellationTokenSource * taskName:string option * IReplyChannel<ICloudTaskCompletionSource>
     | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<ICloudTaskCompletionSource option>
     | DeclareStatus of taskId:string * status:CloudTaskStatus
-    | IncrementJobCountBy of taskId:string * int
+    | IncrementJobCount of taskId:string
+    | DecrementJobCount of taskId:string
     | GetTaskState of taskId:string * IReplyChannel<CloudTaskState>
     | GetAllTasks of IReplyChannel<CloudTaskState []>
     | ClearAllTasks of IReplyChannel<unit>
@@ -30,16 +31,20 @@ type private TaskState =
     { 
         TaskCompletionSource : ICloudTaskCompletionSource
         Status : CloudTaskStatus
-        JobCount : int
+        ActiveJobCount : int
+        MaxActiveJobCount : int
+        TotalJobCount : int
         ExecutionTime: ExecutionTime
     }
 with 
-    static member Init(tcs) = { TaskCompletionSource = tcs ; JobCount = 0 ; ExecutionTime = NotStarted ; Status = Posted }
+    static member Init(tcs) = { TaskCompletionSource = tcs ; TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; ExecutionTime = NotStarted ; Status = Posted }
     static member ExportState(ts : TaskState) =
         {
             Info = ts.TaskCompletionSource.Info
             Status = ts.Status
-            JobCount = ts.JobCount
+            ActiveJobCount = ts.ActiveJobCount
+            TotalJobCount = ts.TotalJobCount
+            MaxActiveJobCount = ts.MaxActiveJobCount
             ExecutionTime = 
                 match ts.ExecutionTime with 
                 | NotStarted -> None
@@ -68,11 +73,11 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
         }
         
         member x.IncrementJobCount(taskId: string): Async<unit> = async {
-            return! ref.AsyncPost <| IncrementJobCountBy(taskId, 1)
+            return! ref.AsyncPost <| IncrementJobCount taskId
         }
         
         member x.DecrementJobCount(taskId: string): Async<unit> = async {
-            return! ref.AsyncPost <| IncrementJobCountBy(taskId, -1)
+            return! ref.AsyncPost <| DecrementJobCount taskId
         }
         
         member x.GetAllTasks(): Async<CloudTaskState []> = async {
@@ -136,10 +141,19 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
 
                     return state.Add(taskId, { ts with Status = status ; ExecutionTime = executionTime })
 
-            | IncrementJobCountBy (taskId, i) ->
+            | IncrementJobCount taskId ->
                 match state.TryFind taskId with
                 | None -> return state
-                | Some ts -> return state.Add(taskId, { ts with JobCount = ts.JobCount + i })
+                | Some ts -> 
+                    return state.Add(taskId, { ts with 
+                                                    TotalJobCount = ts.TotalJobCount + 1 ; 
+                                                    ActiveJobCount = ts.ActiveJobCount + 1 ;
+                                                    MaxActiveJobCount = max ts.MaxActiveJobCount (1 + ts.ActiveJobCount) })
+
+            | DecrementJobCount taskId ->
+                match state.TryFind taskId with
+                | None -> return state
+                | Some ts -> return state.Add(taskId, { ts with ActiveJobCount = ts.ActiveJobCount - 1 })
 
             | GetTaskState (taskId, rc) ->
                 match state.TryFind taskId with

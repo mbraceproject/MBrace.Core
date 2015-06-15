@@ -47,8 +47,12 @@ type CloudTaskState =
         Status : CloudTaskStatus
         /// Task execution time : Start time * Execution time
         ExecutionTime : (DateTime * TimeSpan) option
-        /// Number of jobs executing for task
-        JobCount : int
+        /// Max number of concurrently executing jobs for task.
+        MaxActiveJobCount : int
+        /// Number of jobs currently executing for task.
+        ActiveJobCount : int
+        /// Total number of jobs spawned by task.
+        TotalJobCount : int
     }
 
 /// Defines a distributed task completion source.
