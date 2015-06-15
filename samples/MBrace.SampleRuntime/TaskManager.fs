@@ -96,7 +96,7 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
             return! ref <!- fun ch -> GetTaskState(taskId, ch)
         }
         
-        member x.RequestTaskCompletionSource<'T>(dependencies: AssemblyId [], cancellationTokenSource: ICloudCancellationTokenSource, taskName: string option): Async<ICloudTaskCompletionSource<'T>> = async {
+        member x.CreateTaskCompletionSource<'T>(dependencies: AssemblyId [], cancellationTokenSource: ICloudCancellationTokenSource, taskName: string option): Async<ICloudTaskCompletionSource<'T>> = async {
             let e = new Existential<'T> ()
             let! tcs = ref <!- fun ch -> RequestTaskCompletionSource(e, dependencies, cancellationTokenSource, taskName, ch)
             return tcs :?> ICloudTaskCompletionSource<'T>

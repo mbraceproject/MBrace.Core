@@ -8,7 +8,7 @@ open MBrace.Runtime
 open MBrace.Runtime.Vagabond
 
 [<AutoSerializable(false)>]
-type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
+type RuntimeManager(state : RuntimeState, logger : ISystemLogger) =
     let resources = resource {
         yield! state.Resources
         yield Config.ObjectCache
@@ -21,8 +21,10 @@ type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
 
     member __.State = state
 
-    interface IRuntimeResourceManager with
+    interface IRuntimeManager with
         member x.AssemblyManager: IAssemblyManager = assemblyManager :> _
+
+        member x.PrimitivesFactory = state.Factory :> _
         
         member x.CancellationEntryFactory: ICancellationEntryFactory = state.Factory :> _
         
@@ -33,16 +35,6 @@ type ResourceManager(state : RuntimeState, logger : ISystemLogger) =
         member x.GetCloudLogger (job:CloudJob) : ICloudLogger = state.CloudLogger.CreateLogger(WorkerRef.LocalWorker, job)
 
         member x.SystemLogger : ISystemLogger = logger
-        
-        member x.RequestCounter(initialValue: int): Async<ICloudCounter> = async {
-            let! c = state.Factory.RequestCounter initialValue
-            return c :> ICloudCounter
-        }
-        
-        member x.RequestResultAggregator(capacity: int): Async<IResultAggregator<'T>> =  async {
-            let! c = state.Factory.RequestResultAggregator<'T>(capacity)
-            return c :> IResultAggregator<'T>
-        }
         
         member x.TaskManager = state.TaskManager :> _
         

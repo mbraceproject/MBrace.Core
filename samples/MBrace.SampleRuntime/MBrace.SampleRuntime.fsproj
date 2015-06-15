@@ -73,7 +73,7 @@
     <Compile Include="TaskManager.fs" />
     <Compile Include="JobQueue.fs" />
     <Compile Include="RuntimeState.fs" />
-    <Compile Include="ResourceManager.fs" />
+    <Compile Include="RuntimeManager.fs" />
     <Compile Include="Worker.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="main.fs" />

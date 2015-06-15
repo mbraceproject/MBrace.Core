@@ -8,7 +8,7 @@ open MBrace.Runtime.Utils
 
 /// MBrace Sample runtime client instance.
 [<AbstractClass>]
-type MBraceClient (resources : IRuntimeResourceManager) =
+type MBraceClient (resources : IRuntimeManager) =
 
     let imem = LocalRuntime.Create(resources = resources.ResourceRegistry)
     let processManager = new CloudProcessManager(resources)

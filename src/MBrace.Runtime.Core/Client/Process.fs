@@ -91,7 +91,7 @@ type CloudProcess<'T> internal (tcs : ICloudTaskCompletionSource<'T>, manager : 
 
 /// Cloud Process client object
 [<AutoSerializable(false)>]
-type CloudProcessManager(resources : IRuntimeResourceManager) =
+type CloudProcessManager(resources : IRuntimeManager) =
     // TODO : add cleanup logic
     // TODO : add pretty printing
     let processes = new ConcurrentDictionary<string, CloudProcess> ()

@@ -101,7 +101,7 @@ type ICloudTaskManager =
     /// <param name="dependencies">Declared Vagabond dependencies for task.</param>
     /// <param name="taskName">User-supplied task name.</param>
     /// <param name="cancellationTokenSource">Cancellation token source for task.</param>
-    abstract RequestTaskCompletionSource<'T> : dependencies:AssemblyId[] * cancellationTokenSource:ICloudCancellationTokenSource * ?taskName:string -> Async<ICloudTaskCompletionSource<'T>>
+    abstract CreateTaskCompletionSource<'T> : dependencies:AssemblyId[] * cancellationTokenSource:ICloudCancellationTokenSource * ?taskName:string -> Async<ICloudTaskCompletionSource<'T>>
 
     /// <summary>
     ///     Request an alredy existing task by its unique identifier.

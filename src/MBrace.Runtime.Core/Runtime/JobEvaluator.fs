@@ -31,7 +31,7 @@ module JobEvaluator =
     /// <param name="currentWorker">Current worker executing job.</param>
     /// <param name="faultState">Job fault state.</param>
     /// <param name="job">Job instance to be executed.</param>
-    let runJobAsync (manager : IRuntimeResourceManager) (currentWorker : IWorkerRef) 
+    let runJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerRef) 
                     (faultState : JobFaultInfo) (job : CloudJob) = async {
 
         let logger = manager.SystemLogger
@@ -93,7 +93,7 @@ module JobEvaluator =
     /// <param name="currentWorker">Current worker executing job.</param>
     /// <param name="assemblies">Vagabond assemblies to be used for computation.</param>
     /// <param name="joblt">Job lease token.</param>
-    let loadAndRunJobAsync (manager : IRuntimeResourceManager) (currentWorker : IWorkerRef) 
+    let loadAndRunJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerRef) 
                             (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
 
         let logger = manager.SystemLogger
@@ -136,16 +136,16 @@ module JobEvaluator =
        
 
 [<AutoSerializable(false)>]
-type LocalJobEvaluator(manager : IRuntimeResourceManager, currentWorker : IWorkerRef) =
+type LocalJobEvaluator(manager : IRuntimeManager, currentWorker : IWorkerRef) =
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
             return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken
         }
 
 [<AutoSerializable(false)>]
-type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeResourceManager * IWorkerRef>, pool : AppDomainEvaluatorPool) =
+type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeManager * IWorkerRef>, pool : AppDomainEvaluatorPool) =
 
-    static member Create(managerF : DomainLocal<IRuntimeResourceManager * IWorkerRef>,
+    static member Create(managerF : DomainLocal<IRuntimeManager * IWorkerRef>,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
                                 ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 

@@ -12,7 +12,7 @@ let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
                     (logger : ISystemLogger) (maxConcurrentJobs : int) = async {
 
     ignore Config.Serializer
-    let resourceManager = new ResourceManager(state, logger)
+    let resourceManager = new RuntimeManager(state, logger)
     let currentWorker = WorkerRef.LocalWorker :> IWorkerRef
 
     let jobEvaluator =
@@ -23,7 +23,7 @@ let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
                 Config.Init(populateDirs = false) 
                 logger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
 
-            let managerF = DomainLocal.Create(fun () -> new ResourceManager(state, logger) :> IRuntimeResourceManager, currentWorker)
+            let managerF = DomainLocal.Create(fun () -> new RuntimeManager(state, logger) :> IRuntimeManager, currentWorker)
 
             AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
         else

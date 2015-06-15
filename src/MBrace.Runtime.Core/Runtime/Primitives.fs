@@ -1,15 +1,6 @@
 ﻿namespace MBrace.Runtime
 
-open System
-
-open Nessos.FsPickler
-open Nessos.Vagabond
-
-open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-
-open MBrace.Runtime.Utils
 
 /// Defines a serializable cancellation entry with global visibility that can
 /// be cancelled or polled for cancellation.
@@ -34,18 +25,16 @@ type ICancellationEntryFactory =
     /// <param name="parents">Cancellation entry parents.</param>
     abstract TryCreateLinkedCancellationEntry : parents:ICancellationEntry[] -> Async<ICancellationEntry option>
 
-/// Defines a distributed, atomic counter.
+/// Defines a distributed counter entity.
 type ICloudCounter =
     inherit IAsyncDisposable
-    /// Asynchronously increments the counter by 1.
+    /// Asynchronously increments counter by 1, returning the updated count
     abstract Increment : unit -> Async<int>
-    /// Asynchronously decrements the counter by 1.
-    abstract Decrement : unit -> Async<int>
     /// Asynchronously fetches the current value for the counter.
-    abstract Value     : Async<int>
+    abstract Value       : Async<int>
 
-/// Defines a distributed result aggregator.
-type IResultAggregator<'T> =
+/// Defines a serializable, distributed result aggregator entity.
+type ICloudResultAggregator<'T> =
     inherit IAsyncDisposable
     /// Declared capacity for result aggregator.
     abstract Capacity : int
@@ -53,6 +42,7 @@ type IResultAggregator<'T> =
     abstract CurrentSize : Async<int>
     /// Asynchronously returns if result aggregator has been completed.
     abstract IsCompleted : Async<bool>
+
     /// <summary>
     ///     Asynchronously sets result at given index to aggregator.
     ///     Returns true if aggregation is completed.
@@ -61,7 +51,21 @@ type IResultAggregator<'T> =
     /// <param name="value">Value to be set.</param>
     /// <param name="overwrite">Overwrite if value already exists at index.</param>
     abstract SetResult : index:int * value:'T * overwrite:bool -> Async<bool>
-    /// <summary>
-    ///     Asynchronously returns aggregated results from aggregator.
-    /// </summary>
+
+    /// Asynchronously returns aggregated results, provided aggregation is completed.
     abstract ToArray : unit -> Async<'T []>
+
+/// Defines a factory for creating runtime primitives.
+type ICloudPrimitivesFactory =
+
+    /// <summary>
+    ///     Creates a new counter with provided initial value.
+    /// </summary>
+    /// <param name="initialValue">Initial value for counter.</param>
+    abstract CreateCounter : initialValue:int -> Async<ICloudCounter>
+
+    /// <summary>
+    ///     Allocates a new cloud result aggregator factory.
+    /// </summary>
+    /// <param name="capacity">Declared capacity of result aggregator.</param>
+    abstract CreateResultAggregator<'T> : capacity:int -> Async<ICloudResultAggregator<'T>>

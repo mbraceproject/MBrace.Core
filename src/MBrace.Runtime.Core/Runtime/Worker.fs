@@ -19,7 +19,7 @@ type private WorkerAgentMessage =
     | Start of ReplyChannel<unit>
 
 /// Worker agent with updatable configuration
-type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int, unsubscriber : IDisposable) =
+type WorkerAgent private (runtime : IRuntimeManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int, unsubscriber : IDisposable) =
     let cts = new CancellationTokenSource()
     let event = new Event<WorkerState>()
     let mutable currentJobCount = 0
@@ -27,12 +27,12 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
     let mutable status = Stopped
 
     let getState () = { Status = status ; CurrentJobCount = currentJobCount ; MaxJobCount = maxConcurrentJobs }
-    let _ = event.Publish.Subscribe(fun s -> resourceManager.WorkerManager.DeclareWorkerState(currentWorker, s) |> Async.StartAsTask |> ignore)
+    let _ = event.Publish.Subscribe(fun s -> runtime.WorkerManager.DeclareWorkerState(currentWorker, s) |> Async.StartAsTask |> ignore)
     let triggerStateUpdate () = 
         let state = getState ()
         event.TriggerAsTask state |> ignore
 
-    let logger = resourceManager.SystemLogger
+    let logger = runtime.SystemLogger
     let waitInterval = 100
     let errorInterval = 1000
 
@@ -57,7 +57,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
                 return! workerLoop inbox
 
             | _ ->
-                let! job = Async.Catch <| resourceManager.JobQueue.TryDequeue currentWorker
+                let! job = Async.Catch <| runtime.JobQueue.TryDequeue currentWorker
                 match job with
                 | Choice2Of2 e ->
                     status <- QueueFault (ExceptionDispatchInfo.Capture e)
@@ -84,7 +84,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
                     | Some jobToken ->
                         // Successfully dequeued job, run it.
                         if jobToken.JobType = JobType.TaskRoot then
-                            do! resourceManager.TaskManager.DeclareStatus(jobToken.TaskInfo.Id, Dequeued)
+                            do! runtime.TaskManager.DeclareStatus(jobToken.TaskInfo.Id, Dequeued)
 
                         let jc = Interlocked.Increment &currentJobCount
                         triggerStateUpdate()
@@ -95,7 +95,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
                         let! _ = Async.StartChild <| async { 
                             try
                                 try
-                                    let! assemblies = resourceManager.AssemblyManager.DownloadAssemblies jobToken.TaskInfo.Dependencies
+                                    let! assemblies = runtime.AssemblyManager.DownloadAssemblies jobToken.TaskInfo.Dependencies
                                     do! jobEvaluator.Evaluate (assemblies, jobToken)
                                 with e ->
                                     logger.Logf LogLevel.Error "Job '%s' faulted at initialization:\n%A" jobToken.Id e
@@ -158,10 +158,10 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
     let rec perfLoop () = async {
         let perf = perfmon.GetCounters()
         try 
-            do! resourceManager.WorkerManager.SubmitPerformanceMetrics(currentWorker, perf)
+            do! runtime.WorkerManager.SubmitPerformanceMetrics(currentWorker, perf)
             do! Async.Sleep 1000
         with e -> 
-            resourceManager.SystemLogger.Logf LogLevel.Error "Error submitting performance metrics:\n%O" e
+            runtime.SystemLogger.Logf LogLevel.Error "Error submitting performance metrics:\n%O" e
             do! Async.Sleep 2000
 
         return! perfLoop ()
@@ -172,15 +172,15 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
     /// <summary>
     ///     Creates a new Worker agent instance with provided runtime configuration.
     /// </summary>
-    /// <param name="resourceManager">Runtime resource management object.</param>
+    /// <param name="runtimeManager">Runtime resource management object.</param>
     /// <param name="currentWorker">Worker ref for current instance.</param>
     /// <param name="jobEvaluator">Abstract job evaluator.</param>
     /// <param name="maxConcurrentJobs">Maximum number of jobs to be executed concurrently in this worker.</param>
-    static member Create(resourceManager : IRuntimeResourceManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) = async {
+    static member Create(runtimeManager : IRuntimeManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) = async {
         if maxConcurrentJobs < 1 then invalidArg "maxConcurrentJobs" "must be positive."
         let workerState = { MaxJobCount = maxConcurrentJobs ; Status = WorkerStatus.Stopped ; CurrentJobCount = 0 }
-        let! unsubscriber = resourceManager.WorkerManager.SubscribeWorker (currentWorker, workerState)
-        return new WorkerAgent(resourceManager, currentWorker, jobEvaluator, maxConcurrentJobs, unsubscriber)
+        let! unsubscriber = runtimeManager.WorkerManager.SubscribeWorker (currentWorker, workerState)
+        return new WorkerAgent(runtimeManager, currentWorker, jobEvaluator, maxConcurrentJobs, unsubscriber)
     }
 
     /// Worker ref representing the current worker instance.

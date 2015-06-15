@@ -7,14 +7,13 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 
 type private CounterMessage =
-    | IncreaseBy of int * IReplyChannel<int>
+    | Increment of IReplyChannel<int>
     | GetValue of IReplyChannel<int>
 
 /// Distributed counter implementation
 type Counter private (source : ActorRef<CounterMessage>) =
     interface ICloudCounter with
-        member __.Increment () = source <!- fun ch -> IncreaseBy(1,ch)
-        member __.Decrement () = source <!- fun ch -> IncreaseBy(-1,ch)
+        member __.Increment () = source <!- Increment
         member __.Value = source <!- GetValue
         member __.Dispose () = async.Zero()
 
@@ -22,9 +21,9 @@ type Counter private (source : ActorRef<CounterMessage>) =
     static member Init(init : int) =
         let behaviour count msg = async {
             match msg with
-            | IncreaseBy (i, rc) ->
-                do! rc.Reply (count + i)
-                return (count + i)
+            | Increment rc ->
+                do! rc.Reply (count + 1)
+                return (count + 1)
             | GetValue rc ->
                 do! rc.Reply count
                 return count

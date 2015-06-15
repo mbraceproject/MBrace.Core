@@ -18,7 +18,7 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
 
 /// MBrace Sample runtime client instance.
-type MBraceRuntime private (manager : IRuntimeResourceManager, state : RuntimeState, logger : AttacheableLogger) =
+type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, logger : AttacheableLogger) =
     inherit MBraceClient(manager)
     static let processName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name
     static do Config.Init()
@@ -66,7 +66,7 @@ type MBraceRuntime private (manager : IRuntimeResourceManager, state : RuntimeSt
 
         let logger = new AttacheableLogger()
         let state = RuntimeState.InitLocal(logger, storeConfig, ?miscResources = resource)
-        let manager = new ResourceManager(state, logger)
+        let manager = new RuntimeManager(state, logger)
         let _ = initWorkers state workerCount
         new MBraceRuntime(manager, state, logger)
 

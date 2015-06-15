@@ -16,7 +16,7 @@ type private ResultAggregatorMsg<'T> =
 
 /// A distributed resource that aggregates an array of results.
 type ResultAggregator<'T> private (capacity : int, source : ActorRef<ResultAggregatorMsg<'T>>) =
-    interface IResultAggregator<'T> with
+    interface ICloudResultAggregator<'T> with
         member __.Capacity = capacity
         member __.CurrentSize = source <!- GetCompleted
         member __.IsCompleted = source <!- IsCompleted

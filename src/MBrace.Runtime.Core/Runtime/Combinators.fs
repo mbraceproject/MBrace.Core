@@ -27,16 +27,16 @@ let private ensureSerializable (t : 'T) =
     try FsPickler.EnsureSerializable t ; None
     with e -> Some e
 
-let private checkWorker (resources : IRuntimeResourceManager) (worker : IWorkerRef) = async {
-    let! isValid = resources.WorkerManager.IsValidTargetWorker worker
+let private checkWorker (runtime : IRuntimeManager) (worker : IWorkerRef) = async {
+    let! isValid = runtime.WorkerManager.IsValidTargetWorker worker
     if not isValid then
         invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to cluster." worker
 }
 
-let private checkWorkers (resources : IRuntimeResourceManager) (workers : seq<IWorkerRef>) = async {
+let private checkWorkers (runtime : IRuntimeManager) (workers : seq<IWorkerRef>) = async {
     do!
         workers
-        |> Seq.map (checkWorker resources)
+        |> Seq.map (checkWorker runtime)
         |> Async.Parallel
         |> Async.Ignore
 }
@@ -44,11 +44,11 @@ let private checkWorkers (resources : IRuntimeResourceManager) (workers : seq<IW
 /// <summary>
 ///     Defines a workflow that schedules provided cloud workflows for parallel computation.
 /// </summary>
-/// <param name="resources">Runtime resource object.</param>
+/// <param name="runtime">Runtime management object.</param>
 /// <param name="parentTask">Parent task info object.</param>
 /// <param name="faultPolicy">Current cloud job being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runParallel (resources : IRuntimeResourceManager) (parentTask : CloudTaskInfo) 
+let runParallel (runtime : IRuntimeManager) (parentTask : CloudTaskInfo) 
                 (faultPolicy : FaultPolicy) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
 
     asyncFromContinuations(fun ctx cont -> async {
@@ -86,13 +86,13 @@ let runParallel (resources : IRuntimeResourceManager) (parentTask : CloudTaskInf
             | None ->
 
             // ensure that target workers are valid in the current cluster context
-            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers resources
+            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers runtime
 
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken
-            let! childCts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, [|currentCts|], elevate = true)
-            let! resultAggregator = resources.RequestResultAggregator<'T>(capacity = computations.Length)
-            let! cancellationLatch = resources.RequestCounter(0)
+            let! childCts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
+            let! resultAggregator = runtime.PrimitivesFactory.CreateResultAggregator<'T>(capacity = computations.Length)
+            let! cancellationLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
 
             let onSuccess i ctx (t : 'T) = 
                 async {
@@ -144,18 +144,18 @@ let runParallel (resources : IRuntimeResourceManager) (parentTask : CloudTaskInf
             do!
                 computations
                 |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, JobType.ParallelChild(i, computations.Length), c, ?target = w))
-                |> resources.JobQueue.BatchEnqueue
+                |> runtime.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
 /// <summary>
 ///     Defines a workflow that schedules provided nondeterministic cloud workflows for parallel computation.
 /// </summary>
-/// <param name="resources">Runtime resource object.</param>
+/// <param name="runtime">Runtime management object.</param>
 /// <param name="parentTask">Parent task info object.</param>
 /// <param name="faultPolicy">Current cloud job being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runChoice (resources : IRuntimeResourceManager) (parentTask : CloudTaskInfo) 
+let runChoice (runtime : IRuntimeManager) (parentTask : CloudTaskInfo) 
                 (faultPolicy : FaultPolicy) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
 
     asyncFromContinuations(fun ctx cont -> async {
@@ -184,14 +184,14 @@ let runChoice (resources : IRuntimeResourceManager) (parentTask : CloudTaskInfo)
             | None ->
 
             // ensure that target workers are valid in the current cluster context
-            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers resources
+            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers runtime
 
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
             let currentCts = ctx.CancellationToken
-            let! childCts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, [|currentCts|], elevate = true)
-            let! completionLatch = resources.RequestCounter(0)
-            let! cancellationLatch = resources.RequestCounter(0)
+            let! childCts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
+            let! completionLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
+            let! cancellationLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
 
             let onSuccess ctx (topt : 'T option) =
                 async {
@@ -240,21 +240,21 @@ let runChoice (resources : IRuntimeResourceManager) (parentTask : CloudTaskInfo)
             do!
                 computations
                 |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, JobType.ChoiceChild(i, computations.Length), c, ?target = w))
-                |> resources.JobQueue.BatchEnqueue
+                |> runtime.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
 /// <summary>
 ///     Executes provided cloud workflow as a cloud task using the provided resources and parameters.
 /// </summary>
-/// <param name="resources">Runtime resource object.</param>
+/// <param name="runtime">Runtime management object.</param>
 /// <param name="dependencies">Vagabond dependencies for computation.</param>
 /// <param name="taskId">Task id for computation.</param>
 /// <param name="faultPolicy">Fault policy for computation.</param>
 /// <param name="token">Optional cancellation token for computation.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
-let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : AssemblyId[]) (taskName : string option)
+let runStartAsCloudTask (runtime : IRuntimeManager) (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy:FaultPolicy) (token : ICloudCancellationToken option) 
                         (target : IWorkerRef option) (computation : Cloud<'T>) = async {
 
@@ -273,19 +273,19 @@ let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : As
         // ensure that target worker is valid in current cluster context
         match target with
         | None -> ()
-        | Some w -> do! checkWorker resources w
+        | Some w -> do! checkWorker runtime w
 
         let! cts = async {
             match token with
-            | Some ct -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, parents = [|ct|], elevate = true)
-            | None -> return! DistributedCancellationToken.Create(resources.CancellationEntryFactory, elevate = true)
+            | Some ct -> return! DistributedCancellationToken.Create(runtime.CancellationEntryFactory, parents = [|ct|], elevate = true)
+            | None -> return! DistributedCancellationToken.Create(runtime.CancellationEntryFactory, elevate = true)
         }
 
-        let! tcs = resources.TaskManager.RequestTaskCompletionSource<'T>(dependencies, cts, ?taskName = taskName)
+        let! tcs = runtime.TaskManager.CreateTaskCompletionSource<'T>(dependencies, cts, ?taskName = taskName)
 
         let setResult ctx value f status = 
             async {
-                let manager = ctx.Resources.Resolve<IRuntimeResourceManager> ()
+                let manager = ctx.Resources.Resolve<IRuntimeManager> ()
                 match ensureSerializable value with
                 | Some e ->
                     let msg = sprintf "Could not serialize result for task '%s' of type '%s'." tcs.Task.Id (Type.prettyPrint typeof<'T>)
@@ -305,6 +305,6 @@ let runStartAsCloudTask (resources : IRuntimeResourceManager) (dependencies : As
         let ccont ctx c = setResult ctx c (tcs.SetCancelled c) CloudTaskStatus.Canceled
 
         let job = CloudJob.Create (tcs.Info, cts, faultPolicy, scont, econt, ccont, JobType.TaskRoot, computation, ?target = target)
-        do! resources.JobQueue.Enqueue job
+        do! runtime.JobQueue.Enqueue job
         return tcs
 }
