@@ -15,7 +15,7 @@ type WorkerStatus =
     /// Worker has been stopped manually
     | Stopped
     /// Error dequeueing jobs
-    | QueueFault
+    | QueueFault of ExceptionDispatchInfo
 
 /// Worker state object
 [<NoEquality; NoComparison>]

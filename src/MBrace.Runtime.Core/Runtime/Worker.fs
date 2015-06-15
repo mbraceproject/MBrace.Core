@@ -60,7 +60,7 @@ type WorkerAgent private (resourceManager : IRuntimeResourceManager, currentWork
                 let! job = Async.Catch <| resourceManager.JobQueue.TryDequeue currentWorker
                 match job with
                 | Choice2Of2 e ->
-                    status <- QueueFault
+                    status <- QueueFault (ExceptionDispatchInfo.Capture e)
                     triggerStateUpdate ()
 
                     logger.Logf LogLevel.Info "Worker Job Queue fault:\n%O" e

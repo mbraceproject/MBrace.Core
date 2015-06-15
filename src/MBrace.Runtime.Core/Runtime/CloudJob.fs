@@ -12,11 +12,11 @@ open MBrace.Core.Internals
 /// Cloud Job creation metadata
 type JobType =
     /// Job associated with a root task creation.
-    | TaskRoot          = 1
+    | TaskRoot
     /// Job associated with the child computation of a Parallel workflow.
-    | ParallelChild     = 2
+    | ParallelChild of index:int * size:int
     /// Job associated with the child computation of a Choice workflow.
-    | ChoiceChild       = 3
+    | ChoiceChild of index:int * size:int
 
 
 /// Fault metadata of provided cloud job
@@ -112,6 +112,8 @@ type ICloudJobLeaseToken =
     abstract Type : string
     /// Job creation metadata
     abstract JobType : JobType
+    /// Job payload size in bytes
+    abstract Size : int64
     /// Gets fault metadata associated with this job instance.
     abstract FaultInfo  : JobFaultInfo
     /// Asynchronously fetches the actual job instance.

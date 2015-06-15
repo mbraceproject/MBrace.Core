@@ -143,7 +143,7 @@ let runParallel (resources : IRuntimeResourceManager) (parentTask : CloudTaskInf
             // Create jobs and enqueue
             do!
                 computations
-                |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, JobType.ParallelChild, c, ?target = w))
+                |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, JobType.ParallelChild(i, computations.Length), c, ?target = w))
                 |> resources.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
@@ -239,7 +239,7 @@ let runChoice (resources : IRuntimeResourceManager) (parentTask : CloudTaskInfo)
             // create child jobs
             do!
                 computations
-                |> Array.map (fun (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, JobType.ChoiceChild, c, ?target = w))
+                |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, JobType.ChoiceChild(i, computations.Length), c, ?target = w))
                 |> resources.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })

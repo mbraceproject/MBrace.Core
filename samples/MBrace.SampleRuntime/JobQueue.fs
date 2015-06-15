@@ -15,6 +15,11 @@ open MBrace.Runtime.Utils.PrettyPrinters
 type internal Pickle =
     | Single of Pickle<CloudJob>
     | Batch of index:int * Pickle<CloudJob []>
+with
+    member p.Size =
+        match p with
+        | Single sp -> sp.Bytes.LongLength
+        | Batch(_,sp) -> sp.Bytes.LongLength
 
 type internal PickledJob =
     {
@@ -93,6 +98,8 @@ type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseM
         member x.JobType = pjob.JobType
 
         member x.TargetWorker = pjob.Target
+
+        member x.Size = pjob.Pickle.Size
 
         member x.TaskInfo = pjob.TaskInfo
         
