@@ -45,6 +45,14 @@ module Utils =
             match x with
             | Success x -> try Success <| f x with e -> Error e
             | Error e -> Error e
+
+
+    [<RequireQualifiedAccess>]
+    module Option =
+        let toNullable(x : 'T option) =
+            match x with
+            | None -> new Nullable<'T>()
+            | Some x -> new Nullable<'T>(x)
     
     let hset (xs : 'T seq) = new System.Collections.Generic.HashSet<'T>(xs)
 

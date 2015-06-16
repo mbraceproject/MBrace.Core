@@ -16,16 +16,12 @@ type private TaskManagerMsg =
     | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<ICloudTaskCompletionSource option>
     | DeclareStatus of taskId:string * status:CloudTaskStatus
     | IncrementJobCount of taskId:string
-    | DecrementJobCount of taskId:string
+    | DeclareCompletedJob of taskId:string
+    | DeclareFaultedJob of taskId:string
     | GetTaskState of taskId:string * IReplyChannel<CloudTaskState>
     | GetAllTasks of IReplyChannel<CloudTaskState []>
     | ClearAllTasks of IReplyChannel<unit>
     | ClearTask of taskId:string * IReplyChannel<bool>
-
-type ExecutionTime =
-    | NotStarted
-    | Started of DateTime
-    | Finished of DateTime * TimeSpan
 
 type private TaskState = 
     { 
@@ -34,10 +30,18 @@ type private TaskState =
         ActiveJobCount : int
         MaxActiveJobCount : int
         TotalJobCount : int
+        CompletedJobCount : int
+        FaultedJobCount : int
         ExecutionTime: ExecutionTime
     }
 with 
-    static member Init(tcs) = { TaskCompletionSource = tcs ; TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; ExecutionTime = NotStarted ; Status = Posted }
+    static member Init(tcs) = 
+        { 
+            TaskCompletionSource = tcs ; 
+            TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; 
+            CompletedJobCount = 0 ; FaultedJobCount = 0
+            ExecutionTime = NotStarted ; Status = Posted 
+        }
     static member ExportState(ts : TaskState) =
         {
             Info = ts.TaskCompletionSource.Info
@@ -45,11 +49,13 @@ with
             ActiveJobCount = ts.ActiveJobCount
             TotalJobCount = ts.TotalJobCount
             MaxActiveJobCount = ts.MaxActiveJobCount
+            CompletedJobCount = ts.CompletedJobCount
+            FaultedJobCount = ts.FaultedJobCount
+
             ExecutionTime = 
                 match ts.ExecutionTime with 
-                | NotStarted -> None
-                | Started t -> Some (t, DateTime.Now - t)
-                | Finished (t,s) -> Some(t,s)
+                | Started (t,_) -> Started (t, DateTime.Now - t)
+                | et -> et
         }
 
 type private TaskManagerState = Map<string, TaskState>
@@ -76,8 +82,12 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
             return! ref.AsyncPost <| IncrementJobCount taskId
         }
         
-        member x.DecrementJobCount(taskId: string): Async<unit> = async {
-            return! ref.AsyncPost <| DecrementJobCount taskId
+        member x.DeclareCompletedJob(taskId: string): Async<unit> = async {
+            return! ref.AsyncPost <| DeclareCompletedJob taskId
+        }
+
+        member x.DeclareFaultedJob(taskId : string): Async<unit> = async {
+            return! ref.AsyncPost <| DeclareFaultedJob taskId
         }
         
         member x.GetAllTasks(): Async<CloudTaskState []> = async {
@@ -135,8 +145,10 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
                 | Some ts -> 
                     let executionTime =
                         match ts.ExecutionTime, status with
-                        | NotStarted, Running -> Started DateTime.Now
-                        | Started t, (Completed | UserException | Canceled) -> Finished(t, DateTime.Now - t)
+                        | NotStarted, Running -> Started (DateTime.Now, TimeSpan.Zero)
+                        | Started (t,_), (Completed | UserException | Canceled) -> 
+                            let now = DateTime.Now
+                            Finished(t, now - t, now)
                         | et, _ -> et
 
                     return state.Add(taskId, { ts with Status = status ; ExecutionTime = executionTime })
@@ -150,10 +162,15 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
                                                     ActiveJobCount = ts.ActiveJobCount + 1 ;
                                                     MaxActiveJobCount = max ts.MaxActiveJobCount (1 + ts.ActiveJobCount) })
 
-            | DecrementJobCount taskId ->
+            | DeclareCompletedJob taskId ->
                 match state.TryFind taskId with
                 | None -> return state
-                | Some ts -> return state.Add(taskId, { ts with ActiveJobCount = ts.ActiveJobCount - 1 })
+                | Some ts -> return state.Add(taskId, { ts with ActiveJobCount = ts.ActiveJobCount - 1 ; CompletedJobCount = ts.CompletedJobCount + 1 })
+
+            | DeclareFaultedJob taskId ->
+                match state.TryFind taskId with
+                | None -> return state
+                | Some ts -> return state.Add(taskId, { ts with ActiveJobCount = ts.ActiveJobCount - 1 ; FaultedJobCount = ts.FaultedJobCount + 1 })
 
             | GetTaskState (taskId, rc) ->
                 match state.TryFind taskId with

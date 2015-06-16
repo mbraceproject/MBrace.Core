@@ -39,6 +39,13 @@ type CloudTaskInfo =
         Type : string
     }
 
+/// Cloud execution time metadata
+[<NoEquality; NoComparison>]
+type ExecutionTime =
+    | NotStarted
+    | Started of startTime:DateTime * executionTime:TimeSpan
+    | Finished of startTime:DateTime * executionTime:TimeSpan * completionTime:DateTime
+
 /// Cloud task execution state record
 [<NoEquality; NoComparison>]
 type CloudTaskState =
@@ -47,12 +54,16 @@ type CloudTaskState =
         Info : CloudTaskInfo
         /// Task execution status
         Status : CloudTaskStatus
-        /// Task execution time : Start time * Execution time
-        ExecutionTime : (DateTime * TimeSpan) option
+        /// Task execution time
+        ExecutionTime : ExecutionTime
         /// Max number of concurrently executing jobs for task.
         MaxActiveJobCount : int
         /// Number of jobs currently executing for task.
         ActiveJobCount : int
+        /// Number of jobs completed for task.
+        CompletedJobCount : int
+        /// Number of times jobs have been faulted.
+        FaultedJobCount : int
         /// Total number of jobs spawned by task.
         TotalJobCount : int
     }
@@ -123,10 +134,16 @@ type ICloudTaskManager =
     abstract IncrementJobCount : taskId:string -> Async<unit>
 
     /// <summary>
+    ///     Asynchronously increments the faulted job count for task.
+    /// </summary>
+    /// <param name="taskId">Task unique identifier</param>
+    abstract DeclareFaultedJob : taskId:string -> Async<unit>
+
+    /// <summary>
     ///     Decrements job count for provided task.
     /// </summary>
     /// <param name="taskId">Task unique identifier.</param>
-    abstract DecrementJobCount : taskId:string -> Async<unit>
+    abstract DeclareCompletedJob : taskId:string -> Async<unit>
 
     /// <summary>
     ///     Asynchronously fetches execution state for task of provided id.

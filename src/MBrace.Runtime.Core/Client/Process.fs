@@ -2,11 +2,14 @@
 
 open System
 open System.Collections.Concurrent
+open System.Threading.Tasks
 
 open Nessos.Vagabond
 
 open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.PrettyPrinters
 
 /// Cloud process client object
 [<AbstractClass; AutoSerializable(false)>]
@@ -22,27 +25,40 @@ type CloudProcess internal (tcs : ICloudTaskCompletionSource, manager : ICloudTa
     ///     Return the result if available or None if not available.
     /// </summary>
     abstract TryGetResultBoxed : unit -> Async<obj option>
+
     /// Awaits the boxed result of the process.
     abstract ResultBoxed : obj
 
     /// Date of process execution start.
     member __.StartTime =
         match cell.Value.ExecutionTime with
-        | None -> None
-        | Some dt -> Some dt
+        | NotStarted -> None
+        | Started(st,_) -> Some st
+        | Finished(st,_,_) -> Some st
 
     /// TimeSpan of executing process.
     member __.ExecutionTime =
         match cell.Value.ExecutionTime with
-        | None -> None
-        | Some(_,et) -> Some et
+        | NotStarted -> None
+        | Started(_,et) -> Some et
+        | Finished(_,et,_) -> Some et
+
+    /// DateTime of task completion
+    member __.CompletionTime =
+        match cell.Value.ExecutionTime with
+        | Finished(_,_,ct) -> Some ct
+        | _ -> None
 
     /// Active number of jobs related to the process.
-    member __.ActiveJobCount = cell.Value.ActiveJobCount
+    member __.ActiveJobs = cell.Value.ActiveJobCount
     /// Max number of concurrently executing jobs for process.
-    member __.MaxActiveJobCount = cell.Value.MaxActiveJobCount
+    member __.MaxActiveJobs = cell.Value.MaxActiveJobCount
+    /// Number of jobs that have been completed for process.
+    member __.CompletedJobs = cell.Value.CompletedJobCount
+    /// Number of faults encountered while executing jobs for process.
+    member __.FaultedJobs = cell.Value.FaultedJobCount
     /// Total number of jobs related to the process.
-    member __.TotalJobCount = cell.Value.TotalJobCount
+    member __.TotalJobs = cell.Value.TotalJobCount
     /// Process execution status.
     member __.Status = cell.Value.Status
 
@@ -55,9 +71,15 @@ type CloudProcess internal (tcs : ICloudTaskCompletionSource, manager : ICloudTa
     /// Cancels execution of given process
     member __.Cancel() = tcs.CancellationTokenSource.Cancel()
 
+    /// Gets a printed report on the current process status
+    member p.GetInfo() : string = ProcessReporter.Report([|p|], "Process", false)
+
+    /// Prints a report on the current process status to stdout
+    member p.ShowInfo () : unit = Console.WriteLine(p.GetInfo())
+
 /// Cloud process client object
-[<Sealed; AutoSerializable(false)>]
-type CloudProcess<'T> internal (tcs : ICloudTaskCompletionSource<'T>, manager : ICloudTaskManager) =
+and [<Sealed; AutoSerializable(false)>]
+  CloudProcess<'T> internal (tcs : ICloudTaskCompletionSource<'T>, manager : ICloudTaskManager) =
     inherit CloudProcess(tcs, manager)
 
     /// Serializable CloudTask corresponding to the process object
@@ -90,8 +112,8 @@ type CloudProcess<'T> internal (tcs : ICloudTaskCompletionSource<'T>, manager : 
     override __.ResultBoxed = box tcs.Task.Result
 
 /// Cloud Process client object
-[<AutoSerializable(false)>]
-type CloudProcessManager(resources : IRuntimeManager) =
+and [<AutoSerializable(false)>] internal
+  CloudProcessManager(resources : IRuntimeManager) =
     // TODO : add cleanup logic
     // TODO : add pretty printing
     let processes = new ConcurrentDictionary<string, CloudProcess> ()
@@ -166,3 +188,33 @@ type CloudProcessManager(resources : IRuntimeManager) =
         do! resources.TaskManager.ClearAllTasks()
         processes.Clear()
     }
+
+    /// Gets a printed report of all currently executing processes
+    member pm.GetProcessInfo() : string =
+        let procs = pm.GetAllProcesses() |> Async.RunSync
+        ProcessReporter.Report(procs, "Processes", borders = false)
+
+    /// Prints a report of all currently executing processes to stdout.
+    member pm.ShowProcessInfo() : unit =
+        /// TODO : add support for filtering processes
+        Console.WriteLine(pm.GetProcessInfo())
+
+and internal ProcessReporter() = 
+    static let template : Field<CloudProcess> list = 
+        [ Field.create "Name" Left (fun p -> match p.Name with Some n -> n | None -> "")
+          Field.create "Process Id" Right (fun p -> p.Id)
+          Field.create "Status" Right (fun p -> sprintf "%A" p.Status)
+//          Field.create "Completed" Left (fun p -> p.Status = CloudTaskStatus.)
+          Field.create "Execution Time" Left (fun p -> Option.toNullable p.ExecutionTime)
+          Field.create "Jobs" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveJobs p.FaultedJobs p.CompletedJobs p.TotalJobs)
+          Field.create "Result Type" Left (fun p -> Type.prettyPrint p.Type) 
+          Field.create "Start Time" Left (fun p -> Option.toNullable p.StartTime)
+          Field.create "Completion Time" Left (fun p -> Option.toNullable p.CompletionTime)
+        ]
+    
+    static member Report(processes : seq<CloudProcess>, title : string, borders : bool) = 
+        let ps = processes 
+                 |> Seq.sortBy (fun p -> p.StartTime)
+                 |> Seq.toList
+
+        sprintf "%s\nJobs : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)

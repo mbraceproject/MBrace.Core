@@ -98,6 +98,7 @@ type WorkerAgent private (runtime : IRuntimeManager, currentWorker : IWorkerRef,
                                     let! assemblies = runtime.AssemblyManager.DownloadAssemblies jobToken.TaskInfo.Dependencies
                                     do! jobEvaluator.Evaluate (assemblies, jobToken)
                                 with e ->
+                                    do! runtime.TaskManager.DeclareFaultedJob(jobToken.TaskInfo.Id)
                                     logger.Logf LogLevel.Error "Job '%s' faulted at initialization:\n%A" jobToken.Id e
                                     return ()
                             finally

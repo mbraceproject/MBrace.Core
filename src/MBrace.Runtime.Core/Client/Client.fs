@@ -97,6 +97,11 @@ type MBraceClient (resources : IRuntimeManager) =
     /// </summary>
     member __.ClearAllProcesses() = processManager.ClearAllProcesses() |> Async.RunSync
 
+    /// Gets a printed report of all currently executing processes
+    member __.GetProcessInfo() = processManager.GetProcessInfo()
+    /// Prints a report of all currently executing processes to stdout
+    member __.ShowProcessInfo() = processManager.ShowProcessInfo()
+
     /// <summary>
     ///     Run workflow as local, in-memory computation
     /// </summary>

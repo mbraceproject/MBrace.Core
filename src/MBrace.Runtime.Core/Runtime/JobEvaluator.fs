@@ -123,15 +123,18 @@ module JobEvaluator =
             let sw = Stopwatch.StartNew()
             let! result = runJobAsync manager currentWorker joblt.FaultInfo job |> Async.Catch
             sw.Stop()
-            do! manager.TaskManager.DecrementJobCount(joblt.TaskInfo.Id)
 
             match result with
             | Choice1Of2 () -> 
-                do! joblt.DeclareCompleted ()
                 logger.Logf LogLevel.Info "Completed job '%s' after %O" job.Id sw.Elapsed
+                do! manager.TaskManager.DeclareCompletedJob(joblt.TaskInfo.Id)
+                do! joblt.DeclareCompleted ()
+
             | Choice2Of2 e ->
                 logger.Logf LogLevel.Error "Faulted job '%s' after %O\n%O" job.Id sw.Elapsed e
                 do! joblt.DeclareFaulted (ExceptionDispatchInfo.Capture e)
+                // declare job faulted to task manager
+                do! manager.TaskManager.DeclareFaultedJob(joblt.TaskInfo.Id)
     }
        
 

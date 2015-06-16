@@ -20,6 +20,8 @@ runtime.AttachLogger(new MBrace.Runtime.ConsoleSystemLogger())
 
 runtime.Workers
 
+runtime.ShowProcessInfo()
+
 #time "on"
 
 // vagabond data initialization test 1.
@@ -60,7 +62,8 @@ vector.IsCachingEnabled
 cloud { return! vector.ToEnumerable() } |> runtime.RunLocally
 vector |> CloudFlow.sum |> runtime.RunLocally
 
+let proc = runtime.CreateProcess(Cloud.Parallel [for i in 1 .. 10 -> Cloud.Sleep (i * 1000)], taskName = "test")
 
-[|0|] |> CloudFlow.OfArray |> CloudFlow.filter (fun n -> n % 2 = 0) |> CloudFlow.toArray |> runtime.Run
+proc.ShowInfo()
 
-runtime.Run (cloud { return System.AppDomain.CurrentDomain.GetAssemblies() |> Seq.groupBy (fun a -> a.FullName) |> Seq.map (fun (_,ids) -> ids |> Seq.map (fun id -> id.Location)|> Seq.toArray) |> Seq.filter (fun ids -> ids.Length > 1) |> Seq.toArray })
+runtime.ShowProcessInfo()
