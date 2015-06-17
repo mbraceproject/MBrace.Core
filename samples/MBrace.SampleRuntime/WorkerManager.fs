@@ -43,6 +43,7 @@ type WorkerRef private (hostname : string, pid : int, processorCount : int) =
 type private HeartbeatMonitorMsg = 
     | SendHeartbeat
     | CheckHeartbeat
+    | GetLatestHeartbeat of IReplyChannel<DateTime>
     | Stop of IReplyChannel<unit>
 
 and private WorkerMonitorMsg =
@@ -52,14 +53,8 @@ and private WorkerMonitorMsg =
     | DeclarePerformanceMetrics of IWorkerRef * NodePerformanceInfo
     | DeclareDead of IWorkerRef
     | IsAlive of IWorkerRef * IReplyChannel<bool>
-    | GetAvailableWorkers of IReplyChannel<(IWorkerRef * WorkerState * NodePerformanceInfo) []>
-
-type private WorkerInfo =
-    {
-        State : WorkerState
-        Perf : NodePerformanceInfo
-        HeartbeatMonitor : ActorRef<HeartbeatMonitorMsg>
-    }
+    | GetAvailableWorkers of IReplyChannel<WorkerInfo []>
+    | TryGetWorkerInfo of IWorkerRef * IReplyChannel<WorkerInfo option>
 
 module private HeartbeatMonitor =
     let create (threshold : TimeSpan) (wmon : ActorRef<WorkerMonitorMsg>) (worker : IWorkerRef) =
@@ -71,6 +66,9 @@ module private HeartbeatMonitor =
             | CheckHeartbeat ->
                 if DateTime.Now - lastRenew > threshold then
                     wmon <-- DeclareDead worker
+                return lastRenew
+            | GetLatestHeartbeat rc ->
+                do! rc.Reply lastRenew
                 return lastRenew
             | Stop ch -> 
                 cts.Cancel()
@@ -122,7 +120,7 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
         return! source.AsyncPost <| UnSubscribe worker
     }
 
-    member __.GetAllWorkers() = async {
+    member __.GetAvailableWorkers() = async {
         return! source <!- GetAvailableWorkers
     }
 
@@ -134,8 +132,12 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
         member x.DeclareWorkerState(worker: IWorkerRef, state: WorkerState): Async<unit> = 
             x.DeclareState(worker, state)
         
-        member x.GetAvailableWorkers(): Async<(IWorkerRef * WorkerState * NodePerformanceInfo) []> = 
-            x.GetAllWorkers()
+        member x.GetAvailableWorkers() =
+            x.GetAvailableWorkers()
+
+        member x.TryGetWorkerInfo(ref : IWorkerRef) = async {
+            return! source <!- fun ch -> TryGetWorkerInfo(ref, ch)
+        }
         
         member x.IsValidTargetWorker(target: IWorkerRef): Async<bool> = async {
             match target with
@@ -155,45 +157,67 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
 
     static member Init(?heartbeatThreshold : TimeSpan) =
         let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 4.)
-        let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<IWorkerRef, WorkerInfo>) (msg : WorkerMonitorMsg) = async {
+        let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<IWorkerRef, WorkerInfo * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
             match msg with
             | Subscribe(w, ws, rc) ->
+                let info =
+                    {
+                        State = ws
+                        PerformanceMetrics = Unchecked.defaultof<_>
+                        HeartbeatRate = heartbeatThreshold
+                        InitializationTime = DateTime.Now
+                        LastHeartbeat = DateTime.Now
+                        WorkerRef = w
+                    }
+
                 let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
                 do! rc.Reply(hmon, heartbeatThreshold)
-                let info = { State = ws ; HeartbeatMonitor = hmon ; Perf = Unchecked.defaultof<_> }
-                return (state.Add(w, info))
+                return state.Add(w, (info, hmon))
 
             | UnSubscribe w ->
                 match state.TryFind w with
                 | None -> return state
-                | Some info -> 
-                    do! info.HeartbeatMonitor <!- Stop
+                | Some (_,hmon) -> 
+                    do! hmon <!- Stop
                     return state.Remove w
             
             | DeclareDead w ->
                 match state.TryFind w with
                 | None -> return state
-                | Some { HeartbeatMonitor = hmon } ->
+                | Some (_,hmon) ->
                     do! hmon <!- Stop
                     return state.Remove w
 
             | DeclareState (w, ws) ->
                 match state.TryFind w with
                 | None -> return state
-                | Some info -> return state.Add(w, { info with State = ws })
+                | Some (info, hm) -> return state.Add(w, ({ info with State = ws }, hm))
 
             | DeclarePerformanceMetrics(w, perf) ->
                 match state.TryFind w with
                 | None -> return state
-                | Some info -> return state.Add(w, { info with Perf = perf })
+                | Some (info, hm) -> 
+                    let info' = { info with PerformanceMetrics = perf }
+                    return state.Add(w, (info', hm))
 
             | GetAvailableWorkers rc ->
-                let workers = state |> Seq.map (fun kv -> kv.Key, kv.Value.State, kv.Value.Perf) |> Seq.toArray
+                let x = Unchecked.defaultof<WorkerInfo>
+                let workers = state |> Seq.map (function KeyValue(_,(i,_)) -> i) |> Seq.toArray
                 do! rc.Reply workers
                 return state
 
             | IsAlive (w,rc) ->
                 do! rc.Reply (state.ContainsKey w)
+                return state
+
+            | TryGetWorkerInfo (w, rc) ->
+                match state.TryFind w with
+                | None -> do! rc.Reply None
+                | Some (info,hmon) ->
+                    let! latestHb = hmon <!- GetLatestHeartbeat
+                    let info' = { info with LastHeartbeat = latestHb }
+                    do! rc.Reply (Some info')
+
                 return state
         }
 

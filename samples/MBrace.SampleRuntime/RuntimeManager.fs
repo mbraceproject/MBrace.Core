@@ -22,6 +22,7 @@ type RuntimeManager(state : RuntimeState, logger : ISystemLogger) =
     member __.State = state
 
     interface IRuntimeManager with
+        member x.Id = state.Address
         member x.AssemblyManager: IAssemblyManager = assemblyManager :> _
 
         member x.PrimitivesFactory = state.Factory :> _

@@ -83,7 +83,7 @@
     <Compile Include="Runtime\JobEvaluator.fs" />
     <Compile Include="Runtime\Worker.fs" />
     <Compile Include="Client\Process.fs" />
-    <Compile Include="Client\Reporting.fs" />
+    <Compile Include="Client\WorkerReporter.fs" />
     <Compile Include="Client\Client.fs" />
     <Compile Include="Vagabond\VagabondRegistry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />

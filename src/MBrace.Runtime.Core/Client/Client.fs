@@ -12,7 +12,7 @@ type MBraceClient (resources : IRuntimeManager) =
 
     let imem = LocalRuntime.Create(resources = resources.ResourceRegistry)
     let processManager = new CloudProcessManager(resources)
-    let workerCache = CacheAtom.Create(async { return! resources.WorkerManager.GetAvailableWorkers() }, intervalMilliseconds = 500)
+    let workerManager = new WorkerManager(resources)
 
     /// Creates a fresh cloud cancellation token source for this runtime
     member c.CreateCancellationTokenSource (?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
@@ -112,18 +112,11 @@ type MBraceClient (resources : IRuntimeManager) =
     member __.StoreClient = imem.StoreClient
 
     /// Gets all available workers for current runtime.
-    member __.Workers = workerCache.Value |> Array.map (fun (w,_,_) -> w)
+    member __.Workers = workerManager.GetAllWorkers() |> Async.RunSync
 
-    /// Gets worker info for all workers in runtime.
-    member __.GetWorkerInfo () = workerCache.Value
-
-    /// <summary>
-    ///     Gets node performance info for supplied worker.
-    /// </summary>
-    /// <param name="worker">Worker to be evaluated.</param>
-    member __.GetPerformanceInfo(worker : IWorkerRef) = 
-        let _,_,p = workerCache.Value |> Array.find (fun (w,_,_) -> w = worker)
-        p
+    /// TODO xml doc
+    member __.GetWorkerInfo () = workerManager.GetInfo()
+    member __.ShowWorkerInfo () = workerManager.ShowInfo()
 
     /// <summary>
     ///     Run workflow as local, in-memory computation

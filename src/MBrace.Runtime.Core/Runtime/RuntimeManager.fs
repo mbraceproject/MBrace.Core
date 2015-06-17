@@ -10,6 +10,8 @@ open MBrace.Core.Internals
 /// Abstract MBrace runtime management object.
 /// Contains all functionality necessary for the coordination of an MBrace cluster.
 type IRuntimeManager =
+    /// Runtime uniqueue identifier
+    abstract Id : string
     /// Local MBrace resources to be supplied to workflow.
     abstract ResourceRegistry : ResourceRegistry
     /// Runtime worker manager object.

@@ -21,6 +21,7 @@ runtime.AttachLogger(new MBrace.Runtime.ConsoleSystemLogger())
 runtime.Workers
 
 runtime.ShowProcessInfo()
+runtime.ShowWorkerInfo()
 
 #time "on"
 
@@ -37,6 +38,8 @@ runtime.GetAllProcesses()
 runtime.ClearAllProcesses()
 
 runtime.GetWorkerInfo()
+
+runtime.ShowProcessInfo()
 
 runtime.Run(cloud { return enabled }, taskName = "test")
 

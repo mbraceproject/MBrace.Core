@@ -40,7 +40,7 @@ type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, log
         for w in base.Workers do
             try 
                 if w.Hostname = (WorkerRef.LocalWorker :> IWorkerRef).Hostname then
-                    let p = Process.GetProcessById w.ProcessId
+                    let p = Process.GetProcessById w.WorkerRef.ProcessId
                     if p.ProcessName = processName then
                         p.Kill()
             with _ -> ()

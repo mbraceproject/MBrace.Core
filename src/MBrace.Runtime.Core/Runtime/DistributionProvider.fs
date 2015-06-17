@@ -70,7 +70,7 @@ type DistributionProvider private (currentWorker : IWorkerRef, runtime : IRuntim
 
         member __.GetAvailableWorkers () = async {
             let! workers = runtime.WorkerManager.GetAvailableWorkers()
-            return workers |> Array.map (fun (w,_,_) -> w)
+            return workers |> Array.map (fun i -> i.WorkerRef)
         }
 
         member __.CurrentWorker = currentWorker

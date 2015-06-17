@@ -113,9 +113,8 @@ and [<Sealed; AutoSerializable(false)>]
 
 /// Cloud Process client object
 and [<AutoSerializable(false)>] internal
-  CloudProcessManager(resources : IRuntimeManager) =
+  CloudProcessManager(runtime : IRuntimeManager) =
     // TODO : add cleanup logic
-    // TODO : add pretty printing
     let processes = new ConcurrentDictionary<string, CloudProcess> ()
 
     /// <summary>
@@ -126,22 +125,22 @@ and [<AutoSerializable(false)>] internal
         let ok,p = processes.TryGetValue taskId
         if ok then return p
         else
-            let! info = resources.TaskManager.GetTaskState(taskId)
-            let! assemblies = resources.AssemblyManager.DownloadAssemblies(info.Info.Dependencies)
-            let loadInfo = resources.AssemblyManager.LoadAssemblies(assemblies)
+            let! info = runtime.TaskManager.GetTaskState(taskId)
+            let! assemblies = runtime.AssemblyManager.DownloadAssemblies(info.Info.Dependencies)
+            let loadInfo = runtime.AssemblyManager.LoadAssemblies(assemblies)
             for li in loadInfo do
                 match li with
-                | NotLoaded id -> resources.SystemLogger.Logf LogLevel.Error "could not load assembly '%s'" id.FullName 
-                | LoadFault(id, e) -> resources.SystemLogger.Logf LogLevel.Error "error loading assembly '%s':\n%O" id.FullName e
+                | NotLoaded id -> runtime.SystemLogger.Logf LogLevel.Error "could not load assembly '%s'" id.FullName 
+                | LoadFault(id, e) -> runtime.SystemLogger.Logf LogLevel.Error "error loading assembly '%s':\n%O" id.FullName e
                 | Loaded _ -> ()
 
-            let! tcs = resources.TaskManager.GetTaskCompletionSourceById(taskId)
+            let! tcs = runtime.TaskManager.GetTaskCompletionSourceById(taskId)
             let e = Existential.FromType tcs.Type
             let proc = e.Apply { 
                 new IFunc<CloudProcess> with 
                     member __.Invoke<'T> () = 
                         let tcs = tcs :?> ICloudTaskCompletionSource<'T>
-                        new CloudProcess<'T>(tcs, resources.TaskManager) :> CloudProcess
+                        new CloudProcess<'T>(tcs, runtime.TaskManager) :> CloudProcess
             }
 
             return processes.GetOrAdd(taskId, proc)
@@ -156,14 +155,14 @@ and [<AutoSerializable(false)>] internal
         let ok, p = processes.TryGetValue task.Info.Id
         if ok then p :?> CloudProcess<'T>
         else
-            let p = processes.GetOrAdd(task.Info.Id, (fun _ -> new CloudProcess<'T>(task, resources.TaskManager) :> CloudProcess))
+            let p = processes.GetOrAdd(task.Info.Id, (fun _ -> new CloudProcess<'T>(task, runtime.TaskManager) :> CloudProcess))
             p :?> CloudProcess<'T>
 
     /// <summary>
     ///     Gets all processes running in the cluster.
     /// </summary>
     member pm.GetAllProcesses() = async {
-        let! state = resources.TaskManager.GetAllTasks()
+        let! state = runtime.TaskManager.GetAllTasks()
         return! 
             state 
             |> Seq.map (fun s -> s.Info.Id) 
@@ -177,7 +176,7 @@ and [<AutoSerializable(false)>] internal
     /// </summary>
     /// <param name="proc">Process to be cleared.</param>
     member pm.ClearProcess(proc : CloudProcess) = async {
-        do! resources.TaskManager.Clear(proc.Id)
+        do! runtime.TaskManager.Clear(proc.Id)
         processes.TryRemove(proc.Id) |> ignore
     }
 
@@ -185,7 +184,7 @@ and [<AutoSerializable(false)>] internal
     ///     Clears all processes from the runtime.
     /// </summary>
     member pm.ClearAllProcesses() = async {
-        do! resources.TaskManager.ClearAllTasks()
+        do! runtime.TaskManager.ClearAllTasks()
         processes.Clear()
     }
 

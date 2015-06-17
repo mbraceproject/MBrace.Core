@@ -16,6 +16,12 @@ type WorkerStatus =
     | Stopped
     /// Error dequeueing jobs
     | QueueFault of ExceptionDispatchInfo
+with
+    override s.ToString() =
+        match s with
+        | Running -> "Running"
+        | Stopped -> "Stopped"
+        | QueueFault _ -> "Queue Fault"
 
 /// Worker state object
 [<NoEquality; NoComparison>]
@@ -29,6 +35,24 @@ type WorkerState =
         MaxJobCount : int
     }
 
+/// Worker state object
+[<NoEquality; NoComparison>]
+type WorkerInfo =
+    {
+        /// Worker reference identifier
+        WorkerRef : IWorkerRef
+        /// Last Heartbeat submitted by worker
+        LastHeartbeat : DateTime
+        /// Heartbeat rate designated by worker manager
+        HeartbeatRate : TimeSpan
+        /// Time of worker initialization/subscription
+        InitializationTime : DateTime
+        /// Current worker state
+        State : WorkerState
+        /// Latest worker performance metrics
+        PerformanceMetrics : NodePerformanceInfo
+    }
+
 /// Worker manager abstraction
 type IWorkerManager =
 
@@ -38,6 +62,13 @@ type IWorkerManager =
     /// </summary>
     /// <param name="target">worker ref to be examined.</param>
     abstract IsValidTargetWorker : target:IWorkerRef -> Async<bool>
+
+    /// <summary>
+    ///     Asynchronously returns current worker information
+    ///     for provided worker reference.
+    /// </summary>
+    /// <param name="target">Worker ref to be examined.</param>
+    abstract TryGetWorkerInfo : target:IWorkerRef -> Async<WorkerInfo option>
 
     /// <summary>
     ///     Subscribe a new worker instance to the cluster.
@@ -62,4 +93,4 @@ type IWorkerManager =
     abstract SubmitPerformanceMetrics : worker:IWorkerRef * perf:NodePerformanceInfo -> Async<unit>
 
     /// Asynchronously requests node performance metrics for all nodes.
-    abstract GetAvailableWorkers : unit -> Async<(IWorkerRef * WorkerState * NodePerformanceInfo) []>
+    abstract GetAvailableWorkers : unit -> Async<WorkerInfo []>
