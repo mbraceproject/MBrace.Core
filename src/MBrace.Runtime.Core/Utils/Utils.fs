@@ -4,6 +4,7 @@ open System
 open System.Reflection
 open System.IO
 open System.Diagnostics
+open System.Net
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open System.Threading.Tasks
@@ -187,3 +188,72 @@ module Utils =
     /// Generic asynchronous function
     and IAsyncFunc<'R> =
         abstract Invoke<'T> : unit -> Async<'R>
+
+    [<Sealed; DataContract>]
+    type MachineId private (hostname : string, interfaces : string []) =
+        static let mkLocal() =
+            let hostname = Dns.GetHostName()
+            let interfaces = Dns.GetHostAddresses(hostname) |> Array.map (fun i -> i.ToString())
+            new MachineId(hostname, interfaces)
+
+        static let localSingleton = lazy(mkLocal())
+
+        [<DataMember(Name = "HostName")>]
+        let hostname = hostname
+        [<DataMember(Name = "Interfaces")>]
+        let interfaces = interfaces
+
+        member __.Hostname = hostname
+        member private __.Interfaces = interfaces
+
+        override __.Equals(other:obj) =
+            match other with
+            | :? MachineId as mid -> hostname = mid.Hostname && interfaces = mid.Interfaces
+            | _ -> false
+
+        override __.GetHashCode() = hash (hostname, interfaces)
+
+        interface IComparable with
+            member __.CompareTo(other:obj) =
+                match other with
+                | :? MachineId as mid -> compare (hostname, interfaces) (mid.Hostname, mid.Interfaces)
+                | _ -> invalidArg "other" "invalid comparand."
+
+        static member LocalInstance = localSingleton.Value
+
+
+    [<Sealed; DataContract>]
+    type ProcessId private (machineId : MachineId, processUUID : string, processId : int) =
+        static let localProcessId = mkUUID()
+        static let mkLocal () =
+            let mid = MachineId.LocalInstance
+            let pid = System.Diagnostics.Process.GetCurrentProcess().Id
+            new ProcessId(mid, localProcessId, pid)
+        
+        static let singleton = lazy(mkLocal())
+
+        [<DataMember(Name = "MachineId")>]
+        let machineId = machineId
+        [<DataMember(Name = "ProcessUUID")>]
+        let processUUID = processUUID
+        [<DataMember(Name = "ProcessId")>]
+        let processId = processId
+
+        member __.MachineId = machineId
+        member private __.ProcessUUID = processUUID
+        member __.ProcessId = processId
+
+        override __.Equals(other:obj) =
+            match other with
+            | :? ProcessId as pid -> machineId = pid.MachineId && processUUID = pid.ProcessUUID && pid.ProcessUUID = pid.ProcessUUID
+            | _ -> false
+
+        override __.GetHashCode() = hash (machineId, processId, processUUID)
+
+        interface IComparable with
+            member __.CompareTo(other:obj) =
+                match other with
+                | :? ProcessId as pid -> compare (machineId, processId, processUUID) (pid.MachineId, pid.ProcessId, processUUID)
+                | _ -> invalidArg "other" "invalid comparand."
+
+        static member LocalInstance = singleton.Value

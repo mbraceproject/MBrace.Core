@@ -77,11 +77,12 @@
     <Compile Include="Runtime\CloudJob.fs" />
     <Compile Include="Runtime\AssemblyManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
+    <Compile Include="Runtime\WorkerRef.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\DistributionProvider.fs" />
     <Compile Include="Runtime\JobEvaluator.fs" />
-    <Compile Include="Runtime\Worker.fs" />
+    <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Client\Process.fs" />
     <Compile Include="Client\WorkerReporter.fs" />
     <Compile Include="Client\Client.fs" />
