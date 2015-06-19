@@ -12,7 +12,7 @@ open MBrace.Runtime
 [<AutoSerializable(true)>]
 type ActorCloudLogger private (target : ActorRef<string * DateTime>) =
 
-    member __.CreateLogger (worker : IWorkerRef, currentJob : CloudJob) =
+    member __.CreateLogger (worker : IWorkerId, currentJob : CloudJob) =
         { new ICloudLogger with
             member __.Log (message : string) =
                 let message = sprintf "User Log[Worker:%s, Process:%s, Job:%s]: %s" worker.Id currentJob.TaskInfo.Id currentJob.Id message

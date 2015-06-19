@@ -7,17 +7,23 @@ open Nessos.Vagabond
 open MBrace.Core
 open MBrace.Core.Internals
 
+/// Runtime provided runtime identifier
+type IRuntimeId =
+    inherit IComparable
+    /// Runtime identifier
+    abstract Id : string
+
 /// Abstract MBrace runtime management object.
 /// Contains all functionality necessary for the coordination of an MBrace cluster.
 type IRuntimeManager =
     /// Runtime uniqueue identifier
-    abstract Id : string
+    abstract Id : IRuntimeId
     /// Local MBrace resources to be supplied to workflow.
     abstract ResourceRegistry : ResourceRegistry
     /// Runtime worker manager object.
     abstract WorkerManager : IWorkerManager
     /// Logger abstraction for user-specified cloud logging.
-    abstract GetCloudLogger : CloudJob -> ICloudLogger
+    abstract GetCloudLogger : worker:IWorkerId * job:CloudJob -> ICloudLogger
     /// Logger abstraction used for local worker logging.
     abstract SystemLogger : ISystemLogger
     /// Gets the job queue instance for the runtime.

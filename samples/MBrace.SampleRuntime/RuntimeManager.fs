@@ -22,7 +22,7 @@ type RuntimeManager(state : RuntimeState, logger : ISystemLogger) =
     member __.State = state
 
     interface IRuntimeManager with
-        member x.Id = state.Address
+        member x.Id = state.Id :> _
         member x.AssemblyManager: IAssemblyManager = assemblyManager :> _
 
         member x.PrimitivesFactory = state.Factory :> _
@@ -33,7 +33,7 @@ type RuntimeManager(state : RuntimeState, logger : ISystemLogger) =
         
         member x.JobQueue: IJobQueue = state.JobQueue
         
-        member x.GetCloudLogger (job:CloudJob) : ICloudLogger = state.CloudLogger.CreateLogger(WorkerRef.LocalWorker, job)
+        member x.GetCloudLogger (workerId : IWorkerId, job:CloudJob) : ICloudLogger = state.CloudLogger.CreateLogger(workerId, job)
 
         member x.SystemLogger : ISystemLogger = logger
         

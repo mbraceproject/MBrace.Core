@@ -27,7 +27,7 @@ let main (args : string []) =
         logger.Logf LogLevel.Info "Thespian initialized with address: %s" Config.LocalAddress
 
         let state = RuntimeState.FromBase64 args.[0]
-        logger.Logf LogLevel.Info "Connected to MBrace cluster '%s' at %s. " state.Id state.Address
+        logger.Logf LogLevel.Info "Connected to MBrace cluster '%O' at %s. " state.Id state.Address
 
         let agent =
             Worker.initialize useAppDomainIsolation state logger maxConcurrentJobs 

@@ -18,7 +18,7 @@ MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Samp
 let runtime = MBraceRuntime.InitLocal 4
 runtime.AttachLogger(new MBrace.Runtime.ConsoleSystemLogger())
 
-runtime.Workers
+let w = runtime.Workers
 
 runtime.ShowProcessInfo()
 runtime.ShowWorkerInfo()

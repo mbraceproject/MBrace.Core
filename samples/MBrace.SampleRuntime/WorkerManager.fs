@@ -8,37 +8,31 @@ open Nessos.Thespian
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PerformanceMonitor
 
 [<AutoSerializable(true)>]
-type WorkerRef private (hostname : string, pid : int, processorCount : int) =
-    static let localWorker = lazy(
-        let hostname = System.Net.Dns.GetHostName()
-        let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-        let pc = System.Environment.ProcessorCount
-        new WorkerRef(hostname, pid, pc))
+type WorkerId private (processId : ProcessId) =
+    member __.ProcessId = processId
+    member __.Id = sprintf "mbrace://%s/Pid:%d" processId.MachineId.Hostname processId.ProcessId
+    interface IWorkerId with
+        member x.CompareTo(obj: obj): int =
+            match obj with
+            | :? WorkerId as w -> compare processId w.ProcessId
+            | _ -> invalidArg "obj" "invalid comparand."
+        
+        member x.Id: string = x.Id
 
-    let id = sprintf "mbrace://%s/pid:%d" hostname pid
-    interface IWorkerRef with
-        member __.Hostname = hostname
-        member __.Id = id
-        member __.Type = "sample runtime worker node"
-        member __.ProcessorCount = processorCount
-        member __.ProcessId = pid
-        member __.CompareTo(other : obj) =
-            match other with
-            | :? WorkerRef as w -> compare id (w :> IWorkerRef).Id
-            | _ -> invalidArg "other" "invalid comparand."
-
-    override __.ToString() = id
-    override __.Equals other = 
+    override x.ToString() = x.Id
+    override x.Equals(other:obj) =
         match other with
-        | :? WorkerRef as w -> id = (w :> IWorkerRef).Id
+        | :? WorkerId as w -> processId = w.ProcessId
         | _ -> false
 
-    override __.GetHashCode() = hash id
+    override x.GetHashCode() = hash processId
 
-    static member LocalWorker = localWorker.Value
+    static member LocalInstance = new WorkerId(ProcessId.LocalInstance)
+         
 
 type private HeartbeatMonitorMsg = 
     | SendHeartbeat
@@ -47,17 +41,17 @@ type private HeartbeatMonitorMsg =
     | Stop of IReplyChannel<unit>
 
 and private WorkerMonitorMsg =
-    | Subscribe of IWorkerRef * WorkerState * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
-    | UnSubscribe of IWorkerRef
-    | DeclareState of IWorkerRef * WorkerState
-    | DeclarePerformanceMetrics of IWorkerRef * NodePerformanceInfo
-    | DeclareDead of IWorkerRef
-    | IsAlive of IWorkerRef * IReplyChannel<bool>
+    | Subscribe of IWorkerId * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
+    | UnSubscribe of IWorkerId
+    | DeclareState of IWorkerId * WorkerState
+    | DeclarePerformanceMetrics of IWorkerId * NodePerformanceInfo
+    | DeclareDead of IWorkerId
+    | IsAlive of IWorkerId * IReplyChannel<bool>
     | GetAvailableWorkers of IReplyChannel<WorkerInfo []>
-    | TryGetWorkerInfo of IWorkerRef * IReplyChannel<WorkerInfo option>
+    | TryGetWorkerInfo of IWorkerId * IReplyChannel<WorkerInfo option>
 
 module private HeartbeatMonitor =
-    let create (threshold : TimeSpan) (wmon : ActorRef<WorkerMonitorMsg>) (worker : IWorkerRef) =
+    let create (threshold : TimeSpan) (wmon : ActorRef<WorkerMonitorMsg>) (worker : IWorkerId) =
         let cts = new CancellationTokenSource()
         let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTime) (msg : HeartbeatMonitorMsg) = async {
             match msg with
@@ -107,16 +101,16 @@ module private HeartbeatMonitor =
 [<AutoSerializable(true)>]
 type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
 
-    member __.Subscribe(worker : IWorkerRef, initial : WorkerState) = async {
-        let! heartbeatMon,threshold = source <!- fun ch -> Subscribe(worker, initial, ch)
+    member __.Subscribe(worker : IWorkerId, initial : WorkerState) = async {
+        let! heartbeatMon,threshold = source <!- fun ch -> Subscribe(worker, ch)
         return! HeartbeatMonitor.initHeartbeat threshold heartbeatMon
     }
 
-    member __.DeclareState(worker : IWorkerRef, state : WorkerState) = async {
+    member __.DeclareState(worker : IWorkerId, state : WorkerState) = async {
         return! source.AsyncPost <| DeclareState (worker, state)
     }
 
-    member __.UnSubscribe(worker : IWorkerRef) = async {
+    member __.UnSubscribe(worker : IWorkerId) = async {
         return! source.AsyncPost <| UnSubscribe worker
     }
 
@@ -124,50 +118,50 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
         return! source <!- GetAvailableWorkers
     }
 
-    member __.IsAlive(worker : IWorkerRef) = async {
+    member __.IsAlive(worker : IWorkerId) = async {
         return! source <!- fun ch -> IsAlive(worker, ch)
     }
 
     interface IWorkerManager with
-        member x.DeclareWorkerState(worker: IWorkerRef, state: WorkerState): Async<unit> = 
+        member x.DeclareWorkerState(worker: IWorkerId, state: WorkerState): Async<unit> = 
             x.DeclareState(worker, state)
         
         member x.GetAvailableWorkers() =
             x.GetAvailableWorkers()
 
-        member x.TryGetWorkerInfo(ref : IWorkerRef) = async {
+        member x.TryGetWorkerInfo(ref : IWorkerId) = async {
             return! source <!- fun ch -> TryGetWorkerInfo(ref, ch)
         }
         
-        member x.IsValidTargetWorker(target: IWorkerRef): Async<bool> = async {
+        member x.IsValidTargetWorker(target: IWorkerId): Async<bool> = async {
             match target with
-            | :? WorkerRef -> return! x.IsAlive(target)
+            | :? WorkerId -> return! x.IsAlive(target)
             | _ -> return false
         }
         
-        member x.SubmitPerformanceMetrics(worker: IWorkerRef, perf: NodePerformanceInfo): Async<unit> = async {
+        member x.SubmitPerformanceMetrics(worker: IWorkerId, perf: NodePerformanceInfo): Async<unit> = async {
             return! source <!- fun ch -> DeclarePerformanceMetrics(worker, perf)
         }
         
-        member x.SubscribeWorker(worker: IWorkerRef, initial: WorkerState): Async<IDisposable> = async {
-            let! heartbeatMon, threshold = source <!- fun ch -> Subscribe(worker, initial, ch)
+        member x.SubscribeWorker(worker: IWorkerId): Async<IDisposable> = async {
+            let! heartbeatMon, threshold = source <!- fun ch -> Subscribe(worker, ch)
             let! unsubscriber = HeartbeatMonitor.initHeartbeat threshold heartbeatMon
             return new WorkerSubscriptionManager(x, worker, unsubscriber) :> IDisposable
         }
 
     static member Init(?heartbeatThreshold : TimeSpan) =
         let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 4.)
-        let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<IWorkerRef, WorkerInfo * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
+        let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<IWorkerId, WorkerInfo * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
             match msg with
-            | Subscribe(w, ws, rc) ->
+            | Subscribe(w, rc) ->
                 let info =
                     {
-                        State = ws
+                        State = Unchecked.defaultof<_>
                         PerformanceMetrics = Unchecked.defaultof<_>
                         HeartbeatRate = heartbeatThreshold
                         InitializationTime = DateTime.Now
                         LastHeartbeat = DateTime.Now
-                        WorkerRef = w
+                        Id = w
                     }
 
                 let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
@@ -231,7 +225,7 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
 
 
 and [<AutoSerializable(false)>] private 
-    WorkerSubscriptionManager (wmon : WorkerManager, currentWorker : IWorkerRef, heartbeatDisposer : IDisposable) =
+    WorkerSubscriptionManager (wmon : WorkerManager, currentWorker : IWorkerId, heartbeatDisposer : IDisposable) =
 
     let mutable isDisposed = false
     let lockObj = obj()

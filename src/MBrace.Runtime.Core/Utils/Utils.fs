@@ -47,7 +47,6 @@ module Utils =
             | Success x -> try Success <| f x with e -> Error e
             | Error e -> Error e
 
-
     [<RequireQualifiedAccess>]
     module Option =
         let toNullable(x : 'T option) =
@@ -56,6 +55,21 @@ module Utils =
             | Some x -> new Nullable<'T>(x)
     
     let hset (xs : 'T seq) = new System.Collections.Generic.HashSet<'T>(xs)
+
+    /// lexicographic comparison without tuple allocation
+    let inline compare2 (t1 : 'T) (s1 : 'S) (t2 : 'T) (s2 : 'S) =
+        match compare t1 t2 with
+        | 0 -> compare s1 s2
+        | x -> x
+
+    /// lexicographic comparison without tuple allocation
+    let inline compare3 (t1 : 'T) (s1 : 'S) (u1 : 'U) (t2 : 'T) (s2 : 'S) (u2 : 'U) =
+        match compare t1 t2 with
+        | 0 ->
+            match compare s1 s2 with
+            | 0 -> compare u1 u2
+            | x -> x
+        | x -> x
 
     /// generates a human readable string for byte sizes
     /// including a KiB, MiB, GiB or TiB suffix depending on size
@@ -133,6 +147,7 @@ module Utils =
             path
 
 
+    /// MailboxProcessor ReplyChannel with exception support
     type ReplyChannel<'T> internal (rc : AsyncReplyChannel<Exn<'T>>) =
         member __.Reply (t : 'T) = rc.Reply <| Success t
         member __.Reply (t : Exn<'T>) = rc.Reply t
@@ -189,6 +204,7 @@ module Utils =
     and IAsyncFunc<'R> =
         abstract Invoke<'T> : unit -> Async<'R>
 
+    /// Unique machine identifier object
     [<Sealed; DataContract>]
     type MachineId private (hostname : string, interfaces : string []) =
         static let mkLocal() =
@@ -198,11 +214,12 @@ module Utils =
 
         static let localSingleton = lazy(mkLocal())
 
-        [<DataMember(Name = "HostName")>]
+        [<DataMember(Name = "Hostname")>]
         let hostname = hostname
         [<DataMember(Name = "Interfaces")>]
         let interfaces = interfaces
 
+        /// Hostname of machine
         member __.Hostname = hostname
         member private __.Interfaces = interfaces
 
@@ -216,12 +233,14 @@ module Utils =
         interface IComparable with
             member __.CompareTo(other:obj) =
                 match other with
-                | :? MachineId as mid -> compare (hostname, interfaces) (mid.Hostname, mid.Interfaces)
+                | :? MachineId as mid -> compare2 hostname interfaces mid.Hostname mid.Interfaces
                 | _ -> invalidArg "other" "invalid comparand."
 
+        /// Gets the local instance identifier
         static member LocalInstance = localSingleton.Value
 
 
+    /// Unique process identifier object
     [<Sealed; DataContract>]
     type ProcessId private (machineId : MachineId, processUUID : string, processId : int) =
         static let localProcessId = mkUUID()
@@ -239,13 +258,15 @@ module Utils =
         [<DataMember(Name = "ProcessId")>]
         let processId = processId
 
+        /// Machine identifier
         member __.MachineId = machineId
         member private __.ProcessUUID = processUUID
+        /// ProcessId
         member __.ProcessId = processId
 
         override __.Equals(other:obj) =
             match other with
-            | :? ProcessId as pid -> machineId = pid.MachineId && processUUID = pid.ProcessUUID && pid.ProcessUUID = pid.ProcessUUID
+            | :? ProcessId as pid -> machineId = pid.MachineId && processId = pid.ProcessId && processUUID = pid.ProcessUUID
             | _ -> false
 
         override __.GetHashCode() = hash (machineId, processId, processUUID)
@@ -253,7 +274,7 @@ module Utils =
         interface IComparable with
             member __.CompareTo(other:obj) =
                 match other with
-                | :? ProcessId as pid -> compare (machineId, processId, processUUID) (pid.MachineId, pid.ProcessId, processUUID)
+                | :? ProcessId as pid -> compare3 machineId processId processUUID pid.MachineId pid.ProcessId pid.ProcessUUID
                 | _ -> invalidArg "other" "invalid comparand."
 
         static member LocalInstance = singleton.Value

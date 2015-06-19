@@ -27,7 +27,7 @@ type internal PickledJob =
         JobId : string
         JobType : JobType
         Type : string
-        Target : IWorkerRef option
+        Target : IWorkerId option
         Pickle : Pickle
     }
 
@@ -39,13 +39,13 @@ type internal JobLeaseMonitorMsg =
 type private JobQueueMsg =
     | Enqueue of PickledJob * JobFaultInfo
     | BatchEnqueue of PickledJob []
-    | TryDequeue of IWorkerRef * IReplyChannel<(PickledJob * JobFaultInfo * ActorRef<JobLeaseMonitorMsg>) option>
+    | TryDequeue of IWorkerId * IReplyChannel<(PickledJob * JobFaultInfo * ActorRef<JobLeaseMonitorMsg>) option>
 
 module private JobLeaseMonitor =
     
     let create (wmon : WorkerManager) (queue : ActorRef<JobQueueMsg>) 
                 (faultInfo : JobFaultInfo) (job : PickledJob) 
-                (interval : TimeSpan) (worker : IWorkerRef) =
+                (interval : TimeSpan) (worker : IWorkerId) =
 
         let cts = new CancellationTokenSource()
 
@@ -122,7 +122,7 @@ type private QueueState =
 with
     static member Empty = { Queue = JobQueueTopic.Empty ; LastCleanup = DateTime.Now }
 
-and private JobQueueTopic = QueueTopic<IWorkerRef, PickledJob * JobFaultInfo>
+and private JobQueueTopic = QueueTopic<IWorkerId, PickledJob * JobFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
@@ -160,7 +160,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             do! source.AsyncPost (Enqueue (item, NoFault))
         }
         
-        member x.TryDequeue(worker : IWorkerRef) = async {
+        member x.TryDequeue(worker : IWorkerId) = async {
             let! result = source <!- fun ch -> TryDequeue(worker, ch)
             match result with
             | Some(msg, faultState, leaseMonitor) ->

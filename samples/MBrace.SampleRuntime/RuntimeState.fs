@@ -4,11 +4,23 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Store.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
 
+type RuntimeId = private { Id : string }
+with
+    interface IRuntimeId with
+        member x.Id: string = x.Id
+
+    override x.ToString() = x.Id
+
+    static member Create() = { Id = mkUUID() }
+    
+    
+[<NoEquality; NoComparison>]
 type RuntimeState =
     {
-        Id : string
+        Id : RuntimeId
         Address : string
 
         Factory : ResourceFactory
@@ -36,7 +48,7 @@ with
         }
 
         {
-            Id = mkUUID()
+            Id = RuntimeId.Create()
             Address = Config.LocalAddress
 
             Factory = factory

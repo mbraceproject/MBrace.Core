@@ -8,9 +8,9 @@ open MBrace.Core.Internals.InMemoryRuntime
 
 /// Scheduling implementation provider
 [<Sealed; AutoSerializable(false)>]
-type DistributionProvider private (currentWorker : IWorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, isForcedLocalParallelism : bool) =
+type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, isForcedLocalParallelism : bool) =
 
-    let logger = runtime.GetCloudLogger currentJob
+    let logger = runtime.GetCloudLogger (currentWorker.WorkerId, currentJob)
 
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
         let! dcts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
@@ -23,10 +23,11 @@ type DistributionProvider private (currentWorker : IWorkerRef, runtime : IRuntim
     ///     Creates a distribution provider instance for given cloud job.
     /// </summary>
     /// <param name="currentWorker">Worker ref instance identifying current worker.</param>
-    /// <param name="resources">Runtime resource manager.</param>
+    /// <param name="runtime">Runtime resource manager.</param>
     /// <param name="job">Job to be executed.</param>
-    static member Create(currentWorker : IWorkerRef, resources : IRuntimeManager, job : CloudJob) =
-        new DistributionProvider(currentWorker, resources, job, job.FaultPolicy, false)
+    static member Create(currentWorker : IWorkerId, runtime : IRuntimeManager, job : CloudJob) =
+        let currentWorker = WorkerRef.Create(runtime, currentWorker)
+        new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, false)
         
     interface IDistributionProvider with
         member __.ProcessId = currentJob.TaskInfo.Id
@@ -69,9 +70,9 @@ type DistributionProvider private (currentWorker : IWorkerRef, runtime : IRuntim
         }
 
         member __.GetAvailableWorkers () = async {
-            let! workers = runtime.WorkerManager.GetAvailableWorkers()
-            return workers |> Array.map (fun i -> i.WorkerRef)
+            let! workerInfo = runtime.WorkerManager.GetAvailableWorkers()
+            return workerInfo |> Array.map (fun i -> WorkerRef.Create(runtime, i.Id) :> IWorkerRef)
         }
 
-        member __.CurrentWorker = currentWorker
+        member __.CurrentWorker = currentWorker :> _
         member __.Logger = logger

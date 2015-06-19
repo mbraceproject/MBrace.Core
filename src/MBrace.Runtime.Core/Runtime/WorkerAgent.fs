@@ -19,18 +19,28 @@ type private WorkerAgentMessage =
     | Start of ReplyChannel<unit>
 
 /// Worker agent with updatable configuration
-type WorkerAgent private (runtime : IRuntimeManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int, unsubscriber : IDisposable) =
+type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int, unsubscriber : IDisposable) =
     let cts = new CancellationTokenSource()
     let event = new Event<WorkerState>()
     let mutable currentJobCount = 0
     [<VolatileField>]
     let mutable status = Stopped
 
-    let getState () = { Status = status ; CurrentJobCount = currentJobCount ; MaxJobCount = maxConcurrentJobs }
-    let _ = event.Publish.Subscribe(fun s -> runtime.WorkerManager.DeclareWorkerState(currentWorker, s) |> Async.StartAsTask |> ignore)
+    let coreCount = Environment.ProcessorCount
+    let processId = System.Diagnostics.Process.GetCurrentProcess().Id
+    let machineName = System.Net.Dns.GetHostName()
+    let getState () = 
+        { 
+            Status = status ; CurrentJobCount = currentJobCount ; MaxJobCount = maxConcurrentJobs  
+            ProcessorCount = coreCount ; Hostname = machineName ; ProcessId = processId
+        }
+
+    let _ = event.Publish.Subscribe(fun s -> runtime.WorkerManager.DeclareWorkerState(workerId, s) |> Async.StartAsTask |> ignore)
     let triggerStateUpdate () = 
         let state = getState ()
         event.TriggerAsTask state |> ignore
+
+    do triggerStateUpdate ()
 
     let logger = runtime.SystemLogger
     let waitInterval = 100
@@ -57,7 +67,7 @@ type WorkerAgent private (runtime : IRuntimeManager, currentWorker : IWorkerRef,
                 return! workerLoop inbox
 
             | _ ->
-                let! job = Async.Catch <| runtime.JobQueue.TryDequeue currentWorker
+                let! job = Async.Catch <| runtime.JobQueue.TryDequeue workerId
                 match job with
                 | Choice2Of2 e ->
                     status <- QueueFault (ExceptionDispatchInfo.Capture e)
@@ -159,7 +169,7 @@ type WorkerAgent private (runtime : IRuntimeManager, currentWorker : IWorkerRef,
     let rec perfLoop () = async {
         let perf = perfmon.GetCounters()
         try 
-            do! runtime.WorkerManager.SubmitPerformanceMetrics(currentWorker, perf)
+            do! runtime.WorkerManager.SubmitPerformanceMetrics(workerId, perf)
             do! Async.Sleep 1000
         with e -> 
             runtime.SystemLogger.Logf LogLevel.Error "Error submitting performance metrics:\n%O" e
@@ -177,15 +187,14 @@ type WorkerAgent private (runtime : IRuntimeManager, currentWorker : IWorkerRef,
     /// <param name="currentWorker">Worker ref for current instance.</param>
     /// <param name="jobEvaluator">Abstract job evaluator.</param>
     /// <param name="maxConcurrentJobs">Maximum number of jobs to be executed concurrently in this worker.</param>
-    static member Create(runtimeManager : IRuntimeManager, currentWorker : IWorkerRef, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) = async {
+    static member Create(runtimeManager : IRuntimeManager, workerId : IWorkerId, jobEvaluator : ICloudJobEvaluator, maxConcurrentJobs : int) = async {
         if maxConcurrentJobs < 1 then invalidArg "maxConcurrentJobs" "must be positive."
-        let workerState = { MaxJobCount = maxConcurrentJobs ; Status = WorkerStatus.Stopped ; CurrentJobCount = 0 }
-        let! unsubscriber = runtimeManager.WorkerManager.SubscribeWorker (currentWorker, workerState)
-        return new WorkerAgent(runtimeManager, currentWorker, jobEvaluator, maxConcurrentJobs, unsubscriber)
+        let! unsubscriber = runtimeManager.WorkerManager.SubscribeWorker workerId
+        return new WorkerAgent(runtimeManager, workerId, jobEvaluator, maxConcurrentJobs, unsubscriber)
     }
 
     /// Worker ref representing the current worker instance.
-    member w.CurrentWorker = currentWorker
+    member w.CurrentWorker = workerId
 
     /// Starts agent with supplied configuration
     member w.Start() = async {

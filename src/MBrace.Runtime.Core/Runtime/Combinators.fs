@@ -27,18 +27,24 @@ let private ensureSerializable (t : 'T) =
     try FsPickler.EnsureSerializable t ; None
     with e -> Some e
 
-let private checkWorker (runtime : IRuntimeManager) (worker : IWorkerRef) = async {
-    let! isValid = runtime.WorkerManager.IsValidTargetWorker worker
-    if not isValid then
-        invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to cluster." worker
+let private getWorkerId (runtime : IRuntimeManager) (worker : IWorkerRef option) = async {
+    match worker with
+    | None -> return None
+    | Some(:? WorkerRef as w) ->
+        let! isValid = runtime.WorkerManager.IsValidTargetWorker w.WorkerId
+        if not isValid then
+            invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to cluster." worker
+
+        return Some w.WorkerId
+    | _ ->
+        return invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to the cluster." worker
 }
 
-let private checkWorkers (runtime : IRuntimeManager) (workers : seq<IWorkerRef>) = async {
-    do!
-        workers
-        |> Seq.map (checkWorker runtime)
+let private getWorkerIds (runtime : IRuntimeManager) (computations : seq<#Cloud<'T> * IWorkerRef option>) = async {
+    return!
+        computations
+        |> Seq.map (fun (c,w) -> async { let! wid = getWorkerId runtime w in return c, wid })
         |> Async.Parallel
-        |> Async.Ignore
 }
 
 /// <summary>
@@ -86,7 +92,7 @@ let runParallel (runtime : IRuntimeManager) (parentTask : CloudTaskInfo)
             | None ->
 
             // ensure that target workers are valid in the current cluster context
-            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers runtime
+            let! computations = getWorkerIds runtime computations
 
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken
@@ -184,7 +190,7 @@ let runChoice (runtime : IRuntimeManager) (parentTask : CloudTaskInfo)
             | None ->
 
             // ensure that target workers are valid in the current cluster context
-            do! computations |> Seq.map snd |> Seq.choose id |> checkWorkers runtime
+            let! computations = getWorkerIds runtime computations
 
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
@@ -271,9 +277,7 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (dependencies : AssemblyId[]
     | None ->
 
         // ensure that target worker is valid in current cluster context
-        match target with
-        | None -> ()
-        | Some w -> do! checkWorker runtime w
+        let! target = getWorkerId runtime target
 
         let! cts = async {
             match token with

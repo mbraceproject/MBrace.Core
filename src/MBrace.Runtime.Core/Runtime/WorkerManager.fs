@@ -7,8 +7,11 @@ open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils.PerformanceMonitor
 
-/// Unique worker identifier
-type WorkerId = string
+/// Runtime provided worker identifier
+type IWorkerId =
+    inherit IComparable
+    /// Worker identifier
+    abstract Id : string
 
 /// Worker operation status
 [<NoEquality; NoComparison>]
@@ -49,7 +52,7 @@ type WorkerState =
 type WorkerInfo =
     {
         /// Worker reference unique identifier
-        Id : WorkerId
+        Id : IWorkerId
         /// Last Heartbeat submitted by worker
         LastHeartbeat : DateTime
         /// Heartbeat rate designated by worker manager
@@ -70,14 +73,14 @@ type IWorkerManager =
     /// is valid and belonging to this cluster.
     /// </summary>
     /// <param name="target">worker ref to be examined.</param>
-    abstract IsValidTargetWorker : id:WorkerId -> Async<bool>
+    abstract IsValidTargetWorker : id:IWorkerId -> Async<bool>
 
     /// <summary>
     ///     Asynchronously returns current worker information
     ///     for provided worker reference.
     /// </summary>
     /// <param name="target">Worker ref to be examined.</param>
-    abstract TryGetWorkerInfo : id:WorkerId -> Async<WorkerInfo option>
+    abstract TryGetWorkerInfo : id:IWorkerId -> Async<WorkerInfo option>
 
     /// <summary>
     ///     Subscribe a new worker instance to the cluster.
@@ -85,21 +88,21 @@ type IWorkerManager =
     /// <param name="worker">Worker instance to be subscribed.</param>
     /// <param name="worker">Initial worker state.</param>
     /// <returns>Unsubscribe disposable.</returns>
-    abstract SubscribeWorker : id:WorkerId * initial:WorkerState -> Async<IDisposable>
+    abstract SubscribeWorker : id:IWorkerId -> Async<IDisposable>
 
     /// <summary>
     ///     Asynchronously declares worker state for provided worker.
     /// </summary>
     /// <param name="worker">Worker id to be updated.</param>
     /// <param name="state">State for worker.</param>
-    abstract DeclareWorkerState : id:WorkerId * state:WorkerState -> Async<unit>
+    abstract DeclareWorkerState : id:IWorkerId * state:WorkerState -> Async<unit>
 
     /// <summary>
     ///     Asynchronously submits node performance metrics for provided worker.
     /// </summary>
     /// <param name="id">Worker id declaring performance metrics.</param>
     /// <param name="perf">Performance metrics for given worker.</param>
-    abstract SubmitPerformanceMetrics : id:WorkerId * perf:NodePerformanceInfo -> Async<unit>
+    abstract SubmitPerformanceMetrics : id:IWorkerId * perf:NodePerformanceInfo -> Async<unit>
 
     /// Asynchronously requests node performance metrics for all nodes.
     abstract GetAvailableWorkers : unit -> Async<WorkerInfo []>

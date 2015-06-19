@@ -8,17 +8,22 @@ open MBrace.Runtime.Utils
 
 /// MBrace Sample runtime client instance.
 [<AbstractClass>]
-type MBraceClient (resources : IRuntimeManager) =
+type MBraceClient (runtime : IRuntimeManager) =
 
-    let imem = LocalRuntime.Create(resources = resources.ResourceRegistry)
-    let processManager = new CloudProcessManager(resources)
-    let workerManager = new WorkerManager(resources)
+    let imem = LocalRuntime.Create(resources = runtime.ResourceRegistry)
+    let processManager = new CloudProcessManager(runtime)
+    let getWorkers () = async {
+        let! workers = runtime.WorkerManager.GetAvailableWorkers()
+        return workers |> Array.map (fun w -> WorkerRef.Create(runtime, w.Id))
+    }
+
+    let workers = CacheAtom.Create(getWorkers(), intervalMilliseconds = 500)
 
     /// Creates a fresh cloud cancellation token source for this runtime
     member c.CreateCancellationTokenSource (?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
         async {
             let parents = parents |> Option.map Seq.toArray
-            let! dcts = DistributedCancellationToken.Create(resources.CancellationEntryFactory, ?parents = parents, elevate = true)
+            let! dcts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, ?parents = parents, elevate = true)
             return dcts :> ICloudCancellationTokenSource
         } |> Async.RunSync
 
@@ -34,10 +39,10 @@ type MBraceClient (resources : IRuntimeManager) =
                                 ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<CloudProcess<'T>> = async {
 
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
-        let dependencies = resources.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
+        let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
-        do! resources.AssemblyManager.UploadAssemblies(dependencies)
-        let! tcs = Combinators.runStartAsCloudTask resources assemblyIds taskName faultPolicy cancellationToken target workflow
+        do! runtime.AssemblyManager.UploadAssemblies(dependencies)
+        let! tcs = Combinators.runStartAsCloudTask runtime assemblyIds taskName faultPolicy cancellationToken target workflow
         return processManager.GetProcess tcs
     }
 
@@ -112,11 +117,12 @@ type MBraceClient (resources : IRuntimeManager) =
     member __.StoreClient = imem.StoreClient
 
     /// Gets all available workers for current runtime.
-    member __.Workers = workerManager.GetAllWorkers() |> Async.RunSync
+    member __.Workers = workers.Value
 
-    /// TODO xml doc
-    member __.GetWorkerInfo () = workerManager.GetInfo()
-    member __.ShowWorkerInfo () = workerManager.ShowInfo()
+    /// Gets a printed report on all workers on the runtime
+    member __.GetWorkerInfo () = WorkerReporter.Report(__.Workers, title = "Workers", borders = false)
+    /// Prints a report on all workers on the runtime to stdout
+    member __.ShowWorkerInfo () = System.Console.WriteLine(__.GetWorkerInfo())
 
     /// <summary>
     ///     Run workflow as local, in-memory computation

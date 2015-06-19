@@ -25,11 +25,11 @@ type JobFaultInfo =
     /// No faults associated with specified job
     | NoFault
     /// Faults have been declared by worker while processing job
-    | FaultDeclaredByWorker of faultCount:int * latestException:ExceptionDispatchInfo * worker:IWorkerRef
+    | FaultDeclaredByWorker of faultCount:int * latestException:ExceptionDispatchInfo * worker:IWorkerId
     /// Worker has died while processing job
-    | WorkerDeathWhileProcessingJob of faultCount:int * worker:IWorkerRef
+    | WorkerDeathWhileProcessingJob of faultCount:int * worker:IWorkerId
     /// Job salvaged from targeted queue of a dead worker
-    | IsTargetedJobOfDeadWorker of faultCount:int * worker:IWorkerRef
+    | IsTargetedJobOfDeadWorker of faultCount:int * worker:IWorkerId
 with
     /// Number of faults that occurred with current job.
     member jfi.FaultCount =
@@ -54,7 +54,7 @@ type CloudJob =
         /// Job creation metadata
         JobType : JobType
         /// Declared target worker for job
-        TargetWorker : IWorkerRef option
+        TargetWorker : IWorkerId option
         /// Triggers job execution with worker-provided execution context
         StartJob : ExecutionContext -> unit
         /// Job fault policy
@@ -81,7 +81,7 @@ with
                             scont : ExecutionContext -> 'T -> unit, 
                             econt : ExecutionContext -> ExceptionDispatchInfo -> unit, 
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
-                            jobType : JobType, workflow : Cloud<'T>, ?target : IWorkerRef) =
+                            jobType : JobType, workflow : Cloud<'T>, ?target : IWorkerId) =
 
         let jobId = mkUUID()
         let runJob ctx =
@@ -107,7 +107,7 @@ type ICloudJobLeaseToken =
     /// Cloud Job identifier
     abstract Id : string
     /// Declared target worker for job
-    abstract TargetWorker : IWorkerRef option
+    abstract TargetWorker : IWorkerId option
     /// String identifier of workflow return type.
     abstract Type : string
     /// Job creation metadata
@@ -141,4 +141,4 @@ type IJobQueue =
     ///     Asynchronously attempt to dequeue a job, if it exists.
     /// </summary>
     /// <param name="id">WorkerRef identifying current worker.</param>
-    abstract TryDequeue : id:IWorkerRef -> Async<ICloudJobLeaseToken option>
+    abstract TryDequeue : id:IWorkerId -> Async<ICloudJobLeaseToken option>

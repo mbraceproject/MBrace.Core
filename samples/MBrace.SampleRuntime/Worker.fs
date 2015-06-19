@@ -13,7 +13,7 @@ let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
 
     ignore Config.Serializer
     let resourceManager = new RuntimeManager(state, logger)
-    let currentWorker = WorkerRef.LocalWorker :> IWorkerRef
+    let currentWorker = WorkerId.LocalInstance :> IWorkerId
 
     let jobEvaluator =
         if useAppDomainIsolation then

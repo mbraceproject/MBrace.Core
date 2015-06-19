@@ -31,7 +31,7 @@ module JobEvaluator =
     /// <param name="currentWorker">Current worker executing job.</param>
     /// <param name="faultState">Job fault state.</param>
     /// <param name="job">Job instance to be executed.</param>
-    let runJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerRef) 
+    let runJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerId) 
                     (faultState : JobFaultInfo) (job : CloudJob) = async {
 
         let logger = manager.SystemLogger
@@ -93,7 +93,7 @@ module JobEvaluator =
     /// <param name="currentWorker">Current worker executing job.</param>
     /// <param name="assemblies">Vagabond assemblies to be used for computation.</param>
     /// <param name="joblt">Job lease token.</param>
-    let loadAndRunJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerRef) 
+    let loadAndRunJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerId) 
                             (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
 
         let logger = manager.SystemLogger
@@ -139,16 +139,16 @@ module JobEvaluator =
        
 
 [<AutoSerializable(false)>]
-type LocalJobEvaluator(manager : IRuntimeManager, currentWorker : IWorkerRef) =
+type LocalJobEvaluator(manager : IRuntimeManager, currentWorker : IWorkerId) =
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
             return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken
         }
 
 [<AutoSerializable(false)>]
-type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeManager * IWorkerRef>, pool : AppDomainEvaluatorPool) =
+type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeManager * IWorkerId>, pool : AppDomainEvaluatorPool) =
 
-    static member Create(managerF : DomainLocal<IRuntimeManager * IWorkerRef>,
+    static member Create(managerF : DomainLocal<IRuntimeManager * IWorkerId>,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
                                 ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 
