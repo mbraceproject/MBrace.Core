@@ -133,12 +133,6 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
             return! source <!- fun ch -> TryGetWorkerInfo(ref, ch)
         }
         
-        member x.IsValidTargetWorker(target: IWorkerId): Async<bool> = async {
-            match target with
-            | :? WorkerId -> return! x.IsAlive(target)
-            | _ -> return false
-        }
-        
         member x.SubmitPerformanceMetrics(worker: IWorkerId, perf: NodePerformanceInfo): Async<unit> = async {
             return! source <!- fun ch -> DeclarePerformanceMetrics(worker, perf)
         }

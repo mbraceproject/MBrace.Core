@@ -10,7 +10,8 @@ open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
-/// Worker identifier object
+/// A Serializable object used to identify a specific worker in a cluster
+/// Can be used to point computations for execution at specific machines
 [<Sealed; DataContract>]
 type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId : IWorkerId) =
     
@@ -77,10 +78,10 @@ type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId 
 
     override __.Equals(other:obj) =
         match other with
-        | :? WorkerRef as w -> runtimeId = w.RuntimeId && workerId = w.WorkerId
+        | :? WorkerRef as w -> areReflectiveEqual runtimeId w.RuntimeId && areReflectiveEqual workerId w.WorkerId
         | _ -> false
 
-    override __.GetHashCode() = hash (runtimeId, workerId)
+    override __.GetHashCode() = hash2 runtimeId workerId
 
     override __.ToString() = workerId.ToString()
 

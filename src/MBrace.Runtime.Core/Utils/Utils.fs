@@ -71,6 +71,31 @@ module Utils =
             | x -> x
         | x -> x
 
+    
+    /// taken from mscorlib's Tuple.GetHashCode() implementation
+    let inline private combineHash (h1 : int) (h2 : int) =
+        ((h1 <<< 5) + h1) ^^^ h2
+
+    /// pair hashcode generation without tuple allocation
+    let inline hash2 (t : 'T) (s : 'S) =
+        combineHash (hash t) (hash s)
+        
+    /// triple hashcode generation without tuple allocation
+    let inline hash3 (t : 'T) (s : 'S) (u : 'U) =
+        combineHash (combineHash (hash t) (hash s)) (hash u)
+        
+
+
+    /// reflection-based equality check
+    /// checks if args are of identical underlying type before checking equality
+    /// used to protect against incomplete equality implementations in interfaces
+    /// that demand equality
+    let inline areReflectiveEqual<'T when 'T : not struct and 'T : equality> (x : 'T) (y : 'T) =
+        if obj.ReferenceEquals(x, null) <> obj.ReferenceEquals(y, null) then false
+        elif x.GetType() <> y.GetType() then false
+        else x = y
+            
+
     /// generates a human readable string for byte sizes
     /// including a KiB, MiB, GiB or TiB suffix depending on size
     let getHumanReadableByteSize (size : int64) =
@@ -228,7 +253,7 @@ module Utils =
             | :? MachineId as mid -> hostname = mid.Hostname && interfaces = mid.Interfaces
             | _ -> false
 
-        override __.GetHashCode() = hash (hostname, interfaces)
+        override __.GetHashCode() = hash2 hostname interfaces
 
         interface IComparable with
             member __.CompareTo(other:obj) =
@@ -269,7 +294,7 @@ module Utils =
             | :? ProcessId as pid -> machineId = pid.MachineId && processId = pid.ProcessId && processUUID = pid.ProcessUUID
             | _ -> false
 
-        override __.GetHashCode() = hash (machineId, processId, processUUID)
+        override __.GetHashCode() = hash3 machineId processId processUUID
 
         interface IComparable with
             member __.CompareTo(other:obj) =

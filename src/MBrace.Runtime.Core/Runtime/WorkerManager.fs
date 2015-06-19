@@ -8,6 +8,7 @@ open MBrace.Core.Internals
 open MBrace.Runtime.Utils.PerformanceMonitor
 
 /// Runtime provided worker identifier
+/// must implement equality and comparison semantics
 type IWorkerId =
     inherit IComparable
     /// Worker identifier
@@ -65,15 +66,8 @@ type WorkerInfo =
         PerformanceMetrics : NodePerformanceInfo
     }
 
-/// Worker manager abstraction
+/// Worker manager abstraction; must be serializable
 type IWorkerManager =
-
-    /// <summary>
-    /// Returns true if supplied worker implementation
-    /// is valid and belonging to this cluster.
-    /// </summary>
-    /// <param name="target">worker ref to be examined.</param>
-    abstract IsValidTargetWorker : id:IWorkerId -> Async<bool>
 
     /// <summary>
     ///     Asynchronously returns current worker information

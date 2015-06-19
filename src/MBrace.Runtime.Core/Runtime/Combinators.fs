@@ -27,25 +27,15 @@ let private ensureSerializable (t : 'T) =
     try FsPickler.EnsureSerializable t ; None
     with e -> Some e
 
-let private getWorkerId (runtime : IRuntimeManager) (worker : IWorkerRef option) = async {
+let private extractWorkerId (runtime : IRuntimeManager) (worker : IWorkerRef option) =
     match worker with
-    | None -> return None
-    | Some(:? WorkerRef as w) ->
-        let! isValid = runtime.WorkerManager.IsValidTargetWorker w.WorkerId
-        if not isValid then
-            invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to cluster." worker
+    | None -> None
+    | Some(:? WorkerRef as w) when areReflectiveEqual w.RuntimeId runtime.Id  -> Some w.WorkerId
+    | _ -> invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to the cluster." worker
 
-        return Some w.WorkerId
-    | _ ->
-        return invalidArg "target" <| sprintf "WorkerRef '%O' does not belong to the cluster." worker
-}
-
-let private getWorkerIds (runtime : IRuntimeManager) (computations : seq<#Cloud<'T> * IWorkerRef option>) = async {
-    return!
-        computations
-        |> Seq.map (fun (c,w) -> async { let! wid = getWorkerId runtime w in return c, wid })
-        |> Async.Parallel
-}
+let private extractWorkerIds (runtime : IRuntimeManager) (computations : (#Cloud<'T> * IWorkerRef option) []) =
+    computations
+    |> Array.map (fun (c,w) -> c, extractWorkerId runtime w)
 
 /// <summary>
 ///     Defines a workflow that schedules provided cloud workflows for parallel computation.
@@ -92,7 +82,7 @@ let runParallel (runtime : IRuntimeManager) (parentTask : CloudTaskInfo)
             | None ->
 
             // ensure that target workers are valid in the current cluster context
-            let! computations = getWorkerIds runtime computations
+            let computations = extractWorkerIds runtime computations
 
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken
@@ -190,7 +180,7 @@ let runChoice (runtime : IRuntimeManager) (parentTask : CloudTaskInfo)
             | None ->
 
             // ensure that target workers are valid in the current cluster context
-            let! computations = getWorkerIds runtime computations
+            let computations = extractWorkerIds runtime computations
 
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
@@ -277,7 +267,7 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (dependencies : AssemblyId[]
     | None ->
 
         // ensure that target worker is valid in current cluster context
-        let! target = getWorkerId runtime target
+        let target = extractWorkerId runtime target
 
         let! cts = async {
             match token with
