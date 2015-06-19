@@ -229,6 +229,32 @@ module Utils =
     and IAsyncFunc<'R> =
         abstract Invoke<'T> : unit -> Async<'R>
 
+    /// A Serializable value container that only serializes its factory
+    /// rather than the actual value.
+    [<DataContract; Sealed>]
+    type SerializableFactory<'T> private (factory : unit -> 'T) =
+        [<DataMember(Name = "Factory")>]
+        let factory = factory
+        [<IgnoreDataMember>]
+        let mutable value = factory ()
+
+        member private __.OnDeserialized (_ : StreamingContext) =
+            value <- factory()
+
+        member __.Value = value
+
+        static member internal Init(factory : unit -> 'T) = new SerializableFactory<'T>(factory)
+
+    /// A Serializable value container that only serializes its factory
+    /// rather than the actual value.
+    and SerializableFactory =
+        /// <summary>
+        ///     Initializes a serializable factory container.
+        /// </summary>
+        /// <param name="factory">Factory to be initialized.</param>
+        static member Init(factory : unit -> 'T) = SerializableFactory<'T>.Init(factory)
+
+
     /// Unique machine identifier object
     [<Sealed; DataContract>]
     type MachineId private (hostname : string, interfaces : string []) =

@@ -5,8 +5,6 @@ open System.IO
 open System.Text.RegularExpressions
 open System.Runtime.Serialization
 
-open Microsoft.FSharp.Control
-
 open Nessos.Vagabond
 open Nessos.Vagabond.AssemblyProtocols
 
@@ -33,6 +31,7 @@ module private Common =
     let getStoreDataPath k id (dd : DataDependencyInfo) = k <| sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
 
 /// Assembly to file store uploader implementation
+[<AutoSerializable(false)>]
 type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
     let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
@@ -140,6 +139,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
 
 /// File store assembly downloader implementation
+[<AutoSerializable(false)>]
 type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
@@ -182,34 +182,6 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     let uploader = new StoreAssemblyUploader(storeConfig, imem, container, logger)
     let downloader = new StoreAssemblyDownloader(storeConfig, imem, container, logger)
 
-    let rec loop (inbox : MailboxProcessor<AssemblyManagerMsg>) = async {
-        let! msg = inbox.Receive()
-        match msg with
-        | Upload (assemblies, rc) ->
-            try
-                logger.Logf LogLevel.Info "Uploading dependencies"
-                let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, assemblies)
-                if errors.Length > 0 then
-                    let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
-                    logger.Logf LogLevel.Warning "Failed to upload bindings: %s" errors
-
-                rc.Reply errors
-
-            with e -> rc.ReplyWithError e
-
-        | Download (ids, rc) ->
-            try
-                let! vas = VagabondRegistry.Instance.DownloadAssemblies(downloader, ids)
-                rc.Reply vas
-
-            with e -> rc.ReplyWithError e
-
-        return! loop inbox
-    }
-
-    let cts = new System.Threading.CancellationTokenSource()
-    let actor = MailboxProcessor.Start(loop, cancellationToken = cts.Token)
-
     /// <summary>
     ///     Creates a new StoreAssemblyManager instance with provided cloud resources. 
     /// </summary>
@@ -227,16 +199,24 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     /// </summary>
     /// <param name="ids">Assemblies to be uploaded.</param>
     /// <returns>List of data dependencies that failed to be serialized.</returns>
-    member __.UploadAssemblies(assemblies : seq<VagabondAssembly>) : Async<DataDependencyInfo []> = 
-        actor.PostAndAsyncReply(fun ch -> Upload(assemblies, ch))
+    member __.UploadAssemblies(assemblies : seq<VagabondAssembly>) : Async<DataDependencyInfo []> = async {
+        logger.Logf LogLevel.Info "Uploading dependencies"
+        let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, assemblies)
+        if errors.Length > 0 then
+            let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
+            logger.Logf LogLevel.Warning "Failed to upload bindings: %s" errors
+
+        return errors
+    }
 
     /// <summary>
     ///     Asynchronously download provided dependencies from store.
     /// </summary>
     /// <param name="ids">Assembly id's requested for download.</param>
     /// <returns>Vagabond assemblies downloaded to local disk.</returns>
-    member __.DownloadAssemblies(ids : seq<AssemblyId>) : Async<VagabondAssembly []> = 
-        actor.PostAndAsyncReply(fun ch -> Download(ids, ch))
+    member __.DownloadAssemblies(ids : seq<AssemblyId>) : Async<VagabondAssembly []> = async {
+        return! VagabondRegistry.Instance.DownloadAssemblies(downloader, ids)
+    }
 
     /// Load local assemblies to current AppDomain
     member __.LoadAssemblies(assemblies : seq<VagabondAssembly>) =
@@ -276,6 +256,3 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
             let! _ = x.UploadAssemblies assemblies
             return ()
         }
-
-    interface IDisposable with
-        member __.Dispose() = cts.Cancel()
