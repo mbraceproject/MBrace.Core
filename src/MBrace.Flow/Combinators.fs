@@ -284,15 +284,14 @@ module CloudFlow =
     let filterLocal (predicate : 'T -> Local<bool>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
         Transformers.filterGen (fun ctx x -> predicate x |> run ctx) flow
 
-    /// <summary>Applies the given chooser function to each element of the input CloudFlow.
-    ///          Returns each element where the function returns Some value</summary>
+    /// <summary>Applies the given chooser function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
     /// <param name="predicate">A function to transform items of type 'T into options of type 'R.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline choose (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         Transformers.chooseGen (fun _ x -> chooser x) flow
 
-    /// <summary>Filters the elements of the input CloudFlow using a locally executing cloud function.</summary>
+    /// <summary>Applies the given locally executing cloud function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
     /// <param name="chooser">A locally executing cloud function to transform items of type 'T into options of type 'R.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>

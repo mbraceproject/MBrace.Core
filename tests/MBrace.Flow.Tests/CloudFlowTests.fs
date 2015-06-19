@@ -306,6 +306,13 @@ type ``CloudFlow tests`` () as self =
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
+    [<Test>]
+    member __.``2. CloudFlow : choose`` () =
+        let f(xs : int[]) =
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.choose (fun n -> if n % 2 = 0 then Some(string n) else None) |> CloudFlow.toArray |> run
+            let y = xs |> Seq.choose (fun n -> if n % 2 = 0 then Some(string n) else None) |> Seq.toArray
+            Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
     member __.``2. CloudFlow : collect`` () =
