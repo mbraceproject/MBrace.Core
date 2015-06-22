@@ -65,6 +65,32 @@ module Transformers =
                 flow.WithEvaluators collectorf' projection combiner }
 
     /// <summary>
+    ///     Generic choose flow transformer.
+    /// </summary>
+    /// <param name="chooser"></param>
+    /// <param name="flow"></param>
+    let chooseGen (chooser : ExecutionContext -> 'T -> 'R option) (flow : CloudFlow<'T>) : CloudFlow<'R> =
+        { new CloudFlow<'R> with
+            member self.DegreeOfParallelism = flow.DegreeOfParallelism
+            member self.WithEvaluators<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+                let collectorf' = local {
+                    let! collector = collectorf
+                    let! ctx = Cloud.GetExecutionContext()
+                    return { new Collector<'T, 'S> with
+                        member self.DegreeOfParallelism = collector.DegreeOfParallelism
+                        member self.Iterator() =
+                            let { Func = iter } as iterator = collector.Iterator()
+                            {   Index = iterator.Index;
+                                Func = (fun value ->
+                                          match chooser ctx value with
+                                          | Some value' -> iter value'
+                                          | None -> ())
+                                Cts = iterator.Cts }
+                        member self.Result = collector.Result }
+                }
+                flow.WithEvaluators collectorf' projection combiner }
+
+    /// <summary>
     ///     Generic collect flow transformer.
     /// </summary>
     /// <param name="f">Collector function.</param>
