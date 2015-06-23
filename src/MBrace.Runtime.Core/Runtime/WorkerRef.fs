@@ -22,15 +22,15 @@ type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId 
     [<DataMember(Name = "WorkerId")>]
     let workerId = workerId
 
-    let mutable cvalue = Unchecked.defaultof<CacheAtom<WorkerInfo option>>
+    let mutable cvalue = Unchecked.defaultof<CacheAtom<WorkerState option>>
 
-    static let containers = new ConcurrentDictionary<Type * IRuntimeId * IWorkerId, CacheAtom<WorkerInfo option>> ()
+    static let containers = new ConcurrentDictionary<Type * IRuntimeId * IWorkerId, CacheAtom<WorkerState option>> ()
     let init () =
         let k = runtimeId.GetType(), runtimeId, workerId
         let ok, v = containers.TryGetValue k
         if ok then cvalue <- v
         else
-            let getId = async { return! wmon.TryGetWorkerInfo workerId }
+            let getId = async { return! wmon.TryGetWorkerState workerId }
             let ca = containers.GetOrAdd(k, fun _ -> CacheAtom.Create(getId,  intervalMilliseconds = 100, keepLastResultOnError = true))
             cvalue <- ca
 
@@ -48,23 +48,25 @@ type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId 
     member internal __.WorkerId = workerId
 
     /// Gets the worker hostname
-    member __.Hostname = getState().State.Hostname
+    member __.Hostname = getState().Info.Hostname
     /// Worker identifier
     member __.Id = workerId.Id
     /// Gets the total cpu usage percentage of the worker host
     member __.CpuUsage = getState().PerformanceMetrics.CpuUsage
     /// Gets the total processor count of the worker host
-    member __.ProcessorCount = getState().State.ProcessorCount
+    member __.ProcessorCount = getState().Info.ProcessorCount
     /// Gets the OS identifier of the worker process
-    member __.ProcessId = getState().State.ProcessId
+    member __.ProcessId = getState().Info.ProcessId
+    /// Gets the Max Cpu clock speed in MHz
+    member __.MaxCpuClock = getState().PerformanceMetrics.MaxClockSpeed
     /// Gets the total memory usage of the worker host in MB
     member __.MemoryUsage = getState().PerformanceMetrics.MemoryUsage
     /// Gets the total memory capacity of the worker host in MB
     member __.TotalMemory = getState().PerformanceMetrics.TotalMemory
     /// Gets the number of cloud jobs that are active in the current worker
-    member __.ActiveJobs = getState().State.CurrentJobCount
+    member __.ActiveJobs = getState().CurrentJobCount
     /// Gets the maximum job count permitted as set by worker configuration
-    member __.MaxJobCount = getState().State.MaxJobCount
+    member __.MaxJobCount = getState().Info.MaxJobCount
     /// Gets the network upload usage in KB/s
     member __.NetworkUsageUp = getState().PerformanceMetrics.NetworkUsageUp
     /// Gets the network download usage in KB/s
@@ -74,7 +76,7 @@ type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId 
     /// Gets the initialization/subscription time of the worker process
     member __.InitializationTime = getState().InitializationTime
     /// Gets the worker execution status
-    member __.Status = getState().State.Status
+    member __.Status = getState().ExecutionStatus
 
     override __.Equals(other:obj) =
         match other with
@@ -92,16 +94,21 @@ type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId 
             | _ -> invalidArg "obj" "invalid comparand."
         
         member x.Hostname: string = 
-            getState().State.Hostname
+            getState().Info.Hostname
         
         member x.Id: string = 
             workerId.Id
         
         member x.ProcessId: int = 
-            getState().State.ProcessId
+            getState().Info.ProcessId
         
         member x.ProcessorCount: int = 
-            getState().State.ProcessorCount
+            getState().Info.ProcessorCount
+
+        member x.MaxCpuClock = 
+            match x.MaxCpuClock with
+            | c when c.HasValue -> c.Value
+            | _ -> invalidOp "Could not get CPU clock speed for worker."
         
         member x.Type: string = 
            runtimeId.Id
@@ -139,6 +146,7 @@ and internal WorkerReporter private () =
         [ Field.create "Id" Left (fun w -> w.Id)
           Field.create "Status" Left (fun p -> string p.Status)
           Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CpuUsage) p.ProcessorCount)
+          Field.create "Clock Speed (MHz)" Center (fun p -> double_printer p.MaxCpuClock)
           Field.create "% Memory / Total(MB)" Center (fun p ->
                 let memPerc = 100. *? p.MemoryUsage ?/? p.TotalMemory |> double_printer
                 sprintf "%s / %s" memPerc <| double_printer p.TotalMemory

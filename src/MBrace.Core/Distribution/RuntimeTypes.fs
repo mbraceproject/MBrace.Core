@@ -13,6 +13,8 @@ type IWorkerRef =
     abstract Id : string
     /// Worker processor count
     abstract ProcessorCount : int
+    /// Gets the max CPU clock speed in MHz
+    abstract MaxCpuClock : float
     /// Hostname of worker machine
     abstract Hostname : string
     /// Worker Process Id

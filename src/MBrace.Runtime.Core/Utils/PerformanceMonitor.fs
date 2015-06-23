@@ -10,20 +10,38 @@ type private PerfCounter = System.Diagnostics.PerformanceCounter
 
 /// Some node metrics, such as CPU, memory usage, etc
 [<NoEquality; NoComparison>]
-type NodePerformanceInfo =
+type PerformanceInfo =
     {
+        /// CPU usage as percentage
         CpuUsage            : Nullable<double>
+        /// Maximum CPU clock speed (in MHz)
+        MaxClockSpeed       : Nullable<double>
+        /// Total physical memory in machine
         TotalMemory         : Nullable<double>
+        /// Total memory usage in machine
         MemoryUsage         : Nullable<double>
+        /// Network upload in bytes
         NetworkUsageUp      : Nullable<double>
+        /// Network download in bytes
         NetworkUsageDown    : Nullable<double>
     } 
+with
+    /// Creates an empty performance info object
+    static member Empty =
+        {
+            CpuUsage = new Nullable<_>()
+            MaxClockSpeed = new Nullable<_>()
+            TotalMemory = new Nullable<_>()
+            MemoryUsage = new Nullable<_>()
+            NetworkUsageUp = new Nullable<_>()
+            NetworkUsageDown = new Nullable<_>()
+        }
 
 type private Counter = TotalCpu | TotalMemoryUsage
 
 [<NoEquality; NoComparison>]
 type private Message = 
-    | Info of AsyncReplyChannel<NodePerformanceInfo> 
+    | Info of AsyncReplyChannel<PerformanceInfo> 
     | Stop of AsyncReplyChannel<unit>
 
 /// Collects statistics on CPU, memory, network, etc.
@@ -42,6 +60,21 @@ type PerformanceMonitor (?updateInterval : int, ?maxSamplesCount : int) =
             perfCounters.Add(pc)
             Some <| fun () -> pc.NextValue()
         else None
+
+    let cpuFrequency =
+        try
+            let getCpuClockSpeed () =
+                use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
+                use qObj = searcher.Get() 
+                            |> Seq.cast<ManagementBaseObject> 
+                            |> Seq.exactlyOne
+
+                let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
+                single cpuFreq
+
+            let _ = getCpuClockSpeed ()
+            Some getCpuClockSpeed
+        with _ -> None
     
     let totalMemory = 
         try
@@ -98,9 +131,10 @@ type PerformanceMonitor (?updateInterval : int, ?maxSamplesCount : int) =
         if cpuAvg.Count < maxSamplesCount then cpuAvg.Enqueue newVal
         else cpuAvg.Dequeue() |> ignore; cpuAvg.Enqueue newVal
     
-    let newNodePerformanceInfo () : NodePerformanceInfo =
+    let newNodePerformanceInfo () : PerformanceInfo =
         {
             CpuUsage            = cpuAvg                |> getAverage
+            MaxClockSpeed       = cpuFrequency          |> getPerfValue
             TotalMemory         = totalMemory           |> getPerfValue
             MemoryUsage         = memoryUsage           |> getPerfValue
             NetworkUsageUp      = networkSentUsage      |> getPerfValue
@@ -127,13 +161,14 @@ type PerformanceMonitor (?updateInterval : int, ?maxSamplesCount : int) =
     let monitored =
         let l = new List<string>()
         if cpuUsage.IsSome then l.Add("%Cpu")
+        if cpuFrequency.IsSome then l.Add("Cpu Clock Speed")
         if totalMemory.IsSome then l.Add("Total Memory")
         if memoryUsage.IsSome then l.Add("Memory Used")
         if networkSentUsage.IsSome then l.Add("Network (sent)")
         if networkReceivedUsage.IsSome then l.Add("Network (received)")
         l
 
-    member this.GetCounters () : NodePerformanceInfo =
+    member this.GetCounters () : PerformanceInfo =
         perfCounterActor.PostAndReply(fun ch -> Info ch)
 
     member this.Start () =

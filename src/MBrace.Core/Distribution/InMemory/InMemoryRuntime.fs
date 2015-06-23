@@ -77,6 +77,7 @@ type internal InMemoryWorker private () =
         member __.Type = "InMemory worker"
         member __.Id = name
         member __.ProcessorCount = Environment.ProcessorCount
+        member __.MaxCpuClock = raise <| new NotImplementedException()
         member __.ProcessId = pid
         member __.CompareTo(other : obj) =
             match other with

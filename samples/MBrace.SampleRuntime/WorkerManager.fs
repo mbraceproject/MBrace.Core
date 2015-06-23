@@ -41,17 +41,18 @@ type private HeartbeatMonitorMsg =
     | Stop of IReplyChannel<unit>
 
 and private WorkerMonitorMsg =
-    | Subscribe of IWorkerId * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
-    | UnSubscribe of IWorkerId
-    | DeclareState of IWorkerId * WorkerState
-    | DeclarePerformanceMetrics of IWorkerId * NodePerformanceInfo
-    | DeclareDead of IWorkerId
-    | IsAlive of IWorkerId * IReplyChannel<bool>
-    | GetAvailableWorkers of IReplyChannel<WorkerInfo []>
-    | TryGetWorkerInfo of IWorkerId * IReplyChannel<WorkerInfo option>
+    | Subscribe of WorkerId * WorkerInfo * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
+    | UnSubscribe of WorkerId
+    | IncrementJobCountBy of WorkerId * int
+    | DeclareStatus of WorkerId * WorkerJobExecutionStatus
+    | DeclarePerformanceMetrics of WorkerId * PerformanceInfo
+    | DeclareDead of WorkerId
+    | IsAlive of WorkerId * IReplyChannel<bool>
+    | GetAvailableWorkers of IReplyChannel<WorkerState []>
+    | TryGetWorkerState of WorkerId * IReplyChannel<WorkerState option>
 
 module private HeartbeatMonitor =
-    let create (threshold : TimeSpan) (wmon : ActorRef<WorkerMonitorMsg>) (worker : IWorkerId) =
+    let create (threshold : TimeSpan) (wmon : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
         let cts = new CancellationTokenSource()
         let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTime) (msg : HeartbeatMonitorMsg) = async {
             match msg with
@@ -101,66 +102,65 @@ module private HeartbeatMonitor =
 [<AutoSerializable(true)>]
 type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
 
-    member __.Subscribe(worker : IWorkerId, initial : WorkerState) = async {
-        let! heartbeatMon,threshold = source <!- fun ch -> Subscribe(worker, ch)
-        return! HeartbeatMonitor.initHeartbeat threshold heartbeatMon
-    }
-
-    member __.DeclareState(worker : IWorkerId, state : WorkerState) = async {
-        return! source.AsyncPost <| DeclareState (worker, state)
-    }
-
     member __.UnSubscribe(worker : IWorkerId) = async {
-        return! source.AsyncPost <| UnSubscribe worker
-    }
-
-    member __.GetAvailableWorkers() = async {
-        return! source <!- GetAvailableWorkers
+        return! source.AsyncPost <| UnSubscribe (unbox worker)
     }
 
     member __.IsAlive(worker : IWorkerId) = async {
-        return! source <!- fun ch -> IsAlive(worker, ch)
+        return! source <!- fun ch -> IsAlive(unbox worker, ch)
     }
 
     interface IWorkerManager with
-        member x.DeclareWorkerState(worker: IWorkerId, state: WorkerState): Async<unit> = 
-            x.DeclareState(worker, state)
-        
-        member x.GetAvailableWorkers() =
-            x.GetAvailableWorkers()
+        member x.DeclareWorkerStatus(id: IWorkerId, status: WorkerJobExecutionStatus): Async<unit> = async {
+            return! source.AsyncPost <| DeclareStatus(unbox id, status)
+        }
 
-        member x.TryGetWorkerInfo(ref : IWorkerId) = async {
-            return! source <!- fun ch -> TryGetWorkerInfo(ref, ch)
+        member x.IncrementJobCount(id: IWorkerId): Async<unit> = async {
+            return! source.AsyncPost <| IncrementJobCountBy(unbox id, 1)
         }
         
-        member x.SubmitPerformanceMetrics(worker: IWorkerId, perf: NodePerformanceInfo): Async<unit> = async {
-            return! source <!- fun ch -> DeclarePerformanceMetrics(worker, perf)
+        member x.DecrementJobCount(id: IWorkerId): Async<unit> = async {
+            return! source.AsyncPost <| IncrementJobCountBy(unbox id, -1)
         }
         
-        member x.SubscribeWorker(worker: IWorkerId): Async<IDisposable> = async {
-            let! heartbeatMon, threshold = source <!- fun ch -> Subscribe(worker, ch)
+        member x.GetAvailableWorkers(): Async<WorkerState []> = async {
+            return! source <!- GetAvailableWorkers
+        }
+        
+        member x.SubmitPerformanceMetrics(id: IWorkerId, perf: PerformanceInfo): Async<unit> = async {
+            return! source.AsyncPost <| DeclarePerformanceMetrics(unbox id, perf)
+        }
+        
+        member x.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
+            let! heartbeatMon, threshold = source <!- fun ch -> Subscribe(unbox id, info, ch)
             let! unsubscriber = HeartbeatMonitor.initHeartbeat threshold heartbeatMon
-            return new WorkerSubscriptionManager(x, worker, unsubscriber) :> IDisposable
+            return new WorkerSubscriptionManager(x, id, unsubscriber) :> IDisposable
+        }
+        
+        member x.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = async {
+            return! source <!- fun ch -> TryGetWorkerState(unbox id, ch)
         }
 
     static member Init(?heartbeatThreshold : TimeSpan) =
         let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 4.)
-        let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<IWorkerId, WorkerInfo * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
+        let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<WorkerId, WorkerState * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
             match msg with
-            | Subscribe(w, rc) ->
-                let info =
-                    {
-                        State = Unchecked.defaultof<_>
-                        PerformanceMetrics = Unchecked.defaultof<_>
+            | Subscribe(w, info, rc) ->
+                let workerState = 
+                    { 
+                        Id = unbox w
+                        Info = info
+                        CurrentJobCount = 0
+                        LastHeartbeat = DateTime.Now
                         HeartbeatRate = heartbeatThreshold
                         InitializationTime = DateTime.Now
-                        LastHeartbeat = DateTime.Now
-                        Id = w
+                        ExecutionStatus = Stopped
+                        PerformanceMetrics = PerformanceInfo.Empty
                     }
 
                 let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
                 do! rc.Reply(hmon, heartbeatThreshold)
-                return state.Add(w, (info, hmon))
+                return state.Add(w, (workerState, hmon))
 
             | UnSubscribe w ->
                 match state.TryFind w with
@@ -176,10 +176,17 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
                     do! hmon <!- Stop
                     return state.Remove w
 
-            | DeclareState (w, ws) ->
+            | DeclareStatus (w,s) ->
                 match state.TryFind w with
                 | None -> return state
-                | Some (info, hm) -> return state.Add(w, ({ info with State = ws }, hm))
+                | Some(info,hm) ->
+                    return state.Add(w, ({ info with ExecutionStatus = s}, hm))
+
+            | IncrementJobCountBy (w,i) ->
+                match state.TryFind w with
+                | None -> return state
+                | Some(info,hm) ->
+                    return state.Add(w, ({info with CurrentJobCount = info.CurrentJobCount + i}, hm))
 
             | DeclarePerformanceMetrics(w, perf) ->
                 match state.TryFind w with
@@ -198,13 +205,13 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
                 do! rc.Reply (state.ContainsKey w)
                 return state
 
-            | TryGetWorkerInfo (w, rc) ->
+            | TryGetWorkerState (w, rc) ->
                 match state.TryFind w with
                 | None -> do! rc.Reply None
-                | Some (info,hmon) ->
+                | Some (ws,hmon) ->
                     let! latestHb = hmon <!- GetLatestHeartbeat
-                    let info' = { info with LastHeartbeat = latestHb }
-                    do! rc.Reply (Some info')
+                    let ws' = { ws with LastHeartbeat = latestHb }
+                    do! rc.Reply (Some ws')
 
                 return state
         }

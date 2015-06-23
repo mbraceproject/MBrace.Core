@@ -16,7 +16,7 @@ type IWorkerId =
 
 /// Worker operation status
 [<NoEquality; NoComparison>]
-type WorkerStatus =
+type WorkerJobExecutionStatus =
     /// Worker dequeueing jobs normally
     | Running
     /// Worker has been stopped manually
@@ -30,40 +30,41 @@ with
         | Stopped -> "Stopped"
         | QueueFault _ -> "Queue Fault"
 
-/// Worker state object
+
+/// Worker metadata as specified by the instance itself
 [<NoEquality; NoComparison>]
-type WorkerState =
+type WorkerInfo =
     {
         /// Machine hostname
         Hostname : string
         /// Machine ProcessId
         ProcessId : int
-        /// Machine 
+        /// Number of cores in worker
         ProcessorCount : int
-        /// Worker operation status
-        Status : WorkerStatus
-        /// Current number of executing jobs
-        CurrentJobCount : int
         /// Maximum number of executing jobs
         MaxJobCount : int
     }
 
 /// Worker state object
 [<NoEquality; NoComparison>]
-type WorkerInfo =
+type WorkerState =
     {
         /// Worker reference unique identifier
         Id : IWorkerId
+        /// Worker metadata as specified by the worker
+        Info : WorkerInfo
+        /// Current number of executing jobs
+        CurrentJobCount : int
         /// Last Heartbeat submitted by worker
         LastHeartbeat : DateTime
         /// Heartbeat rate designated by worker manager
         HeartbeatRate : TimeSpan
         /// Time of worker initialization/subscription
         InitializationTime : DateTime
-        /// Current worker state
-        State : WorkerState
+        /// Worker job execution status
+        ExecutionStatus : WorkerJobExecutionStatus
         /// Latest worker performance metrics
-        PerformanceMetrics : NodePerformanceInfo
+        PerformanceMetrics : PerformanceInfo
     }
 
 /// Worker manager abstraction; must be serializable
@@ -74,29 +75,41 @@ type IWorkerManager =
     ///     for provided worker reference.
     /// </summary>
     /// <param name="target">Worker ref to be examined.</param>
-    abstract TryGetWorkerInfo : id:IWorkerId -> Async<WorkerInfo option>
+    abstract TryGetWorkerState : id:IWorkerId -> Async<WorkerState option>
 
     /// <summary>
     ///     Subscribe a new worker instance to the cluster.
     /// </summary>
     /// <param name="worker">Worker instance to be subscribed.</param>
-    /// <param name="worker">Initial worker state.</param>
-    /// <returns>Unsubscribe disposable.</returns>
-    abstract SubscribeWorker : id:IWorkerId -> Async<IDisposable>
+    /// <param name="info">Worker metadata for the instance.</param>
+    /// <returns>Unsubscribe disposable. Disposing should cause the runtime to remove subscription for worker.</returns>
+    abstract SubscribeWorker : id:IWorkerId * info:WorkerInfo -> Async<IDisposable>
 
     /// <summary>
-    ///     Asynchronously declares worker state for provided worker.
+    ///     Asynchronously declares that the worker active job count has increased by one.
     /// </summary>
-    /// <param name="worker">Worker id to be updated.</param>
-    /// <param name="state">State for worker.</param>
-    abstract DeclareWorkerState : id:IWorkerId * state:WorkerState -> Async<unit>
+    /// <param name="id">Worker identifier.</param>
+    abstract IncrementJobCount : id:IWorkerId -> Async<unit>
+
+    /// <summary>
+    ///     Asynchronously declares that the worker active job count has decreased by one.
+    /// </summary>
+    /// <param name="id">Worker identifier.</param>
+    abstract DecrementJobCount : id:IWorkerId -> Async<unit>
+
+    /// <summary>
+    ///     Asynchronously declares the current worker job execution status.
+    /// </summary>
+    /// <param name="id">Worker identifier.</param>
+    /// <param name="status">job execution status to be set.</param>
+    abstract DeclareWorkerStatus : id:IWorkerId * status:WorkerJobExecutionStatus -> Async<unit>
 
     /// <summary>
     ///     Asynchronously submits node performance metrics for provided worker.
     /// </summary>
     /// <param name="id">Worker id declaring performance metrics.</param>
     /// <param name="perf">Performance metrics for given worker.</param>
-    abstract SubmitPerformanceMetrics : id:IWorkerId * perf:NodePerformanceInfo -> Async<unit>
+    abstract SubmitPerformanceMetrics : id:IWorkerId * perf:PerformanceInfo -> Async<unit>
 
     /// Asynchronously requests node performance metrics for all nodes.
-    abstract GetAvailableWorkers : unit -> Async<WorkerInfo []>
+    abstract GetAvailableWorkers : unit -> Async<WorkerState []>

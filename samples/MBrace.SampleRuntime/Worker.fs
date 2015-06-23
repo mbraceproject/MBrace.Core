@@ -30,7 +30,7 @@ let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
             new LocalJobEvaluator(resourceManager, currentWorker) :> ICloudJobEvaluator
 
     logger.LogInfo "Creating worker agent."
-    let! agent = WorkerAgent.Create(resourceManager, currentWorker, jobEvaluator, maxConcurrentJobs)
+    let! agent = WorkerAgent.Create(resourceManager, currentWorker, jobEvaluator, maxConcurrentJobs, submitPerformanceMetrics = true)
     do! agent.Start()
     return agent
 }

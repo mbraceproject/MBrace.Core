@@ -53,6 +53,7 @@ module ``Collection Partitioning Tests`` =
                 member x.ProcessId = 0
                 member x.Hostname = System.Net.Dns.GetHostName()
                 member x.ProcessorCount: int = cores
+                member x.MaxCpuClock = 1000.
                 member x.Type: string = "dummy"
         }
 
