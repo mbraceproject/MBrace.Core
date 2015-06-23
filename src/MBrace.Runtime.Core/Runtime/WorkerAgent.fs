@@ -211,6 +211,11 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, jobEv
         return! agent.PostAndAsyncReply (fun ch -> Stop(timeout, ch))
     }
 
+    /// Gets the current number of jobs run by the worker
+    member __.CurrentJobCount = currentJobCount
+    /// Gets the maximum number of jobs allowed by the worker
+    member __.MaxJobCount = maxConcurrentJobs
+
     /// Gets Current worker state configuration
     member w.CurrentStatus = agent.PostAndReply GetStatus
 
