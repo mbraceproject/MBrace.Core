@@ -70,3 +70,5 @@ let proc = runtime.CreateProcess(Cloud.Parallel [for i in 1 .. 10 -> Cloud.Sleep
 proc.ShowInfo()
 
 runtime.ShowProcessInfo()
+
+runtime.Run(Cloud.Parallel [for i in 1 .. 100 -> cloud { return i * i }])

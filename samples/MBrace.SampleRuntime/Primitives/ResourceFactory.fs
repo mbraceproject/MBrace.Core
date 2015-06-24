@@ -32,7 +32,10 @@ type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 
     interface ICloudPrimitivesFactory with
         member __.CreateCounter(initial:int) = getResource (fun () -> Counter.Init(initial) :> ICloudCounter)
-        member __.CreateResultAggregator<'T>(capacity:int) = getResource (fun () -> ResultAggregator<'T>.Init capacity :> ICloudResultAggregator<'T>)
+        member __.CreateResultAggregator<'T>(capacity:int) = async {
+            let! ra = getResource (fun () -> ResultAggregator<obj>.Init capacity)
+            return ra.UsingType<'T>() :> ICloudResultAggregator<'T>
+        }
 
     interface ICancellationEntryFactory with
         member x.CreateCancellationEntry() = async {
