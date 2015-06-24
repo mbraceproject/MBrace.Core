@@ -146,7 +146,7 @@ and internal WorkerReporter private () =
         [ Field.create "Id" Left (fun w -> w.Id)
           Field.create "Status" Left (fun p -> string p.Status)
           Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CpuUsage) p.ProcessorCount)
-          Field.create "Clock Speed (MHz)" Center (fun p -> double_printer p.MaxCpuClock)
+          Field.create "CPU Clock" Left (fun p -> sprintf "%s MHz" (double_printer p.MaxCpuClock))
           Field.create "% Memory / Total(MB)" Center (fun p ->
                 let memPerc = 100. *? p.MemoryUsage ?/? p.TotalMemory |> double_printer
                 sprintf "%s / %s" memPerc <| double_printer p.TotalMemory
