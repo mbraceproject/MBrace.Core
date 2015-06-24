@@ -14,7 +14,6 @@ open MBrace.Runtime.Utils.PrettyPrinters
 
 type private TaskEntryMsg =
     | GetState of IReplyChannel<CloudTaskState>
-    | GetReturnType of IReplyChannel<Pickle<Type>>
     | TrySetResult of Pickle<TaskResult> * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<Pickle<TaskResult> option>
     | DeclareStatus of status:CloudTaskStatus
@@ -23,8 +22,7 @@ type private TaskEntryMsg =
     | DeclareFaultedJob
 
 type private TaskState = 
-    { 
-        ReturnType : Pickle<Type>
+    {
         Result : Pickle<TaskResult> option
         Info : CloudTaskInfo
         Status : CloudTaskStatus
@@ -36,9 +34,9 @@ type private TaskState =
         ExecutionTime: ExecutionTime
     }
 with 
-    static member Init(info : CloudTaskInfo, returnType : Pickle<Type>) = 
+    static member Init(info : CloudTaskInfo) = 
         { 
-            ReturnType = returnType ; Info = info ; Result = None
+            Info = info ; Result = None
             TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; 
             CompletedJobCount = 0 ; FaultedJobCount = 0
             ExecutionTime = NotStarted ; Status = Posted 
@@ -61,9 +59,12 @@ with
         }
 
 [<AutoSerializable(true)>]
-type TaskEntry private (source : ActorRef<TaskEntryMsg>, info : CloudTaskInfo)  =
+type TaskEntry private (source : ActorRef<TaskEntryMsg>, id : string, info : CloudTaskInfo)  =
+    member __.Id = id
     member __.Info = info
+
     interface ICloudTaskEntry with
+        member x.Id = id
         member x.AwaitResult(): Async<TaskResult> = async {
             let rec awaiter () = async {
                 let! result = source <!- TryGetResult
@@ -89,11 +90,6 @@ type TaskEntry private (source : ActorRef<TaskEntryMsg>, info : CloudTaskInfo)  
             return! source.AsyncPost (DeclareStatus status)
         }
         
-        member x.GetReturnType(): Async<Type> = async {
-            let! rtp = source <!- GetReturnType
-            return Config.Serializer.UnPickleTyped rtp
-        }
-        
         member x.GetState(): Async<CloudTaskState> = async {
             return! source <!- GetState
         }
@@ -114,15 +110,11 @@ type TaskEntry private (source : ActorRef<TaskEntryMsg>, info : CloudTaskInfo)  
             return! source <!- fun ch -> TrySetResult(rp, ch)
         }
 
-    static member Init(pt : Pickle<Type>, info : CloudTaskInfo) =
+    static member Init(id : string, info : CloudTaskInfo) =
         let behaviour (state : TaskState) (msg : TaskEntryMsg) = async {
             match msg with
             | GetState rc ->
                 do! rc.Reply (TaskState.ExportState state)
-                return state
-
-            | GetReturnType rc ->
-                do! rc.Reply state.ReturnType
                 return state
 
             | TrySetResult(r, rc) when Option.isSome state.Result ->
@@ -162,16 +154,16 @@ type TaskEntry private (source : ActorRef<TaskEntryMsg>, info : CloudTaskInfo)  
         }
 
         let ref =
-            Behavior.stateful (TaskState.Init(info, pt)) behaviour
+            Behavior.stateful (TaskState.Init info) behaviour
             |> Actor.bind
             |> Actor.Publish
             |> Actor.ref
 
-        new TaskEntry(ref, info)
+        new TaskEntry(ref, id, info)
          
 
 type private TaskManagerMsg =
-    | CreateTaskEntry of resultType:Pickle<Type> * typeName:string * AssemblyId[] * ICloudCancellationTokenSource * taskName:string option * IReplyChannel<TaskEntry>
+    | CreateTaskEntry of info:CloudTaskInfo * IReplyChannel<TaskEntry>
     | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<TaskEntry option>
     | GetAllTasks of IReplyChannel<TaskEntry []>
     | ClearAllTasks of IReplyChannel<unit>
@@ -179,10 +171,8 @@ type private TaskManagerMsg =
 
 type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
     interface ICloudTaskManager with
-        member x.CreateTaskEntry(returnType : Type, dependencies: AssemblyId [], cancellationTokenSource: ICloudCancellationTokenSource, taskName: string option) = async {
-            let pt = Config.Serializer.PickleTyped returnType
-            let typeName = Type.prettyPrint returnType
-            let! te = ref <!- fun ch -> CreateTaskEntry(pt, typeName, dependencies, cancellationTokenSource, taskName, ch)
+        member x.CreateTaskEntry(info : CloudTaskInfo) = async {
+            let! te = ref <!- fun ch -> CreateTaskEntry(info, ch)
             return te :> ICloudTaskEntry
         }
 
@@ -208,19 +198,11 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
     static member Init() =
         let behaviour (state : Map<string, TaskEntry>) (msg : TaskManagerMsg) = async {
             match msg with
-            | CreateTaskEntry(returnType, typeName, dependencies, cts, taskName, ch) ->
-                let taskInfo = 
-                    {
-                        Id = mkUUID()
-                        Name = taskName
-                        Dependencies = dependencies
-                        Type = typeName
-                        CancellationTokenSource = cts
-                    }
-
-                let te = TaskEntry.Init(returnType, taskInfo)
+            | CreateTaskEntry(info, ch) ->
+                let id = mkUUID()
+                let te = TaskEntry.Init(id, info)
                 do! ch.Reply te
-                return state.Add(taskInfo.Id, te)
+                return state.Add(te.Id, te)
 
             | TryGetTaskCompletionSourceById(taskId, ch) ->
                 let result = state.TryFind taskId

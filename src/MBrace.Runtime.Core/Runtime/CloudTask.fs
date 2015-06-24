@@ -7,6 +7,7 @@ open System.Runtime.Serialization
 open System.Collections.Generic
 open System.Collections.Concurrent
 
+open Nessos.FsPickler
 open Nessos.Vagabond
 
 open MBrace.Core
@@ -26,10 +27,11 @@ type private LocalTaskManager () =
     /// </summary>
     /// <param name="entry">Task entry.</param>
     member __.GetLocalTask<'T>(entry : ICloudTaskEntry) : Task<'T> =
-        let ok, t = localTasks.TryGetValue entry.Info.Id
+        let ok, t = localTasks.TryGetValue entry.Id
         if ok then t :?> Task<'T> else
 
         let createToken _ = 
+            // TODO : use correct Async.StartAsTask implementation
             let tcs = new TaskCompletionSource<'T>()
 
             let awaiter = async {
@@ -43,7 +45,7 @@ type private LocalTaskManager () =
             Async.Start(awaiter |> Async.Catch |> Async.Ignore, globalCts.Token)
             tcs.Task :> Task
 
-        localTasks.GetOrAdd(entry.Info.Id, createToken) :?> Task<'T>
+        localTasks.GetOrAdd(entry.Id, createToken) :?> Task<'T>
 
 
     interface IDisposable with
@@ -193,7 +195,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (e
     override __.FaultedJobs = cell.Value.FaultedJobCount
     override __.TotalJobs = cell.Value.TotalJobCount
     override __.Status = cell.Value.Status
-    override __.Id = entry.Info.Id
+    override __.Id = entry.Id
     override __.Name = entry.Info.Name
     override __.Type = typeof<'T>
     override __.Cancel() = entry.Info.CancellationTokenSource.Cancel()
@@ -207,7 +209,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (e
             entry.Info.CancellationTokenSource.Token
         
         member x.Id: string = 
-            entry.Info.Id
+            entry.Id
         
         member x.IsCanceled: bool = 
             match cell.Value.Status with
@@ -242,7 +244,7 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
     /// </summary>
     /// <param name="taskId">Task identifier.</param>
     let getTaskByEntry (entry : ICloudTaskEntry) = async {
-        let ok,t = tasks.TryGetValue entry.Info.Id
+        let ok,t = tasks.TryGetValue entry.Id
         if ok then return t
         else
             let! assemblies = runtime.AssemblyManager.DownloadAssemblies(entry.Info.Dependencies)
@@ -253,14 +255,14 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
                 | LoadFault(id, e) -> runtime.SystemLogger.Logf LogLevel.Error "error loading assembly '%s':\n%O" id.FullName e
                 | Loaded _ -> ()
 
-            let! returnType = entry.GetReturnType()
+            let returnType = runtime.Serializer.UnPickleTyped entry.Info.ReturnType
             let ex = Existential.FromType returnType
             let task = ex.Apply { 
                 new IFunc<CloudTask> with 
                     member __.Invoke<'T> () = new CloudTask<'T>(entry) :> CloudTask
             }
 
-            return tasks.GetOrAdd(entry.Info.Id, task)
+            return tasks.GetOrAdd(entry.Id, task)
     }
 
     member __.TryGetTaskById(id : string) = async {

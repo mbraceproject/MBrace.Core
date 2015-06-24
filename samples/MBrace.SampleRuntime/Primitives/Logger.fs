@@ -15,7 +15,7 @@ type ActorCloudLogger private (target : ActorRef<string * DateTime>) =
     member __.CreateLogger (worker : IWorkerId, currentJob : CloudJob) =
         { new ICloudLogger with
             member __.Log (message : string) =
-                let message = sprintf "User Log[Worker:%s, Process:%s, Job:%s]: %s" worker.Id currentJob.TaskEntry.Info.Id currentJob.Id message
+                let message = sprintf "User Log[Worker:%s, Process:%s, Job:%s]: %s" worker.Id currentJob.TaskEntry.Id currentJob.Id message
                 target <-- (message, DateTime.Now)
         }
 

@@ -30,7 +30,7 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
         new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, false)
         
     interface IDistributionProvider with
-        member __.ProcessId = currentJob.TaskEntry.Info.Id
+        member __.ProcessId = currentJob.TaskEntry.Id
         member __.JobId = currentJob.Id
 
         member __.FaultPolicy = faultPolicy

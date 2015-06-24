@@ -4,6 +4,7 @@ open Nessos.Vagabond
 
 /// Defines a Vagabond assembly manager
 type IAssemblyManager =
+
     /// <summary>
     ///     Uploads assemblies and data dependencies to runtime.
     /// </summary>

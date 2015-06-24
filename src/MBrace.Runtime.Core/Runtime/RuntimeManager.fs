@@ -2,6 +2,7 @@
 
 open System
 
+open Nessos.FsPickler
 open Nessos.Vagabond
 
 open MBrace.Core
@@ -18,6 +19,8 @@ type IRuntimeId =
 type IRuntimeManager =
     /// Runtime uniqueue identifier
     abstract Id : IRuntimeId
+    /// FsPickler serialization instance used by the runtime
+    abstract Serializer : FsPicklerSerializer
     /// Local MBrace resources to be supplied to workflow.
     abstract ResourceRegistry : ResourceRegistry
     /// Runtime worker manager object.

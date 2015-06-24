@@ -23,6 +23,7 @@ type RuntimeManager(state : RuntimeState, logger : ISystemLogger) =
 
     interface IRuntimeManager with
         member x.Id = state.Id :> _
+        member x.Serializer = Config.Serializer :> _
         member x.AssemblyManager: IAssemblyManager = assemblyManager :> _
 
         member x.PrimitivesFactory = state.Factory :> _

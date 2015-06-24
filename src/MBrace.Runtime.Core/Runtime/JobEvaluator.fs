@@ -115,8 +115,8 @@ module JobEvaluator =
         | Choice1Of2 job ->
             if job.JobType = JobType.TaskRoot then
                 match job.TaskEntry.Info.Name with
-                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskEntry.Info.Id job.TaskEntry.Info.Type
-                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskEntry.Info.Type
+                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskEntry.Id job.TaskEntry.Info.ReturnTypeName
+                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskEntry.Info.ReturnTypeName
                 do! job.TaskEntry.DeclareStatus Running
 
             do! job.TaskEntry.IncrementJobCount()

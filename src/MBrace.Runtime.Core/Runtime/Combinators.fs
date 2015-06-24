@@ -275,13 +275,22 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (dependencies : AssemblyId[]
             | None -> return! DistributedCancellationToken.Create(runtime.CancellationEntryFactory, elevate = true)
         }
 
-        let! taskEntry = runtime.TaskManager.CreateTaskEntry(typeof<'T>, dependencies, cts, ?taskName = taskName)
+        let taskInfo =
+            {
+                Name = taskName
+                CancellationTokenSource = cts
+                Dependencies = dependencies
+                ReturnTypeName = Type.prettyPrint typeof<'T>
+                ReturnType = runtime.Serializer.PickleTyped typeof<'T>
+            }
+
+        let! taskEntry = runtime.TaskManager.CreateTaskEntry taskInfo
 
         let setResult ctx (result : TaskResult) status = 
             async {
                 match ensureSerializable result with
                 | Some e ->
-                    let msg = sprintf "Could not serialize result for task '%s' of type '%s'." taskEntry.Info.Id (Type.prettyPrint typeof<'T>)
+                    let msg = sprintf "Could not serialize result for task '%s' of type '%s'." taskEntry.Id (Type.prettyPrint typeof<'T>)
                     let se = new SerializationException(msg, e)
                     let! _ = taskEntry.TrySetResult(Exception (ExceptionDispatchInfo.Capture se))
                     do! taskEntry.DeclareStatus Faulted

@@ -3,6 +3,7 @@
 open System
 open System.Threading.Tasks
 
+open Nessos.FsPickler
 open Nessos.Vagabond
 
 open MBrace.Core
@@ -39,10 +40,15 @@ with
 /// Task result container
 [<NoEquality; NoComparison>]
 type TaskResult =
+    /// Task completed with value
     | Completed of obj
+    /// Task failed with user exception
     | Exception of ExceptionDispatchInfo
+    //// Task canceled
     | Cancelled of OperationCanceledException
 with
+    /// Gets the contained result value,
+    /// will be thrown if exception.
     member inline r.Value : obj =
         match r with
         | Completed t -> t
@@ -53,23 +59,26 @@ with
 [<NoEquality; NoComparison>]
 type CloudTaskInfo =
     {
-        /// Unique identifier for cloud task
-        Id : string
         /// User-specified task name
         Name : string option
         /// Cancellation token source for task
         CancellationTokenSource : ICloudCancellationTokenSource
         /// Vagabond dependencies for computation
         Dependencies : AssemblyId []
-        /// Task return type
-        Type : string
+        /// Task return type in pretty printed form
+        ReturnTypeName : string
+        /// Task return type in pickled form
+        ReturnType : Pickle<Type>
     }
 
 /// Cloud execution time metadata
 [<NoEquality; NoComparison>]
 type ExecutionTime =
+    /// Task has not been started
     | NotStarted
+    /// Task has started but not completed yet
     | Started of startTime:DateTime * executionTime:TimeSpan
+    /// Task has completed
     | Finished of startTime:DateTime * executionTime:TimeSpan * completionTime:DateTime
 
 /// Cloud task execution state record
@@ -96,14 +105,12 @@ type CloudTaskState =
 
 /// Cloud task runtime entry
 type ICloudTaskEntry =
-    /// Gets cloud task information
+    /// Unique Cloud Task entry identifier
+    abstract Id : string
+    /// Gets cloud task metadata
     abstract Info : CloudTaskInfo
     /// Asynchronously fetches current task state
     abstract GetState : unit -> Async<CloudTaskState>
-
-    /// Gets the System.Type instance of the task return type
-    /// Requires dependent assemblies to be properly loaded in current AppDomain
-    abstract GetReturnType : unit -> Async<Type>
 
     /// <summary>
     ///     Asynchronously awaits for the task result.
@@ -150,10 +157,8 @@ type ICloudTaskManager =
     /// <summary>
     ///     Request a new task from cluster state.
     /// </summary>
-    /// <param name="dependencies">Declared Vagabond dependencies for task.</param>
-    /// <param name="taskName">User-supplied task name.</param>
-    /// <param name="cancellationTokenSource">Cancellation token source for task.</param>
-    abstract CreateTaskEntry : returnType:Type * dependencies:AssemblyId[] * cancellationTokenSource:ICloudCancellationTokenSource * ?taskName:string -> Async<ICloudTaskEntry>
+    /// <param name="info">User-supplied cloud task metadata.</param>
+    abstract CreateTaskEntry : info:CloudTaskInfo -> Async<ICloudTaskEntry>
 
     /// <summary>
     ///     Gets a cloud task entry for provided task id.
