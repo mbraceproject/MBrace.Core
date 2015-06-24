@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Runtime
 
 open System
+open System.Threading.Tasks
 
 open Nessos.Vagabond
 
@@ -8,7 +9,6 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 /// Cloud task status
-[<NoEquality; NoComparison>]
 type CloudTaskStatus =
     /// Task posted to cluster for execution
     | Posted
@@ -24,15 +24,41 @@ type CloudTaskStatus =
     | UserException
     /// Task cancelled by user
     | Canceled
+with
+    /// Gets the corresponding System.Threading.TaskStatus enumeration
+    member t.TaskStatus =
+        match t with
+        | Posted -> TaskStatus.Created
+        | Dequeued -> TaskStatus.WaitingToRun
+        | Running -> TaskStatus.Running
+        | Faulted | UserException -> TaskStatus.Faulted
+        | Completed -> TaskStatus.RanToCompletion
+        | Canceled -> TaskStatus.Canceled
+
+
+/// Task result container
+[<NoEquality; NoComparison>]
+type TaskResult =
+    | Completed of obj
+    | Exception of ExceptionDispatchInfo
+    | Cancelled of OperationCanceledException
+with
+    member inline r.Value : obj =
+        match r with
+        | Completed t -> t
+        | Exception edi -> ExceptionDispatchInfo.raise true edi
+        | Cancelled e -> raise e
 
 /// Cloud task metadata
 [<NoEquality; NoComparison>]
 type CloudTaskInfo =
     {
-        /// Cloud task unique identifier
+        /// Unique identifier for cloud task
         Id : string
         /// User-specified task name
         Name : string option
+        /// Cancellation token source for task
+        CancellationTokenSource : ICloudCancellationTokenSource
         /// Vagabond dependencies for computation
         Dependencies : AssemblyId []
         /// Task return type
@@ -68,40 +94,55 @@ type CloudTaskState =
         TotalJobCount : int
     }
 
-/// Defines a distributed task completion source.
-type ICloudTaskCompletionSource =
-    /// Task metadata object.
+/// Cloud task runtime entry
+type ICloudTaskEntry =
+    /// Gets cloud task information
     abstract Info : CloudTaskInfo
+    /// Asynchronously fetches current task state
+    abstract GetState : unit -> Async<CloudTaskState>
 
-    /// Type of the TaskCompletionSource
-    abstract Type : Type
-
-    /// Gets the cancellation token source for the task.
-    abstract CancellationTokenSource : ICloudCancellationTokenSource
-
-/// Defines a distributed task completion source.
-type ICloudTaskCompletionSource<'T> =
-    inherit ICloudTaskCompletionSource
-    /// Gets the underlying cloud task for the task completion source.
-    abstract Task : ICloudTask<'T>
+    /// Gets the System.Type instance of the task return type
+    /// Requires dependent assemblies to be properly loaded in current AppDomain
+    abstract GetReturnType : unit -> Async<Type>
 
     /// <summary>
-    ///     Asynchronously sets a completed result for the task.
+    ///     Asynchronously awaits for the task result.
     /// </summary>
-    /// <param name="value">Task completion value.</param>
-    abstract SetCompleted : value:'T -> Async<unit>
+    abstract AwaitResult : unit -> Async<TaskResult>
 
     /// <summary>
-    ///     Asynchronously sets the the result to be an exception.
+    ///     Asynchronously checks if task result has been set.
+    ///     Returns None if result has not been set.
     /// </summary>
-    /// <param name="edi">Exception dispatch info to be submitted.</param>
-    abstract SetException : edi:ExceptionDispatchInfo -> Async<unit>
+    abstract TryGetResult : unit -> Async<TaskResult option>
 
     /// <summary>
-    ///     Asynchronously declares the the result to be cancelled.
+    ///     Asynchronously attempts to set task result for entry.
+    ///     Returns true if setting was successful.
     /// </summary>
-    /// <param name="edi">Exception dispatch info to be submitted.</param>
-    abstract SetCancelled : exn:OperationCanceledException -> Async<unit>
+    /// <param name="result">Result value to be set.</param>
+    abstract TrySetResult : result:TaskResult -> Async<bool>
+
+    /// <summary>
+    ///     Declares task execution status.
+    /// </summary>
+    /// <param name="status">Declared status.</param>
+    abstract DeclareStatus : status:CloudTaskStatus -> Async<unit>
+
+    /// <summary>
+    ///     Increments job count for provided task.
+    /// </summary>
+    abstract IncrementJobCount : unit -> Async<unit>
+
+    /// <summary>
+    ///     Asynchronously increments the faulted job count for task.
+    /// </summary>
+    abstract DeclareFaultedJob : unit -> Async<unit>
+
+    /// <summary>
+    ///     Decrements job count for provided task.
+    /// </summary>
+    abstract DeclareCompletedJob : unit -> Async<unit>
 
 /// Cloud task manager object
 type ICloudTaskManager =
@@ -112,57 +153,26 @@ type ICloudTaskManager =
     /// <param name="dependencies">Declared Vagabond dependencies for task.</param>
     /// <param name="taskName">User-supplied task name.</param>
     /// <param name="cancellationTokenSource">Cancellation token source for task.</param>
-    abstract CreateTaskCompletionSource<'T> : dependencies:AssemblyId[] * cancellationTokenSource:ICloudCancellationTokenSource * ?taskName:string -> Async<ICloudTaskCompletionSource<'T>>
+    abstract CreateTaskEntry : returnType:Type * dependencies:AssemblyId[] * cancellationTokenSource:ICloudCancellationTokenSource * ?taskName:string -> Async<ICloudTaskEntry>
 
     /// <summary>
-    ///     Request an alredy existing task by its unique identifier.
+    ///     Gets a cloud task entry for provided task id.
     /// </summary>
-    /// <param name="taskId">Task unique identifier.</param>
-    abstract GetTaskCompletionSourceById : taskId:string -> Async<ICloudTaskCompletionSource>
-    
-    /// <summary>
-    ///     Declares task execution status.
-    /// </summary>
-    /// <param name="taskId">Task unique identifier.</param>
-    /// <param name="status">Declared status.</param>
-    abstract DeclareStatus : taskId:string * status:CloudTaskStatus -> Async<unit>
+    /// <param name="taskId">Task id to be looked up.</param>
+    abstract TryGetEntryById : taskId:string -> Async<ICloudTaskEntry option>
 
     /// <summary>
-    ///     Increments job count for provided task.
+    ///     Deletes task info of given id.
     /// </summary>
-    /// <param name="taskId">Task unique identifier.</param>
-    abstract IncrementJobCount : taskId:string -> Async<unit>
-
-    /// <summary>
-    ///     Asynchronously increments the faulted job count for task.
-    /// </summary>
-    /// <param name="taskId">Task unique identifier</param>
-    abstract DeclareFaultedJob : taskId:string -> Async<unit>
-
-    /// <summary>
-    ///     Decrements job count for provided task.
-    /// </summary>
-    /// <param name="taskId">Task unique identifier.</param>
-    abstract DeclareCompletedJob : taskId:string -> Async<unit>
-
-    /// <summary>
-    ///     Asynchronously fetches execution state for task of provided id.
-    /// </summary>
-    /// <param name="taskId">Task unique identifier.</param>
-    abstract GetTaskState : taskId:string -> Async<CloudTaskState>
+    /// <param name="entry">Cloud task entry.</param>
+    abstract Clear : taskId:string -> Async<unit>
 
     /// <summary>
     ///     Asynchronously fetches task execution state for all tasks currently in task.
     /// </summary>
-    abstract GetAllTasks : unit -> Async<CloudTaskState []>
+    abstract GetAllTasks : unit -> Async<ICloudTaskEntry []>
 
     /// <summary>
     ///     Deletes all task info from current runtime.
     /// </summary>
     abstract ClearAllTasks : unit -> Async<unit>
-
-    /// <summary>
-    ///     Deletes task info of given id.
-    /// </summary>
-    /// <param name="taskId">Task identifier.</param>
-    abstract Clear : taskId:string -> Async<unit>

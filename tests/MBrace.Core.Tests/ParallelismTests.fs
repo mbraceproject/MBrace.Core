@@ -732,7 +732,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let delayFactor = delayFactor
         repeat(fun () ->
             cloud {
-                let! task = Cloud.StartAsTask(Cloud.Sleep delayFactor)
+                let! task = Cloud.StartAsTask(Cloud.Sleep (5 * delayFactor))
                 return! Cloud.AwaitCloudTask(task, timeoutMilliseconds = 1)
             } |> run |> Choice.shouldFailwith<_, TimeoutException>)
 

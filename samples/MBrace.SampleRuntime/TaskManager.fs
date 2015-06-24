@@ -2,6 +2,7 @@
 
 open System
 
+open Nessos.FsPickler
 open Nessos.Thespian
 open Nessos.Vagabond
 
@@ -11,21 +12,21 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
-type private TaskManagerMsg =
-    | RequestTaskCompletionSource of Existential * AssemblyId[] * ICloudCancellationTokenSource * taskName:string option * IReplyChannel<ICloudTaskCompletionSource>
-    | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<ICloudTaskCompletionSource option>
-    | DeclareStatus of taskId:string * status:CloudTaskStatus
-    | IncrementJobCount of taskId:string
-    | DeclareCompletedJob of taskId:string
-    | DeclareFaultedJob of taskId:string
-    | GetTaskState of taskId:string * IReplyChannel<CloudTaskState>
-    | GetAllTasks of IReplyChannel<CloudTaskState []>
-    | ClearAllTasks of IReplyChannel<unit>
-    | ClearTask of taskId:string * IReplyChannel<bool>
+type private TaskEntryMsg =
+    | GetState of IReplyChannel<CloudTaskState>
+    | GetReturnType of IReplyChannel<Pickle<Type>>
+    | TrySetResult of Pickle<TaskResult> * IReplyChannel<bool>
+    | TryGetResult of IReplyChannel<Pickle<TaskResult> option>
+    | DeclareStatus of status:CloudTaskStatus
+    | IncrementJobCount
+    | DeclareCompletedJob
+    | DeclareFaultedJob
 
 type private TaskState = 
     { 
-        TaskCompletionSource : ICloudTaskCompletionSource
+        ReturnType : Pickle<Type>
+        Result : Pickle<TaskResult> option
+        Info : CloudTaskInfo
         Status : CloudTaskStatus
         ActiveJobCount : int
         MaxActiveJobCount : int
@@ -35,17 +36,18 @@ type private TaskState =
         ExecutionTime: ExecutionTime
     }
 with 
-    static member Init(tcs) = 
+    static member Init(info : CloudTaskInfo, returnType : Pickle<Type>) = 
         { 
-            TaskCompletionSource = tcs ; 
+            ReturnType = returnType ; Info = info ; Result = None
             TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; 
             CompletedJobCount = 0 ; FaultedJobCount = 0
             ExecutionTime = NotStarted ; Status = Posted 
         }
-    static member ExportState(ts : TaskState) =
+
+    static member ExportState(ts : TaskState) : CloudTaskState =
         {
-            Info = ts.TaskCompletionSource.Info
             Status = ts.Status
+            Info = ts.Info
             ActiveJobCount = ts.ActiveJobCount
             TotalJobCount = ts.TotalJobCount
             MaxActiveJobCount = ts.MaxActiveJobCount
@@ -58,135 +60,180 @@ with
                 | et -> et
         }
 
-type private TaskManagerState = Map<string, TaskState>
+[<AutoSerializable(true)>]
+type TaskEntry private (source : ActorRef<TaskEntryMsg>, info : CloudTaskInfo)  =
+    member __.Info = info
+    interface ICloudTaskEntry with
+        member x.AwaitResult(): Async<TaskResult> = async {
+            let rec awaiter () = async {
+                let! result = source <!- TryGetResult
+                match result with
+                | Some r -> return Config.Serializer.UnPickleTyped r
+                | None ->
+                    do! Async.Sleep 200
+                    return! awaiter ()
+            }
+
+            return! awaiter()
+        }
+        
+        member x.DeclareCompletedJob(): Async<unit> = async {
+            return! source.AsyncPost DeclareCompletedJob
+        }
+        
+        member x.DeclareFaultedJob(): Async<unit> = async {
+            return! source.AsyncPost DeclareFaultedJob
+        }
+        
+        member x.DeclareStatus(status: CloudTaskStatus): Async<unit> = async {
+            return! source.AsyncPost (DeclareStatus status)
+        }
+        
+        member x.GetReturnType(): Async<Type> = async {
+            let! rtp = source <!- GetReturnType
+            return Config.Serializer.UnPickleTyped rtp
+        }
+        
+        member x.GetState(): Async<CloudTaskState> = async {
+            return! source <!- GetState
+        }
+        
+        member x.IncrementJobCount(): Async<unit> =  async {
+            return! source.AsyncPost IncrementJobCount
+        }
+        
+        member x.Info: CloudTaskInfo = info
+        
+        member x.TryGetResult(): Async<TaskResult option> = async {
+            let! rp = source <!- TryGetResult
+            return rp |> Option.map Config.Serializer.UnPickleTyped
+        }
+        
+        member x.TrySetResult(result: TaskResult): Async<bool> = async {
+            let rp = Config.Serializer.PickleTyped result
+            return! source <!- fun ch -> TrySetResult(rp, ch)
+        }
+
+    static member Init(pt : Pickle<Type>, info : CloudTaskInfo) =
+        let behaviour (state : TaskState) (msg : TaskEntryMsg) = async {
+            match msg with
+            | GetState rc ->
+                do! rc.Reply (TaskState.ExportState state)
+                return state
+
+            | GetReturnType rc ->
+                do! rc.Reply state.ReturnType
+                return state
+
+            | TrySetResult(r, rc) when Option.isSome state.Result ->
+                do! rc.Reply false
+                return state
+
+            | TrySetResult(r, rc) ->
+                do! rc.Reply true
+                return { state with Result = Some r }
+
+            | TryGetResult rc ->
+                do! rc.Reply state.Result
+                return state
+
+            | DeclareStatus status ->
+                let executionTime =
+                    match state.ExecutionTime, status with
+                    | NotStarted, Running -> Started (DateTime.Now, TimeSpan.Zero)
+                    | Started (t,_), (Completed | UserException | Canceled) -> 
+                        let now = DateTime.Now
+                        Finished(t, now - t, now)
+                    | et, _ -> et
+
+                return { state with Status = status ; ExecutionTime = executionTime}
+
+            | IncrementJobCount ->
+                return { state with 
+                                TotalJobCount = state.TotalJobCount + 1 ; 
+                                ActiveJobCount = state.ActiveJobCount + 1 ;
+                                MaxActiveJobCount = max state.MaxActiveJobCount (1 + state.ActiveJobCount) }
+
+            | DeclareCompletedJob ->
+                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; CompletedJobCount = state.CompletedJobCount + 1 }
+
+            | DeclareFaultedJob ->
+                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; FaultedJobCount = state.FaultedJobCount + 1 }
+        }
+
+        let ref =
+            Behavior.stateful (TaskState.Init(info, pt)) behaviour
+            |> Actor.bind
+            |> Actor.Publish
+            |> Actor.ref
+
+        new TaskEntry(ref, info)
+         
+
+type private TaskManagerMsg =
+    | CreateTaskEntry of resultType:Pickle<Type> * typeName:string * AssemblyId[] * ICloudCancellationTokenSource * taskName:string option * IReplyChannel<TaskEntry>
+    | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<TaskEntry option>
+    | GetAllTasks of IReplyChannel<TaskEntry []>
+    | ClearAllTasks of IReplyChannel<unit>
+    | ClearTask of taskId:string * IReplyChannel<bool>
 
 type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
     interface ICloudTaskManager with
+        member x.CreateTaskEntry(returnType : Type, dependencies: AssemblyId [], cancellationTokenSource: ICloudCancellationTokenSource, taskName: string option) = async {
+            let pt = Config.Serializer.PickleTyped returnType
+            let typeName = Type.prettyPrint returnType
+            let! te = ref <!- fun ch -> CreateTaskEntry(pt, typeName, dependencies, cancellationTokenSource, taskName, ch)
+            return te :> ICloudTaskEntry
+        }
+
         member x.Clear(taskId: string): Async<unit> = async {
             let! found = ref <!- fun ch -> ClearTask(taskId, ch)
-            return
-                if found then ()
-                else
-                    invalidOp <| sprintf "Could not locate task of id '%s'." taskId
+            return ()
         }
         
         member x.ClearAllTasks(): Async<unit> = async {
             return! ref <!- ClearAllTasks
         }
         
-        member x.DeclareStatus(taskId: string, status: CloudTaskStatus): Async<unit> = async {
-            return! ref.AsyncPost <| DeclareStatus(taskId, status)   
+        member x.GetAllTasks(): Async<ICloudTaskEntry []> = async {
+            let! entries = ref <!- GetAllTasks
+            return entries |> Array.map unbox
         }
         
-        member x.IncrementJobCount(taskId: string): Async<unit> = async {
-            return! ref.AsyncPost <| IncrementJobCount taskId
-        }
-        
-        member x.DeclareCompletedJob(taskId: string): Async<unit> = async {
-            return! ref.AsyncPost <| DeclareCompletedJob taskId
-        }
-
-        member x.DeclareFaultedJob(taskId : string): Async<unit> = async {
-            return! ref.AsyncPost <| DeclareFaultedJob taskId
-        }
-        
-        member x.GetAllTasks(): Async<CloudTaskState []> = async {
-            return! ref <!- GetAllTasks
-        }
-        
-        member x.GetTaskCompletionSourceById(taskId: string): Async<ICloudTaskCompletionSource> = async {
+        member x.TryGetEntryById (taskId: string): Async<ICloudTaskEntry option> = async {
             let! result = ref <!- fun ch -> TryGetTaskCompletionSourceById(taskId, ch)
-            return
-                match result with
-                | None -> invalidOp "Could not locate task of id '%s'." taskId
-                | Some r -> r
-        }
-        
-        member x.GetTaskState(taskId: string): Async<CloudTaskState> = async {
-            return! ref <!- fun ch -> GetTaskState(taskId, ch)
-        }
-        
-        member x.CreateTaskCompletionSource<'T>(dependencies: AssemblyId [], cancellationTokenSource: ICloudCancellationTokenSource, taskName: string option): Async<ICloudTaskCompletionSource<'T>> = async {
-            let e = new Existential<'T> ()
-            let! tcs = ref <!- fun ch -> RequestTaskCompletionSource(e, dependencies, cancellationTokenSource, taskName, ch)
-            return tcs :?> ICloudTaskCompletionSource<'T>
+            return result |> Option.map unbox
         }
 
     static member Init() =
-        let behaviour (state : TaskManagerState) (msg : TaskManagerMsg) = async {
+        let behaviour (state : Map<string, TaskEntry>) (msg : TaskManagerMsg) = async {
             match msg with
-            | RequestTaskCompletionSource(e, dependencies, cts, taskName, ch) ->
-                let tcs = 
-                    e.Apply {
-                        new IFunc<ICloudTaskCompletionSource> with
-                            member __.Invoke<'T>() =
-                                let taskInfo = 
-                                    {
-                                        Id = mkUUID()
-                                        Name = taskName
-                                        Dependencies = dependencies
-                                        Type = Type.prettyPrint typeof<'T>
-                                    }
-
-                                TaskCompletionSource<'T>.Init(cts, taskInfo) :> ICloudTaskCompletionSource
+            | CreateTaskEntry(returnType, typeName, dependencies, cts, taskName, ch) ->
+                let taskInfo = 
+                    {
+                        Id = mkUUID()
+                        Name = taskName
+                        Dependencies = dependencies
+                        Type = typeName
+                        CancellationTokenSource = cts
                     }
 
-                do! ch.Reply tcs
-                return state.Add(tcs.Info.Id, TaskState.Init tcs)
+                let te = TaskEntry.Init(returnType, taskInfo)
+                do! ch.Reply te
+                return state.Add(taskInfo.Id, te)
 
-            | TryGetTaskCompletionSourceById (taskId, ch) ->
+            | TryGetTaskCompletionSourceById(taskId, ch) ->
                 let result = state.TryFind taskId
-                do! ch.Reply (result |> Option.map (fun s -> s.TaskCompletionSource))
+                do! ch.Reply result
                 return state
 
-            | DeclareStatus (taskId, status) ->
-                match state.TryFind taskId with
-                | None -> return state
-                | Some ts -> 
-                    let executionTime =
-                        match ts.ExecutionTime, status with
-                        | NotStarted, Running -> Started (DateTime.Now, TimeSpan.Zero)
-                        | Started (t,_), (Completed | UserException | Canceled) -> 
-                            let now = DateTime.Now
-                            Finished(t, now - t, now)
-                        | et, _ -> et
-
-                    return state.Add(taskId, { ts with Status = status ; ExecutionTime = executionTime })
-
-            | IncrementJobCount taskId ->
-                match state.TryFind taskId with
-                | None -> return state
-                | Some ts -> 
-                    return state.Add(taskId, { ts with 
-                                                    TotalJobCount = ts.TotalJobCount + 1 ; 
-                                                    ActiveJobCount = ts.ActiveJobCount + 1 ;
-                                                    MaxActiveJobCount = max ts.MaxActiveJobCount (1 + ts.ActiveJobCount) })
-
-            | DeclareCompletedJob taskId ->
-                match state.TryFind taskId with
-                | None -> return state
-                | Some ts -> return state.Add(taskId, { ts with ActiveJobCount = ts.ActiveJobCount - 1 ; CompletedJobCount = ts.CompletedJobCount + 1 })
-
-            | DeclareFaultedJob taskId ->
-                match state.TryFind taskId with
-                | None -> return state
-                | Some ts -> return state.Add(taskId, { ts with ActiveJobCount = ts.ActiveJobCount - 1 ; FaultedJobCount = ts.FaultedJobCount + 1 })
-
-            | GetTaskState (taskId, rc) ->
-                match state.TryFind taskId with
-                | None -> return state
-                | Some ts -> 
-                    do! rc.Reply(TaskState.ExportState ts)
-                    return state
-
             | GetAllTasks rc ->
-                let tasks = state |> Seq.map (fun kv -> TaskState.ExportState kv.Value) |> Seq.toArray
-                do! rc.Reply tasks
+                do! rc.Reply (state |> Seq.map (fun kv -> kv.Value) |> Seq.toArray)
                 return state
 
             | ClearAllTasks rc ->
                 do for KeyValue(_,ts) in state do
-                    ts.TaskCompletionSource.CancellationTokenSource.Cancel()
+                    ts.Info.CancellationTokenSource.Cancel()
 
                 do! rc.Reply()
 
@@ -198,7 +245,7 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
                     do! rc.Reply false
                     return state
                 | Some ts ->
-                    ts.TaskCompletionSource.CancellationTokenSource.Cancel()
+                    ts.Info.CancellationTokenSource.Cancel()
                     do! rc.Reply true
                     return state.Remove taskId
         }

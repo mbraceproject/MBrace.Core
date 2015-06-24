@@ -79,6 +79,7 @@
     <Compile Include="Runtime\RuntimeManager.fs" />
     <Compile Include="Runtime\WorkerRef.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
+    <Compile Include="Runtime\CloudTask.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\DistributionProvider.fs" />
     <Compile Include="Runtime\JobEvaluator.fs" />
@@ -98,12 +99,15 @@
     <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.Linq" />
     <Reference Include="System.Management" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Runtime.Caching" />

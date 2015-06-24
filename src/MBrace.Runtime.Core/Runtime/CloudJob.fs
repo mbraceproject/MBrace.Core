@@ -43,8 +43,8 @@ with
 [<NoEquality; NoComparison>]
 type CloudJob = 
     {
-        /// Task information
-        TaskInfo : CloudTaskInfo
+        /// Parent task entry for job
+        TaskEntry : ICloudTaskEntry
         /// Cloud Job unique identifier
         Id : string
         /// Job workflow 'return type';
@@ -69,7 +69,7 @@ with
     /// <summary>
     ///     Create a cloud job out of given cloud workflow and continuations.
     /// </summary>
-    /// <param name="taskInfo">Parent task info.</param>
+    /// <param name="taskEntry">Parent task entry.</param>
     /// <param name="token">Cancellation token for job.</param>
     /// <param name="faultPolicy">Fault policy for job.</param>
     /// <param name="scont">Success continuation.</param>
@@ -77,7 +77,7 @@ with
     /// <param name="ccont">Cancellation continuation.</param>
     /// <param name="workflow">Workflow to be executed in job.</param>
     /// <param name="target">Declared target worker reference for computation to be executed.</param>
-    static member Create (taskInfo : CloudTaskInfo, token : ICloudCancellationToken, faultPolicy : FaultPolicy, 
+    static member Create (taskEntry : ICloudTaskEntry, token : ICloudCancellationToken, faultPolicy : FaultPolicy, 
                             scont : ExecutionContext -> 'T -> unit, 
                             econt : ExecutionContext -> ExceptionDispatchInfo -> unit, 
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
@@ -89,7 +89,7 @@ with
             Cloud.StartWithContinuations(workflow, cont, ctx)
 
         {
-            TaskInfo = taskInfo
+            TaskEntry = taskEntry
             Id = jobId
             Type = typeof<'T>
             JobType = jobType
@@ -103,7 +103,7 @@ with
 /// Cloud job lease token given to workers that dequeue it
 type ICloudJobLeaseToken =
     /// Parent Cloud Task info
-    abstract TaskInfo : CloudTaskInfo
+    abstract TaskEntry : ICloudTaskEntry
     /// Cloud Job identifier
     abstract Id : string
     /// Declared target worker for job

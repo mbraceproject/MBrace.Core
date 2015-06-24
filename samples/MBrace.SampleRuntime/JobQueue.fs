@@ -23,7 +23,7 @@ with
 
 type internal PickledJob =
     {
-        TaskInfo : CloudTaskInfo
+        TaskEntry : ICloudTaskEntry
         JobId : string
         JobType : JobType
         Type : string
@@ -101,7 +101,7 @@ type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseM
 
         member x.Size = pjob.Pickle.Size
 
-        member x.TaskInfo = pjob.TaskInfo
+        member x.TaskEntry = pjob.TaskEntry
         
         member x.FaultInfo = faultInfo
         
@@ -134,7 +134,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             let pickle = Config.Serializer.PickleTyped jobs
             let mkPickle (index:int) (job : CloudJob) =
                 {
-                    TaskInfo = job.TaskInfo
+                    TaskEntry = job.TaskEntry
                     JobId = job.Id
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
@@ -149,7 +149,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
         member x.Enqueue (job: CloudJob) = async {
             let item =
                 {
-                    TaskInfo = job.TaskInfo
+                    TaskEntry = job.TaskEntry
                     JobId = job.Id
                     JobType = job.JobType
                     Type = Type.prettyPrint job.Type

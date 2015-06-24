@@ -79,7 +79,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, jobEv
                     | Some jobToken ->
                         // Successfully dequeued job, run it.
                         if jobToken.JobType = JobType.TaskRoot then
-                            do! runtime.TaskManager.DeclareStatus(jobToken.TaskInfo.Id, Dequeued)
+                            do! jobToken.TaskEntry.DeclareStatus Dequeued
 
                         let jc = Interlocked.Increment &currentJobCount
                         do! runtime.WorkerManager.IncrementJobCount workerId
@@ -90,10 +90,10 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, jobEv
                         let! _ = Async.StartChild <| async { 
                             try
                                 try
-                                    let! assemblies = runtime.AssemblyManager.DownloadAssemblies jobToken.TaskInfo.Dependencies
+                                    let! assemblies = runtime.AssemblyManager.DownloadAssemblies jobToken.TaskEntry.Info.Dependencies
                                     do! jobEvaluator.Evaluate (assemblies, jobToken)
                                 with e ->
-                                    do! runtime.TaskManager.DeclareFaultedJob(jobToken.TaskInfo.Id)
+                                    do! jobToken.TaskEntry.DeclareFaultedJob()
                                     logger.Logf LogLevel.Error "Job '%s' faulted at initialization:\n%A" jobToken.Id e
                                     return ()
                             finally

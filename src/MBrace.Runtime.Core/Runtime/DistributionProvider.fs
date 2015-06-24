@@ -30,7 +30,7 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
         new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, false)
         
     interface IDistributionProvider with
-        member __.ProcessId = currentJob.TaskInfo.Id
+        member __.ProcessId = currentJob.TaskEntry.Info.Id
         member __.JobId = currentJob.Id
 
         member __.FaultPolicy = faultPolicy
@@ -51,22 +51,22 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
             if isForcedLocalParallelism then
                 return! ThreadPool.Parallel(mkNestedCts false, Seq.map fst computations)
             else
-                return! Combinators.runParallel runtime currentJob.TaskInfo faultPolicy computations
+                return! Combinators.runParallel runtime currentJob.TaskEntry faultPolicy computations
         }
 
         member __.ScheduleChoice computations = cloud {
             if isForcedLocalParallelism then
                 return! ThreadPool.Choice(mkNestedCts false, Seq.map fst computations)
             else
-                return! Combinators.runChoice runtime currentJob.TaskInfo faultPolicy computations
+                return! Combinators.runChoice runtime currentJob.TaskEntry faultPolicy computations
         }
 
         member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : FaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             if isForcedLocalParallelism then
-                return invalidOp <| sprintf "cannot initialize cloud task when evaluating as local semantics."
+                return invalidOp <| sprintf "cannot initialize cloud task when evaluating using local semantics."
             else
-                let! tcs = Combinators.runStartAsCloudTask runtime currentJob.TaskInfo.Dependencies taskName faultPolicy cancellationToken target workflow 
-                return tcs.Task
+                let! task = Combinators.runStartAsCloudTask runtime currentJob.TaskEntry.Info.Dependencies taskName faultPolicy cancellationToken target workflow 
+                return task :> ICloudTask<'T>
         }
 
         member __.GetAvailableWorkers () = async {

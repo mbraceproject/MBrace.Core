@@ -11,7 +11,7 @@ open MBrace.Runtime.Utils
 type MBraceClient (runtime : IRuntimeManager) =
 
     let imem = LocalRuntime.Create(resources = runtime.ResourceRegistry)
-    let processManager = new CloudProcessManager(runtime)
+    let taskManagerClient = new CloudTaskManagerClient(runtime)
     let getWorkers () = async {
         let! workers = runtime.WorkerManager.GetAvailableWorkers()
         return workers |> Array.map (fun w -> WorkerRef.Create(runtime, w.Id))
@@ -36,14 +36,13 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
     member c.CreateProcessAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                                ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<CloudProcess<'T>> = async {
+                                ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<CloudTask<'T>> = async {
 
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
-        let! tcs = Combinators.runStartAsCloudTask runtime assemblyIds taskName faultPolicy cancellationToken target workflow
-        return processManager.GetProcess tcs
+        return! Combinators.runStartAsCloudTask runtime assemblyIds taskName faultPolicy cancellationToken target workflow
     }
 
     /// <summary>
@@ -54,7 +53,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : CloudProcess<'T> =
+    member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : CloudTask<'T> =
         __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
 
@@ -83,29 +82,29 @@ type MBraceClient (runtime : IRuntimeManager) =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
     /// Gets all processes of provided cluster
-    member __.GetAllProcesses () = processManager.GetAllProcesses() |> Async.RunSync
+    member __.GetAllProcesses () = taskManagerClient.GetAllTasks() |> Async.RunSync
 
     /// <summary>
     ///     Gets process object by process id.
     /// </summary>
     /// <param name="id">Task id.</param>
-    member __.GetProcessById(id:string) = processManager.GetProcessById(id) |> Async.RunSync
+    member __.TryGetProcessById(taskId:string) = taskManagerClient.TryGetTaskById(taskId) |> Async.RunSync
 
     /// <summary>
     ///     Clear cluster data for provided process.
     /// </summary>
-    /// <param name="process">Process to be cleared.</param>
-    member __.ClearProcess(p:CloudProcess) = processManager.ClearProcess(p) |> Async.RunSync
+    /// <param name="task">Process to be cleared.</param>
+    member __.ClearProcess(task:CloudTask<'T>) = taskManagerClient.ClearTask(task) |> Async.RunSync
 
     /// <summary>
     ///     Clear all process data from cluster.
     /// </summary>
-    member __.ClearAllProcesses() = processManager.ClearAllProcesses() |> Async.RunSync
+    member __.ClearAllProcesses() = taskManagerClient.ClearAllTasks() |> Async.RunSync
 
     /// Gets a printed report of all currently executing processes
-    member __.GetProcessInfo() = processManager.GetProcessInfo()
+    member __.GetProcessInfo() = taskManagerClient.GetProcessInfo()
     /// Prints a report of all currently executing processes to stdout
-    member __.ShowProcessInfo() = processManager.ShowProcessInfo()
+    member __.ShowProcessInfo() = taskManagerClient.ShowProcessInfo()
 
     /// <summary>
     ///     Run workflow as local, in-memory computation

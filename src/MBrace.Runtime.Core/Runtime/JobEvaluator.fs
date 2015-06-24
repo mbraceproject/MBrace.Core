@@ -110,16 +110,16 @@ module JobEvaluator =
         | Choice2Of2 e ->
             logger.Logf LogLevel.Error "Failed to deserialize job '%s':\n%O" joblt.Id e
             do! joblt.DeclareFaulted(ExceptionDispatchInfo.Capture e)
-            do! manager.TaskManager.DeclareStatus(joblt.TaskInfo.Id, Faulted)
+            do! joblt.TaskEntry.DeclareStatus Faulted
 
         | Choice1Of2 job ->
             if job.JobType = JobType.TaskRoot then
-                match job.TaskInfo.Name with
-                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskInfo.Id job.TaskInfo.Type
-                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskInfo.Type
-                do! manager.TaskManager.DeclareStatus(joblt.TaskInfo.Id, Running)
+                match job.TaskEntry.Info.Name with
+                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskEntry.Info.Id job.TaskEntry.Info.Type
+                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskEntry.Info.Type
+                do! job.TaskEntry.DeclareStatus Running
 
-            do! manager.TaskManager.IncrementJobCount(joblt.TaskInfo.Id)
+            do! job.TaskEntry.IncrementJobCount()
             let sw = Stopwatch.StartNew()
             let! result = runJobAsync manager currentWorker joblt.FaultInfo job |> Async.Catch
             sw.Stop()
@@ -127,14 +127,14 @@ module JobEvaluator =
             match result with
             | Choice1Of2 () -> 
                 logger.Logf LogLevel.Info "Completed job '%s' after %O" job.Id sw.Elapsed
-                do! manager.TaskManager.DeclareCompletedJob(joblt.TaskInfo.Id)
+                do! job.TaskEntry.DeclareCompletedJob()
                 do! joblt.DeclareCompleted ()
 
             | Choice2Of2 e ->
                 logger.Logf LogLevel.Error "Faulted job '%s' after %O\n%O" job.Id sw.Elapsed e
                 do! joblt.DeclareFaulted (ExceptionDispatchInfo.Capture e)
                 // declare job faulted to task manager
-                do! manager.TaskManager.DeclareFaultedJob(joblt.TaskInfo.Id)
+                do! joblt.TaskEntry.DeclareFaultedJob ()
     }
        
 
@@ -168,7 +168,7 @@ type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeManager * IWorkerId>, 
                 return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken 
             }
 
-            return! pool.EvaluateAsync(jobtoken.TaskInfo.Dependencies, eval ())
+            return! pool.EvaluateAsync(jobtoken.TaskEntry.Info.Dependencies, eval ())
         }
 
     interface IDisposable with
