@@ -13,7 +13,7 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
     let logger = runtime.GetCloudLogger (currentWorker.WorkerId, currentJob)
 
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
-        let! dcts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
+        let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
         return dcts :> ICloudCancellationTokenSource
     }
 

@@ -23,7 +23,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     member c.CreateCancellationTokenSource (?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
         async {
             let parents = parents |> Option.map Seq.toArray
-            let! dcts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, ?parents = parents, elevate = true)
+            let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, ?parents = parents, elevate = true)
             return dcts :> ICloudCancellationTokenSource
         } |> Async.RunSync
 

@@ -86,7 +86,7 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskEntry)
 
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken
-            let! childCts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
+            let! childCts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
             let! resultAggregator = runtime.PrimitivesFactory.CreateResultAggregator<'T>(capacity = computations.Length)
             let! cancellationLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
 
@@ -185,7 +185,7 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskEntry)
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in continuation closures
             let currentCts = ctx.CancellationToken
-            let! childCts = DistributedCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
+            let! childCts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
             let! completionLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
             let! cancellationLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
 
@@ -271,8 +271,8 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (dependencies : AssemblyId[]
 
         let! cts = async {
             match token with
-            | Some ct -> return! DistributedCancellationToken.Create(runtime.CancellationEntryFactory, parents = [|ct|], elevate = true)
-            | None -> return! DistributedCancellationToken.Create(runtime.CancellationEntryFactory, elevate = true)
+            | Some ct -> return! CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents = [|ct|], elevate = true)
+            | None -> return! CloudCancellationToken.Create(runtime.CancellationEntryFactory, elevate = true)
         }
 
         let taskInfo =
