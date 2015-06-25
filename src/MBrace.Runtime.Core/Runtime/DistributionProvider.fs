@@ -6,11 +6,9 @@ open MBrace.Core.Internals.InMemoryRuntime
 
 #nowarn "444"
 
-/// Scheduling implementation provider
+/// Implements the IDistribution provider implementation to be passed to MBrace workflow execution
 [<Sealed; AutoSerializable(false)>]
-type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, isForcedLocalParallelism : bool) =
-
-    let logger = runtime.GetCloudLogger (currentWorker.WorkerId, currentJob)
+type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, logger : ICloudLogger, isForcedLocalParallelism : bool) =
 
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
         let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
@@ -27,7 +25,8 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
     /// <param name="job">Job to be executed.</param>
     static member Create(currentWorker : IWorkerId, runtime : IRuntimeManager, job : CloudJob) =
         let currentWorker = WorkerRef.Create(runtime, currentWorker)
-        new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, false)
+        let logger = runtime.GetCloudLogger (currentWorker.WorkerId, job)
+        new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, logger, false)
         
     interface IDistributionProvider with
         member __.ProcessId = currentJob.TaskEntry.Id
@@ -35,27 +34,29 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy (newPolicy : FaultPolicy) =
-            new DistributionProvider(currentWorker, runtime, currentJob, newPolicy, isForcedLocalParallelism) :> IDistributionProvider
+            new DistributionProvider(currentWorker, runtime, currentJob, newPolicy, logger, isForcedLocalParallelism) :> IDistributionProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = mkCts false parents
 
         member __.IsTargetedWorkerSupported = true
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting (setting : bool) = 
-            new DistributionProvider(currentWorker, runtime, currentJob, faultPolicy, setting) :> IDistributionProvider
+            new DistributionProvider(currentWorker, runtime, currentJob, faultPolicy, logger, setting) :> IDistributionProvider
 
-        member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts false, computations)
-        member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts false, computations)
+        member __.ScheduleLocalParallel (computations : seq<Local<'T>>) = ThreadPool.Parallel(mkNestedCts false, computations)
+        member __.ScheduleLocalChoice (computations : seq<Local<'T option>>) = ThreadPool.Choice(mkNestedCts false, computations)
 
-        member __.ScheduleParallel computations = cloud {
+        member __.ScheduleParallel (computations : seq<#Cloud<'T> * IWorkerRef option>) = cloud {
             if isForcedLocalParallelism then
+                // force threadpool parallelism semantics
                 return! ThreadPool.Parallel(mkNestedCts false, Seq.map fst computations)
             else
                 return! Combinators.runParallel runtime currentJob.TaskEntry faultPolicy computations
         }
 
-        member __.ScheduleChoice computations = cloud {
+        member __.ScheduleChoice (computations : seq<#Cloud<'T option> * IWorkerRef option>) = cloud {
             if isForcedLocalParallelism then
+                // force threadpool parallelism semantics
                 return! ThreadPool.Choice(mkNestedCts false, Seq.map fst computations)
             else
                 return! Combinators.runChoice runtime currentJob.TaskEntry faultPolicy computations
