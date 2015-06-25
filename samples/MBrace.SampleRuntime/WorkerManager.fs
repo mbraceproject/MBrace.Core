@@ -12,9 +12,9 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PerformanceMonitor
 
 [<AutoSerializable(true)>]
-type WorkerId private (processId : ProcessId) =
+type WorkerId private (processId : ProcessId, address : string) =
     member __.ProcessId = processId
-    member __.Id = sprintf "mbrace://%s/Pid:%d" processId.MachineId.Hostname processId.ProcessId
+    member __.Id = sprintf "mbrace://%s" address
     interface IWorkerId with
         member x.CompareTo(obj: obj): int =
             match obj with
@@ -31,7 +31,7 @@ type WorkerId private (processId : ProcessId) =
 
     override x.GetHashCode() = hash processId
 
-    static member LocalInstance = new WorkerId(ProcessId.LocalInstance)
+    static member LocalInstance = new WorkerId(ProcessId.LocalInstance, Config.LocalAddress)
          
 
 type private HeartbeatMonitorMsg = 

@@ -7,18 +7,19 @@ open System.Runtime.Serialization
 open MBrace.Core
 open MBrace.Core.Internals
 
+open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
 /// A Serializable object used to identify a specific worker in a cluster
 /// Can be used to point computations for execution at specific machines
 [<Sealed; DataContract>]
-type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId : IWorkerId) =
+type WorkerRef private (runtimeId : IRuntimeId, workerManager : IWorkerManager, workerId : IWorkerId) =
     
     [<DataMember(Name = "RuntimeId")>]
     let runtimeId = runtimeId
     [<DataMember(Name = "WorkerManager")>]
-    let wmon = wmon
+    let workerManager = workerManager
     [<DataMember(Name = "WorkerId")>]
     let workerId = workerId
 
@@ -30,7 +31,7 @@ type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId 
         let ok, v = containers.TryGetValue k
         if ok then cvalue <- v
         else
-            let getId = async { return! wmon.TryGetWorkerState workerId }
+            let getId = async { return! workerManager.TryGetWorkerState workerId }
             let ca = containers.GetOrAdd(k, fun _ -> CacheAtom.Create(getId,  intervalMilliseconds = 100, keepLastResultOnError = true))
             cvalue <- ca
 
@@ -128,6 +129,7 @@ type WorkerRef private (runtimeId : IRuntimeId, wmon : IWorkerManager, workerId 
         new WorkerRef(runtime.Id, runtime.WorkerManager, workerId)
 
 
+/// WorkerRef information reporting
 and internal WorkerReporter private () =
     
     static let template : Field<WorkerRef> list = 
@@ -159,7 +161,13 @@ and internal WorkerReporter private () =
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
         ]
     
-    static member Report(workers : seq<WorkerRef>, title : string, borders : bool) = 
+    /// <summary>
+    ///     Generates a string displaying information on provided workers.
+    /// </summary>
+    /// <param name="workers">Workers to be displayed.</param>
+    /// <param name="title">Title for display.</param>
+    /// <param name="borders">Use borders for displayed information.</param>
+    static member Report(workers : seq<WorkerRef>, title : string, borders : bool) : string = 
         let ws = workers
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList

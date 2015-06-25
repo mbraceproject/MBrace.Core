@@ -77,8 +77,8 @@
     <Compile Include="Runtime\CloudJob.fs" />
     <Compile Include="Runtime\AssemblyManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
-    <Compile Include="Runtime\WorkerRef.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
+    <Compile Include="Runtime\WorkerRef.fs" />
     <Compile Include="Runtime\CloudTask.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\DistributionProvider.fs" />

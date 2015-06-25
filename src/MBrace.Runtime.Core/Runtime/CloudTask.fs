@@ -17,45 +17,9 @@ open MBrace.Store.Internals
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
-type private LocalTaskManager () =
-    let localTasks = new ConcurrentDictionary<string, Task> ()
-    let globalCts = new CancellationTokenSource()
-    
-    /// <summary>
-    ///     Gets a local System.Threading.Task instance
-    ///     for provided task id
-    /// </summary>
-    /// <param name="entry">Task entry.</param>
-    member __.GetLocalTask<'T>(entry : ICloudTaskEntry) : Task<'T> =
-        let ok, t = localTasks.TryGetValue entry.Id
-        if ok then t :?> Task<'T> else
-
-        let createToken _ = 
-            // TODO : use correct Async.StartAsTask implementation
-            let tcs = new TaskCompletionSource<'T>()
-
-            let awaiter = async {
-                let! result = entry.AwaitResult()
-                match result with
-                | Completed o -> tcs.SetResult(unbox o)
-                | Exception edi -> tcs.SetException(edi.Reify(true))
-                | Cancelled _ -> tcs.SetCanceled()
-            }
-
-            Async.Start(awaiter |> Async.Catch |> Async.Ignore, globalCts.Token)
-            tcs.Task :> Task
-
-        localTasks.GetOrAdd(entry.Id, createToken) :?> Task<'T>
-
-
-    interface IDisposable with
-        member __.Dispose() = globalCts.Cancel()
-
+/// Represents a cloud computation that is being executed in the cluster.
 [<AbstractClass>]
 type CloudTask internal () =
-
-    /// System.Threading.Task proxy to cloud task
-    abstract TaskBoxed : Task
 
     /// <summary>
     ///     Asynchronously awaits boxed result of given cloud process.
@@ -108,23 +72,17 @@ type CloudTask internal () =
     /// Prints a report on the current process status to stdout
     member p.ShowInfo () : unit = Console.WriteLine(p.GetInfo())
 
-/// Distributed ICloudCancellationTokenSource implementation
+/// Represents a cloud computation that is being executed in the cluster.
 and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (entry : ICloudTaskEntry) =
     inherit CloudTask()
-
-    static let manager = new LocalTaskManager ()
 
     [<DataMember(Name = "Entry")>]
     let entry = entry
 
     [<IgnoreDataMember>]
-    let mutable localTask = Unchecked.defaultof<Task<'T>>
-
-    [<IgnoreDataMember>]
     let mutable cell = Unchecked.defaultof<CacheAtom<CloudTaskState>>
 
     let init () =
-        localTask <- manager.GetLocalTask entry
         cell <- CacheAtom.Create(async { return! entry.GetState() }, intervalMilliseconds = 500)
 
     do init ()
@@ -132,9 +90,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (e
     /// Triggers elevation in event of serialization
     [<OnSerializing>]
     member private c.OnDeserializing (_ : StreamingContext) = init ()
-
-    /// System.Threading.Task proxy to cloud task
-    member __.LocalTask = localTask
 
     /// <summary>
     ///     Asynchronously awaits task result
@@ -156,8 +111,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (e
 
     /// Synchronously awaits task result 
     member __.Result : 'T = __.AwaitResult() |> Async.RunSync
-
-    override __.TaskBoxed = localTask :> Task
 
     override __.AwaitResultBoxed (?timeoutMilliseconds:int) = async {
         let! r = __.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
@@ -225,8 +178,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (e
             match cell.Value.Status with
             | CloudTaskStatus.Faulted | CloudTaskStatus.UserException -> true
             | _ -> false
-        
-        member x.LocalTask: Task<'T> = localTask
         
         member x.Result: 'T = x.Result
         

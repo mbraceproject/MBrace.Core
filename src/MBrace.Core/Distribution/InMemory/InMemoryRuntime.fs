@@ -66,7 +66,6 @@ type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
         member __.IsFaulted = task.IsFaulted
         member __.IsCanceled = task.IsCanceled
         member __.CancellationToken = ct
-        member __.LocalTask = task
         member __.Result = task.GetResult()
 
 [<Sealed; AutoSerializable(false)>]

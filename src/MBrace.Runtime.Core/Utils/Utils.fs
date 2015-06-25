@@ -71,6 +71,18 @@ module Utils =
             | x -> x
         | x -> x
 
+    /// lexicographic comparison without tuple allocation
+    let inline compare4 (t1 : 'T) (s1 : 'S) (u1 : 'U) (v1 : 'V) (t2 : 'T) (s2 : 'S) (u2 : 'U) (v2 : 'V) =
+        match compare t1 t2 with
+        | 0 ->
+            match compare s1 s2 with
+            | 0 -> 
+                match compare u1 u2 with
+                | 0 -> compare v1 v2
+                | x -> x
+            | x -> x
+        | x -> x
+
     
     /// taken from mscorlib's Tuple.GetHashCode() implementation
     let inline private combineHash (h1 : int) (h2 : int) =
@@ -83,8 +95,10 @@ module Utils =
     /// triple hashcode generation without tuple allocation
     let inline hash3 (t : 'T) (s : 'S) (u : 'U) =
         combineHash (combineHash (hash t) (hash s)) (hash u)
-        
 
+    /// quadruple hashcode generation without tuple allocation
+    let inline hash4 (t : 'T) (s : 'S) (u : 'U) (v : 'V) =
+        combineHash (combineHash (combineHash (hash t) (hash s)) (hash u)) (hash v)
 
     /// reflection-based equality check
     /// checks if args are of identical underlying type before checking equality
@@ -293,39 +307,69 @@ module Utils =
 
     /// Unique process identifier object
     [<Sealed; DataContract>]
-    type ProcessId private (machineId : MachineId, processUUID : string, processId : int) =
-        static let localProcessId = mkUUID()
-        static let mkLocal () =
-            let mid = MachineId.LocalInstance
-            let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-            new ProcessId(mid, localProcessId, pid)
-        
-        static let singleton = lazy(mkLocal())
+    type ProcessId private (machineId : MachineId, processId : int, processName : string, startTime : DateTime) =
+        static let singleton = lazy(ProcessId.FromProcess <| Process.GetCurrentProcess())
 
         [<DataMember(Name = "MachineId")>]
         let machineId = machineId
-        [<DataMember(Name = "ProcessUUID")>]
-        let processUUID = processUUID
-        [<DataMember(Name = "ProcessId")>]
+        [<DataMember(Name = "Id")>]
         let processId = processId
+        [<DataMember(Name = "Name")>]
+        let processName = processName
+        [<DataMember(Name = "StartTime")>]
+        let startTime = startTime
 
         /// Machine identifier
         member __.MachineId = machineId
-        member private __.ProcessUUID = processUUID
-        /// ProcessId
-        member __.ProcessId = processId
+        /// Process Identifier
+        member __.Id = processId
+        /// Process name
+        member __.Name = processName
+        /// Process start time
+        member __.StartTime = startTime
+
+        /// Gets a System.Diagnostics.Process instance that corresponds to the
+        /// ProcessId provided that it is still running.
+        member __.TryGetLocalProcess() =
+            if machineId = MachineId.LocalInstance then
+                try 
+                    let proc = Process.GetProcessById(processId)
+                    if processName = proc.ProcessName && startTime = proc.StartTime then
+                        Some proc
+                    else
+                        None
+                with :? ArgumentException -> None
+            else
+                None
 
         override __.Equals(other:obj) =
             match other with
-            | :? ProcessId as pid -> machineId = pid.MachineId && processId = pid.ProcessId && processUUID = pid.ProcessUUID
+            | :? ProcessId as pid -> machineId = pid.MachineId && processId = pid.Id && processName = pid.Name && startTime = pid.StartTime
             | _ -> false
 
-        override __.GetHashCode() = hash3 machineId processId processUUID
+        override __.GetHashCode() = hash4 machineId processId processName startTime
 
         interface IComparable with
             member __.CompareTo(other:obj) =
                 match other with
-                | :? ProcessId as pid -> compare3 machineId processId processUUID pid.MachineId pid.ProcessId pid.ProcessUUID
+                | :? ProcessId as pid -> compare4 machineId processId processName startTime pid.MachineId pid.Id pid.Name pid.StartTime
                 | _ -> invalidArg "other" "invalid comparand."
 
-        static member LocalInstance = singleton.Value
+        /// <summary>
+        ///     Gets a process identifier from given System.Diagnostics.process instance
+        /// </summary>
+        /// <param name="proc">Process instance.</param>
+        static member FromProcess(proc : System.Diagnostics.Process) : ProcessId =
+            let mid = MachineId.LocalInstance
+            new ProcessId(mid, proc.Id, proc.ProcessName, proc.StartTime)
+
+        /// Gets the process identifier for the current process
+        static member LocalInstance : ProcessId = singleton.Value
+
+        /// <summary>
+        ///     Gets a process identifier by local process id
+        /// </summary>
+        /// <param name="id">Process identifier.</param>
+        static member TryGetProcessById(id : int) : ProcessId option =
+            try id |> Process.GetProcessById |> ProcessId.FromProcess |> Some
+            with :? ArgumentException -> None

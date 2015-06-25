@@ -17,9 +17,9 @@ type private LocalCancellationTokenManager () =
     let globalCts = new CancellationTokenSource()
     
     /// <summary>
-    ///     Gets a cancellation token that 
+    ///     Gets a System.Threading.Cancellation token linked to the cloud cancellation token entry.
     /// </summary>
-    /// <param name="token">Cancellatoin token entry to be proxied.</param>
+    /// <param name="token">Cancellation token entry to be proxied.</param>
     member __.GetLocalCancellationToken(token : ICancellationEntry) : Async<CancellationToken> = async {
         let ok, t = localTokens.TryGetValue token.UUID
         if ok then return t else

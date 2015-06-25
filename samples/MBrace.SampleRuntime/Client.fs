@@ -18,7 +18,7 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
 
 /// MBrace Sample runtime client instance.
-type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, logger : AttacheableLogger) =
+type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, _logger : AttacheableLogger) =
     inherit MBraceClient(manager)
     static let processName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name
     static do Config.Init()
@@ -33,7 +33,11 @@ type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, log
         for i = 1 to count do
             ignore <| Process.Start psi
 
-    member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
+    /// <summary>
+    ///     Attaches user-supplied logger to client instance.
+    /// </summary>
+    /// <param name="logger">Logger instance to be attached.</param>
+    member __.AttachLogger(logger : ISystemLogger) : IDisposable = _logger.AttachLogger logger
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () =
@@ -45,7 +49,10 @@ type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, log
                         p.Kill()
             with _ -> ()
 
-    /// Appens count of new worker processes to the runtime.
+    /// <summary>
+    ///     Spawns provided count of new local worker processes and attaches to the runtime.
+    /// </summary>
+    /// <param name="count">Number of workers to be spawned.</param>
     member __.AppendWorkers (count : int) =
         let _ = initWorkers state count
         ()
@@ -53,9 +60,10 @@ type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, log
     /// <summary>
     ///     Initialize a new local rutime instance with supplied worker count.
     /// </summary>
-    /// <param name="workerCount"></param>
-    /// <param name="fileStore"></param>
-    static member InitLocal(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, ?resource : ResourceRegistry) =
+    /// <param name="workerCount">Number of workers to spawn for cluster.</param>
+    /// <param name="fileStore">File store configuration to be used for cluster.</param>
+    /// <param name="resources">Resource registry to be appended to MBrace code.</param>
+    static member InitLocal(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, ?resources : ResourceRegistry) =
         if workerCount < 1 then invalidArg "workerCount" "must be positive."
         let storeConfig = 
             match storeConfig with 
@@ -65,7 +73,7 @@ type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, log
                 CloudFileStoreConfiguration.Create fs
 
         let logger = new AttacheableLogger()
-        let state = RuntimeState.InitLocal(logger, storeConfig, ?miscResources = resource)
+        let state = RuntimeState.InitLocal(logger, storeConfig, ?miscResources = resources)
         let manager = new RuntimeManager(state, logger)
         let _ = initWorkers state workerCount
         new MBraceRuntime(manager, state, logger)

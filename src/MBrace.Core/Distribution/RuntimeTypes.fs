@@ -40,8 +40,6 @@ type ICloudTask<'T> =
     abstract Result : 'T
     /// Gets the cancellation corresponding to the Task instance
     abstract CancellationToken : ICloudCancellationToken
-    /// Gets a local System.Threading.Task instance that interfaces with the Cloud Task.
-    abstract LocalTask : Task<'T>
 
 namespace MBrace.Core.Internals
 
