@@ -1,4 +1,4 @@
-﻿namespace MBrace.Thespian
+﻿namespace MBrace.Thespian.Runtime
 
 open MBrace.Core
 open MBrace.Core.Internals

@@ -1,4 +1,4 @@
-﻿module internal MBrace.Thespian.Worker
+﻿module MBrace.Thespian.Runtime.Worker
 
 open System
 

@@ -16,16 +16,20 @@ open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
+open MBrace.Thespian.Runtime
 
-/// MBrace Sample runtime client instance.
-type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, _logger : AttacheableLogger) =
+type ConsoleLogger = MBrace.Runtime.ConsoleLogger
+
+/// MBrace.Thespian client object used to manage cluster and submit jobs for computation.
+[<AutoSerializable(false)>]
+type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState, _logger : AttacheableLogger) =
     inherit MBraceClient(manager)
     static let processName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name
     static do Config.Init()
     static let mutable exe = None
     static let initWorkers (target : RuntimeState) (count : int) =
         if count < 1 then invalidArg "workerCount" "must be positive."
-        let exe = MBraceRuntime.WorkerExecutable    
+        let exe = MBraceThespian.WorkerExecutable    
         let args = target.ToBase64()
         let psi = new ProcessStartInfo(exe, args)
         psi.WorkingDirectory <- Path.GetDirectoryName exe
@@ -76,7 +80,7 @@ type MBraceRuntime private (manager : IRuntimeManager, state : RuntimeState, _lo
         let state = RuntimeState.InitLocal(logger, storeConfig, ?miscResources = resources)
         let manager = new RuntimeManager(state, logger)
         let _ = initWorkers state workerCount
-        new MBraceRuntime(manager, state, logger)
+        new MBraceThespian(manager, state, logger)
 
     /// Gets or sets the worker executable location.
     static member WorkerExecutable

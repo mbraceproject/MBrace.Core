@@ -1,4 +1,4 @@
-﻿namespace MBrace.Thespian
+﻿namespace MBrace.Thespian.Runtime
 
 open System
 open System.Threading
@@ -122,7 +122,7 @@ type private QueueState =
 with
     static member Empty = { Queue = JobQueueTopic.Empty ; LastCleanup = DateTime.Now }
 
-and private JobQueueTopic = QueueTopic<IWorkerId, PickledJob * JobFaultInfo>
+and private JobQueueTopic = TopicQueue<IWorkerId, PickledJob * JobFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
@@ -176,11 +176,11 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
         let behaviour (self : Actor<JobQueueMsg>) (state : QueueState) (msg : JobQueueMsg) = async {
             match msg with
             | Enqueue (pJob, faultState) -> 
-                let queue' = state.Queue.Enqueue(pJob.Target, (pJob, faultState))
+                let queue' = state.Queue.Enqueue((pJob, faultState), ?topic = pJob.Target)
                 return { state with Queue = queue' }
 
             | BatchEnqueue(pJobs) ->
-                let queue' = (state.Queue, pJobs) ||> Array.fold (fun q j -> q.Enqueue(j.Target,(j, NoFault)))
+                let queue' = (state.Queue, pJobs) ||> Array.fold (fun q j -> q.Enqueue((j, NoFault), ?topic = j.Target))
                 return { state with Queue = queue' }
 
             | TryDequeue(worker, rc) ->
@@ -193,14 +193,14 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                             let j = { j with Target = None }
                             let faultCount = faultState.FaultCount + 1
                             let faultState = IsTargetedJobOfDeadWorker(faultCount, worker)
-                            s.Enqueue(None, (j, faultState))
+                            s.Enqueue((j, faultState), ?topic = None)
 
                         let queue2 = removed |> Seq.fold appendRemoved state'
                         { Queue = queue2 ; LastCleanup = DateTime.Now }
                     else
                         state
 
-                match state.Queue.Dequeue worker with
+                match state.Queue.TryDequeue worker with
                 | None ->
                     do! rc.Reply None
                     return state

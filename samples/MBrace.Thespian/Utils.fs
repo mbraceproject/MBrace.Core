@@ -1,60 +1,87 @@
-﻿namespace MBrace.Thespian
+﻿namespace MBrace.Thespian.Runtime
 
+
+// Standard immutable queue implementation
 type ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
-    static member Empty = new ImmutableQueue<'T>([],[])
-    member __.Count = front.Length + back.Length
-    member __.IsEmpty = List.isEmpty front && List.isEmpty back
-    member __.Enqueue t = new ImmutableQueue<'T>(front, t :: back)
-    member __.EnqueueMultiple ts = new ImmutableQueue<'T>(front, List.rev ts @ back)
-    member __.TryDequeue () =
+    /// Gets an empty queue
+    static member Empty : ImmutableQueue<'T> = new ImmutableQueue<'T>([],[])
+    /// Gets the current element count of the queue
+    member __.Count : int = front.Length + back.Length
+    /// Returns true if queue is empty
+    member __.IsEmpty : bool = List.isEmpty front && List.isEmpty back
+    /// Creates a new queue with element appended to the original
+    member __.Enqueue (t : 'T) : ImmutableQueue<'T> = new ImmutableQueue<'T>(front, t :: back)
+    /// Creates a new queue with multiple elements appended
+    member __.EnqueueMultiple (ts : 'T list) : ImmutableQueue<'T> = new ImmutableQueue<'T>(front, List.rev ts @ back) 
+    /// Attempt to dequeue, returning None if empty.
+    member __.TryDequeue () : ('T * ImmutableQueue<'T>) option =
         match front with
         | hd :: tl -> Some(hd, new ImmutableQueue<'T>(tl, back))
         | [] -> 
             match List.rev back with
             | [] -> None
             | hd :: tl -> Some(hd, new ImmutableQueue<'T>(tl, []))
+    
+    /// Returns an enumeration of the queue elements
+    member __.ToSeq() : seq<'T> = seq { yield! front ; yield! List.rev back }
 
-    member __.ToSeq() = seq { yield! front ; yield! List.rev back }
 
-
-
-type QueueTopic<'Topic, 'Msg when 'Topic : comparison> = 
+/// Immutable queue implementation with messages indexable by topic
+type TopicQueue<'Topic, 'T when 'Topic : comparison> = 
     {
-        GlobalQueue : ImmutableQueue<'Msg>
-        Topics : Map<'Topic, ImmutableQueue<'Msg>>
+        GlobalQueue : ImmutableQueue<'T>
+        TopicQueues : Map<'Topic, ImmutableQueue<'T>>
     }
 with
-    static member Empty : QueueTopic<'Topic, 'Msg> = { GlobalQueue = ImmutableQueue.Empty ; Topics = Map.empty }
+    /// Creates an empty queue
+    static member Empty : TopicQueue<'Topic, 'T> = { GlobalQueue = ImmutableQueue.Empty ; TopicQueues = Map.empty }
 
-    member state.Enqueue(topic : 'Topic option, msg : 'Msg) =
+    /// <summary>
+    ///     Enqueue a new item to queue, optionally with a specified topic.
+    /// </summary>
+    /// <param name="t">Item to be enqueued</param>
+    /// <param name="topic">Optional topic identifier. Defaults to no topic.</param>
+    member state.Enqueue(t : 'T, ?topic : 'Topic) : TopicQueue<'Topic, 'T> =
         match topic with
-        | None -> { state with GlobalQueue = state.GlobalQueue.Enqueue msg }
-        | Some t -> 
-            match state.Topics.TryFind t with
+        | None -> { state with GlobalQueue = state.GlobalQueue.Enqueue t }
+        | Some tp -> 
+            match state.TopicQueues.TryFind tp with
             | None ->
-                let queue = ImmutableQueue.Empty.Enqueue msg
-                { state with Topics = state.Topics.Add(t, queue) }
+                let queue = ImmutableQueue<'T>.Empty.Enqueue t
+                { state with TopicQueues = state.TopicQueues.Add(tp, queue) }
             | Some qr ->
-                let qr' = qr.Enqueue msg
-                { state with Topics = state.Topics.Add(t, qr') }
+                let qr' = qr.Enqueue t
+                { state with TopicQueues = state.TopicQueues.Add(tp, qr') }
 
-    member state.Dequeue(topic : 'Topic) =
+    /// <summary>
+    ///     Dequeue a message from queue, optionally declaring a topic.
+    /// </summary>
+    /// <param name="topic">Optional topic to be dequeued.</param>
+    member state.TryDequeue(?topic : 'Topic) : ('T * TopicQueue<'Topic, 'T>) option =
         let inline dequeueGlobal() =
             match state.GlobalQueue.TryDequeue() with
             | None -> None
             | Some(msg, gq') -> Some (msg, { state with GlobalQueue = gq' })
 
-        match state.Topics.TryFind topic with
+        match topic with
         | None -> dequeueGlobal()
-        | Some queue ->
-            match queue.TryDequeue() with
+        | Some tp ->
+            match state.TopicQueues.TryFind tp with
             | None -> dequeueGlobal()
-            | Some(msg, gq') -> Some(msg, { state with Topics = state.Topics.Add(topic, gq')})
+            | Some queue ->
+                match queue.TryDequeue() with
+                | None -> dequeueGlobal()
+                | Some(msg, gq') -> Some(msg, { state with TopicQueues = state.TopicQueues.Add(tp, gq')})
 
+    /// <summary>
+    ///     Perform cleanup of the queue, by moving all elements from 
+    ///     cleaned up topics to the global queue.
+    /// </summary>
+    /// <param name="cleanup">Topic cleanup decision predicate.</param>
     member state.Cleanup(cleanup : 'Topic -> bool) =
-        let pruned = new ResizeArray<'Msg> ()
+        let pruned = new ResizeArray<'T> ()
         let topics =
-            state.Topics
+            state.TopicQueues
             |> Map.filter(fun t q -> 
                             if q.IsEmpty then false
                             elif cleanup t then
@@ -63,4 +90,4 @@ with
                             else
                                 true)
 
-        pruned.ToArray(), { state with Topics = topics }
+        pruned.ToArray(), { state with TopicQueues = topics }

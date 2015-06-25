@@ -13,9 +13,9 @@ open MBrace.Workflows
 open MBrace.Thespian
 open MBrace.Flow
 
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+MBraceThespianClientWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
-let runtime = MBraceRuntime.InitLocal(4)
+let runtime = MBraceThespianClientInitLocal(4)
 
 let source = [| 1; 3; 1; 4; 2; 5; 2; 42; 42; 7; 8; 10; 8;|]
 

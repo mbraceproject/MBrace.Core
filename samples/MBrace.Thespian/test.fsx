@@ -13,10 +13,10 @@ open MBrace.Workflows
 open MBrace.Thespian
 open MBrace.Flow
 
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
-let runtime = MBraceRuntime.InitLocal 4
-runtime.AttachLogger(new MBrace.Runtime.ConsoleSystemLogger())
+let runtime = MBraceThespian.InitLocal 4
+runtime.AttachLogger(new ConsoleLogger())
 
 let w = runtime.Workers
 

@@ -18,8 +18,8 @@ namespace MBrace.Flow.CSharp.Samples
 
             var path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             var mbraced = Path.Combine(path, @"./MBrace.Thespian.exe");
-            MBraceRuntime.WorkerExecutable = mbraced;
-            var runtime = MBraceRuntime.InitLocal(4, null, null);
+            MBraceThespian.WorkerExecutable = mbraced;
+            var runtime = MBraceThespian.InitLocal(4, null, null);
 
             
             WordCount.FilesPath = @"path to your files";

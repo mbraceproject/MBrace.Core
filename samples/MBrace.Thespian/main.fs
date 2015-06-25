@@ -1,4 +1,4 @@
-﻿module internal MBrace.Thespian.Main
+﻿module internal MBrace.Thespian.Runtime.Main
 
 open System
 
@@ -17,7 +17,7 @@ let main (args : string []) =
         let pid = System.Diagnostics.Process.GetCurrentProcess().Id
         Console.Title <- sprintf "MBrace.Thespian Worker [pid:%d]" pid 
 
-        let logger = new ConsoleSystemLogger()
+        let logger = new ConsoleLogger()
         logger.Logf LogLevel.Info "Initializing MBrace.Thespian worker instance."
         logger.Logf LogLevel.Info "Hostname: %s" hostname
         logger.Logf LogLevel.Info "Process Id: %d" pid

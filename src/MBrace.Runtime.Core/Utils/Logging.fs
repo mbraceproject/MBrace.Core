@@ -44,7 +44,7 @@ module private LoggerImpl =
         
 
 /// A logger that writes to the system console
-type ConsoleSystemLogger (?showDate : bool) =
+type ConsoleLogger (?showDate : bool) =
     let showDate = defaultArg showDate false
     interface ISystemLogger with
         member __.LogEntry(level : LogLevel, time:DateTime, message : string) =
@@ -52,7 +52,7 @@ type ConsoleSystemLogger (?showDate : bool) =
             Console.WriteLine(text)
 
 /// A logger that performs no action
-type NullSystemLogger () =
+type NullLogger () =
     interface ISystemLogger with
         member __.LogEntry (_,_,_) = ()
 

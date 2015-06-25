@@ -1,13 +1,13 @@
-﻿namespace MBrace.Thespian
+﻿namespace MBrace.Thespian.Runtime
 
 open System
-open System.Runtime.Serialization
 
 open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
+
 
 [<AutoSerializable(true)>]
 type ActorCloudLogger private (target : ActorRef<string * DateTime>) =

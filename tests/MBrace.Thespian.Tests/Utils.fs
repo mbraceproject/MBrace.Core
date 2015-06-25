@@ -19,14 +19,14 @@ type LogTester() =
 
 type RuntimeSession(nodes : int) =
     
-    static do MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+    static do MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
     let lockObj = obj ()
-    let mutable state : (MBraceRuntime * LogTester) option = None
+    let mutable state : (MBraceThespian * LogTester) option = None
 
     member __.Start () =
         lock lockObj (fun () -> 
-            let runtime = MBraceRuntime.InitLocal(nodes)
+            let runtime = MBraceThespian.InitLocal(nodes)
             let logger = new LogTester()
             let _ = runtime.AttachLogger logger
             while runtime.Workers.Length <> nodes do Thread.Sleep 200

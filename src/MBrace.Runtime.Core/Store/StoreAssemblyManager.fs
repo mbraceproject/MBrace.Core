@@ -190,7 +190,7 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     /// <param name="logger">Logger used by uploader. Defaults to no logging.</param>
     static member Create(storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ISystemLogger) =
         ignore VagabondRegistry.Instance
-        let logger = match logger with Some l -> l | None -> new NullSystemLogger() :> _
+        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
         new StoreAssemblyManager(storeConfig, serializer, container, logger)
 
 

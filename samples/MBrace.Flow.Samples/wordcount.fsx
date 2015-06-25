@@ -41,8 +41,8 @@ let wordFilter (word : string) = word.Length > 3 && not <| noiseWords.Contains(w
 
 let files = Directory.GetFiles @"path to files"
 
-MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.Thespian.exe")
-let runtime = MBraceRuntime.InitLocal(4)
+MBraceThespian.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.Thespian.exe")
+let runtime = MBraceThespian.InitLocal(4)
 let storeClient = runtime.StoreClient
 
 //
