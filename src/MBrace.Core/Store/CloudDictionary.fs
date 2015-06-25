@@ -35,18 +35,12 @@ type ICloudDictionary<'T> =
     abstract Add : key:string * value:'T -> Async<unit>
 
     /// <summary>
-    ///     Atomically adds or updates a value in dictionary.
+    ///     Performs an atomic transaction on value of given key.
     /// </summary>
-    /// <param name="key">Key for entry.</param>
-    /// <param name="updater">Entry updater function.</param>
-    abstract AddOrUpdate : key:string * updater:('T option -> 'T) -> Async<'T>
-
-    /// <summary>
-    ///     Atomically updates an existing value in dictionary.
-    /// </summary>
-    /// <param name="key">Key for entry.</param>
-    /// <param name="updater">Entry updater function.</param>
-    abstract Update : key:string * updater:('T -> 'T) -> Async<'T>
+    /// <param name="key">Key to be transacted.</param>
+    /// <param name="transacter">Transaction function.</param>
+    /// <param name="maxRetries">Maximum number of retries. Defaults to infinite.</param>
+    abstract Transact : key:string * transacter:('T option -> 'R * 'T) * ?maxRetries:int -> Async<'R>
 
     /// <summary>
     ///     Removes entry of supplied key from dictionary.
@@ -142,7 +136,8 @@ type CloudDictionary =
     /// <param name="updater">Updater function.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
     static member AddOrUpdate (key : string) (updater : 'T option -> 'T) (dictionary : ICloudDictionary<'T>) = local {
-        return! dictionary.AddOrUpdate(key, updater)
+        let transacter (curr : 'T option) = let t = updater curr in t, t
+        return! dictionary.Transact(key, transacter)
     }
 
     /// <summary>
@@ -153,7 +148,12 @@ type CloudDictionary =
     /// <param name="newValue">Value to be inserted in case of missing entry.</param>
     /// <param name="updater">Entry updater function.</param>
     static member Update (key : string) (updater : 'T -> 'T) (dictionary : ICloudDictionary<'T>) = local {
-        return! dictionary.Update(key, updater)
+        let transacter (curr : 'T option) =
+            match curr with
+            | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
+            | Some t -> let t' = updater t in t', t'
+
+        return! dictionary.Transact(key, transacter)
     }
 
     /// <summary>
@@ -181,12 +181,10 @@ type CloudDictionary =
     /// <param name="key">Key to perform transaction on.</param>
     /// <param name="dictionary">Input dictionary.</param>
     static member Transact (transacter : 'T -> 'R * 'T) (key : string) (dictionary : ICloudDictionary<'T>) = local {
-        let result = ref Unchecked.defaultof<'R>
-        let updater t = 
-            let r,t' = transacter t 
-            result := r
-            t'
+        let transacter (curr : 'T option) =
+            match curr with
+            | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
+            | Some t -> let r,t' = transacter t in r, t'
 
-        let! _ = dictionary.Update(key, updater)
-        return result.Value
+        return! dictionary.Transact(key, transacter)
     }

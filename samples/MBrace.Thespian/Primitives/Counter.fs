@@ -11,14 +11,17 @@ type private CounterMessage =
     | GetValue of IReplyChannel<int>
 
 /// Distributed counter implementation
-type Counter private (source : ActorRef<CounterMessage>) =
+type ActorCounter private (source : ActorRef<CounterMessage>) =
     interface ICloudCounter with
         member __.Increment () = source <!- Increment
         member __.Value = source <!- GetValue
         member __.Dispose () = async.Zero()
 
-    /// Initialize a new latch instance in the current process
-    static member Init(init : int) =
+    /// <summary>
+    ///     Initializes an actor counter instance in the local process.
+    /// </summary>
+    /// <param name="init">Initial counter value.</param>
+    static member Create(init : int) =
         let behaviour count msg = async {
             match msg with
             | Increment rc ->
@@ -34,4 +37,10 @@ type Counter private (source : ActorRef<CounterMessage>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new Counter(ref)
+        new ActorCounter(ref)
+
+
+type ActorCounterFactory(factory : ResourceFactory) =
+    interface ICloudCounterFactory with
+        member x.CreateCounter(initialValue: int): Async<ICloudCounter> =
+            factory.RequestResource(fun () -> ActorCounter.Create initialValue :> ICloudCounter)

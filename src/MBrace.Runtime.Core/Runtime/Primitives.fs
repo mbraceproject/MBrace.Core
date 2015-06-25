@@ -33,6 +33,15 @@ type ICloudCounter =
     /// Asynchronously fetches the current value for the counter.
     abstract Value       : Async<int>
 
+/// Defines a cloud counter factory abstraction.
+type ICloudCounterFactory =
+
+    /// <summary>
+    ///     Creates a new counter with provided initial value.
+    /// </summary>
+    /// <param name="initialValue">Initial value for counter.</param>
+    abstract CreateCounter : initialValue:int -> Async<ICloudCounter>
+
 /// Defines a serializable, distributed result aggregator entity.
 type ICloudResultAggregator<'T> =
     inherit IAsyncDisposable
@@ -56,13 +65,7 @@ type ICloudResultAggregator<'T> =
     abstract ToArray : unit -> Async<'T []>
 
 /// Defines a factory for creating runtime primitives.
-type ICloudPrimitivesFactory =
-
-    /// <summary>
-    ///     Creates a new counter with provided initial value.
-    /// </summary>
-    /// <param name="initialValue">Initial value for counter.</param>
-    abstract CreateCounter : initialValue:int -> Async<ICloudCounter>
+type ICloudResultAggregatorFactory =
 
     /// <summary>
     ///     Allocates a new cloud result aggregator factory.

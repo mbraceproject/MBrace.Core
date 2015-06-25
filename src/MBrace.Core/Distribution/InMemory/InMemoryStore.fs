@@ -112,11 +112,16 @@ type InMemoryDictionaryProvider() =
                     member x.TryAdd(key: string, value: 'T): Async<bool> = 
                         async { return dict.TryAdd(key, value) }
                     
-                    member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Async<'T> = 
-                        async { return dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))}
+                    member x.Transact(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
+                        let result = ref Unchecked.defaultof<'R>
+                        let updater (curr : 'T option) =
+                            let r, topt = transacter curr
+                            result := r
+                            topt
 
-                    member x.Update(key: string, updater: 'T -> 'T): Async<'T> = 
-                        async { return dict.AddOrUpdate(key, (fun key -> raise <| new KeyNotFoundException(key)), (fun _ t -> updater t)) }
+                        let _ = dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))
+                        return result.Value
+                    }
                     
                     member x.ContainsKey(key: string): Async<bool> = 
                         async { return dict.ContainsKey key }

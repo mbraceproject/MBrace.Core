@@ -81,7 +81,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! dict = CloudDictionary.New<int> ()
                 let incr i = local {
-                    let! _ = dict.AddOrUpdate("key", function None -> i | Some c -> c + i)
+                    let! _ = CloudDictionary.AddOrUpdate "key" (function None -> i | Some c -> c + i) dict
                     return ()
                 }
 

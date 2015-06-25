@@ -35,8 +35,10 @@ type IRuntimeManager =
     abstract AssemblyManager : IAssemblyManager
     /// Gets the CloudTask manager instance for this runtime.
     abstract TaskManager : ICloudTaskManager
-    /// Gets the distributed primitives factory for this runtime
-    abstract PrimitivesFactory : ICloudPrimitivesFactory
+    /// Gets the distributed counter factory for this runtime.
+    abstract CounterFactory : ICloudCounterFactory
+    /// Gets the distributed result aggregator factory for this runtime,
+    abstract ResultAggregatorFactory : ICloudResultAggregatorFactory
     /// Serializable distributed cancellation entry manager.
     abstract CancellationEntryFactory : ICancellationEntryFactory
 

@@ -12,14 +12,21 @@ open MBrace.Runtime
 
 type private CancellationEntryMsg =
     | IsCancellationRequested of IReplyChannel<bool>
-    | RegisterChild of child:CancellationEntry * IReplyChannel<bool>
+    | RegisterChild of child:ActorCancellationEntry * IReplyChannel<bool>
     | Cancel
 
-and CancellationEntry private (id : string, source : ActorRef<CancellationEntryMsg>) =
+/// Defines a cancellable entity with linking support
+and ActorCancellationEntry private (id : string, source : ActorRef<CancellationEntryMsg>) =
     member __.Id = id
     member __.Cancel () = source.AsyncPost Cancel
     member __.IsCancellationRequested = source <!- IsCancellationRequested
-    member __.RegisterChild c = source <!- fun ch -> RegisterChild(c,ch)
+
+    /// <summary>
+    ///     Registers a cancellation entry as child to the current entry.
+    ///     Returns true if successful, false if this entry was already cancelled.
+    /// </summary>
+    /// <param name="child">Child to be registered.</param>
+    member __.RegisterChild (child : ActorCancellationEntry) = source <!- fun ch -> RegisterChild(child,ch)
     
     interface ICancellationEntry with
         member __.UUID = id
@@ -27,8 +34,9 @@ and CancellationEntry private (id : string, source : ActorRef<CancellationEntryM
         member __.IsCancellationRequested = __.IsCancellationRequested
         member __.Dispose () = async.Zero()
 
-    static member Init() =
-        let behaviour (state : Map<string, CancellationEntry> option) (msg : CancellationEntryMsg) = async {
+    /// Creates a cancellable actor instance that runs in the local process
+    static member Create() =
+        let behaviour (state : Map<string, ActorCancellationEntry> option) (msg : CancellationEntryMsg) = async {
             match msg, state with
             | IsCancellationRequested rc, _ ->
                 do! rc.Reply (Option.isNone state)
@@ -37,6 +45,7 @@ and CancellationEntry private (id : string, source : ActorRef<CancellationEntryM
             | RegisterChild (child, rc), None ->
                 do! rc.Reply false
                 return state
+
             // cancellation token active, register normally
             | RegisterChild (child, rc), Some children ->
                 do! rc.Reply true
@@ -61,4 +70,24 @@ and CancellationEntry private (id : string, source : ActorRef<CancellationEntryM
             |> Actor.Publish
             |> Actor.ref
 
-        new CancellationEntry(id, aref)
+        new ActorCancellationEntry(id, aref)
+
+/// Global actor cancellation entry factory
+type ActorCancellationEntryFactory(factory : ResourceFactory) =
+    interface ICancellationEntryFactory with
+        member x.CreateCancellationEntry() =
+            factory.RequestResource (fun () -> ActorCancellationEntry.Create() :> _)
+        
+        member x.TryCreateLinkedCancellationEntry(parents: ICancellationEntry []) = async {
+            let parents = parents |> Array.map unbox<ActorCancellationEntry>
+            let! e = factory.RequestResource(fun () -> ActorCancellationEntry.Create())
+            let! results =
+                parents
+                |> Seq.map (fun p -> p.RegisterChild e)
+                |> Async.Parallel
+
+            // cancel the token if any of the parents have been cancelled
+            if Array.forall id results 
+            then return Some(e :> ICancellationEntry)
+            else let! _ = e.Cancel() in return None
+        }

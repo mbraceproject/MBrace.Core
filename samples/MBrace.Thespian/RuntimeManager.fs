@@ -18,6 +18,9 @@ type RuntimeManager(state : RuntimeState, logger : ISystemLogger) =
     let serializer = resources.Resolve<ISerializer>()
 
     let assemblyManager = StoreAssemblyManager.Create(storeConfig, serializer, state.AssemblyDirectory, logger = logger)
+    let cancellationEntryFactory = new ActorCancellationEntryFactory(state.Factory)
+    let counterFactory = new ActorCounterFactory(state.Factory)
+    let resultAggregatorFactory = new ActorResultAggregatorFactory(state.Factory)
 
     member __.State = state
 
@@ -25,16 +28,16 @@ type RuntimeManager(state : RuntimeState, logger : ISystemLogger) =
         member x.Id = state.Id :> _
         member x.Serializer = Config.Serializer :> _
         member x.AssemblyManager: IAssemblyManager = assemblyManager :> _
-
-        member x.PrimitivesFactory = state.Factory :> _
         
-        member x.CancellationEntryFactory: ICancellationEntryFactory = state.Factory :> _
+        member x.CancellationEntryFactory: ICancellationEntryFactory = cancellationEntryFactory :> _
+        member x.CounterFactory: ICloudCounterFactory = counterFactory :> _
+        member x.ResultAggregatorFactory: ICloudResultAggregatorFactory = resultAggregatorFactory :> _
         
         member x.WorkerManager = state.WorkerManager :> _
         
         member x.JobQueue: IJobQueue = state.JobQueue
         
-        member x.GetCloudLogger (workerId : IWorkerId, job:CloudJob) : ICloudLogger = state.CloudLogger.CreateLogger(workerId, job)
+        member x.GetCloudLogger (workerId : IWorkerId, job:CloudJob) : ICloudLogger = state.CloudLogger.GetCloudLogger(workerId, job)
 
         member x.SystemLogger : ISystemLogger = logger
         

@@ -10,162 +10,12 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Utils.PrettyPrinters
-
-type private TaskEntryMsg =
-    | GetState of IReplyChannel<CloudTaskState>
-    | TrySetResult of Pickle<TaskResult> * IReplyChannel<bool>
-    | TryGetResult of IReplyChannel<Pickle<TaskResult> option>
-    | DeclareStatus of status:CloudTaskStatus
-    | IncrementJobCount
-    | DeclareCompletedJob
-    | DeclareFaultedJob
-
-type private TaskState = 
-    {
-        Result : Pickle<TaskResult> option
-        Info : CloudTaskInfo
-        Status : CloudTaskStatus
-        ActiveJobCount : int
-        MaxActiveJobCount : int
-        TotalJobCount : int
-        CompletedJobCount : int
-        FaultedJobCount : int
-        ExecutionTime: ExecutionTime
-    }
-with 
-    static member Init(info : CloudTaskInfo) = 
-        { 
-            Info = info ; Result = None
-            TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; 
-            CompletedJobCount = 0 ; FaultedJobCount = 0
-            ExecutionTime = NotStarted ; Status = Posted 
-        }
-
-    static member ExportState(ts : TaskState) : CloudTaskState =
-        {
-            Status = ts.Status
-            Info = ts.Info
-            ActiveJobCount = ts.ActiveJobCount
-            TotalJobCount = ts.TotalJobCount
-            MaxActiveJobCount = ts.MaxActiveJobCount
-            CompletedJobCount = ts.CompletedJobCount
-            FaultedJobCount = ts.FaultedJobCount
-
-            ExecutionTime = 
-                match ts.ExecutionTime with 
-                | Started (t,_) -> Started (t, DateTime.Now - t)
-                | et -> et
-        }
-
-[<AutoSerializable(true)>]
-type TaskEntry private (source : ActorRef<TaskEntryMsg>, id : string, info : CloudTaskInfo)  =
-    member __.Id = id
-    member __.Info = info
-
-    interface ICloudTaskEntry with
-        member x.Id = id
-        member x.AwaitResult(): Async<TaskResult> = async {
-            let rec awaiter () = async {
-                let! result = source <!- TryGetResult
-                match result with
-                | Some r -> return Config.Serializer.UnPickleTyped r
-                | None ->
-                    do! Async.Sleep 200
-                    return! awaiter ()
-            }
-
-            return! awaiter()
-        }
-        
-        member x.DeclareCompletedJob(): Async<unit> = async {
-            return! source.AsyncPost DeclareCompletedJob
-        }
-        
-        member x.DeclareFaultedJob(): Async<unit> = async {
-            return! source.AsyncPost DeclareFaultedJob
-        }
-        
-        member x.DeclareStatus(status: CloudTaskStatus): Async<unit> = async {
-            return! source.AsyncPost (DeclareStatus status)
-        }
-        
-        member x.GetState(): Async<CloudTaskState> = async {
-            return! source <!- GetState
-        }
-        
-        member x.IncrementJobCount(): Async<unit> =  async {
-            return! source.AsyncPost IncrementJobCount
-        }
-        
-        member x.Info: CloudTaskInfo = info
-        
-        member x.TryGetResult(): Async<TaskResult option> = async {
-            let! rp = source <!- TryGetResult
-            return rp |> Option.map Config.Serializer.UnPickleTyped
-        }
-        
-        member x.TrySetResult(result: TaskResult): Async<bool> = async {
-            let rp = Config.Serializer.PickleTyped result
-            return! source <!- fun ch -> TrySetResult(rp, ch)
-        }
-
-    static member Init(id : string, info : CloudTaskInfo) =
-        let behaviour (state : TaskState) (msg : TaskEntryMsg) = async {
-            match msg with
-            | GetState rc ->
-                do! rc.Reply (TaskState.ExportState state)
-                return state
-
-            | TrySetResult(r, rc) when Option.isSome state.Result ->
-                do! rc.Reply false
-                return state
-
-            | TrySetResult(r, rc) ->
-                do! rc.Reply true
-                return { state with Result = Some r }
-
-            | TryGetResult rc ->
-                do! rc.Reply state.Result
-                return state
-
-            | DeclareStatus status ->
-                let executionTime =
-                    match state.ExecutionTime, status with
-                    | NotStarted, Running -> Started (DateTime.Now, TimeSpan.Zero)
-                    | Started (t,_), (Completed | UserException | Canceled) -> 
-                        let now = DateTime.Now
-                        Finished(t, now - t, now)
-                    | et, _ -> et
-
-                return { state with Status = status ; ExecutionTime = executionTime}
-
-            | IncrementJobCount ->
-                return { state with 
-                                TotalJobCount = state.TotalJobCount + 1 ; 
-                                ActiveJobCount = state.ActiveJobCount + 1 ;
-                                MaxActiveJobCount = max state.MaxActiveJobCount (1 + state.ActiveJobCount) }
-
-            | DeclareCompletedJob ->
-                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; CompletedJobCount = state.CompletedJobCount + 1 }
-
-            | DeclareFaultedJob ->
-                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; FaultedJobCount = state.FaultedJobCount + 1 }
-        }
-
-        let ref =
-            Behavior.stateful (TaskState.Init info) behaviour
-            |> Actor.bind
-            |> Actor.Publish
-            |> Actor.ref
-
-        new TaskEntry(ref, id, info)
-         
+open MBrace.Runtime.Utils.PrettyPrinters      
 
 type private TaskManagerMsg =
-    | CreateTaskEntry of info:CloudTaskInfo * IReplyChannel<TaskEntry>
-    | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<TaskEntry option>
-    | GetAllTasks of IReplyChannel<TaskEntry []>
+    | CreateTaskEntry of info:CloudTaskInfo * IReplyChannel<ActorTaskEntry>
+    | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<ActorTaskEntry option>
+    | GetAllTasks of IReplyChannel<ActorTaskEntry []>
     | ClearAllTasks of IReplyChannel<unit>
     | ClearTask of taskId:string * IReplyChannel<bool>
 
@@ -196,7 +46,7 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
         }
 
     static member Init() =
-        let behaviour (state : Map<string, TaskEntry>) (msg : TaskManagerMsg) = async {
+        let behaviour (state : Map<string, ActorTaskEntry>) (msg : TaskManagerMsg) = async {
             match msg with
             | CreateTaskEntry(info, ch) ->
                 let id = mkUUID()

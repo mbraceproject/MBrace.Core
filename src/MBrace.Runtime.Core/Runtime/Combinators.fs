@@ -87,8 +87,8 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskEntry)
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken
             let! childCts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
-            let! resultAggregator = runtime.PrimitivesFactory.CreateResultAggregator<'T>(capacity = computations.Length)
-            let! cancellationLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
+            let! resultAggregator = runtime.ResultAggregatorFactory.CreateResultAggregator<'T>(capacity = computations.Length)
+            let! cancellationLatch = runtime.CounterFactory.CreateCounter(initialValue = 0)
 
             let onSuccess i ctx (t : 'T) = 
                 async {
@@ -186,8 +186,8 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskEntry)
             let n = computations.Length // avoid capturing computation array in continuation closures
             let currentCts = ctx.CancellationToken
             let! childCts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
-            let! completionLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
-            let! cancellationLatch = runtime.PrimitivesFactory.CreateCounter(initialValue = 0)
+            let! completionLatch = runtime.CounterFactory.CreateCounter(initialValue = 0)
+            let! cancellationLatch = runtime.CounterFactory.CreateCounter(initialValue = 0)
 
             let onSuccess ctx (topt : 'T option) =
                 async {

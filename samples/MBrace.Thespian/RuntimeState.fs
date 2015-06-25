@@ -36,7 +36,7 @@ with
                                 ?assemblyDirectory : string, ?miscResources : ResourceRegistry) =
 
         let wmon = WorkerManager.Init()
-        let factory = ResourceFactory.Init()
+        let factory = ResourceFactory.Create()
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(factory))
@@ -54,7 +54,7 @@ with
             Factory = factory
             WorkerManager = wmon
             TaskManager = CloudTaskManager.Init()
-            CloudLogger = ActorCloudLogger.Init(localLogger)
+            CloudLogger = ActorCloudLogger.Create(localLogger)
             JobQueue = JobQueue.Init(wmon)
             Resources = resources
             AssemblyDirectory = assemblyDirectory
