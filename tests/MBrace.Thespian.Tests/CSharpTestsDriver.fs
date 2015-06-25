@@ -1,11 +1,11 @@
-﻿namespace MBrace.SampleRuntime.Tests
+﻿namespace MBrace.Thespian.Tests
 
 open NUnit.Framework
 
 open MBrace.Core
 open MBrace.CSharp.Tests
 
-type ``SampleRuntime CSharp Tests`` () =
+type ``MBrace Thespian CSharp Tests`` () =
     inherit ``SimpleTests`` ()
 
     let session = new RuntimeSession(nodes = 4)

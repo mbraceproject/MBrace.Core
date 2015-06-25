@@ -1,11 +1,11 @@
-﻿namespace MBrace.SampleRuntime.Tests
+﻿namespace MBrace.Thespian.Tests
 
 open System
 open System.Threading
 
 open MBrace.Core.Tests
 open MBrace.Runtime
-open MBrace.SampleRuntime
+open MBrace.Thespian
 
 type LogTester() =
     let logs = new ResizeArray<string>()
@@ -19,7 +19,7 @@ type LogTester() =
 
 type RuntimeSession(nodes : int) =
     
-    static do MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
+    static do MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
     let lockObj = obj ()
     let mutable state : (MBraceRuntime * LogTester) option = None

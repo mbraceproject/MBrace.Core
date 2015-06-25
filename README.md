@@ -13,7 +13,7 @@ Prerelease packages are available on Nuget [[1](http://www.nuget.org/packages/MB
 * [MBrace.Flow](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Flow): distributed [Streams](http://nessos.github.io/Streams/) implementation using MBrace.
 * [MBrace.Core.Tests](https://github.com/mbraceproject/MBrace.Core/tree/master/tests/MBrace.Core.Tests): general-purpose test suites available to runtime implementers.
 * [MBrace.Runtime.Core](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Runtime.Core): foundations and common implementations for developing MBrace runtimes.
-* [Sample Runtime](https://github.com/mbraceproject/MBrace.Core/tree/master/samples/MBrace.SampleRuntime): Toy runtime implementation demonstrating fault-tolerant distrbuted computation using [Thespian](http://nessos.github.io/Thespian).
+* [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/master/samples/MBrace.Thespian): Sample MBrace runtime implementation using [Thespian](http://nessos.github.io/Thespian).
 
 ### Build Status
 

@@ -1,4 +1,4 @@
-﻿module internal MBrace.SampleRuntime.Main
+﻿module internal MBrace.Thespian.Main
 
 open System
 
@@ -15,11 +15,10 @@ let main (args : string []) =
     try
         let hostname = System.Net.Dns.GetHostName()
         let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-        Console.Title <- sprintf "MBrace SampleRuntime (%s, Pid:%d)" hostname pid 
-        Console.WriteLine "##### MBrace SampleRuntime #####"
-
+        Console.Title <- sprintf "MBrace.Thespian Worker [pid:%d]" pid 
 
         let logger = new ConsoleSystemLogger()
+        logger.Logf LogLevel.Info "Initializing MBrace.Thespian worker instance."
         logger.Logf LogLevel.Info "Hostname: %s" hostname
         logger.Logf LogLevel.Info "Process Id: %d" pid
 

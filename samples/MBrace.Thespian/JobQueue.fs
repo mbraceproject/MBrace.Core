@@ -1,4 +1,4 @@
-﻿namespace MBrace.SampleRuntime
+﻿namespace MBrace.Thespian
 
 open System
 open System.Threading

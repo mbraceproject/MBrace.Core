@@ -1,14 +1,14 @@
-﻿namespace MBrace.SampleRuntime.Tests
+﻿namespace MBrace.Thespian.Tests
 
 open System.Threading
 
 open MBrace.Core
 open MBrace.Core.Tests
-open MBrace.SampleRuntime
+open MBrace.Thespian
 
 open NUnit.Framework
 
-type ``SampleRuntime FileStore Tests`` () =
+type ``MBrace Thespian FileStore Tests`` () =
     inherit ``FileStore Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)
@@ -25,7 +25,7 @@ type ``SampleRuntime FileStore Tests`` () =
     override __.IsObjectCacheInstalled = true
 
 
-type ``SampleRuntime Atom Tests`` () =
+type ``MBrace Thespian Atom Tests`` () =
     inherit ``CloudAtom Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)
@@ -45,7 +45,7 @@ type ``SampleRuntime Atom Tests`` () =
     override __.Repeats = 3
 #endif
 
-type ``SampleRuntime Channel Tests`` () =
+type ``MBrace Thespian Channel Tests`` () =
     inherit ``CloudChannel Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)
@@ -60,7 +60,7 @@ type ``SampleRuntime Channel Tests`` () =
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
     override __.ChannelClient = session.Runtime.StoreClient.Channel
 
-type ``SampleRuntime Dictionary Tests`` () =
+type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)

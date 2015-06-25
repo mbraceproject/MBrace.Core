@@ -1,4 +1,4 @@
-﻿module internal MBrace.SampleRuntime.Worker
+﻿module internal MBrace.Thespian.Worker
 
 open System
 

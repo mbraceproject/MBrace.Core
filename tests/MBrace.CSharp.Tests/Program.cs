@@ -65,7 +65,7 @@ using System.Threading.Tasks;
 //                    .Then(ys => ys.Sum().AsCloud())
 //                );
 
-//            MBraceRuntime.WorkerExecutable = Path.Combine(Directory.GetCurrentDirectory(), "MBrace.SampleRuntime.exe");
+//            MBraceRuntime.WorkerExecutable = Path.Combine(Directory.GetCurrentDirectory(), "MBrace.Thespian.exe");
 //            var rt = MBraceRuntime.InitLocal(3, null, null);
 
 //            var w = Cloud.New(() =>

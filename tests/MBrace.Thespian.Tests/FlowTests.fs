@@ -1,4 +1,4 @@
-﻿namespace MBrace.SampleRuntime.Tests
+﻿namespace MBrace.Thespian.Tests
 
 open System.IO
 
@@ -6,10 +6,10 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Flow.Tests
-open MBrace.SampleRuntime
+open MBrace.Thespian
 
 [<Category("CloudStreams.Cluster")>]
-type ``SampleRuntime Flow Tests`` () =
+type ``MBrace Thespian Flow Tests`` () =
     inherit ``CloudFlow tests`` ()
 
     let session = new RuntimeSession(nodes = 4)

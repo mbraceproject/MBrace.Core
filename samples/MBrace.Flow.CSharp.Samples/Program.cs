@@ -1,4 +1,4 @@
-﻿using MBrace.SampleRuntime;
+﻿using MBrace.Thespian;
 using MBrace.Streams.CSharp;
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,7 @@ namespace MBrace.Flow.CSharp.Samples
             var files = Directory.GetFiles("path to your files");
 
             var path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-            var mbraced = Path.Combine(path, @"./MBrace.SampleRuntime.exe");
+            var mbraced = Path.Combine(path, @"./MBrace.Thespian.exe");
             MBraceRuntime.WorkerExecutable = mbraced;
             var runtime = MBraceRuntime.InitLocal(4, null, null);
 

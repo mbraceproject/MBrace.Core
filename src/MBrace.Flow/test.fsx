@@ -1,7 +1,7 @@
 ﻿#I "../../bin/"
 
 #r "MBrace.Core.dll"
-#r "MBrace.SampleRuntime.exe"
+#r "MBrace.Thespian.exe"
 #r "MBrace.Runtime.Core.dll"
 #r "MBrace.Flow.dll"
 #r "Streams.Core.dll"
@@ -10,10 +10,10 @@ open System
 open MBrace.Core
 open MBrace.Store
 open MBrace.Workflows
-open MBrace.SampleRuntime
+open MBrace.Thespian
 open MBrace.Flow
 
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.SampleRuntime.exe"
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
 let runtime = MBraceRuntime.InitLocal(4)
 

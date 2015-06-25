@@ -1,4 +1,4 @@
-﻿namespace MBrace.SampleRuntime
+﻿namespace MBrace.Thespian
 
 type ImmutableQueue<'T> private (front : 'T list, back : 'T list) =
     static member Empty = new ImmutableQueue<'T>([],[])

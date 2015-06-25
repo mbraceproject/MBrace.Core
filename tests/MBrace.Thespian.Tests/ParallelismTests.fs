@@ -1,4 +1,4 @@
-﻿namespace MBrace.SampleRuntime.Tests
+﻿namespace MBrace.Thespian.Tests
 
 open System
 open System.IO
@@ -11,9 +11,9 @@ open MBrace.Core.Internals
 open MBrace.Workflows
 open MBrace.Runtime
 open MBrace.Core.Tests
-open MBrace.SampleRuntime
+open MBrace.Thespian
 
-type ``SampleRuntime Parallelism Tests`` () as self =
+type ``MBrace Thespian Parallelism Tests`` () as self =
     inherit ``Parallelism Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
     let session = new RuntimeSession(nodes = 4)

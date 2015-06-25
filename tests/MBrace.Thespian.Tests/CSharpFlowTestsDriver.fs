@@ -1,11 +1,11 @@
-﻿namespace MBrace.SampleRuntime.Tests
+﻿namespace MBrace.Thespian.Tests
 
 open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Streams.CSharp.Tests
 
-type ``SampleRuntime CloudStream CSharp Tests`` () =
+type ``MBrace Thespian CloudStream CSharp Tests`` () =
     inherit CloudStreamsTests()
 
     let session = new RuntimeSession(nodes = 4)
