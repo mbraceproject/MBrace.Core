@@ -23,7 +23,7 @@ with
 
 type internal PickledJob =
     {
-        TaskEntry : ICloudTaskEntry
+        TaskEntry : ICloudTaskCompletionSource
         JobId : string
         JobType : JobType
         Type : string

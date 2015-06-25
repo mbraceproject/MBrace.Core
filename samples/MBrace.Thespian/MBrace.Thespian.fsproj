@@ -63,7 +63,7 @@
     <Compile Include="Primitives\Logger.fs" />
     <Compile Include="Primitives\ResourceFactory.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
-    <Compile Include="Primitives\TaskEntry.fs" />
+    <Compile Include="Primitives\TaskCompletionSource.fs" />
     <Compile Include="Primitives\Counter.fs" />
     <Compile Include="Primitives\ResultAggregator.fs" />
     <Compile Include="Primitives\CloudAtom.fs" />

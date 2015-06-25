@@ -16,7 +16,7 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
-type private TaskEntryMsg =
+type private TaskCompletionSourceMsg =
     | GetState of IReplyChannel<CloudTaskState>
     | TrySetResult of Pickle<TaskResult> * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<Pickle<TaskResult> option>
@@ -25,8 +25,8 @@ type private TaskEntryMsg =
     | DeclareCompletedJob
     | DeclareFaultedJob
 
-/// Task entry execution state
-type private TaskState = 
+/// Task completion source execution state
+type private TaskCompletionSourceState = 
     {
         /// Pickled result of task, if available
         Result : Pickle<TaskResult> option
@@ -65,7 +65,7 @@ with
     ///     the MBrace task manager.
     /// </summary>
     /// <param name="ts">Task state.</param>
-    static member ExportState(ts : TaskState) : CloudTaskState =
+    static member ExportState(ts : TaskCompletionSourceState) : CloudTaskState =
         {
             Status = ts.Status
             Info = ts.Info
@@ -83,11 +83,11 @@ with
 
 /// Actor TaskEntry implementation
 [<AutoSerializable(true)>]
-type ActorTaskEntry private (source : ActorRef<TaskEntryMsg>, id : string, info : CloudTaskInfo)  =
+type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMsg>, id : string, info : CloudTaskInfo)  =
     member __.Id = id
     member __.Info = info
 
-    interface ICloudTaskEntry with
+    interface ICloudTaskCompletionSource with
         member x.Id = id
         member x.AwaitResult(): Async<TaskResult> = async {
             let rec awaiter () = async {
@@ -140,10 +140,10 @@ type ActorTaskEntry private (source : ActorRef<TaskEntryMsg>, id : string, info 
     /// <param name="id">Task unique identifier.</param>
     /// <param name="info">Task metadata.</param>
     static member Create(id : string, info : CloudTaskInfo) =
-        let behaviour (state : TaskState) (msg : TaskEntryMsg) = async {
+        let behaviour (state : TaskCompletionSourceState) (msg : TaskCompletionSourceMsg) = async {
             match msg with
             | GetState rc ->
-                do! rc.Reply (TaskState.ExportState state)
+                do! rc.Reply (TaskCompletionSourceState.ExportState state)
                 return state
 
             | TrySetResult(r, rc) when Option.isSome state.Result ->
@@ -183,9 +183,9 @@ type ActorTaskEntry private (source : ActorRef<TaskEntryMsg>, id : string, info 
         }
 
         let ref =
-            Behavior.stateful (TaskState.Init info) behaviour
+            Behavior.stateful (TaskCompletionSourceState.Init info) behaviour
             |> Actor.bind
             |> Actor.Publish
             |> Actor.ref
 
-        new ActorTaskEntry(ref, id, info)
+        new ActorTaskCompletionSource(ref, id, info)

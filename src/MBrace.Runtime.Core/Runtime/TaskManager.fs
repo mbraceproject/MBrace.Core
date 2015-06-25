@@ -103,9 +103,9 @@ type CloudTaskState =
         TotalJobCount : int
     }
 
-/// Cloud task runtime entry
-type ICloudTaskEntry =
-    /// Unique Cloud Task entry identifier
+/// Cloud task completion source abstraction
+type ICloudTaskCompletionSource =
+    /// Unique Cloud Task identifier
     abstract Id : string
     /// Gets cloud task metadata
     abstract Info : CloudTaskInfo
@@ -158,24 +158,24 @@ type ICloudTaskManager =
     ///     Request a new task from cluster state.
     /// </summary>
     /// <param name="info">User-supplied cloud task metadata.</param>
-    abstract CreateTaskEntry : info:CloudTaskInfo -> Async<ICloudTaskEntry>
+    abstract CreateTask : info:CloudTaskInfo -> Async<ICloudTaskCompletionSource>
 
     /// <summary>
     ///     Gets a cloud task entry for provided task id.
     /// </summary>
     /// <param name="taskId">Task id to be looked up.</param>
-    abstract TryGetEntryById : taskId:string -> Async<ICloudTaskEntry option>
-
-    /// <summary>
-    ///     Deletes task info of given id.
-    /// </summary>
-    /// <param name="entry">Cloud task entry.</param>
-    abstract Clear : taskId:string -> Async<unit>
+    abstract TryGetTaskById : taskId:string -> Async<ICloudTaskCompletionSource option>
 
     /// <summary>
     ///     Asynchronously fetches task execution state for all tasks currently in task.
     /// </summary>
-    abstract GetAllTasks : unit -> Async<ICloudTaskEntry []>
+    abstract GetAllTasks : unit -> Async<ICloudTaskCompletionSource []>
+
+    /// <summary>
+    ///     Deletes task info of given id.
+    /// </summary>
+    /// <param name="taskId">Cloud task identifier.</param>
+    abstract Clear : taskId:string -> Async<unit>
 
     /// <summary>
     ///     Deletes all task info from current runtime.

@@ -73,11 +73,11 @@ type CloudTask internal () =
     member p.ShowInfo () : unit = Console.WriteLine(p.GetInfo())
 
 /// Represents a cloud computation that is being executed in the cluster.
-and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (entry : ICloudTaskEntry) =
+and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (source : ICloudTaskCompletionSource) =
     inherit CloudTask()
 
-    [<DataMember(Name = "Entry")>]
-    let entry = entry
+    [<DataMember(Name = "TaskSource")>]
+    let entry = source
 
     [<IgnoreDataMember>]
     let mutable cell = Unchecked.defaultof<CacheAtom<CloudTaskState>>
@@ -194,7 +194,7 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
     ///     Fetches task by provided task id.
     /// </summary>
     /// <param name="taskId">Task identifier.</param>
-    let getTaskByEntry (entry : ICloudTaskEntry) = async {
+    let getTaskBySource (entry : ICloudTaskCompletionSource) = async {
         let ok,t = tasks.TryGetValue entry.Id
         if ok then return t
         else
@@ -217,11 +217,11 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
     }
 
     member __.TryGetTaskById(id : string) = async {
-        let! entry = runtime.TaskManager.TryGetEntryById id
-        match entry with
+        let! source = runtime.TaskManager.TryGetTaskById id
+        match source with
         | None -> return None
         | Some e ->
-            let! t = getTaskByEntry e
+            let! t = getTaskBySource e
             return Some t
     }
 
@@ -230,7 +230,7 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
         let! entries = runtime.TaskManager.GetAllTasks()
         return!
             entries
-            |> Seq.map getTaskByEntry
+            |> Seq.map getTaskBySource
             |> Async.Parallel
     }
 

@@ -44,7 +44,7 @@ with
 type CloudJob = 
     {
         /// Parent task entry for job
-        TaskEntry : ICloudTaskEntry
+        TaskEntry : ICloudTaskCompletionSource
         /// Cloud Job unique identifier
         Id : string
         /// Job workflow 'return type';
@@ -77,7 +77,7 @@ with
     /// <param name="ccont">Cancellation continuation.</param>
     /// <param name="workflow">Workflow to be executed in job.</param>
     /// <param name="target">Declared target worker reference for computation to be executed.</param>
-    static member Create (taskEntry : ICloudTaskEntry, token : ICloudCancellationToken, faultPolicy : FaultPolicy, 
+    static member Create (taskEntry : ICloudTaskCompletionSource, token : ICloudCancellationToken, faultPolicy : FaultPolicy, 
                             scont : ExecutionContext -> 'T -> unit, 
                             econt : ExecutionContext -> ExceptionDispatchInfo -> unit, 
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
@@ -103,7 +103,7 @@ with
 /// Cloud job lease token given to workers that dequeue it
 type ICloudJobLeaseToken =
     /// Parent Cloud Task info
-    abstract TaskEntry : ICloudTaskEntry
+    abstract TaskEntry : ICloudTaskCompletionSource
     /// Cloud Job identifier
     abstract Id : string
     /// Declared target worker for job

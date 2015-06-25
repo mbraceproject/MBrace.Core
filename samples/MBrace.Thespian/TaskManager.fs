@@ -13,17 +13,17 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters      
 
 type private TaskManagerMsg =
-    | CreateTaskEntry of info:CloudTaskInfo * IReplyChannel<ActorTaskEntry>
-    | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<ActorTaskEntry option>
-    | GetAllTasks of IReplyChannel<ActorTaskEntry []>
+    | CreateTaskEntry of info:CloudTaskInfo * IReplyChannel<ActorTaskCompletionSource>
+    | TryGetTaskCompletionSourceById of taskId:string * IReplyChannel<ActorTaskCompletionSource option>
+    | GetAllTasks of IReplyChannel<ActorTaskCompletionSource []>
     | ClearAllTasks of IReplyChannel<unit>
     | ClearTask of taskId:string * IReplyChannel<bool>
 
 type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
     interface ICloudTaskManager with
-        member x.CreateTaskEntry(info : CloudTaskInfo) = async {
+        member x.CreateTask(info : CloudTaskInfo) = async {
             let! te = ref <!- fun ch -> CreateTaskEntry(info, ch)
-            return te :> ICloudTaskEntry
+            return te :> ICloudTaskCompletionSource
         }
 
         member x.Clear(taskId: string): Async<unit> = async {
@@ -35,22 +35,22 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
             return! ref <!- ClearAllTasks
         }
         
-        member x.GetAllTasks(): Async<ICloudTaskEntry []> = async {
+        member x.GetAllTasks(): Async<ICloudTaskCompletionSource []> = async {
             let! entries = ref <!- GetAllTasks
             return entries |> Array.map unbox
         }
         
-        member x.TryGetEntryById (taskId: string): Async<ICloudTaskEntry option> = async {
+        member x.TryGetTaskById (taskId: string): Async<ICloudTaskCompletionSource option> = async {
             let! result = ref <!- fun ch -> TryGetTaskCompletionSourceById(taskId, ch)
             return result |> Option.map unbox
         }
 
     static member Init() =
-        let behaviour (state : Map<string, ActorTaskEntry>) (msg : TaskManagerMsg) = async {
+        let behaviour (state : Map<string, ActorTaskCompletionSource>) (msg : TaskManagerMsg) = async {
             match msg with
             | CreateTaskEntry(info, ch) ->
                 let id = mkUUID()
-                let te = TaskEntry.Init(id, info)
+                let te = ActorTaskCompletionSource.Create(id, info)
                 do! ch.Reply te
                 return state.Add(te.Id, te)
 
