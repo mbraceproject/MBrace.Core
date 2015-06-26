@@ -2,7 +2,7 @@
 #r "MBrace.Core"
 #r "Streams.Core"
 #r "MBrace.Flow"
-#r "MBrace.SampleRuntime"
+#r "MBrace.Thespian"
 
 open System
 open System.IO
@@ -10,7 +10,7 @@ open System.Text.RegularExpressions
 open Nessos.Streams
 open MBrace.Core
 open MBrace.Store
-open MBrace.SampleRuntime
+open MBrace.Thespian
 open MBrace.Flow
 
 /// words ignored by wordcount
@@ -41,8 +41,8 @@ let wordFilter (word : string) = word.Length > 3 && not <| noiseWords.Contains(w
 
 let files = Directory.GetFiles @"path to files"
 
-MBraceRuntime.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.SampleRuntime.exe")
-let runtime = MBraceRuntime.InitLocal(4)
+MBraceThespian.WorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, "../../bin/MBrace.Thespian.exe")
+let runtime = MBraceThespian.InitLocal(4)
 let storeClient = runtime.StoreClient
 
 //

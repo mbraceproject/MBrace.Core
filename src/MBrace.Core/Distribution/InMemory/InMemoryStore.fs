@@ -22,6 +22,12 @@ type private InMemoryAtom<'T> (initial : 'T) =
             if obj.ReferenceEquals(result, cv) then ()
             else Thread.SpinWait 20; swap f
 
+    let transact f =
+        let cell = ref Unchecked.defaultof<'R>
+        let f t = let r,t' = f t in cell := r ; t'
+        swap f
+        !cell
+
     let force (t : 'T) =
         match container.Value with
         | None -> raise <| new ObjectDisposedException("CloudAtom")
@@ -29,15 +35,14 @@ type private InMemoryAtom<'T> (initial : 'T) =
 
     interface ICloudAtom<'T> with
         member __.Id = id
-        member __.Value = local { return Option.get container.Value }
-        member __.Update(updater, _) = local { return swap updater }
-        member __.Force(value) = local { return force value }
+        member __.Value = async { return Option.get container.Value }
+        member __.Transact(updater, _) = async { return transact updater }
+        member __.Force(value) = async { return force value }
         member __.Dispose () = local { return container := None }
 
 [<Sealed; AutoSerializable(false)>]
 type InMemoryAtomProvider () =
     let id = mkUUID()
-
     static member CreateConfiguration () : CloudAtomConfiguration =
         {
             AtomProvider = new InMemoryAtomProvider() :> ICloudAtomProvider
@@ -75,14 +80,14 @@ type InMemoryChannelProvider () =
                 {
                     new ISendPort<'T> with
                         member __.Id = id
-                        member __.Send(msg : 'T) = local { return mbox.Post msg }
+                        member __.Send(msg : 'T) = async { return mbox.Post msg }
                 }
 
             let receiver =
                 {
                     new IReceivePort<'T> with
                         member __.Id = id
-                        member __.Receive(?timeout : int) = local { return! Cloud.OfAsync <| mbox.Receive(?timeout = timeout) }
+                        member __.Receive(?timeout : int) = async { return! mbox.Receive(?timeout = timeout) }
                         member __.Dispose() = raise <| new NotSupportedException()
                 }
 
@@ -101,17 +106,25 @@ type InMemoryDictionaryProvider() =
             let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
             return {
                 new ICloudDictionary<'T> with
-                    member x.Add(key : string, value : 'T) : Local<unit> =
-                        local { return dict.[key] <- value }
+                    member x.Add(key : string, value : 'T) : Async<unit> =
+                        async { return dict.[key] <- value }
 
-                    member x.TryAdd(key: string, value: 'T): Local<bool> = 
-                        local { return dict.TryAdd(key, value) }
+                    member x.TryAdd(key: string, value: 'T): Async<bool> = 
+                        async { return dict.TryAdd(key, value) }
                     
-                    member x.AddOrUpdate(key: string, updater: 'T option -> 'T): Local<'T> = 
-                        local { return dict.AddOrUpdate(key, updater None, fun _ curr -> updater (Some curr))}
+                    member x.Transact(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
+                        let result = ref Unchecked.defaultof<'R>
+                        let updater (curr : 'T option) =
+                            let r, topt = transacter curr
+                            result := r
+                            topt
+
+                        let _ = dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))
+                        return result.Value
+                    }
                     
-                    member x.ContainsKey(key: string): Local<bool> = 
-                        local { return dict.ContainsKey key }
+                    member x.ContainsKey(key: string): Async<bool> = 
+                        async { return dict.ContainsKey key }
 
                     member x.IsKnownCount = true
                     member x.IsKnownSize = true
@@ -127,13 +140,13 @@ type InMemoryDictionaryProvider() =
                     // capture provider in closure it avoid it being serialized
                     member x.Id: string = let _ = s.GetHashCode() in id
                     
-                    member x.Remove(key: string): Local<bool> = 
-                        local { return dict.TryRemove key |> fst }
+                    member x.Remove(key: string): Async<bool> = 
+                        async { return dict.TryRemove key |> fst }
                     
                     member x.ToEnumerable(): Local<seq<KeyValuePair<string, 'T>>> = 
                         local { return dict :> _ }
                     
-                    member x.TryFind(key: string): Local<'T option> = 
-                        local { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
+                    member x.TryFind(key: string): Async<'T option> = 
+                        async { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
                     
             } }

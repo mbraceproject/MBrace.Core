@@ -445,7 +445,6 @@ module CloudFlow =
                 let results = new List<string * StreamWriter>()
                 let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
                 config.FileStore.CreateDirectory dirPath |> Async.RunSynchronously
-                let! worker = Cloud.CurrentWorker
                 return
                     { new Collector<string, CloudFile []> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism

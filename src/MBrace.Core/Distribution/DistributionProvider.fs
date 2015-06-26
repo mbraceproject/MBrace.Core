@@ -83,4 +83,5 @@ type IDistributionProvider =
     /// <param name="faultPolicy">Fault policy for new task.</param>
     /// <param name="cancellationToken">Cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>
-    abstract ScheduleStartAsTask : workflow:Cloud<'T> * faultPolicy:FaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef -> Cloud<ICloudTask<'T>>
+    /// <param name="taskName">Optional user-specified name for task.</param>
+    abstract ScheduleStartAsTask : workflow:Cloud<'T> * faultPolicy:FaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef * ?taskName:string -> Cloud<ICloudTask<'T>>

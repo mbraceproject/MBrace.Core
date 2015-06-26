@@ -13,8 +13,12 @@ type IWorkerRef =
     abstract Id : string
     /// Worker processor count
     abstract ProcessorCount : int
-    /// Machine's hostname
+    /// Gets the max CPU clock speed in MHz
+    abstract MaxCpuClock : float
+    /// Hostname of worker machine
     abstract Hostname : string
+    /// Worker Process Id
+    abstract ProcessId : int
 
 /// Denotes a task that is being executed in the cluster.
 type ICloudTask<'T> =
@@ -29,11 +33,13 @@ type ICloudTask<'T> =
     /// Gets a boolean indicating that the task has been canceled.
     abstract IsCanceled : bool
     /// Awaits task for completion, returning its eventual result
-    abstract AwaitResult : ?timeoutMilliseconds:int -> Local<'T>
+    abstract AwaitResult : ?timeoutMilliseconds:int -> Async<'T>
     /// Rreturns the task result if completed or None if still pending.
-    abstract TryGetResult : unit -> Local<'T option>
+    abstract TryGetResult : unit -> Async<'T option>
     /// Synchronously gets the task result, blocking until it completes.
     abstract Result : 'T
+    /// Gets the cancellation corresponding to the Task instance
+    abstract CancellationToken : ICloudCancellationToken
 
 namespace MBrace.Core.Internals
 

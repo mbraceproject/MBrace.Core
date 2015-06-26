@@ -23,11 +23,10 @@ module ``Continuation Tests`` =
     //  Simple expression execution
     //
 
-    let imem = LocalRuntime.Create(ResourceRegistry.Empty)
-    let run (wf : Cloud<'T>) = Choice.protect(fun () -> imem.Run wf)
+    let run (wf : Cloud<'T>) = Choice.protect(fun () -> Cloud.RunSynchronously(wf, ResourceRegistry.Empty, new InMemoryCancellationToken()))
     let runCts (wf : ICloudCancellationTokenSource -> #Cloud<'T>) =
         let cts = new InMemoryCancellationTokenSource ()
-        Choice.protect(fun () -> imem.Run(wf cts, cts.Token))
+        Choice.protect(fun () -> Cloud.RunSynchronously(wf cts, ResourceRegistry.Empty, cts.Token))
 
     [<Test>]
     let ``return value`` () =

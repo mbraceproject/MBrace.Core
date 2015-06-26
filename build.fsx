@@ -79,7 +79,7 @@ let testAssemblies =
         yield "bin/MBrace.Runtime.Core.Tests.dll"
         yield "bin/MBrace.Flow.Tests.dll"
 //        yield "bin/MBrace.Flow.CSharp.Tests.dll"
-        if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
+        if not ignoreClusterTests then yield "bin/MBrace.Thespian.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->

@@ -365,7 +365,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="dirPath">Path to directory.</param>
     static member Exists(dirPath : string) : Local<bool> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.DirectoryExists dirPath
+        return! config.FileStore.DirectoryExists dirPath
     }
 
     /// <summary>
@@ -374,7 +374,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="dirPath">Path to newly created directory.</param>
     static member Create(dirPath : string) : Local<CloudDirectory> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        do! ofAsync <| config.FileStore.CreateDirectory(dirPath)
+        do! config.FileStore.CreateDirectory(dirPath)
         return new CloudDirectory(dirPath)
     }
 
@@ -386,7 +386,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     static member Delete(dirPath : string, ?recursiveDelete : bool) : Local<unit> = local {
         let recursiveDelete = defaultArg recursiveDelete false
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
+        return! config.FileStore.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
     }
 
     /// <summary>
@@ -395,7 +395,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="directory">Directory to be enumerated.</param>
     static member Enumerate(dirPath : string) : Local<CloudDirectory []> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! dirs = ofAsync <| config.FileStore.EnumerateDirectories(dirPath)
+        let! dirs = config.FileStore.EnumerateDirectories(dirPath)
         return dirs |> Array.map (fun d -> new CloudDirectory(d))
     }
 
@@ -433,7 +433,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Input file.</param>
     static member GetSize(path : string) : Local<int64> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.GetFileSize path
+        return! config.FileStore.GetFileSize path
     }
 
     /// <summary>
@@ -442,7 +442,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Input file.</param>
     static member Exists(path : string) = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.FileExists path
+        return! config.FileStore.FileExists path
     }
 
     /// <summary>
@@ -451,7 +451,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Input file.</param>
     static member Delete(path : string) = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.DeleteFile path
+        return! config.FileStore.DeleteFile path
     }
 
     /// <summary>
@@ -461,10 +461,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="serializer">Serializer function.</param>
     static member Create(path : string, serializer : Stream -> Async<unit>) : Local<CloudFile> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        do! ofAsync <| async {
-            use! stream = config.FileStore.BeginWrite path
-            do! serializer stream
-        }
+        use! stream = config.FileStore.BeginWrite path
+        do! serializer stream
         return new CloudFile(path)
     }
 
@@ -475,7 +473,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="deserializer">Deserializer function.</param>
     static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Local<'T> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.Read(deserializer, path)
+        return! config.FileStore.Read(deserializer, path)
     }
 
     /// <summary>
@@ -484,7 +482,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="dirPath">Path to directory.</param>
     static member Enumerate(dirPath : string) : Local<CloudFile []> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! paths = ofAsync <| config.FileStore.EnumerateFiles(dirPath)
+        let! paths = config.FileStore.EnumerateFiles(dirPath)
         return paths |> Array.map (fun path -> new CloudFile(path))
     }
 
@@ -609,11 +607,11 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
         let overwrite = defaultArg overwrite false
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
         if not overwrite then
-            let! exists = ofAsync <| config.FileStore.FileExists targetPath
+            let! exists = config.FileStore.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
         use fs = File.OpenRead (Path.GetFullPath sourcePath)
-        do! ofAsync <| config.FileStore.CopyOfStream(fs, targetPath)
+        do! config.FileStore.CopyOfStream(fs, targetPath)
         return new CloudFile(targetPath)
     }
 
@@ -631,5 +629,5 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
             raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
         use fs = File.OpenWrite targetPath
-        do! ofAsync <| config.FileStore.CopyToStream(sourcePath, fs)
+        do! config.FileStore.CopyToStream(sourcePath, fs)
     }

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime.Serialization
+﻿namespace MBrace.Runtime.Vagabond
 
 open System
 open System.IO

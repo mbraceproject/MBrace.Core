@@ -9,19 +9,6 @@ open MBrace.Core.Internals
 
 #nowarn "444"
 
-/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
-[<AutoSerializable(false)>]
-type InMemoryTask<'T> internal (task : Task<'T>) =
-    interface ICloudTask<'T> with
-        member __.Id = sprintf ".NET task %d" task.Id
-        member __.AwaitResult(?timeoutMilliseconds:int) = Cloud.AwaitTask(task, ?timeoutMilliseconds = timeoutMilliseconds)
-        member __.TryGetResult () = local { return task.TryGetResult() }
-        member __.Status = task.Status
-        member __.IsCompleted = task.IsCompleted
-        member __.IsFaulted = task.IsFaulted
-        member __.IsCanceled = task.IsCanceled
-        member __.Result = task.GetResult()
-
 /// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
 [<AutoSerializable(false)>]
 type InMemoryCancellationToken (token : CancellationToken) =
@@ -60,15 +47,39 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
 
         new InMemoryCancellationTokenSource(lcts)
 
+/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
+[<AutoSerializable(false)>]
+type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
+    interface ICloudTask<'T> with
+        member __.Id = sprintf ".NET task %d" task.Id
+        member __.AwaitResult(?timeoutMilliseconds:int) = async {
+            // TODO : create a correct Async.AwaitTask implementation
+            // that avoids wrapping in System.AggregateException instead
+            let! ct = Async.CancellationToken
+            let wf = Cloud.AwaitTask(task, ?timeoutMilliseconds = timeoutMilliseconds) 
+            return! Cloud.ToAsync(wf, ResourceRegistry.Empty, new InMemoryCancellationToken(ct))
+        }
+
+        member __.TryGetResult () = async { return task.TryGetResult() }
+        member __.Status = task.Status
+        member __.IsCompleted = task.IsCompleted
+        member __.IsFaulted = task.IsFaulted
+        member __.IsCanceled = task.IsCanceled
+        member __.CancellationToken = ct
+        member __.Result = task.GetResult()
+
 [<Sealed; AutoSerializable(false)>]
 type internal InMemoryWorker private () =
     static let singleton = new InMemoryWorker()
     let name = System.Net.Dns.GetHostName()
+    let pid = System.Diagnostics.Process.GetCurrentProcess().Id
     interface IWorkerRef with
         member __.Hostname = name
         member __.Type = "InMemory worker"
         member __.Id = name
         member __.ProcessorCount = Environment.ProcessorCount
+        member __.MaxCpuClock = raise <| new NotImplementedException()
+        member __.ProcessId = pid
         member __.CompareTo(other : obj) =
             match other with
             | :? InMemoryWorker -> 0
@@ -130,12 +141,13 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, computations)
         member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts, computations)
 
-        member __.ScheduleStartAsTask (workflow:Cloud<'T>, faultPolicy:FaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef) = cloud {
+        member __.ScheduleStartAsTask (workflow:Cloud<'T>, faultPolicy:FaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
+            ignore taskName
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
             let! resources = Cloud.GetResourceRegistry()
             let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
             let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
             let resources' = resources.Register (runtimeP :> IDistributionProvider)
             let task = Cloud.StartAsSystemTask(workflow, resources', cancellationToken)
-            return new InMemoryTask<'T>(task) :> _
+            return new InMemoryTask<'T>(task, cancellationToken) :> ICloudTask<'T>
         }

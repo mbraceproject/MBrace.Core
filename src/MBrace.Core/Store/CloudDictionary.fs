@@ -18,41 +18,42 @@ type ICloudDictionary<'T> =
     ///     Checks if entry of supplied key exists in dictionary.
     /// </summary>
     /// <param name="key">Input key.</param>
-    abstract ContainsKey : key:string -> Local<bool>
+    abstract ContainsKey : key:string -> Async<bool>
 
     /// <summary>
     ///     Try adding a new key-value pair to dictionary.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="value">Value for entry.</param>
-    abstract TryAdd : key:string * value:'T -> Local<bool>
+    abstract TryAdd : key:string * value:'T -> Async<bool>
 
     /// <summary>
     ///     Add a new key-value pair to dictionary, overwriting if one already exists.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="value">Value for entry.</param>
-    abstract Add : key:string * value:'T -> Local<unit>
+    abstract Add : key:string * value:'T -> Async<unit>
 
     /// <summary>
-    ///     Atomically adds or updates a value in dictionary.
+    ///     Performs an atomic transaction on value of given key.
     /// </summary>
-    /// <param name="key">Key for entry.</param>
-    /// <param name="updater">Entry updater function.</param>
-    abstract AddOrUpdate : key:string * updater:('T option -> 'T) -> Local<'T>
+    /// <param name="key">Key to be transacted.</param>
+    /// <param name="transacter">Transaction function.</param>
+    /// <param name="maxRetries">Maximum number of retries. Defaults to infinite.</param>
+    abstract Transact : key:string * transacter:('T option -> 'R * 'T) * ?maxRetries:int -> Async<'R>
 
     /// <summary>
     ///     Removes entry of supplied key from dictionary.
     ///     Returns true if successful.
     /// </summary>
     /// <param name="key">Key to be removed.</param>
-    abstract Remove : key:string -> Local<bool>
+    abstract Remove : key:string -> Async<bool>
 
     /// <summary>
     ///     Attempt reading a value of provided key from dictionary.
     /// </summary>
     /// <param name="key">Key to be read.</param>
-    abstract TryFind : key:string -> Local<'T option>
+    abstract TryFind : key:string -> Async<'T option>
 
 namespace MBrace.Store.Internals
 
@@ -70,6 +71,8 @@ type ICloudDictionaryProvider =
     abstract Create<'T> : unit -> Async<ICloudDictionary<'T>>
 
 namespace MBrace.Store
+
+open System.Collections.Generic
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -93,7 +96,7 @@ type CloudDictionary =
     /// Creates a new CloudDictionary instance.
     static member New<'T>() = local {
         let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
-        return! ofAsync <| provider.Create<'T> ()
+        return! provider.Create<'T> ()
     }
 
     /// <summary>
@@ -133,7 +136,24 @@ type CloudDictionary =
     /// <param name="updater">Updater function.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
     static member AddOrUpdate (key : string) (updater : 'T option -> 'T) (dictionary : ICloudDictionary<'T>) = local {
-        return! dictionary.AddOrUpdate(key, updater)
+        let transacter (curr : 'T option) = let t = updater curr in t, t
+        return! dictionary.Transact(key, transacter)
+    }
+
+    /// <summary>
+    ///     Atomically updates a key/value entry.
+    ///     Returns the updated value.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="newValue">Value to be inserted in case of missing entry.</param>
+    /// <param name="updater">Entry updater function.</param>
+    static member Update (key : string) (updater : 'T -> 'T) (dictionary : ICloudDictionary<'T>) = local {
+        let transacter (curr : 'T option) =
+            match curr with
+            | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
+            | Some t -> let t' = updater t in t', t'
+
+        return! dictionary.Transact(key, transacter)
     }
 
     /// <summary>
@@ -152,4 +172,19 @@ type CloudDictionary =
     /// <param name="dictionary">Dictionary to be updated.</param>
     static member Remove (key : string) (dictionary : ICloudDictionary<'T>) = local {
         return! dictionary.Remove(key)
+    }
+
+    /// <summary>
+    ///     Performs a transaction on value contained in provided key
+    /// </summary>
+    /// <param name="transacter">Transaction funtion.</param>
+    /// <param name="key">Key to perform transaction on.</param>
+    /// <param name="dictionary">Input dictionary.</param>
+    static member Transact (transacter : 'T -> 'R * 'T) (key : string) (dictionary : ICloudDictionary<'T>) = local {
+        let transacter (curr : 'T option) =
+            match curr with
+            | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
+            | Some t -> let r,t' = transacter t in r, t'
+
+        return! dictionary.Transact(key, transacter)
     }

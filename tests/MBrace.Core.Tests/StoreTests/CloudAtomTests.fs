@@ -62,12 +62,12 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! a = CloudAtom.New 0
                 for i in [1 .. nSequential] do
-                    do! CloudAtom.Incr a
+                    do! CloudAtom.Incr a |> Local.Ignore
 
                 return a
             } |> runRemote
             
-        atom.Value |> runLocally |> shouldEqual nSequential
+        atom.Value |> Async.RunSync |> shouldEqual nSequential
 
     [<Test>]
     member __.``CloudAtom - Parallel updates`` () =
@@ -79,13 +79,13 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     let! a = CloudAtom.New 0
                     let worker _ = cloud {
                         for _ in [1 .. nSequential] do
-                            do! CloudAtom.Incr a
+                            do! CloudAtom.Incr a |> Local.Ignore
                     }
                     do! Seq.init parallelismFactor worker |> Cloud.Parallel |> Cloud.Ignore
                     return a
                 } |> runRemote
         
-            atom.Value |> runLocally |> shouldEqual (parallelismFactor * nSequential))
+            atom.Value |> Async.RunSync |> shouldEqual (parallelismFactor * nSequential))
 
     [<Test>]
     member __.``CloudAtom - Parallel updates with large obj`` () =

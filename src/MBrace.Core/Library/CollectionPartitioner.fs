@@ -15,7 +15,7 @@ type CloudCollection private () =
     /// </summary>
     /// <param name="collections">Input cloud collections.</param>
     static member ExtractPartitions (collections : seq<ICloudCollection<'T>>) : Local<ICloudCollection<'T> []> = local {
-        let rec extractCollection (c : ICloudCollection<'T>) = 
+        let rec extractCollection (c : ICloudCollection<'T>) : Local<seq<ICloudCollection<'T>>> = 
             local {
                 match c with
                 | :? IPartitionedCollection<'T> as c ->
@@ -24,7 +24,7 @@ type CloudCollection private () =
                 | c -> return Seq.singleton c
             }
 
-        and extractCollections (cs : seq<ICloudCollection<'T>>) =
+        and extractCollections (cs : seq<ICloudCollection<'T>>) : Local<seq<ICloudCollection<'T>>> =
             local {
                 let! extracted = cs |> Local.Sequential.map extractCollection
                 return Seq.concat extracted

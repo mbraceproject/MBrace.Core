@@ -59,13 +59,6 @@ type LocalRuntime private (resources : ResourceRegistry) =
         InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [||] :> ICloudCancellationTokenSource
 
     /// <summary>
-    ///     Creates an InMemory runtime instance with provided resources.
-    /// </summary>
-    /// <param name="resources"></param>
-    static member Create(resources : ResourceRegistry) =
-        new LocalRuntime(resources)
-
-    /// <summary>
     ///     Creates an InMemory runtime instance with provided store components.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>

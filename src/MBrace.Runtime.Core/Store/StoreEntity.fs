@@ -20,12 +20,11 @@ type StorageEntity =
         let gathered = new Dictionary<string, ICloudStorageEntity> ()
         let visitor = 
             { new IObjectVisitor with
-                member __.Visit(_,element : 'a) =
+                member __.Visit(_, element : 'a) =
                     match box element with
                     | :? ICloudStorageEntity as e when not <| gathered.ContainsKey e.Id ->
                         gathered.Add(e.Id, e)
                     | _ -> ()
-
                     true
             }
 

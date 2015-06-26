@@ -65,9 +65,9 @@
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
       <Name>MBrace.Flow</Name>
     </ProjectReference>
-    <ProjectReference Include="..\MBrace.SampleRuntime\MBrace.SampleRuntime.fsproj">
+    <ProjectReference Include="..\MBrace.Thespian\MBrace.Thespian.fsproj">
       <Project>{f95ea755-fbe4-44fc-8945-313b46bf6920}</Project>
-      <Name>MBrace.SampleRuntime</Name>
+      <Name>MBrace.Thespian</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

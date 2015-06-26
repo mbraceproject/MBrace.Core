@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Nessos.Streams.CSharp;
 using MBrace.Flow.CSharp;
 using System.Text.RegularExpressions;
-using MBrace.SampleRuntime;
+using MBrace.Thespian;
 
 namespace MBrace.Flow.CSharp.Samples
 {

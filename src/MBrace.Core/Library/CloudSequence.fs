@@ -112,7 +112,7 @@ type CloudSequence<'T> =
     /// Underlying sequence size in bytes
     member c.Size = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! ofAsync <| config.FileStore.GetFileSize c.path
+        return! config.FileStore.GetFileSize c.path
     }
 
     interface ICloudStorageEntity with
@@ -122,7 +122,7 @@ type CloudSequence<'T> =
     interface ICloudDisposable with
         member c.Dispose () = local {
             let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-            return! ofAsync <| config.FileStore.DeleteFile c.path
+            return! config.FileStore.DeleteFile c.path
         }
 
     interface ICloudCollection<'T> with
@@ -160,7 +160,7 @@ type private TextLineSequence(path : string, etag : ETag, ?encoding : Encoding, 
                 if count < int64 weights.Length then
                     let! lines = cs.ToArray()
                     let liness = Array.splitWeighted weights lines
-                    return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> _)
+                    return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> ICloudCollection<_>)
                 else
                     return mkRangedSeqs weights
             else
@@ -193,7 +193,7 @@ type CloudSequence =
         let writer (stream : Stream) = async {
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }
-        let! etag, length = ofAsync <| config.FileStore.WriteETag(path, writer)
+        let! etag, length = config.FileStore.WriteETag(path, writer)
         return new CloudSequence<'T>(path, etag, Some length, deserializer, ?enableCache = enableCache)
     }
 
@@ -216,7 +216,7 @@ type CloudSequence =
         }
 
         let deserializer = serializer |> Option.map (fun ser stream -> ser.SeqDeserialize<'T>(stream, leaveOpen = false))
-        return! ofAsync <| async {
+        return! async {
             if maxPartitionSize <= 0L then return invalidArg "maxPartitionSize" "Must be greater that 0."
 
             let seqs = new ResizeArray<CloudSequence<'T>>()
@@ -247,7 +247,7 @@ type CloudSequence =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
     static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : Local<CloudSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! etag = ofAsync <| config.FileStore.TryGetETag path
+        let! etag = config.FileStore.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
@@ -302,7 +302,7 @@ type CloudSequence =
     /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
     static member FromLineSeparatedTextFile(path : string, ?encoding : Encoding, ?force : bool, ?enableCache : bool) : Local<CloudSequence<string>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! etag = ofAsync <| config.FileStore.TryGetETag path
+        let! etag = config.FileStore.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
@@ -310,7 +310,7 @@ type CloudSequence =
             if defaultArg force false then
                 let! _ = cseq.Count in ()
 
-            return cseq :> _
+            return cseq :> CloudSequence<string>
     }
 
     /// <summary>

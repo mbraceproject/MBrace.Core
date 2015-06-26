@@ -30,7 +30,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.SampleRuntime", "samples\MBrace.SampleRuntime\MBrace.SampleRuntime.fsproj", "{F95EA755-FBE4-44FC-8945-313B46BF6920}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian", "samples\MBrace.Thespian\MBrace.Thespian.fsproj", "{F95EA755-FBE4-44FC-8945-313B46BF6920}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Runtime.Core", "src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj", "{BB4A3241-4D46-4888-861D-A34440ECFE8B}"
 EndProject
@@ -38,7 +38,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3D64DA53-FC9
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5D412C1B-BCEA-4DFA-A941-C27571F4D6A3}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.SampleRuntime.Tests", "tests\MBrace.SampleRuntime.Tests\MBrace.SampleRuntime.Tests.fsproj", "{77CDB612-B779-4643-A190-E715AD107617}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian.Tests", "tests\MBrace.Thespian.Tests\MBrace.Thespian.Tests.fsproj", "{77CDB612-B779-4643-A190-E715AD107617}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Runtime.Core.Tests", "tests\MBrace.Runtime.Core.Tests\MBrace.Runtime.Core.Tests.fsproj", "{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}"
 EndProject

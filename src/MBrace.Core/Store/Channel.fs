@@ -12,7 +12,7 @@ type ISendPort<'T> =
     ///     Sends a message over the channel
     /// </summary>
     /// <param name="message">Message to send.</param>
-    abstract Send : message:'T -> Local<unit>
+    abstract Send : message:'T -> Async<unit>
 
 /// Receiving side of a distributed channel
 type IReceivePort<'T> =
@@ -25,7 +25,7 @@ type IReceivePort<'T> =
     ///     Asynchronously awaits a message from the channel.
     /// </summary>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    abstract Receive : ?timeout:int -> Local<'T>
+    abstract Receive : ?timeout:int -> Async<'T>
 
 namespace MBrace.Store.Internals
 
@@ -95,7 +95,7 @@ type CloudChannel =
     static member New<'T>(?container : string) = local {
         let! config = Cloud.GetResource<CloudChannelConfiguration> ()
         let container = defaultArg container config.DefaultContainer
-        return! ofAsync <| config.ChannelProvider.CreateChannel<'T> (container)
+        return! config.ChannelProvider.CreateChannel<'T> (container)
     }
 
     /// <summary>
@@ -129,7 +129,7 @@ type CloudChannel =
     /// <param name="container"></param>
     static member DeleteContainer (container : string) = local {
         let! config = Cloud.GetResource<CloudChannelConfiguration> ()
-        return! ofAsync <| config.ChannelProvider.DisposeContainer container
+        return! config.ChannelProvider.DisposeContainer container
     }
 
     /// Generates a unique container name.

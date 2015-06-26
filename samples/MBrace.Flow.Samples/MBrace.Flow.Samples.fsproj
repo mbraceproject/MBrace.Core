@@ -72,8 +72,8 @@
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\MBrace.SampleRuntime\MBrace.SampleRuntime.fsproj">
-      <Name>MBrace.SampleRuntime</Name>
+    <ProjectReference Include="..\MBrace.Thespian\MBrace.Thespian.fsproj">
+      <Name>MBrace.Thespian</Name>
       <Project>{f95ea755-fbe4-44fc-8945-313b46bf6920}</Project>
       <Private>True</Private>
     </ProjectReference>

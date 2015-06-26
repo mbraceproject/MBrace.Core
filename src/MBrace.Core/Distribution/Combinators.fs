@@ -54,7 +54,7 @@ type Cloud =
     ///     Wraps an asynchronous workflow into a cloud workflow.
     /// </summary>
     /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
-    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Local<'T> = ofAsync asyncWorkflow
+    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Local<'T> = local { return! asyncWorkflow }
 
     /// <summary>
     ///     Performs a cloud computations, discarding its result
@@ -135,7 +135,7 @@ type Cloud =
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (left : Cloud<'L>, right : Cloud<'R>) : Cloud<'L * 'R> = cloud {
         let! runtime = Cloud.GetResource<IDistributionProvider> ()
-        let wrap w = (cloud { let! r = w in return box r } , None)
+        let wrap (w : Cloud<_>) = (cloud { let! r = w in return box r } , None)
         let workflow = runtime.ScheduleParallel [| wrap left ; wrap right |]
         let stackTraceSig = sprintf "Cloud.Parallel(Cloud<%s> left, Cloud<%s> right)" typeof<'L>.Name typeof<'R>.Name
         let! result = Cloud.WithAppendedStackTrace stackTraceSig workflow
@@ -227,10 +227,11 @@ type Cloud =
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Specify cancellation token for task. Defaults to no cancellation token.</param>
-    static member StartAsTask(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken) : Cloud<ICloudTask<'T>> = cloud {
+    /// <param name="taskName">Optional user-specified name for task.</param>
+    static member StartAsTask(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?taskName:string) : Cloud<ICloudTask<'T>> = cloud {
         let! runtime = Cloud.GetResource<IDistributionProvider> ()
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
-        return! runtime.ScheduleStartAsTask(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target)
+        return! runtime.ScheduleStartAsTask(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?taskName = taskName)
     }
 
     /// <summary>
@@ -430,7 +431,7 @@ type Local =
     /// <param name="computations">Input computations to be executed in parallel.</param>
     static member Parallel (left : Local<'L>, right : Local<'R>) : Local<'L * 'R> = local {
         let! runtime = Cloud.GetResource<IDistributionProvider> ()
-        let wrap w = local { let! r = w in return box r }
+        let wrap (w : Local<_>) = local { let! r = w in return box r }
         let workflow = runtime.ScheduleLocalParallel [| wrap left ; wrap right |]
         let stackTraceSig = sprintf "Local.Parallel(Local<%s> left, Local<%s> right)" typeof<'L>.Name typeof<'R>.Name
         let! result = Local.WithAppendedStackTrace stackTraceSig workflow
