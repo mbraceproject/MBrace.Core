@@ -18,6 +18,7 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
 open MBrace.Thespian.Runtime
 
+/// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 
 /// MBrace.Thespian client object used to manage cluster and submit jobs for computation.
@@ -25,7 +26,7 @@ type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState, _logger : AttacheableLogger) =
     inherit MBraceClient(manager)
     static let processName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name
-    static do Config.Init()
+    static do Config.Initialize(populateDirs = true)
     static let mutable exe = None
     static let initWorkers (target : RuntimeState) (count : int) =
         if count < 1 then invalidArg "workerCount" "must be positive."
@@ -46,12 +47,12 @@ type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState, _l
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () =
         for w in base.Workers do
-            try 
-                if w.Hostname = MachineId.LocalInstance.Hostname then
-                    let p = Process.GetProcessById w.ProcessId
-                    if p.ProcessName = processName then
-                        p.Kill()
-            with _ -> ()
+            match w.WorkerId with
+            | :? WorkerId as wid ->
+                match wid.ProcessId.TryGetLocalProcess() with
+                | Some p -> try p.Kill() with _ -> ()
+                | None -> ()
+            | _ -> ()
 
     /// <summary>
     ///     Spawns provided count of new local worker processes and attaches to the runtime.
@@ -77,10 +78,9 @@ type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState, _l
                 CloudFileStoreConfiguration.Create fs
 
         let logger = new AttacheableLogger()
-        let state = RuntimeState.InitLocal(logger, storeConfig, ?miscResources = resources)
-        let manager = new RuntimeManager(state, logger)
+        let state = RuntimeState.Create(logger, storeConfig, ?miscResources = resources)
         let _ = initWorkers state workerCount
-        new MBraceThespian(manager, state, logger)
+        new MBraceThespian(state.GetLocalRuntimeManager logger, state, logger)
 
     /// Gets or sets the worker executable location.
     static member WorkerExecutable

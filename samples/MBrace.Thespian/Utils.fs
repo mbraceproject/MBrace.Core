@@ -1,5 +1,77 @@
 ﻿namespace MBrace.Thespian.Runtime
 
+open System
+
+open Nessos.Thespian
+open Nessos.Thespian.Remote
+open Nessos.Thespian.Remote.TcpProtocol
+
+/// Actor publication utilities
+type Actor =
+
+    /// Publishes an actor instance to the default TCP protocol
+    static member Publish(actor : Actor<'T>) =
+        ignore Config.Serializer
+        let name = Guid.NewGuid().ToString()
+        actor
+        |> Actor.rename name
+        |> Actor.publish [ Protocols.utcp() ]
+        |> Actor.start
+
+    /// <summary>
+    ///     Stateful actor behaviour combinator passed self actor.
+    ///     Catches behaviour exceptions and retains original state.
+    /// </summary>
+    /// <param name="init">Initial state.</param>
+    /// <param name="behaviour">Actor body behaviour.</param>
+    static member SelfStateful (init : 'State) (behaviour : Actor<'T> -> 'State -> 'T -> Async<'State>) : Actor<'T> = 
+        let rec aux state (self : Actor<'T>) = async {
+            let! msg = self.Receive()
+            let! state' = async { 
+                try return! behaviour self state msg 
+                with e -> printfn "Actor fault (%O): %O" typeof<'T> e ; return state
+            }
+
+            return! aux state' self
+        }
+
+        Actor.bind (aux init)
+
+    /// <summary>
+    ///     Stateful actor behaviour combinator.
+    ///     Catches behaviour exceptions and retains original state.
+    /// </summary>
+    /// <param name="init">Initial state.</param>
+    /// <param name="behaviour">Actor body behaviour.</param>
+    static member Stateful (init : 'State) (behaviour : 'State -> 'T -> Async<'State>) : Actor<'T> = 
+        let rec aux state (self : Actor<'T>) = async {
+            let! msg = self.Receive()
+            let! state' = async { 
+                try return! behaviour state msg 
+                with e -> printfn "Actor fault (%O): %O" typeof<'T> e ; return state
+            }
+
+            return! aux state' self
+        }
+
+        Actor.bind (aux init)
+
+    /// <summary>
+    ///     Stateless actor behaviour combinator.
+    ///     Catches behaviour exceptions and retains original state.
+    /// </summary>
+    /// <param name="init">Initial state.</param>
+    /// <param name="behaviour">Actor body behaviour.</param>
+    static member Stateless (behaviour : 'T -> Async<unit>) : Actor<'T>=
+        let rec aux (self : Actor<'T>) = async {
+            let! msg = self.Receive()
+            try do! behaviour msg
+            with e -> printfn "Actor fault (%O): %O" typeof<'T> e 
+            return! aux self
+        }
+
+        Actor.bind aux
+
 
 // Standard immutable queue implementation
 type ImmutableQueue<'T> private (front : 'T list, back : 'T list) =

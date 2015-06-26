@@ -11,10 +11,12 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PerformanceMonitor
 
+/// Defines a unique idenfier for an MBrace.Thespian worker
 [<AutoSerializable(true)>]
 type WorkerId private (processId : ProcessId, address : string) =
     member __.ProcessId = processId
     member __.Id = sprintf "mbrace://%s" address
+
     interface IWorkerId with
         member x.CompareTo(obj: obj): int =
             match obj with
@@ -31,15 +33,17 @@ type WorkerId private (processId : ProcessId, address : string) =
 
     override x.GetHashCode() = hash processId
 
+    /// Gets the worker id instance corresponding to the local worker
     static member LocalInstance = new WorkerId(ProcessId.LocalInstance, Config.LocalAddress)
-         
-
+  
+/// Messages sent for actor tasked to monitoring worker heart beats       
 type private HeartbeatMonitorMsg = 
     | SendHeartbeat
     | CheckHeartbeat
     | GetLatestHeartbeat of IReplyChannel<DateTime>
     | Stop of IReplyChannel<unit>
 
+/// Global worker monitor actor
 and private WorkerMonitorMsg =
     | Subscribe of WorkerId * WorkerInfo * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
     | UnSubscribe of WorkerId
@@ -51,20 +55,32 @@ and private WorkerMonitorMsg =
     | GetAvailableWorkers of IReplyChannel<WorkerState []>
     | TryGetWorkerState of WorkerId * IReplyChannel<WorkerState option>
 
+[<AutoOpen>]
 module private HeartbeatMonitor =
-    let create (threshold : TimeSpan) (wmon : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
+    
+    /// <summary>
+    ///     Creates an actor instance tasked to monitoring heartbeats for supplied worker id.
+    /// </summary>
+    /// <param name="threshold">Threshold after which worker is to be declared dead.</param>
+    /// <param name="workerMonitor">Parent worker monitor that has spawned the heartbeat process.</param>
+    /// <param name="worker">Worker to monitor.</param>
+    let create (threshold : TimeSpan) (workerMonitor : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
         let cts = new CancellationTokenSource()
         let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTime) (msg : HeartbeatMonitorMsg) = async {
             match msg with
             | SendHeartbeat -> 
+                // update latest heartbeat to now
                 return DateTime.Now
             | CheckHeartbeat ->
                 if DateTime.Now - lastRenew > threshold then
-                    wmon <-- DeclareDead worker
+                    // send message to parent worker monitor declaring worker dead
+                    workerMonitor <-- DeclareDead worker
+
                 return lastRenew
             | GetLatestHeartbeat rc ->
                 do! rc.Reply lastRenew
                 return lastRenew
+
             | Stop ch -> 
                 cts.Cancel()
                 do! ch.Reply (())
@@ -77,6 +93,7 @@ module private HeartbeatMonitor =
             |> Actor.Publish
             |> Actor.ref
 
+        // create a polling loop that occasionally checks for heartbeats
         let rec poll () = async {
             aref <-- CheckHeartbeat
             do! Async.Sleep (int threshold.TotalMilliseconds / 5)
@@ -86,6 +103,11 @@ module private HeartbeatMonitor =
         Async.Start(poll(), cts.Token)
         aref
 
+    /// <summary>
+    ///     Initializes a heartbeat loop on the worker side.
+    /// </summary>
+    /// <param name="threshold">Worker death threshold.</param>
+    /// <param name="target">Target heartbeat monitor.</param>
     let initHeartbeat (threshold : TimeSpan) (target : ActorRef<HeartbeatMonitorMsg>) = async {
         let cts = new CancellationTokenSource()
         let rec loop () = async {
@@ -99,13 +121,22 @@ module private HeartbeatMonitor =
     }
 
 
+/// WorkerManager actor reference used for handling MBrace.Thespian worker instances
 [<AutoSerializable(true)>]
 type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
 
+    /// <summary>
+    ///     Revokes worker subscription for given id.
+    /// </summary>
+    /// <param name="worker">Worker id to be unscubscribed.</param>
     member __.UnSubscribe(worker : IWorkerId) = async {
         return! source.AsyncPost <| UnSubscribe (unbox worker)
     }
 
+    /// <summary>
+    ///     Checks if worker id is still sending heartbeats.
+    /// </summary>
+    /// <param name="worker">Worker id to be checked.</param>
     member __.IsAlive(worker : IWorkerId) = async {
         return! source <!- fun ch -> IsAlive(unbox worker, ch)
     }
@@ -141,7 +172,11 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
             return! source <!- fun ch -> TryGetWorkerState(unbox id, ch)
         }
 
-    static member Init(?heartbeatThreshold : TimeSpan) =
+    /// <summary>
+    ///     Creates a new worker manager instance running in the local process.
+    /// </summary>
+    /// <param name="heartbeatThreshold">Maximum heartbeat threshold demanded by monitor. Defaults to 4 seconds.</param>
+    static member Create(?heartbeatThreshold : TimeSpan) =
         let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 4.)
         let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<WorkerId, WorkerState * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
             match msg with
@@ -224,7 +259,7 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
         new WorkerManager(aref)
 
 
-
+/// Subscribption disposer object
 and [<AutoSerializable(false)>] private 
     WorkerSubscriptionManager (wmon : WorkerManager, currentWorker : IWorkerId, heartbeatDisposer : IDisposable) =
 

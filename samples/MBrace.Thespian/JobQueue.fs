@@ -12,28 +12,46 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils.PrettyPrinters
 
+/// Describes a pickled MBrace job.
+/// Can be used without any need for assembly dependencies being loaded.
 type internal Pickle =
-    | Single of Pickle<CloudJob>
-    | Batch of index:int * Pickle<CloudJob []>
+    /// Single cloud job
+    | Single of job:Pickle<CloudJob>
+    /// Cloud job is part of a batch enqueue.
+    /// Pickled together for size optimization reasons.
+    | Batch of index:int * jobs:Pickle<CloudJob []>
 with
+    /// Size of pickle in bytes
     member p.Size =
         match p with
         | Single sp -> sp.Bytes.LongLength
         | Batch(_,sp) -> sp.Bytes.LongLength
 
+/// Pickled MBrace job entry.
+/// Can be used without need for assembly dependencies being loaded.
 type internal PickledJob =
     {
+        /// Parent task entry as recorded in cluster.
         TaskEntry : ICloudTaskCompletionSource
+        /// Unique job identifier
         JobId : string
+        /// Job type enumeration
         JobType : JobType
+        /// Job pretty printed return type
         Type : string
+        /// Declared target worker for job
         Target : IWorkerId option
+        /// Pickled job contents
         Pickle : Pickle
     }
 
+/// Messages accepted by a job monitoring actor
 type internal JobLeaseMonitorMsg =
+    /// Declare job completed
     | Completed
+    /// Declare job execution resulted in fault
     | WorkerDeclaredFault of ExceptionDispatchInfo
+    /// Declare worker executing job has died
     | WorkerDeath
 
 type private JobQueueMsg =
@@ -43,7 +61,17 @@ type private JobQueueMsg =
 
 module private JobLeaseMonitor =
     
-    let create (wmon : WorkerManager) (queue : ActorRef<JobQueueMsg>) 
+    /// <summary>
+    ///     Creates an local actor that monitors job execution progress.
+    ///     It is tasked to re-enqueue the job in case of fault/worker death.
+    /// </summary>
+    /// <param name="workerMonitor">Cluster worker monitor.</param>
+    /// <param name="queue">Parent job queue actor.</param>
+    /// <param name="faultInfo">Current fault state of the job.</param>
+    /// <param name="job">Job instance being monitored.</param>
+    /// <param name="interval">Monitor interval.</param>
+    /// <param name="worker">Executing worker id.</param>
+    let create (workerMonitor : WorkerManager) (queue : ActorRef<JobQueueMsg>) 
                 (faultInfo : JobFaultInfo) (job : PickledJob) 
                 (interval : TimeSpan) (worker : IWorkerId) =
 
@@ -69,7 +97,7 @@ module private JobLeaseMonitor =
 
         let ref = Actor.bind behaviour |> Actor.Publish |> Actor.ref
         let rec poller () = async {
-            let! isAlive = wmon.IsAlive worker |> Async.Catch
+            let! isAlive = workerMonitor.IsAlive worker |> Async.Catch
             match isAlive with
             | Choice1Of2 true | Choice2Of2 _ ->
                 do! Async.Sleep(int interval.TotalMilliseconds)
@@ -82,6 +110,7 @@ module private JobLeaseMonitor =
         Async.Start(poller(), cts.Token)
         ref
 
+/// Job lease token implementation, received when dequeuing a job from the queue.
 type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
 
     interface ICloudJobLeaseToken with
@@ -114,6 +143,8 @@ type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseM
         
         member x.Id: string = pjob.JobId
 
+
+/// Job Queue actor state
 type private QueueState = 
     {
         Queue : JobQueueTopic
@@ -169,9 +200,13 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             | None -> return None
         }
 
-    /// Initializes a new distribued queue instance.
-    static member Init(wmon : WorkerManager, ?cleanupThreshold : TimeSpan) =
-        let cleanupThreshold = defaultArg cleanupThreshold (TimeSpan.FromSeconds 10.)
+    /// <summary>
+    ///     Creates a new job queue instance running in the local process.
+    /// </summary>
+    /// <param name="workerMonitor">Worker monitor instance.</param>
+    /// <param name="cleanupInterval">Topic queue cleanup interval. Defaults to 10 seconds.</param>
+    static member Create(workerMonitor : WorkerManager, ?cleanupInterval : TimeSpan) =
+        let cleanupThreshold = defaultArg cleanupInterval (TimeSpan.FromSeconds 10.)
 
         let behaviour (self : Actor<JobQueueMsg>) (state : QueueState) (msg : JobQueueMsg) = async {
             match msg with
@@ -187,7 +222,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                 let state =
                     if DateTime.Now - state.LastCleanup > cleanupThreshold then
                         // remove jobs from worker topics if inactive.
-                        let removed, state' = state.Queue.Cleanup (wmon.IsAlive >> Async.RunSync >> not)
+                        let removed, state' = state.Queue.Cleanup (workerMonitor.IsAlive >> Async.RunSync >> not)
                         let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : JobFaultInfo) =
                             let worker = Option.get j.Target
                             let j = { j with Target = None }
@@ -206,7 +241,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                     return state
 
                 | Some((pj,fs), queue') ->
-                    let jlm = JobLeaseMonitor.create wmon self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
+                    let jlm = JobLeaseMonitor.create workerMonitor self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
                     do! rc.Reply(Some(pj, fs, jlm))
                     return { state with Queue = queue' }
         }

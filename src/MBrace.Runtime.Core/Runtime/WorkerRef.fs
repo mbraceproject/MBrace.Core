@@ -45,8 +45,10 @@ type WorkerRef private (runtimeId : IRuntimeId, workerManager : IWorkerManager, 
     [<OnDeserialized>]
     member private __.OnDeserialized (_ : StreamingContext) = init ()
 
-    member internal __.RuntimeId = runtimeId
-    member internal __.WorkerId = workerId
+    /// Runtime identifier
+    member __.RuntimeId = runtimeId
+    /// Worker identifier
+    member __.WorkerId = workerId
 
     /// Gets the worker hostname
     member __.Hostname = getState().Info.Hostname

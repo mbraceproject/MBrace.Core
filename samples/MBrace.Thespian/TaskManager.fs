@@ -19,6 +19,7 @@ type private TaskManagerMsg =
     | ClearAllTasks of IReplyChannel<unit>
     | ClearTask of taskId:string * IReplyChannel<bool>
 
+///  Task manager actor reference used for handling MBrace.Thespian task instances
 type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
     interface ICloudTaskManager with
         member x.CreateTask(info : CloudTaskInfo) = async {
@@ -45,7 +46,10 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
             return result |> Option.map unbox
         }
 
-    static member Init() =
+    /// <summary>
+    ///     Creates a new Task Manager instance running in the local process.
+    /// </summary>
+    static member Create() =
         let behaviour (state : Map<string, ActorTaskCompletionSource>) (msg : TaskManagerMsg) = async {
             match msg with
             | CreateTaskEntry(info, ch) ->

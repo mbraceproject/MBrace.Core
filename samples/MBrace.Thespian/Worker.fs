@@ -1,4 +1,4 @@
-﻿module MBrace.Thespian.Runtime.Worker
+﻿namespace MBrace.Thespian.Runtime
 
 open System
 
@@ -8,29 +8,38 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 
-let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
-                    (logger : ISystemLogger) (maxConcurrentJobs : int) = async {
+module Worker =
+    
+    /// <summary>
+    ///     Initializes a worker agent that subscribes to given runtime state
+    /// </summary>
+    /// <param name="useAppDomainIsolation">Enable AppDomain isolation for cloud job execution.</param>
+    /// <param name="state">MBrace.Thespian state object.</param>
+    /// <param name="logger">Logger bound to local worker process.s</param>
+    /// <param name="maxConcurrentJobs">Maximum number of permitted concurrent jobs.</param>
+    let initialize (useAppDomainIsolation : bool) (state : RuntimeState)
+                        (logger : ISystemLogger) (maxConcurrentJobs : int) = async {
 
-    ignore Config.Serializer
-    let resourceManager = new RuntimeManager(state, logger)
-    let currentWorker = WorkerId.LocalInstance :> IWorkerId
+        ignore Config.Serializer
+        let currentWorker = WorkerId.LocalInstance :> IWorkerId
+        let manager = state.GetLocalRuntimeManager logger
 
-    let jobEvaluator =
-        if useAppDomainIsolation then
-            logger.LogInfo "Initializing AppDomain pool evaluator."
-            let workingDirectory = Config.WorkingDirectory 
-            let initializer () =
-                Config.Init(populateDirs = false) 
-                logger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
+        let jobEvaluator =
+            if useAppDomainIsolation then
+                logger.LogInfo "Initializing AppDomain pool evaluator."
+                let workingDirectory = Config.WorkingDirectory 
+                let initializer () =
+                    Config.Initialize(populateDirs = false) 
+                    logger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
 
-            let managerF = DomainLocal.Create(fun () -> new RuntimeManager(state, logger) :> IRuntimeManager, currentWorker)
+                let managerF = DomainLocal.Create(fun () -> state.GetLocalRuntimeManager logger, currentWorker)
 
-            AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
-        else
-            new LocalJobEvaluator(resourceManager, currentWorker) :> ICloudJobEvaluator
+                AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
+            else
+                new LocalJobEvaluator(manager, currentWorker) :> ICloudJobEvaluator
 
-    logger.LogInfo "Creating worker agent."
-    let! agent = WorkerAgent.Create(resourceManager, currentWorker, jobEvaluator, maxConcurrentJobs, submitPerformanceMetrics = true)
-    do! agent.Start()
-    return agent
-}
+        logger.LogInfo "Creating worker agent."
+        let! agent = WorkerAgent.Create(manager, currentWorker, jobEvaluator, maxConcurrentJobs, submitPerformanceMetrics = true)
+        do! agent.Start()
+        return agent
+    }
