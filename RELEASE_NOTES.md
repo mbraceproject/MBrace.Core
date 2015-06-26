@@ -1,3 +1,7 @@
+#### 0.9.13-alpha
+* Allow binding to async workflows in cloud workflows.
+* Expand MBrace.Runtime.Core project.
+
 #### 0.9.12-alpha
 * Bugfixes in partitioner.
 
