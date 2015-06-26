@@ -1,5 +1,6 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core"
+#r "MBrace.Runtime.Core"
 #r "Streams.Core"
 #r "MBrace.Flow"
 #r "MBrace.Thespian"
@@ -50,9 +51,9 @@ let storeClient = runtime.StoreClient
 //
 
 let words =
-    CloudFlow.OfTextFilesByLine files
+    CloudFlow.OfCloudFilesByLine files
     |> CloudFlow.collect (fun line -> splitWords line |> Seq.map wordTransform)
-    |> CloudFlow.toCloudVector
+    |> CloudFlow.persist
     |> runtime.Run
 
 let getTop count =
@@ -61,11 +62,11 @@ let getTop count =
     |> CloudFlow.filter wordFilter
     |> CloudFlow.countBy id
     |> CloudFlow.sortBy (fun (_,c) -> -c) count
-    |> CloudFlow.toCloudVector
+    |> CloudFlow.persist
 
              
-let cloudVector = runtime.Run(getTop 20)
+let persistedFlow = runtime.Run(getTop 20)
 
-cloudVector.ToEnumerable()
+persistedFlow.ToEnumerable()
 |> runtime.RunLocally
 |> Seq.iter (printfn "%A")
