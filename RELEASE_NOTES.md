@@ -1,3 +1,6 @@
+#### 0.9.14-alpha
+* Fix packaging issue.
+
 #### 0.9.13-alpha
 * Allow binding to async workflows in cloud workflows.
 * Expand MBrace.Runtime.Core project.
