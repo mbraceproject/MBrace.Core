@@ -57,41 +57,68 @@ type InMemoryAtomProvider () =
         member __.CreateAtom<'T>(_, init : 'T) = async { return new InMemoryAtom<'T>(init) :> _ }
         member __.DisposeContainer _ = raise <| new NotImplementedException()
 
-/// Defines an in-memory channel factory using mailbox processor
+
 [<Sealed; AutoSerializable(false)>]
-type InMemoryChannelProvider () =
+type private InMemoryQueue<'T>  (id : string) =
+    let mutable isDisposed = false
+    let checkDisposed () =
+        if isDisposed then raise <| new ObjectDisposedException("Queue has been disposed.")
+
+    let mbox = new MailboxProcessor<'T>(fun _ -> async.Zero())
+
+    interface ICloudQueue<'T> with
+        member x.Count: Async<int64> = async {
+            checkDisposed()
+            return int64 mbox.CurrentQueueLength
+        }
+        
+        member x.Dequeue(?timeout: int): Async<'T> = async {
+            checkDisposed()
+            return! mbox.Receive(?timeout = timeout)
+        }
+        
+        member x.Dispose(): Local<unit> = local {
+            isDisposed <- true
+        }
+        
+        member x.Enqueue(message: 'T): Async<unit> = async {
+            checkDisposed()
+            return mbox.Post message
+        }
+        
+        member x.EnqueueBatch(messages: seq<'T>): Async<unit> = async {
+            do
+                checkDisposed()
+                for m in messages do mbox.Post m
+        }
+        
+        member x.Id: string = id
+        
+        member x.TryDequeue(): Async<'T option> = async {
+            checkDisposed()
+            return! mbox.TryReceive(timeout = 0)
+        }
+        
+
+/// Defines an in-memory queue factory using mailbox processor
+[<Sealed; AutoSerializable(false)>]
+type InMemoryQueueProvider () =
     let id = mkUUID()
 
-    static member CreateConfiguration () : CloudChannelConfiguration =
+    static member CreateConfiguration () : CloudQueueConfiguration =
         {
-            ChannelProvider = new InMemoryChannelProvider() :> ICloudChannelProvider
+            QueueProvider = new InMemoryQueueProvider() :> ICloudQueueProvider
             DefaultContainer = ""
         }
 
-    interface ICloudChannelProvider with
-        member __.Name = "InMemoryChannelProvider"
+    interface ICloudQueueProvider with
+        member __.Name = "InMemoryQueueProvider"
         member __.Id = id
         member __.CreateUniqueContainerName () = mkUUID()
 
-        member __.CreateChannel<'T> (container : string) = async {
+        member __.CreateQueue<'T> (container : string) = async {
             let id = sprintf "%s/%s" container <| mkUUID()
-            let mbox = Microsoft.FSharp.Control.MailboxProcessor<'T>.Start(fun _ -> async.Zero())
-            let sender =
-                {
-                    new ISendPort<'T> with
-                        member __.Id = id
-                        member __.Send(msg : 'T) = async { return mbox.Post msg }
-                }
-
-            let receiver =
-                {
-                    new IReceivePort<'T> with
-                        member __.Id = id
-                        member __.Receive(?timeout : int) = async { return! mbox.Receive(?timeout = timeout) }
-                        member __.Dispose() = raise <| new NotSupportedException()
-                }
-
-            return sender, receiver
+            return new InMemoryQueue<'T>(id) :> ICloudQueue<'T>
         }
 
         member __.DisposeContainer _ = async.Zero()

@@ -565,22 +565,22 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
-    member __.``2. CloudFlow : ofCloudChannel`` () =
+    member __.``2. CloudFlow : ofCloudQueue`` () =
         let f(_ : int) =
             let x =
                 cloud {
-                    let! sendPort, receivePort = CloudChannel.New()
+                    let! queue = CloudQueue.New()
                     let! n =
                         Cloud.Choice [
                             cloud { 
                                 for i in [|1..1000|] do
-                                    do! CloudChannel.Send(sendPort, i)
+                                    do! CloudQueue.Enqueue(queue, i)
                                     do! Cloud.Sleep(100)
                                 return None
                             };
                             cloud {
                                 let! n =  
-                                    CloudFlow.OfCloudChannel(receivePort, 1)
+                                    CloudFlow.OfCloudQueue(queue, 1)
                                     |> CloudFlow.take 2
                                     |> CloudFlow.length
                                 return Some n
@@ -593,20 +593,20 @@ type ``CloudFlow tests`` () as self =
 
 
     [<Test>]
-    member __.``2. CloudFlow : toCloudChannel`` () =
+    member __.``2. CloudFlow : toCloudQueue`` () =
         let f(xs : int[]) =
-            let sendPort, receivePort = CloudChannel.New() |> run
+            let queue = CloudQueue.New() |> run
             let x = 
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.map (fun v -> v + 1)
-                |> CloudFlow.toCloudChannel sendPort
+                |> CloudFlow.toCloudQueue queue
                 |> run
             let x = 
                 cloud {
                     let list = ResizeArray<int>()
                     for x in xs do 
-                        let! v = CloudChannel.Receive(receivePort)
+                        let! v = CloudQueue.Dequeue(queue)
                         list.Add(v)
                     return list
                 } |> run

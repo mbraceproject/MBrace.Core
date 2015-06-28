@@ -67,7 +67,7 @@
     <Compile Include="Primitives\Counter.fs" />
     <Compile Include="Primitives\ResultAggregator.fs" />
     <Compile Include="Primitives\CloudAtom.fs" />
-    <Compile Include="Primitives\CloudChannel.fs" />
+    <Compile Include="Primitives\CloudQueue.fs" />
     <Compile Include="Primitives\CloudDictionary.fs" />
     <Compile Include="WorkerManager.fs" />
     <Compile Include="TaskManager.fs" />

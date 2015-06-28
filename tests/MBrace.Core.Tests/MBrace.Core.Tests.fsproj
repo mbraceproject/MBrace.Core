@@ -65,7 +65,7 @@
     <Compile Include="ParallelismTests.fs" />
     <Compile Include="StoreTests\FileStoreTests.fs" />
     <Compile Include="StoreTests\CloudAtomTests.fs" />
-    <Compile Include="StoreTests\CloudChannelTests.fs" />
+    <Compile Include="StoreTests\CloudQueueTests.fs" />
     <Compile Include="StoreTests\CloudDictionaryTests.fs" />
     <Compile Include="InMemoryTests.fs" />
     <Content Include="App.config" />

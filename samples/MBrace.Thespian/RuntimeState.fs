@@ -63,7 +63,7 @@ with
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
-            yield CloudChannelConfiguration.Create(new ActorChannelProvider(resourceFactory))
+            yield CloudQueueConfiguration.Create(new ActorQueueProvider(resourceFactory))
             yield new ActorDictionaryProvider(resourceFactory) :> ICloudDictionaryProvider
             yield new FsPicklerBinaryStoreSerializer() :> ISerializer
             match miscResources with Some r -> yield! r | None -> ()

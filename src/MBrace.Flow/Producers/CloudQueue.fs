@@ -14,13 +14,13 @@ open MBrace.Flow.Internals
 
 #nowarn "444"
 
-type internal CloudChannel =
+type internal CloudQueue =
 
-    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
-    /// <param name="channel">the ReceivePort of a CloudChannel.</param>
+    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudQueue</summary>
+    /// <param name="channel">the ReceivePort of a CloudQueue.</param>
     /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
     /// <returns>The result CloudFlow.</returns>
-    static member ToCloudFlow (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
+    static member ToCloudFlow (channel : ICloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = Some degreeOfParallelism
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
@@ -33,7 +33,7 @@ type internal CloudChannel =
                     let createTask () = local {
                         let! ctx = Cloud.GetExecutionContext()
                         let! collector = collectorf
-                        let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudChannel.Receive channel, ctx.Resources, ctx.CancellationToken))
+                        let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudQueue.Dequeue channel, ctx.Resources, ctx.CancellationToken))
                         let parStream = ParStream.ofSeq seq
                         let collectorResult = parStream.Apply (collector.ToParStreamCollector())
                         return! projection collectorResult

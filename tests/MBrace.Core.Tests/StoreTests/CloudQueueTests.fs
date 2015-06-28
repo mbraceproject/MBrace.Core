@@ -10,7 +10,7 @@ open MBrace.Client
 open NUnit.Framework
 
 [<TestFixture; AbstractClass>]
-type ``CloudChannel Tests`` (parallelismFactor : int) as self =
+type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.Run wf 
     let runLocally wf = self.RunLocally wf
@@ -24,38 +24,38 @@ type ``CloudChannel Tests`` (parallelismFactor : int) as self =
     /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
     /// Local store client instance
-    abstract ChannelClient : CloudChannelClient
+    abstract QueueClient : CloudQueueClient
 
 
     [<Test>]
     member __.``Local StoreClient`` () =
-        let cc = __.ChannelClient
-        let sp, rp = cc.Create()
-        cc.Send (sp, 42)
-        cc.Receive rp |> shouldEqual 42
+        let cqc = __.QueueClient
+        let cq = cqc.Create()
+        cqc.Enqueue (cq, 42)
+        cqc.Dequeue cq |> shouldEqual 42
 
     [<Test>]
-    member __.``Channels: simple send/receive`` () =
+    member __.``Queues: simple send/receive`` () =
         cloud {
-            let! send,recv = CloudChannel.New<int> ()
-            let! _,value = CloudChannel.Send(send, 42) <||> CloudChannel.Receive recv
+            let! cq = CloudQueue.New<int> ()
+            let! _,value = CloudQueue.Enqueue(cq, 42) <||> CloudQueue.Dequeue cq
             return value
         } |> runRemote |> shouldEqual 42
 
     [<Test>]
-    member __.``Channels: multiple send/receive`` () =
+    member __.``Queues: multiple send/receive`` () =
         cloud {
-            let! sp,rp = CloudChannel.New<int option> ()
+            let! cq = CloudQueue.New<int option> ()
             let rec sender n = cloud {
                 if n = 0 then
-                    do! CloudChannel.Send(sp, None)
+                    do! CloudQueue.Enqueue(cq, None)
                 else
-                    do! CloudChannel.Send(sp, Some n)
+                    do! CloudQueue.Enqueue(cq, Some n)
                     return! sender (n-1)
             }
 
             let rec receiver c = cloud {
-                let! v = CloudChannel.Receive rp
+                let! v = CloudQueue.Dequeue cq
                 match v with
                 | None -> return c
                 | Some i -> return! receiver (c + i)
@@ -66,19 +66,19 @@ type ``CloudChannel Tests`` (parallelismFactor : int) as self =
         } |> runRemote |> shouldEqual 5050
 
     [<Test>]
-    member __.``Channels: multiple senders`` () =
+    member __.``Queues: multiple senders`` () =
         let parallelismFactor = parallelismFactor
         cloud {
-            let! sp, rp = CloudChannel.New<int> ()
+            let! cq = CloudQueue.New<int> ()
             let sender n = cloud {
                 for i in [1 .. n] do
-                    do! CloudChannel.Send(sp, i)
+                    do! CloudQueue.Enqueue(cq, i)
             }
 
             let rec receiver c n = cloud {
                 if n = 0 then return c
                 else
-                    let! i = CloudChannel.Receive rp
+                    let! i = CloudQueue.Dequeue cq
                     return! receiver (c + 1) (n - 1)
             }
 

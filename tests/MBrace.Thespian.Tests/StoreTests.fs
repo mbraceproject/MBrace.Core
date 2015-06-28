@@ -45,8 +45,8 @@ type ``MBrace Thespian Atom Tests`` () =
     override __.Repeats = 3
 #endif
 
-type ``MBrace Thespian Channel Tests`` () =
-    inherit ``CloudChannel Tests``(parallelismFactor = 10)
+type ``MBrace Thespian Queue Tests`` () =
+    inherit ``CloudQueue Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(nodes = 4)
 
@@ -58,7 +58,7 @@ type ``MBrace Thespian Channel Tests`` () =
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
-    override __.ChannelClient = session.Runtime.StoreClient.Channel
+    override __.QueueClient = session.Runtime.StoreClient.Queue
 
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)

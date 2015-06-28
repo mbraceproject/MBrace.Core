@@ -56,14 +56,14 @@ type ``InMemory CloudAtom Tests`` () =
     override __.Repeats = 3
 #endif
 
-type ``InMemory CloudChannel Tests`` () =
-    inherit ``CloudChannel Tests`` (parallelismFactor = 100)
+type ``InMemory CloudQueue Tests`` () =
+    inherit ``CloudQueue Tests`` (parallelismFactor = 100)
 
     let imem = LocalRuntime.Create()
 
     override __.Run(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow
-    override __.ChannelClient = imem.StoreClient.Channel
+    override __.QueueClient = imem.StoreClient.Queue
 
 type ``InMemory CloudDictionary Tests`` () =
     inherit ``CloudDictionary Tests`` (parallelismFactor = 100)

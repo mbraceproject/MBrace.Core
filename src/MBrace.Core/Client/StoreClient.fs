@@ -156,80 +156,112 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of client methods for CloudAtom API
-type CloudChannelClient internal (registry : ResourceRegistry) =
+type CloudQueueClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
-    let _ = registry.Resolve<CloudChannelConfiguration>()
+    let _ = registry.Resolve<CloudQueueConfiguration>()
     let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
-    ///     Creates a new channel instance.
+    ///     Creates a new queue instance.
     /// </summary>
-    /// <param name="container">Container for cloud channel.</param>
-    member c.CreateAsync<'T>(?container : string) : Async<ISendPort<'T> * IReceivePort<'T>> = 
-        CloudChannel.New<'T>(?container = container) |> toAsync
+    /// <param name="container">Container for cloud queue.</param>
+    member c.CreateAsync<'T>(?container : string) : Async<ICloudQueue<'T>> = 
+        CloudQueue.New<'T>(?container = container) |> toAsync
 
     /// <summary>
-    ///     Creates a new channel instance.
+    ///     Creates a new queue instance.
     /// </summary>
-    /// <param name="container">Container for cloud channel.</param>
-    member c.Create<'T>(?container : string) : ISendPort<'T> * IReceivePort<'T> = 
+    /// <param name="container">Container for cloud queue.</param>
+    member c.Create<'T>(?container : string) : ICloudQueue<'T> = 
         c.CreateAsync<'T>(?container = container) |> toSync
 
     /// <summary>
-    ///     Send message to the channel.
+    ///     Asynchronously enqueues a new message to the queue.
     /// </summary>
-    /// <param name="channel">Target channel.</param>
-    /// <param name="message">Message to send.</param>
-    member c.SendAsync<'T> (channel : ISendPort<'T>, message : 'T) : Async<unit> = 
-        CloudChannel.Send<'T> (channel, message) |> toAsync
+    /// <param name="queue">Target queue.</param>
+    /// <param name="message">Message to enqueue.</param>
+    member c.EnqueueAsync<'T> (queue : ICloudQueue<'T>, message : 'T) : Async<unit> = 
+        CloudQueue.Enqueue<'T> (queue, message) |> toAsync
 
     /// <summary>
-    ///     Send message to the channel.
+    ///     Enqueues a new message to the queue.
     /// </summary>
-    /// <param name="channel">Target channel.</param>
-    /// <param name="message">Message to send.</param>
-    member c.Send<'T> (channel : ISendPort<'T>, message : 'T) : unit = 
-        c.SendAsync<'T>(channel, message) |> toSync
+    /// <param name="queue">Target queue.</param>
+    /// <param name="message">Message to enqueue.</param>
+    member c.Enqueue<'T> (queue : ICloudQueue<'T>, message : 'T) : unit = 
+        c.EnqueueAsync<'T>(queue, message) |> toSync
 
     /// <summary>
-    ///     Receive message from channel.
+    ///     Asynchronously batch enqueues a sequence of messages to the queue.
     /// </summary>
-    /// <param name="channel">Source channel.</param>
-    /// <param name="timeout">Timeout in milliseconds.</param>
-    member c.ReceiveAsync<'T> (channel : IReceivePort<'T>, ?timeout : int) : Async<'T> = 
-        CloudChannel.Receive(channel, ?timeout = timeout) |> toAsync
+    /// <param name="queue">Target queue.</param>
+    /// <param name="messages">Messages to enqueue.</param>
+    member c.EnqueueBatchAsync<'T> (queue : ICloudQueue<'T>, messages : seq<'T>) : Async<unit> =
+        CloudQueue.EnqueueBatch<'T>(queue, messages) |> toAsync
 
     /// <summary>
-    ///     Receive message from channel.
+    ///     Batch enqueues a sequence of messages to the queue.
     /// </summary>
-    /// <param name="channel">Source channel.</param>
-    /// <param name="timeout">Timeout in milliseconds.</param>
-    member c.Receive<'T> (channel : IReceivePort<'T>, ?timeout : int) : 'T = 
-        c.ReceiveAsync(channel, ?timeout = timeout) |> toSync
+    /// <param name="queue">Target queue.</param>
+    /// <param name="messages">Messages to enqueue.</param>
+    member c.EnqueueBatch<'T> (queue : ICloudQueue<'T>, messages : seq<'T>) : Async<unit> =
+        CloudQueue.EnqueueBatch<'T>(queue, messages) |> toAsync
 
     /// <summary>
-    ///     Deletes the provided channel instance.
+    ///     Asynchronously dequeues a message from the queue.
     /// </summary>
-    /// <param name="channel">Channel to be deleted.</param>
-    member c.DeleteAsync(channel : IReceivePort<'T>) : Async<unit> = 
-        CloudChannel.Delete channel |> toAsync
+    /// <param name="queue">Source queue.</param>
+    /// <param name="timeout">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    member c.DequeueAsync<'T> (queue : ICloudQueue<'T>, ?timeout : int) : Async<'T> = 
+        CloudQueue.Dequeue(queue, ?timeout = timeout) |> toAsync
 
     /// <summary>
-    ///     Deletes the provided channel instance.
+    ///     Dequeues a message from the queue.
     /// </summary>
-    /// <param name="channel">Channel to be deleted.</param>    
-    member c.Delete(channel : IReceivePort<'T>) : unit = c.DeleteAsync channel |> toSync
+    /// <param name="queue">Source queue.</param>
+    /// <param name="timeout">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    member c.Dequeue<'T> (queue : ICloudQueue<'T>, ?timeout : int) : 'T = 
+        c.DequeueAsync(queue, ?timeout = timeout) |> toSync
 
     /// <summary>
-    ///     Deletes the provided channel container and all its contents.
+    ///     Asynchronously attempt to dequeue message from queue.
+    ///     Returns instantly, with None if empty or Some element if found.
+    /// </summary>
+    /// <param name="queue">Source queue.</param>
+    member c.TryDequeueAsync<'T> (queue : ICloudQueue<'T>) : Async<'T option> =
+        CloudQueue.TryDequeue(queue) |> toAsync
+
+    /// <summary>
+    ///     Attempt to dequeue message from queue.
+    ///     Returns instantly, with None if empty or Some element if found.
+    /// </summary>
+    /// <param name="queue">Source queue.</param>
+    member c.TryDequeue<'T> (queue : ICloudQueue<'T>) : 'T option =
+        c.TryDequeueAsync(queue) |> toSync
+
+    /// <summary>
+    ///     Deletes the provided queue instance.
+    /// </summary>
+    /// <param name="queue">Queue to be deleted.</param>
+    member c.DeleteAsync(queue : ICloudQueue<'T>) : Async<unit> = 
+        CloudQueue.Delete queue |> toAsync
+
+    /// <summary>
+    ///     Deletes the provided queue instance.
+    /// </summary>
+    /// <param name="queue">Queue to be deleted.</param>    
+    member c.Delete(queue : ICloudQueue<'T>) : unit = c.DeleteAsync queue |> toSync
+
+    /// <summary>
+    ///     Deletes the provided queue container and all its contents.
     /// </summary>
     /// <param name="container">Container name.</param>
     member c.DeleteContainerAsync (container : string): Async<unit> = 
-        CloudChannel.DeleteContainer container |> toAsync
+        CloudQueue.DeleteContainer container |> toAsync
 
     /// <summary>
-    ///     Deletes the provided channel container and all its contents.
+    ///     Deletes the provided queue container and all its contents.
     /// </summary>
     /// <param name="container">Container name.</param>
     member c.DeleteContainer (container : string) : unit = 
@@ -237,11 +269,11 @@ type CloudChannelClient internal (registry : ResourceRegistry) =
 
     /// <summary>
     /// Create a new FileStoreClient instance from given resources.
-    /// Resources must contain CloudChannelConfiguration value.
+    /// Resources must contain CloudQueueConfiguration value.
     /// </summary>
     /// <param name="resources"></param>
     static member CreateFromResources(resources : ResourceRegistry) =
-        new CloudChannelClient(resources)
+        new CloudQueueClient(resources)
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of client methods for CloudDictionary API
@@ -1060,7 +1092,7 @@ type CloudSequenceClient internal (registry : ResourceRegistry) =
 [<Sealed; AutoSerializable(false)>]
 type CloudStoreClient internal (registry : ResourceRegistry) =
     let atomClient       = lazy CloudAtomClient(registry)
-    let channelClient    = lazy CloudChannelClient(registry)
+    let queueClient    = lazy CloudQueueClient(registry)
     let dictClient       = lazy CloudDictionaryClient(registry)
     let dirClient        = lazy CloudDirectoryClient(registry)
     let pathClient       = lazy CloudPathClient(registry)
@@ -1070,8 +1102,8 @@ type CloudStoreClient internal (registry : ResourceRegistry) =
 
     /// CloudAtom client.
     member __.Atom = atomClient.Value
-    /// CloudChannel client.
-    member __.Channel = channelClient.Value
+    /// CloudQueue client.
+    member __.Queue = queueClient.Value
     /// CloudDictionary client.
     member __.Dictionary = dictClient.Value
     /// CloudFile client.

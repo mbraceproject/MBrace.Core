@@ -340,12 +340,12 @@ type CloudFlowExtensions() =
     [<System.Runtime.CompilerServices.Extension>]
     static member inline take (this : CloudFlow<'T>, n : int) : CloudFlow<'T> = CloudFlow.take n this
 
-    /// <summary>Sends the values of CloudFlow to the SendPort of a CloudChannel</summary>
+    /// <summary>Sends the values of CloudFlow to the SendPort of a CloudQueue</summary>
     /// <param name="this">The input CloudFlow.</param>
-    /// <param name="channel">the SendPort of a CloudChannel.</param>
+    /// <param name="channel">the SendPort of a CloudQueue.</param>
     /// <returns>Nothing.</returns>
     [<System.Runtime.CompilerServices.Extension>]
-    static member inline toCloudChannel (this : CloudFlow<'T>, channel : ISendPort<'T>) : Cloud<unit> = CloudFlow.toCloudChannel channel this
+    static member inline toCloudQueue (this : CloudFlow<'T>, channel : ICloudQueue<'T>) : Cloud<unit> = CloudFlow.toCloudQueue channel this
 
     /// <summary>
     ///     Returs true if the flow is empty and false otherwise.

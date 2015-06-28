@@ -56,7 +56,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Producers\Array.fs" />
     <Compile Include="Producers\CloudCollection.fs" />
-    <Compile Include="Producers\CloudChannel.fs" />
+    <Compile Include="Producers\CloudQueue.fs" />
     <Compile Include="PersistedCloudFlow.fs" />
     <Compile Include="Consumers\Transformers.fs" />
     <Compile Include="Consumers\Take.fs" />

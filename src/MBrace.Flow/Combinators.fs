@@ -224,12 +224,12 @@ type CloudFlow =
             }
         }
 
-    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudChannel</summary>
-    /// <param name="channel">the ReceivePort of a CloudChannel.</param>
+    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudQueue</summary>
+    /// <param name="channel">the ReceivePort of a CloudQueue.</param>
     /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
     /// <returns>The result CloudFlow.</returns>
-    static member OfCloudChannel (channel : IReceivePort<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
-        CloudChannel.ToCloudFlow(channel, degreeOfParallelism)
+    static member OfCloudQueue (channel : ICloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
+        CloudQueue.ToCloudFlow(channel, degreeOfParallelism)
 
 /// Provides basic operations on CloudFlows.
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -670,12 +670,13 @@ module CloudFlow =
     /// <returns>The resulting CloudFlow.</returns>
     let take (n : int) (flow: CloudFlow<'T>) : CloudFlow<'T> = Take.take n flow
 
-    /// <summary>Sends the values of CloudFlow to the SendPort of a CloudChannel</summary>
-    /// <param name="channel">the SendPort of a CloudChannel.</param>
+    /// <summary>Sends the values of CloudFlow to the SendPort of a CloudQueue</summary>
+    /// <param name="queue">Target CloudQueue.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>Nothing.</returns>
-    let toCloudChannel (channel : ISendPort<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
-        flow |> iterLocal (fun v -> CloudChannel.Send(channel, v))
+    let toCloudQueue (queue : ICloudQueue<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
+        // TODO : use EnqueueBatch overload
+        flow |> iterLocal (fun v -> CloudQueue.Enqueue(queue, v))
 
     /// <summary>
     ///     Returs true if the flow is empty and false otherwise.

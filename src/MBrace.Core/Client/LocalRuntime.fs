@@ -67,26 +67,26 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// <param name="serializer">Default serializer implementations. Defaults to no serializer.</param>
     /// <param name="objectCache">Object caching instance. Defaults to no cache.</param>
     /// <param name="atomConfig">Cloud atom configuration. Defaults to in-memory atoms.</param>
-    /// <param name="channelConfig">Cloud channel configuration. Defaults to in-memory channels.</param>
+    /// <param name="queueConfig">Cloud queue configuration. Defaults to in-memory queues.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
     static member Create(?logger : ICloudLogger,
                             ?fileConfig : CloudFileStoreConfiguration,
                             ?serializer : ISerializer,
                             ?objectCache : IObjectCache,
                             ?atomConfig : CloudAtomConfiguration,
-                            ?channelConfig : CloudChannelConfiguration,
+                            ?queueConfig : CloudQueueConfiguration,
                             ?dictionaryProvider : ICloudDictionaryProvider,
                             ?resources : ResourceRegistry) : LocalRuntime =
 
         let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration()
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider() :> _
-        let channelConfig = match channelConfig with Some cc -> cc | None -> InMemoryChannelProvider.CreateConfiguration()
+        let queueConfig = match queueConfig with Some cc -> cc | None -> InMemoryQueueProvider.CreateConfiguration()
 
         let resources = resource {
             yield ThreadPoolRuntime.Create(?logger = logger) :> IDistributionProvider
             yield atomConfig
             yield dictionaryProvider
-            yield channelConfig
+            yield queueConfig
             match fileConfig with Some fc -> yield fc | None -> ()
             match serializer with Some sr -> yield sr | None -> ()
             match objectCache with Some oc -> yield oc | None -> ()

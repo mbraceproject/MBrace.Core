@@ -72,8 +72,8 @@
     <Compile Include="Continuation\Builders.fs" />
     <Compile Include="Continuation\Continuation.fs" />
     <Compile Include="Store\FileStore.fs" />
-    <Compile Include="Store\Channel.fs" />
     <Compile Include="Store\Atom.fs" />
+    <Compile Include="Store\Queue.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\Caching.fs" />
     <Compile Include="Store\CloudCollection.fs" />
