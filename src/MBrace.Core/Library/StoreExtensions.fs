@@ -1,13 +1,11 @@
 ﻿[<AutoOpen>]
-module MBrace.Store.StoreExtensions
+module MBrace.Core.StoreExtensions
 
 open System
 open System.IO
 open System.Text
 
-open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store.Internals
 
 #nowarn "444"
 

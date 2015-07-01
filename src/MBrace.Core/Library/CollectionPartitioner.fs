@@ -1,10 +1,10 @@
-﻿namespace MBrace.Store.Internals
+﻿namespace MBrace.Core.Internals
 
 open System
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
+open MBrace.Core
 open MBrace.Workflows
 
 type CloudCollection private () =

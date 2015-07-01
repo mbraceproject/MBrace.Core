@@ -1,10 +1,9 @@
-﻿namespace MBrace.Store.Internals
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.IO
 
 open MBrace.Core
-open MBrace.Core.Internals
 
 type ETag = string
 
@@ -235,7 +234,7 @@ module CloudFileStoreUtils =
             fileNames |> Seq.map (fun f -> cfs.Combine [|container ; f |]) |> Seq.toArray
 
 
-namespace MBrace.Store
+namespace MBrace.Core
 
 open System
 open System.Runtime.Serialization
@@ -245,7 +244,7 @@ open System.IO
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store.Internals
+open MBrace.Core.Internals
 
 #nowarn "444"
 

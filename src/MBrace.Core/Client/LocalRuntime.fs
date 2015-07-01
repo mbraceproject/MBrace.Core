@@ -5,8 +5,8 @@ open System.Threading
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core.Internals.InMemoryRuntime
-open MBrace.Store
-open MBrace.Store.Internals
+open MBrace.Core
+open MBrace.Core.Internals
 
 #nowarn "444"
 
@@ -65,31 +65,32 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// <param name="logger">Logger abstraction. Defaults to no logging.</param>
     /// <param name="fileConfig">File store configuration. Defaults to no file store.</param>
     /// <param name="serializer">Default serializer implementations. Defaults to no serializer.</param>
-    /// <param name="objectCache">Object caching instance. Defaults to no cache.</param>
+    /// <param name="valueProvider">CloudValue provider instance. Defaults to in-memory implementation.</param>
     /// <param name="atomConfig">Cloud atom configuration. Defaults to in-memory atoms.</param>
     /// <param name="queueConfig">Cloud queue configuration. Defaults to in-memory queues.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
     static member Create(?logger : ICloudLogger,
                             ?fileConfig : CloudFileStoreConfiguration,
                             ?serializer : ISerializer,
-                            ?objectCache : IObjectCache,
+                            ?valueProvider : ICloudValueProvider,
                             ?atomConfig : CloudAtomConfiguration,
                             ?queueConfig : CloudQueueConfiguration,
                             ?dictionaryProvider : ICloudDictionaryProvider,
                             ?resources : ResourceRegistry) : LocalRuntime =
 
+        let valueProvider = match valueProvider with Some vp -> vp | None -> new InMemoryValueProvider() :> _
         let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration()
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider() :> _
         let queueConfig = match queueConfig with Some cc -> cc | None -> InMemoryQueueProvider.CreateConfiguration()
 
         let resources = resource {
             yield ThreadPoolRuntime.Create(?logger = logger) :> IDistributionProvider
+            yield valueProvider
             yield atomConfig
             yield dictionaryProvider
             yield queueConfig
             match fileConfig with Some fc -> yield fc | None -> ()
             match serializer with Some sr -> yield sr | None -> ()
-            match objectCache with Some oc -> yield oc | None -> ()
             match resources with Some r -> yield! r | None -> ()
         }
 

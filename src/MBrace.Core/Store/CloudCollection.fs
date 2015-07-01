@@ -1,4 +1,4 @@
-﻿namespace MBrace.Store.Internals
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.Collections
@@ -8,7 +8,6 @@ open System.Text
 open System.IO
 
 open MBrace.Core
-open MBrace.Core.Internals
 
 #nowarn "444"
 

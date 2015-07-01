@@ -1,4 +1,4 @@
-﻿namespace MBrace.Store.Internals
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.IO
@@ -38,24 +38,3 @@ type ISerializer =
     /// </summary>
     /// <param name="source">Source stream.</param>
     abstract SeqDeserialize<'T> : source:Stream * leaveOpen:bool -> seq<'T>
-
-[<AutoOpen>]
-module SerializerUtils =
-    
-    type ISerializer with
-        /// <summary>
-        ///     Serializes value to byte array
-        /// </summary>
-        /// <param name="value">Input value.</param>
-        member s.Pickle<'T>(value : 'T) : byte [] =
-            use m = new MemoryStream()
-            s.Serialize(m, value, false)
-            m.ToArray()
-
-        /// <summary>
-        ///     Deserializes value from byte array.
-        /// </summary>
-        /// <param name="pickle">Input serialization</param>
-        member s.UnPickle<'T>(pickle : byte []) : 'T =
-            use m = new MemoryStream(pickle)
-            s.Deserialize<'T>(m, false)

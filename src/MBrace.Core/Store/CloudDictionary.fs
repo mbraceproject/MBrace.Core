@@ -1,10 +1,9 @@
-﻿namespace MBrace.Store
+﻿namespace MBrace.Core
 
 open System.Collections.Generic
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store.Internals
 
 /// Distributed key-value collection.
 type ICloudDictionary<'T> =
@@ -55,10 +54,10 @@ type ICloudDictionary<'T> =
     /// <param name="key">Key to be read.</param>
     abstract TryFind : key:string -> Async<'T option>
 
-namespace MBrace.Store.Internals
+namespace MBrace.Core.Internals
 
 open MBrace.Core
-open MBrace.Store
+open MBrace.Core
 
 /// Abstract factory for ICloudDictionary.
 type ICloudDictionaryProvider =
@@ -70,13 +69,13 @@ type ICloudDictionaryProvider =
     /// Create a new ICloudDictionary instance.
     abstract Create<'T> : unit -> Async<ICloudDictionary<'T>>
 
-namespace MBrace.Store
+namespace MBrace.Core
 
 open System.Collections.Generic
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store.Internals
+open MBrace.Core.Internals
 
 #nowarn "444"
 

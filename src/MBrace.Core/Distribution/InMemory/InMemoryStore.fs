@@ -6,8 +6,37 @@ open System.Threading
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
+
+[<AutoSerializable(false)>]
+type private InMemoryValue<'T> (value : 'T) =
+    let id = mkUUID()
+
+    interface ICloudValue<'T> with
+        member x.Id: string = id
+        member x.Size: int64 = -1L
+        member x.Type: Type = typeof<'T>
+        member x.GetBoxedValueAsync(): Async<obj> = async { return box value }
+        member x.GetValueAsync(): Async<'T> = async { return value }
+        member x.IsCachedLocally: bool = true
+        member x.Value: 'T = value
+        member x.ValueBoxed: obj = value :> obj
+        member x.Dispose() = local.Zero()
+
+[<Sealed; AutoSerializable(false)>]
+type InMemoryValueProvider () =
+    let id = mkUUID()
+
+    interface ICloudValueProvider with
+        member x.Id: string = id
+        member x.Name: string = "In-Memory Value Provider"
+        member x.CreateCloudValue(payload: 'T): Async<ICloudValue<'T>> = async {
+            return new InMemoryValue<'T>(payload) :> ICloudValue<'T>
+        }
+        
+        member x.Dispose(_: ICloudValue): Async<unit> = async.Zero()
+        member x.DisposeAllValues(): Async<unit> = async { return () }
+        member x.GetAllValues(): Async<ICloudValue> = async { return raise <| new NotSupportedException() }
+
 
 [<AutoSerializable(false)>]
 type private InMemoryAtom<'T> (initial : 'T) =

@@ -8,8 +8,8 @@ open System.Text
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core.Internals.InMemoryRuntime
-open MBrace.Store
-open MBrace.Store.Internals
+open MBrace.Core
+open MBrace.Core.Internals
 
 [<AutoOpen>]
 module internal ClientUtils =
@@ -832,261 +832,183 @@ type CloudValueClient internal (registry : ResourceRegistry) =
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
-    ///     Creates a new cloud value to the underlying store with provided value.
-    ///     Cloud cells are immutable and cached locally for performance.
+    ///     Creates a new cloud value to the underlying cache with provided payload.
     /// </summary>
-    /// <param name="value">Cloud value value.</param>
-    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
-    /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.NewAsync(value : 'T, ?path : string, ?serializer : ISerializer, ?enableCache : bool) =
-        CloudValue.New(value, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
+    /// <param name="value">Payload for CloudValue.</param>
+    member __.NewAsync(value : 'T) = CloudValue.New(value) |> toAsync
 
     /// <summary>
-    ///     Creates a new cloud value to the underlying store with provided value.
-    ///     Cloud cells are immutable and cached locally for performance.
+    ///     Creates a new cloud value to the underlying cache with provided payload.
     /// </summary>
-    /// <param name="value">Cloud value value.</param>
-    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
-    /// <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.New(value : 'T, ?path : string, ?serializer : ISerializer, ?enableCache : bool) =
-        __.NewAsync(value, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toSync
+    /// <param name="value">Payload for CloudValue.</param>
+    member __.New(value : 'T) = __.NewAsync(value) |> toSync
 
     /// <summary>
-    ///     Defines a CloudValue from provided cloud file path with user-provided deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+    ///     Dereferences a Cloud value.
     /// </summary>
-    /// <param name="path">Path to cloud file.</param>
-    /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.OfCloudFileAsync<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool, ?enableCache : bool) =
-        CloudValue.OfCloudFile(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toAsync
+    /// <param name="cloudValue">CloudValue to be dereferenced.</param>
+    member __.ReadAsync(cloudValue : ICloudValue<'T>) : Async<'T> = 
+        CloudValue.Read(cloudValue) |> toAsync
 
     /// <summary>
-    ///     Defines a CloudValue from provided cloud file path with user-provided deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+    ///     Dereferences a Cloud value.
     /// </summary>
-    /// <param name="path">Path to cloud file.</param>
-    /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool, ?enableCache : bool) : CloudValue<'T> =
-        __.OfCloudFileAsync(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toSync
-
-    /// <summary>
-    ///     Defines a CloudValue from provided cloud file path with user-provided deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to cloud file.</param>
-    /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.OfCloudFileAsync<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) = 
-        CloudValue.OfCloudFile(path, serializer = serializer, ?force = force, ?enableCache = enableCache) |> toAsync
-
-    /// <summary>
-    ///     Defines a CloudValue from provided cloud file path with user-provided deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to cloud file.</param>
-    /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) = 
-        __.OfCloudFileAsync(path, serializer = serializer, ?force = force, ?enableCache = enableCache) |> toSync
-
-    /// <summary>
-    ///     Defines a CloudValue from provided cloud file path with user-provided text deserializer and encoding.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to file.</param>
-    /// <param name="textDeserializer">Text deserializer function.</param>
-    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.OfCloudFileAsync<'T>(path : string, textDeserializer : TextReader -> 'T, ?force : bool, ?enableCache : bool) =
-        CloudValue.OfCloudFile(path, textDeserializer = textDeserializer, ?force = force, ?enableCache = enableCache) |> toAsync
-
-    /// <summary>
-    ///     Defines a CloudValue from provided cloud file path with user-provided text deserializer and encoding.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to file.</param>
-    /// <param name="textDeserializer">Text deserializer function.</param>
-    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to true.</param>
-    member __.OfCloudFile<'T>(path : string, textDeserializer : TextReader -> 'T, ?force : bool, ?enableCache : bool) : CloudValue<'T> =
-        __.OfCloudFileAsync(path, textDeserializer = textDeserializer, ?force = force, ?enableCache = enableCache) |> toSync
-
-    /// <summary>
-    ///     Dereference a Cloud value.
-    /// </summary>
-    /// <param name="cloudCell">CloudValue to be dereferenced.</param>
-    member __.ReadAsync(cloudCell : CloudValue<'T>) : Async<'T> = 
-        CloudValue.Read(cloudCell) |> toAsync
-
-    /// <summary>
-    ///     Dereference a Cloud value.
-    /// </summary>
-    /// <param name="cloudCell">CloudValue to be dereferenced.</param>
-    member __.Read(cloudCell : CloudValue<'T>) : 'T = 
-        __.ReadAsync(cloudCell) |> toSync
+    /// <param name="cloudValue">CloudValue to be dereferenced.</param>
+    member __.Read(cloudValue : ICloudValue<'T>) : 'T = 
+        __.ReadAsync(cloudValue) |> toSync
 
 
-[<Sealed; AutoSerializable(false)>]
-/// Collection of CloudValue operations.
-type CloudSequenceClient internal (registry : ResourceRegistry) =
-    let _ = registry.Resolve<CloudFileStoreConfiguration>()
-    
-    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
-    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
-
-    /// <summary>
-    ///     Creates a new Cloud sequence with given values in the underlying store.
-    ///     Cloud sequences are cached locally for performance.
-    /// </summary>
-    /// <param name="values">Input sequence.</param>
-    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
-    member __.NewAsync(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T>> = 
-        CloudSequence.New(values, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
-
-    /// <summary>
-    ///     Creates a new Cloud sequence with given values in the underlying store.
-    ///     Cloud sequences are cached locally for performance.
-    /// </summary>
-    /// <param name="values">Input sequence.</param>
-    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
-    member __.New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : CloudSequence<'T> = 
-        __.NewAsync(values, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toSync
-
-
-    /// <summary>
-    ///     Creates a collection of partitioned cloud sequences by persisting provided sequence as cloud files in the underlying store.
-    ///     A new partition will be appended to the collection as soon as the 'maxPartitionSize' is exceeded in bytes.
-    /// </summary>
-    /// <param name="values">Input sequence.</param>
-    /// <param name="maxPartitionSize">Maximum size in bytes per cloud sequence partition.</param>
-    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.NewPartitionedAsync(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T> []> =
-        CloudSequence.NewPartitioned(values, maxPartitionSize, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
-
-    /// <summary>
-    ///     Creates a collection of partitioned cloud sequences by persisting provided sequence as cloud files in the underlying store.
-    ///     A new partition will be appended to the collection as soon as the 'maxPartitionSize' is exceeded in bytes.
-    /// </summary>
-    /// <param name="values">Input sequence.</param>
-    /// <param name="maxPartitionSize">Maximum size in bytes per cloud sequence partition.</param>
-    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer, ?enableCache : bool) : CloudSequence<'T> [] =
-        __.NewPartitionedAsync(values, maxPartitionSize, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toSync
-
-
-    /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to file.</param>
-    /// <param name="deserializer">Sequence deserializer function.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.OfCloudFileAsync<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : Async<CloudSequence<'T>> = 
-        CloudSequence.OfCloudFile<'T>(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toAsync
-
-    /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to file.</param>
-    /// <param name="deserializer">Sequence deserializer function.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : CloudSequence<'T> = 
-        __.OfCloudFileAsync<'T>(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toSync
-
-    /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided serializer implementation.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to Cloud sequence.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.OfCloudFileAsync<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) : Async<CloudSequence<'T>> = 
-        CloudSequence.OfCloudFile<'T>(path, serializer, ?force = force, ?enableCache = enableCache) |> toAsync
-
-    /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided serializer implementation.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to Cloud sequence.</param>
-    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) : CloudSequence<'T> = 
-        __.OfCloudFileAsync<'T>(path, serializer, ?force = force, ?enableCache = enableCache) |> toSync
-
-    /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to file.</param>
-    /// <param name="textDeserializer">Text deserializer function.</param>
-    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.OfCloudFileAsync<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool, ?enableCache : bool) =
-        CloudSequence.OfCloudFile(path, textDeserializer = textDeserializer, ?encoding = encoding, ?force = force, ?enableCache = enableCache) |> toAsync
-
-    /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
-    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
-    /// </summary>
-    /// <param name="path">Path to file.</param>
-    /// <param name="textDeserializer">Text deserializer function.</param>
-    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
-    member __.OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool, ?enableCache : bool) : CloudSequence<'T> =
-        __.OfCloudFileAsync(path, textDeserializer = textDeserializer, ?encoding = encoding, ?force = force, ?enableCache = enableCache) |> toSync
-
-    /// <summary>
-    ///     Returns an enumerable that lazily fetches sequence elements from store.
-    /// </summary>
-    /// <param name="cloudSeq">Cloud sequence to be enumerated.</param>
-    member __.ToEnumerableAsync<'T>(cloudSeq : CloudSequence<'T>) : Async<seq<'T>> =
-        cloudSeq.ToEnumerable() |> toAsync
-
-    /// <summary>
-    ///     Returns an enumerable that lazily fetches sequence elements from store.
-    /// </summary>
-    /// <param name="cloudSeq">Cloud sequence to be enumerated.</param>
-    member __.ToEnumerable(cloudSeq : CloudSequence<'T>) : seq<'T> =
-        __.ToEnumerableAsync(cloudSeq) |> toSync
-
-    /// <summary>
-    ///     Asynchronously aggregates sequence elements to a local array.
-    /// </summary>
-    /// <param name="cloudSeq">Cloud sequence to be evaluated.</param>
-    member __.ToArrayAsync<'T>(cloudSeq : CloudSequence<'T>) : Async<'T[]> =
-        cloudSeq.ToArray() |> toAsync
-
-    /// <summary>
-    ///     Aggregates sequence elements to a local array.
-    /// </summary>
-    /// <param name="cloudSeq">Cloud sequence to be evaluated.</param>
-    member __.ToArray<'T>(cloudSeq : CloudSequence<'T>) : 'T[] =
-        __.ToArrayAsync<'T>(cloudSeq) |> toSync
+//[<Sealed; AutoSerializable(false)>]
+///// Collection of CloudValue operations.
+//type CloudSequenceClient internal (registry : ResourceRegistry) =
+//    let _ = registry.Resolve<CloudFileStoreConfiguration>()
+//    
+//    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+//    let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
+//
+//    /// <summary>
+//    ///     Creates a new Cloud sequence with given values in the underlying store.
+//    ///     Cloud sequences are cached locally for performance.
+//    /// </summary>
+//    /// <param name="values">Input sequence.</param>
+//    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
+//    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+//    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+//    member __.NewAsync(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T>> = 
+//        CloudSequence.New(values, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
+//
+//    /// <summary>
+//    ///     Creates a new Cloud sequence with given values in the underlying store.
+//    ///     Cloud sequences are cached locally for performance.
+//    /// </summary>
+//    /// <param name="values">Input sequence.</param>
+//    /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
+//    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+//    /// <param name="enableCache">Enables implicit, on-demand caching of instance value. Defaults to false.</param>
+//    member __.New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?enableCache : bool) : CloudSequence<'T> = 
+//        __.NewAsync(values, ?path = path, ?serializer = serializer, ?enableCache = enableCache) |> toSync
+//
+//
+//    /// <summary>
+//    ///     Creates a collection of partitioned cloud sequences by persisting provided sequence as cloud files in the underlying store.
+//    ///     A new partition will be appended to the collection as soon as the 'maxPartitionSize' is exceeded in bytes.
+//    /// </summary>
+//    /// <param name="values">Input sequence.</param>
+//    /// <param name="maxPartitionSize">Maximum size in bytes per cloud sequence partition.</param>
+//    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+//    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.NewPartitionedAsync(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer, ?enableCache : bool) : Async<CloudSequence<'T> []> =
+//        CloudSequence.NewPartitioned(values, maxPartitionSize, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toAsync
+//
+//    /// <summary>
+//    ///     Creates a collection of partitioned cloud sequences by persisting provided sequence as cloud files in the underlying store.
+//    ///     A new partition will be appended to the collection as soon as the 'maxPartitionSize' is exceeded in bytes.
+//    /// </summary>
+//    /// <param name="values">Input sequence.</param>
+//    /// <param name="maxPartitionSize">Maximum size in bytes per cloud sequence partition.</param>
+//    /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+//    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.NewPartitioned(values : seq<'T>, maxPartitionSize, ?directory, ?serializer, ?enableCache : bool) : CloudSequence<'T> [] =
+//        __.NewPartitionedAsync(values, maxPartitionSize, ?directory = directory, ?serializer = serializer, ?enableCache = enableCache) |> toSync
+//
+//
+//    /// <summary>
+//    ///     Defines a CloudSequence from provided cloud file path with user-provided deserialization function.
+//    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+//    /// </summary>
+//    /// <param name="path">Path to file.</param>
+//    /// <param name="deserializer">Sequence deserializer function.</param>
+//    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.OfCloudFileAsync<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : Async<CloudSequence<'T>> = 
+//        CloudSequence.OfCloudFile<'T>(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toAsync
+//
+//    /// <summary>
+//    ///     Defines a CloudSequence from provided cloud file path with user-provided deserialization function.
+//    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+//    /// </summary>
+//    /// <param name="path">Path to file.</param>
+//    /// <param name="deserializer">Sequence deserializer function.</param>
+//    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool, ?enableCache : bool) : CloudSequence<'T> = 
+//        __.OfCloudFileAsync<'T>(path, ?deserializer = deserializer, ?force = force, ?enableCache = enableCache) |> toSync
+//
+//    /// <summary>
+//    ///     Defines a CloudSequence from provided cloud file path with user-provided serializer implementation.
+//    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+//    /// </summary>
+//    /// <param name="path">Path to Cloud sequence.</param>
+//    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+//    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.OfCloudFileAsync<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) : Async<CloudSequence<'T>> = 
+//        CloudSequence.OfCloudFile<'T>(path, serializer, ?force = force, ?enableCache = enableCache) |> toAsync
+//
+//    /// <summary>
+//    ///     Defines a CloudSequence from provided cloud file path with user-provided serializer implementation.
+//    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+//    /// </summary>
+//    /// <param name="path">Path to Cloud sequence.</param>
+//    /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+//    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?enableCache : bool) : CloudSequence<'T> = 
+//        __.OfCloudFileAsync<'T>(path, serializer, ?force = force, ?enableCache = enableCache) |> toSync
+//
+//    /// <summary>
+//    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
+//    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+//    /// </summary>
+//    /// <param name="path">Path to file.</param>
+//    /// <param name="textDeserializer">Text deserializer function.</param>
+//    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
+//    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.OfCloudFileAsync<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool, ?enableCache : bool) =
+//        CloudSequence.OfCloudFile(path, textDeserializer = textDeserializer, ?encoding = encoding, ?force = force, ?enableCache = enableCache) |> toAsync
+//
+//    /// <summary>
+//    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
+//    ///     This is a lazy operation unless the optional 'force' parameter is enabled.
+//    /// </summary>
+//    /// <param name="path">Path to file.</param>
+//    /// <param name="textDeserializer">Text deserializer function.</param>
+//    /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
+//    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+//    /// <param name="enableCache">Enable caching by default on every node where cell is dereferenced. Defaults to false.</param>
+//    member __.OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool, ?enableCache : bool) : CloudSequence<'T> =
+//        __.OfCloudFileAsync(path, textDeserializer = textDeserializer, ?encoding = encoding, ?force = force, ?enableCache = enableCache) |> toSync
+//
+//    /// <summary>
+//    ///     Returns an enumerable that lazily fetches sequence elements from store.
+//    /// </summary>
+//    /// <param name="cloudSeq">Cloud sequence to be enumerated.</param>
+//    member __.ToEnumerableAsync<'T>(cloudSeq : CloudSequence<'T>) : Async<seq<'T>> =
+//        cloudSeq.ToEnumerable() |> toAsync
+//
+//    /// <summary>
+//    ///     Returns an enumerable that lazily fetches sequence elements from store.
+//    /// </summary>
+//    /// <param name="cloudSeq">Cloud sequence to be enumerated.</param>
+//    member __.ToEnumerable(cloudSeq : CloudSequence<'T>) : seq<'T> =
+//        __.ToEnumerableAsync(cloudSeq) |> toSync
+//
+//    /// <summary>
+//    ///     Asynchronously aggregates sequence elements to a local array.
+//    /// </summary>
+//    /// <param name="cloudSeq">Cloud sequence to be evaluated.</param>
+//    member __.ToArrayAsync<'T>(cloudSeq : CloudSequence<'T>) : Async<'T[]> =
+//        cloudSeq.ToArray() |> toAsync
+//
+//    /// <summary>
+//    ///     Aggregates sequence elements to a local array.
+//    /// </summary>
+//    /// <param name="cloudSeq">Cloud sequence to be evaluated.</param>
+//    member __.ToArray<'T>(cloudSeq : CloudSequence<'T>) : 'T[] =
+//        __.ToArrayAsync<'T>(cloudSeq) |> toSync
 
 /// Client-side API for cloud store operations
 [<Sealed; AutoSerializable(false)>]
@@ -1098,7 +1020,7 @@ type CloudStoreClient internal (registry : ResourceRegistry) =
     let pathClient       = lazy CloudPathClient(registry)
     let fileClient       = lazy CloudFileClient(registry)
     let cloudValueClient = lazy CloudValueClient(registry)
-    let cloudseqClient   = lazy CloudSequenceClient(registry)
+//    let cloudseqClient   = lazy CloudSequenceClient(registry)
 
     /// CloudAtom client.
     member __.Atom = atomClient.Value
@@ -1114,8 +1036,8 @@ type CloudStoreClient internal (registry : ResourceRegistry) =
     member __.Path = pathClient.Value
     /// CloudValue client.
     member __.CloudValue = cloudValueClient.Value
-    /// CloudSequence client.
-    member __.CloudSequence = cloudseqClient.Value
+//    /// CloudSequence client.
+//    member __.CloudSequence = cloudseqClient.Value
     /// Gets the associated ResourceRegistry.
     member __.Resources = registry
 

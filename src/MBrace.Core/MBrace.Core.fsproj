@@ -71,11 +71,11 @@
     <Compile Include="Continuation\Cloud.fs" />
     <Compile Include="Continuation\Builders.fs" />
     <Compile Include="Continuation\Continuation.fs" />
-    <Compile Include="Store\FileStore.fs" />
-    <Compile Include="Store\Atom.fs" />
-    <Compile Include="Store\Queue.fs" />
     <Compile Include="Store\Serializer.fs" />
-    <Compile Include="Store\Caching.fs" />
+    <Compile Include="Store\CloudFileStore.fs" />
+    <Compile Include="Store\CloudValue.fs" />
+    <Compile Include="Store\CloudAtom.fs" />
+    <Compile Include="Store\CloudQueue.fs" />
     <Compile Include="Store\CloudCollection.fs" />
     <Compile Include="Store\CloudDictionary.fs" />
     <Compile Include="Distribution\Logging.fs" />
@@ -89,7 +89,7 @@
     <Compile Include="Library\LocalWorkflows.fs" />
     <Compile Include="Library\StoreExtensions.fs" />
     <Compile Include="Library\CloudWorkflows.fs" />
-    <Compile Include="Library\CloudValue.fs" />
+    <Compile Include="Library\FileValue.fs" />
     <Compile Include="Library\CloudSequence.fs" />
     <Compile Include="Library\CollectionPartitioner.fs" />
     <Compile Include="Library\DomainLocal.fs" />
