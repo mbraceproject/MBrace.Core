@@ -10,8 +10,6 @@ open Nessos.Vagabond.AssemblyProtocols
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Client
 open MBrace.Runtime
 open MBrace.Runtime.Utils

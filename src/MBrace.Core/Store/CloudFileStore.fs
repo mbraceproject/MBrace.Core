@@ -160,15 +160,6 @@ type ICloudFileStore =
     /// <returns>Some reader stream if etag matches, or None if it doesn't.</returns>
     abstract ReadETag : path:string * etag:ETag -> Async<Stream option>
 
-
-/// Cloud storage entity identifier
-type ICloudStorageEntity =
-    inherit ICloudDisposable
-    /// Type identifier for entity
-    abstract Type : string
-    /// Entity unique identifier
-    abstract Id : string
-
 /// Store configuration passed to the continuation execution context
 [<NoEquality; NoComparison>]
 type CloudFileStoreConfiguration = 
@@ -351,10 +342,6 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     interface ICloudDisposable with
         member d.Dispose () = CloudDirectory.Delete(d.Path, recursiveDelete = true)
 
-    interface ICloudStorageEntity with
-        member d.Type = "CloudDirectory"
-        member d.Id = d.path
-
     override __.ToString() = __.path
     member private r.StructuredFormatDisplay = r.ToString()
 
@@ -418,10 +405,6 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
 
     interface ICloudDisposable with
         member f.Dispose () = CloudFile.Delete f.Path
-
-    interface ICloudStorageEntity with
-        member d.Type = "CloudFile"
-        member d.Id = d.path
 
     override __.ToString() = __.path
     member private r.StructuredFormatDisplay = r.ToString()

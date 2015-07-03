@@ -4,7 +4,6 @@ open System.Runtime.Serialization
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
 
 open Nessos.FsPickler
 open Nessos.Vagabond
