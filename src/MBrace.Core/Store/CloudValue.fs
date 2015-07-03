@@ -4,6 +4,14 @@
 
 open System
 
+/// Storage levels used for caching
+type StorageLevel =
+    | MemoryOnly = 1
+    | MemoryAndDisk = 2
+    | MemorySerialized = 4
+    | MemoryAndDiskSerialized = 8
+    | DiskOnly = 16
+
 /// Serializable entity that represents an immutable 
 /// .NET object that has been cached by the MBrace runtime.
 type ICloudValue =
@@ -12,6 +20,8 @@ type ICloudValue =
     abstract Id : string
     /// Gets size of the cached object in bytes.
     abstract Size : int64
+    /// Storage level used for value.
+    abstract StorageLevel : StorageLevel
     /// Type of CloudValue.
     abstract Type : Type
     /// Determines if cached value already exists

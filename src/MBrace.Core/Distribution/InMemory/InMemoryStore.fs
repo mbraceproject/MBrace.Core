@@ -14,6 +14,7 @@ type private InMemoryValue<'T> (value : 'T) =
     interface ICloudValue<'T> with
         member x.Id: string = id
         member x.Size: int64 = -1L
+        member x.StorageLevel : StorageLevel = StorageLevel.MemoryOnly
         member x.Type: Type = typeof<'T>
         member x.GetBoxedValueAsync(): Async<obj> = async { return box value }
         member x.GetValueAsync(): Async<'T> = async { return value }
