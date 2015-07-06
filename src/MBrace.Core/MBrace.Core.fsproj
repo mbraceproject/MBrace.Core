@@ -89,8 +89,8 @@
     <Compile Include="Library\LocalWorkflows.fs" />
     <Compile Include="Library\StoreExtensions.fs" />
     <Compile Include="Library\CloudWorkflows.fs" />
-    <Compile Include="Library\FileValue.fs" />
-    <Compile Include="Library\CloudSequence.fs" />
+    <Compile Include="Library\PersistedValue.fs" />
+    <Compile Include="Library\PersistedSequence.fs" />
     <Compile Include="Library\CollectionPartitioner.fs" />
     <Compile Include="Library\DomainLocal.fs" />
     <Compile Include="Client\StoreClient.fs" />
