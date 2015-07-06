@@ -36,8 +36,8 @@ type InMemoryValueProvider () =
         
         member x.Dispose(_: ICloudValue): Async<unit> = async.Zero()
         member x.DisposeAllValues(): Async<unit> = async { return () }
-        member x.GetAllValues(): Async<ICloudValue> = async { return raise <| new NotSupportedException() }
-
+        member x.GetById(_:string) : Async<ICloudValue> = async { return raise <| new NotSupportedException() }
+        member x.GetAllValues(): Async<ICloudValue []> = async { return raise <| new NotSupportedException() }
 
 [<AutoSerializable(false)>]
 type private InMemoryAtom<'T> (initial : 'T) =

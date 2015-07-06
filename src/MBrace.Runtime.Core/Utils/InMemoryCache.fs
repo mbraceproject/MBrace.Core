@@ -9,6 +9,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 /// In-Memory caching mechanism using System.Runtime.Caching.MemoryCache
+[<AutoSerializable(false)>]
 type InMemoryCache private (name : string, config : NameValueCollection) =
     let cache = new MemoryCache(name, config)
     let policy = new CacheItemPolicy()

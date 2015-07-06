@@ -61,9 +61,15 @@ type ICloudValueProvider =
     abstract CreateCloudValue : payload:'T -> Async<ICloudValue<'T>>
 
     /// <summary>
+    ///     Gets CloudValue by cache id
+    /// </summary>
+    /// <param name="id">Object identifier.</param>
+    abstract GetById : id:string -> Async<ICloudValue>
+
+    /// <summary>
     ///     Gets all cloud value references contained in instance.
     /// </summary>
-    abstract GetAllValues : unit -> Async<ICloudValue>
+    abstract GetAllValues : unit -> Async<ICloudValue []>
 
     /// <summary>
     ///     Asynchronously disposes value from caching context.
