@@ -1,11 +1,11 @@
-﻿namespace MBrace.Core.Internals
+﻿namespace MBrace.Library.Internals
 
 open System
 
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core
-open MBrace.Workflows
+open MBrace.Library
 
 type CloudCollection private () =
 
@@ -14,9 +14,9 @@ type CloudCollection private () =
     ///     returning their irreducible components while preserving ordering.
     /// </summary>
     /// <param name="collections">Input cloud collections.</param>
-    static member ExtractPartitions (collections : seq<ICloudCollection<'T>>) : Local<ICloudCollection<'T> []> = local {
-        let rec extractCollection (c : ICloudCollection<'T>) : Local<seq<ICloudCollection<'T>>> = 
-            local {
+    static member ExtractPartitions (collections : seq<ICloudCollection<'T>>) : Async<ICloudCollection<'T> []> = async {
+        let rec extractCollection (c : ICloudCollection<'T>) : Async<seq<ICloudCollection<'T>>> = 
+            async {
                 match c with
                 | :? IPartitionedCollection<'T> as c ->
                     let! partitions = c.GetPartitions()
@@ -24,9 +24,9 @@ type CloudCollection private () =
                 | c -> return Seq.singleton c
             }
 
-        and extractCollections (cs : seq<ICloudCollection<'T>>) : Local<seq<ICloudCollection<'T>>> =
-            local {
-                let! extracted = cs |> Local.Sequential.map extractCollection
+        and extractCollections (cs : seq<ICloudCollection<'T>>) : Async<seq<ICloudCollection<'T>>> =
+            async {
+                let! extracted = cs |> Seq.map extractCollection |> Async.Parallel
                 return Seq.concat extracted
             }
 
@@ -39,7 +39,7 @@ type CloudCollection private () =
     ///     returning its irreducible components while preserving ordering.
     /// </summary>
     /// <param name="collections">Input cloud collections.</param>
-    static member ExtractPartitions (collection : ICloudCollection<'T>) : Local<ICloudCollection<'T> []> = CloudCollection.ExtractPartitions([|collection|])
+    static member ExtractPartitions (collection : ICloudCollection<'T>) : Async<ICloudCollection<'T> []> = CloudCollection.ExtractPartitions([|collection|])
 
     /// <summary>
     ///     Performs partitioning of provided irreducible CloudCollections to supplied workers.
@@ -51,13 +51,13 @@ type CloudCollection private () =
     /// <param name="workers">Workers to partition among.</param>
     /// <param name="isTargetedWorkerEnabled">Enable targeted (i.e. weighted) worker support. Defaults to true.</param>
     /// <param name="weight">Worker weight function. Default to processor count map.</param>
-    static member PartitionBySize (collections : ICloudCollection<'T> [], workers : IWorkerRef [], ?isTargetedWorkerEnabled : bool, ?weight : IWorkerRef -> int) = local {
+    static member PartitionBySize (collections : ICloudCollection<'T> [], workers : IWorkerRef [], ?isTargetedWorkerEnabled : bool, ?weight : IWorkerRef -> int) = async {
         let weight = defaultArg weight (fun w -> w.ProcessorCount)
         let isTargetedWorkerEnabled = defaultArg isTargetedWorkerEnabled true
 
         let rec aux (accPartitions : (IWorkerRef * ICloudCollection<'T> []) list) 
                     (currWorker : IWorkerRef) (remWorkerSize : int64) (accWorkerCollections : ICloudCollection<'T> list)
-                    (remWorkers : (IWorkerRef * int64) list) (remCollections : (ICloudCollection<'T> * int64) list) = local {
+                    (remWorkers : (IWorkerRef * int64) list) (remCollections : (ICloudCollection<'T> * int64) list) = async {
 
             let mkPartition worker (acc : ICloudCollection<'T> list) = worker, acc |> List.rev |> List.toArray
 
@@ -162,7 +162,7 @@ type CloudCollection private () =
         else
 
         // compute size per collection and allocate expected size per worker according to weight.
-        let! wsizes = collections |> Local.Sequential.map (fun c -> local { let! sz = c.Size in return c, sz })
+        let! wsizes = collections |> Seq.map (fun c -> async { let! sz = c.Size in return c, sz }) |> Async.Parallel
         let totalSize = wsizes |> Array.sumBy snd
         let coreCount = workers |> Array.sumBy (fun w -> if isTargetedWorkerEnabled then weight w else 1)
         let sizePerCore = totalSize / int64 coreCount

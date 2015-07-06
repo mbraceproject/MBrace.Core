@@ -1,4 +1,4 @@
-﻿namespace MBrace.Core
+﻿namespace MBrace.Library
 
 open System
 open System.Collections
@@ -21,6 +21,8 @@ open MBrace.Core.Internals
 type FilePersistedSequence<'T> =
 
     // https://visualfsharp.codeplex.com/workitem/199
+    [<DataMember(Name = "Store")>]
+    val mutable private store : ICloudFileStore
     [<DataMember(Name = "Path")>]
     val mutable private path : string
     [<DataMember(Name = "ETag")>]
@@ -28,94 +30,90 @@ type FilePersistedSequence<'T> =
     [<DataMember(Name = "Count")>]
     val mutable private count : int64 option
     [<DataMember(Name = "Deserializer")>]
-    val mutable private deserializer : (Stream -> seq<'T>) option
+    val mutable private deserializer : (Stream -> seq<'T>)
 
-    internal new (path, etag, count, deserializer) =
-        { path = path ; etag = etag ; count = count ; deserializer = deserializer }
+    internal new (store, path, etag, count, deserializer) =
+        { store = store ; path = path ; etag = etag ; count = count ; deserializer = deserializer }
 
-    /// Returns an enumerable that lazily fetches elements of the cloud sequence from store.
-    member c.ToEnumerable() : Local<seq<'T>> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! deserializer = local {
-            match c.deserializer with
-            | Some ds -> return ds
-            | None ->
-                let! serializer = Cloud.GetResource<ISerializer> ()
-                return fun s -> serializer.SeqDeserialize<'T>(s, leaveOpen = false)
-        }
-
-        // wrap stream inside enumerator to enforce correct IEnumerable behaviour
-        let fileStore = config.FileStore
-        let path = c.path
-        let mkEnumerator () =
-            let streamOpt = fileStore.ReadETag(path, c.etag) |> Async.RunSync
+    member private c.GetEnumerableAsync() : Async<seq<'T>> = async {
+        let! streamOpt = c.store.ReadETag(c.path, c.etag)
+        return
             match streamOpt with
             | None -> raise <| new InvalidDataException(sprintf "CloudSequence: incorrect etag in file '%s'." c.path)
-            | Some stream -> deserializer(stream).GetEnumerator()
-
-        return Seq.fromEnumerator mkEnumerator
+            | Some stream -> c.deserializer stream
     }
 
-    /// Fetches all elements of the cloud sequence and returns them as a local array.
-    member c.ToArray () : Local<'T []> = local { 
-        let! seq = c.ToEnumerable()
+    interface IEnumerable<'T> with
+        member c.GetEnumerator(): IEnumerator = Async.RunSync(c.GetEnumerableAsync()).GetEnumerator() :> _
+        member c.GetEnumerator(): IEnumerator<'T> = Async.RunSync(c.GetEnumerableAsync()).GetEnumerator()
+
+    /// Asynchronously fetches all elements of the cloud sequence and returns them as a local array.
+    member c.ToArrayAsync () : Async<'T []> = async { 
+        let! seq = c.GetEnumerableAsync()
         return Seq.toArray seq 
     }
 
+    /// Fetches all elements of the cloud sequence and returns them as a local array.
+    member c.ToArray () : 'T [] = c.ToArrayAsync() |> Async.RunSync
 
     /// Path to Cloud sequence in store
     member c.Path = c.path
 
+    /// ETag of persisted sequence instance
     member c.ETag = c.etag
 
-    /// Cloud sequence element count
-    member c.Count = local {
+    /// Asynchronously gets Cloud sequence element count
+    member c.GetCountAsync() = async {
         match c.count with
         | Some l -> return l
         | None ->
             // this is a potentially costly operation
-            let! seq = c.ToEnumerable()
+            let! seq = c.GetEnumerableAsync()
             let l = int64 <| Seq.length seq
             c.count <- Some l
             return l
     }
 
-    /// Underlying sequence size in bytes
-    member c.Size = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! config.FileStore.GetFileSize c.path
+    /// Gets Cloud sequence element count
+    member c.Count = c.GetCountAsync() |> Async.RunSynchronously
+
+    /// Asynchronously gets underlying sequence size in bytes
+    member c.GetSizeAsync() = async {
+        return! c.store.GetFileSize c.path
     }
 
+    /// Gets underlying sequence size in bytes
+    member c.Size = c.GetSizeAsync() |> Async.RunSynchronously
+
     interface ICloudDisposable with
-        member c.Dispose () = local {
-            let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-            return! config.FileStore.DeleteFile c.path
+        member c.Dispose () = async {
+            return! c.store.DeleteFile c.path
         }
 
     interface ICloudCollection<'T> with
         member c.IsKnownCount = Option.isSome c.count
         member c.IsKnownSize = true
-        member c.Count = c.Count
-        member c.Size = c.Size
-        member c.ToEnumerable() = c.ToEnumerable()
+        member c.Count = c.GetCountAsync()
+        member c.Size = c.GetSizeAsync()
+        member c.ToEnumerable() = c.GetEnumerableAsync()
 
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()  
 
 /// Partitionable implementation of cloud file line reader
 [<DataContract>]
-type private TextLineSequence(path : string, etag : ETag, ?encoding : Encoding) =
-    inherit FilePersistedSequence<string>(path, etag, None, Some(fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)))
+type private TextLineSequence(store : ICloudFileStore, path : string, etag : ETag, ?encoding : Encoding) =
+    inherit FilePersistedSequence<string>(store, path, etag, None, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)))
 
     interface IPartitionableCollection<string> with
-        member cs.GetPartitions(weights : int []) = local {
-            let! size = CloudFile.GetSize cs.Path
+        member cs.GetPartitions(weights : int []) = async {
+            let! size = (cs :> FilePersistedSequence<_>).GetSizeAsync()
 
             let mkRangedSeqs (weights : int[]) =
                 let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
                 let mkRangedSeq rangeOpt =
                     match rangeOpt with
-                    | Some(s,e) -> new FilePersistedSequence<string>(cs.Path, cs.ETag, None, Some(getDeserializer s e)) :> ICloudCollection<string>
+                    | Some(s,e) -> new FilePersistedSequence<string>(store, cs.Path, cs.ETag, None, (getDeserializer s e)) :> ICloudCollection<string>
                     | None -> new SequenceCollection<string>([||]) :> _
 
                 let partitions = Array.splitWeightedRange weights 0L size
@@ -123,9 +121,9 @@ type private TextLineSequence(path : string, etag : ETag, ?encoding : Encoding) 
 
             if size < 512L * 1024L then
                 // partition lines in-memory if file is particularly small.
-                let! count = cs.Count
+                let! count = (cs :> FilePersistedSequence<_>).GetCountAsync()
                 if count < int64 weights.Length then
-                    let! lines = cs.ToArray()
+                    let! lines = (cs :> FilePersistedSequence<_>).ToArrayAsync()
                     let liness = Array.splitWeighted weights lines
                     return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> ICloudCollection<_>)
                 else
@@ -155,12 +153,12 @@ type FilePersistedSequence =
             | Some s -> return s
         }
 
-        let deserializer = serializer |> Option.map (fun ser stream -> ser.SeqDeserialize<'T>(stream, leaveOpen = false))
+        let deserializer (stream : Stream) = _serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
         let writer (stream : Stream) = async {
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }
         let! etag, length = config.FileStore.WriteETag(path, writer)
-        return new FilePersistedSequence<'T>(path, etag, Some length, deserializer)
+        return new FilePersistedSequence<'T>(config.FileStore, path, etag, Some length, deserializer)
     }
 
     /// <summary>
@@ -180,7 +178,7 @@ type FilePersistedSequence =
             | Some s -> return s
         }
 
-        let deserializer = serializer |> Option.map (fun ser stream -> ser.SeqDeserialize<'T>(stream, leaveOpen = false))
+        let deserializer (stream : Stream) = _serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
         return! async {
             if maxPartitionSize <= 0L then return invalidArg "maxPartitionSize" "Must be greater that 0."
 
@@ -195,7 +193,7 @@ type FilePersistedSequence =
                     return _serializer.SeqSerialize<'T>(stream, partition, leaveOpen = false) |> int64
                 }
                 let! etag, length = config.FileStore.WriteETag(path, writer)
-                let seq = new FilePersistedSequence<'T>(path, etag, Some length, deserializer)
+                let seq = new FilePersistedSequence<'T>(config.FileStore, path, etag, Some length, deserializer)
                 seqs.Add seq
 
             return seqs.ToArray()
@@ -211,13 +209,21 @@ type FilePersistedSequence =
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool) : Local<FilePersistedSequence<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! deserializer = local {
+            match deserializer with
+            | Some d -> return d
+            | None ->
+                let! serializer = Cloud.GetResource<ISerializer>()
+                return fun s -> serializer.SeqDeserialize<'T>(s, leaveOpen = true)
+        }
+
         let! etag = config.FileStore.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
-            let cseq = new FilePersistedSequence<'T>(path, et, None, deserializer)
+            let cseq = new FilePersistedSequence<'T>(config.FileStore, path, et, None, deserializer)
             if defaultArg force false then
-                let! _ = cseq.Count in ()
+                let! _ = cseq.GetCountAsync() in ()
 
             return cseq
     }
@@ -267,9 +273,9 @@ type FilePersistedSequence =
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
-            let cseq = new TextLineSequence(path, et, ?encoding = encoding)
+            let cseq = new TextLineSequence(config.FileStore, path, et, ?encoding = encoding)
             if defaultArg force false then
-                let! _ = cseq.Count in ()
+                let! _ = cseq.GetCountAsync() in ()
 
             return cseq :> FilePersistedSequence<string>
     }

@@ -20,8 +20,8 @@ type private InMemoryValue<'T> (value : 'T) =
         member x.GetValueAsync(): Async<'T> = async { return value }
         member x.IsCachedLocally: bool = true
         member x.Value: 'T = value
-        member x.ValueBoxed: obj = value :> obj
-        member x.Dispose() = local.Zero()
+        member x.GetBoxedValue () : obj = value :> obj
+        member x.Dispose() = async.Zero()
 
 [<Sealed; AutoSerializable(false)>]
 type InMemoryValueProvider () =
@@ -68,7 +68,7 @@ type private InMemoryAtom<'T> (initial : 'T) =
         member __.Value = async { return Option.get container.Value }
         member __.Transact(updater, _) = async { return transact updater }
         member __.Force(value) = async { return force value }
-        member __.Dispose () = local { return container := None }
+        member __.Dispose () = async { return container := None }
 
 [<Sealed; AutoSerializable(false)>]
 type InMemoryAtomProvider () =
@@ -107,7 +107,7 @@ type private InMemoryQueue<'T>  (id : string) =
             return! mbox.Receive(?timeout = timeout)
         }
         
-        member x.Dispose(): Local<unit> = local {
+        member x.Dispose(): Async<unit> = async {
             isDisposed <- true
         }
         
@@ -156,7 +156,10 @@ type InMemoryQueueProvider () =
 /// Defines an in-memory dictionary factory using ConcurrentDictionary
 [<Sealed; AutoSerializable(false)>]
 type InMemoryDictionaryProvider() =
+    let id = mkUUID()
     interface ICloudDictionaryProvider with
+        member s.Name = "InMemoryDictionaryProvider"
+        member s.Id = id
         member s.IsSupportedValue _ = true
         member s.Create<'T> () = async {
             let id = mkUUID()
@@ -186,13 +189,13 @@ type InMemoryDictionaryProvider() =
                     member x.IsKnownCount = true
                     member x.IsKnownSize = true
                     
-                    member x.Count: Local<int64> = 
-                        local { return int64 dict.Count }
+                    member x.Count: Async<int64> = 
+                        async { return int64 dict.Count }
 
-                    member x.Size: Local<int64> = 
-                        local { return int64 dict.Count }
+                    member x.Size: Async<int64> = 
+                        async { return int64 dict.Count }
                     
-                    member x.Dispose(): Local<unit> = local.Zero()
+                    member x.Dispose(): Async<unit> = async.Zero()
                     
                     // capture provider in closure it avoid it being serialized
                     member x.Id: string = let _ = s.GetHashCode() in id
@@ -200,8 +203,8 @@ type InMemoryDictionaryProvider() =
                     member x.Remove(key: string): Async<bool> = 
                         async { return dict.TryRemove key |> fst }
                     
-                    member x.ToEnumerable(): Local<seq<KeyValuePair<string, 'T>>> = 
-                        local { return dict :> _ }
+                    member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
+                        async { return dict :> _ }
                     
                     member x.TryFind(key: string): Async<'T option> = 
                         async { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
