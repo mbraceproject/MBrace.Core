@@ -38,4 +38,4 @@ type Local<'T> internal (body : Body<'T>) =
 /// Denotes handle to a distributable resource that can be disposed of.
 type ICloudDisposable =
     /// Releases any storage resources used by this object.
-    abstract Dispose : unit -> Local<unit>
+    abstract Dispose : unit -> Async<unit>

@@ -139,7 +139,9 @@ type CloudAtom =
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (atom : ICloudAtom<'T>) : Local<unit> = dispose atom
+    static member Delete (atom : ICloudAtom<'T>) : Local<unit> = local {
+        return! atom.Dispose()
+    }
 
     /// <summary>
     ///     Deletes container and all its contained atoms.

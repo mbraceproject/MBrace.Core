@@ -146,7 +146,7 @@ type CloudQueue =
     /// </summary>
     /// <param name="queue">Queue to be disposed.</param>
     static member Delete(queue : ICloudQueue<'T>) : Local<unit> = 
-        local { return! dispose queue }
+        local { return! queue.Dispose() }
 
     /// <summary>
     ///     Deletes container and all its contained queues.

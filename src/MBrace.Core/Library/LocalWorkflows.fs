@@ -1,5 +1,5 @@
 ﻿/// Assortment of workflow combinators that act on collections within the local process.
-module MBrace.Workflows.Local
+module MBrace.Library.Local
 
 open MBrace.Core
 open MBrace.Core.Internals

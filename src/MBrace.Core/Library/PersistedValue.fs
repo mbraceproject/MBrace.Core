@@ -1,4 +1,4 @@
-﻿namespace MBrace.Core
+﻿namespace MBrace.Library
 
 open System
 open System.Runtime.Serialization
@@ -17,47 +17,46 @@ open MBrace.Core.Internals
 type FilePersistedValue<'T> =
 
     // https://visualfsharp.codeplex.com/workitem/199
+    [<DataMember(Name = "Store")>]
+    val mutable private store : ICloudFileStore
     [<DataMember(Name = "Path")>]
     val mutable private path : string
     [<DataMember(Name = "ETag")>]
     val mutable private etag : ETag
     [<DataMember(Name = "Deserializer")>]
-    val mutable private deserializer : (Stream -> 'T) option
+    val mutable private deserializer : Stream -> 'T
 
-    internal new (path, etag, deserializer) =
-        { path = path ; etag = etag ; deserializer = deserializer }
+    internal new (store, path, etag, deserializer) =
+        { store = store; path = path ; etag = etag ; deserializer = deserializer }
 
     /// Path to cloud value payload in store
     member c.Path = c.path
 
-    /// Dereferences value from store
-    member c.Value : Local<'T> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        let! streamOpt = config.FileStore.ReadETag(c.path, c.etag)
+    /// Asynchronously dereferences value from store
+    member c.GetValueAsync () : Async<'T> = async {
+        let! streamOpt = c.store.ReadETag(c.path, c.etag)
         match streamOpt with
         | None -> return raise <| new InvalidDataException(sprintf "CloudValue: incorrect etag in file '%s'." c.path)
-        | Some stream ->
-            use stream = stream
-            match c.deserializer with 
-            | Some ds -> return ds stream
-            | None -> 
-                let! defaultSerializer = Cloud.GetResource<ISerializer> ()
-                return defaultSerializer.Deserialize<'T>(stream, leaveOpen = false)
+        | Some stream -> use stream = stream in return c.deserializer stream
     }
 
-    /// Gets the size of cloud value in bytes
-    member c.Size = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-        return! config.FileStore.GetFileSize c.path
+    /// Asynchronously gets the size of the persisted value in bytes.
+    member c.GetSizeAsync () : Async<int64> = async {
+        return! c.store.GetFileSize c.path
     }
+
+    /// Dereferences value from store.
+    member c.Value : 'T = c.GetValueAsync() |> Async.RunSync
+
+    /// Gets the size of the persisted value in bytes.
+    member c.Size : int64 = c.GetSizeAsync() |> Async.RunSync
 
     override c.ToString() = sprintf "CloudValue[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()
 
     interface ICloudDisposable with
-        member c.Dispose () = local {
-            let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-            return! config.FileStore.DeleteFile c.path
+        member c.Dispose () = async {
+            return! c.store.DeleteFile c.path
         }
 
 #nowarn "444"
@@ -83,13 +82,14 @@ type FilePersistedValue =
             | None -> return! Cloud.GetResource<ISerializer>()
         }
 
-        let deserializer = serializer |> Option.map (fun ser stream -> ser.Deserialize<'T>(stream, leaveOpen = false))
+        let deserializer (stream : Stream) = _serializer.Deserialize<'T>(stream, leaveOpen = false)
         let writer (stream : Stream) = async {
             // write value
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
+
         let! etag,_ = config.FileStore.WriteETag(path, writer)
-        return new FilePersistedValue<'T>(path, etag, deserializer)
+        return new FilePersistedValue<'T>(config.FileStore, path, etag, deserializer)
     }
 
     /// <summary>
@@ -101,14 +101,22 @@ type FilePersistedValue =
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool) : Local<FilePersistedValue<'T>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        let! deserializer = local {
+            match deserializer with 
+            | Some d -> return d
+            | None -> 
+                let! serializer = Cloud.GetResource<ISerializer>()
+                return fun s -> serializer.Deserialize<'T>(s, leaveOpen = false)
+        }
+
         let! etag = config.FileStore.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
-            let cell = new FilePersistedValue<'T>(path, et, deserializer)
+            let fpv = new FilePersistedValue<'T>(config.FileStore, path, et, deserializer)
             if defaultArg force false then
-                let! _ = cell.Value in ()
-            return cell
+                let! _ = fpv.GetValueAsync() in ()
+            return fpv
     }
 
     /// <summary>
@@ -147,4 +155,4 @@ type FilePersistedValue =
     ///     Dereferences a persisted value.
     /// </summary>
     /// <param name="cloudCell">CloudValue to be dereferenced.</param>
-    static member Read(value : FilePersistedValue<'T>) : Local<'T> = value.Value
+    static member Read(value : FilePersistedValue<'T>) : Local<'T> = local { return! value.GetValueAsync() }

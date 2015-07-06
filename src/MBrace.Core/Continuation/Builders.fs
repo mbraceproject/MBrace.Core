@@ -204,13 +204,13 @@ module internal BuilderImpl =
 
     let inline delay (f : unit -> #Cloud<'T>) : Body<'T> = bind zero f
     let inline delay' (f : unit -> Body<'T>) : Body<'T> = bind' zero f
-    let inline dispose (d : ICloudDisposable) = mkLocal <| delay d.Dispose
+    let inline dispose (d : ICloudDisposable) = ofAsync (async { return! d.Dispose() })
 
     let inline usingIDisposable (t : #IDisposable) (g : #IDisposable -> #Cloud<'S>) : Body<'S> =
         tryFinally (bind ((ret t)) g) (retFunc t.Dispose)
 
     let inline usingICloudDisposable (t : #ICloudDisposable) (g : #ICloudDisposable -> #Cloud<'S>) : Body<'S> =
-        tryFinally (bind (ret t) g) (delay t.Dispose)
+        tryFinally (bind (ret t) g) (dispose t)
 
     let inline forArray (body : 'T -> #Cloud<unit>) (ts : 'T []) : Body<unit> =
         let rec loop i () =

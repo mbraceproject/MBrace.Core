@@ -61,11 +61,19 @@ open MBrace.Core
 
 /// Abstract factory for ICloudDictionary.
 type ICloudDictionaryProvider =
+
+    /// CloudDictionary implementation name
+    abstract Name : string
+
+    /// CloudDictionary provider instance id
+    abstract Id : string
+
     /// <summary>
     ///     Checks if supplied value is supported by Dictionary implementation.
     /// </summary>
     /// <param name="value">Value to be checked.</param>
     abstract IsSupportedValue : value:'T -> bool
+
     /// Create a new ICloudDictionary instance.
     abstract Create<'T> : unit -> Async<ICloudDictionary<'T>>
 

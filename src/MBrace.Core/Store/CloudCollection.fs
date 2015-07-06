@@ -17,33 +17,33 @@ type ICloudCollection<'T> =
     /// This could be total amount of bytes of persisting files
     /// or the total number of elements if this is a known value.
     /// It used for weighing collection partitions.
-    abstract Size : Local<int64>
+    abstract Size : Async<int64>
     /// Returns true if size property is cheap to compute.
     /// Collections that require traversal to determine size
     /// should return false.
     abstract IsKnownSize : bool
     /// Computes the element count for the collection.
-    abstract Count : Local<int64>
+    abstract Count : Async<int64>
     /// Returns true if count property is cheap to compute.
     /// Collections that require traversal to determine count
     /// should return false.
     abstract IsKnownCount : bool
     /// Gets an enumeration of all elements in the collection
-    abstract ToEnumerable : unit -> Local<seq<'T>>
+    abstract ToEnumerable : unit -> Async<seq<'T>>
 
 /// A cloud collection that comprises of a fixed number of partitions.
 type IPartitionedCollection<'T> =
     inherit ICloudCollection<'T>
     /// Gets the partition count of the collection.
-    abstract PartitionCount : Local<int>
+    abstract PartitionCount : Async<int>
     /// Gets all partitions for the collection.
-    abstract GetPartitions : unit -> Local<ICloudCollection<'T> []>
+    abstract GetPartitions : unit -> Async<ICloudCollection<'T> []>
 
 /// A cloud collection that can be partitioned into smaller collections of provided size.
 type IPartitionableCollection<'T> =
     inherit ICloudCollection<'T>
     /// Partitions the collection into collections of given count
-    abstract GetPartitions : weights:int[] -> Local<ICloudCollection<'T> []>
+    abstract GetPartitions : weights:int[] -> Async<ICloudCollection<'T> []>
 
 
 [<AutoOpen>]
@@ -71,9 +71,9 @@ type SequenceCollection<'T> (seq : seq<'T>) =
     interface ICloudCollection<'T> with
         member x.IsKnownSize = isKnownCount seq
         member x.IsKnownCount = isKnownCount seq
-        member x.Count: Local<int64> = local { return getCount seq }
-        member x.Size: Local<int64> = local { return getCount seq }
-        member x.ToEnumerable(): Local<seq<'T>> = local { return seq }
+        member x.Count: Async<int64> = async { return getCount seq }
+        member x.Size: Async<int64> = async { return getCount seq }
+        member x.ToEnumerable(): Async<seq<'T>> = async { return seq }
 
 /// Partitionable ICloudCollection wrapper for a collection of serializable IEnumerables
 [<Sealed; DataContract>]
@@ -86,8 +86,8 @@ type PartitionedSequenceCollection<'T> (sequences : seq<'T> []) =
     interface IPartitionedCollection<'T> with
         member x.IsKnownSize = sequences |> Array.forall isKnownCount
         member x.IsKnownCount = sequences |> Array.forall isKnownCount
-        member x.Count: Local<int64> = local { return sequences |> Array.sumBy getCount }
-        member x.Size: Local<int64> = local { return sequences |> Array.sumBy getCount }
-        member x.GetPartitions(): Local<ICloudCollection<'T> []> = local { return sequences |> Array.map mkCollection }
-        member x.PartitionCount: Local<int> = local { return sequences.Length }
-        member x.ToEnumerable(): Local<seq<'T>> = local { return Seq.concat sequences }
+        member x.Count: Async<int64> = async { return sequences |> Array.sumBy getCount }
+        member x.Size: Async<int64> = async { return sequences |> Array.sumBy getCount }
+        member x.GetPartitions(): Async<ICloudCollection<'T> []> = async { return sequences |> Array.map mkCollection }
+        member x.PartitionCount: Async<int> = async { return sequences.Length }
+        member x.ToEnumerable(): Async<seq<'T>> = async { return Seq.concat sequences }

@@ -28,7 +28,7 @@ type ICloudValue =
     /// in the local execution context.
     abstract IsCachedLocally : bool
     /// Gets the boxed payload of the CloudValue.
-    abstract ValueBoxed : obj
+    abstract GetBoxedValue : unit -> obj
     /// Asynchronously gets the boxed payload of the CloudValue.
     abstract GetBoxedValueAsync : unit -> Async<obj>
 
@@ -109,4 +109,6 @@ type CloudValue =
     ///     Deletes the provided CloudValue from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (value : ICloudValue) : Local<unit> = dispose value
+    static member Delete (value : ICloudValue) : Local<unit> = local {
+        return! value.Dispose()
+    }
