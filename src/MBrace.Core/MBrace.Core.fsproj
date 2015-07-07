@@ -78,10 +78,10 @@
     <Compile Include="Distribution\Combinators.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\CloudFileStore.fs" />
+    <Compile Include="Store\CloudCollection.fs" />
     <Compile Include="Store\CloudValue.fs" />
     <Compile Include="Store\CloudAtom.fs" />
     <Compile Include="Store\CloudQueue.fs" />
-    <Compile Include="Store\CloudCollection.fs" />
     <Compile Include="Store\CloudDictionary.fs" />
     <Compile Include="Library\LocalWorkflows.fs" />
     <Compile Include="Library\CloudWorkflows.fs" />

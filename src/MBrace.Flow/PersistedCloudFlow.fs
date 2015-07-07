@@ -7,60 +7,60 @@ open System.Threading
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Workflows
+open MBrace.Library
 
 #nowarn "444"
 
 /// Persisted CloudFlow implementation.
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
-type PersistedCloudFlow<'T> internal (partitions : CloudSequence<'T> []) =
+type PersistedCloudFlow<'T> internal (storageLevel : StorageLevel, partitions : (int64 * ICloudValue<'T []>) []) =
+
+    [<DataMember(Name = "StorageLevel")>]
+    let storageLevel = storageLevel
     [<DataMember(Name = "Partitions")>]
     let partitions = partitions
+
+    member internal __.Partitions = partitions
 
     /// Number of partitions in the vector.
     member __.PartitionCount = partitions.Length
 
-    member __.Item with get i = partitions.[i]
+    member __.Item with get i = snd partitions.[i]
 
-    /// Returns true if in-memory caching support is enabled for the vector instance.
-    member __.IsCachingEnabled = partitions |> Array.forall (fun p -> p.CacheByDefault)
-
-    /// Creates an immutable copy iwht updated cache behaviour
-    member internal __.WithCacheBehaviour b =
-        let partitions' = partitions |> Array.map (CloudSequence.WithCacheBehaviour b)
-        new PersistedCloudFlow<'T>(partitions')
+    member __.StorageLevel = storageLevel
 
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
-    member __.Partitions = partitions
+    member internal __.Partitions = partitions
     /// Computes the size (in bytes) of the PersistedCloudFlow
-    member __.Size: Local<int64> = local { let! sizes = partitions |> Local.Sequential.map (fun p -> p.Size) in return Array.sum sizes }
+    member __.Size: int64 = partitions |> Array.sumBy (fun (_,p) -> p.Size)
     /// Computes the element count of the PersistedCloudFlow
-    member __.Count: Local<int64> = local { let! counts = partitions |> Local.Sequential.map (fun p -> p.Count) in return Array.sum counts }
+    member __.Count: int64 = partitions |> Array.sumBy fst
     /// Gets an enumerable for all elements in the PersistedCloudFlow
-    member __.ToEnumerable() = local { let! seqs = partitions |> Local.Sequential.map (fun p -> p.ToEnumerable()) in return Seq.concat seqs }
+    member __.ToEnumerable() : seq<'T> = seq {
+        for _,cv in partitions do
+            yield! cv.Value
+    }
 
     interface IPartitionedCollection<'T> with
         member cv.IsKnownSize = true
         member cv.IsKnownCount = true
-        member cv.Size: Local<int64> = cv.Size
-        member cv.Count: Local<int64> = cv.Count
-        member cv.GetPartitions(): Local<ICloudCollection<'T> []> = local { return partitions |> Array.map (fun p -> p :> _) }
-        member cv.PartitionCount: Local<int> = local { return partitions.Length }
-        member cv.ToEnumerable(): Local<seq<'T>> = cv.ToEnumerable()
+        member cv.Size: Async<int64> = async { return cv.Size }
+        member cv.Count: Async<int64> = async { return cv.Count }
+        member cv.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun fs -> new PersistedCloudFlow<'T>(storageLevel, [|fs|]) :> _) }
+        member cv.PartitionCount: Async<int> = async { return partitions.Length }
+        member cv.ToEnumerable(): Async<seq<'T>> = async { return cv.ToEnumerable() }
 
     interface CloudFlow<'T> with
         member cv.DegreeOfParallelism = None
         member cv.WithEvaluators(collectorf : Local<Collector<'T,'S>>) (projection: 'S -> Local<'R>) (combiner: 'R [] -> Local<'R>): Cloud<'R> = cloud {
             // TODO : use ad-hoc implementation with better scheduling
-            let flow = CloudCollection.ToCloudFlow(cv, useCache = cv.IsCachingEnabled)
+            let flow = CloudCollection.ToCloudFlow(cv)
             return! flow.WithEvaluators collectorf projection combiner
         }
 
     interface ICloudDisposable with
-        member __.Dispose () = local {
-            for p in partitions do do! (p :> ICloudDisposable).Dispose()
+        member __.Dispose () = async {
+            for _,p in partitions do do! (p :> ICloudDisposable).Dispose()
         }
 
     override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
@@ -69,19 +69,14 @@ type PersistedCloudFlow<'T> internal (partitions : CloudSequence<'T> []) =
 
 type internal PersistedCloudFlow private () =
 
-    /// Maximum PersistedCloudFlow partition size used in PersistedCloudFlow.New
-    static let MaxCloudVectorPartitionSize = 1024L * 1024L * 1024L // 1GB
-
     /// <summary>
     ///     Creates a new persisted CloudFlow instance out of given enumeration.
     /// </summary>
     /// <param name="elems">Input sequence.</param>
     /// <param name="cache">Enable caching behaviour in PersistedCloudFlow instance.</param>
-    /// <param name="partitionThreshold">Partition threshold in bytes.</param>
-    static member New(elems : seq<'T>, cache : bool, ?partitionThreshold:int64) : Local<PersistedCloudFlow<'T>> = local {
-        let partitionThreshold = defaultArg partitionThreshold MaxCloudVectorPartitionSize
-        let! cseqs = CloudSequence.NewPartitioned(elems, partitionThreshold, enableCache = cache) 
-        return new PersistedCloudFlow<'T>(cseqs)
+    static member New(elems : 'T [], cache : bool, ?partitionThreshold:int64) : Local<PersistedCloudFlow<'T>> = local {
+        let! cvalue = CloudValue.New(elems)
+        return new PersistedCloudFlow<'T>(cvalue.StorageLevel, [|elems.LongLength, cvalue|])
     }
     
     /// <summary>
@@ -90,7 +85,8 @@ type internal PersistedCloudFlow private () =
     /// <param name="vectors">Input CloudFlows.</param>
     static member Concat (vectors : seq<PersistedCloudFlow<'T>>) : PersistedCloudFlow<'T> = 
         let partitions = vectors |> Seq.collect (fun v -> v.Partitions) |> Seq.toArray
-        new PersistedCloudFlow<'T>(partitions)
+        let storageLevel = partitions |> Array.fold (fun s (_,cv) -> cv.StorageLevel &&& s) (* TODO: fix *)(snd(partitions.[0]).StorageLevel)
+        new PersistedCloudFlow<'T>(storageLevel, partitions)
 
     /// <summary>
     ///     Persists given flow to store.

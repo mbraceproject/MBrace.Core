@@ -6,8 +6,6 @@ open Nessos.Streams
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 
 open MBrace.Flow
 open MBrace.Flow.Internals

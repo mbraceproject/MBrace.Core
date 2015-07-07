@@ -45,8 +45,8 @@ module internal Utils =
             |> Array.map (fun (s,e) -> Array.sub array s (e-s))
 
         /// partition elements so that size in accumulated groupings does not surpass maxSize
-        let partitionBySize (getSize : 'T -> Local<int64>) (maxSize : int64) (inputs : 'T []) = local {
-            let rec aux i accSize (accElems : 'T list) (accGroupings : 'T list list) = local {
+        let partitionBySize (getSize : 'T -> Async<int64>) (maxSize : int64) (inputs : 'T []) = async {
+            let rec aux i accSize (accElems : 'T list) (accGroupings : 'T list list) = async {
                 if i >= inputs.Length then return accElems :: accGroupings
                 else
                     let t = inputs.[i]
