@@ -1,13 +1,10 @@
-﻿namespace MBrace.Client
+﻿namespace MBrace.Runtime.InMemoryRuntime
 
 #nowarn "0444"
 
 open System.IO
 open System.Text
 
-open MBrace.Core
-open MBrace.Core.Internals
-open MBrace.Core.Internals.InMemoryRuntime
 open MBrace.Core
 open MBrace.Core.Internals
 

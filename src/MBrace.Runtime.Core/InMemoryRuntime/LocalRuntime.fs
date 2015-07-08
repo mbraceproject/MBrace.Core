@@ -1,21 +1,11 @@
-﻿namespace MBrace.Client
+﻿namespace MBrace.Runtime.InMemoryRuntime
 
 open System.Threading
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Core.Internals.InMemoryRuntime
-open MBrace.Core
-open MBrace.Core.Internals
 
 #nowarn "444"
-
-/// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
-type InMemoryCancellationToken = MBrace.Core.Internals.InMemoryRuntime.InMemoryCancellationToken
-/// Cloud cancellation token source implementation that wraps around System.Threading.CancellationTokenSource
-type InMemoryCancellationTokenSource = MBrace.Core.Internals.InMemoryRuntime.InMemoryCancellationTokenSource
-/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
-type InMemoryTask<'T> = MBrace.Core.Internals.InMemoryRuntime.InMemoryTask<'T>
 
 /// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
@@ -61,8 +51,8 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// <summary>
     ///     Creates an InMemory runtime instance with provided store components.
     /// </summary>
-    /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="logger">Logger abstraction. Defaults to no logging.</param>
+    /// <param name="memoryMode">Memory semantics used for parallelism. Defaults to shared memory.</param>
     /// <param name="fileConfig">File store configuration. Defaults to no file store.</param>
     /// <param name="serializer">Default serializer implementations. Defaults to no serializer.</param>
     /// <param name="valueProvider">CloudValue provider instance. Defaults to in-memory implementation.</param>
@@ -70,6 +60,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// <param name="queueConfig">Cloud queue configuration. Defaults to in-memory queues.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
     static member Create(?logger : ICloudLogger,
+                            ?memoryMode : ThreadPoolMemoryMode,
                             ?fileConfig : CloudFileStoreConfiguration,
                             ?serializer : ISerializer,
                             ?valueProvider : ICloudValueProvider,
@@ -84,7 +75,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
         let queueConfig = match queueConfig with Some cc -> cc | None -> InMemoryQueueProvider.CreateConfiguration()
 
         let resources = resource {
-            yield ThreadPoolRuntime.Create(?logger = logger) :> IDistributionProvider
+            yield ThreadPoolRuntime.Create(?logger = logger, ?memoryMode = memoryMode) :> IDistributionProvider
             yield valueProvider
             yield atomConfig
             yield dictionaryProvider

@@ -41,13 +41,6 @@ module Utils =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
 
-    type internal Latch (init : int) =
-        [<VolatileField>]
-        let mutable value = init
-
-        member __.Increment() = Interlocked.Increment &value
-        member __.Value = value
-
     [<RequireQualifiedAccess>]
     module Array =
 
@@ -182,22 +175,11 @@ module Utils =
                 splitWeightedRange weights 0L (int64 input.Length)
                 |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])
 
-
-        /// computes the gcd for a collection of integers
-        let inline gcd (inputs : 't []) : 't =
-            let rec gcd m n =
-                if n > m then gcd n m
-                elif n = LanguagePrimitives.GenericZero then m
-                else gcd n (m % n)
-
-            Array.fold gcd LanguagePrimitives.GenericZero inputs
-
-        /// normalize a collection of inputs w.r.t. gcd
-        let inline gcdNormalize (inputs : 't []) : 't [] =
-            let gcd = gcd inputs
-            inputs |> Array.map (fun i -> i / gcd)
-
     module Seq =
+        /// <summary>
+        ///     Creates an anonymous IEnumerable instance from an enumerator factory.
+        /// </summary>
+        /// <param name="enum">Enumerator factory.</param>
         let fromEnumerator (enum : unit -> IEnumerator<'T>) =
             { new IEnumerable<'T> with
                 member __.GetEnumerator () = enum () 
@@ -234,7 +216,8 @@ module Utils =
             let onCompletion (t : Task<'T>) =
                 if t.IsCompleted then tcs.TrySetResult (Some t.Result) |> ignore
                 elif t.IsCanceled then tcs.TrySetCanceled () |> ignore
-                elif t.IsFaulted then tcs.TrySetException t.Exception.InnerExceptions |> ignore
+                elif t.IsFaulted then
+                    tcs.TrySetException (t.Exception.InnerExceptions.[0]) |> ignore
 
             let _ = t.ContinueWith onCompletion
 

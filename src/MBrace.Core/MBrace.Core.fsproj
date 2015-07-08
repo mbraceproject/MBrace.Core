@@ -89,11 +89,6 @@
     <Compile Include="Library\PersistedValue.fs" />
     <Compile Include="Library\PersistedSequence.fs" />
     <Compile Include="Library\DomainLocal.fs" />
-    <Compile Include="Client\InMemoryRuntime\InMemoryStore.fs" />
-    <Compile Include="Client\InMemoryRuntime\InMemoryCombinators.fs" />
-    <Compile Include="Client\InMemoryRuntime\InMemoryRuntime.fs" />
-    <Compile Include="Client\StoreClient.fs" />
-    <Compile Include="Client\LocalRuntime.fs" />
     <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>

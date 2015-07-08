@@ -1,4 +1,4 @@
-﻿namespace MBrace.Core.Internals.InMemoryRuntime
+﻿namespace MBrace.Runtime.InMemoryRuntime
 
 open System
 open System.Collections.Generic
@@ -7,10 +7,6 @@ open System.Threading
 
 open MBrace.Core
 open MBrace.Core.Internals
-
-//
-//  TODO : move to MBrace.Runtime.Core
-//
 
 [<AutoSerializable(false)>]
 type private InMemoryValue<'T> (value : 'T) =
@@ -186,7 +182,8 @@ type InMemoryQueueProvider () =
         member __.DisposeContainer _ = async.Zero()
 
 [<Sealed; AutoSerializable(false)>]
-type private InMemoryDictionary<'T>  (id : string) =
+type private InMemoryDictionary<'T>  () =
+    let id = mkUUID()
     let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
     interface ICloudDictionary<'T> with
         member x.Add(key : string, value : 'T) : Async<unit> =
@@ -241,6 +238,5 @@ type InMemoryDictionaryProvider() =
         member s.Id = id
         member s.IsSupportedValue _ = true
         member s.Create<'T> () = async {
-            let id = mkUUID()
-            return new InMemoryDictionary<'T>(id) :> ICloudDictionary<'T>
+            return new InMemoryDictionary<'T>() :> ICloudDictionary<'T>
         }

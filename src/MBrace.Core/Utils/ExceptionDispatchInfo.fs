@@ -4,6 +4,8 @@ open System
 open System.Reflection
 open System.Threading.Tasks
 
+#nowarn "444"
+
 /// Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
 /// that is serializable and permits symbolic appending to stacktrace
 [<Sealed; AutoSerializable(true)>]

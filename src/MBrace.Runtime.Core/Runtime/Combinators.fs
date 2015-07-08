@@ -49,6 +49,12 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
+        // Early detect if return type is not serializable.
+        | Choice1Of2 _ when not <| FsPickler.IsSerializableType<'T>() ->
+            let msg = sprintf "Cloud.Parallel workflow uses non-serializable type '%s'." (Type.prettyPrint typeof<'T>)
+            let e = new SerializationException(msg)
+            cont.Exception ctx (ExceptionDispatchInfo.Capture e)
+
         | Choice1Of2 [| |] -> cont.Success ctx [||]
         // schedule single-child parallel workflows in current job
         // force copy semantics by cloning the workflow
@@ -64,11 +70,6 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
                 let se = new SerializationException(msg, e)
                 cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
-        // Early detect if return type is not serializable.
-        | Choice1Of2 _ when not <| FsPickler.IsSerializableType<'T>() ->
-            let msg = sprintf "Cloud.Parallel workflow uses non-serializable type '%s'." (Type.prettyPrint typeof<'T>)
-            let e = new SerializationException(msg)
-            cont.Exception ctx (ExceptionDispatchInfo.Capture e)
 
         | Choice1Of2 computations ->
             // distributed computation, ensure that closures are serializable
@@ -117,12 +118,26 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
 
             let onException ctx e =
                 async {
-                    let! latchCount = cancellationLatch.Increment()
-                    if latchCount = 1 then // is first job to request workflow cancellation, grant access
-                        childCts.Cancel()
-                        cont.Exception (withCancellationToken currentCts ctx) e
-                    else // cancellation already triggered by different party, declare job completed.
-                        JobExecutionMonitor.TriggerCompletion ctx
+                    match ensureSerializable e with
+                    | Some e ->
+                        let! latchCount = cancellationLatch.Increment()
+                        if latchCount = 1 then // is first job to request workflow cancellation, grant access
+                            childCts.Cancel()
+                            let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." (Type.prettyPrint typeof<'T>) 
+                            let se = new SerializationException(msg, e)
+                            cont.Exception (withCancellationToken currentCts ctx) (ExceptionDispatchInfo.Capture se)
+
+                        else // cancellation already triggered by different party, just declare job completed.
+                            JobExecutionMonitor.TriggerCompletion ctx
+                        
+                    | None ->
+                        let! latchCount = cancellationLatch.Increment()
+                        if latchCount = 1 then // is first job to request workflow cancellation, grant access
+                            childCts.Cancel()
+                            cont.Exception (withCancellationToken currentCts ctx) e
+                        else // cancellation already triggered by different party, declare job completed.
+                            JobExecutionMonitor.TriggerCompletion ctx
+
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onCancellation ctx c =

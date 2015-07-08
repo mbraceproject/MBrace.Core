@@ -5,6 +5,8 @@
 open System
 open MBrace.Core.Internals
 
+#nowarn "444"
+
 [<AutoOpen>]
 module internal BuilderImpl =
 

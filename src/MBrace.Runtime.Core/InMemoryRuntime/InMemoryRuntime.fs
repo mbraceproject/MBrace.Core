@@ -1,4 +1,4 @@
-﻿namespace MBrace.Core.Internals.InMemoryRuntime
+﻿namespace MBrace.Runtime.InMemoryRuntime
 
 open System
 open System.Threading
@@ -6,6 +6,7 @@ open System.Threading.Tasks
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Runtime.Utils
 
 #nowarn "444"
 
@@ -47,27 +48,6 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
 
         new InMemoryCancellationTokenSource(lcts)
 
-/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
-[<AutoSerializable(false)>]
-type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
-    interface ICloudTask<'T> with
-        member __.Id = sprintf ".NET task %d" task.Id
-        member __.AwaitResult(?timeoutMilliseconds:int) = async {
-            // TODO : create a correct Async.AwaitTask implementation
-            // that avoids wrapping in System.AggregateException instead
-            let! ct = Async.CancellationToken
-            let wf = Cloud.AwaitTask(task, ?timeoutMilliseconds = timeoutMilliseconds) 
-            return! Cloud.ToAsync(wf, ResourceRegistry.Empty, new InMemoryCancellationToken(ct))
-        }
-
-        member __.TryGetResult () = async { return task.TryGetResult() }
-        member __.Status = task.Status
-        member __.IsCompleted = task.IsCompleted
-        member __.IsFaulted = task.IsFaulted
-        member __.IsCanceled = task.IsCanceled
-        member __.CancellationToken = ct
-        member __.Result = task.GetResult()
-
 [<Sealed; AutoSerializable(false)>]
 type internal InMemoryWorker private () =
     static let singleton = new InMemoryWorker()
@@ -88,9 +68,27 @@ type internal InMemoryWorker private () =
 
     static member Instance = singleton
 
+/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
+[<AutoSerializable(false)>]
+type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
+    interface ICloudTask<'T> with
+        member __.Id = sprintf ".NET task %d" task.Id
+        member __.AwaitResult(?timeoutMilliseconds:int) = async {
+            try return! Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
+            with :? AggregateException as e -> return! Async.Raise (e.InnerExceptions.[0])
+        }
+
+        member __.TryGetResult () = async { return task.TryGetResult() }
+        member __.Status = task.Status
+        member __.IsCompleted = task.IsCompleted
+        member __.IsFaulted = task.IsFaulted
+        member __.IsCanceled = task.IsCanceled
+        member __.CancellationToken = ct
+        member __.Result = task.GetResult()
+
 /// .NET ThreadPool distribution provider
 [<Sealed; AutoSerializable(false)>]
-type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger) =
+type ThreadPoolRuntime private (faultPolicy : FaultPolicy, memoryMode : ThreadPoolMemoryMode, logger : ICloudLogger) =
 
     static let mkNestedCts (ct : ICloudCancellationToken) = 
         InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
@@ -100,14 +98,16 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
     /// </summary>
     /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
     /// <param name="faultPolicy">Fault policy for runtime. Defaults to no retry.</param>
-    static member Create (?logger : ICloudLogger, ?faultPolicy) = 
+    /// <param name="memoryMode">Memory semantics used for parallelism. Defaults to shared memory.</param>
+    static member Create (?logger : ICloudLogger, ?faultPolicy, ?memoryMode : ThreadPoolMemoryMode) = 
         let logger = 
             match logger with 
             | Some l -> l 
             | None -> { new ICloudLogger with member __.Log _ = () }
 
         let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.NoRetry
-        new ThreadPoolRuntime(faultPolicy, logger)
+        let memoryMode = defaultArg memoryMode ThreadPoolMemoryMode.Shared
+        new ThreadPoolRuntime(faultPolicy, memoryMode, logger)
         
     interface IDistributionProvider with
         member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
@@ -125,7 +125,7 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
         member __.CurrentWorker = InMemoryWorker.Instance :> IWorkerRef
 
         member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, logger) :> IDistributionProvider
+        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, memoryMode, logger) :> IDistributionProvider
 
         member __.IsForcedLocalParallelismEnabled = true
         member __.WithForcedLocalParallelismSetting _ = __ :> _
@@ -146,7 +146,7 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, logger : ICloudLogger
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
             let! resources = Cloud.GetResourceRegistry()
             let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
-            let runtimeP = new ThreadPoolRuntime(faultPolicy, logger) 
+            let runtimeP = new ThreadPoolRuntime(faultPolicy, memoryMode, logger) 
             let resources' = resources.Register (runtimeP :> IDistributionProvider)
             let task = Cloud.StartAsSystemTask(workflow, resources', cancellationToken)
             return new InMemoryTask<'T>(task, cancellationToken) :> ICloudTask<'T>
