@@ -5,6 +5,7 @@ open System.Diagnostics
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Library
 
 open Nessos.Vagabond
 open Nessos.Vagabond.AppDomainPool

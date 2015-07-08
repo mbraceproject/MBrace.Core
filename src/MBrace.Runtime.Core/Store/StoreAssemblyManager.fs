@@ -11,6 +11,8 @@ open Nessos.Vagabond.AssemblyProtocols
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Client
+open MBrace.Library
+
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
@@ -36,8 +38,8 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
-            let! c = CloudValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id, enableCache = false)
-            let! md = c.Value
+            let! c = FilePersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+            let! md = c.GetValueAsync()
             return Some md
 
         with :? FileNotFoundException -> return None
@@ -122,7 +124,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
         do! dataFiles |> Seq.map uploadDataFile |> Local.Parallel |> Local.Ignore
 
         // upload metadata record; TODO: use CloudAtom for synchronization?
-        let! _ = CloudValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
+        let! _ = FilePersistedValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
         return Loaded(va.Id, false, va.Metadata)
     }
 
@@ -159,8 +161,8 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
         
         member x.ReadMetadata(id: AssemblyId): Async<VagabondMetadata> = 
             local {
-                let! c = CloudValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id, enableCache = false)
-                return! c.Value
+                let! c = FilePersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+                return! c.GetValueAsync()
             } |> imem.RunAsync
 
         member x.GetPersistedDataDependencyReader(id: AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {

@@ -152,7 +152,7 @@ type private StoreCloudValue<'T>(id:CachedEntityId, config : StoreCloudValueConf
     }
 
     interface ICloudValue<'T> with
-        member x.Dispose(): Local<unit> = local {
+        member x.Dispose(): Async<unit> = async {
             return! x.Dispose()
         }
         
@@ -184,7 +184,7 @@ type private StoreCloudValue<'T>(id:CachedEntityId, config : StoreCloudValueConf
         member x.Value: 'T =
             getValue() |> Async.RunSync
         
-        member x.ValueBoxed: obj = 
+        member x.GetBoxedValue() : obj = 
             getValue() |> Async.RunSync |> box
 
 /// CloudValue provider implementation that is based on cloud storage
@@ -242,8 +242,11 @@ type StoreCloudValueProvider private (config : StoreCloudValueConfiguration) =
     interface ICloudValueProvider with
         member x.Id: string = sprintf "StoreCloudValue [%s] at %s." config.FileStore.Id config.StoreContainer
         member x.Name: string = "StoreCloudValue"
+        member x.DefaultStorageLevel = StorageLevel.MemoryAndDisk
 
-        member x.CreateCloudValue(payload: 'T): Async<ICloudValue<'T>> = async {
+        member x.CreatePartitionedArray(_,_,_) = raise <| new NotImplementedException()
+
+        member x.CreateCloudValue(payload: 'T, _): Async<ICloudValue<'T>> = async {
             ensureActive()
             let ceid = CachedEntityId.FromObject(payload, config.EncapsulatationTreshold)
             match ceid with
