@@ -9,8 +9,8 @@ open NUnit.Framework
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core.Internals.InMemoryRuntime
-open MBrace.Store
-open MBrace.Workflows
+open MBrace.Library
+open MBrace.Library.CloudCollectionUtils
 
 /// Logging tester abstraction
 type ILogTester =
@@ -87,7 +87,7 @@ type ``Parallelism Tests`` (parallelismFactor : int, delayFactor : int) as self 
         let parallelismFactor = parallelismFactor
         let c = CloudAtom.New 0 |> runLocally
         cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = CloudAtom.Incr c |> Local.Ignore }
+            use foo = { new ICloudDisposable with member __.Dispose () = c.Transact(fun i -> (), i + 1) }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Incr c) |> Cloud.Parallel
             return! c.Value
         } |> run |> Choice.shouldEqual parallelismFactor

@@ -3,31 +3,30 @@
 open System.Collections.Generic
 
 open MBrace.Core
-open MBrace.Store
-open MBrace.Workflows
+open MBrace.Library
 
 type DummyDisposable() =
     let isDisposed = ref false
     interface ICloudDisposable with
-        member __.Dispose () = local { isDisposed := true }
+        member __.Dispose () = async { isDisposed := true }
 
     member __.IsDisposed = !isDisposed
 
 type CloudTree<'T> = Leaf | Branch of 'T * TreeRef<'T> * TreeRef<'T>
 
-and TreeRef<'T> = CloudValue<CloudTree<'T>>
+and TreeRef<'T> = FilePersistedValue<CloudTree<'T>>
 
 module CloudTree =
 
     let rec createTree d = cloud {
-        if d = 0 then return! CloudValue.New Leaf
+        if d = 0 then return! FilePersistedValue.New Leaf
         else
             let! l,r = createTree (d-1) <||> createTree (d-1)
-            return! CloudValue.New (Branch(d, l, r))
+            return! FilePersistedValue.New (Branch(d, l, r))
     }
 
     let rec getBranchCount (tree : TreeRef<int>) = cloud {
-        let! value = tree.Value
+        let! value = tree.GetValueAsync()
         match value with
         | Leaf -> return 0
         | Branch(_,l,r) ->

@@ -9,8 +9,6 @@ open FsCheck
 open NUnit.Framework
 open MBrace.Flow
 open MBrace.Core
-open MBrace.Store
-open MBrace.Store.Internals
 open System.Text
 
 // Helper type
@@ -31,29 +29,29 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``1. PersistedCloudFlow : simple persist`` () =
         let inputs = [|1L .. 1000000L|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> run
         let workers = Cloud.GetWorkerCount() |> run
-        vector.IsCachingEnabled |> shouldEqual false
+        vector.StorageLevel |> shouldEqual StorageLevel.DiskOnly
         vector.PartitionCount |> shouldEqual workers
-        cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
+        cloud { return vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
         vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : caching`` () =
         let inputs = [|1L .. 1000000L|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persistCached |> run
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> run
         let workers = Cloud.GetWorkerCount() |> run
+        vector.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
         vector.PartitionCount |> shouldEqual workers
-        vector.IsCachingEnabled |> shouldEqual true
-        cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
+        cloud { return vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
         vector |> CloudFlow.sum |> run |> shouldEqual (Array.sum inputs)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : disposal`` () =
         let inputs = [|1 .. 1000000|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
+        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> run
         vector |> Cloud.Dispose |> run
-        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
+        shouldfail(fun () -> cloud { return vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
 //    [<Test>]
 //    member __.``1. PersistedCloudFlow : merging`` () =
@@ -100,16 +98,16 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : persist`` () =
         let f(xs : int[]) =            
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist |> run
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.DiskOnly |> run
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
-            Assert.AreEqual(y, cloud { return! x.ToEnumerable() } |> runLocally)
+            Assert.AreEqual(y, cloud { return x.ToEnumerable() } |> runLocally)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
     [<Test>]
     member __.``2. CloudFlow : persistCached`` () =
         let f(xs : string[]) =            
-            let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.persistCached |> run
+            let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.cache |> run
             let x = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
             let y = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> run
             Assert.AreEqual(x, y)

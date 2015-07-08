@@ -3,8 +3,7 @@
 open System
 
 open MBrace.Core
-open MBrace.Store
-open MBrace.Workflows
+open MBrace.Library
 open MBrace.Client
 
 open NUnit.Framework

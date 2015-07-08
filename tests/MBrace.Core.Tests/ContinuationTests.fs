@@ -7,8 +7,7 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Workflows
+open MBrace.Library
 open MBrace.Client
 
 #nowarn "443"

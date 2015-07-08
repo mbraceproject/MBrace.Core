@@ -2,10 +2,15 @@
 
 open System
 open System.Collections.Generic
+open System.Collections.Concurrent
 open System.Threading
 
 open MBrace.Core
 open MBrace.Core.Internals
+
+//
+//  TODO : move to MBrace.Runtime.Core
+//
 
 [<AutoSerializable(false)>]
 type private InMemoryValue<'T> (value : 'T) =
@@ -23,6 +28,29 @@ type private InMemoryValue<'T> (value : 'T) =
         member x.GetBoxedValue () : obj = value :> obj
         member x.Dispose() = async.Zero()
 
+[<AutoSerializable(false)>]
+type private InMemoryArray<'T> (values : 'T []) =
+    inherit InMemoryValue<'T[]> (values)
+
+    interface ICloudArray<'T> with
+        member x.Length = values.Length
+
+    interface ICloudCollection<'T> with
+        
+        member x.GetCount(): Async<int64> =  async { return values.LongLength }
+
+        // TODO : move to MBRace.Runtime.Core        
+        member x.GetSize(): Async<int64> = async { return values.LongLength }
+        
+        member x.IsKnownCount: bool = true
+        
+        member x.IsKnownSize: bool = true
+        
+        member x.IsMaterialized: bool = true
+        
+        member x.ToEnumerable(): Async<seq<'T>> = async { return values :> _ }
+
+
 [<Sealed; AutoSerializable(false)>]
 type InMemoryValueProvider () =
     let id = mkUUID()
@@ -30,8 +58,13 @@ type InMemoryValueProvider () =
     interface ICloudValueProvider with
         member x.Id: string = id
         member x.Name: string = "In-Memory Value Provider"
-        member x.CreateCloudValue(payload: 'T): Async<ICloudValue<'T>> = async {
+        member x.DefaultStorageLevel : StorageLevel = StorageLevel.MemoryOnly
+        member x.CreateCloudValue(payload: 'T, _ : StorageLevel): Async<ICloudValue<'T>> = async {
             return new InMemoryValue<'T>(payload) :> ICloudValue<'T>
+        }
+
+        member x.CreatePartitionedArray(payload : seq<'T>, _ : StorageLevel, _) = async {
+            return [| new InMemoryArray<'T>(Seq.toArray payload) :> ICloudArray<'T> |]
         }
         
         member x.Dispose(_: ICloudValue): Async<unit> = async.Zero()
@@ -128,7 +161,6 @@ type private InMemoryQueue<'T>  (id : string) =
             checkDisposed()
             return! mbox.TryReceive(timeout = 0)
         }
-        
 
 /// Defines an in-memory queue factory using mailbox processor
 [<Sealed; AutoSerializable(false)>]
@@ -153,6 +185,53 @@ type InMemoryQueueProvider () =
 
         member __.DisposeContainer _ = async.Zero()
 
+[<Sealed; AutoSerializable(false)>]
+type private InMemoryDictionary<'T>  (id : string) =
+    let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
+    interface ICloudDictionary<'T> with
+        member x.Add(key : string, value : 'T) : Async<unit> =
+            async { return dict.[key] <- value }
+
+        member x.TryAdd(key: string, value: 'T): Async<bool> = 
+            async { return dict.TryAdd(key, value) }
+                    
+        member x.Transact(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
+            let result = ref Unchecked.defaultof<'R>
+            let updater (curr : 'T option) =
+                let r, topt = transacter curr
+                result := r
+                topt
+
+            let _ = dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))
+            return result.Value
+        }
+                    
+        member x.ContainsKey(key: string): Async<bool> = 
+            async { return dict.ContainsKey key }
+
+        member x.IsKnownCount = true
+        member x.IsKnownSize = true
+        member x.IsMaterialized = true
+                    
+        member x.GetCount(): Async<int64> = 
+            async { return int64 dict.Count }
+
+        member x.GetSize(): Async<int64> = 
+            async { return int64 dict.Count }
+                    
+        member x.Dispose(): Async<unit> = async.Zero()
+
+        member x.Id: string = id
+                    
+        member x.Remove(key: string): Async<bool> = 
+            async { return dict.TryRemove key |> fst }
+                    
+        member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
+            async { return dict :> _ }
+                    
+        member x.TryFind(key: string): Async<'T option> = 
+            async { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
+
 /// Defines an in-memory dictionary factory using ConcurrentDictionary
 [<Sealed; AutoSerializable(false)>]
 type InMemoryDictionaryProvider() =
@@ -163,50 +242,5 @@ type InMemoryDictionaryProvider() =
         member s.IsSupportedValue _ = true
         member s.Create<'T> () = async {
             let id = mkUUID()
-            let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
-            return {
-                new ICloudDictionary<'T> with
-                    member x.Add(key : string, value : 'T) : Async<unit> =
-                        async { return dict.[key] <- value }
-
-                    member x.TryAdd(key: string, value: 'T): Async<bool> = 
-                        async { return dict.TryAdd(key, value) }
-                    
-                    member x.Transact(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
-                        let result = ref Unchecked.defaultof<'R>
-                        let updater (curr : 'T option) =
-                            let r, topt = transacter curr
-                            result := r
-                            topt
-
-                        let _ = dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))
-                        return result.Value
-                    }
-                    
-                    member x.ContainsKey(key: string): Async<bool> = 
-                        async { return dict.ContainsKey key }
-
-                    member x.IsKnownCount = true
-                    member x.IsKnownSize = true
-                    
-                    member x.Count: Async<int64> = 
-                        async { return int64 dict.Count }
-
-                    member x.Size: Async<int64> = 
-                        async { return int64 dict.Count }
-                    
-                    member x.Dispose(): Async<unit> = async.Zero()
-                    
-                    // capture provider in closure it avoid it being serialized
-                    member x.Id: string = let _ = s.GetHashCode() in id
-                    
-                    member x.Remove(key: string): Async<bool> = 
-                        async { return dict.TryRemove key |> fst }
-                    
-                    member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
-                        async { return dict :> _ }
-                    
-                    member x.TryFind(key: string): Async<'T option> = 
-                        async { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
-                    
-            } }
+            return new InMemoryDictionary<'T>(id) :> ICloudDictionary<'T>
+        }

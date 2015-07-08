@@ -9,9 +9,8 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Workflows
+open MBrace.Library
+open MBrace.Library.CloudCollectionUtils
 open MBrace.Client
 
 [<TestFixture>]
@@ -26,8 +25,7 @@ module ``Collection Partitioning Tests`` =
         if isAppVeyorInstance then 10 else 100
 #endif
 
-    let imem = LocalRuntime.Create()
-    let run c = imem.Run c
+    let run c = Async.RunSync c
 
     let inline mean (ts : seq<'T>) = ts |> Seq.averageBy float
     let inline meanBy (f : 'T -> 'U) (ts : seq<'T>) = ts |> Seq.averageBy (float << f)
@@ -57,23 +55,15 @@ module ``Collection Partitioning Tests`` =
                 member x.Type: string = "dummy"
         }
 
-    let concat (collections : seq<#ICloudCollection<'T>>) =
-        { new ICloudCollection<'T> with
-              member x.Count: Local<int64> = local { let! cs = collections |> Local.Sequential.map (fun c -> c.Count) in return Array.sum cs}
-              member x.Size: Local<int64> = local { let! cs = collections |> Local.Sequential.map (fun c -> c.Size) in return Array.sum cs}
-              member x.IsKnownCount: bool = collections |> Seq.forall (fun c -> c.IsKnownCount)
-              member x.IsKnownSize: bool = collections |> Seq.forall (fun c -> c.IsKnownSize)
-              member x.ToEnumerable(): Local<seq<'T>> = local { let! cs = collections |> Local.Sequential.map (fun c -> c.ToEnumerable()) in return Seq.concat cs }
-        }
-
     type RangeCollection(lower : int64, upper : int64, discloseSize : bool) =
         static member Empty(discloseSize) = new RangeCollection(0L, -1L, discloseSize)
         interface ICloudCollection<int64> with
-            member x.Count: Local<int64> = local { return max 0L (upper - lower) }
+            member x.GetCount(): Async<int64> = async { return max 0L (upper - lower) }
             member x.IsKnownCount: bool = discloseSize
             member x.IsKnownSize: bool = discloseSize
-            member x.Size: Local<int64> = local { return max 0L (upper - lower) }
-            member x.ToEnumerable(): Local<seq<int64>> = local { return seq { lower .. upper - 1L } }
+            member x.IsMaterialized: bool = discloseSize
+            member x.GetSize(): Async<int64> = async { return max 0L (upper - lower) }
+            member x.ToEnumerable(): Async<seq<int64>> = async { return seq { lower .. upper - 1L } }
 
         override x.Equals y = obj.ReferenceEquals(x,y)
         override x.GetHashCode() = (lower,upper).GetHashCode()
@@ -82,7 +72,7 @@ module ``Collection Partitioning Tests`` =
     type PartitionableRangeCollection(lower : int64, upper : int64) =
         inherit RangeCollection(lower, upper, true)
         interface IPartitionableCollection<int64> with
-            member x.GetPartitions(weights: int []): Local<ICloudCollection<int64> []> = local {
+            member x.GetPartitions(weights: int []): Async<ICloudCollection<int64> []> = async {
                 return
                     Array.splitWeightedRange weights lower upper
                     |> Array.map (function Some(l,u) -> new RangeCollection(l,u + 1L,true) :> ICloudCollection<int64>
@@ -98,7 +88,7 @@ module ``Collection Partitioning Tests`` =
             let upper = lower + length
             let range = new RangeCollection(lower, upper, true) :> ICloudCollection<int64>
             range.IsKnownSize |> shouldEqual true
-            range.Count |> run |> shouldEqual length
+            range.GetCount() |> run |> shouldEqual length
             range.ToEnumerable() |> run |> Seq.length |> int64 |> shouldEqual length
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -112,7 +102,7 @@ module ``Collection Partitioning Tests`` =
             let weights = weights |> Array.map (fun i -> int i + 1)
             let range = new PartitionableRangeCollection(lower, upper) :> IPartitionableCollection<int64>
             let partitions = range.GetPartitions weights |> run
-            let partitionedSeqs = partitions |> Local.Sequential.map (fun p -> p.ToEnumerable()) |> run |> Seq.concat
+            let partitionedSeqs = partitions |> Seq.map (fun p -> p.ToEnumerable()) |> Async.Parallel |> run |> Seq.concat
             partitionedSeqs |> Seq.length |> int64 |> shouldEqual length
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -126,7 +116,7 @@ module ``Collection Partitioning Tests`` =
         let upper = lower + length
         let range = new PartitionableRangeCollection(lower, upper) :> IPartitionableCollection<int64>
         let partitions = range.GetPartitions weights |> run
-        partitions |> Local.Sequential.map (fun p -> p.Count) |> run |> Array.sum |> shouldEqual length
+        partitions |> Seq.map (fun p -> p.GetCount()) |> Async.Parallel |> run |> Array.sum |> shouldEqual length
         
 
     // Section 2: Actual partitioner tests
@@ -170,7 +160,7 @@ module ``Collection Partitioning Tests`` =
             let partitionss = CloudCollection.PartitionBySize([|partitionable|], workers, isTargeted) |> run
             partitionss |> Array.map fst |> shouldEqual workers
             partitionss |> Array.forall (fun (_,ps) -> ps.Length <= 1) |> shouldEqual true
-            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Local.Sequential.map (fun p -> p.Size) |> run |> Array.sum)
+            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Seq.map (fun p -> p.GetSize()) |> Async.Parallel |> run |> Array.sum)
             sizes |> Array.sumBy snd |> shouldEqual totalSize
             
             // check that collection is uniformly distributed
@@ -182,8 +172,11 @@ module ``Collection Partitioning Tests`` =
             let original = partitionable.ToEnumerable() |> run |> Seq.toArray
             partitionss 
             |> Seq.collect snd 
-            |> Local.Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> Seq.map (fun p -> p.ToEnumerable())
+            |> Async.Parallel
             |> run
+            |> Seq.concat
+            |> Seq.toArray
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -201,7 +194,7 @@ module ``Collection Partitioning Tests`` =
             // test that all workers are assigned partitions
             partitionss |> Array.map fst |> shouldEqual workers
             // compute size per partition
-            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Local.Sequential.map (fun p -> p.Size) |> run |> Array.sum)
+            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Seq.map (fun p -> p.GetSize()) |> Async.Parallel |> run |> Array.sum)
             sizes |> Array.sumBy snd |> shouldEqual (totalSizes |> Array.sumBy (fun s -> abs s))
 
             // check that collection is uniformly distributed
@@ -211,11 +204,14 @@ module ``Collection Partitioning Tests`` =
             |> shouldBe (fun v -> v <= 0.5)
 
             // test that partitions contain identical sequences to source
-            let original = partitionables |> Local.Sequential.collect (fun p -> p.ToEnumerable()) |> run
+            let original = partitionables |> Seq.map (fun p -> p.ToEnumerable()) |> Async.Parallel |> run |> Seq.concat |> Seq.toArray
             partitionss 
             |> Seq.collect snd 
-            |> Local.Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> Seq.map (fun p -> p.ToEnumerable())
+            |> Async.Parallel
             |> run
+            |> Seq.concat
+            |> Seq.toArray
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -233,15 +229,18 @@ module ``Collection Partitioning Tests`` =
             let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
             let partitionss = CloudCollection.PartitionBySize(collections, workers, isTargeted) |> run
             partitionss |> Array.map fst |> shouldEqual workers
-            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Local.Sequential.map (fun p -> p.Size) |> run |> Array.sum)
+            let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Seq.map (fun p -> p.GetSize()) |> Async.Parallel |> run |> Array.sum)
             sizes |> Array.sumBy snd |> shouldEqual (collectionSizes |> Array.sumBy (snd >> abs))
 
             // test that partitions contain identical sequences to source
-            let original = collections |> Local.Sequential.collect (fun p -> p.ToEnumerable()) |> run
+            let original = collections |> Seq.map (fun p -> p.ToEnumerable()) |> Async.Parallel |> run |> Seq.concat |> Seq.toArray
             partitionss 
             |> Seq.collect snd 
-            |> Local.Sequential.collect (fun p -> p.ToEnumerable()) 
+            |> Seq.map (fun p -> p.ToEnumerable()) 
+            |> Async.Parallel
             |> run
+            |> Seq.concat
+            |> Seq.toArray
             |> shouldEqual original
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)

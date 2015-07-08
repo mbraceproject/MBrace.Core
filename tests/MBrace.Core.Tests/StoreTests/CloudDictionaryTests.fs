@@ -3,8 +3,7 @@
 open System
 
 open MBrace.Core
-open MBrace.Store
-open MBrace.Workflows
+open MBrace.Library
 open MBrace.Client
 
 open NUnit.Framework
@@ -69,7 +68,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 
-            return! dict.Count
+            return! dict.GetCount()
         } |> runRemote |> shouldEqual (int64 parallelismFactor)
 
     [<Test>]

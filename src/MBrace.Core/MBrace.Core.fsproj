@@ -81,13 +81,13 @@
     <Compile Include="Store\CloudCollection.fs" />
     <Compile Include="Store\CloudValue.fs" />
     <Compile Include="Store\CloudAtom.fs" />
-    <Compile Include="Store\CloudQueue.fs" />
     <Compile Include="Store\CloudDictionary.fs" />
+    <Compile Include="Store\CloudQueue.fs" />
     <Compile Include="Library\LocalWorkflows.fs" />
     <Compile Include="Library\CloudWorkflows.fs" />
+    <Compile Include="Library\CloudCollectionUtils.fs" />
     <Compile Include="Library\PersistedValue.fs" />
     <Compile Include="Library\PersistedSequence.fs" />
-    <Compile Include="Library\CollectionPartitioner.fs" />
     <Compile Include="Library\DomainLocal.fs" />
     <Compile Include="Client\InMemoryRuntime\InMemoryStore.fs" />
     <Compile Include="Client\InMemoryRuntime\InMemoryCombinators.fs" />

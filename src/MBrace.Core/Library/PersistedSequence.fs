@@ -9,8 +9,7 @@ open System.IO
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Core
-open MBrace.Core.Internals
+open MBrace.Library.CloudCollectionUtils
 
 #nowarn "444"
 
@@ -93,8 +92,9 @@ type FilePersistedSequence<'T> =
     interface ICloudCollection<'T> with
         member c.IsKnownCount = Option.isSome c.count
         member c.IsKnownSize = true
-        member c.Count = c.GetCountAsync()
-        member c.Size = c.GetSizeAsync()
+        member c.IsMaterialized = false
+        member c.GetCount() = c.GetCountAsync()
+        member c.GetSize() = c.GetSizeAsync()
         member c.ToEnumerable() = c.GetEnumerableAsync()
 
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
@@ -114,7 +114,7 @@ type private TextLineSequence(store : ICloudFileStore, path : string, etag : ETa
                 let mkRangedSeq rangeOpt =
                     match rangeOpt with
                     | Some(s,e) -> new FilePersistedSequence<string>(store, cs.Path, cs.ETag, None, (getDeserializer s e)) :> ICloudCollection<string>
-                    | None -> new SequenceCollection<string>([||]) :> _
+                    | None -> new ConcatenatedCollection<string>([||]) :> _
 
                 let partitions = Array.splitWeightedRange weights 0L size
                 Array.map mkRangedSeq partitions

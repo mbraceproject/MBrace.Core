@@ -8,7 +8,7 @@ open System.Threading
 
 open NUnit.Framework
 
-open MBrace.Store.Internals
+open MBrace.Core.Internals
 
 [<AutoOpen>]
 module Utils =

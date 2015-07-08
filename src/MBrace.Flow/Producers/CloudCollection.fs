@@ -6,7 +6,7 @@ open Nessos.Streams
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
-open MBrace.Library.Internals
+open MBrace.Library.CloudCollectionUtils
 
 open MBrace.Flow
 open MBrace.Flow.Internals
@@ -45,7 +45,7 @@ type internal CloudCollection private () =
                     let! partitionSlices = local {
                         match sizeThresholdPerWorker with
                         | None -> return [| partitions |]
-                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.Size) (f ())
+                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.GetSize()) (f ())
                     }
 
                     // compute a single partition

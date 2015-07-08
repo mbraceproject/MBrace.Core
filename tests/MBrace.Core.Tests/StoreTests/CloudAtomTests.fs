@@ -6,8 +6,6 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Client
 
 [<TestFixture; AbstractClass>]

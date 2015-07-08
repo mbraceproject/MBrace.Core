@@ -4,8 +4,11 @@
 
 open System
 
+open MBrace.Core.Internals
+
 /// Storage levels used for caching
 type StorageLevel =
+    | None = 0
     | MemoryOnly = 1
     | MemoryAndDisk = 2
     | MemorySerialized = 4
@@ -41,6 +44,14 @@ type ICloudValue<'T> =
     /// Asynchronously gets the boxed payload of the CloudValue.
     abstract GetValueAsync : unit -> Async<'T>
 
+/// Serializable entity that represents an immutable 
+/// array that has been cached by the MBrace runtime.
+type ICloudArray<'T> =
+    inherit ICloudValue<'T []>
+    inherit ICloudCollection<'T>
+    // Array element count
+    abstract Length : int
+
 namespace MBrace.Core.Internals
 
 open MBrace.Core
@@ -54,11 +65,23 @@ type ICloudValueProvider =
     /// CloudValue implementation instance identifier
     abstract Id : string
 
+    /// Default Storage level used by Cloud Value implementation
+    abstract DefaultStorageLevel : StorageLevel
+
     /// <summary>
     ///     Initializes a CloudValue with supplied payload.
     /// </summary>
     /// <param name="payload">Payload to be cached.</param>
-    abstract CreateCloudValue : payload:'T -> Async<ICloudValue<'T>>
+    /// <param name="storageLevel">Storage level for cloud value.</param>
+    abstract CreateCloudValue : payload:'T * storageLevel:StorageLevel -> Async<ICloudValue<'T>>
+
+    /// <summary>
+    ///     Initializes a collection of CloudArrays partitioned by size.
+    /// </summary>
+    /// <param name="payload">Input sequence to be persisted.</param>
+    /// <param name="storageLevel">Storage level for cloud arrays.</param>
+    /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to infinite threshold.</param>
+    abstract CreatePartitionedArray : payload:seq<'T> * storageLevel:StorageLevel * ?partitionThreshold:int64 -> Async<ICloudArray<'T> []>
 
     /// <summary>
     ///     Gets CloudValue by cache id
@@ -87,14 +110,34 @@ namespace MBrace.Core
 open MBrace.Core.Internals
 
 type CloudValue =
+
+    /// Gets the default cache storage level used by the runtime.
+    static member DefaultStorageLevel = local {
+        let! provider = Cloud.GetResource<ICloudValueProvider> ()
+        return provider.DefaultStorageLevel
+    }
     
     /// <summary>
     ///     Creates a new CloudValue instance with provided payload.
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
-    static member New<'T>(value : 'T) : Local<ICloudValue<'T>> = local {
+    /// <param name="storageLevel">StorageLevel to be used for CloudValue.</param>
+    static member New<'T>(value : 'T, ?storageLevel : StorageLevel) : Local<ICloudValue<'T>> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
-        return! provider.CreateCloudValue value
+        let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
+        return! provider.CreateCloudValue(value, storageLevel)
+    }
+
+    /// <summary>
+    ///     Creates a partitioned set of CloudArrays from input sequence according to size.
+    /// </summary>
+    /// <param name="values">Input set of values.</param>
+    /// <param name="storageLevel">StorageLevel to be used for CloudValues.</param>
+    /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to infinite threshold.</param>
+    static member NewPartitioned<'T>(values : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : Local<ICloudArray<'T> []> = local {
+        let! provider = Cloud.GetResource<ICloudValueProvider> ()
+        let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
+        return! provider.CreatePartitionedArray(values, storageLevel, ?partitionThreshold = partitionThreshold)
     }
 
     /// <summary>

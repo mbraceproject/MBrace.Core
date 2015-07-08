@@ -12,13 +12,12 @@ open Nessos.Streams.Internals
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Workflows
+open MBrace.Library
 
 open MBrace.Flow
 open MBrace.Flow.Internals
 open MBrace.Flow.Internals.Consumers
+open MBrace.Library.CloudCollectionUtils
 
 #nowarn "444"
 
@@ -34,45 +33,42 @@ type CloudFlow =
     ///     Creates a CloudFlow according to partitions of provided cloud collection.
     /// </summary>
     /// <param name="collection">Input cloud collection.</param>
-    /// <param name="useCache">Make use of caching, if the collection supports it. Defaults to false.</param>
     /// <param name="sizeThresholdPerWorker">Restricts concurrent processing of collection partitions up to specified size per worker.</param>
-    static member OfCloudCollection (collection : ICloudCollection<'T>, ?useCache:bool, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
-        CloudCollection.ToCloudFlow(collection, ?useCache = useCache, ?sizeThresholdPerWorker = sizeThresholdPerWorker)
+    static member OfCloudCollection (collection : ICloudCollection<'T>, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
+        CloudCollection.ToCloudFlow(collection, ?sizeThresholdPerWorker = sizeThresholdPerWorker)
 
     /// <summary>
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
-    /// <param name="cloudSequences">Cloud sequences to be evaluated.</param>
-    static member OfCloudSequences (cloudSequences : seq<CloudSequence<'T>>) : CloudFlow<'T> =
-        new PersistedCloudFlow<'T>(Seq.toArray cloudSequences) :> CloudFlow<'T>
+    /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
+    static member OfCloudArrays (cloudArrays : seq<ICloudArray<'T>>) : CloudFlow<'T> =
+        new PersistedCloudFlow<'T>(Seq.toArray cloudArrays) :> CloudFlow<'T>
 
     /// <summary>
     ///     Creates a CloudFlow instance from a finite collection of serializable enumerations.
     /// </summary>
     /// <param name="enumerations">Input enumerations.</param>
-    static member OfSeqs (enumerations : seq<#seq<'T>>, ?useCache : bool) : CloudFlow<'T> =
-        let enumerations = enumerations |> Seq.map (fun s -> s :> seq<'T>) |> Seq.toArray
-        let collection = new PartitionedSequenceCollection<'T>(enumerations)
-        CloudCollection.ToCloudFlow(collection, ?useCache = useCache)
+    static member OfSeqs (enumerations : seq<#seq<'T>>) : CloudFlow<'T> =
+        let collection = enumerations |> Seq.map CloudCollection.OfSeq |> CloudCollection.Concat
+        CloudCollection.ToCloudFlow(collection)
 
     /// <summary>
     ///     Constructs a CloudFlow from a collection of CloudFiles using the given deserializer.
     /// </summary>
     /// <param name="paths">Cloud file input paths.</param>
     /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
-    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudFiles (paths : seq<string>, ?deserializer : System.IO.Stream -> seq<'T>, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudFiles (paths : seq<string>, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                    let toCloudSeq (path : string) = CloudSequence.OfCloudFile(path, ?deserializer = deserializer, ?enableCache = enableCache)
+                    let toCloudSeq (path : string) = FilePersistedSequence.OfCloudFile(path, ?deserializer = deserializer)
                     let! cseqs = Local.Sequential.map toCloudSeq paths
-                    let collection = new PersistedCloudFlow<'T>(cseqs)
+                    let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<'T>) |> CloudCollection.Concat
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
-                    let collectionFlow = CloudFlow.OfCloudCollection(collection, ?useCache = enableCache, sizeThresholdPerWorker = threshold)
+                    let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)
                     return! collectionFlow.WithEvaluators collectorf projection combiner
                 }
         }
@@ -82,15 +78,14 @@ type CloudFlow =
     /// </summary>
     /// <param name="paths">Cloud file input paths.</param>
     /// <param name="serializer">Element deserialization function for cloud files.</param>
-    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudFiles (paths : seq<string>, serializer : ISerializer, ?enableCache : bool, ?sizeThresholdPerCore : int64) =
+    static member OfCloudFiles (paths : seq<string>, serializer : ISerializer, ?sizeThresholdPerCore : int64) =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let deserializer (stream : System.IO.Stream) = serializer.SeqDeserialize(stream, leaveOpen = false)
-                    let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                    let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
                     return! filesFlow.WithEvaluators collectorf projection combiner
                 }
         }
@@ -100,9 +95,8 @@ type CloudFlow =
     /// </summary>
     /// <param name="paths">Cloud file input paths.</param>
     /// <param name="deserializer">A function to transform the contents of a CloudFile to a stream of elements.</param>
-    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
@@ -115,7 +109,7 @@ type CloudFlow =
 
                         deserializer sr
 
-                    let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                    let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
                     return! filesFlow.WithEvaluators collectorf projection combiner
                 }
         }
@@ -125,15 +119,14 @@ type CloudFlow =
     /// </summary>
     /// <param name="dirPath">Input CloudDirectory.</param>
     /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
-    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudDirectory (dirPath : string, ?deserializer : System.IO.Stream -> seq<'T>, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudDirectory (dirPath : string, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
-                let flow = CloudFlow.OfCloudFiles(paths, ?deserializer = deserializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                let flow = CloudFlow.OfCloudFiles(paths, ?deserializer = deserializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
                 return! flow.WithEvaluators collectorf projection combiner
             }
         }
@@ -143,15 +136,14 @@ type CloudFlow =
     /// </summary>
     /// <param name="dirPath">Input CloudDirectory.</param>
     /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
-    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudDirectory (dirPath : string, serializer : ISerializer, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudDirectory (dirPath : string, serializer : ISerializer, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
-                let flow = CloudFlow.OfCloudFiles(paths, serializer = serializer, ?enableCache = enableCache, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                let flow = CloudFlow.OfCloudFiles(paths, serializer = serializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
                 return! flow.WithEvaluators collectorf projection combiner
             }
         }
@@ -161,15 +153,14 @@ type CloudFlow =
     /// </summary>
     /// <param name="dirPath">Cloud file input paths.</param>
     /// <param name="deserializer">A function to transform the contents of a CloudFile to a stream of elements.</param>
-    /// <param name="enableCache">Enable use of caching for deserialized values. Defaults to false.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?enableCache : bool, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
-                let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?enableCache = enableCache, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
                 return! flow.WithEvaluators collectorf projection combiner
             }
         }
@@ -184,9 +175,9 @@ type CloudFlow =
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                let toLineReader (path : string) = CloudSequence.FromLineSeparatedTextFile(path, ?encoding = encoding)
+                let toLineReader (path : string) = FilePersistedSequence.FromLineSeparatedTextFile(path, ?encoding = encoding)
                 let! cseqs = Local.Sequential.map toLineReader paths
-                let collection = new PersistedCloudFlow<string>(cseqs)
+                let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<string>) |> CloudCollection.Concat
                 let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                 let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)
                 return! collectionFlow.WithEvaluators collectorf projection combiner
@@ -218,7 +209,7 @@ type CloudFlow =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let! cseq = CloudSequence.FromLineSeparatedTextFile(path, ?encoding = encoding, enableCache = false, force = false)
+                let! cseq = FilePersistedSequence.FromLineSeparatedTextFile(path, ?encoding = encoding, force = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
@@ -444,13 +435,13 @@ module CloudFlow =
                 let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 let results = new List<string * StreamWriter>()
                 let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-                config.FileStore.CreateDirectory dirPath |> Async.RunSynchronously
+                config.FileStore.CreateDirectory dirPath |> Async.RunSync
                 return
                     { new Collector<string, CloudFile []> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
                             let path = config.FileStore.Combine(dirPath, sprintf "Part-%s-%d.txt" cloudFlowStaticId results.Count)
-                            let stream = config.FileStore.BeginWrite(path) |> Async.RunSynchronously
+                            let stream = config.FileStore.BeginWrite(path) |> Async.RunSync
                             let writer = new StreamWriter(stream)
                             results.Add((path, writer))
                             {   Index = ref -1;
@@ -458,7 +449,7 @@ module CloudFlow =
                                 Cts = cts }
                         member self.Result =
                             results |> Seq.iter (fun (_, writer) -> writer.Dispose())
-                            results |> Seq.map (fun (path, _) -> new CloudFile(path)) |> Seq.toArray }
+                            results |> Seq.map (fun (path, _) -> new CloudFile(config.FileStore, path)) |> Seq.toArray }
             }
 
         cloud {
@@ -467,14 +458,15 @@ module CloudFlow =
         }
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result PersistedCloudFlow.</returns>
-    let persist (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, enableCache = false)
+    /// <param name="flow">CloudFlow to be persisted.</param>
+    /// <returns>A persisted copy of given CloudFlow.</returns>
+    let cache (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = StorageLevel.MemoryOnly)
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow, with its partitions cached to local memory.</summary>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result PersistedCloudFlow.</returns>
-    let persistCached (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, enableCache = true)
+    /// <param name="storageLevel">Storage level to be used when persisting CloudFlow.</param>
+    /// <param name="flow">CloudFlow to be persisted.</param>
+    /// <returns>A persisted copy of given CloudFlow.</returns>
+    let persist (storageLevel : StorageLevel) (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = storageLevel)
 
     let inline private mkDescComparer (comparer: IComparer<'T>) = { new IComparer<'T> with member __.Compare(x,y) = -comparer.Compare(x,y) }
 

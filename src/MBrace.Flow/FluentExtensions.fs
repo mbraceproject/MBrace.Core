@@ -3,7 +3,6 @@ namespace MBrace.Flow.Fluent
 open System.Collections.Generic
 open MBrace
 open MBrace.Core
-open MBrace.Store
 open MBrace.Flow
 
 [<System.Runtime.CompilerServices.Extension>]
@@ -187,13 +186,13 @@ type CloudFlowExtensions() =
     /// <param name="this">The input CloudFlow.</param>
     /// <returns>The result PersistedCloudFlow.</returns>
     [<System.Runtime.CompilerServices.Extension>]
-    static member inline persist (this : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = CloudFlow.persist this
+    static member inline persist (this : CloudFlow<'T>, storageLevel : StorageLevel) : Cloud<PersistedCloudFlow<'T>> = CloudFlow.persist storageLevel this
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow, with its partitions cached locally</summary>
     /// <param name="this">The input CloudFlow.</param>
     /// <returns>The result PersistedCloudFlow.</returns>
     [<System.Runtime.CompilerServices.Extension>]
-    static member inline persistCached (this : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = CloudFlow.persistCached this
+    static member inline cache (this : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = CloudFlow.cache this
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
     /// <param name="this">The input CloudFlow.</param>

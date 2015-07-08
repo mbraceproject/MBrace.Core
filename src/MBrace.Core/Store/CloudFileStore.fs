@@ -338,7 +338,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="store">Serializable CloudFileStore implementation.</param>
     /// <param name="path">Path to directory.</param>
-    internal new (store : ICloudFileStore, path : string) = { store = store ; path = path }
+    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
 
     /// Store identifier
     member d.StoreId = d.store.Id
@@ -437,7 +437,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="store">Serializable CloudFileStore implementation.</param>
     /// <param name="path">Path to file.</param>
-    internal new (store : ICloudFileStore, path : string) = { store = store ; path = path }
+    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
     
     /// Path to cloud file
     member f.Path = f.path

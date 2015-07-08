@@ -1,13 +1,90 @@
-﻿namespace MBrace.Library.Internals
+﻿/// Assortment of common utilities for CloudCollection
+module MBrace.Library.CloudCollectionUtils
 
 open System
+open System.Collections.Generic
+open System.Runtime.Serialization
 
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core
 open MBrace.Library
 
+/// ICloudCollection wrapper for serializable IEnumerables
+[<Sealed; DataContract>]
+type SequenceCollection<'T> (seq : seq<'T>) =
+    static let getCount (seq : seq<'T>) = 
+        match seq with
+        | :? ('T list) as ts -> ts.Length
+        | :? ICollection<'T> as c -> c.Count
+        | _ -> Seq.length seq
+        |> int64
+
+    static let isKnownCount (seq : seq<'T>) =
+        match seq with
+        | :? ('T list)
+        | :? ICollection<'T> -> true
+        | _ -> false
+
+    [<DataMember(Name = "Sequence")>]
+    let seq = seq
+    member __.Sequence = seq
+    interface ICloudCollection<'T> with
+        member x.IsKnownSize = isKnownCount seq
+        member x.IsKnownCount = isKnownCount seq
+        member x.IsMaterialized = isKnownCount seq
+        member x.GetCount(): Async<int64> = async { return getCount seq }
+        member x.GetSize(): Async<int64> = async { return getCount seq }
+        member x.ToEnumerable(): Async<seq<'T>> = async { return seq }
+
+/// CloudCollection implementation consisting of a set of concatenated CloudCollection partitions
+[<Sealed; DataContract>]
+type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
+    [<DataMember(Name = "Partitions")>]
+    let partitions = partitions
+
+    /// Gets constituent partitions of concatenated collection
+    member __.Partitions = partitions
+
+    interface IPartitionedCollection<'T> with
+        member x.IsKnownSize = partitions |> Array.forall (fun p -> p.IsKnownSize)
+        member x.IsKnownCount = partitions |> Array.forall (fun p -> p.IsKnownCount)
+        member x.IsMaterialized = partitions |> Array.forall (fun p -> p.IsMaterialized)
+        member x.GetCount(): Async<int64> = async { 
+            let! counts = partitions |> Seq.map (fun p -> p.GetCount()) |> Async.Parallel 
+            return Array.sum counts
+        }
+
+        member x.GetSize(): Async<int64> = async { 
+            let! counts = partitions |> Seq.map (fun p -> p.GetSize()) |> Async.Parallel 
+            return Array.sum counts
+        }
+
+        member x.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions }
+        member x.PartitionCount: Async<int> = async { return partitions.Length }
+        member x.ToEnumerable(): Async<seq<'T>> = 
+            async { 
+                return seq {
+                    for p in partitions do
+                        yield! p.ToEnumerable() |> Async.RunSync
+                }
+            }
+
 type CloudCollection private () =
+
+    /// <summary>
+    ///     Creates a single-partition CloudCollection instance based on a given sequence.
+    /// </summary>
+    /// <param name="sequence">Input sequence.</param>
+    static member OfSeq(sequence : seq<'T>) =
+        new SequenceCollection<'T>(sequence) :> ICloudCollection<'T>
+
+    /// <summary>
+    ///     Concatenates a collection of CloudCollections into a single, partitioned entity.
+    /// </summary>
+    /// <param name="partitions">Constituent partitions.</param>
+    static member Concat(partitions : seq<ICloudCollection<'T>>) =
+        new ConcatenatedCollection<'T>(Seq.toArray partitions) :> IPartitionedCollection<'T>
 
     /// <summary>
     ///     Traverses provided cloud collections for partitions,
@@ -162,7 +239,7 @@ type CloudCollection private () =
         else
 
         // compute size per collection and allocate expected size per worker according to weight.
-        let! wsizes = collections |> Seq.map (fun c -> async { let! sz = c.Size in return c, sz }) |> Async.Parallel
+        let! wsizes = collections |> Seq.map (fun c -> async { let! sz = c.GetSize() in return c, sz }) |> Async.Parallel
         let totalSize = wsizes |> Array.sumBy snd
         let coreCount = workers |> Array.sumBy (fun w -> if isTargetedWorkerEnabled then weight w else 1)
         let sizePerCore = totalSize / int64 coreCount

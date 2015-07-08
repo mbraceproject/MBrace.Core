@@ -7,9 +7,7 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Workflows
+open MBrace.Library
 open MBrace.Client
 
 #nowarn "444"
@@ -31,8 +29,6 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     abstract RunLocally : Cloud<'T> -> 'T
     /// Store client to be tested
     abstract StoreClient : CloudStoreClient
-    /// denotes that runtime uses in-memory object caching
-    abstract IsObjectCacheInstalled : bool
 
     //
     //  Section 2. FileStore via MBrace runtime
@@ -40,150 +36,148 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
 
     [<Test>]
-    member __.``2. MBrace : CloudValue - simple`` () = 
-        let ref = runRemote <| CloudValue.New 42
-        ref.Value |> runLocally |> shouldEqual 42
+    member __.``2. MBrace : PersistedValue - simple`` () = 
+        let ref = runRemote <| FilePersistedValue.New 42
+        ref.Value |> shouldEqual 42
+
+//    [<Test>]
+//    member __.``2. MBrace : CloudValue - caching`` () = 
+//        if __.IsObjectCacheInstalled then
+//            cloud {
+//                let! c = CloudValue.New [1..10000]
+//                let! r = c.ForceCache()
+//                r |> shouldEqual true
+//                let! v1 = c.Value
+//                let! v2 = c.Value
+//                obj.ReferenceEquals(v1,v2) |> shouldEqual true
+//                return ()
+//            } |> runRemote
+//
+//    [<Test>]
+//    member __.``2. MBrace : CloudValue - cache by default`` () =
+//        if __.IsObjectCacheInstalled then
+//            let ref = runRemote <| CloudValue.New(42, enableCache = true)
+//            cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
+//
+//    [<Test>]
+//    member __.``2. MBrace : CloudValue - should retain cached value even if persisted file was deleted`` () =
+//        if __.IsObjectCacheInstalled then
+//            cloud {
+//                let! c = CloudValue.New [1..10000]
+//                let! r = c.ForceCache()
+//                r |> shouldEqual true
+//                do! CloudFile.Delete c.Path
+//                let! v = c.Value
+//                return ()
+//            } |> runRemote
 
     [<Test>]
-    member __.``2. MBrace : CloudValue - caching`` () = 
-        if __.IsObjectCacheInstalled then
+    member __.``2. MBrace : PersistedValue - should error if reading from changed persist file`` () =
+        fun () ->
             cloud {
-                let! c = CloudValue.New [1..10000]
-                let! r = c.ForceCache()
-                r |> shouldEqual true
-                let! v1 = c.Value
-                let! v2 = c.Value
-                obj.ReferenceEquals(v1,v2) |> shouldEqual true
-                return ()
-            } |> runRemote
-
-    [<Test>]
-    member __.``2. MBrace : CloudValue - cache by default`` () =
-        if __.IsObjectCacheInstalled then
-            let ref = runRemote <| CloudValue.New(42, enableCache = true)
-            cloud { let! _ = ref.Value in return! ref.IsCachedLocally } |> runRemote |> shouldEqual true
-
-    [<Test>]
-    member __.``2. MBrace : CloudValue - should retain cached value even if persisted file was deleted`` () =
-        if __.IsObjectCacheInstalled then
-            cloud {
-                let! c = CloudValue.New [1..10000]
-                let! r = c.ForceCache()
-                r |> shouldEqual true
+                let! c = FilePersistedValue.New [1..10000]
                 do! CloudFile.Delete c.Path
-                let! v = c.Value
-                return ()
+                // overwrite persist file with payload of compatible type
+                // cloudvalue should use etag implementation to infer that content has changed
+                let! serializer = Cloud.GetResource<ISerializer> ()
+                let! _ = CloudFile.Create(c.Path, fun s -> async { return serializer.Serialize(s, [1..100], false)})
+                return c.Value
             } |> runRemote
 
-    [<Test>]
-    member __.``2. MBrace : CloudValue - should error if reading from changed persist file`` () =
-        if __.IsObjectCacheInstalled then
-            fun () ->
-                cloud {
-                    let! c = CloudValue.New [1..10000]
-                    do! CloudFile.Delete c.Path
-                    // overwrite persist file with payload of compatible type
-                    // cloudvalue should use etag implementation to infer that content has changed
-                    let! serializer = Cloud.GetResource<ISerializer> ()
-                    let! _ = CloudFile.Create(c.Path, fun s -> async { return serializer.Serialize(s, [1..100], false)})
-                    return! c.Value
-                } |> runRemote
-
-            |> shouldFailwith<_,InvalidDataException>
+        |> shouldFailwith<_,InvalidDataException>
 
     [<Test>]
-    member __.``2. MBrace : CloudValue - Parallel`` () =
+    member __.``2. MBrace : PersistedValue - Parallel`` () =
         cloud {
-            let! ref = CloudValue.New [1 .. 100]
-            let! (x, y) = cloud { let! v = ref.Value in return v.Length } <||> cloud { let! v = ref.Value in return v.Length }
+            let! ref = FilePersistedValue.New [1 .. 100]
+            let! (x, y) = cloud { return ref.Value.Length } <||> cloud { return ref.Value.Length }
             return x + y
         } |> runRemote |> shouldEqual 200
 
     [<Test>]
-    member __.``2. MBrace : CloudValue - Distributed tree`` () =
+    member __.``2. MBrace : PersistedValue - Distributed tree`` () =
         let tree = CloudTree.createTree 5 |> runRemote
         CloudTree.getBranchCount tree |> runRemote |> shouldEqual 31
 
 
     [<Test>]
-    member __.``2. MBrace : CloudSequence - simple`` () = 
-        let b = runRemote <| CloudSequence.New [1..10000]
-        b.Count |> runLocally |> shouldEqual 10000L
-        b.ToEnumerable() |> runLocally |> Seq.sum |> shouldEqual (List.sum [1..10000])
-        b.ToArray() |> runLocally |> Array.sum |> shouldEqual (List.sum [1..10000])
+    member __.``2. MBrace : PersistedSequence - simple`` () = 
+        let b = runRemote <| FilePersistedSequence.New [1..10000]
+        b.Count |> shouldEqual 10000L
+        b |> Seq.sum |> shouldEqual (List.sum [1..10000])
+        b.ToArray() |> Array.sum |> shouldEqual (List.sum [1..10000])
+
+//    [<Test>]
+//    member __.``2. MBrace : CloudSequence - caching`` () = 
+//        if __.IsObjectCacheInstalled then
+//            cloud {
+//                let! c = CloudSequence.New [1..10000]
+//                let! success = c.ForceCache()
+//                success |> shouldEqual true
+//                let! v1 = c.ToArray()
+//                let! v2 = c.ToArray()
+//                obj.ReferenceEquals(v1, v2) |> shouldEqual true
+//                return ()
+//            } |> runRemote
+//
+//    [<Test>]
+//    member __.``2. MBrace : CloudSequence - cache by default`` () = 
+//        if __.IsObjectCacheInstalled then
+//            let seq = runRemote <| CloudSequence.New([1..1000], enableCache = true)
+//            cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
+//
+//    [<Test>]
+//    member __.``2. MBrace : CloudSequence - should retain cached value even if persisted file was deleted`` () =
+//        if __.IsObjectCacheInstalled then
+//            cloud {
+//                let! c = CloudSequence.New [1..10000]
+//                let! r = c.ForceCache()
+//                r |> shouldEqual true
+//                do! CloudFile.Delete c.Path
+//                let! v = c.ToArray()
+//                return ()
+//            } |> runRemote
 
     [<Test>]
-    member __.``2. MBrace : CloudSequence - caching`` () = 
-        if __.IsObjectCacheInstalled then
+    member __.``2. MBrace : PersistedSequence - should error if reading from changed persist file`` () =
+        fun () ->
             cloud {
-                let! c = CloudSequence.New [1..10000]
-                let! success = c.ForceCache()
-                success |> shouldEqual true
-                let! v1 = c.ToArray()
-                let! v2 = c.ToArray()
-                obj.ReferenceEquals(v1, v2) |> shouldEqual true
-                return ()
-            } |> runRemote
-
-    [<Test>]
-    member __.``2. MBrace : CloudSequence - cache by default`` () = 
-        if __.IsObjectCacheInstalled then
-            let seq = runRemote <| CloudSequence.New([1..1000], enableCache = true)
-            cloud { let! _ = seq.ToArray() in return! seq.IsCachedLocally } |> runRemote |> shouldEqual true
-
-    [<Test>]
-    member __.``2. MBrace : CloudSequence - should retain cached value even if persisted file was deleted`` () =
-        if __.IsObjectCacheInstalled then
-            cloud {
-                let! c = CloudSequence.New [1..10000]
-                let! r = c.ForceCache()
-                r |> shouldEqual true
+                let! c = FilePersistedSequence.New [1..10000]
                 do! CloudFile.Delete c.Path
-                let! v = c.ToArray()
-                return ()
+                let! serializer = Cloud.GetResource<ISerializer> ()
+                // overwrite persist file with payload of compatible type
+                // cloudsequence should use etag implementation to infer that content has changed
+                let! _ = CloudFile.Create(c.Path, fun s -> async { return ignore <| serializer.SeqSerialize(s, [1..100], false)})
+                return c.ToArray()
             } |> runRemote
 
-    [<Test>]
-    member __.``2. MBrace : CloudSequence - should error if reading from changed persist file`` () =
-        if __.IsObjectCacheInstalled then
-            fun () ->
-                cloud {
-                    let! c = CloudSequence.New [1..10000]
-                    do! CloudFile.Delete c.Path
-                    let! serializer = Cloud.GetResource<ISerializer> ()
-                    // overwrite persist file with payload of compatible type
-                    // cloudsequence should use etag implementation to infer that content has changed
-                    let! _ = CloudFile.Create(c.Path, fun s -> async { return ignore <| serializer.SeqSerialize(s, [1..100], false)})
-                    return! c.ToArray()
-                } |> runRemote
-
-            |> shouldFailwith<_,InvalidDataException>
+        |> shouldFailwith<_,InvalidDataException>
 
     [<Test>]
-    member __.``2. MBrace : CloudSequence - parallel`` () =
-        let ref = runRemote <| CloudSequence.New [1..10000]
-        ref.ToEnumerable() |> runLocally |> Seq.length |> shouldEqual 10000
+    member __.``2. MBrace : PersistedSequence - parallel`` () =
+        let ref = runRemote <| FilePersistedSequence.New [1..10000]
+        ref |> Seq.length |> shouldEqual 10000
         cloud {
-            let! ref = CloudSequence.New [1 .. 10000]
+            let! ref = FilePersistedSequence.New [1 .. 10000]
             let! (x, y) = 
-                cloud { let! seq = ref.ToEnumerable() in return Seq.length seq } 
+                cloud { return Seq.length ref } 
                     <||>
-                cloud { let! seq = ref.ToEnumerable() in return Seq.length seq } 
+                cloud { return Seq.length ref } 
 
             return x + y
         } |> runRemote |> shouldEqual 20000
 
     [<Test>]
-    member __.``2. MBrace : CloudSequence - partitioned`` () =
+    member __.``2. MBrace : PersistedSequence - partitioned`` () =
         cloud {
-            let! seqs = CloudSequence.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
+            let! seqs = FilePersistedSequence.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
             seqs.Length |> shouldBe (fun l -> l >= 8 && l < 10)
-            let! partialSums = seqs |> Array.map (fun c -> cloud { let! e = c.ToEnumerable() in return Seq.sum e }) |> Cloud.Parallel
+            let! partialSums = seqs |> Array.map (fun c -> cloud {  return Seq.sum c }) |> Cloud.Parallel
             return Array.sum partialSums
         } |> runRemote |> shouldEqual (Array.sum [|1L .. 1000000L|])
 
     [<Test>]
-    member __.``2. MBrace : CloudSequence - of deserializer`` () =
+    member __.``2. MBrace : PersistedSequence - of deserializer`` () =
         cloud {
             let! path = CloudPath.GetRandomFileName()
             use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
@@ -194,24 +188,22 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
                         yield textReader.ReadLine()
                 }
 
-            let! seq = CloudSequence.OfCloudFile(file.Path, deserializer)
-            let! ch = Cloud.StartChild(cloud { let! e = seq.ToEnumerable() in return Seq.length e })
+            let! seq = FilePersistedSequence.OfCloudFile(file.Path, deserializer)
+            let! ch = Cloud.StartChild(cloud { return Seq.length seq })
             return! ch
         } |> runRemote |> shouldEqual 100
 
     [<Test>]
-    member __.``2. MBrace : CloudSequence - read lines`` () =
+    member __.``2. MBrace : PersistedSequence - read lines`` () =
         cloud {
             let! path = CloudPath.GetRandomFileName()
             use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
-            let! cseq = CloudSequence.FromLineSeparatedTextFile(file.Path)
-            let! _ = cseq.ForceCache()
-            let! elem = cseq.ToArray()
-            return elem.Length
+            let! cseq = FilePersistedSequence.FromLineSeparatedTextFile(file.Path)
+            return Seq.length cseq
         } |> runRemote |> shouldEqual 100
 
     [<Test>]
-    member __.``2. MBrace : CloudSequence - read lines partitioned`` () =
+    member __.``2. MBrace : PersistedSequence - read lines partitioned`` () =
         let text = "lorem ipsum dolor sit amet consectetur adipiscing elit"
         let lines = Seq.init 1000 (fun i -> text.Substring(0, i % 41))
         let check i (line:string) = 
@@ -223,14 +215,14 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! path = CloudPath.GetRandomFileName()
                 let! file = CloudFile.WriteAllLines(path, lines)
-                let! cseq = CloudSequence.FromLineSeparatedTextFile file.Path   
+                let! cseq = FilePersistedSequence.FromLineSeparatedTextFile file.Path   
                 return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
             } |> runLocally
 
         let testPartitioning partitionCount =
             cloud {
                 let! partitions = cseq.GetPartitions (Array.init partitionCount (fun _ -> 4))
-                let! lines' = partitions |> Cloud.Balanced.collectLocal (fun e -> e.ToEnumerable())
+                let! lines' = partitions |> Cloud.Balanced.collectLocal (fun c -> local { return! c.ToEnumerable() })
                 lines'.Length |> shouldEqual 1000
                 lines' |> Array.iteri check 
             } |> runRemote
@@ -248,7 +240,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     member __.``2. MBrace : CloudFile - simple`` () =
         let path = CloudPath.GetRandomFileName() |> runLocally
         let file = CloudFile.WriteAllBytes(path, [|1uy .. 100uy|]) |> runRemote
-        file.Size |> runLocally |> shouldEqual 100L
+        file.Size |> shouldEqual 100L
         cloud {
             let! bytes = CloudFile.ReadAllBytes file.Path
             return bytes.Length
@@ -328,7 +320,7 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to read nonexistent file`` () =
         cloud {
-            let cf = new CloudFile(Guid.NewGuid().ToString())
+            let! cf = CloudFile.FromPath (Guid.NewGuid().ToString())
             return! CloudFile.Read(cf.Path, fun s -> async { return s.ReadByte() })
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
@@ -371,10 +363,10 @@ type ``FileStore Tests`` (parallelismFactor : int) as self =
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer : ISerializer, ?objectCache : IObjectCache) =
+type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer : ISerializer) =
     inherit ``FileStore Tests`` (parallelismFactor = 100)
 
-    let imem = LocalRuntime.Create(fileConfig = config, serializer = serializer, ?objectCache = objectCache)
+    let imem = LocalRuntime.Create(fileConfig = config, serializer = serializer)
 
     let fileStore = config.FileStore
     let testDirectory = fileStore.GetRandomDirectoryName()
@@ -383,7 +375,6 @@ type ``Local FileStore Tests`` (config : CloudFileStoreConfiguration, serializer
     override __.Run wf = imem.Run wf
     override __.RunLocally wf = imem.Run wf
     override __.StoreClient = imem.StoreClient
-    override __.IsObjectCacheInstalled = Option.isSome objectCache
 
     //
     //  Section 1: Local raw fileStore tests
