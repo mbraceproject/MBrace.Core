@@ -6,6 +6,7 @@ open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Library
 open MBrace.Runtime
 
 module Worker =

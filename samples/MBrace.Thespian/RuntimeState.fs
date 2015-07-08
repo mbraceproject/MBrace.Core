@@ -2,7 +2,6 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
@@ -64,7 +63,7 @@ with
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
             yield CloudQueueConfiguration.Create(new ActorQueueProvider(resourceFactory))
-            yield new ActorDictionaryProvider(resourceFactory) :> ICloudDictionaryProvider
+            yield new ActorDictionaryProvider(id.Id, resourceFactory) :> ICloudDictionaryProvider
             yield new FsPicklerBinaryStoreSerializer() :> ISerializer
             match miscResources with Some r -> yield! r | None -> ()
             yield fileStoreConfig
@@ -113,7 +112,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
 
     let resources = resource {
         yield! state.Resources
-        yield Config.ObjectCache
+//        yield Config.ObjectCache
     }
 
     let storeConfig = resources.Resolve<CloudFileStoreConfiguration>()

@@ -22,7 +22,6 @@ type ``MBrace Thespian FileStore Tests`` () =
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
     override __.StoreClient = session.Runtime.StoreClient
-    override __.IsObjectCacheInstalled = true
 
 
 type ``MBrace Thespian Atom Tests`` () =

@@ -7,7 +7,6 @@ open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
 open MBrace.Runtime
 
 type private CancellationEntryMsg =

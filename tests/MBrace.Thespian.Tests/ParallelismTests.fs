@@ -8,7 +8,6 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Workflows
 open MBrace.Runtime
 open MBrace.Core.Tests
 open MBrace.Thespian

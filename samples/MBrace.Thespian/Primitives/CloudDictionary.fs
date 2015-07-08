@@ -7,8 +7,6 @@ open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 
 [<AutoOpen>]
 module private ActorCloudDictionary =
@@ -137,28 +135,31 @@ module private ActorCloudDictionary =
             }
 
         interface ICloudCollection<KeyValuePair<string,'T>> with
-            member x.Count: Local<int64> = local {
+            member x.GetCount(): Async<int64> = async {
                 return! source <!- GetCount
             }
 
             member x.IsKnownSize = true
             member x.IsKnownCount = true
+            member x.IsMaterialized = false
 
-            member x.Size : Local<int64> = local {
+            member x.GetSize(): Async<int64> = async {
                 return! source <!- GetCount
             }
 
-            member x.ToEnumerable() = local {
+            member x.ToEnumerable() = async {
                 let! pairs = source <!- ToArray
                 return pairs |> Seq.map (fun (k,b) -> new KeyValuePair<_,_>(k, unpickle b))
             }
 
         interface ICloudDisposable with
-            member x.Dispose(): Local<unit> = local.Zero ()
+            member x.Dispose(): Async<unit> = async.Zero ()
 
 /// Defines a distributed cloud channel factory
-type ActorDictionaryProvider (factory : ResourceFactory) =
+type ActorDictionaryProvider (id : string, factory : ResourceFactory) =
     interface ICloudDictionaryProvider with
+        member __.Name = "ActorDictionary"
+        member __.Id = id
         member __.IsSupportedValue _ = true
         member __.Create<'T> () = async {
             let id = mkUUID()

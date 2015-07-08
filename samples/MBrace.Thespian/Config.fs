@@ -14,8 +14,6 @@ open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
 
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
@@ -63,8 +61,8 @@ type Config private () =
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
     /// Working directory used by the instance
     static member WorkingDirectory = checkInitialized() ; workingDirectory
-    /// Object cache used by the instance
-    static member ObjectCache = checkInitialized() ; objectCache :> IObjectCache
+//    /// Object cache used by the instance
+//    static member ObjectCache = checkInitialized() ; objectCache :> IObjectCache
     /// TCP Endpoing used by the local Thespian instance
     static member LocalEndPoint = checkInitialized() ; localEndpoint
     /// Local TCP address used by the local Thespian instance
