@@ -94,6 +94,7 @@
     <Compile Include="Library\CloudSequence.fs" />
     <Compile Include="Library\CollectionPartitioner.fs" />
     <Compile Include="Library\DomainLocal.fs" />
+    <Compile Include="Library\HTTPTextLineSequence.fs" />
     <Compile Include="Client\StoreClient.fs" />
     <Compile Include="Client\LocalRuntime.fs" />
     <None Include="paket.template" />

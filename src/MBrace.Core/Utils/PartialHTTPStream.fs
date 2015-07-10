@@ -83,7 +83,7 @@ type PartialHTTPStream(url : string) =
         if stream <> null then 
             stream.Close()
 
-        stream <- new MemoryStream((int)cacheLength);
+        stream <- new MemoryStream(int cacheLength);
 
         let request = HttpWebRequest.CreateHttp(url)
         request.AddRange(rangeStart, rangeEnd)
