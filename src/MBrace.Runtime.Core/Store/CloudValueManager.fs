@@ -13,8 +13,8 @@ open Nessos.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Client
 open MBrace.Runtime.Utils.String
+open MBrace.Runtime.InMemoryRuntime
 open MBrace.Runtime.Vagabond
 
 ////

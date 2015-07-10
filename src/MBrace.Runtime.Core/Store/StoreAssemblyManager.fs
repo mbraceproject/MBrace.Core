@@ -10,11 +10,11 @@ open Nessos.Vagabond.AssemblyProtocols
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Client
 open MBrace.Library
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Runtime.InMemoryRuntime
 open MBrace.Runtime.Vagabond
 
 #nowarn "1571"
@@ -32,7 +32,7 @@ module private Common =
 
 /// Assembly to file store uploader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
+type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
     let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
@@ -140,7 +140,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
+type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
     interface IAssemblyDownloader with
@@ -178,7 +178,7 @@ type private AssemblyManagerMsg =
 /// Assembly manager instance
 [<Sealed; AutoSerializable(false)>]
 type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, logger : ISystemLogger) =
-    let imem = LocalRuntime.Create(fileConfig = storeConfig, serializer = serializer)
+    let imem = InMemoryRuntime.Create(fileConfig = storeConfig, serializer = serializer)
     let uploader = new StoreAssemblyUploader(storeConfig, imem, container, logger)
     let downloader = new StoreAssemblyDownloader(storeConfig, imem, container, logger)
 

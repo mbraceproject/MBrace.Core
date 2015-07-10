@@ -9,7 +9,7 @@ open MBrace.Core.Internals
 
 /// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
-type LocalRuntime private (resources : ResourceRegistry) =
+type InMemoryRuntime private (resources : ResourceRegistry) =
 
     let storeClient = CloudStoreClient.CreateFromResources(resources)
 
@@ -67,16 +67,16 @@ type LocalRuntime private (resources : ResourceRegistry) =
                             ?atomConfig : CloudAtomConfiguration,
                             ?queueConfig : CloudQueueConfiguration,
                             ?dictionaryProvider : ICloudDictionaryProvider,
-                            ?resources : ResourceRegistry) : LocalRuntime =
+                            ?resources : ResourceRegistry) : InMemoryRuntime =
 
         let memoryMode = match memoryMode with Some m -> m | None -> MemoryEmulation.Shared
         let valueProvider = match valueProvider with Some vp -> vp | None -> new InMemoryValueProvider() :> _
-        let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration()
-        let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider() :> _
-        let queueConfig = match queueConfig with Some cc -> cc | None -> InMemoryQueueProvider.CreateConfiguration()
+        let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration(memoryMode)
+        let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider(memoryMode) :> _
+        let queueConfig = match queueConfig with Some cc -> cc | None -> InMemoryQueueProvider.CreateConfiguration(memoryMode)
+        let runtime = ThreadPoolRuntime.Create(?logger = logger, memoryMode = memoryMode)
 
         let resources = resource {
-            yield ThreadPoolRuntime.Create(?logger = logger, ?memoryMode = memoryMode) :> IDistributionProvider
             yield valueProvider
             yield atomConfig
             yield dictionaryProvider
@@ -84,6 +84,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
             match fileConfig with Some fc -> yield fc | None -> ()
             match serializer with Some sr -> yield sr | None -> ()
             match resources with Some r -> yield! r | None -> ()
+            yield runtime :> IDistributionProvider
         }
 
-        new LocalRuntime(resources)
+        new InMemoryRuntime(resources)

@@ -145,6 +145,14 @@ type private InMemoryAtom<'T> (id : string, initial : 'T, mode : MemoryEmulation
 type InMemoryAtomProvider (mode : MemoryEmulation) =
     let id = mkUUID()
 
+    /// <summary>
+    ///     Creates an In-Memory Atom configuration object.
+    /// </summary>
+    /// <param name="mode">Memory emulation mode.</param>
+    static member CreateConfiguration(mode : MemoryEmulation) =
+        let imap = new InMemoryAtomProvider(mode)
+        CloudAtomConfiguration.Create(imap)
+
     interface ICloudAtomProvider with
         member __.Name = "InMemoryAtomProvider"
         member __.Id = id
@@ -207,6 +215,14 @@ type private InMemoryQueue<'T>  (id : string, mode : MemoryEmulation) =
 [<Sealed; AutoSerializable(false)>]
 type InMemoryQueueProvider (mode : MemoryEmulation) =
     let id = mkUUID()
+
+    /// <summary>
+    ///     Creates an In-Memory Queue configuration object.
+    /// </summary>
+    /// <param name="mode">Memory emulation mode.</param>
+    static member CreateConfiguration(mode : MemoryEmulation) =
+        let imqp = new InMemoryQueueProvider(mode)
+        CloudQueueConfiguration.Create(imqp)
 
     interface ICloudQueueProvider with
         member __.Name = "InMemoryQueueProvider"
@@ -279,6 +295,7 @@ type private InMemoryDictionary<'T>  (mode : MemoryEmulation) =
 [<Sealed; AutoSerializable(false)>]
 type InMemoryDictionaryProvider(mode : MemoryEmulation) =
     let id = mkUUID()
+
     interface ICloudDictionaryProvider with
         member s.Name = "InMemoryDictionaryProvider"
         member s.Id = id

@@ -2,7 +2,7 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Core.Internals.InMemoryRuntime
+open MBrace.Runtime.InMemoryRuntime
 
 #nowarn "444"
 
@@ -43,13 +43,13 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
         member __.WithForcedLocalParallelismSetting (setting : bool) = 
             new DistributionProvider(currentWorker, runtime, currentJob, faultPolicy, logger, setting) :> IDistributionProvider
 
-        member __.ScheduleLocalParallel (computations : seq<Local<'T>>) = ThreadPool.Parallel(mkNestedCts false, computations)
-        member __.ScheduleLocalChoice (computations : seq<Local<'T option>>) = ThreadPool.Choice(mkNestedCts false, computations)
+        member __.ScheduleLocalParallel (computations : seq<Local<'T>>) = ThreadPool.Parallel(mkNestedCts false, MemoryEmulation.Shared, computations)
+        member __.ScheduleLocalChoice (computations : seq<Local<'T option>>) = ThreadPool.Choice(mkNestedCts false, MemoryEmulation.Shared, computations)
 
         member __.ScheduleParallel (computations : seq<#Cloud<'T> * IWorkerRef option>) = cloud {
             if isForcedLocalParallelism then
                 // force threadpool parallelism semantics
-                return! ThreadPool.Parallel(mkNestedCts false, Seq.map fst computations)
+                return! ThreadPool.Parallel(mkNestedCts false, MemoryEmulation.Shared, Seq.map fst computations)
             else
                 return! Combinators.runParallel runtime currentJob.TaskEntry faultPolicy computations
         }
@@ -57,7 +57,7 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
         member __.ScheduleChoice (computations : seq<#Cloud<'T option> * IWorkerRef option>) = cloud {
             if isForcedLocalParallelism then
                 // force threadpool parallelism semantics
-                return! ThreadPool.Choice(mkNestedCts false, Seq.map fst computations)
+                return! ThreadPool.Choice(mkNestedCts false, MemoryEmulation.Shared, Seq.map fst computations)
             else
                 return! Combinators.runChoice runtime currentJob.TaskEntry faultPolicy computations
         }

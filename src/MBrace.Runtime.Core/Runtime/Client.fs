@@ -2,7 +2,7 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Client
+open MBrace.Runtime.InMemoryRuntime
 
 open MBrace.Runtime.Utils
 
@@ -10,7 +10,7 @@ open MBrace.Runtime.Utils
 [<AbstractClass>]
 type MBraceClient (runtime : IRuntimeManager) =
 
-    let imem = LocalRuntime.Create(resources = runtime.ResourceRegistry)
+    let imem = InMemoryRuntime.Create(resources = runtime.ResourceRegistry)
     let taskManagerClient = new CloudTaskManagerClient(runtime)
     let getWorkers () = async {
         let! workers = runtime.WorkerManager.GetAvailableWorkers()
@@ -124,7 +124,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.ShowWorkerInfo () = System.Console.WriteLine(__.GetWorkerInfo())
 
     /// <summary>
-    ///     Run workflow as local, in-memory computation
+    ///     Run workflow as local, in-memory computation.
     /// </summary>
     /// <param name="workflow">Workflow to execute</param>
     /// <param name="cancellationToken">Cancellation token</param>
