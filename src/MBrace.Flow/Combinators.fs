@@ -212,7 +212,7 @@ type CloudFlow =
     /// <summary>
     ///     Constructs a CloudFlow of lines from a single large text file.
     /// </summary>
-    /// <param name="path">The path to the text file.</param>
+    /// <param name="url">The path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
     static member OfCloudFileByLine (path : string, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
@@ -220,6 +220,21 @@ type CloudFlow =
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! cseq = CloudSequence.FromLineSeparatedTextFile(path, ?encoding = encoding, enableCache = false, force = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
+                return! collectionStream.WithEvaluators collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow of lines from a single large HTTP text file.
+    /// </summary>
+    /// <param name="path">The url path to the text file.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    static member OfHTTPFileByLine (url : string, ?encoding : Encoding) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let httpSeq = new HTTPTextLineSequence(url, ?encoding = encoding)
+                let collectionStream = CloudFlow.OfCloudCollection httpSeq
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
         }

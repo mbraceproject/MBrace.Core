@@ -5,13 +5,15 @@ open System
 open System.Linq
 open System.Collections.Generic
 open System.IO
+open System.Text
+open System.Net
 open FsCheck
 open NUnit.Framework
 open MBrace.Flow
 open MBrace.Core
 open MBrace.Store
 open MBrace.Store.Internals
-open System.Text
+
 
 // Helper type
 type Separator = N | R | RN
@@ -266,6 +268,34 @@ type ``CloudFlow tests`` () as self =
                             
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : OfHTTPFileByLine`` () =
+        let urls = [| "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-antony-23.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-as-12.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-comedy-7.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-coriolanus-24.txt" |]
+        let f(count : int) =
+            let url = urls.[urls.Length % abs(count + 1)]
+            let client = new WebClient()
+            use stream = client.OpenRead(url)
+            use reader = new StreamReader(stream)
+
+            let mutable line = reader.ReadLine()
+            let mutable counter = 0
+            while (line <> null) do
+                counter <- counter + 1
+                line <- reader.ReadLine()
+
+
+            let x = CloudFlow.OfHTTPFileByLine url
+                    |> CloudFlow.length
+                    |> run
+                            
+            Assert.AreEqual(counter, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+        
 
     [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with ReadAllLines`` () =

@@ -14,7 +14,7 @@ open MBrace.Store.Internals
 
 /// Partitionable implementation of HTTP file line reader
 [<DataContract>]
-type private HTTPTextLineSequence(url : string, ?encoding : Encoding, ?deserializer : (Stream -> seq<string>)) =
+type HTTPTextLineSequence(url : string, ?encoding : Encoding, ?deserializer : (Stream -> seq<string>)) =
     
     let getSize = local {
             use stream = new PartialHTTPStream(url)
