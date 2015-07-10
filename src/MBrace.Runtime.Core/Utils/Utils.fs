@@ -5,6 +5,7 @@ open System.Reflection
 open System.IO
 open System.Diagnostics
 open System.Net
+open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open System.Threading.Tasks
@@ -12,6 +13,8 @@ open System.Threading.Tasks
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime.Utils.Retry
+
+open Nessos.FsPickler.Hashing
 
 #nowarn "444"
 
@@ -36,6 +39,8 @@ module Utils =
 
         let inline protect f t = try f t |> Success with e -> Error e
         let inline protect2 f t s = try f t s |> Success with e -> Error e
+
+        let inline get (e : Exn<'T>) : 'T = e.Value
 
         let map (f : 'T -> 'S) (x : Exn<'T>) =
             match x with
@@ -125,18 +130,22 @@ module Utils =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
 
-    type Async with
-        static member OfCloud(workflow : Local<'T>, ?resources : ResourceRegistry) = async {
-            let! ct = Async.CancellationToken
-            let cct = new InMemoryRuntime.InMemoryCancellationToken(ct)
-            let resources = defaultArg resources ResourceRegistry.Empty
-            return! Cloud.ToAsync(workflow, resources, cct)
-        }
+//    type Async with
+//        static member OfCloud(workflow : Local<'T>, ?resources : ResourceRegistry) = async {
+//            let! ct = Async.CancellationToken
+//            let cct = new InMemoryRuntime.InMemoryCancellationToken(ct)
+//            let resources = defaultArg resources ResourceRegistry.Empty
+//            return! Cloud.ToAsync(workflow, resources, cct)
+//        }
+//
+//    module MBraceAsyncExtensions =
+//        
+//        type AsyncBuilder with
+//            member inline ab.Bind(workflow : Local<'T>, f : 'T -> Async<'S>) = ab.Bind(Async.OfCloud(workflow), f)
 
-    module MBraceAsyncExtensions =
-        
-        type AsyncBuilder with
-            member inline ab.Bind(workflow : Local<'T>, f : 'T -> Async<'S>) = ab.Bind(Async.OfCloud(workflow), f)
+    type HashResult with
+        /// Returns a unique, case-sensitive hash identifier
+        member inline h.Id = sprintf "%s://%s/%d/%s" (h.Algorithm.ToLower()) h.Type h.Length (Convert.ToBase64String h.Hash)
 
     type ConcurrentDictionary<'K,'V> with
         member dict.TryAdd(key : 'K, value : 'V, ?forceUpdate) =
@@ -152,6 +161,11 @@ module Utils =
 
     type ICloudLogger with
         member inline l.Logf fmt = Printf.ksprintf l.Log fmt
+
+    type IDictionary<'K,'V> with
+        member d.TryFind(k : 'K) : 'V option =
+            let mutable v = Unchecked.defaultof<'V>
+            if d.TryGetValue(k, &v) then Some v else None
     
     type WorkingDirectory =
         /// Generates a working directory path that is unique to the current process

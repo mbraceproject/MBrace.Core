@@ -35,7 +35,7 @@ type Trampoline private () =
             false
 
     /// Resets the trampoline state in the current thread.
-    static member internal Reset () =
+    static member Reset () =
         if isTrampolineEnabled then
             threadInstance.Value.Reset()
 

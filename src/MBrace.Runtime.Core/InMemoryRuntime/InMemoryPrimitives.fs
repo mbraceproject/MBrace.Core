@@ -1,242 +1,162 @@
 ﻿namespace MBrace.Runtime.InMemoryRuntime
 
 open System
-open System.Collections.Generic
-open System.Collections.Concurrent
+open System.Management
 open System.Threading
+open System.Threading.Tasks
+
+open Nessos.FsPickler
 
 open MBrace.Core
 open MBrace.Core.Internals
 
-[<AutoSerializable(false)>]
-type private InMemoryValue<'T> (value : 'T) =
-    let id = mkUUID()
+open MBrace.Runtime.Utils
 
-    interface ICloudValue<'T> with
-        member x.Id: string = id
-        member x.Size: int64 = -1L
-        member x.StorageLevel : StorageLevel = StorageLevel.MemoryOnly
-        member x.Type: Type = typeof<'T>
-        member x.GetBoxedValueAsync(): Async<obj> = async { return box value }
-        member x.GetValueAsync(): Async<'T> = async { return value }
-        member x.IsCachedLocally: bool = true
-        member x.Value: 'T = value
-        member x.GetBoxedValue () : obj = value :> obj
-        member x.Dispose() = async.Zero()
+/// Specifies memory semantics in InMemory MBrace execution
+type MemoryEmulation =
+    /// Freely share values across MBrace workflows; async semantics.
+    | Shared                = 0
+    /// Freely share values across MBrace workflows but
+    /// emulate serialization errors by checking that they are serializable.
+    | EnsureSerializable    = 1
+    /// Values copied when passed across worfklows; full distributed semantics.
+    | Copied                = 2
 
-[<AutoSerializable(false)>]
-type private InMemoryArray<'T> (values : 'T []) =
-    inherit InMemoryValue<'T[]> (values)
+[<NoEquality; NoComparison; AutoSerializable(false)>]
+type EmulatedValue<'T> =
+    | Shared of 'T
+    | Cloned of 'T
+with
+    member internal ev.Value =
+        match ev with
+        | Shared t -> t
+        | Cloned t -> FsPickler.Clone t
 
-    interface ICloudArray<'T> with
-        member x.Length = values.Length
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module MemoryEmulation =
 
-    interface ICloudCollection<'T> with
-        
-        member x.GetCount(): Async<int64> =  async { return values.LongLength }
+    let isShared (mode : MemoryEmulation) =
+        match mode with
+        | MemoryEmulation.EnsureSerializable
+        | MemoryEmulation.Copied -> false
+        | _ -> true
 
-        // TODO : move to MBRace.Runtime.Core        
-        member x.GetSize(): Async<int64> = async { return values.LongLength }
-        
-        member x.IsKnownCount: bool = true
-        
-        member x.IsKnownSize: bool = true
-        
-        member x.IsMaterialized: bool = true
-        
-        member x.ToEnumerable(): Async<seq<'T>> = async { return values :> _ }
+module EmulatedValue =
+
+    /// Performs cloning of value based on emulation semantics
+    let clone (mode : MemoryEmulation) (value : 'T) : 'T =
+        match mode with
+        | MemoryEmulation.Copied -> 
+            FsPickler.Clone value
+
+        | MemoryEmulation.EnsureSerializable ->
+            FsPickler.EnsureSerializable(value, failOnCloneableOnlyTypes = false)
+            value
+
+        | MemoryEmulation.Shared 
+        | _ -> value
+    
+    /// Creates a copy of provided value given emulation semantics
+    let create (mode : MemoryEmulation) shareCloned (value : 'T) =
+        match mode with
+        | MemoryEmulation.Copied -> 
+            let clonedVal = FsPickler.Clone value
+            if shareCloned then Shared clonedVal
+            else Cloned clonedVal
+
+        | MemoryEmulation.EnsureSerializable ->
+            FsPickler.EnsureSerializable(value, failOnCloneableOnlyTypes = false)
+            Shared value
+
+        | MemoryEmulation.Shared 
+        | _ -> Shared value
 
 
-[<Sealed; AutoSerializable(false)>]
-type InMemoryValueProvider () =
-    let id = mkUUID()
+/// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
+[<AutoSerializable(false); CloneableOnly>]
+type InMemoryCancellationToken(token : CancellationToken) =
+    new () = new InMemoryCancellationToken(new CancellationToken())
+    /// Returns true if cancellation token has been canceled
+    member __.IsCancellationRequested = token.IsCancellationRequested
+    /// Local System.Threading.CancellationToken instance
+    member __.LocalToken = token
+    interface ICloudCancellationToken with
+        member __.IsCancellationRequested = token.IsCancellationRequested
+        member __.LocalToken = token
 
-    interface ICloudValueProvider with
-        member x.Id: string = id
-        member x.Name: string = "In-Memory Value Provider"
-        member x.DefaultStorageLevel : StorageLevel = StorageLevel.MemoryOnly
-        member x.CreateCloudValue(payload: 'T, _ : StorageLevel): Async<ICloudValue<'T>> = async {
-            return new InMemoryValue<'T>(payload) :> ICloudValue<'T>
+/// Cloud cancellation token source implementation that wraps around System.Threading.CancellationTokenSource
+[<AutoSerializable(false); CloneableOnly>]
+type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
+    let token = new InMemoryCancellationToken (cts.Token)
+    new () = new InMemoryCancellationTokenSource(new CancellationTokenSource())
+    /// InMemoryCancellationToken instance
+    member __.Token = token
+    /// Trigger cancelation for the cts
+    member __.Cancel() = cts.Cancel()
+    /// Local System.Threading.CancellationTokenSource instance
+    member __.LocalCancellationTokenSource = cts
+    interface ICloudCancellationTokenSource with
+        member __.Cancel() = cts.Cancel()
+        member __.Token = token :> _
+
+    /// <summary>
+    ///     Creates a local linked cancellation token source from provided parent tokens
+    /// </summary>
+    /// <param name="parents">Parent cancellation tokens.</param>
+    static member CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken []) =
+        let ltokens = parents |> Array.map (fun t -> t.LocalToken)
+        let lcts =
+            if Array.isEmpty ltokens then new CancellationTokenSource()
+            else
+                CancellationTokenSource.CreateLinkedTokenSource ltokens
+
+        new InMemoryCancellationTokenSource(lcts)
+
+/// In-Memory WorkerRef implementation
+[<AutoSerializable(false); CloneableOnly>]
+type InMemoryWorker private () =
+    static let singleton = new InMemoryWorker()
+    let name = System.Net.Dns.GetHostName()
+    let pid = System.Diagnostics.Process.GetCurrentProcess().Id
+    let cpuClockSpeed =
+        use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
+        use qObj = searcher.Get() 
+                    |> Seq.cast<ManagementBaseObject> 
+                    |> Seq.exactlyOne
+
+        let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
+        float cpuFreq
+
+    interface IWorkerRef with
+        member __.Hostname = name
+        member __.Type = "InMemory worker"
+        member __.Id = name
+        member __.ProcessorCount = Environment.ProcessorCount
+        member __.MaxCpuClock = cpuClockSpeed
+        member __.ProcessId = pid
+        member __.CompareTo(other : obj) =
+            match other with
+            | :? InMemoryWorker -> 0
+            | :? IWorkerRef as wr -> compare name wr.Id
+            | _ -> invalidArg "other" "invalid comparand."
+
+    /// Gets a WorkerRef instance that corresponds to the instance
+    static member LocalInstance : InMemoryWorker = singleton
+
+/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
+[<AutoSerializable(false); CloneableOnly>]
+type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
+    interface ICloudTask<'T> with
+        member __.Id = sprintf ".NET task %d" task.Id
+        member __.AwaitResult(?timeoutMilliseconds:int) = async {
+            try return! Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
+            with :? AggregateException as e -> return! Async.Raise (e.InnerExceptions.[0])
         }
 
-        member x.CreatePartitionedArray(payload : seq<'T>, _ : StorageLevel, _) = async {
-            return [| new InMemoryArray<'T>(Seq.toArray payload) :> ICloudArray<'T> |]
-        }
-        
-        member x.Dispose(_: ICloudValue): Async<unit> = async.Zero()
-        member x.DisposeAllValues(): Async<unit> = async { return () }
-        member x.GetById(_:string) : Async<ICloudValue> = async { return raise <| new NotSupportedException() }
-        member x.GetAllValues(): Async<ICloudValue []> = async { return raise <| new NotSupportedException() }
-
-[<AutoSerializable(false)>]
-type private InMemoryAtom<'T> (initial : 'T) =
-    let id = mkUUID()
-    let container = ref (Some initial)
-
-    let rec swap (f : 'T -> 'T) = 
-        match container.Value with
-        | None -> raise <| new ObjectDisposedException("CloudAtom")
-        | cv ->
-            let result = Interlocked.CompareExchange<'T option>(container, Option.map f cv, cv)
-            if obj.ReferenceEquals(result, cv) then ()
-            else Thread.SpinWait 20; swap f
-
-    let transact f =
-        let cell = ref Unchecked.defaultof<'R>
-        let f t = let r,t' = f t in cell := r ; t'
-        swap f
-        !cell
-
-    let force (t : 'T) =
-        match container.Value with
-        | None -> raise <| new ObjectDisposedException("CloudAtom")
-        | _ -> container := Some t
-
-    interface ICloudAtom<'T> with
-        member __.Id = id
-        member __.Value = async { return Option.get container.Value }
-        member __.Transact(updater, _) = async { return transact updater }
-        member __.Force(value) = async { return force value }
-        member __.Dispose () = async { return container := None }
-
-[<Sealed; AutoSerializable(false)>]
-type InMemoryAtomProvider () =
-    let id = mkUUID()
-    static member CreateConfiguration () : CloudAtomConfiguration =
-        {
-            AtomProvider = new InMemoryAtomProvider() :> ICloudAtomProvider
-            DefaultContainer = ""
-        }
-
-    interface ICloudAtomProvider with
-        member __.Name = "InMemoryAtomProvider"
-        member __.Id = id
-        member __.CreateUniqueContainerName () = mkUUID()
-        member __.IsSupportedValue _ = true
-        member __.CreateAtom<'T>(_, init : 'T) = async { return new InMemoryAtom<'T>(init) :> _ }
-        member __.DisposeContainer _ = raise <| new NotImplementedException()
-
-
-[<Sealed; AutoSerializable(false)>]
-type private InMemoryQueue<'T>  (id : string) =
-    let mutable isDisposed = false
-    let checkDisposed () =
-        if isDisposed then raise <| new ObjectDisposedException("Queue has been disposed.")
-
-    let mbox = new MailboxProcessor<'T>(fun _ -> async.Zero())
-
-    interface ICloudQueue<'T> with
-        member x.Count: Async<int64> = async {
-            checkDisposed()
-            return int64 mbox.CurrentQueueLength
-        }
-        
-        member x.Dequeue(?timeout: int): Async<'T> = async {
-            checkDisposed()
-            return! mbox.Receive(?timeout = timeout)
-        }
-        
-        member x.Dispose(): Async<unit> = async {
-            isDisposed <- true
-        }
-        
-        member x.Enqueue(message: 'T): Async<unit> = async {
-            checkDisposed()
-            return mbox.Post message
-        }
-        
-        member x.EnqueueBatch(messages: seq<'T>): Async<unit> = async {
-            do
-                checkDisposed()
-                for m in messages do mbox.Post m
-        }
-        
-        member x.Id: string = id
-        
-        member x.TryDequeue(): Async<'T option> = async {
-            checkDisposed()
-            return! mbox.TryReceive(timeout = 0)
-        }
-
-/// Defines an in-memory queue factory using mailbox processor
-[<Sealed; AutoSerializable(false)>]
-type InMemoryQueueProvider () =
-    let id = mkUUID()
-
-    static member CreateConfiguration () : CloudQueueConfiguration =
-        {
-            QueueProvider = new InMemoryQueueProvider() :> ICloudQueueProvider
-            DefaultContainer = ""
-        }
-
-    interface ICloudQueueProvider with
-        member __.Name = "InMemoryQueueProvider"
-        member __.Id = id
-        member __.CreateUniqueContainerName () = mkUUID()
-
-        member __.CreateQueue<'T> (container : string) = async {
-            let id = sprintf "%s/%s" container <| mkUUID()
-            return new InMemoryQueue<'T>(id) :> ICloudQueue<'T>
-        }
-
-        member __.DisposeContainer _ = async.Zero()
-
-[<Sealed; AutoSerializable(false)>]
-type private InMemoryDictionary<'T>  () =
-    let id = mkUUID()
-    let dict = new System.Collections.Concurrent.ConcurrentDictionary<string, 'T> ()
-    interface ICloudDictionary<'T> with
-        member x.Add(key : string, value : 'T) : Async<unit> =
-            async { return dict.[key] <- value }
-
-        member x.TryAdd(key: string, value: 'T): Async<bool> = 
-            async { return dict.TryAdd(key, value) }
-                    
-        member x.Transact(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
-            let result = ref Unchecked.defaultof<'R>
-            let updater (curr : 'T option) =
-                let r, topt = transacter curr
-                result := r
-                topt
-
-            let _ = dict.AddOrUpdate(key, (fun _ -> updater None), fun _ curr -> updater (Some curr))
-            return result.Value
-        }
-                    
-        member x.ContainsKey(key: string): Async<bool> = 
-            async { return dict.ContainsKey key }
-
-        member x.IsKnownCount = true
-        member x.IsKnownSize = true
-        member x.IsMaterialized = true
-                    
-        member x.GetCount(): Async<int64> = 
-            async { return int64 dict.Count }
-
-        member x.GetSize(): Async<int64> = 
-            async { return int64 dict.Count }
-                    
-        member x.Dispose(): Async<unit> = async.Zero()
-
-        member x.Id: string = id
-                    
-        member x.Remove(key: string): Async<bool> = 
-            async { return dict.TryRemove key |> fst }
-                    
-        member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
-            async { return dict :> _ }
-                    
-        member x.TryFind(key: string): Async<'T option> = 
-            async { return let ok,v = dict.TryGetValue key in if ok then Some v else None }
-
-/// Defines an in-memory dictionary factory using ConcurrentDictionary
-[<Sealed; AutoSerializable(false)>]
-type InMemoryDictionaryProvider() =
-    let id = mkUUID()
-    interface ICloudDictionaryProvider with
-        member s.Name = "InMemoryDictionaryProvider"
-        member s.Id = id
-        member s.IsSupportedValue _ = true
-        member s.Create<'T> () = async {
-            return new InMemoryDictionary<'T>() :> ICloudDictionary<'T>
-        }
+        member __.TryGetResult () = async { return task.TryGetResult() }
+        member __.Status = task.Status
+        member __.IsCompleted = task.IsCompleted
+        member __.IsFaulted = task.IsFaulted
+        member __.IsCanceled = task.IsCanceled
+        member __.CancellationToken = ct
+        member __.Result = task.GetResult()

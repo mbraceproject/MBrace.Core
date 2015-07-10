@@ -60,7 +60,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
     /// <param name="queueConfig">Cloud queue configuration. Defaults to in-memory queues.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
     static member Create(?logger : ICloudLogger,
-                            ?memoryMode : ThreadPoolMemoryMode,
+                            ?memoryMode : MemoryEmulation,
                             ?fileConfig : CloudFileStoreConfiguration,
                             ?serializer : ISerializer,
                             ?valueProvider : ICloudValueProvider,
@@ -69,6 +69,7 @@ type LocalRuntime private (resources : ResourceRegistry) =
                             ?dictionaryProvider : ICloudDictionaryProvider,
                             ?resources : ResourceRegistry) : LocalRuntime =
 
+        let memoryMode = match memoryMode with Some m -> m | None -> MemoryEmulation.Shared
         let valueProvider = match valueProvider with Some vp -> vp | None -> new InMemoryValueProvider() :> _
         let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration()
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider() :> _
