@@ -74,7 +74,7 @@ type internal CloudCollection private () =
 
                         let! collector = collectorf
                         let! seqs = Local.Sequential.map getSeq slice
-                        let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
+                        let pStream = seqs |> Seq.concat |> ParStream.ofSeq
                         let value = pStream.Apply (collector.ToParStreamCollector())
                         return! projection value
                     }

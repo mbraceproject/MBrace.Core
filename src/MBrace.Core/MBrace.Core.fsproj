@@ -65,6 +65,7 @@
     <Compile Include="Utils\ExceptionDispatchInfo.fs" />
     <Compile Include="Utils\TextReaders.fs" />
     <Compile Include="Utils\Enumerable.fs" />
+    <Compile Include="Utils\PartialHTTPStream.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\CancellationToken.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />
@@ -93,6 +94,7 @@
     <Compile Include="Library\CloudSequence.fs" />
     <Compile Include="Library\CollectionPartitioner.fs" />
     <Compile Include="Library\DomainLocal.fs" />
+    <Compile Include="Library\HTTPTextLineSequence.fs" />
     <Compile Include="Client\StoreClient.fs" />
     <Compile Include="Client\LocalRuntime.fs" />
     <None Include="paket.template" />
