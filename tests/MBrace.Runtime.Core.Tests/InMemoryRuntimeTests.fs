@@ -19,11 +19,12 @@ type InMemoryLogTester () =
     interface ICloudLogger with
         member __.Log msg = lock logs (fun () -> logs.Add msg)
 
-type ``ThreadPool Parallelism Tests`` () =
+[<AbstractClass>]
+type ``ThreadPool Parallelism Tests`` (memoryMode : MemoryEmulation) =
     inherit ``Distribution Tests``(parallelismFactor = 100, delayFactor = 1000)
 
     let logger = InMemoryLogTester()
-    let imem = InMemoryRuntime.Create(logger = logger, memoryMode = MemoryEmulation.Shared)
+    let imem = InMemoryRuntime.Create(logger = logger, memoryMode = memoryMode)
 
     override __.RunRemote(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.Run(workflow))
     override __.RunRemote(workflow : ICloudCancellationTokenSource -> #Cloud<'T>) =
@@ -35,12 +36,22 @@ type ``ThreadPool Parallelism Tests`` () =
     override __.IsTargetWorkerSupported = false
     override __.Logs = logger :> _
     override __.FsCheckMaxTests = 100
-    override __.UsesSerialization = false
+    override __.UsesSerialization = memoryMode <> MemoryEmulation.Shared
 #if DEBUG
     override __.Repeats = 10
 #else
     override __.Repeats = 3
 #endif
+
+
+type ``ThreadPool Parallelism Tests (Shared)`` () =
+    inherit ``ThreadPool Parallelism Tests`` (MemoryEmulation.Shared)
+
+type ``ThreadPool Parallelism Tests (EnsureSerializable)`` () =
+    inherit ``ThreadPool Parallelism Tests`` (MemoryEmulation.EnsureSerializable)
+
+type ``ThreadPool Parallelism Tests (Copied)`` () =
+    inherit ``ThreadPool Parallelism Tests`` (MemoryEmulation.Copied)
 
 
 type ``InMemory CloudAtom Tests`` () =

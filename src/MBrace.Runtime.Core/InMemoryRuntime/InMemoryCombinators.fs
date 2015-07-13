@@ -14,6 +14,23 @@ open MBrace.Runtime.Utils.PrettyPrinters
 
 open Nessos.FsPickler
 
+/// Concurrent counter implementation
+[<AutoSerializable(false); CloneableOnly>]
+type private ConcurrentCounter (init : int) =
+    [<VolatileField>]
+    let mutable value = init
+    /// Increments counter by 1
+    member __.Increment() = Interlocked.Increment &value
+    /// Gets the current counter value
+    member __.Value = value
+
+[<AutoSerializable(false); CloneableOnly>]
+type private ResultAggregator<'T> (size : int) =
+    let array = Array.zeroCreate<'T> size
+    member __.Length = size
+    member __.Values = array
+    member __.Item with set i x = array.[i] <- x
+
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool
 type ThreadPool private () =
@@ -72,7 +89,7 @@ type ThreadPool private () =
                     cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
                 | Choice1Of2 clonedComputations ->
-                    let results = Array.zeroCreate<'T> computations.Length
+                    let results = new ResultAggregator<'T>(computations.Length)
                     let parentCt = ctx.CancellationToken
                     let innerCts = mkNestedCts parentCt
                     let exceptionLatch = new ConcurrentCounter(0)
@@ -80,13 +97,13 @@ type ThreadPool private () =
 
                     let inline revertCtx (ctx : ExecutionContext) = { ctx with CancellationToken = parentCt }
 
-                    let onSuccess i (cont : Continuation<'T[]>) ctx (t : 'T) =
+                    let onSuccess (i : int) (cont : Continuation<'T[]>) ctx (t : 'T) =
                         match cloneProtected mode t with
                         | Choice1Of2 t ->
                             results.[i] <- t
                             if completionLatch.Increment() = results.Length then
                                 innerCts.Cancel()
-                                cont.Success (revertCtx ctx) results
+                                cont.Success (revertCtx ctx) results.Values
 
                         | Choice2Of2 e ->
                             if exceptionLatch.Increment() = 1 then
@@ -188,15 +205,60 @@ type ThreadPool private () =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="mode">Memory semantics used for parallelism.</param>
-    /// <param name="faultPolicy">Fault policy for computation. Defaults to current fault policy.</param>
+    /// <param name="resources">Resource registry used for cloud workflow.</param>
     /// <param name="cancellationToken">Cancellation token for task. Defaults to new cancellation token.</param>
-    static member StartAsTask (workflow:Cloud<'T>, mode:MemoryEmulation, ?faultPolicy:FaultPolicy, ?cancellationToken:ICloudCancellationToken) = cloud {
-        let! resources = Cloud.GetResourceRegistry()
-        let dp = resources.Resolve<IDistributionProvider> ()
-        let dp' = match faultPolicy with None -> dp | Some fp -> dp.WithFaultPolicy fp
-        let resources' = resources.Register dp'
-        let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
-        let clonedWorkflow = EmulatedValue.clone mode workflow
-        let task = Cloud.StartAsSystemTask(clonedWorkflow, resources', cancellationToken)
-        return new InMemoryTask<'T>(task, cancellationToken) :> ICloudTask<'T>
+    static member StartAsTask (workflow : Cloud<'T>, mode : MemoryEmulation, resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) =
+        if not <| FsPickler.IsSerializableType<'T> () then
+            let msg = sprintf "Cloud task returns non-serializable type '%s'." (Type.prettyPrint typeof<'T>)
+            raise <| new SerializationException(msg)
+
+
+        match cloneProtected mode workflow with
+        | Choice2Of2 e ->
+            let msg = sprintf "Cloud task of type '%s' uses non-serializable closure." (Type.prettyPrint typeof<'T>)
+            raise <| new SerializationException(msg, e)
+
+        | Choice1Of2 workflow ->
+            let clonedWorkflow = EmulatedValue.clone mode workflow
+            let tcs = new InMemoryTaskCompletionSource<'T>(?cancellationToken = cancellationToken)
+            let setResult cont result =
+                match cloneProtected mode result with
+                | Choice1Of2 result -> cont result |> ignore
+                | Choice2Of2 e ->
+                    let msg = sprintf "Could not serialize result for task of type '%s'." (Type.prettyPrint typeof<'T>)
+                    let se = new SerializationException(msg, e)
+                    ignore <| tcs.LocalTaskCompletionSource.TrySetException se
+
+            let cont = 
+                {
+                    Success = fun _ t -> t |> setResult tcs.LocalTaskCompletionSource.TrySetResult
+                    Exception = fun _ (edi:ExceptionDispatchInfo) -> edi |> setResult (fun edi -> tcs.LocalTaskCompletionSource.TrySetException (edi.Reify(false, false)))
+                    Cancellation = fun _ _ -> tcs.LocalTaskCompletionSource.TrySetCanceled() |> ignore
+                }
+
+            Trampoline.QueueWorkItem(fun () -> Cloud.StartWithContinuations(clonedWorkflow, cont, resources, tcs.CancellationTokenSource.Token))
+            tcs.Task
+
+
+    /// <summary>
+    ///     A Cloud.ToAsync implementation executed using the thread pool.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="mode">Memory semantics used for parallelism.</param>
+    /// <param name="resources">Resource registry used for cloud workflow.</param>
+    static member ToAsync(workflow : Cloud<'T>, mode : MemoryEmulation, resources : ResourceRegistry) : Async<'T> = async {
+        let! ct = Async.CancellationToken
+        let imct = new InMemoryCancellationToken(ct)
+        let task = ThreadPool.StartAsTask(workflow, mode, resources, cancellationToken = imct)
+        return! Async.AwaitTaskCorrect task.LocalTask
     }
+
+    /// <summary>
+    ///     A Cloud.ToAsync implementation executed using the thread pool.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="mode">Memory semantics used for parallelism.</param>
+    /// <param name="resources">Resource registry used for cloud workflow.</param>
+    static member RunSynchronously(workflow : Cloud<'T>, mode : MemoryEmulation, resources : ResourceRegistry, ?cancellationToken) : 'T =
+        let task = ThreadPool.StartAsTask(workflow, mode, resources, ?cancellationToken = cancellationToken)
+        task.LocalTask.GetResult()

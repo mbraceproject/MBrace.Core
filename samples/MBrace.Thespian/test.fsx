@@ -72,3 +72,14 @@ proc.ShowInfo()
 runtime.ShowProcessInfo()
 
 runtime.Run(Cloud.Parallel [for i in 1 .. 100 -> cloud { return i * i }])
+
+#r "FsPIckler.dll"
+open MBrace.Runtime.InMemoryRuntime
+
+open Nessos.FsPickler
+
+let runtime = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Copied)
+
+FsPickler.Clone (new MBrace.Runtime.InMemoryRuntime.InMemoryCancellationTokenSource())
+
+runtime.Run <| Cloud.Parallel [for i in 1 .. 10 -> cloud { return i }]

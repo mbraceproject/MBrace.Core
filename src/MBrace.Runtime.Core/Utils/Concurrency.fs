@@ -222,14 +222,3 @@ type CacheAtom =
         }
 
         new CacheAtom<'T>(providerW, interval, Some init)
-
-
-/// Concurrent counter implementation
-[<AutoSerializable(false)>]
-type ConcurrentCounter (init : int) =
-    [<VolatileField>]
-    let mutable value = init
-    /// Increments counter by 1
-    member __.Increment() = Interlocked.Increment &value
-    /// Gets the current counter value
-    member __.Value = value

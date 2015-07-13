@@ -9,7 +9,7 @@ open MBrace.Core.Internals
 
 /// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
-type InMemoryRuntime private (resources : ResourceRegistry) =
+type InMemoryRuntime private (mode : MemoryEmulation, resources : ResourceRegistry) =
 
     let storeClient = CloudStoreClient.CreateFromResources(resources)
 
@@ -22,7 +22,7 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     member r.RunAsync(workflow : Cloud<'T>) : Async<'T> =
-        toLocalAsync resources workflow
+        ThreadPool.ToAsync(workflow, mode, resources)
 
     /// <summary>
     ///     Executes a cloud computation in the local process,
@@ -31,8 +31,7 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token passed to computation.</param>
     member r.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken) : 'T =
-        let cancellationToken = match cancellationToken with Some ct -> ct | None -> new InMemoryCancellationToken() :> _
-        Cloud.RunSynchronously(workflow, resources, cancellationToken)
+        ThreadPool.RunSynchronously(workflow, mode, resources, ?cancellationToken = cancellationToken)
 
     /// <summary>
     ///     Executes a cloud computation in the local process,
@@ -42,7 +41,7 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
     /// <param name="cancellationToken">Cancellation token passed to computation.</param>
     member r.Run(workflow : Cloud<'T>, cancellationToken : CancellationToken) : 'T =
         let cancellationToken = new InMemoryCancellationToken(cancellationToken)
-        Cloud.RunSynchronously(workflow, resources, cancellationToken)
+        ThreadPool.RunSynchronously(workflow, mode, resources, cancellationToken)
 
     /// Creates a new cancellation token source
     member r.CreateCancellationTokenSource() = 
@@ -87,4 +86,4 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
             yield runtime :> IDistributionProvider
         }
 
-        new InMemoryRuntime(resources)
+        new InMemoryRuntime(memoryMode, resources)

@@ -8,23 +8,13 @@ open System.Text
 open MBrace.Core
 open MBrace.Core.Internals
 
-[<AutoOpen>]
-module internal ClientUtils =
-
-    let toLocalAsync resources wf = async {
-        let! ct = Async.CancellationToken
-        return! Cloud.ToAsync(wf, resources, new InMemoryCancellationToken(ct))
-    }
-
-    let toSync resources wf = Cloud.RunSynchronously(wf, resources, new InMemoryCancellationToken())
-
-[<Sealed; AutoSerializable(false)>]
 /// Collection of client methods for CloudAtom API
+[<Sealed; AutoSerializable(false)>]
 type CloudAtomClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
     let config = registry.Resolve<CloudAtomConfiguration>()
 
-    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = ThreadPool.ToAsync(wf, MemoryEmulation.Shared, registry)
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -156,7 +146,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
 type CloudQueueClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
     let _ = registry.Resolve<CloudQueueConfiguration>()
-    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = ThreadPool.ToAsync(wf, MemoryEmulation.Shared, registry)
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -277,7 +267,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
 type CloudDictionaryClient internal (registry : ResourceRegistry) =
     // force exception in event of missing resource
     let _ = registry.Resolve<ICloudDictionaryProvider>()
-    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = ThreadPool.ToAsync(wf, MemoryEmulation.Shared, registry)
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// Asynchronously creates a new CloudDictionary instance.
@@ -412,6 +402,8 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
 type CloudPathClient internal (registry : ResourceRegistry) =
     let config = registry.Resolve<CloudFileStoreConfiguration>()
 
+    let toSync (wf : Cloud<'T>) : 'T = ThreadPool.RunSynchronously(wf, MemoryEmulation.Shared, registry)
+
     /// <summary>
     ///     Default store directory used by store configuration.
     /// </summary>
@@ -464,13 +456,13 @@ type CloudPathClient internal (registry : ResourceRegistry) =
     ///     Creates a uniquely defined file path for given container.
     /// </summary>
     /// <param name="container">Path to containing directory. Defaults to process directory.</param>
-    member __.GetRandomFilePath(?container:string) = CloudPath.GetRandomFileName(?container = container) |> toSync registry
+    member __.GetRandomFilePath(?container:string) = CloudPath.GetRandomFileName(?container = container) |> toSync
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of file store operations
 type CloudDirectoryClient internal (registry : ResourceRegistry) =
 
-    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = ThreadPool.ToAsync(wf, MemoryEmulation.Shared, registry)
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
     
     /// <summary>
@@ -535,7 +527,7 @@ type CloudDirectoryClient internal (registry : ResourceRegistry) =
 /// Collection of file store operations
 type CloudFileClient internal (registry : ResourceRegistry) =
 
-    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = ThreadPool.ToAsync(wf, MemoryEmulation.Shared, registry)
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -825,7 +817,7 @@ type CloudFileClient internal (registry : ResourceRegistry) =
 type CloudValueClient internal (registry : ResourceRegistry) =
     let _ = registry.Resolve<CloudFileStoreConfiguration>()
     
-    let toAsync (wf : Local<'T>) : Async<'T> = toLocalAsync registry wf
+    let toAsync (wf : Local<'T>) : Async<'T> = ThreadPool.ToAsync(wf, MemoryEmulation.Shared, registry)
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// <summary>
@@ -879,8 +871,6 @@ type CloudStoreClient internal (registry : ResourceRegistry) =
     member __.Path = pathClient.Value
     /// CloudValue client.
     member __.CloudValue = cloudValueClient.Value
-//    /// CloudSequence client.
-//    member __.CloudSequence = cloudseqClient.Value
     /// Gets the associated ResourceRegistry.
     member __.Resources = registry
 

@@ -146,6 +146,7 @@ type InMemoryWorker private () =
 /// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
 type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
+    member __.LocalTask = task
     interface ICloudTask<'T> with
         member __.Id = sprintf ".NET task %d" task.Id
         member __.AwaitResult(?timeoutMilliseconds:int) = async {
@@ -160,3 +161,19 @@ type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
         member __.IsCanceled = task.IsCanceled
         member __.CancellationToken = ct
         member __.Result = task.GetResult()
+
+
+/// Cloud task implementation that wraps around System.Threading.TaskCompletionSource for inmemory runtimes
+[<AutoSerializable(false); CloneableOnly>]
+type private InMemoryTaskCompletionSource<'T> (?cancellationToken : ICloudCancellationToken) =
+    let tcs = new TaskCompletionSource<'T>()
+    let cts =
+        match cancellationToken with
+        | None -> InMemoryCancellationTokenSource()
+        | Some ct -> InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
+
+    let task = new InMemoryTask<'T>(tcs.Task, cts.Token)
+
+    member __.CancellationTokenSource = cts
+    member __.LocalTaskCompletionSource = tcs
+    member __.Task = task

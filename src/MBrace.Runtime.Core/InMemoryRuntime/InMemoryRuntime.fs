@@ -51,8 +51,8 @@ type ThreadPoolDistributionProvider private (faultPolicy : FaultPolicy, memoryMo
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newFp = new ThreadPoolDistributionProvider(newFp, memoryMode, logger) :> IDistributionProvider
 
-        member __.IsForcedLocalParallelismEnabled = true
-        member __.WithForcedLocalParallelismSetting setting =
+        member __.IsForcedLocalParallelismEnabled = MemoryEmulation.isShared memoryMode
+        member __.WithForcedLocalParallelismSetting (setting : bool) =
             if setting then new ThreadPoolDistributionProvider(faultPolicy, MemoryEmulation.Shared, logger) :> IDistributionProvider
             else
                 __ :> IDistributionProvider
@@ -68,8 +68,9 @@ type ThreadPoolDistributionProvider private (faultPolicy : FaultPolicy, memoryMo
         member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, MemoryEmulation.Shared, computations)
         member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts, MemoryEmulation.Shared, computations)
 
-        member __.ScheduleStartAsTask (workflow:Cloud<'T>, faultPolicy:FaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
+        member __.ScheduleStartAsTask (workflow:Cloud<'T>, _:FaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             ignore taskName
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
-            return! ThreadPool.StartAsTask(workflow, memoryMode, faultPolicy = faultPolicy, ?cancellationToken = cancellationToken)
+            let! resources = Cloud.GetResourceRegistry()
+            return ThreadPool.StartAsTask(workflow, memoryMode, resources, ?cancellationToken = cancellationToken) :> ICloudTask<'T>
         }
