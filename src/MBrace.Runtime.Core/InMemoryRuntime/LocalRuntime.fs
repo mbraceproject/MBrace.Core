@@ -74,7 +74,7 @@ type InMemoryRuntime private (resources : ResourceRegistry) =
         let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration(memoryMode)
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider(memoryMode) :> _
         let queueConfig = match queueConfig with Some cc -> cc | None -> InMemoryQueueProvider.CreateConfiguration(memoryMode)
-        let runtime = ThreadPoolRuntime.Create(?logger = logger, memoryMode = memoryMode)
+        let runtime = ThreadPoolDistributionProvider.Create(?logger = logger, memoryMode = memoryMode)
 
         let resources = resource {
             yield valueProvider

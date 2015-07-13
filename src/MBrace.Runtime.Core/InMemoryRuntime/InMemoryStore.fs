@@ -16,7 +16,7 @@ open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 
 [<AutoSerializable(false); CloneableOnly>]
-type private InMemoryValue<'T> (value : 'T, hash : HashResult) =
+type InMemoryValue<'T> internal (value : 'T, hash : HashResult) =
     interface ICloudValue<'T> with
         member x.Id: string = hash.Id
         member x.Size: int64 = hash.Length
@@ -30,7 +30,7 @@ type private InMemoryValue<'T> (value : 'T, hash : HashResult) =
         member x.Dispose() = async.Return()
 
 [<AutoSerializable(false); Sealed; CloneableOnly>]
-type private InMemoryArray<'T> (value : 'T [], hash : HashResult) =
+type InMemoryArray<'T> internal (value : 'T [], hash : HashResult) =
     inherit InMemoryValue<'T[]> (value, hash)
 
     interface ICloudArray<'T> with
@@ -113,7 +113,7 @@ type InMemoryValueProvider () =
 
 
 [<AutoSerializable(false); Sealed; CloneableOnly>]
-type private InMemoryAtom<'T> (id : string, initial : 'T, mode : MemoryEmulation) =
+type InMemoryAtom<'T> internal (id : string, initial : 'T, mode : MemoryEmulation) =
     // false: always clone value when reading payload
     let clone (t:'T) = EmulatedValue.create mode false t
 
@@ -167,7 +167,7 @@ type InMemoryAtomProvider (mode : MemoryEmulation) =
 
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
-type private InMemoryQueue<'T>  (id : string, mode : MemoryEmulation) =
+type InMemoryQueue<'T> internal (id : string, mode : MemoryEmulation) =
     // true: value will be dequeued only once so clone on eqnueue only
     let clone (t : 'T) = EmulatedValue.create mode true t
     let mutable isDisposed = false
@@ -241,7 +241,7 @@ type InMemoryQueueProvider (mode : MemoryEmulation) =
         member __.DisposeContainer _ = async.Zero()
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
-type private InMemoryDictionary<'T>  (mode : MemoryEmulation) =
+type InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
     let id = mkUUID()
     let clone (t:'T) = EmulatedValue.create mode true t
     let dict = new ConcurrentDictionary<string, EmulatedValue<'T>> ()
@@ -293,7 +293,7 @@ type private InMemoryDictionary<'T>  (mode : MemoryEmulation) =
 
 /// Defines an in-memory dictionary factory using ConcurrentDictionary
 [<Sealed; AutoSerializable(false)>]
-type InMemoryDictionaryProvider(mode : MemoryEmulation) =
+type InMemoryDictionaryProvider (mode : MemoryEmulation) =
     let id = mkUUID()
 
     interface ICloudDictionaryProvider with

@@ -12,7 +12,7 @@ open MBrace.Runtime.Utils
 
 /// .NET ThreadPool distribution provider
 [<Sealed; AutoSerializable(false)>]
-type ThreadPoolRuntime private (faultPolicy : FaultPolicy, memoryMode : MemoryEmulation, logger : ICloudLogger) =
+type ThreadPoolDistributionProvider private (faultPolicy : FaultPolicy, memoryMode : MemoryEmulation, logger : ICloudLogger) =
 
     static let mkNestedCts (ct : ICloudCancellationToken) = 
         InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
@@ -31,7 +31,7 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, memoryMode : MemoryEm
 
         let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.NoRetry
         let memoryMode = defaultArg memoryMode MemoryEmulation.Shared
-        new ThreadPoolRuntime(faultPolicy, memoryMode, logger)
+        new ThreadPoolDistributionProvider(faultPolicy, memoryMode, logger)
         
     interface IDistributionProvider with
         member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
@@ -49,11 +49,11 @@ type ThreadPoolRuntime private (faultPolicy : FaultPolicy, memoryMode : MemoryEm
         member __.CurrentWorker = InMemoryWorker.LocalInstance :> IWorkerRef
 
         member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy newFp = new ThreadPoolRuntime(newFp, memoryMode, logger) :> IDistributionProvider
+        member __.WithFaultPolicy newFp = new ThreadPoolDistributionProvider(newFp, memoryMode, logger) :> IDistributionProvider
 
         member __.IsForcedLocalParallelismEnabled = true
         member __.WithForcedLocalParallelismSetting setting =
-            if setting then new ThreadPoolRuntime(faultPolicy, MemoryEmulation.Shared, logger) :> IDistributionProvider
+            if setting then new ThreadPoolDistributionProvider(faultPolicy, MemoryEmulation.Shared, logger) :> IDistributionProvider
             else
                 __ :> IDistributionProvider
 
