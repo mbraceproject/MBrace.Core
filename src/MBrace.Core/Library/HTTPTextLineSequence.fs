@@ -13,19 +13,19 @@ open MBrace.Store
 open MBrace.Store.Internals
 
 /// Partitionable implementation of HTTP file line reader
-[<DataContract>]
+[<Serializable>]
 type HTTPTextLineSequence(url : string, ?encoding : Encoding, ?deserializer : (Stream -> seq<string>)) =
     
     let getSize = local {
-            use stream = new PartialHTTPStream(url)
-            return stream.Length
+        use stream = new PartialHTTPStream(url)
+        return stream.Length
     }
 
     let toEnumerable = local {
-            let stream = new PartialHTTPStream(url)
-            match deserializer with
-            | Some deserializer -> return deserializer stream
-            | None -> return TextReaders.ReadLines(stream, ?encoding = encoding)
+        let stream = new PartialHTTPStream(url)
+        match deserializer with
+        | Some deserializer -> return deserializer stream
+        | None -> return TextReaders.ReadLines(stream, ?encoding = encoding)
     }
 
     interface ICloudCollection<string> with
@@ -55,7 +55,6 @@ type HTTPTextLineSequence(url : string, ?encoding : Encoding, ?deserializer : (S
                 let! lines = toEnumerable 
                 let liness = Array.splitWeighted weights (lines |> Seq.toArray)
                 return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> ICloudCollection<_>)
-                
             else
                 return mkRangedSeqs weights
         }

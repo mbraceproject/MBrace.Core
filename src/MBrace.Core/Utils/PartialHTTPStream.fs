@@ -31,8 +31,10 @@ type PartialHTTPStream(url : string) =
         | None -> 
                 let request = HttpWebRequest.CreateHttp(url)
                 request.Method <- "HEAD"
-                let contentLength = request.GetResponse().ContentLength
+                use response = request.GetResponse()
+                let contentLength = response.ContentLength
                 length <- Some contentLength 
+                
                 contentLength
 
     override self.Position 
