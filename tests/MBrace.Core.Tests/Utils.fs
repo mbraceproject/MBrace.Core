@@ -8,6 +8,7 @@ open System.Threading
 
 open NUnit.Framework
 
+open MBrace.Core
 open MBrace.Core.Internals
 
 [<AutoOpen>]
@@ -95,7 +96,7 @@ module Utils =
             member __.Reset () = check () ; e.Reset()
             
     [<AutoSerializable(true)>]
-    type DisposableSeq<'T> (ts : seq<'T>) =
+    type internal DisposableSeq<'T> (ts : seq<'T>) =
         let isDisposed = ref false
 
         member __.IsDisposed = !isDisposed
@@ -104,4 +105,16 @@ module Utils =
             member __.GetEnumerator() = new DisposableEnumerable<'T>(isDisposed, ts) :> IEnumerator<'T>
             member __.GetEnumerator() = new DisposableEnumerable<'T>(isDisposed, ts) :> System.Collections.IEnumerator
 
-    let dseq ts = new DisposableSeq<'T>(ts)
+    let internal dseq ts = new DisposableSeq<'T>(ts)
+
+    type internal InMemoryCancellationToken(token : CancellationToken) =
+        new () = new InMemoryCancellationToken(new CancellationToken(canceled = false))
+        interface ICloudCancellationToken with
+            member x.IsCancellationRequested: bool = token.IsCancellationRequested
+            member x.LocalToken: CancellationToken = token
+
+    type internal InMemoryCancellationTokenSource(source : CancellationTokenSource) =
+        new () = new InMemoryCancellationTokenSource(new CancellationTokenSource())
+        interface ICloudCancellationTokenSource with
+            member x.Cancel(): unit = source.Cancel()
+            member x.Token: ICloudCancellationToken = new InMemoryCancellationToken(source.Token) :> _

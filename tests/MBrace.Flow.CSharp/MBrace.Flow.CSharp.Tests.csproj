@@ -64,10 +64,6 @@
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
       <Name>MBrace.Flow</Name>
     </ProjectReference>
-    <ProjectReference Include="..\MBrace.Flow.Tests\MBrace.Flow.Tests.fsproj">
-      <Project>{7d520bca-f23a-498d-a49b-8e42ab6c60f3}</Project>
-      <Name>MBrace.Flow.Tests</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

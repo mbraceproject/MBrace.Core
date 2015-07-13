@@ -2,9 +2,11 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Core.Tests
+
 open MBrace.Runtime.Vagabond
+open MBrace.Runtime.InMemoryRuntime
 open MBrace.Runtime.Store
-open MBrace.Flow.Tests
 
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
@@ -15,9 +17,9 @@ type ``InMemory CloudFlow tests`` () =
     let fileStore = FileSystemStore.CreateUniqueLocal()
     let serializer = new FsPicklerBinaryStoreSerializer()
     let fsConfig = CloudFileStoreConfiguration.Create(fileStore)
-    let imem = MBrace.Client.LocalRuntime.Create(fileConfig = fsConfig, serializer = serializer)
+    let imem = InMemoryRuntime.Create(fileConfig = fsConfig, serializer = serializer, memoryMode = MemoryEmulation.Shared)
 
-    override __.Run(workflow : Cloud<'T>) = imem.Run workflow
+    override __.RunRemote(workflow : Cloud<'T>) = imem.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = imem.Run workflow
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

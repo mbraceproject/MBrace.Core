@@ -4,34 +4,23 @@ open System
 
 open MBrace.Core
 open MBrace.Library
-open MBrace.Client
 
 open NUnit.Framework
 
 [<TestFixture; AbstractClass>]
 type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
-    let runRemote wf = self.Run wf 
+    let runRemote wf = self.RunRemote wf 
     let runLocally wf = self.RunLocally wf
 
     let runProtected wf = 
-        try self.Run wf |> Choice1Of2
+        try self.RunRemote wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
-    abstract Run : Cloud<'T> -> 'T
+    abstract RunRemote : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
-    /// Local store client instance
-    abstract QueueClient : CloudQueueClient
-
-
-    [<Test>]
-    member __.``Local StoreClient`` () =
-        let cqc = __.QueueClient
-        let cq = cqc.Create()
-        cqc.Enqueue (cq, 42)
-        cqc.Dequeue cq |> shouldEqual 42
 
     [<Test>]
     member __.``Queues: simple send/receive`` () =

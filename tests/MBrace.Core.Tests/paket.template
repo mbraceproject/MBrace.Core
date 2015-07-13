@@ -19,9 +19,4 @@ dependencies
     MBrace.Core CURRENTVERSION
     MBrace.Flow CURRENTVERSION
 references
-	MBrace.Core.Tests.dll
-	MBrace.Flow.Tests.dll
-files
-	../../bin/MBrace.Flow.Tests.dll ==> lib/net45
-	../../bin/MBrace.Flow.Tests.xml ==> lib/net45
-	../../bin/MBrace.Flow.Tests.pdb ==> lib/net45
+    MBrace.Core.Tests.dll

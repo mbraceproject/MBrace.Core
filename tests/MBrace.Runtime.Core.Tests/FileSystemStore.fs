@@ -4,27 +4,18 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Core.Internals.InMemoryRuntime
 open MBrace.Core.Tests
+
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
-
-#nowarn "044"
-
-[<AutoOpen>]
-module private Config =
-    do VagabondRegistry.Initialize(throwOnError = false)
-
-    let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-
-    let fsStore = FileSystemStore.CreateSharedLocal()
-    let serializer = new FsPicklerBinaryStoreSerializer()
-    let fsConfig = CloudFileStoreConfiguration.Create(fsStore)
+open MBrace.Runtime.InMemoryRuntime
 
 [<TestFixture>]
-type ``FileSystemStore Tests`` () =
-    inherit  ``Local FileStore Tests``(fsConfig, serializer)
+type ``Local FileSystemStore Tests`` () =
+    inherit ``CloudFileStore Tests``(Config.fsStore, Config.serializer, parallelismFactor = 100)
 
-[<TestFixture>]
-type ``FileSystemStore Tests (cached)`` () =
-    inherit  ``Local FileStore Tests``(fsConfig, serializer)
+    let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
+    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig)
+
+    override __.RunRemote(wf : Cloud<'T>) = imem.Run wf
+    override __.RunLocally(wf : Cloud<'T>) = imem.Run wf

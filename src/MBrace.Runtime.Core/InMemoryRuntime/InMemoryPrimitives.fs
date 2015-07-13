@@ -23,7 +23,7 @@ type MemoryEmulation =
     | Copied                = 2
 
 [<NoEquality; NoComparison; AutoSerializable(false)>]
-type EmulatedValue<'T> =
+type private EmulatedValue<'T> =
     | Shared of 'T
     | Cloned of 'T
 with
@@ -33,7 +33,7 @@ with
         | Cloned t -> FsPickler.Clone t
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module MemoryEmulation =
+module private MemoryEmulation =
 
     let isShared (mode : MemoryEmulation) =
         match mode with
@@ -41,7 +41,7 @@ module MemoryEmulation =
         | MemoryEmulation.Copied -> false
         | _ -> true
 
-module EmulatedValue =
+module private EmulatedValue =
 
     /// Performs cloning of value based on emulation semantics
     let clone (mode : MemoryEmulation) (value : 'T) : 'T =

@@ -76,11 +76,6 @@
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\MBrace.Flow.Tests\MBrace.Flow.Tests.fsproj">
-      <Name>MBrace.Flow.Tests</Name>
-      <Project>{7d520bca-f23a-498d-a49b-8e42ab6c60f3}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">

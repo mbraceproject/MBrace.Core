@@ -11,7 +11,6 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
 open MBrace.Library.CloudCollectionUtils
-open MBrace.Client
 
 [<TestFixture>]
 [<Category("CollectionPartitioner")>]

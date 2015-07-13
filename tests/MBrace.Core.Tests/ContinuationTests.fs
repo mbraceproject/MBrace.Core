@@ -8,7 +8,6 @@ open NUnit.Framework
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
-open MBrace.Client
 
 #nowarn "443"
 #nowarn "444"
@@ -24,7 +23,7 @@ module ``Continuation Tests`` =
 
     let run (wf : Cloud<'T>) = Choice.protect(fun () -> Cloud.RunSynchronously(wf, ResourceRegistry.Empty, new InMemoryCancellationToken()))
     let runCts (wf : ICloudCancellationTokenSource -> #Cloud<'T>) =
-        let cts = new InMemoryCancellationTokenSource ()
+        let cts = new InMemoryCancellationTokenSource () :> ICloudCancellationTokenSource
         Choice.protect(fun () -> Cloud.RunSynchronously(wf cts, ResourceRegistry.Empty, cts.Token))
 
     [<Test>]
