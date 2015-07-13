@@ -278,7 +278,7 @@ type ``CloudFlow tests`` () as self =
                       "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-coriolanus-24.txt";
                       "http://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt" |]
         let f(count : int) =
-            let url = urls.[urls.Length % abs(count + 1)]
+            let url = urls.[abs(count) % urls.Length]
             let client = new WebClient()
             use stream = client.OpenRead(url)
             use reader = new StreamReader(stream)
