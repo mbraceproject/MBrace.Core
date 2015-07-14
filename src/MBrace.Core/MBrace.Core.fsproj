@@ -65,6 +65,7 @@
     <Compile Include="Utils\ExceptionDispatchInfo.fs" />
     <Compile Include="Utils\TextReaders.fs" />
     <Compile Include="Utils\Enumerable.fs" />
+    <Compile Include="Utils\SeekableHTTPStream.fs" />
     <Compile Include="Continuation\ResourceRegistry.fs" />
     <Compile Include="Continuation\CancellationToken.fs" />
     <Compile Include="Continuation\ExecutionContext.fs" />

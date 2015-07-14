@@ -49,7 +49,7 @@ type ICloudValue<'T> =
 type ICloudArray<'T> =
     inherit ICloudValue<'T []>
     inherit ICloudCollection<'T>
-    // Array element count
+    /// Array element count
     abstract Length : int
 
 namespace MBrace.Core.Internals

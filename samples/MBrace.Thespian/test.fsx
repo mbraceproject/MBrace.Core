@@ -23,6 +23,13 @@ let w = runtime.Workers
 runtime.ShowProcessInfo()
 runtime.ShowWorkerInfo()
 
+let proc = 
+    CloudFlow.OfHTTPFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
+    |> CloudFlow.length
+    |> runtime.CreateProcess
+
+proc.AwaitResult() |> Async.RunSynchronously
+
 #time "on"
 
 // vagabond data initialization test 1.

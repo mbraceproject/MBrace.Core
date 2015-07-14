@@ -13,6 +13,7 @@ open Nessos.Streams.Internals
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
+open MBrace.Library.CloudCollectionUtils
 
 open MBrace.Flow
 open MBrace.Flow.Internals
@@ -203,7 +204,7 @@ type CloudFlow =
     /// <summary>
     ///     Constructs a CloudFlow of lines from a single large text file.
     /// </summary>
-    /// <param name="path">The path to the text file.</param>
+    /// <param name="url">The path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
     static member OfCloudFileByLine (path : string, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
@@ -211,6 +212,43 @@ type CloudFlow =
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let! cseq = FilePersistedSequence.FromLineSeparatedTextFile(path, ?encoding = encoding, force = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
+                return! collectionStream.WithEvaluators collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow of lines from a single HTTP text file.
+    /// </summary>
+    /// <param name="url">Url path to the text file.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
+    static member OfHTTPFileByLine (url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists)
+                let collectionStream = CloudFlow.OfCloudCollection httpCollection
+                return! collectionStream.WithEvaluators collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a CloudFlow of lines from a collection of HTTP text files.
+    /// </summary>
+    /// <param name="url">Url paths to the text file.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
+    static member OfHTTPFilesByLine (urls : seq<string>, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+                let! httpCollections = 
+                    urls
+                    |> Seq.map (fun uri ->  CloudCollection.OfHttpFile(uri, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists))
+                    |> Async.Parallel
+
+                let collection = CloudCollection.Concat httpCollections
+                let collectionStream = CloudFlow.OfCloudCollection collection
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
         }

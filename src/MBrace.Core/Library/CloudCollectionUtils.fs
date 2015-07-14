@@ -2,6 +2,9 @@
 module MBrace.Library.CloudCollectionUtils
 
 open System
+open System.Text
+open System.IO
+open System.Net
 open System.Collections.Generic
 open System.Runtime.Serialization
 
@@ -70,6 +73,64 @@ type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
                 }
             }
 
+
+/// Partitionable HTTP line reader implementation
+[<Sealed; DataContract>]
+type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (int64 * int64)) =
+    
+    [<DataMember(Name = "URL")>]
+    let url = url
+    [<DataMember(Name = "Encoding")>]
+    let encoding = encoding
+    [<DataMember(Name = "Range")>]
+    let range = range
+    
+    let getSize () = async {
+        match range with
+        | Some (s,e) -> return e - s + 1L
+        | None ->
+            // TODO: make asynchronous
+            use stream = new SeekableHTTPStream(url)
+            return stream.Length
+    }
+
+    let toEnumerable () = async {
+        let stream = new SeekableHTTPStream(url)
+        match range with
+        | Some (s,e) -> return TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
+        | None -> return TextReaders.ReadLines(stream, ?encoding = encoding)
+    }
+
+    interface ICloudCollection<string> with
+        member c.IsKnownCount = false
+        member c.IsKnownSize = true
+        member c.IsMaterialized = false
+        member c.GetCount () = raise <| new NotSupportedException()
+        member c.GetSize () = getSize ()
+        member c.ToEnumerable() = toEnumerable ()
+
+    interface IPartitionableCollection<string> with
+        member cs.GetPartitions(weights : int []) = async {
+            let! size = getSize ()
+
+            let mkRangedSeqs (weights : int[]) =
+                let mkRangedSeq rangeOpt =
+                    match rangeOpt with
+                    | Some(s,e) when e >= s ->
+                        new HTTPTextCollection(url, ?encoding = encoding, ?range = rangeOpt) :> ICloudCollection<string>
+                    | _ -> new SequenceCollection<string>([||]) :> _
+
+                let partitions = Array.splitWeightedRange weights 0L size
+                Array.map mkRangedSeq partitions
+
+            if size < 512L * 1024L then
+                let! lines = toEnumerable ()
+                let liness = Array.splitWeighted weights (lines |> Seq.toArray)
+                return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> ICloudCollection<_>)
+            else
+                return mkRangedSeqs weights
+        }
+
 type CloudCollection private () =
 
     /// <summary>
@@ -79,12 +140,32 @@ type CloudCollection private () =
     static member OfSeq(sequence : seq<'T>) =
         new SequenceCollection<'T>(sequence) :> ICloudCollection<'T>
 
+
+    /// <summary>
+    ///     Creates a partitionable CloudCollection instance based on given http url.
+    /// </summary>
+    /// <param name="url">Url to HTTP resource.</param>
+    /// <param name="encoding">Text encoding used for http resource.</param>
+    /// <param name="ensureThatFileExists">Ensure that file exists before returning the collection. Defaults to false.</param>
+    static member OfHttpFile(url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) = async {
+        if defaultArg ensureThatFileExists false then
+            // sanity check; ensure that file exists
+            let webRequest = WebRequest.Create(url)
+            webRequest.Method <- "HEAD"
+            let task = webRequest.GetResponseAsync()
+            use! response = task.AwaitResultAsync()
+            ignore response
+
+        return HTTPTextCollection(url, ?encoding = encoding)
+    }
+
     /// <summary>
     ///     Concatenates a collection of CloudCollections into a single, partitioned entity.
     /// </summary>
     /// <param name="partitions">Constituent partitions.</param>
-    static member Concat(partitions : seq<ICloudCollection<'T>>) =
-        new ConcatenatedCollection<'T>(Seq.toArray partitions) :> IPartitionedCollection<'T>
+    static member Concat(partitions : seq<#ICloudCollection<'T>>) : IPartitionedCollection<'T> =
+        let partitions = partitions |> Seq.map (fun p -> p :> ICloudCollection<'T>) |> Seq.toArray
+        new ConcatenatedCollection<'T>(partitions) :> IPartitionedCollection<'T>
 
     /// <summary>
     ///     Traverses provided cloud collections for partitions,
