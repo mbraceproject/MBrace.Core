@@ -59,14 +59,17 @@ open MBrace.Core
 /// Cloud Value provider implementation.
 type ICloudValueProvider =
 
-    /// Implementation name
+    /// Implementation name.
     abstract Name : string
 
-    /// CloudValue implementation instance identifier
+    /// CloudValue implementation instance identifier.
     abstract Id : string
 
-    /// Default Storage level used by Cloud Value implementation
+    /// Default Storage level used by Cloud Value implementation.
     abstract DefaultStorageLevel : StorageLevel
+
+    /// Checks if provided storage level is supported by implementation.
+    abstract IsSupportedStorageLevel : level:StorageLevel -> bool
 
     /// <summary>
     ///     Initializes a CloudValue with supplied payload.
@@ -115,6 +118,16 @@ type CloudValue =
     static member DefaultStorageLevel = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         return provider.DefaultStorageLevel
+    }
+
+    /// <summary>
+    ///     Checks if provided storage level is supported by the current
+    ///     CloudValue implementation.
+    /// </summary>
+    /// <param name="storageLevel">Storage level to be checked.</param>
+    static member IsSupportedStorageLevel (storageLevel : StorageLevel) : Local<bool> = local {
+        let! provider = Cloud.GetResource<ICloudValueProvider> ()
+        return provider.IsSupportedStorageLevel storageLevel    
     }
     
     /// <summary>

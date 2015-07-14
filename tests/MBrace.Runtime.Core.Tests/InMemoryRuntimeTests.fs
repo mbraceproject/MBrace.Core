@@ -83,3 +83,13 @@ type ``InMemory CloudDictionary Tests`` () =
     override __.IsInMemoryFixture = true
     override __.RunRemote(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow
+
+type ``InMemory CloudFlow tests`` () =
+    inherit ``CloudFlow tests`` ()
+
+    let imem = InMemoryRuntime.Create(fileConfig = Config.fsConfig, serializer = Config.serializer, memoryMode = MemoryEmulation.Shared)
+
+    override __.RunRemote(workflow : Cloud<'T>) = imem.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = imem.Run workflow
+    override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
+    override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

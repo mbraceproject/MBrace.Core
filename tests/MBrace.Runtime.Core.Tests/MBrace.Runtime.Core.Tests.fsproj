@@ -52,7 +52,6 @@
     <Compile Include="Config.fs" />
     <Compile Include="FileSystemStore.fs" />
     <Compile Include="InMemoryRuntimeTests.fs" />
-    <Compile Include="InMemoryFlowTests.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>

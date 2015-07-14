@@ -11,7 +11,7 @@ open System.Net
 type SeekableHTTPStream(url : string) =
     inherit Stream()
     let cacheLength = 1024L * 1024L
-    let noDataAvaiable = 0
+    let noDataAvailable = 0
     let mutable stream = Unchecked.defaultof<MemoryStream>
     let mutable currentChunkNumber = -1L
     let mutable length : int64 option = None
@@ -20,7 +20,7 @@ type SeekableHTTPStream(url : string) =
     member self.Url = url
 
     member private self.EnsureNotDisposed() = 
-        if isDisposed then raise <| new ObjectDisposedException("PartialHTTPStream")
+        if isDisposed then raise <| new ObjectDisposedException("SeekableHTTPStream")
     
 
     override self.CanRead = self.EnsureNotDisposed(); true
@@ -113,7 +113,7 @@ type SeekableHTTPStream(url : string) =
             self.ReadNextChunk()
 
         if self.Position >= self.Length then 
-            noDataAvaiable
+            noDataAvailable
 
         else 
             if self.Position + int64 count > self.Length then
@@ -124,7 +124,7 @@ type SeekableHTTPStream(url : string) =
             let mutable totalBytesRead = bytesRead
             count <- count - bytesRead
 
-            while count > noDataAvaiable do
+            while count > noDataAvailable do
                 self.ReadNextChunk()
                 offset <- offset + bytesRead
                 bytesRead <- stream.Read(buffer, offset, count)

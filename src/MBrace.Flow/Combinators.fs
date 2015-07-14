@@ -222,7 +222,7 @@ type CloudFlow =
     /// <param name="url">Url path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
     /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
-    static member OfHTTPFileByLine (url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+    static member OfHttpFileByLine (url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
@@ -238,7 +238,7 @@ type CloudFlow =
     /// <param name="url">Url paths to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
     /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
-    static member OfHTTPFilesByLine (urls : seq<string>, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+    static member OfHttpFilesByLine (urls : seq<string>, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {

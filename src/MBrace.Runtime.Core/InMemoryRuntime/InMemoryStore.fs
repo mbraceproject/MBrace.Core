@@ -65,6 +65,10 @@ type InMemoryValueProvider () =
                 array.Clear()
                 size <- 0L
 
+        if array.Count > 0 then
+            accumulated.Add(array.ToArray())
+            array.Clear()
+
         accumulated :> seq<'T []>
 
     let computeHash (payload : 'T) =
@@ -96,6 +100,7 @@ type InMemoryValueProvider () =
         member x.Id: string = id
         member x.Name: string = "In-Memory Value Provider"
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.MemoryOnly
+        member x.IsSupportedStorageLevel (level : StorageLevel) = StorageLevel.MemoryOnly = level
         member x.CreateCloudValue(payload: 'T, _ : StorageLevel): Async<ICloudValue<'T>> = async {
             return createValue payload
         }

@@ -15,8 +15,6 @@ open MBrace.Library
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type PersistedCloudFlow<'T> internal (partitions : ICloudArray<'T> []) =
 
-    [<DataMember(Name = "StorageLevel")>]
-    let storageLevel = partitions |> Array.fold (fun s cv -> s ||| cv.StorageLevel) StorageLevel.None
     [<DataMember(Name = "Partitions")>]
     let partitions = partitions
 
@@ -26,7 +24,7 @@ type PersistedCloudFlow<'T> internal (partitions : ICloudArray<'T> []) =
     member __.Item with get i = partitions.[i]
 
     /// Caching level for persisted data
-    member __.StorageLevel = storageLevel
+    member __.StorageLevel = partitions |> Array.fold (fun s cv -> s ||| cv.StorageLevel) StorageLevel.None
 
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.Partitions = partitions
@@ -101,7 +99,7 @@ type internal PersistedCloudFlow private () =
     ///     Persists given flow to store.
     /// </summary>
     /// <param name="flow">Input CloudFlow.</param>
-    /// <param name="flow">StorageLevel to be used.</param>
+    /// <param name="flow">StorageLevel to be used. Defaults to implementation default.</param>
     static member Persist (flow : CloudFlow<'T>, ?storageLevel : StorageLevel) : Cloud<PersistedCloudFlow<'T>> = cloud {
         let! defaultLevel = CloudValue.DefaultStorageLevel
         let storageLevel = defaultArg storageLevel defaultLevel

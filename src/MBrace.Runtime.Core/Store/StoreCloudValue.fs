@@ -243,6 +243,7 @@ type StoreCloudValueProvider private (config : StoreCloudValueConfiguration) =
         member x.Id: string = sprintf "StoreCloudValue [%s] at %s." config.FileStore.Id config.StoreContainer
         member x.Name: string = "StoreCloudValue"
         member x.DefaultStorageLevel = StorageLevel.MemoryAndDisk
+        member x.IsSupportedStorageLevel _ = raise <| new NotImplementedException()
 
         member x.CreatePartitionedArray(_,_,_) = raise <| new NotImplementedException()
 

@@ -92,7 +92,7 @@ type private StreamLineEnumerator(stream : Stream, ?encoding : Encoding) =
             | null -> false
             | line -> currentLine <- line ; true
 
-        member __.Dispose () = stream.Dispose()
+        member __.Dispose () = ()
         member __.Reset () = raise <| new NotSupportedException("LineReader")
 
 type private RangedStreamLineEnumerator (stream : Stream, beginPos : int64, endPos : int64, ?encoding : Encoding) =
@@ -109,10 +109,11 @@ type private RangedStreamLineEnumerator (stream : Stream, beginPos : int64, endP
             let line = reader.ReadLine()
             if line = null then
                 false
+
             // include line if:
             //   1. is the first line of the starting segment of a stream.
             //   2. is any successive line that fits within the stream boundary.
-            else if beginPos = 0L || bytesRead > 0L then
+            elif beginPos = 0L || bytesRead > 0L then
                 currentLine <- line
                 true
             else
@@ -124,7 +125,7 @@ type private RangedStreamLineEnumerator (stream : Stream, beginPos : int64, endP
         member __.Current = currentLine
         member __.Current = box currentLine
         member __.MoveNext () = readNext ()
-        member __.Dispose () = stream.Dispose()
+        member __.Dispose () = ()
         member __.Reset () = raise <| new NotSupportedException("StreamLineReader")
 
 type private StreamLineEnumerable(stream : Stream, ?encoding : Encoding) =

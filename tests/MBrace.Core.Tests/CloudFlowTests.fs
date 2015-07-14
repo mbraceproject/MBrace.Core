@@ -4,6 +4,7 @@
 open System
 open System.Linq
 open System.Collections.Generic
+open System.Net
 open System.IO
 open FsCheck
 open NUnit.Framework
@@ -12,7 +13,7 @@ open MBrace.Core
 open System.Text
 
 // Helper type
-type private Separator = N | R | RN
+type Separator = N | R | RN
 
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
@@ -28,38 +29,39 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``1. PersistedCloudFlow : simple persist`` () =
-        let inputs = [|1L .. 1000000L|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> runRemote
-        let workers = Cloud.GetWorkerCount() |> runRemote
-        vector.StorageLevel |> shouldEqual StorageLevel.DiskOnly
-        vector.PartitionCount |> shouldEqual workers
-        cloud { return vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
-        vector |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
+        if CloudValue.IsSupportedStorageLevel StorageLevel.DiskOnly |> runLocally then
+            let inputs = [|1L .. 1000000L|]
+            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> runRemote
+            let workers = Cloud.GetWorkerCount() |> runRemote
+            persisted.StorageLevel |> shouldEqual StorageLevel.DiskOnly
+            persisted.PartitionCount |> shouldEqual workers
+            cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
+            persisted |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : caching`` () =
         let inputs = [|1L .. 1000000L|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runRemote
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runRemote
         let workers = Cloud.GetWorkerCount() |> runRemote
-        vector.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
-        vector.PartitionCount |> shouldEqual workers
-        cloud { return vector.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
-        vector |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
+        persisted.StorageLevel |> shouldEqual StorageLevel.MemoryOnly
+        persisted.PartitionCount |> shouldEqual workers
+        cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
+        persisted |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : disposal`` () =
         let inputs = [|1 .. 1000000|]
-        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> runRemote
-        vector |> Cloud.Dispose |> runRemote
-        shouldfail(fun () -> cloud { return vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> runRemote
+        persisted |> Cloud.Dispose |> runRemote
+        shouldfail(fun () -> cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
 //    [<Test>]
 //    member __.``1. PersistedCloudFlow : merging`` () =
 //        let inputs = [|1 .. 1000000|]
 //        let N = 10
-//        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
-//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> vector))
-//        merged.PartitionCount |> shouldEqual (N * vector.PartitionCount)
+//        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
+//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
+//        merged.PartitionCount |> shouldEqual (N * persisted.PartitionCount)
 //        merged.IsCachingEnabled |> shouldEqual false
 //        merged.Partitions
 //        |> Seq.groupBy (fun p -> p.Path)
@@ -68,7 +70,7 @@ type ``CloudFlow tests`` () as self =
 //        |> shouldEqual true
 //
 //        for i = 0 to merged.PartitionCount - 1 do
-//            merged.[i].Path |> shouldEqual (vector.[i % vector.PartitionCount].Path)
+//            merged.[i].Path |> shouldEqual (persisted.[i % persisted.PartitionCount].Path)
 //
 //        cloud { return! merged.ToEnumerable() }
 //        |> runLocally
@@ -79,10 +81,10 @@ type ``CloudFlow tests`` () as self =
 //    member __.``1. PersistedCloudFlow : merged disposal`` () =
 //        let inputs = [|1 .. 1000000|]
 //        let N = 10
-//        let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
-//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> vector))
+//        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
+//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
 //        merged |> Cloud.Dispose |> run
-//        shouldfail(fun () -> cloud { return! vector.ToEnumerable() } |> runLocally |> Seq.iter ignore)
+//        shouldfail(fun () -> cloud { return! persisted.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
     // #region Streams tests
 
@@ -285,6 +287,34 @@ type ``CloudFlow tests`` () as self =
                         |> Set.ofSeq
 
             Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : OfHttpFileByLine`` () =
+        let urls = [| "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-antony-23.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-as-12.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-comedy-7.txt";
+                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-coriolanus-24.txt";
+                      "http://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt" |]
+        let f(count : int) =
+            let url = urls.[abs(count) % urls.Length]
+            let client = new WebClient()
+            use stream = client.OpenRead(url)
+            use reader = new StreamReader(stream)
+
+            let mutable line = reader.ReadLine()
+            let mutable counter = 0
+            while (line <> null) do
+                counter <- counter + 1
+                line <- reader.ReadLine()
+
+
+            let x = CloudFlow.OfHttpFileByLine url
+                    |> CloudFlow.length
+                    |> runRemote
+                            
+            Assert.AreEqual(counter, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
 
