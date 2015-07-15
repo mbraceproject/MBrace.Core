@@ -12,10 +12,13 @@ open MBrace.Runtime.InMemoryRuntime
 
 [<TestFixture>]
 type ``Local FileSystemStore Tests`` () =
-    inherit ``CloudFileStore Tests``(Config.fsStore, Config.serializer, parallelismFactor = 100)
+    inherit ``CloudFileStore Tests``(parallelismFactor = 100)
 
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
-    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, memoryMode = MemoryEmulation.Shared)
+    let serializer = Config.serializer
+    let imem = InMemoryRuntime.Create(serializer = serializer, fileConfig = fsConfig, memoryMode = MemoryEmulation.Shared)
 
+    override __.FileStore = fsConfig.FileStore
+    override __.Serializer = serializer :> _
     override __.RunRemote(wf : Cloud<'T>) = imem.Run wf
     override __.RunLocally(wf : Cloud<'T>) = imem.Run wf

@@ -122,6 +122,8 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.GetWorkerInfo () = WorkerReporter.Report(__.Workers, title = "Workers", borders = false)
     /// Prints a report on all workers on the runtime to stdout
     member __.ShowWorkerInfo () = System.Console.WriteLine(__.GetWorkerInfo())
+    /// Resolves runtime resource of given type
+    member __.GetResource<'TResource> () : 'TResource = runtime.ResourceRegistry.Resolve<'TResource> ()
 
     /// <summary>
     ///     Run workflow as local, in-memory computation.

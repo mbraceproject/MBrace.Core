@@ -13,17 +13,22 @@ open MBrace.Library
 
 /// Cloud file store test suite
 [<TestFixture; AbstractClass>]
-type ``CloudFileStore Tests`` (fileStore : ICloudFileStore, serializer : ISerializer, parallelismFactor : int) as self =
+type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     let runRemote wf = self.RunRemote wf 
     let runLocally wf = self.RunLocally wf
 
-    let testDirectory = fileStore.GetRandomDirectoryName()
+    let testDirectory = lazy(self.FileStore.GetRandomDirectoryName())
     let runSync wf = Async.RunSync wf
 
     let runProtected wf = 
         try self.RunRemote wf |> Choice1Of2
         with e -> Choice2Of2 e
+
+    /// FileStore implementation under test
+    abstract FileStore : ICloudFileStore
+    /// Serializer implementation under test
+    abstract Serializer : ISerializer
 
     /// Run workflow in the runtime under test
     abstract RunRemote : Cloud<'T> -> 'T
@@ -31,166 +36,166 @@ type ``CloudFileStore Tests`` (fileStore : ICloudFileStore, serializer : ISerial
     abstract RunLocally : Cloud<'T> -> 'T
 
     [<TestFixtureTearDown>]
-    member test.``FileStore Cleanup`` () =
-        if fileStore.DirectoryExists testDirectory |> runSync then
-            fileStore.DeleteDirectory(testDirectory, recursiveDelete = true) |> runSync
+    member self.``FileStore Cleanup`` () =
+        if self.FileStore.DirectoryExists testDirectory.Value |> runSync then
+            self.FileStore.DeleteDirectory(testDirectory.Value, recursiveDelete = true) |> runSync
 
     //
     //  Section 1: Local raw fileStore tests
     //
 
     [<Test>]
-    member __.``1. FileStore : UUID is not null or empty.`` () = 
-        String.IsNullOrEmpty fileStore.Id
+    member self.``1. FileStore : UUID is not null or empty.`` () = 
+        String.IsNullOrEmpty self.FileStore.Id
         |> shouldEqual false
 
     [<Test>]
-    member __.``1. FileStore : Store instance should be serializable`` () =
-        let fileStore' = serializer.Clone fileStore
-        fileStore'.Id |> shouldEqual fileStore.Id
-        fileStore'.Name |> shouldEqual fileStore.Name
+    member self.``1. FileStore : Store instance should be serializable`` () =
+        let fileStore' = self.Serializer.Clone self.FileStore
+        fileStore'.Id |> shouldEqual self.FileStore.Id
+        fileStore'.Name |> shouldEqual self.FileStore.Name
 
         // check that the cloned instance accesses the same store
-        let file = fileStore.GetRandomFilePath testDirectory
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
         do
-            use stream = fileStore.BeginWrite file |> runSync
+            use stream = self.FileStore.BeginWrite file |> runSync
             for i = 1 to 100 do stream.WriteByte(byte i)
 
         fileStore'.FileExists file |> runSync |> shouldEqual true
         fileStore'.DeleteFile file |> runSync
 
-        fileStore.FileExists file |> runSync |> shouldEqual false
+        self.FileStore.FileExists file |> runSync |> shouldEqual false
 
     [<Test>]
-    member __.``1. FileStore : Create and delete directory.`` () =
-        let dir = fileStore.GetRandomDirectoryName()
-        fileStore.DirectoryExists dir |> runSync |> shouldEqual false
-        fileStore.CreateDirectory dir |> runSync
-        fileStore.DirectoryExists dir |> runSync |> shouldEqual true
-        fileStore.DeleteDirectory(dir, recursiveDelete = false) |> runSync
-        fileStore.DirectoryExists dir |> runSync |> shouldEqual false
+    member self.``1. FileStore : Create and delete directory.`` () =
+        let dir = self.FileStore.GetRandomDirectoryName()
+        self.FileStore.DirectoryExists dir |> runSync |> shouldEqual false
+        self.FileStore.CreateDirectory dir |> runSync
+        self.FileStore.DirectoryExists dir |> runSync |> shouldEqual true
+        self.FileStore.DeleteDirectory(dir, recursiveDelete = false) |> runSync
+        self.FileStore.DirectoryExists dir |> runSync |> shouldEqual false
 
     [<Test>]
-    member __.``1. FileStore : Get directory`` () =
-        let file = fileStore.GetRandomFilePath testDirectory
-        file |> fileStore.GetDirectoryName |> shouldEqual testDirectory
+    member self.``1. FileStore : Get directory`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
+        file |> self.FileStore.GetDirectoryName |> shouldEqual testDirectory.Value
 
     [<Test>]
-    member __.``1. FileStore : Get file name`` () =
+    member self.``1. FileStore : Get file name`` () =
         let name = "test.txt"
-        let file = fileStore.Combine [|testDirectory ; name |]
-        file |> fileStore.GetDirectoryName |> shouldEqual testDirectory
-        file |> fileStore.GetFileName |> shouldEqual name
+        let file = self.FileStore.Combine [|testDirectory.Value ; name |]
+        file |> self.FileStore.GetDirectoryName |> shouldEqual testDirectory.Value
+        file |> self.FileStore.GetFileName |> shouldEqual name
 
     [<Test>]
     member __.``1. FileStore : Enumerate root directories`` () =
-        let directory = fileStore.GetRandomDirectoryName()
-        fileStore.CreateDirectory directory |> runSync
-        let directories = fileStore.EnumerateRootDirectories() |> runSync
+        let directory = self.FileStore.GetRandomDirectoryName()
+        self.FileStore.CreateDirectory directory |> runSync
+        let directories = self.FileStore.EnumerateRootDirectories() |> runSync
         directories |> Array.exists((=) directory) |> shouldEqual true
-        fileStore.DeleteDirectory(directory, recursiveDelete = false) |> runSync
+        self.FileStore.DeleteDirectory(directory, recursiveDelete = false) |> runSync
 
     [<Test>]
-    member test.``1. FileStore : Create, read and delete a file.`` () = 
-        let file = fileStore.GetRandomFilePath testDirectory
+    member self.``1. FileStore : Create, read and delete a file.`` () = 
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
 
-        fileStore.FileExists file |> runSync |> shouldEqual false
+        self.FileStore.FileExists file |> runSync |> shouldEqual false
 
         // write to file
         do
-            use stream = fileStore.BeginWrite file |> runSync
+            use stream = self.FileStore.BeginWrite file |> runSync
             for i = 1 to 100 do stream.WriteByte(byte i)
 
-        fileStore.FileExists file |> runSync |> shouldEqual true
-        fileStore.EnumerateFiles testDirectory |> runSync |> Array.exists ((=) file) |> shouldEqual true
+        self.FileStore.FileExists file |> runSync |> shouldEqual true
+        self.FileStore.EnumerateFiles testDirectory.Value |> runSync |> Array.exists ((=) file) |> shouldEqual true
 
         // read from file
         do
-            use stream = fileStore.BeginRead file |> runSync
+            use stream = self.FileStore.BeginRead file |> runSync
             for i = 1 to 100 do
                 stream.ReadByte() |> shouldEqual i
 
-        fileStore.DeleteFile file |> runSync
+        self.FileStore.DeleteFile file |> runSync
 
-        fileStore.FileExists file |> runSync |> shouldEqual false
+        self.FileStore.FileExists file |> runSync |> shouldEqual false
 
     [<Test>]
-    member __.``1. FileStore : simple etag verification`` () =
-        let file = fileStore.GetRandomFilePath testDirectory
+    member self.``1. FileStore : simple etag verification`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
 
-        fileStore.TryGetETag file |> runSync |> shouldEqual None
+        self.FileStore.TryGetETag file |> runSync |> shouldEqual None
 
         // write to file
-        let writeEtag,_ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let writeEtag,_ = self.FileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
         // get etag from file
-        fileStore.TryGetETag file |> runSync |> shouldEqual (Some writeEtag)
+        self.FileStore.TryGetETag file |> runSync |> shouldEqual (Some writeEtag)
 
-        fileStore.DeleteFile file |> runSync
+        self.FileStore.DeleteFile file |> runSync
 
-        fileStore.TryGetETag file |> runSync |> shouldEqual None
+        self.FileStore.TryGetETag file |> runSync |> shouldEqual None
 
     [<Test>]
-    member __.``1. FileStore : etag should change after file overwritten`` () =
-        let file = fileStore.GetRandomFilePath testDirectory
+    member self.``1. FileStore : etag should change after file overwritten`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
 
-        fileStore.TryGetETag file |> runSync |> shouldEqual None
-
-        // write to file
-        let writeEtag,_ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
-
-        fileStore.DeleteFile file |> runSync
+        self.FileStore.TryGetETag file |> runSync |> shouldEqual None
 
         // write to file
-        let writeEtag',_ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 200 do stream.WriteByte(byte i) }) |> runSync
+        let writeEtag,_ = self.FileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+
+        self.FileStore.DeleteFile file |> runSync
+
+        // write to file
+        let writeEtag',_ = self.FileStore.WriteETag(file, fun stream -> async { do for i = 1 to 200 do stream.WriteByte(byte i) }) |> runSync
 
         Assert.AreNotEqual(writeEtag', writeEtag)
 
-        fileStore.DeleteFile file |> runSync
+        self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member __.``1. FileStore : Get byte count`` () =
-        let file = fileStore.GetRandomFilePath testDirectory
+    member self.``1. FileStore : Get byte count`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
         // write to file
-        let _ = fileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
+        let _ = self.FileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
 
-        fileStore.GetFileSize file |> runSync |> shouldEqual 100L
+        self.FileStore.GetFileSize file |> runSync |> shouldEqual 100L
 
-        fileStore.DeleteFile file |> runSync
+        self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member test.``1. FileStore : Create and Read a large file.`` () =
+    member self.``1. FileStore : Create and Read a large file.`` () =
         let data = Array.init (1024 * 1024 * 4) byte
-        let file = fileStore.GetRandomFilePath testDirectory
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
         
         do
-            use stream = fileStore.BeginWrite file |> runSync
+            use stream = self.FileStore.BeginWrite file |> runSync
             stream.Write(data, 0, data.Length)
 
         do
             use m = new MemoryStream()
-            let stream = fileStore.BeginRead file |> runSync
+            let stream = self.FileStore.BeginRead file |> runSync
             use stream = stream
             stream.CopyTo m
             m.ToArray() |> shouldEqual data
         
-        fileStore.DeleteFile file |> runSync
+        self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member test.``1. FileStore : from stream to file and back to stream.`` () =
+    member self.``1. FileStore : from stream to file and back to stream.`` () =
         let data = Array.init (1024 * 1024) byte
-        let file = fileStore.GetRandomFilePath testDirectory
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
         do
             use m = new MemoryStream(data)
-            let _ = fileStore.CopyOfStream(m, file) |> runSync
+            let _ = self.FileStore.CopyOfStream(m, file) |> runSync
             ()
 
         do
             use m = new MemoryStream()
-            let _ = fileStore.CopyToStream(file, m) |> runSync
+            let _ = self.FileStore.CopyToStream(file, m) |> runSync
             m.ToArray() |> shouldEqual data
 
-        fileStore.DeleteFile file |> runSync
+        self.FileStore.DeleteFile file |> runSync
 
     //
     //  Section 2. FileStore via MBrace runtime
