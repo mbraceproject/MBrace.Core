@@ -77,7 +77,7 @@ type private StreamLineReader(stream : Stream, ?encoding : Encoding) =
     /// The total number of bytes read
     member self.BytesRead = numberOfBytesRead
 
-type private StreamLineEnumerator(stream : Stream, ?encoding : Encoding) =
+type private StreamLineEnumerator(stream : Stream, disposeStream : bool, ?encoding : Encoding) =
     let mutable currentLine = Unchecked.defaultof<string>
     let reader = 
         match encoding with 
@@ -92,10 +92,10 @@ type private StreamLineEnumerator(stream : Stream, ?encoding : Encoding) =
             | null -> false
             | line -> currentLine <- line ; true
 
-        member __.Dispose () = ()
+        member __.Dispose () = if disposeStream then stream.Dispose()
         member __.Reset () = raise <| new NotSupportedException("LineReader")
 
-type private RangedStreamLineEnumerator (stream : Stream, beginPos : int64, endPos : int64, ?encoding : Encoding) =
+type private RangedStreamLineEnumerator (stream : Stream, disposeStream : bool, beginPos : int64, endPos : int64, ?encoding : Encoding) =
     let mutable currentLine = Unchecked.defaultof<string>
     do 
         if beginPos > endPos || endPos > stream.Length then raise <| new ArgumentOutOfRangeException("endPos")
@@ -125,19 +125,19 @@ type private RangedStreamLineEnumerator (stream : Stream, beginPos : int64, endP
         member __.Current = currentLine
         member __.Current = box currentLine
         member __.MoveNext () = readNext ()
-        member __.Dispose () = ()
+        member __.Dispose () = if disposeStream then stream.Dispose()
         member __.Reset () = raise <| new NotSupportedException("StreamLineReader")
 
-type private StreamLineEnumerable(stream : Stream, ?encoding : Encoding) =
+type private StreamLineEnumerable(stream : Stream, disposeStream, ?encoding : Encoding) =
     interface IEnumerable<string> with
-        member __.GetEnumerator() = new StreamLineEnumerator(stream, ?encoding = encoding) :> IEnumerator<string>
-        member __.GetEnumerator() = new StreamLineEnumerator(stream, ?encoding = encoding) :> IEnumerator
+        member __.GetEnumerator() = new StreamLineEnumerator(stream, disposeStream, ?encoding = encoding) :> IEnumerator<string>
+        member __.GetEnumerator() = new StreamLineEnumerator(stream, disposeStream, ?encoding = encoding) :> IEnumerator
 
 /// Provides an enumerable implementation that reads text lines within the supplied seek range.
-type private RangedStreamLineEnumerable(stream : Stream, beginPos : int64, endPos : int64, ?encoding : Encoding) =
+type private RangedStreamLineEnumerable(stream : Stream, disposeStream, beginPos : int64, endPos : int64, ?encoding : Encoding) =
     interface IEnumerable<string> with
-        member __.GetEnumerator() = new RangedStreamLineEnumerator(stream, beginPos, endPos, ?encoding = encoding) :> IEnumerator<string>
-        member __.GetEnumerator() = new RangedStreamLineEnumerator(stream, beginPos, endPos, ?encoding = encoding) :> IEnumerator
+        member __.GetEnumerator() = new RangedStreamLineEnumerator(stream, disposeStream, beginPos, endPos, ?encoding = encoding) :> IEnumerator<string>
+        member __.GetEnumerator() = new RangedStreamLineEnumerator(stream, disposeStream, beginPos, endPos, ?encoding = encoding) :> IEnumerator
 
 type TextReaders =
 
@@ -158,9 +158,11 @@ type TextReaders =
     ///     Returns an enumeration of all text lines contained in stream.
     /// </summary>
     /// <param name="stream">Reader stream.</param>
+    /// <param name="disposeStream">Dispose stream on enumerator completion. Defaults to true.</param>
     /// <param name="encoding">Optional encoding for stream.</param>
-    static member ReadLines (stream : Stream, ?encoding : Encoding) : seq<string> = 
-        new StreamLineEnumerable(stream, ?encoding = encoding) :> _
+    static member ReadLines (stream : Stream, ?disposeStream : bool, ?encoding : Encoding) : seq<string> =
+        let disposeStream = defaultArg disposeStream true
+        new StreamLineEnumerable(stream, disposeStream, ?encoding = encoding) :> _
 
     /// <summary>
     ///     Returns an enumeration of all text lines contained in stream within a supplied byte range.
@@ -168,6 +170,8 @@ type TextReaders =
     /// <param name="stream">Reader stream.</param>
     /// <param name="beginPos">Start position for stream.</param>
     /// <param name="endPos">End partition for stream.</param>
+    /// <param name="disposeStream">Dispose stream on enumerator completion. Defaults to true.</param>
     /// <param name="encoding">Optional encoding for stream.</param>
-    static member ReadLinesRanged (stream : Stream, beginPos : int64, endPos : int64, ?encoding : Encoding) : seq<string> =
-        new RangedStreamLineEnumerable(stream, beginPos, endPos, ?encoding = encoding) :> _
+    static member ReadLinesRanged (stream : Stream, beginPos : int64, endPos : int64, ?disposeStream : bool, ?encoding : Encoding) : seq<string> =
+        let disposeStream = defaultArg disposeStream true
+        new RangedStreamLineEnumerable(stream, disposeStream, beginPos, endPos, ?encoding = encoding) :> _

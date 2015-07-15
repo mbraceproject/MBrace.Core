@@ -103,14 +103,14 @@ type FilePersistedSequence<'T> =
 /// Partitionable implementation of cloud file line reader
 [<DataContract>]
 type private TextLineSequence(store : ICloudFileStore, path : string, etag : ETag, ?encoding : Encoding) =
-    inherit FilePersistedSequence<string>(store, path, etag, None, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding)))
+    inherit FilePersistedSequence<string>(store, path, etag, None, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding, disposeStream = true)))
 
     interface IPartitionableCollection<string> with
         member cs.GetPartitions(weights : int []) = async {
             let! size = (cs :> FilePersistedSequence<_>).GetSizeAsync()
 
             let mkRangedSeqs (weights : int[]) =
-                let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
+                let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding, disposeStream = true)
                 let mkRangedSeq rangeOpt =
                     match rangeOpt with
                     | Some(s,e) -> new FilePersistedSequence<string>(store, cs.Path, cs.ETag, None, (getDeserializer s e)) :> ICloudCollection<string>
