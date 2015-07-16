@@ -8,12 +8,11 @@ open MBrace.Core.Internals
 
 /// Storage levels used for caching
 type StorageLevel =
-    | None = 0
-    | MemoryOnly = 1
-    | MemoryAndDisk = 2
-    | MemorySerialized = 4
-    | MemoryAndDiskSerialized = 8
-    | DiskOnly = 16
+    | Memory                    = 1
+    | Disk                      = 2
+    | MemorySerialized          = 4
+    | MemoryAndDisk             = 3
+    | MemoryAndDiskSerialized   = 6
 
 /// Serializable entity that represents an immutable 
 /// .NET object that has been cached by the MBrace runtime.

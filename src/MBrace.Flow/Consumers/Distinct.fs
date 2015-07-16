@@ -50,7 +50,7 @@ module Distinct =
                                                       local {
                                                          let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'T>>()
                                                          for (k, kvs') in kvs do
-                                                             let! pkvs = PersistedCloudFlow.New(kvs', storageLevel = StorageLevel.DiskOnly)
+                                                             let! pkvs = PersistedCloudFlow.New(kvs', storageLevel = StorageLevel.Disk)
                                                              dict.[k] <- pkvs;
                                                          return dict |> Seq.map (fun kv -> kv.Key, kv.Value) |> Seq.toArray
                                                       })
@@ -83,7 +83,7 @@ module Distinct =
             cloud {
                 let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! pkvs = flow.WithEvaluators (reducerF cts) (fun kvs -> PersistedCloudFlow.New(kvs, storageLevel = StorageLevel.DiskOnly)) combiner'
+                let! pkvs = flow.WithEvaluators (reducerF cts) (fun kvs -> PersistedCloudFlow.New(kvs, storageLevel = StorageLevel.Disk)) combiner'
                 return pkvs
             }
         { new CloudFlow<'T> with

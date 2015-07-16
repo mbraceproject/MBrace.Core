@@ -24,7 +24,7 @@ type PersistedCloudFlow<'T> internal (partitions : ICloudArray<'T> []) =
     member __.Item with get i = partitions.[i]
 
     /// Caching level for persisted data
-    member __.StorageLevel = partitions |> Array.fold (fun s cv -> s ||| cv.StorageLevel) StorageLevel.None
+    member __.StorageLevel = partitions |> Array.fold (fun s cv -> s ||| cv.StorageLevel) Unchecked.defaultof<StorageLevel>
 
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.Partitions = partitions

@@ -29,11 +29,11 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``1. PersistedCloudFlow : simple persist`` () =
-        if CloudValue.IsSupportedStorageLevel StorageLevel.DiskOnly |> runLocally then
+        if CloudValue.IsSupportedStorageLevel StorageLevel.Disk |> runLocally then
             let inputs = [|1L .. 1000000L|]
-            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> runRemote
+            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runRemote
             let workers = Cloud.GetWorkerCount() |> runRemote
-            persisted.StorageLevel |> shouldEqual StorageLevel.DiskOnly
+            persisted.StorageLevel |> shouldEqual StorageLevel.Disk
             persisted.PartitionCount |> shouldEqual workers
             cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
             persisted |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
@@ -43,7 +43,7 @@ type ``CloudFlow tests`` () as self =
         let inputs = [|1L .. 1000000L|]
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runRemote
         let workers = Cloud.GetWorkerCount() |> runRemote
-        persisted.StorageLevel |> shouldEqual StorageLevel.MemoryOnly
+        persisted.StorageLevel |> shouldEqual StorageLevel.Memory
         persisted.PartitionCount |> shouldEqual workers
         cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
         persisted |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
@@ -51,7 +51,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``1. PersistedCloudFlow : disposal`` () =
         let inputs = [|1 .. 1000000|]
-        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.DiskOnly |> runRemote
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runRemote
         persisted |> Cloud.Dispose |> runRemote
         shouldfail(fun () -> cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.iter ignore)
 
@@ -100,7 +100,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : persist`` () =
         let f(xs : int[]) =            
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.DiskOnly |> runRemote
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runRemote
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
             Assert.AreEqual(y, cloud { return x.ToEnumerable() } |> runLocally)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)

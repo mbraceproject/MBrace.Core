@@ -9,6 +9,8 @@ open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open System.Threading.Tasks
+open System.Text
+open System.Text.RegularExpressions
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -129,23 +131,6 @@ module Utils =
         member ab.Bind(t : Task, cont : unit -> Async<'S>) =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
-
-//    type Async with
-//        static member OfCloud(workflow : Local<'T>, ?resources : ResourceRegistry) = async {
-//            let! ct = Async.CancellationToken
-//            let cct = new InMemoryRuntime.InMemoryCancellationToken(ct)
-//            let resources = defaultArg resources ResourceRegistry.Empty
-//            return! Cloud.ToAsync(workflow, resources, cct)
-//        }
-//
-//    module MBraceAsyncExtensions =
-//        
-//        type AsyncBuilder with
-//            member inline ab.Bind(workflow : Local<'T>, f : 'T -> Async<'S>) = ab.Bind(Async.OfCloud(workflow), f)
-
-    type HashResult with
-        /// Returns a unique, case-sensitive hash identifier
-        member inline h.Id = sprintf "%s://%s/%d/%s" (h.Algorithm.ToLower()) h.Type h.Length (Convert.ToBase64String h.Hash)
 
     type ConcurrentDictionary<'K,'V> with
         member dict.TryAdd(key : 'K, value : 'V, ?forceUpdate) =

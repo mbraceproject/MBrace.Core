@@ -20,7 +20,7 @@ type InMemoryValue<'T> internal (value : 'T, hash : HashResult) =
     interface ICloudValue<'T> with
         member x.Id: string = hash.Id
         member x.Size: int64 = hash.Length
-        member x.StorageLevel : StorageLevel = StorageLevel.MemoryOnly
+        member x.StorageLevel : StorageLevel = StorageLevel.Memory
         member x.Type: Type = typeof<'T>
         member x.GetBoxedValueAsync(): Async<obj> = async { return value :> obj }
         member x.GetValueAsync(): Async<'T> = async { return value }
@@ -79,28 +79,34 @@ type InMemoryValueProvider () =
 
     let createArray (payload : 'T []) =
         let hash = computeHash payload
-        cache.GetOrAdd(hash.Id, fun id -> new InMemoryArray<'T>(payload, hash) :> ICloudValue) :?> ICloudArray<'T>
+        let result = cache.GetOrAdd(hash.Id, fun id -> new InMemoryArray<'T>(payload, hash) :> ICloudValue)
+        match result with
+        | :? ICloudArray<'T> as im -> im
+        | cv -> new InMemoryArray<'T>(cv.GetBoxedValue() :?> 'T [], hash) :> ICloudArray<'T>
 
     let createValue (payload : 'T) =
         let hash = computeHash payload
-        cache.GetOrAdd(hash.Id,
-            fun id ->
-                let t = typeof<'T>
-                if t.IsArray && t.GetArrayRank() = 1 then
-                    let et = t.GetElementType()
-                    let eet = Existential.FromType et
-                    eet.Apply 
-                        { new IFunc<ICloudValue> with 
-                            member __.Invoke<'et> () = 
-                                new InMemoryArray<'et>(payload :> obj :?> 'et [], hash) :> ICloudValue }
-                else
-                    new InMemoryValue<'T>(payload, hash) :> ICloudValue) :?> ICloudValue<'T>
+        let mkValue (payload : 'T) =
+            let t = typeof<'T>
+            if t.IsArray && t.GetArrayRank() = 1 then
+                let et = t.GetElementType()
+                let eet = Existential.FromType et
+                eet.Apply 
+                    { new IFunc<ICloudValue<'T>> with 
+                        member __.Invoke<'et> () = 
+                            new InMemoryArray<'et>(payload :> obj :?> 'et [], hash) :> ICloudValue :?> ICloudValue<'T> }
+            else
+                new InMemoryValue<'T>(payload, hash) :> ICloudValue<'T>
+
+        match cache.GetOrAdd(hash.Id, fun _ -> mkValue payload :> ICloudValue) with
+        | :? ICloudValue<'T> as cv -> cv
+        | cv -> mkValue (cv.GetBoxedValue() :?> 'T)
 
     interface ICloudValueProvider with
         member x.Id: string = id
         member x.Name: string = "In-Memory Value Provider"
-        member x.DefaultStorageLevel : StorageLevel = StorageLevel.MemoryOnly
-        member x.IsSupportedStorageLevel (level : StorageLevel) = StorageLevel.MemoryOnly = level
+        member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
+        member x.IsSupportedStorageLevel (level : StorageLevel) = StorageLevel.Memory = level
         member x.CreateCloudValue(payload: 'T, _ : StorageLevel): Async<ICloudValue<'T>> = async {
             return createValue payload
         }
