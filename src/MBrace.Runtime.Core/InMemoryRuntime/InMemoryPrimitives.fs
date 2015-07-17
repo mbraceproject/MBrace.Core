@@ -118,21 +118,29 @@ type InMemoryWorker private () =
     static let singleton = new InMemoryWorker()
     let name = System.Net.Dns.GetHostName()
     let pid = System.Diagnostics.Process.GetCurrentProcess().Id
+    // TODO : move to perfmon and make mono compatible
     let cpuClockSpeed =
-        use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
-        use qObj = searcher.Get() 
-                    |> Seq.cast<ManagementBaseObject> 
-                    |> Seq.exactlyOne
+        if not runsOnMono then
+            use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
+            use qObj = searcher.Get() 
+                        |> Seq.cast<ManagementBaseObject> 
+                        |> Seq.exactlyOne
 
-        let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
-        float cpuFreq
+            let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
+            Some <| float cpuFreq
+        else
+            None
 
     interface IWorkerRef with
         member __.Hostname = name
         member __.Type = "InMemory worker"
         member __.Id = name
         member __.ProcessorCount = Environment.ProcessorCount
-        member __.MaxCpuClock = cpuClockSpeed
+        member __.MaxCpuClock = 
+            match cpuClockSpeed with
+            | Some cpu -> cpu
+            | None -> raise <| NotImplementedException("Mono not supporting CPU clock speed.")
+
         member __.ProcessId = pid
         member __.CompareTo(other : obj) =
             match other with

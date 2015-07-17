@@ -23,6 +23,8 @@ open Nessos.FsPickler.Hashing
 [<AutoOpen>]
 module Utils =
 
+    let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
+
     /// Value or exception
     [<NoEquality; NoComparison>]
     type Exn<'T> =
