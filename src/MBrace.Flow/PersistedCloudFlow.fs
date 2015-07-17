@@ -1,8 +1,9 @@
 ﻿namespace MBrace.Flow
 
 open System.IO
-open System.Runtime.Serialization
+open System.Collections
 open System.Collections.Generic
+open System.Runtime.Serialization
 open System.Threading
 
 open MBrace.Core
@@ -37,11 +38,11 @@ type PersistedCloudFlow<'T> internal (partitions : ICloudArray<'T> []) =
         match partitions with
         | [||] -> Seq.empty
         | [| p |] -> p.Value :> seq<'T>
-        | _ ->
-            seq {
-                for cv in partitions do
-                    yield! cv.ToEnumerable() |> Async.RunSync
-            }
+        | _ -> Seq.concat partitions
+
+    interface seq<'T> with
+        member x.GetEnumerator() = x.ToEnumerable().GetEnumerator() :> IEnumerator
+        member x.GetEnumerator() = x.ToEnumerable().GetEnumerator()
 
     interface IPartitionedCollection<'T> with
         member cv.IsKnownSize = true

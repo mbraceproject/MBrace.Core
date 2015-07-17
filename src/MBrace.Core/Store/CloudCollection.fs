@@ -13,6 +13,7 @@ open MBrace.Core
 
 /// Represents an abstract, distributed collection of values.
 type ICloudCollection<'T> =
+    inherit seq<'T>
     /// Returns true if size property is cheap to compute.
     /// Collections that require traversal to determine size
     /// should return false.

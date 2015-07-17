@@ -45,22 +45,24 @@ type SeekableHTTPStream(url : string) as self =
 
     member self.Url = url
 
+    member self.GetLengthAsync() = async {
+        ensureNotDisposed()
+        match length with
+        | Some value -> return value
+        | None -> 
+            let request = HttpWebRequest.CreateHttp(url)
+            request.Method <- "HEAD"
+            use! response = request.GetResponseAsync().AwaitResultAsync()
+            let contentLength = response.ContentLength
+            length <- Some contentLength    
+            return contentLength
+    }
+
     override self.CanRead = ensureNotDisposed(); true
     override self.CanWrite = ensureNotDisposed(); false
     override self.CanSeek = ensureNotDisposed(); true
 
-    override self.Length = 
-        ensureNotDisposed()
-        match length with
-        | Some value -> value
-        | None -> 
-                let request = HttpWebRequest.CreateHttp(url)
-                request.Method <- "HEAD"
-                use response = request.GetResponse()
-                let contentLength = response.ContentLength
-                length <- Some contentLength 
-                
-                contentLength
+    override self.Length = self.GetLengthAsync() |> Async.RunSync
 
     override self.Position 
         with get () = 

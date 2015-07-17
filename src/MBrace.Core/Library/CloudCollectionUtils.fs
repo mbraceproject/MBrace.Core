@@ -2,11 +2,12 @@
 module MBrace.Library.CloudCollectionUtils
 
 open System
-open System.Text
-open System.IO
-open System.Net
+open System.Collections
 open System.Collections.Generic
+open System.Net
+open System.IO
 open System.Runtime.Serialization
+open System.Text
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -32,6 +33,10 @@ type SequenceCollection<'T> (seq : seq<'T>) =
     [<DataMember(Name = "Sequence")>]
     let seq = seq
     member __.Sequence = seq
+    interface seq<'T> with
+        member x.GetEnumerator() = seq.GetEnumerator() :> IEnumerator
+        member x.GetEnumerator() = seq.GetEnumerator()
+
     interface ICloudCollection<'T> with
         member x.IsKnownSize = isKnownCount seq
         member x.IsKnownCount = isKnownCount seq
@@ -49,6 +54,10 @@ type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
     /// Gets constituent partitions of concatenated collection
     member __.Partitions = partitions
 
+    interface seq<'T> with
+        member x.GetEnumerator() = Seq.concat(partitions).GetEnumerator() :> IEnumerator
+        member x.GetEnumerator() = Seq.concat(partitions).GetEnumerator()
+
     interface IPartitionedCollection<'T> with
         member x.IsKnownSize = partitions |> Array.forall (fun p -> p.IsKnownSize)
         member x.IsKnownCount = partitions |> Array.forall (fun p -> p.IsKnownCount)
@@ -65,13 +74,7 @@ type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
 
         member x.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions }
         member x.PartitionCount: Async<int> = async { return partitions.Length }
-        member x.ToEnumerable(): Async<seq<'T>> = 
-            async { 
-                return seq {
-                    for p in partitions do
-                        yield! p.ToEnumerable() |> Async.RunSync
-                }
-            }
+        member x.ToEnumerable(): Async<seq<'T>> = async { return Seq.concat partitions }
 
 
 /// Partitionable HTTP line reader implementation
@@ -89,17 +92,19 @@ type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (i
         match range with
         | Some (s,e) -> return e - s + 1L
         | None ->
-            // TODO: make asynchronous
             use stream = new SeekableHTTPStream(url)
-            return stream.Length
+            return! stream.GetLengthAsync()
     }
 
-    let toEnumerable () = async {
+    let toEnumerable () =
         let stream = new SeekableHTTPStream(url)
         match range with
-        | Some (s,e) -> return TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
-        | None -> return TextReaders.ReadLines(stream, ?encoding = encoding)
-    }
+        | Some (s,e) -> TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding)
+        | None -> TextReaders.ReadLines(stream, ?encoding = encoding)
+
+    interface seq<string> with
+        member x.GetEnumerator() = toEnumerable().GetEnumerator() :> IEnumerator
+        member x.GetEnumerator() = toEnumerable().GetEnumerator()
 
     interface ICloudCollection<string> with
         member c.IsKnownCount = false
@@ -107,7 +112,7 @@ type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (i
         member c.IsMaterialized = false
         member c.GetCount () = raise <| new NotSupportedException()
         member c.GetSize () = getSize ()
-        member c.ToEnumerable() = toEnumerable ()
+        member c.ToEnumerable() = async { return toEnumerable () }
 
     interface IPartitionableCollection<string> with
         member cs.GetPartitions(weights : int []) = async {
@@ -124,7 +129,7 @@ type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (i
                 Array.map mkRangedSeq partitions
 
             if size < 512L * 1024L then
-                let! lines = toEnumerable ()
+                let lines = toEnumerable ()
                 let liness = Array.splitWeighted weights (lines |> Seq.toArray)
                 return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> ICloudCollection<_>)
             else
