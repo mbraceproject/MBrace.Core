@@ -33,10 +33,12 @@ type ICloudValue =
     abstract GetBoxedValue : unit -> obj
     /// Asynchronously gets the boxed payload of the CloudValue.
     abstract GetBoxedValueAsync : unit -> Async<obj>
+    /// Casts CloudValue to specified type, if applicable.
+    abstract Cast<'S> : unit -> ICloudValue<'S>
 
 /// Serializable entity that represents an immutable 
 /// .NET object that has been cached by the MBrace runtime.
-type ICloudValue<'T> =
+and ICloudValue<'T> =
     inherit ICloudValue
     /// Gets the payload of the CloudValue.
     abstract Value : 'T

@@ -204,8 +204,12 @@ type private StoreCloudValue<'T>(id:CachedEntityId, level : StorageLevel, config
         member x.GetBoxedValue() : obj = 
             getValue() |> Async.RunSync |> box
 
-[<Sealed; DataContract>]
-type private StoreCloudArray<'T>(id:CachedEntityId, level : StorageLevel, config : StoreCloudValueConfiguration) =
+        member x.Cast<'S> () : ICloudValue<'S> = raise <| new NotImplementedException()
+                
+            
+
+and [<Sealed; DataContract>]
+  private StoreCloudArray<'T>(id:CachedEntityId, level : StorageLevel, config : StoreCloudValueConfiguration) =
     inherit StoreCloudValue<'T []>(id, level, config)
 
     interface ICloudArray<'T> with
@@ -237,8 +241,8 @@ type private StoreCloudArray<'T>(id:CachedEntityId, level : StorageLevel, config
         }
 
 /// CloudValue provider implementation that is based on cloud storage
-[<AutoSerializable(false)>]
-type StoreCloudValueProvider private (config : StoreCloudValueConfiguration) =
+and [<AutoSerializable(false)>]
+  StoreCloudValueProvider private (config : StoreCloudValueConfiguration) =
     let mutable isDisposed = false
     let ensureActive() =
         if isDisposed then

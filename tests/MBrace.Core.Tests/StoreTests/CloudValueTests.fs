@@ -60,7 +60,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Remote value memory cached`` () =
         cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.Memory)
+            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.MemoryAndDisk)
             if c.StorageLevel = StorageLevel.Memory then
                 let taskF () = cloud {
                     let! v1 = c.GetValueAsync()
@@ -76,7 +76,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Remote value memory serialized`` () =
         cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.MemorySerialized)
+            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.MemoryAndDiskSerialized)
             if c.StorageLevel = StorageLevel.MemorySerialized then
                 let taskF () = cloud {
                     let! v1 = c.GetValueAsync()

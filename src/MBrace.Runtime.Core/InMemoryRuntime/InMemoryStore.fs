@@ -16,45 +16,66 @@ open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 
 [<AutoSerializable(false); CloneableOnly>]
-type InMemoryValue<'T> internal (value : 'T, hash : HashResult) =
+type InMemoryValue<'T> internal (value : EmulatedValue<'T>, hash : HashResult) =
+    member internal __.Payload = value
+    member internal __.Hash = hash
     interface ICloudValue<'T> with
         member x.Id: string = hash.Id
         member x.Size: int64 = hash.Length
-        member x.StorageLevel : StorageLevel = StorageLevel.Memory
+        member x.StorageLevel : StorageLevel =
+            match value with
+            | Shared _ -> StorageLevel.Memory
+            | Cloned _ -> StorageLevel.MemorySerialized
+
         member x.Type: Type = typeof<'T>
-        member x.GetBoxedValueAsync(): Async<obj> = async { return value :> obj }
-        member x.GetValueAsync(): Async<'T> = async { return value }
+        member x.GetBoxedValueAsync(): Async<obj> = async { return value.Value :> obj }
+        member x.GetValueAsync(): Async<'T> = async { return value.Value }
         member x.IsCachedLocally: bool = true
-        member x.Value: 'T = value
-        member x.GetBoxedValue () : obj = value :> obj
+        member x.Value: 'T = value.Value
+        member x.GetBoxedValue () : obj = value.Value :> obj
+        member x.Cast<'S> () = InMemoryValueProvider.Cast<'T, 'S>(x) :> ICloudValue<'S>
         member x.Dispose() = async.Return()
 
-[<AutoSerializable(false); Sealed; CloneableOnly>]
-type InMemoryArray<'T> internal (value : 'T [], hash : HashResult) =
+and [<AutoSerializable(false); Sealed; CloneableOnly>]
+  InMemoryArray<'T> internal (value : EmulatedValue<'T []>, hash : HashResult) =
     inherit InMemoryValue<'T[]> (value, hash)
 
     interface ICloudArray<'T> with
-        member x.Length = value.Length
+        member x.Length = value.Value.Length
 
     interface seq<'T> with
-        member x.GetEnumerator(): Collections.IEnumerator = value.GetEnumerator()
-        member x.GetEnumerator(): IEnumerator<'T> = (value :> seq<'T>).GetEnumerator()
+        member x.GetEnumerator(): Collections.IEnumerator = value.Value.GetEnumerator()
+        member x.GetEnumerator(): IEnumerator<'T> = (value.Value :> seq<'T>).GetEnumerator()
 
     interface ICloudCollection<'T> with
         member x.IsKnownCount: bool = true
         member x.IsKnownSize: bool = true
         member x.IsMaterialized: bool = true
-        member x.GetCount(): Async<int64> =  async { return value.LongLength }
+        member x.GetCount(): Async<int64> =  async { return value.Value.LongLength }
         member x.GetSize(): Async<int64> = async { return hash.Length }
-        member x.ToEnumerable(): Async<seq<'T>> = async { return value :> _ }
+        member x.ToEnumerable(): Async<seq<'T>> = async { return value.Value :> _ }
 
 /// Provides an In-Memory CloudValue implementation
-[<Sealed; AutoSerializable(false)>] 
-type InMemoryValueProvider () =
+and [<Sealed; AutoSerializable(false)>] 
+  InMemoryValueProvider () =
     let id = mkUUID()
     let cache = new ConcurrentDictionary<string, ICloudValue>()
 
-    let partitionBySize (threshold:int64) (ts:seq<'T>) =
+    /// Constructor that ensures arrays are initialized as ICloudArray instances
+    static let mkValue (hash : HashResult) (payload : EmulatedValue<'T>) =
+        let t = typeof<'T>
+        if t.IsArray && t.GetArrayRank() = 1 then
+            let et = t.GetElementType()
+            let eet = Existential.FromType et
+            eet.Apply 
+                { new IFunc<InMemoryValue<'T>> with 
+                    member __.Invoke<'et> () =
+                        let imv = new InMemoryArray<'et>(payload.Cast<'et []>(), hash) 
+                        imv :> ICloudValue :?> InMemoryValue<'T> }
+        else
+            new InMemoryValue<'T>(payload, hash)
+
+    static let partitionBySize (threshold:int64) (ts:seq<'T>) =
         let accumulated = new ResizeArray<'T []>()
         let array = new ResizeArray<'T> ()
         // avoid Option<Pickler<_>> allocations in every iteration by creating it here
@@ -76,50 +97,41 @@ type InMemoryValueProvider () =
 
         accumulated :> seq<'T []>
 
-    let computeHash (payload : 'T) =
+    static let computeHash (payload : 'T) =
         try FsPickler.ComputeHash payload
         with e ->
             let msg = sprintf "Value '%A' is not serializable." payload
             raise <| new SerializationException(msg, e)
 
-    let createArray (payload : 'T []) =
+    let createNewValue (level : StorageLevel) (payload : 'T) =
         let hash = computeHash payload
-        let result = cache.GetOrAdd(hash.Id, fun id -> new InMemoryArray<'T>(payload, hash) :> ICloudValue)
-        match result with
-        | :? ICloudArray<'T> as im -> im
-        | cv -> new InMemoryArray<'T>(cv.GetBoxedValue() :?> 'T [], hash) :> ICloudArray<'T>
+        let mode =
+            if level.HasFlag StorageLevel.MemorySerialized then MemoryEmulation.Copied
+            else MemoryEmulation.Shared
 
-    let createValue (payload : 'T) =
-        let hash = computeHash payload
-        let mkValue (payload : 'T) =
-            let t = typeof<'T>
-            if t.IsArray && t.GetArrayRank() = 1 then
-                let et = t.GetElementType()
-                let eet = Existential.FromType et
-                eet.Apply 
-                    { new IFunc<ICloudValue<'T>> with 
-                        member __.Invoke<'et> () = 
-                            new InMemoryArray<'et>(payload :> obj :?> 'et [], hash) :> ICloudValue :?> ICloudValue<'T> }
-            else
-                new InMemoryValue<'T>(payload, hash) :> ICloudValue<'T>
+        let create _ =
+            let ev = EmulatedValue.create mode false payload
+            mkValue hash ev :> ICloudValue
 
-        match cache.GetOrAdd(hash.Id, fun _ -> mkValue payload :> ICloudValue) with
+        match cache.GetOrAdd(hash.Id, create) with
         | :? ICloudValue<'T> as cv -> cv
-        | cv -> mkValue (cv.GetBoxedValue() :?> 'T)
+        | cv -> cv.Cast<'T> ()
+
+    static member internal Cast<'T, 'S>(value : InMemoryValue<'T>) : InMemoryValue<'S> = mkValue value.Hash (value.Payload.Cast<'S> ())
 
     interface ICloudValueProvider with
         member x.Id: string = id
         member x.Name: string = "In-Memory Value Provider"
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
         member x.IsSupportedStorageLevel (level : StorageLevel) = StorageLevel.Memory = level
-        member x.CreateCloudValue(payload: 'T, _ : StorageLevel): Async<ICloudValue<'T>> = async {
-            return createValue payload
+        member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {
+            return createNewValue level payload
         }
 
-        member x.CreatePartitionedArray(payload : seq<'T>, _ : StorageLevel, ?partitionThreshold : int64) = async {
+        member x.CreatePartitionedArray(payload : seq<'T>, level : StorageLevel, ?partitionThreshold : int64) = async {
             match partitionThreshold with
-            | None -> return [| createArray (Seq.toArray payload) |]
-            | Some pt -> return partitionBySize pt payload |> Seq.map createArray |> Seq.toArray
+            | None -> return [| createNewValue level (Seq.toArray payload) :?> ICloudArray<'T> |]
+            | Some pt -> return partitionBySize pt payload |> Seq.map (fun vs -> createNewValue level vs :?> ICloudArray<'T>) |> Seq.toArray
         }
         
         member x.Dispose(_: ICloudValue): Async<unit> = async.Zero()

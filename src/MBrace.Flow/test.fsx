@@ -56,3 +56,10 @@ let query3 =
         |> CloudFlow.collect(fun i -> [|1..10000|] |> Seq.map (fun j -> string i, j))
         |> CloudFlow.sortBy snd 100
         |> CloudFlow.toArray)
+
+
+let imem = MBrace.Runtime.InMemoryRuntime.InMemoryRuntime.Create()
+
+let m = imem.Run(CloudValue.New ([|1 .. 1000|], StorageLevel.MemorySerialized))
+m.StorageLevel
+obj.ReferenceEquals(m.Value, m.Value)
