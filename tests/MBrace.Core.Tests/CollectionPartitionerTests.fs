@@ -55,14 +55,19 @@ module ``Collection Partitioning Tests`` =
         }
 
     type RangeCollection(lower : int64, upper : int64, discloseSize : bool) =
+        let getSeq() = seq { lower .. upper - 1L }
         static member Empty(discloseSize) = new RangeCollection(0L, -1L, discloseSize)
+        interface seq<int64> with
+            member x.GetEnumerator(): Collections.Generic.IEnumerator<int64> = getSeq().GetEnumerator()
+            member x.GetEnumerator(): Collections.IEnumerator = getSeq().GetEnumerator() :> _
+            
         interface ICloudCollection<int64> with
             member x.GetCount(): Async<int64> = async { return max 0L (upper - lower) }
             member x.IsKnownCount: bool = discloseSize
             member x.IsKnownSize: bool = discloseSize
             member x.IsMaterialized: bool = discloseSize
             member x.GetSize(): Async<int64> = async { return max 0L (upper - lower) }
-            member x.ToEnumerable(): Async<seq<int64>> = async { return seq { lower .. upper - 1L } }
+            member x.ToEnumerable(): Async<seq<int64>> = async { return getSeq() }
 
         override x.Equals y = obj.ReferenceEquals(x,y)
         override x.GetHashCode() = (lower,upper).GetHashCode()

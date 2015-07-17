@@ -36,6 +36,10 @@ type InMemoryArray<'T> internal (value : 'T [], hash : HashResult) =
     interface ICloudArray<'T> with
         member x.Length = value.Length
 
+    interface seq<'T> with
+        member x.GetEnumerator(): Collections.IEnumerator = value.GetEnumerator()
+        member x.GetEnumerator(): IEnumerator<'T> = (value :> seq<'T>).GetEnumerator()
+
     interface ICloudCollection<'T> with
         member x.IsKnownCount: bool = true
         member x.IsKnownSize: bool = true
@@ -256,6 +260,11 @@ type InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
     let id = mkUUID()
     let clone (t:'T) = EmulatedValue.create mode true t
     let dict = new ConcurrentDictionary<string, EmulatedValue<'T>> ()
+    let toEnum() = dict |> Seq.map (fun kv -> new KeyValuePair<_,_>(kv.Key, kv.Value.Value))
+
+    interface seq<KeyValuePair<string, 'T>> with
+        member x.GetEnumerator() = toEnum().GetEnumerator() :> Collections.IEnumerator
+        member x.GetEnumerator() = toEnum().GetEnumerator()
     
     interface ICloudDictionary<'T> with
         member x.Add(key : string, value : 'T) : Async<unit> =
@@ -297,7 +306,7 @@ type InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
             async { return dict.TryRemove key |> fst }
                     
         member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
-            async { return dict |> Seq.map (fun kv -> new KeyValuePair<_,_>(kv.Key, kv.Value.Value)) }
+            async { return toEnum() }
                     
         member x.TryFind(key: string): Async<'T option> = 
             async { return let ok,v = dict.TryGetValue key in if ok then Some v.Value else None }

@@ -88,6 +88,15 @@ module private ActorCloudDictionary =
     type ActorCloudDictionary<'T> internal (id : string, source : ActorRef<CloudDictionaryMsg>) =
         static let pickle t = Config.Serializer.Pickle t
         static let unpickle bytes = Config.Serializer.UnPickle<'T> bytes
+
+        let toEnum () = async {
+            let! pairs = source <!- ToArray
+            return pairs |> Seq.map (fun (k,b) -> new KeyValuePair<_,_>(k, unpickle b))
+        }
+
+        interface seq<KeyValuePair<string,'T>> with
+            member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator() :> Collections.IEnumerator
+            member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator()
         
         interface ICloudDictionary<'T> with
             member x.Add(key: string, value: 'T): Async<unit> = async { 
@@ -147,10 +156,7 @@ module private ActorCloudDictionary =
                 return! source <!- GetCount
             }
 
-            member x.ToEnumerable() = async {
-                let! pairs = source <!- ToArray
-                return pairs |> Seq.map (fun (k,b) -> new KeyValuePair<_,_>(k, unpickle b))
-            }
+            member x.ToEnumerable() = toEnum ()
 
         interface ICloudDisposable with
             member x.Dispose(): Async<unit> = async.Zero ()

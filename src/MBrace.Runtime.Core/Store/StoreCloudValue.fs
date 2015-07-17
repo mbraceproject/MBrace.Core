@@ -211,6 +211,10 @@ type private StoreCloudArray<'T>(id:CachedEntityId, level : StorageLevel, config
     interface ICloudArray<'T> with
         member x.Length = (x :> ICloudValue<'T []>).Value.Length
 
+    interface seq<'T> with
+        member x.GetEnumerator() = (x :> ICloudValue<'T []>).Value.GetEnumerator()
+        member x.GetEnumerator() = ((x :> ICloudValue<'T []>).Value :> seq<'T>).GetEnumerator()
+
     interface ICloudCollection<'T> with
         member x.GetCount(): Async<int64> = async {
             let! v = (x :> ICloudValue<'T []>).GetValueAsync()

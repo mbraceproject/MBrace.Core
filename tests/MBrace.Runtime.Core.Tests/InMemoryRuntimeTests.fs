@@ -53,6 +53,13 @@ type ``ThreadPool Parallelism Tests (EnsureSerializable)`` () =
 type ``ThreadPool Parallelism Tests (Copied)`` () =
     inherit ``ThreadPool Parallelism Tests`` (MemoryEmulation.Copied)
 
+type ``InMemory CloudValue Tests`` () =
+    inherit ``CloudValue Tests`` (parallelismFactor = 100)
+
+    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared)
+
+    override __.RunRemote(workflow) = imem.Run workflow
+    override __.RunLocally(workflow) = imem.Run workflow
 
 type ``InMemory CloudAtom Tests`` () =
     inherit ``CloudAtom Tests`` (parallelismFactor = 100)
