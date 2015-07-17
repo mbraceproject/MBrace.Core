@@ -132,7 +132,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         cloud {
             let threshold = 10000
             let size = 10 * threshold
-            let! values = CloudValue.NewPartitioned(seq { 1 .. 10 * threshold }, partitionThreshold = int64 threshold)
-            values.Length |> shouldBe (fun l -> l > size / 2)
+            let! values = CloudValue.NewPartitioned(seq { 1 .. size }, partitionThreshold = int64 threshold)
+            values.Length |> shouldBe (fun l -> l >= 10 && l <= 50)
             values |> Seq.concat |> Seq.length |> shouldEqual size
         } |> runRemote

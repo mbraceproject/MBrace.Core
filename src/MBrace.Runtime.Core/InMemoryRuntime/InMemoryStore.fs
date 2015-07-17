@@ -57,17 +57,18 @@ type InMemoryValueProvider () =
     let partitionBySize (threshold:int64) (ts:seq<'T>) =
         let accumulated = new ResizeArray<'T []>()
         let array = new ResizeArray<'T> ()
-        let pickler = FsPickler.GeneratePickler<'T>()
-        let mutable size = 0L
+        // avoid Option<Pickler<_>> allocations in every iteration by creating it here
+        let pickler = FsPickler.GeneratePickler<'T>() |> Some
+        let mutable sizeCounter = FsPickler.CreateSizeCounter()
         use enum = ts.GetEnumerator()
         while enum.MoveNext() do
             let t = enum.Current
             array.Add t
-            size <- size + FsPickler.ComputeSize(t, pickler = pickler)
-            if size > threshold then
+            sizeCounter.Append(t, ?pickler = pickler)
+            if sizeCounter.Count > threshold then
                 accumulated.Add(array.ToArray())
                 array.Clear()
-                size <- 0L
+                sizeCounter <- FsPickler.CreateSizeCounter()
 
         if array.Count > 0 then
             accumulated.Add(array.ToArray())
