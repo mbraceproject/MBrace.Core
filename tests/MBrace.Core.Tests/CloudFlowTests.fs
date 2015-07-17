@@ -378,7 +378,6 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : countBy`` () =
         let f(xs : int[]) =
-            printfn "%A" xs
             let x = xs |> CloudFlow.OfArray |> CloudFlow.countBy id |> CloudFlow.toArray |> runRemote
             let y = xs |> Seq.countBy id |> Seq.map (fun (k,c) -> k, int64 c) |> Seq.toArray
             Assert.AreEqual(set y, set x)
