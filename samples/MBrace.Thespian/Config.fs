@@ -61,8 +61,6 @@ type Config private () =
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
     /// Working directory used by the instance
     static member WorkingDirectory = checkInitialized() ; workingDirectory
-//    /// Object cache used by the instance
-//    static member ObjectCache = checkInitialized() ; objectCache :> IObjectCache
     /// TCP Endpoing used by the local Thespian instance
     static member LocalEndPoint = checkInitialized() ; localEndpoint
     /// Local TCP address used by the local Thespian instance

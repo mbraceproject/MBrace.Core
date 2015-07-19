@@ -18,7 +18,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     /// avoid caching interference in value creation
     /// by creating unique values on each test run
     let getUniqueValue () =  
-        let v = [1 .. 10000 + counter] 
+        let v = [1 .. 1000000 + counter] 
         counter <- counter + 1
         v
         

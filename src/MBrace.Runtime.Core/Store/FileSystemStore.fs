@@ -117,8 +117,9 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member __.BeginWrite(path : string) = async {
+            let path = normalize path
             initDir <| Path.GetDirectoryName path
-            return new FileStream(normalize path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
+            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
         }
 
         member __.BeginRead(path : string) = async {
@@ -126,9 +127,9 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member self.CopyOfStream(source : Stream, target : string) = async {
-            let path = normalize target
-            initDir <| Path.GetDirectoryName path
-            use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
+            let target = normalize target
+            initDir <| Path.GetDirectoryName target
+            use fs = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None)
             do! source.CopyToAsync fs
         }
 

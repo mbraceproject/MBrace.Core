@@ -5,6 +5,7 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
+open MBrace.Runtime.Store
 
 /// Runtime instance identifier
 type RuntimeId = private { Id : string }
@@ -29,6 +30,8 @@ type RuntimeState =
         /// Resource factory instace used for instantiating resources
         /// in the cluster state hosting process
         ResourceFactory : ResourceFactory
+        /// CloudValue provider instance used by runtime
+        StoreCloudValueProvider : StoreCloudValueProvider
         /// Cluster worker monitor
         WorkerManager : WorkerManager
         /// Cloud task instance
@@ -49,9 +52,10 @@ with
     /// <param name="localLogger">Local recipient logger instance.</param>
     /// <param name="fileStoreConfig">File store configuration.</param>
     /// <param name="assemblyDirectory">Assembly directory used in store.</param>
+    /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
     static member Create(localLogger : ISystemLogger, fileStoreConfig : CloudFileStoreConfiguration, 
-                                ?assemblyDirectory : string, ?miscResources : ResourceRegistry) =
+                                ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
 
         let id = RuntimeId.Create()
         let resourceFactory = ResourceFactory.Create()
@@ -60,11 +64,15 @@ with
         let jobQueue = JobQueue.Create(workerManager)
                 
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
+        let cacheDirectory = defaultArg cacheDirectory "cloudValue"
+        let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fileStoreConfig.FileStore, storeContainer = cacheDirectory)
+
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
             yield CloudQueueConfiguration.Create(new ActorQueueProvider(resourceFactory))
             yield new ActorDictionaryProvider(id.Id, resourceFactory) :> ICloudDictionaryProvider
             yield new FsPicklerBinaryStoreSerializer() :> ISerializer
+            yield cloudValueProvider :> ICloudValueProvider
             match miscResources with Some r -> yield! r | None -> ()
             yield fileStoreConfig
         }
@@ -74,6 +82,7 @@ with
             Address = Config.LocalAddress
 
             ResourceFactory = resourceFactory
+            StoreCloudValueProvider = cloudValueProvider
             WorkerManager = workerManager
             TaskManager = taskManager
             CloudLogger = ActorCloudLogger.Create(localLogger)
@@ -110,15 +119,11 @@ with
 /// Local IRuntimeManager implementation
 and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, logger : ISystemLogger) =
 
-    let resources = resource {
-        yield! state.Resources
-//        yield Config.ObjectCache
-    }
-
-    let storeConfig = resources.Resolve<CloudFileStoreConfiguration>()
-    let serializer = resources.Resolve<ISerializer>()
-
+    let storeConfig = state.Resources.Resolve<CloudFileStoreConfiguration>()
+    let serializer = state.Resources.Resolve<ISerializer>()
     let assemblyManager = StoreAssemblyManager.Create(storeConfig, serializer, state.AssemblyDirectory, logger = logger)
+    // Install cache in the local application domain
+    do state.StoreCloudValueProvider.Install()
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)
     let counterFactory = new ActorCounterFactory(state.ResourceFactory)
     let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory)
@@ -142,6 +147,6 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
         
         member x.TaskManager = state.TaskManager :> _
         
-        member x.ResourceRegistry: ResourceRegistry = resources
+        member x.ResourceRegistry: ResourceRegistry = state.Resources
 
         member x.ResetClusterState () = async { return raise <| new System.NotImplementedException("cluster reset") }

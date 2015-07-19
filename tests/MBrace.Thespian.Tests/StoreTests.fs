@@ -27,6 +27,22 @@ type ``MBrace Thespian FileStore Tests`` () =
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
 
 
+type ``MBrace Thespian CloudValue Tests`` () =
+    inherit ``CloudValue Tests``(parallelismFactor = 10)
+
+    let session = new RuntimeSession(nodes = 4)
+
+    [<TestFixtureSetUp>]
+    member __.Init () = session.Start()
+
+    [<TestFixtureTearDown>]
+    member __.Fini () = session.Stop ()
+
+    override __.RunRemote (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
+    override __.IsSupportedLevel _ = true
+
+
 type ``MBrace Thespian Atom Tests`` () =
     inherit ``CloudAtom Tests``(parallelismFactor = 10)
 
