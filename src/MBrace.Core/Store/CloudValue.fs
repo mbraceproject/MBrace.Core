@@ -6,13 +6,27 @@ open System
 
 open MBrace.Core.Internals
 
-/// Storage levels used for caching
+/// Storage levels used for CloudValues
 type StorageLevel =
-    | Memory                    = 1
-    | Disk                      = 2
+    /// Data persisted to disk only.
+    /// Has to be fetched on every value request.
+    | Disk                      = 1
+
+    /// Data cached in-memory as materialized object.
+    /// Faster access but mutation-sensitive.
+    | Memory                    = 2
+
+    /// Data cached in-memory as pickled byte array.
+    /// Slower access but dense representation.
     | MemorySerialized          = 4
+
+    // Enumerations combining multiple storage levels
+
+    /// Data persisted to disk and cached in-memory as materialized object.
     | MemoryAndDisk             = 3
-    | MemoryAndDiskSerialized   = 6
+
+    /// Data persisted to disk and cached in-memory as pickled byte array.
+    | MemoryAndDiskSerialized   = 5
 
 /// Serializable entity that represents an immutable 
 /// .NET object that has been cached by the MBrace runtime.

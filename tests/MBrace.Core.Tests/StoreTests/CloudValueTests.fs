@@ -37,6 +37,12 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         value.Value |> List.length |> shouldEqual 10000
 
     [<Test>]
+    member __.``CloudValue of array should be CloudArray instance`` () =
+        let cv = CloudValue.New [|1 .. 1000|] |> runRemote
+        let ca = cv :?> ICloudArray<int>
+        ca.Length |> shouldEqual 1000
+
+    [<Test>]
     member __.``Simple value memory cached`` () =
         if __.IsMemorySupported then
             let value = getUniqueValue()
