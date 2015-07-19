@@ -23,7 +23,7 @@ type MemoryEmulation =
     | Copied                = 2
 
 [<NoEquality; NoComparison; AutoSerializable(false)>]
-type internal EmulatedValue<'T> =
+type private EmulatedValue<'T> =
     | Shared of 'T
     | Cloned of 'T
 with
@@ -32,9 +32,15 @@ with
         | Shared t -> t
         | Cloned t -> FsPickler.Clone t
 
+    member inline ev.RawValue =
+        match ev with
+        | Shared t -> t
+        | Cloned t -> t
+
     member inline ev.Cast<'S> () =
         let inline cast(t : 'T) =
             match box t with
+            | null as n -> n :?> 'S
             | :? 'S as s -> s
             | _ -> raise <| new InvalidCastException()
 

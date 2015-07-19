@@ -27,24 +27,36 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     abstract RunRemote : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
-    abstract IsMemorySupported : bool
-    abstract IsMemorySerializedSupported : bool
-    abstract IsDiskSupported : bool
+    /// Checks if storage level is supported
+    abstract IsSupportedLevel : StorageLevel -> bool
 
     [<Test>]
     member __.``Simple value creation`` () =
-        let value = CloudValue.New [1 .. 10000] |> runRemote
-        value.Value |> List.length |> shouldEqual 10000
+        let value = getUniqueValue()
+        let cv = CloudValue.New value |> runRemote
+        cv.ReflectedType |> shouldEqual typeof<int list>
+        cv.Value |> shouldEqual value
+
+    [<Test>]
+    member __.``Null CloudValue`` () =
+        let cv1 = CloudValue.New Option<int>.None |> runRemote
+        let cv2 = CloudValue.New (()) |> runRemote
+        cv1.Id |> shouldEqual cv2.Id
+        cv1.ReflectedType |> shouldEqual typeof<obj>
+        cv2.ReflectedType |> shouldEqual typeof<obj>
+        let cv = cv1.Cast<obj> ()
+        cv.Value |> shouldEqual null
 
     [<Test>]
     member __.``CloudValue of array should be CloudArray instance`` () =
         let cv = CloudValue.New [|1 .. 1000|] |> runRemote
         let ca = cv :?> ICloudArray<int>
+        ca.ReflectedType |> shouldEqual typeof<int []>
         ca.Length |> shouldEqual 1000
 
     [<Test>]
     member __.``Simple value memory cached`` () =
-        if __.IsMemorySupported then
+        if __.IsSupportedLevel StorageLevel.Memory then
             let value = getUniqueValue()
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.Memory)
@@ -57,7 +69,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Simple value memory serialized`` () =
-        if __.IsMemorySerializedSupported then
+        if __.IsSupportedLevel StorageLevel.MemorySerialized then
             let value = getUniqueValue()
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.MemorySerialized)
@@ -70,7 +82,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Simple value disk cached`` () =
-        if __.IsDiskSupported then
+        if __.IsSupportedLevel StorageLevel.Disk then
             let value = getUniqueValue()
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
@@ -83,7 +95,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Remote value memory cached`` () =
-        if __.IsMemorySupported && __.IsDiskSupported then
+        if __.IsSupportedLevel StorageLevel.MemoryAndDisk then
             let value = getUniqueValue()
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDisk)
@@ -101,7 +113,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Remote value memory serialized`` () =
-        if __.IsMemorySerializedSupported && __.IsDiskSupported then
+        if __.IsSupportedLevel StorageLevel.MemoryAndDiskSerialized then
             let value = getUniqueValue()
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDiskSerialized)
@@ -120,7 +132,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Remote value disk cached`` () =
-        if __.IsDiskSupported then
+        if __.IsSupportedLevel StorageLevel.Disk then
             let value = getUniqueValue()
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
@@ -165,6 +177,9 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let v3 = CloudValue.Cast<System.Array> v2
             v2.Id |> shouldEqual v1.Id
             v3.Id |> shouldEqual v1.Id
+            v1.ReflectedType |> shouldEqual typeof<int []>
+            v2.ReflectedType |> shouldEqual typeof<int []>
+            v3.ReflectedType |> shouldEqual typeof<int []>
 
             fun () -> v1.Cast<int> ()
             |> shouldFailwith<_, System.InvalidCastException>

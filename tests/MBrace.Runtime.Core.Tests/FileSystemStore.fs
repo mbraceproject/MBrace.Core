@@ -31,11 +31,9 @@ type ``Local FileSystemStore CloudValue Tests`` () =
     let fsStore = Config.fsStore :> ICloudFileStore
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let container = fsStore.GetRandomDirectoryName()
-    let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsStore, container, serializer = Config.serializer, encapsulationThreshold = 1024L)
+    let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsStore, container, serializer = Config.serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
     let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryMode = MemoryEmulation.Copied)
 
     override __.RunRemote(wf : Cloud<'T>) = imem.Run wf
     override __.RunLocally(wf : Cloud<'T>) = imem.Run wf
-    override __.IsMemorySupported = true
-    override __.IsMemorySerializedSupported = true
-    override __.IsDiskSupported = true
+    override __.IsSupportedLevel lvl = cloudValueProvider.IsSupportedStorageLevel lvl

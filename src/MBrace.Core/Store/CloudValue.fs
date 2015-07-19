@@ -40,6 +40,8 @@ type ICloudValue =
     abstract StorageLevel : StorageLevel
     /// Type of CloudValue.
     abstract Type : Type
+    /// Reflected type of value referenced by CloudValue.
+    abstract ReflectedType : Type
     /// Determines if cached value already exists
     /// in the local execution context.
     abstract IsCachedLocally : bool
@@ -159,8 +161,7 @@ type CloudValue =
     /// <summary>
     ///     Casts given CloudValue instance to specified type.
     /// </summary>
-    /// <param name="value">Payload for CloudValue.</param>
-    /// <param name="storageLevel">StorageLevel to be used for CloudValue.</param>
+    /// <param name="cloudValue">CloudValue instance to be cast.</param>
     static member Cast<'T>(cloudValue : ICloudValue) : ICloudValue<'T> =
         cloudValue.Cast<'T> ()
 

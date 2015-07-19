@@ -16,7 +16,7 @@ open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 
 [<AutoSerializable(false); CloneableOnly>]
-type InMemoryValue<'T> internal (payload : EmulatedValue<'T>, hash : HashResult) =
+type private InMemoryValue<'T> (payload : EmulatedValue<'T>, hash : HashResult) =
 
     /// Constructor that ensures arrays are initialized as ICloudArray instances
     static let mkValue (hash : HashResult) (payload : EmulatedValue<'S>) =
@@ -50,6 +50,7 @@ type InMemoryValue<'T> internal (payload : EmulatedValue<'T>, hash : HashResult)
             | Cloned _ -> StorageLevel.MemorySerialized
 
         member x.Type: Type = typeof<'T>
+        member x.ReflectedType : Type = getReflectedType payload.RawValue
         member x.GetBoxedValueAsync(): Async<obj> = async { return payload.Value :> obj }
         member x.GetValueAsync(): Async<'T> = async { return payload.Value }
         member x.IsCachedLocally: bool = true
@@ -59,7 +60,7 @@ type InMemoryValue<'T> internal (payload : EmulatedValue<'T>, hash : HashResult)
         member x.Dispose() = async.Return()
 
 and [<AutoSerializable(false); Sealed; CloneableOnly>]
-  InMemoryArray<'T> internal (value : EmulatedValue<'T []>, hash : HashResult) =
+  private InMemoryArray<'T> (value : EmulatedValue<'T []>, hash : HashResult) =
     inherit InMemoryValue<'T[]> (value, hash)
 
     interface ICloudArray<'T> with
@@ -122,7 +123,7 @@ type InMemoryValueProvider () =
         member x.Id: string = id
         member x.Name: string = "In-Memory Value Provider"
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
-        member x.IsSupportedStorageLevel (level : StorageLevel) = StorageLevel.Memory = level
+        member x.IsSupportedStorageLevel (level : StorageLevel) = not <| level.HasFlag StorageLevel.Disk
         member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {
             return createNewValue level payload
         }

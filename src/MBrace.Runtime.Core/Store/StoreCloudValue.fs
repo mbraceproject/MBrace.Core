@@ -222,6 +222,8 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, reflectedType : Ty
         member x.StorageLevel: StorageLevel = level
         
         member x.Type: Type = typeof<'T>
+
+        member x.ReflectedType : Type = reflectedType
         
         member x.Value: 'T =
             getValue() |> Async.RunSync

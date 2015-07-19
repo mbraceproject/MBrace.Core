@@ -56,11 +56,10 @@ type ``ThreadPool Parallelism Tests (Copied)`` () =
 type ``InMemory CloudValue Tests`` () =
     inherit ``CloudValue Tests`` (parallelismFactor = 100)
 
-    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared)
+    let valueProvider = MBrace.Runtime.InMemoryRuntime.InMemoryValueProvider() :> ICloudValueProvider
+    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared, valueProvider = valueProvider)
 
-    override __.IsMemorySupported = true
-    override __.IsMemorySerializedSupported = true
-    override __.IsDiskSupported = false
+    override __.IsSupportedLevel lvl = valueProvider.IsSupportedStorageLevel lvl
 
     override __.RunRemote(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow
