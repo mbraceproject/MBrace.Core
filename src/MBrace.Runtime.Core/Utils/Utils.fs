@@ -117,6 +117,11 @@ module Utils =
         if obj.ReferenceEquals(x, null) <> obj.ReferenceEquals(y, null) then false
         elif x.GetType() <> y.GetType() then false
         else x = y
+
+    /// Gets the actual System.Type of the underlying object
+    let inline getReflectedType (o:obj) =
+        if obj.ReferenceEquals(o, null) then typeof<obj>
+        else o.GetType()
             
 
     /// generates a human readable string for byte sizes
