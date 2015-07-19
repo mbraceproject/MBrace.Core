@@ -143,6 +143,14 @@ type CloudValue =
     }
 
     /// <summary>
+    ///     Casts given CloudValue instance to specified type.
+    /// </summary>
+    /// <param name="value">Payload for CloudValue.</param>
+    /// <param name="storageLevel">StorageLevel to be used for CloudValue.</param>
+    static member Cast<'T>(cloudValue : ICloudValue) : ICloudValue<'T> =
+        cloudValue.Cast<'T> ()
+
+    /// <summary>
     ///     Creates a partitioned set of CloudArrays from input sequence according to size.
     /// </summary>
     /// <param name="values">Input set of values.</param>

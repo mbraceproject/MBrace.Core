@@ -58,6 +58,10 @@ type ``InMemory CloudValue Tests`` () =
 
     let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared)
 
+    override __.IsMemorySupported = true
+    override __.IsMemorySerializedSupported = true
+    override __.IsDiskSupported = false
+
     override __.RunRemote(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow
 

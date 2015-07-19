@@ -61,3 +61,10 @@ cloud {
     let client = new System.Net.WebClient()
     return client
 } |> runtime.Run
+
+
+let imem = MBrace.Runtime.InMemoryRuntime.InMemoryRuntime.Create()
+
+let cv = imem.Run <| CloudValue.New ([1], StorageLevel.MemorySerialized)
+
+cv.StorageLevel

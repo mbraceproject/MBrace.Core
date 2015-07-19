@@ -14,10 +14,22 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         try self.RunRemote wf |> Choice1Of2
         with e -> Choice2Of2 e
 
+    let mutable counter = 0
+    /// avoid caching interference in value creation
+    /// by creating unique values on each test run
+    let getUniqueValue () =  
+        let v = [1 .. 10000 + counter] 
+        counter <- counter + 1
+        v
+        
+
     /// Run workflow in the runtime under test
     abstract RunRemote : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
+    abstract IsMemorySupported : bool
+    abstract IsMemorySerializedSupported : bool
+    abstract IsDiskSupported : bool
 
     [<Test>]
     member __.``Simple value creation`` () =
@@ -26,42 +38,46 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Simple value memory cached`` () =
-        cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.Memory)
-            if c.StorageLevel = StorageLevel.Memory then
+        if __.IsMemorySupported then
+            cloud {
+                let! c = CloudValue.New(getUniqueValue() , storageLevel = StorageLevel.Memory)
+                c.StorageLevel |> shouldEqual StorageLevel.Memory
                 c.IsCachedLocally |> shouldEqual true
                 let! v1 = c.GetValueAsync()
                 let! v2 = c.GetValueAsync()
                 obj.ReferenceEquals(v1,v2) |> shouldEqual true
-        } |> runRemote
+            } |> runRemote
 
     [<Test>]
     member __.``Simple value memory serialized`` () =
-        cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.MemorySerialized)
-            if c.StorageLevel = StorageLevel.MemorySerialized then
+        if __.IsMemorySerializedSupported then
+            cloud {
+                let! c = CloudValue.New(getUniqueValue() , storageLevel = StorageLevel.MemorySerialized)
+                c.StorageLevel |> shouldEqual StorageLevel.MemorySerialized
                 c.IsCachedLocally |> shouldEqual true
                 let! v1 = c.GetValueAsync()
                 let! v2 = c.GetValueAsync()
                 obj.ReferenceEquals(v1,v2) |> shouldEqual false
-        } |> runRemote
+            } |> runRemote
 
     [<Test>]
     member __.``Simple value disk cached`` () =
-        cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.Disk)
-            if c.StorageLevel = StorageLevel.Disk then
+        if __.IsDiskSupported then
+            cloud {
+                let! c = CloudValue.New(getUniqueValue() , storageLevel = StorageLevel.Disk)
+                c.StorageLevel |> shouldEqual StorageLevel.Disk
                 c.IsCachedLocally |> shouldEqual false
                 let! v1 = c.GetValueAsync()
                 let! v2 = c.GetValueAsync()
                 obj.ReferenceEquals(v1,v2) |> shouldEqual false
-        } |> runRemote
+            } |> runRemote
 
     [<Test>]
     member __.``Remote value memory cached`` () =
-        cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.MemoryAndDisk)
-            if c.StorageLevel = StorageLevel.Memory then
+        if __.IsMemorySupported && __.IsDiskSupported then
+            cloud {
+                let! c = CloudValue.New(getUniqueValue() , storageLevel = StorageLevel.MemoryAndDisk)
+                c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
                 let taskF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
@@ -71,13 +87,14 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
                 let! task = Cloud.StartAsTask(taskF())
                 return! task.AwaitResult()
-        } |> runRemote
+            } |> runRemote
 
     [<Test>]
     member __.``Remote value memory serialized`` () =
-        cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.MemoryAndDiskSerialized)
-            if c.StorageLevel = StorageLevel.MemorySerialized then
+        if __.IsMemorySerializedSupported && __.IsDiskSupported then
+            cloud {
+                let! c = CloudValue.New(getUniqueValue() , storageLevel = StorageLevel.MemoryAndDiskSerialized)
+                c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDiskSerialized
                 let taskF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
@@ -87,13 +104,15 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
                 let! task = Cloud.StartAsTask(taskF())
                 return! task.AwaitResult()
-        } |> runRemote
+
+            } |> runRemote
 
     [<Test>]
     member __.``Remote value disk cached`` () =
-        cloud {
-            let! c = CloudValue.New([1..10000], storageLevel = StorageLevel.Disk)
-            if c.StorageLevel = StorageLevel.Disk then
+        if __.IsDiskSupported then
+            cloud {
+                let! c = CloudValue.New(getUniqueValue() , storageLevel = StorageLevel.Disk)
+                c.StorageLevel |> shouldEqual StorageLevel.Disk
                 let taskF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
@@ -103,7 +122,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
                 let! task = Cloud.StartAsTask(taskF())
                 return! task.AwaitResult()
-        } |> runRemote
+            } |> runRemote
 
     [<Test>]
     member __.``Structurally identical values should yield identical cache entities`` () =
@@ -121,10 +140,24 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     member __.``Structurally identical values should yield identical cache entities with boxing`` () =
         let parallelismFactor = parallelismFactor
         cloud {
-            let value = [|for i in 1 .. 1000000 -> sprintf "string %d" i|]
+            let value = [|for i in 1 .. 10000 -> sprintf "string %d" i|]
             let! cv1 = CloudValue.New value
             let! cv2 = CloudValue.New (box value)
             cv2.Id |> shouldEqual cv1.Id
+        } |> runRemote
+
+    [<Test>]
+    member __.``Casting`` () =
+        cloud {
+            let! v1 = CloudValue.New [|1 .. 100|]
+            let v2 = CloudValue.Cast<obj> v1
+            let v3 = CloudValue.Cast<System.Array> v2
+            v2.Id |> shouldEqual v1.Id
+            v3.Id |> shouldEqual v1.Id
+
+            fun () -> v1.Cast<int> ()
+            |> shouldFailwith<_, System.InvalidCastException>
+
         } |> runRemote
 
     [<Test>]
