@@ -270,7 +270,7 @@ type FilePersistedSequence =
     /// <param name="path">Path to file.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member FromLineSeparatedTextFile(path : string, ?encoding : Encoding, ?force : bool) : Local<FilePersistedSequence<string>> = local {
+    static member OfCloudFileByLine(path : string, ?encoding : Encoding, ?force : bool) : Local<FilePersistedSequence<string>> = local {
         let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
         let! etag = config.FileStore.TryGetETag path
         match etag with

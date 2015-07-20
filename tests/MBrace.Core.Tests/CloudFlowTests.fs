@@ -179,7 +179,7 @@ type ``CloudFlow tests`` () as self =
                      |> runLocally
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.OfCloudFilesByLine
+                        |> CloudFlow.OfCloudFileByLine
                         |> CloudFlow.toArray
                         |> runRemote
                         |> Set.ofArray
@@ -200,7 +200,7 @@ type ``CloudFlow tests`` () as self =
                      |> runLocally
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.OfCloudFilesByLine
+                        |> CloudFlow.OfCloudFileByLine
                         |> CloudFlow.toArray
                         |> runRemote
                         |> Set.ofArray
@@ -280,7 +280,7 @@ type ``CloudFlow tests`` () as self =
 
             let x = cfs 
                         |> Array.map (fun cf -> cf.Path)
-                        |> CloudFlow.OfCloudFilesByLine
+                        |> CloudFlow.OfCloudFileByLine
                         |> CloudFlow.toArray
                         |> runRemote
                         |> Set.ofArray

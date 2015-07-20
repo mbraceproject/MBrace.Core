@@ -342,7 +342,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         cloud {
             let! path = CloudPath.GetRandomFileName()
             use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
-            let! cseq = FilePersistedSequence.FromLineSeparatedTextFile(file.Path)
+            let! cseq = FilePersistedSequence.OfCloudFileByLine(file.Path)
             return Seq.length cseq
         } |> runRemote |> shouldEqual 100
 
@@ -359,7 +359,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! path = CloudPath.GetRandomFileName()
                 let! file = CloudFile.WriteAllLines(path, lines)
-                let! cseq = FilePersistedSequence.FromLineSeparatedTextFile file.Path   
+                let! cseq = FilePersistedSequence.OfCloudFileByLine file.Path   
                 return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
             } |> runLocally
 
