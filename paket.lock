@@ -4,7 +4,7 @@ NUGET
     FAKE (3.36.0)
     FsCheck (2.0.3)
       FSharp.Core (>= 3.1.2.1)
-    FSharp.Core (3.1.2.1)
+    FSharp.Core (3.1.2.5)
     FsPickler (1.2.18)
     FsPickler.Json (1.2.18)
       FsPickler (1.2.18)
