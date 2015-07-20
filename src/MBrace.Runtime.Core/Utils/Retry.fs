@@ -55,21 +55,22 @@ let private ofSeconds (seconds : float<sec> option) =
     | Some secs -> TimeSpan.FromSeconds (float secs)
 
 type RetryPolicy with
-    /// no retries performed
+    /// Policy that performs no retries
     static member NoRetry = Policy(fun _ _ -> None)
     /// performs infinitely many retries until operation succeeds
     static member Infinite (?delay : float<sec>) = Policy(fun _ _ -> Some <| ofSeconds delay)
     /// performs given number of retries
-    static member Retry(maxRetries : int, ?delay : float<sec>) =
+    static member Retry(?maxRetries : int, ?delay : float<sec>) =
         Policy(fun retries _ ->
-            if retries > maxRetries then None
-            else Some <| ofSeconds delay)
+            if maxRetries |> Option.forall (fun mr -> retries <= mr) then Some <| ofSeconds delay
+            else None)
         
-    /// only perform retries while exception of given type is caught
-    static member Filter<'exn when 'exn :> Exception>(?delay : float<sec>) =
-        Policy(fun _ e -> 
+    /// Performs exception type filtering action on exception before running nested retry policy.
+    static member Filter<'exn when 'exn :> Exception>(policy : RetryPolicy) =
+        let (Policy f) = policy
+        Policy(fun retries e ->
             match e with
-            | :? 'exn -> Some <| ofSeconds delay 
+            | :? 'exn -> f retries e
             | _ -> None)
 
     /// doubles the delay interval after every retry

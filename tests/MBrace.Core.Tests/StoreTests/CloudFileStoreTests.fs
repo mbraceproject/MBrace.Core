@@ -197,6 +197,51 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
         self.FileStore.DeleteFile file |> runSync
 
+    [<Test>]
+    member self.``1. FileStore : Concurrent writes to single path`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
+        let data = Array.init (1024 * 1024) byte
+        let writeData _ = async {
+            use! fs = self.FileStore.BeginWrite file
+            do! fs.WriteAsync(data, 0, data.Length)
+        }
+
+        Seq.init 20 writeData |> Async.Parallel |> Async.Ignore |> Async.RunSync
+
+        self.FileStore.GetFileSize file |> Async.RunSync |> shouldEqual (1024L * 1024L)
+
+    [<Test>]
+    member self.``1. FileStore : Concurrent reads to single path`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
+        let data = Array.init (1024 * 1024) byte
+        do
+            use stream = self.FileStore.BeginWrite file |> runSync
+            stream.Write(data, 0, data.Length)
+
+        let readData _ = async {
+            use! fs = self.FileStore.BeginRead file
+            let data = Array.zeroCreate<byte> (1024 * 1024)
+            do! fs.ReadAsync(data, 0, data.Length)
+            return data.Length
+        }
+
+        Seq.init 20 readData 
+        |> Async.Parallel 
+        |> Async.RunSync 
+        |> Array.forall (fun l -> l = 1024 * 1024)
+        |> shouldEqual true
+
+    [<Test>]
+    member self.``1. FileStore : Deleting non-existent path`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
+        self.FileStore.DeleteFile file |> Async.RunSync
+
+    [<Test>]
+    member self.``1. FileStore : Deleting non-existent directory`` () =
+        let dir = self.FileStore.GetRandomDirectoryName()
+        self.FileStore.DeleteDirectory(dir, false) |> Async.RunSync
+
+
     //
     //  Section 2. FileStore via MBrace runtime
     //
