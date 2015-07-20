@@ -43,7 +43,7 @@ type ``CloudFlow tests`` () as self =
         let inputs = [|1L .. 1000000L|]
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runRemote
         let workers = Cloud.GetWorkerCount() |> runRemote
-        persisted.StorageLevel |> shouldEqual StorageLevel.Memory
+        persisted.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
         persisted.PartitionCount |> shouldEqual workers
         cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
         persisted |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)

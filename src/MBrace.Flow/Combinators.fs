@@ -498,7 +498,7 @@ module CloudFlow =
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
     /// <param name="flow">CloudFlow to be persisted.</param>
     /// <returns>A persisted copy of given CloudFlow.</returns>
-    let cache (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = StorageLevel.Memory)
+    let cache (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = StorageLevel.MemoryAndDisk)
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow, with its partitions cached to local memory.</summary>
     /// <param name="storageLevel">Storage level to be used when persisting CloudFlow.</param>
