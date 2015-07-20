@@ -108,12 +108,15 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``2. CloudFlow : persistCached`` () =
-        let f(xs : string[]) =            
-            let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.cache |> runRemote
-            let x = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> runRemote
+        // ensure that initial array is large enough for disk caching to kick in,
+        // otherwise persisted fragments will be encapsulated in the reference as an optimization.
+        // Limit is currently set to 512KiB, so total size must be 512KiB * cluster size.
+        let xs = Array.init 10000 (fun _ -> "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+        let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.cache |> runRemote
+        let x = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> runRemote
+        for i in 1 .. 5 do
             let y = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> runRemote
             Assert.AreEqual(x, y)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
     member __.``2. CloudFlow : ofSeqs`` () =
