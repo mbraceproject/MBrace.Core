@@ -16,7 +16,7 @@ type ``Local FileSystemStore Tests`` () =
 
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let serializer = Config.serializer
-    let imem = InMemoryRuntime.Create(serializer = serializer, fileConfig = fsConfig, memoryMode = MemoryEmulation.Shared)
+    let imem = InMemoryRuntime.Create(serializer = serializer, fileConfig = fsConfig, memoryMode = MemoryEmulation.Copied)
 
     override __.FileStore = fsConfig.FileStore
     override __.Serializer = serializer :> _

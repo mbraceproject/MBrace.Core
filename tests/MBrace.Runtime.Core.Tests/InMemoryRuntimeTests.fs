@@ -67,7 +67,7 @@ type ``InMemory CloudValue Tests`` () =
 type ``InMemory CloudAtom Tests`` () =
     inherit ``CloudAtom Tests`` (parallelismFactor = 100)
 
-    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared)
+    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.EnsureSerializable)
 
     override __.RunRemote(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow
@@ -80,7 +80,7 @@ type ``InMemory CloudAtom Tests`` () =
 type ``InMemory CloudQueue Tests`` () =
     inherit ``CloudQueue Tests`` (parallelismFactor = 100)
 
-    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared)
+    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.EnsureSerializable)
 
     override __.RunRemote(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow
@@ -88,7 +88,7 @@ type ``InMemory CloudQueue Tests`` () =
 type ``InMemory CloudDictionary Tests`` () =
     inherit ``CloudDictionary Tests`` (parallelismFactor = 100)
 
-    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared)
+    let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.EnsureSerializable)
 
     override __.IsInMemoryFixture = true
     override __.RunRemote(workflow) = imem.Run workflow
@@ -97,7 +97,7 @@ type ``InMemory CloudDictionary Tests`` () =
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
 
-    let imem = InMemoryRuntime.Create(fileConfig = Config.fsConfig, serializer = Config.serializer, memoryMode = MemoryEmulation.Shared)
+    let imem = InMemoryRuntime.Create(fileConfig = Config.fsConfig, serializer = Config.serializer, memoryMode = MemoryEmulation.Copied)
 
     override __.RunRemote(workflow : Cloud<'T>) = imem.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = imem.Run workflow

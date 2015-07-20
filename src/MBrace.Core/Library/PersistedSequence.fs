@@ -55,10 +55,13 @@ type FilePersistedSequence<'T> =
     /// Fetches all elements of the cloud sequence and returns them as a local array.
     member c.ToArray () : 'T [] = c.ToArrayAsync() |> Async.RunSync
 
-    /// Path to Cloud sequence in store
+    /// Path to Cloud sequence in store.
     member c.Path = c.path
 
-    /// ETag of persisted sequence instance
+    /// Gets the underlying ICloudFileStore instance used for the persisted sequence.
+    member internal c.Store = c.store
+
+    /// ETag of persisted sequence instance.
     member c.ETag = c.etag
 
     /// Asynchronously gets Cloud sequence element count
@@ -101,7 +104,7 @@ type FilePersistedSequence<'T> =
     member private c.StructuredFormatDisplay = c.ToString()  
 
 /// Partitionable implementation of cloud file line reader
-[<DataContract>]
+[<Sealed; DataContract>]
 type private TextLineSequence(store : ICloudFileStore, path : string, etag : ETag, ?encoding : Encoding) =
     inherit FilePersistedSequence<string>(store, path, etag, None, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding, disposeStream = true)))
 
@@ -113,7 +116,7 @@ type private TextLineSequence(store : ICloudFileStore, path : string, etag : ETa
                 let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding, disposeStream = true)
                 let mkRangedSeq rangeOpt =
                     match rangeOpt with
-                    | Some(s,e) -> new FilePersistedSequence<string>(store, cs.Path, cs.ETag, None, (getDeserializer s e)) :> ICloudCollection<string>
+                    | Some(s,e) -> new FilePersistedSequence<string>(cs.Store, cs.Path, cs.ETag, None, (getDeserializer s e)) :> ICloudCollection<string>
                     | None -> new ConcatenatedCollection<string>([||]) :> _
 
                 let partitions = Array.splitWeightedRange weights 0L size

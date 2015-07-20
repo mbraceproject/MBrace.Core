@@ -35,11 +35,6 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     /// Evaluate workflow under local semantics in the test process
     abstract RunLocally : Cloud<'T> -> 'T
 
-    [<TestFixtureTearDown>]
-    member self.``FileStore Cleanup`` () =
-        if self.FileStore.DirectoryExists testDirectory.Value |> runSync then
-            self.FileStore.DeleteDirectory(testDirectory.Value, recursiveDelete = true) |> runSync
-
     //
     //  Section 1: Local raw fileStore tests
     //

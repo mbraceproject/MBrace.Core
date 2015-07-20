@@ -18,7 +18,7 @@ type ``MBrace Thespian FileStore Tests`` () =
     member __.Init () = session.Start()
 
     [<TestFixtureTearDown>]
-    member __.Fini () = session.Stop ()
+    member __.Fini () = session.Stop()
 
     override __.FileStore = session.Runtime.GetResource<CloudFileStoreConfiguration>().FileStore
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
