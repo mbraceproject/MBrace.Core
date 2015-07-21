@@ -61,3 +61,7 @@ cloud {
     let client = new System.Net.WebClient()
     return client
 } |> runtime.Run
+
+let cv = runtime.Run (CloudValue.New(32, enum 0))
+
+cv.Value

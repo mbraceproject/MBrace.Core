@@ -19,12 +19,16 @@ module Utils =
     let isTravisInstance = System.Environment.GetEnvironmentVariable("TRAVIS") <> null
 
     let shouldfail (f : unit -> 'T) =
-        try let v = f () in raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
-        with _ -> ()
+        let result = try let v = f () in Some v with _ -> None
+        match result with
+        | Some v -> raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
+        | None -> ()
 
     let shouldFailwith<'T, 'Exn when 'Exn :> exn> (f : unit -> 'T) =
-        try let v = f () in raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
-        with :? 'Exn -> ()
+        let result = try let v = f () in Some v with :? 'Exn -> None
+        match result with
+        | Some v -> raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
+        | None -> ()
 
     /// type safe equality tester
     let shouldEqual (expected : 'T) (input : 'T) = 

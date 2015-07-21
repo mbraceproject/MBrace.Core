@@ -48,6 +48,11 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         cv.Value |> shouldEqual null
 
     [<Test>]
+    member __.``Invalid StorageLevel enumeration passed to CloudValue`` () =
+        fun () -> CloudValue.New(getUniqueValue(), enum 0) |> runRemote
+        |> shouldfail
+
+    [<Test>]
     member __.``CloudValue of array should be CloudArray instance`` () =
         let cv = CloudValue.New [|1 .. 1000|] |> runRemote
         let ca = cv :?> ICloudArray<int>
