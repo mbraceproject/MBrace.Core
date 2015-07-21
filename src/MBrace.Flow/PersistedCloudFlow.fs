@@ -1,5 +1,6 @@
 ﻿namespace MBrace.Flow
 
+open System
 open System.IO
 open System.Collections
 open System.Collections.Generic
@@ -25,7 +26,18 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
     member __.Item with get i = partitions.[i]
 
     /// Caching level for persisted data
-    member __.StorageLevel = partitions |> Array.fold (fun s (_,cv) -> s ||| cv.StorageLevel) Unchecked.defaultof<StorageLevel>
+    member __.StorageLevel = 
+        if partitions.Length = 0 then StorageLevel.Memory
+        else
+            let _,ca = partitions.[0]
+            partitions |> Array.fold (fun s (_,cv) -> s &&& cv.StorageLevel) ca.StorageLevel
+
+    /// Indicates whether this CloudFlow instance is available for consumption from the local context.
+    member __.IsAvailableLocally : bool =
+        let isAvailablePartition (_, cv : ICloudValue) =
+            cv.StorageLevel.HasFlag StorageLevel.Disk || cv.IsCachedLocally
+
+        partitions |> Array.forall isAvailablePartition
 
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.Partitions = partitions
@@ -56,18 +68,20 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
         member cv.PartitionCount: Async<int> = async { return partitions.Length }
         member cv.ToEnumerable() = async { return cv.ToEnumerable() }
 
-
     interface CloudFlow<'T> with
         member cv.DegreeOfParallelism = None
         member cv.WithEvaluators(collectorf : Local<Collector<'T,'S>>) (projection: 'S -> Local<'R>) (combiner: 'R [] -> Local<'R>): Cloud<'R> = cloud {
-            // TODO : use ad-hoc implementation with better scheduling
             let flow = CloudCollection.ToCloudFlow(cv)
             return! flow.WithEvaluators collectorf projection combiner
         }
 
     interface ICloudDisposable with
         member __.Dispose () = async {
-            for _,p in partitions do do! (p :> ICloudDisposable).Dispose()
+            return!
+                partitions
+                |> Array.map (fun (_,p) -> (p :> ICloudDisposable).Dispose())
+                |> Async.Parallel
+                |> Async.Ignore
         }
 
     override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
