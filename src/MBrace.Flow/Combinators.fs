@@ -42,8 +42,8 @@ type CloudFlow =
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
     /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
-    static member OfCloudArrays (cloudArrays : seq<ICloudArray<'T>>) : CloudFlow<'T> =
-        new PersistedCloudFlow<'T>(Seq.toArray cloudArrays) :> CloudFlow<'T>
+    static member OfCloudArrays (cloudArrays : seq<#ICloudArray<'T>>) : Local<PersistedCloudFlow<'T>> =
+        PersistedCloudFlow.OfCloudArrays cloudArrays
 
     /// <summary>
     ///     Creates a CloudFlow instance from a finite collection of serializable enumerations.
@@ -498,7 +498,7 @@ module CloudFlow =
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
     /// <param name="flow">CloudFlow to be persisted.</param>
     /// <returns>A persisted copy of given CloudFlow.</returns>
-    let cache (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = StorageLevel.MemoryAndDisk)
+    let cache (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = StorageLevel.Memory)
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow, with its partitions cached to local memory.</summary>
     /// <param name="storageLevel">Storage level to be used when persisting CloudFlow.</param>

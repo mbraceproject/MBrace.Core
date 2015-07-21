@@ -72,9 +72,7 @@ module Distinct =
                       member __.DegreeOfParallelism = source.DegreeOfParallelism
                       member __.Iterator() =
                           { Index = ref -1;
-                            Func = (fun (_, pkvs) ->
-                                        let kvs = pkvs.ToEnumerable()
-                                        for (k, v) in kvs do dict.TryAdd(k, v) |> ignore);
+                            Func = (fun (_, pkvs) -> for (k, v) in pkvs do dict.TryAdd(k, v) |> ignore);
                             Cts = cts }
                       member __.Result = dict |> Seq.map (fun kv -> kv.Value)
                     }

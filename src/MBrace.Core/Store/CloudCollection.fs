@@ -42,6 +42,12 @@ type IPartitionedCollection<'T> =
     /// Gets all partitions for the collection.
     abstract GetPartitions : unit -> Async<ICloudCollection<'T> []>
 
+/// A partitioned cloud collection whose partitions target a specified worker.
+type ITargetedPartitionCollection<'T> =
+    inherit IPartitionedCollection<'T>
+    /// Gets all partitions for the collection, as targeted to specified workers.
+    abstract GetTargetedPartitions : unit -> Async<(IWorkerRef * ICloudCollection<'T>) []>
+
 /// A cloud collection that can be partitioned into smaller collections of provided size.
 type IPartitionableCollection<'T> =
     inherit ICloudCollection<'T>

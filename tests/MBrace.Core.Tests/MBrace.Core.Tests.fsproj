@@ -62,12 +62,12 @@
     <Compile Include="TestTypes.fs" />
     <Compile Include="ContinuationTests.fs" />
     <Compile Include="CollectionPartitionerTests.fs" />
-    <Compile Include="DistributionTests.fs" />
     <Compile Include="StoreTests\CloudFileStoreTests.fs" />
     <Compile Include="StoreTests\CloudValueTests.fs" />
     <Compile Include="StoreTests\CloudAtomTests.fs" />
     <Compile Include="StoreTests\CloudQueueTests.fs" />
     <Compile Include="StoreTests\CloudDictionaryTests.fs" />
+    <Compile Include="DistributionTests.fs" />
     <Compile Include="CloudFlowTests.fs" />
     <Content Include="App.config" />
     <Content Include="paket.references" />

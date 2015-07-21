@@ -31,6 +31,17 @@ type ``CloudFlow tests`` () as self =
             "http://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt" 
         |]
 
+    let getHttpFileLineCount (url : string) = 
+        let mutable lineCount = 0L
+        let client = new WebClient()
+        use stream = client.OpenRead(url)
+        use reader = new StreamReader(stream)
+
+        while reader.ReadLine() <> null do
+            lineCount <- lineCount + 1L
+
+        lineCount
+
     abstract RunRemote : Cloud<'T> -> 'T
     abstract RunLocally : Cloud<'T> -> 'T
     abstract FsCheckMaxNumberOfTests : int
@@ -46,25 +57,24 @@ type ``CloudFlow tests`` () as self =
             let workers = Cloud.GetWorkerCount() |> runRemote
             persisted.StorageLevel |> shouldEqual StorageLevel.Disk
             persisted.PartitionCount |> shouldEqual workers
-            cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
-            persisted |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
+            persisted |> CloudFlow.toArray |> runRemote |> shouldEqual inputs
+            persisted |> Seq.toArray |> shouldEqual inputs
 
     [<Test>]
     member __.``1. PersistedCloudFlow : caching`` () =
         let inputs = [|1L .. 1000000L|]
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runRemote
         let workers = Cloud.GetWorkerCount() |> runRemote
-        persisted.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
+        persisted.StorageLevel |> shouldEqual StorageLevel.Memory
         persisted.PartitionCount |> shouldEqual workers
-        cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.toArray |> shouldEqual inputs
-        persisted |> CloudFlow.sum |> runRemote |> shouldEqual (Array.sum inputs)
+        persisted |> CloudFlow.toArray |> runRemote |> shouldEqual inputs
 
     [<Test>]
     member __.``1. PersistedCloudFlow : disposal`` () =
         let inputs = [|1 .. 1000000|]
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runRemote
         persisted |> Cloud.Dispose |> runRemote
-        shouldfail(fun () -> cloud { return persisted.ToEnumerable() } |> runLocally |> Seq.iter ignore)
+        shouldfail(fun () -> persisted |> CloudFlow.length |> runRemote |> ignore)
 
 //    [<Test>]
 //    member __.``1. PersistedCloudFlow : merging`` () =
@@ -113,7 +123,7 @@ type ``CloudFlow tests`` () as self =
         let f(xs : int[]) =            
             let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runRemote
             let y = xs |> Seq.map ((+)1) |> Seq.toArray
-            Assert.AreEqual(y, cloud { return x.ToEnumerable() } |> runLocally)
+            Assert.AreEqual(y, x |> Seq.toArray)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
 
@@ -306,13 +316,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : OfHttpFileByLine single input`` () =
         for url in testUrls do
-            let client = new WebClient()
-            use stream = client.OpenRead(url)
-            use reader = new StreamReader(stream)
-
-            let mutable lineCount = 0L
-            while reader.ReadLine() <> null do
-                lineCount <- lineCount + 1L
+            let lineCount = getHttpFileLineCount url
 
             let flowLength = 
                 CloudFlow.OfHttpFileByLine url
@@ -323,22 +327,14 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``2. CloudFlow : OfHttpFileByLine multiple inputs`` () =
-        let mutable lineCount = 0L
-        for url in testUrls do
-            let client = new WebClient()
-            use stream = client.OpenRead(url)
-            use reader = new StreamReader(stream)
-
-            while reader.ReadLine() <> null do
-                lineCount <- lineCount + 1L
+        let lineCount = testUrls |> Array.Parallel.map getHttpFileLineCount |> Array.sum
 
         let flowLength =
-            CloudFlow.OfHttpFileByLine(testUrls)
+            CloudFlow.OfHttpFileByLine testUrls
             |> CloudFlow.length
             |> runRemote
 
         Assert.AreEqual(lineCount, flowLength)
-
 
     [<Test>]
     member __.``2. CloudFlow : map`` () =

@@ -138,8 +138,6 @@ module Fold =
                     {   Index = ref -1;
                         Func =
                             (fun (_, keyValues) ->
-                                let keyValues = keyValues.ToEnumerable()
-
                                 for (key, value) in keyValues do
                                     let mutable grouping = Unchecked.defaultof<_>
                                     if dict.TryGetValue(key, &grouping) then

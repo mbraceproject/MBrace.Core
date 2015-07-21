@@ -14,7 +14,7 @@ open MBrace.Library
 
 /// Persisted CloudFlow implementation.
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
-type PersistedCloudFlow<'T> internal (partitions : ICloudArray<'T> []) =
+type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>) []) =
 
     [<DataMember(Name = "Partitions")>]
     let partitions = partitions
@@ -25,32 +25,34 @@ type PersistedCloudFlow<'T> internal (partitions : ICloudArray<'T> []) =
     member __.Item with get i = partitions.[i]
 
     /// Caching level for persisted data
-    member __.StorageLevel = partitions |> Array.fold (fun s cv -> s ||| cv.StorageLevel) Unchecked.defaultof<StorageLevel>
+    member __.StorageLevel = partitions |> Array.fold (fun s (_,cv) -> s ||| cv.StorageLevel) Unchecked.defaultof<StorageLevel>
 
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.Partitions = partitions
     /// Computes the size (in bytes) of the PersistedCloudFlow
-    member __.Size: int64 = partitions |> Array.sumBy (fun p -> p.Size)
+    member __.Size: int64 = partitions |> Array.sumBy (fun (_,p) -> p.Size)
     /// Computes the element count of the PersistedCloudFlow
-    member __.Count: int64 = partitions |> Array.sumBy (fun p -> int64 p.Length)
+    member __.Count: int64 = partitions |> Array.sumBy (fun (_,p) -> int64 p.Length)
+
     /// Gets an enumerable for all elements in the PersistedCloudFlow
-    member __.ToEnumerable() : seq<'T> = 
+    member private __.ToEnumerable() : seq<'T> =
         match partitions with
         | [||] -> Seq.empty
-        | [| p |] -> p.Value :> seq<'T>
-        | _ -> Seq.concat partitions
+        | [| (_,p) |] -> p.Value :> seq<'T>
+        | _ -> partitions |> Seq.collect snd
 
     interface seq<'T> with
         member x.GetEnumerator() = x.ToEnumerable().GetEnumerator() :> IEnumerator
         member x.GetEnumerator() = x.ToEnumerable().GetEnumerator()
 
-    interface IPartitionedCollection<'T> with
+    interface ITargetedPartitionCollection<'T> with
         member cv.IsKnownSize = true
         member cv.IsKnownCount = true
         member cv.IsMaterialized = false
         member cv.GetSize(): Async<int64> = async { return cv.Size }
         member cv.GetCount(): Async<int64> = async { return cv.Count }
-        member cv.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun p -> p :> ICloudCollection<'T>) }
+        member cv.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun (_,p) -> p :> ICloudCollection<'T>) }
+        member cv.GetTargetedPartitions() :Async<(IWorkerRef * ICloudCollection<'T>) []> = async { return partitions |> Array.map (fun (w,ca) -> w, ca :> _) }
         member cv.PartitionCount: Async<int> = async { return partitions.Length }
         member cv.ToEnumerable() = async { return cv.ToEnumerable() }
 
@@ -65,14 +67,14 @@ type PersistedCloudFlow<'T> internal (partitions : ICloudArray<'T> []) =
 
     interface ICloudDisposable with
         member __.Dispose () = async {
-            for p in partitions do do! (p :> ICloudDisposable).Dispose()
+            for _,p in partitions do do! (p :> ICloudDisposable).Dispose()
         }
 
     override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
     member private __.StructuredFormatDisplay = __.ToString()
         
 
-type internal PersistedCloudFlow private () =
+type PersistedCloudFlow private () =
 
     static let defaultTreshold = 1024L * 1024L * 1024L
 
@@ -82,10 +84,21 @@ type internal PersistedCloudFlow private () =
     /// <param name="elems">Input sequence.</param>
     /// <param name="elems">Storage level used for caching.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to 1GB.</param>
-    static member New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : Local<PersistedCloudFlow<'T>> = local {
+    static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : Local<PersistedCloudFlow<'T>> = local {
         let partitionThreshold = defaultArg partitionThreshold defaultTreshold
+        let! currentWorker = Cloud.CurrentWorker
         let! partitions = CloudValue.NewPartitioned(elems, ?storageLevel = storageLevel, partitionThreshold = partitionThreshold)
-        return new PersistedCloudFlow<'T>(partitions)
+        return new PersistedCloudFlow<'T>(partitions |> Array.map (fun p -> (currentWorker,p)))
+    }
+
+    /// <summary>
+    ///     Creates a CloudFlow from a collection of provided cloud sequences.
+    /// </summary>
+    /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
+    static member OfCloudArrays (cloudArrays : seq<#ICloudArray<'T>>) : Local<PersistedCloudFlow<'T>> = local {
+        let! workers = Cloud.GetAvailableWorkers()
+        let partitions = cloudArrays |> Seq.mapi (fun i ca -> workers.[i % workers.Length], ca :> ICloudArray<'T>) |> Seq.toArray
+        return new PersistedCloudFlow<'T>(Seq.toArray partitions)
     }
     
     /// <summary>

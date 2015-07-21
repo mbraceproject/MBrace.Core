@@ -25,22 +25,8 @@ type internal CloudCollection private () =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let! collector = collectorf
-                let! isTargetedWorkerSupported = Cloud.IsTargetedWorkerSupported
-                let! workers = Cloud.GetAvailableWorkers()
-                // sort by id to ensure deterministic scheduling
-                let workers = workers |> Array.sortBy (fun w -> w.Id)
-                let workers =
-                    match collector.DegreeOfParallelism with
-                    | None -> workers
-                    | Some dp -> [| for i in 0 .. dp - 1 -> workers.[i % workers.Length] |]
-
-                let! partitions = CloudCollection.ExtractPartitions collection
-                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported, ?weight = weight)
-                if Array.isEmpty partitionss then return! combiner [||] else
-
-                // have partitions, schedule according to number of partitions.
-                let createTask (partitions : ICloudCollection<'T> []) = local {
+                // Performs flow reduction on given input partition in a single MBrace job
+                let reducePartitionsInSingleJob (partitions : ICloudCollection<'T> []) = local {
                     // further partition according to collection size threshold, if so specified.
                     let! partitionSlices = local {
                         match sizeThresholdPerWorker with
@@ -61,17 +47,48 @@ type internal CloudCollection private () =
                     let! results = Local.Sequential.map computePartitionSlice partitionSlices
                     return! combiner results
                 }
+                
+                let! isTargetedWorkerSupported = Cloud.IsTargetedWorkerSupported
+
+                match collection with
+                | :? ITargetedPartitionCollection<'T> as tpc when isTargetedWorkerSupported ->
+                    // scheduling data is encapsulated in CloudCollection, partition according to this
+                    let! assignedPartitions = CloudCollection.ExtractTargetedCollections [|tpc|]
+
+                    if Array.isEmpty assignedPartitions then return! combiner [||] else
+                    let! results =
+                        assignedPartitions
+                        |> Seq.map (fun (w,p) -> reducePartitionsInSingleJob [|p|], w)
+                        |> Cloud.Parallel
+
+                    return! combiner results
+                
+                | _ ->
+                
+                let! workers = Cloud.GetAvailableWorkers()
+                let! collector = collectorf
+                // sort by id to ensure deterministic scheduling
+                let workers = workers |> Array.sortBy (fun w -> w.Id)
+                let workers =
+                    match collector.DegreeOfParallelism with
+                    | None -> workers
+                    | Some dp -> [| for i in 0 .. dp - 1 -> workers.[i % workers.Length] |]
+
+
+                let! partitions = CloudCollection.ExtractPartitions collection
+                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported, ?weight = weight)
+                if Array.isEmpty partitionss then return! combiner [||] else
                         
                 let! results =
                     if isTargetedWorkerSupported then
                         partitionss
                         |> Seq.filter (not << Array.isEmpty << snd)
-                        |> Seq.map (fun (w,partitions) -> createTask partitions, w)
+                        |> Seq.map (fun (w,partitions) -> reducePartitionsInSingleJob partitions, w)
                         |> Cloud.Parallel
                     else
                         partitionss
                         |> Seq.filter (not << Array.isEmpty << snd)
-                        |> Seq.map (createTask << snd)
+                        |> Seq.map (reducePartitionsInSingleJob << snd)
                         |> Cloud.Parallel
 
                 return! combiner results

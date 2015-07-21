@@ -118,8 +118,8 @@ type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (i
         member cs.GetPartitions(weights : int []) = async {
             match range with
             // return self if already partitioned
-            | None -> return [|cs|]
-            | Some _ ->
+            | Some _ -> return [|cs|]
+            | None ->
 
             let! size = getSize ()
 
@@ -182,7 +182,7 @@ type CloudCollection private () =
     ///     returning their irreducible components while preserving ordering.
     /// </summary>
     /// <param name="collections">Input cloud collections.</param>
-    static member ExtractPartitions (collections : seq<ICloudCollection<'T>>) : Async<ICloudCollection<'T> []> = async {
+    static member ExtractPartitions (collections : seq<#ICloudCollection<'T>>) : Async<ICloudCollection<'T> []> = async {
         let rec extractCollection (c : ICloudCollection<'T>) : Async<seq<ICloudCollection<'T>>> = 
             async {
                 match c with
@@ -198,7 +198,7 @@ type CloudCollection private () =
                 return Seq.concat extracted
             }
 
-        let! extracted = extractCollections collections
+        let! extracted = collections |> Seq.map (fun p -> p :> ICloudCollection<'T>) |> extractCollections
         return Seq.toArray extracted
     }
 
@@ -351,4 +351,33 @@ type CloudCollection private () =
         match workers with
         | [] -> return invalidArg "workers" "Should be non-empty collection."
         | (hWorker, hSize) :: tailW -> return! aux [] hWorker hSize [] tailW (Array.toList wsizes)
+    }
+
+    /// <summary>
+    ///     Recursively extracts scheduling information from a set of targeted partition collections.
+    /// </summary>
+    /// <param name="collections">PartitionedCollections to be extracted.</param>
+    static member ExtractTargetedCollections(collections : seq<#ITargetedPartitionCollection<'T>>) : Async<(IWorkerRef * ICloudCollection<'T>) []> = async {
+        let rec extractC (w : IWorkerRef, c : ICloudCollection<'T>) : Async<seq<IWorkerRef * ICloudCollection<'T>>> = 
+            async {
+                match c with
+                | :? ITargetedPartitionCollection<'T> as tpc ->
+                    let! partitions = tpc.GetTargetedPartitions()
+                    return! extractCs partitions
+
+                | :? IPartitionedCollection<'T> as tc ->
+                    let! partitions = tc.GetPartitions()
+                    return! partitions |> Seq.map (fun p -> (w, p)) |> extractCs
+
+                | c -> return Seq.singleton (w,c)
+            }
+
+        and extractCs (cs : seq<IWorkerRef * ICloudCollection<'T>>) : Async<seq<IWorkerRef * ICloudCollection<'T>>> = 
+            async {
+                let! extracted = cs |> Seq.map extractC |> Async.Parallel
+                return Seq.concat extracted
+            }
+
+        let! partitions = collections |> Seq.map (fun c -> c.GetTargetedPartitions()) |> Async.Parallel
+        return partitions |> Seq.concat |> Seq.toArray
     }
