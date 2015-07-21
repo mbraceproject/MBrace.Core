@@ -109,9 +109,14 @@ module JobEvaluator =
         let! jobResult = joblt.GetJob() |> Async.Catch
         match jobResult with
         | Choice2Of2 e ->
+            // failure to deserialize job triggers special error handling;
+            // trigger root task as faulted without consulting fault policy.
             logger.Logf LogLevel.Error "Failed to deserialize job '%s':\n%O" joblt.Id e
-            do! joblt.DeclareFaulted(ExceptionDispatchInfo.Capture e)
+            let e = new FaultException(sprintf "Failed to deserialize job '%s'." joblt.Id, e)
+            let edi = ExceptionDispatchInfo.Capture e
             do! joblt.TaskEntry.DeclareStatus Faulted
+            let! _ = joblt.TaskEntry.TrySetResult(TaskResult.Exception edi)
+            do! joblt.DeclareCompleted()
 
         | Choice1Of2 job ->
             if job.JobType = JobType.TaskRoot then
