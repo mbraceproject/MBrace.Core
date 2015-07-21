@@ -26,7 +26,7 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
     member __.Item with get i = partitions.[i]
 
     /// Caching level for persisted data
-    member __.StorageLevel = 
+    member __.StorageLevel : StorageLevel = 
         if partitions.Length = 0 then StorageLevel.Memory
         else
             let _,ca = partitions.[0]
@@ -40,7 +40,7 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
         partitions |> Array.forall isAvailablePartition
 
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
-    member __.Partitions = partitions
+    member __.GetPartitions () = partitions
     /// Computes the size (in bytes) of the PersistedCloudFlow
     member __.Size: int64 = partitions |> Array.sumBy (fun (_,p) -> p.Size)
     /// Computes the element count of the PersistedCloudFlow
@@ -48,10 +48,13 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
 
     /// Gets an enumerable for all elements in the PersistedCloudFlow
     member private __.ToEnumerable() : seq<'T> =
-        match partitions with
-        | [||] -> Seq.empty
-        | [| (_,p) |] -> p.Value :> seq<'T>
-        | _ -> partitions |> Seq.collect snd
+        if __.IsAvailableLocally then
+            match partitions with
+            | [||] -> Seq.empty
+            | [| (_,p) |] -> p.Value :> seq<'T>
+            | _ -> partitions |> Seq.collect snd
+        else
+            raise <| NotSupportedException("PersistedCloudFlow not available for local evaluation.")
 
     interface seq<'T> with
         member x.GetEnumerator() = x.ToEnumerable().GetEnumerator() :> IEnumerator
@@ -84,8 +87,8 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
                 |> Async.Ignore
         }
 
-    override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
     member private __.StructuredFormatDisplay = __.ToString()
+    override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
         
 
 type PersistedCloudFlow private () =
@@ -120,7 +123,7 @@ type PersistedCloudFlow private () =
     /// </summary>
     /// <param name="vectors">Input CloudFlows.</param>
     static member Concat (vectors : seq<PersistedCloudFlow<'T>>) : PersistedCloudFlow<'T> = 
-        let partitions = vectors |> Seq.collect (fun v -> v.Partitions) |> Seq.toArray
+        let partitions = vectors |> Seq.collect (fun v -> v.GetPartitions()) |> Seq.toArray
         new PersistedCloudFlow<'T>(partitions)
 
     /// <summary>

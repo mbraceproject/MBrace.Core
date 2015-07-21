@@ -58,7 +58,7 @@ type internal CloudCollection private () =
                     if Array.isEmpty assignedPartitions then return! combiner [||] else
                     let! results =
                         assignedPartitions
-                        |> Seq.map (fun (w,p) -> reducePartitionsInSingleJob [|p|], w)
+                        |> Seq.map (fun (w,ps) -> reducePartitionsInSingleJob ps, w)
                         |> Cloud.Parallel
 
                     return! combiner results

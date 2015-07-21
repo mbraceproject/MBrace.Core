@@ -357,7 +357,7 @@ type CloudCollection private () =
     ///     Recursively extracts scheduling information from a set of targeted partition collections.
     /// </summary>
     /// <param name="collections">PartitionedCollections to be extracted.</param>
-    static member ExtractTargetedCollections(collections : seq<#ITargetedPartitionCollection<'T>>) : Async<(IWorkerRef * ICloudCollection<'T>) []> = async {
+    static member ExtractTargetedCollections(collections : seq<#ITargetedPartitionCollection<'T>>) : Async<(IWorkerRef * ICloudCollection<'T> []) []> = async {
         let rec extractC (w : IWorkerRef, c : ICloudCollection<'T>) : Async<seq<IWorkerRef * ICloudCollection<'T>>> = 
             async {
                 match c with
@@ -379,5 +379,9 @@ type CloudCollection private () =
             }
 
         let! partitions = collections |> Seq.map (fun c -> c.GetTargetedPartitions()) |> Async.Parallel
-        return partitions |> Seq.concat |> Seq.toArray
+        return 
+            partitions 
+            |> Seq.concat
+            |> Seq.groupBySequential fst
+            |> Array.map (fun (w,ts) -> w, ts |> Array.map snd)
     }

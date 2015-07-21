@@ -37,7 +37,9 @@ module Utils =
             | Success t -> t
             | Error e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
 
+    [<RequireQualifiedAccess>]
     module Exn =
+
         let inline catch (f : unit -> 'T) =
             try f () |> Success with e -> Error e
 
@@ -58,6 +60,7 @@ module Utils =
 
     [<RequireQualifiedAccess>]
     module Option =
+
         let toNullable(x : 'T option) =
             match x with
             | None -> new Nullable<'T>()

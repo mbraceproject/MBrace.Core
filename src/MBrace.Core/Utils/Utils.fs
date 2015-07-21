@@ -175,7 +175,9 @@ module Utils =
                 splitWeightedRange weights 0L (int64 input.Length)
                 |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])
 
+    [<RequireQualifiedAccess>]
     module Seq =
+
         /// <summary>
         ///     Creates an anonymous IEnumerable instance from an enumerator factory.
         /// </summary>
@@ -184,6 +186,40 @@ module Utils =
             { new IEnumerable<'T> with
                 member __.GetEnumerator () = enum () 
                 member __.GetEnumerator () = enum () :> IEnumerator }
+        
+        /// <summary>
+        ///     Groups a collection of elements by key, grouping together
+        ///     matching keys as long as they are sequential occurrences.
+        /// </summary>
+        /// <param name="proj">Key projection.</param>
+        /// <param name="ts">Input sequence.</param>
+        let groupBySequential (proj : 'T -> 'K) (ts : seq<'T>) : ('K * 'T []) [] =
+            use enum = ts.GetEnumerator()
+            let results = new ResizeArray<'K * 'T []> ()
+            let grouped = new ResizeArray<'T> ()
+            let mutable isFirst = true
+            let mutable curr = Unchecked.defaultof<'K>
+            while enum.MoveNext() do
+                let t = enum.Current
+                let k = proj t
+                if isFirst then 
+                    isFirst <- false
+                    curr <- k
+                    grouped.Add t
+                elif k = curr then
+                    grouped.Add t
+                else
+                    let ts = grouped.ToArray()
+                    grouped.Clear()
+                    results.Add(curr, ts)
+                    curr <- k
+                    grouped.Add t
+
+            if grouped.Count > 0 then
+                let ts = grouped.ToArray()
+                results.Add(curr, ts)
+
+            results.ToArray()
 
     type Task<'T> with
 
