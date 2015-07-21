@@ -116,6 +116,11 @@ type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (i
 
     interface IPartitionableCollection<string> with
         member cs.GetPartitions(weights : int []) = async {
+            match range with
+            // return self if already partitioned
+            | None -> return [|cs|]
+            | Some _ ->
+
             let! size = getSize ()
 
             let mkRangedSeqs (weights : int[]) =
@@ -323,6 +328,9 @@ type CloudCollection private () =
                     |> Array.splitByPartitionCount workers.Length
                     |> Array.mapi (fun i cs -> workers.[i], cs)
         else
+
+        // extract nested collections
+        let! collections = CloudCollection.ExtractPartitions collections
 
         // compute size per collection and allocate expected size per worker according to weight.
         let! wsizes = collections |> Seq.map (fun c -> async { let! sz = c.GetSize() in return c, sz }) |> Async.Parallel

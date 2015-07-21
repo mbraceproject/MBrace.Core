@@ -20,6 +20,17 @@ type ``CloudFlow tests`` () as self =
     let runRemote (workflow : Cloud<'T>) = self.RunRemote(workflow)
     let runLocally (workflow : Cloud<'T>) = self.RunLocally(workflow)
 
+    /// Urls for running HTTP tests
+    let testUrls = 
+        [| 
+            "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt";
+            "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-antony-23.txt";
+            "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-as-12.txt";
+            "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-comedy-7.txt";
+            "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-coriolanus-24.txt";
+            "http://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt" 
+        |]
+
     abstract RunRemote : Cloud<'T> -> 'T
     abstract RunLocally : Cloud<'T> -> 'T
     abstract FsCheckMaxNumberOfTests : int
@@ -293,32 +304,40 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
     [<Test>]
-    member __.``2. CloudFlow : OfHttpFileByLine`` () =
-        let urls = [| "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt";
-                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-antony-23.txt";
-                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-as-12.txt";
-                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-comedy-7.txt";
-                      "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-coriolanus-24.txt";
-                      "http://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt" |]
-        let f(count : int) =
-            let url = urls.[abs(count) % urls.Length]
+    member __.``2. CloudFlow : OfHttpFileByLine single input`` () =
+        for url in testUrls do
             let client = new WebClient()
             use stream = client.OpenRead(url)
             use reader = new StreamReader(stream)
 
-            let mutable line = reader.ReadLine()
-            let mutable counter = 0
-            while (line <> null) do
-                counter <- counter + 1
-                line <- reader.ReadLine()
+            let mutable lineCount = 0L
+            while reader.ReadLine() <> null do
+                lineCount <- lineCount + 1L
 
-
-            let x = CloudFlow.OfHttpFileByLine url
-                    |> CloudFlow.length
-                    |> runRemote
+            let flowLength = 
+                CloudFlow.OfHttpFileByLine url
+                |> CloudFlow.length
+                |> runRemote
                             
-            Assert.AreEqual(counter, x)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+            Assert.AreEqual(lineCount, flowLength)
+
+    [<Test>]
+    member __.``2. CloudFlow : OfHttpFileByLine multiple inputs`` () =
+        let mutable lineCount = 0L
+        for url in testUrls do
+            let client = new WebClient()
+            use stream = client.OpenRead(url)
+            use reader = new StreamReader(stream)
+
+            while reader.ReadLine() <> null do
+                lineCount <- lineCount + 1L
+
+        let flowLength =
+            CloudFlow.OfHttpFileByLine(testUrls)
+            |> CloudFlow.length
+            |> runRemote
+
+        Assert.AreEqual(lineCount, flowLength)
 
 
     [<Test>]
