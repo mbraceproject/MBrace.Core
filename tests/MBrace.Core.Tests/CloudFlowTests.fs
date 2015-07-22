@@ -327,26 +327,28 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``2. CloudFlow : OfHttpFileByLine single input`` () =
-        for url in testUrls do
-            let lineCount = getHttpFileLineCount url
+        if not isAppVeyorInstance then
+            for url in testUrls do
+                let lineCount = getHttpFileLineCount url
 
-            let flowLength = 
-                CloudFlow.OfHttpFileByLine url
-                |> CloudFlow.length
-                |> runRemote
+                let flowLength = 
+                    CloudFlow.OfHttpFileByLine url
+                    |> CloudFlow.length
+                    |> runRemote
                             
-            Assert.AreEqual(lineCount, flowLength)
+                Assert.AreEqual(lineCount, flowLength)
 
     [<Test>]
     member __.``2. CloudFlow : OfHttpFileByLine multiple inputs`` () =
-        let lineCount = testUrls |> Array.Parallel.map getHttpFileLineCount |> Array.sum
+        if not isAppVeyorInstance then
+            let lineCount = testUrls |> Array.Parallel.map getHttpFileLineCount |> Array.sum
 
-        let flowLength =
-            CloudFlow.OfHttpFileByLine testUrls
-            |> CloudFlow.length
-            |> runRemote
+            let flowLength =
+                CloudFlow.OfHttpFileByLine testUrls
+                |> CloudFlow.length
+                |> runRemote
 
-        Assert.AreEqual(lineCount, flowLength)
+            Assert.AreEqual(lineCount, flowLength)
 
     [<Test>]
     member __.``2. CloudFlow : map`` () =
