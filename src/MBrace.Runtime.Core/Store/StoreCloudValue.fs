@@ -334,27 +334,27 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
         if Option.isNone localCache then
             invalidOp <| sprintf "StoreCloudValue '%s' not installed in the local context." config.Id
 
-    let partitionBySize (threshold:int64) (ts:seq<'T>) =
-        let accumulated = new ResizeArray<'T []>()
-        let array = new ResizeArray<'T> ()
-        // avoid Option<Pickler<_>> allocations in every iteration by creating it here
-        let pickler = FsPickler.GeneratePickler<'T>() |> Some
-        let mutable sizeCounter = FsPickler.CreateSizeCounter()
-        use enum = ts.GetEnumerator()
-        while enum.MoveNext() do
-            let t = enum.Current
-            array.Add t
-            sizeCounter.Append(t, ?pickler = pickler)
-            if sizeCounter.Count > threshold then
-                accumulated.Add(array.ToArray())
-                array.Clear()
-                sizeCounter <- FsPickler.CreateSizeCounter()
-
-        if array.Count > 0 then
-            accumulated.Add(array.ToArray())
-            array.Clear()
-
-        accumulated :> seq<'T []>
+//    let partitionBySize (threshold:int64) (ts:seq<'T>) =
+//        let accumulated = new ResizeArray<'T []>()
+//        let array = new ResizeArray<'T> ()
+//        // avoid Option<Pickler<_>> allocations in every iteration by creating it here
+//        let pickler = FsPickler.GeneratePickler<'T>() |> Some
+//        let mutable sizeCounter = FsPickler.CreateSizeCounter()
+//        use enum = ts.GetEnumerator()
+//        while enum.MoveNext() do
+//            let t = enum.Current
+//            array.Add t
+//            sizeCounter.Append(t, ?pickler = pickler)
+//            if sizeCounter.Count > threshold then
+//                accumulated.Add(array.ToArray())
+//                array.Clear()
+//                sizeCounter <- FsPickler.CreateSizeCounter()
+//
+//        if array.Count > 0 then
+//            accumulated.Add(array.ToArray())
+//            array.Clear()
+//
+//        accumulated :> seq<'T []>
 
     let getPersistedCloudValueByPath(path : string) = async {
         use! stream = config.FileStore.BeginRead path
@@ -449,17 +449,10 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
         member x.DefaultStorageLevel = StorageLevel.MemoryAndDisk
         member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
 
-        member x.CreatePartitionedArray(values : seq<'T>, level : StorageLevel, ?partitionThreshold : int64) = async {
+        member x.CreateCloudArrayPartitioned(values : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
             ensureActive()
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Not supported storage level '%O'." level
-            match partitionThreshold with
-            | None -> let! cv = createCloudValue level (Seq.toArray values) in return [| cv :?> ICloudArray<'T> |]
-            | Some pt -> 
-                return!
-                    values
-                    |> partitionBySize pt
-                    |> Seq.map (fun vs -> async { let! cv = createCloudValue level vs in return cv :?> ICloudArray<'T> })
-                    |> Async.Parallel
+            return! FsPickler.PartitionSequenceBySize(values, partitionThreshold, fun ts -> async { let! cv = createCloudValue level ts in return cv :?> ICloudArray<'T> })
         }
 
         member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {

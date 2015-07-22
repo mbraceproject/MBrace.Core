@@ -6,6 +6,16 @@ open System.IO
 open System
 open System.IO
 
+/// Stateful instance used for counting sizes of streams
+type IObjectSizeCounter<'T> =
+    inherit IDisposable
+    /// Append object graph to count.
+    abstract Append : graph:'T -> unit
+    /// Gets the total number of appended objects.
+    abstract TotalObjects : int64
+    /// Gets the total number of counted bytes.
+    abstract TotalBytes : int64
+
 /// Serialization abstraction
 type ISerializer =
 
@@ -38,3 +48,14 @@ type ISerializer =
     /// </summary>
     /// <param name="source">Source stream.</param>
     abstract SeqDeserialize<'T> : source:Stream * leaveOpen:bool -> seq<'T>
+
+    /// <summary>
+    ///     Computes serialization size of provided object graph in bytes.
+    /// </summary>
+    /// <param name="graph">Serializable object graph.</param>
+    abstract ComputeObjectSize<'T> : graph:'T -> int64
+
+    /// <summary>
+    ///     Creates a typed object counter instance.
+    /// </summary>
+    abstract CreateObjectSizeCounter<'T> : unit -> IObjectSizeCounter<'T>

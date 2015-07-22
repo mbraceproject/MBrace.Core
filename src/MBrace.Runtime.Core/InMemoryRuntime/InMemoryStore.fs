@@ -14,6 +14,8 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Vagabond
+open MBrace.Runtime.Vagabond.FsPicklerExtensions
 
 [<AutoSerializable(false); CloneableOnly>]
 type private InMemoryValue<'T> (hash : HashResult, provider : InMemoryValueProvider) =
@@ -98,28 +100,6 @@ and [<Sealed; AutoSerializable(false)>]
     static let isSupportedLevel (level : StorageLevel) =
         level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized
 
-    static let partitionBySize (threshold:int64) (ts:seq<'T>) =
-        let accumulated = new ResizeArray<'T []>()
-        let array = new ResizeArray<'T> ()
-        // avoid Option<Pickler<_>> allocations in every iteration by creating it here
-        let pickler = FsPickler.GeneratePickler<'T>() |> Some
-        let mutable sizeCounter = FsPickler.CreateSizeCounter()
-        use enum = ts.GetEnumerator()
-        while enum.MoveNext() do
-            let t = enum.Current
-            array.Add t
-            sizeCounter.Append(t, ?pickler = pickler)
-            if sizeCounter.Count > threshold then
-                accumulated.Add(array.ToArray())
-                array.Clear()
-                sizeCounter <- FsPickler.CreateSizeCounter()
-
-        if array.Count > 0 then
-            accumulated.Add(array.ToArray())
-            array.Clear()
-
-        accumulated :> seq<'T []>
-
     static let computeHash (payload : 'T) =
         try FsPickler.ComputeHash payload
         with e ->
@@ -162,12 +142,10 @@ and [<Sealed; AutoSerializable(false)>]
             return createNewValue level payload
         }
 
-        member x.CreatePartitionedArray(payload : seq<'T>, level : StorageLevel, ?partitionThreshold : int64) = async {
+        member x.CreateCloudArrayPartitioned(sequence : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
             // tolerate StorageLevel.Disk inputs in InMemory configuration for compatibility reasons
             if not (isSupportedLevel level || level.HasFlag StorageLevel.Disk) then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
-            match partitionThreshold with
-            | None -> return [| createNewValue level (Seq.toArray payload) :?> ICloudArray<'T> |]
-            | Some pt -> return partitionBySize pt payload |> Seq.map (fun vs -> createNewValue level vs :?> ICloudArray<'T>) |> Seq.toArray
+            return! FsPickler.PartitionSequenceBySize(sequence, partitionThreshold, fun ts -> async { return createNewValue level ts :?> ICloudArray<'T> })
         }
         
         member x.Dispose(cv: ICloudValue): Async<unit> = async { return! cv.Dispose() }

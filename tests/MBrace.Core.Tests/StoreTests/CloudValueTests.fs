@@ -192,14 +192,41 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         } |> runRemote
 
     [<Test>]
+    member __.``Simple create new array`` () =
+        cloud {
+            let size = 100000
+            let xs = seq { 
+                let r = new System.Random()
+                for i in 1 .. size -> r.Next()
+            }
+
+            let! ca = CloudValue.NewArray xs
+            ca.Length |> shouldEqual size
+        } |> runRemote
+
+    [<Test>]
     member __.``Partitionable CloudValue creation`` () =
         cloud {
             let threshold = 10000
             let size = 10 * threshold
-            let! values = CloudValue.NewPartitioned(seq { 1 .. size }, partitionThreshold = int64 threshold)
+            let! values = CloudValue.NewArrayPartitioned(seq { 1 .. size }, partitionThreshold = int64 threshold)
             values.Length |> shouldBe (fun l -> l >= 10 && l <= 50)
-            values |> Seq.concat |> Seq.length |> shouldEqual size
+            values |> Seq.sumBy (fun v -> v.Length) |> shouldEqual size
+            values |> Array.collect (fun vs -> vs.Value) |> shouldEqual [|1 .. size|]
         } |> runRemote
+
+    [<Test>]
+    member __.``Random Partitionable CloudValue creation`` () =
+        let check (size : int64, threshold : int64) =
+            let size = abs size
+            let threshold = 1L + abs threshold
+            cloud {
+                let! values = CloudValue.NewArrayPartitioned(seq { 1L .. size }, partitionThreshold = threshold)
+                values |> Array.sumBy (fun v -> int64 v.Length) |> shouldEqual size
+                values |> Array.collect (fun vs -> vs.Value) |> shouldEqual [|1L .. size|]
+            } |> runRemote
+
+        Check.QuickThrowOnFail(check, maxRuns = 20)
 
     [<Test>]
     member __.``CloudArray count`` () =

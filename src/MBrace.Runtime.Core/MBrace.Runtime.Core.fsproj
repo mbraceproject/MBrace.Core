@@ -72,6 +72,8 @@
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
     <Compile Include="Utils\Logging.fs" />
+    <Compile Include="Vagabond\VagabondRegistry.fs" />
+    <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="InMemoryRuntime\InMemoryPrimitives.fs" />
     <Compile Include="InMemoryRuntime\InMemoryStore.fs" />
     <Compile Include="InMemoryRuntime\InMemoryCombinators.fs" />
@@ -92,8 +94,6 @@
     <Compile Include="Runtime\JobEvaluator.fs" />
     <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Runtime\Client.fs" />
-    <Compile Include="Vagabond\VagabondRegistry.fs" />
-    <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="Store\StoreCloudValue.fs" />
     <Compile Include="Store\StoreEntity.fs" />
     <Compile Include="Store\FileSystemStore.fs" />

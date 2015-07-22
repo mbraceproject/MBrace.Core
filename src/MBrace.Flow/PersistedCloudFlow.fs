@@ -54,7 +54,7 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
             | [| (_,p) |] -> p.Value :> seq<'T>
             | _ -> partitions |> Seq.collect snd
         else
-            raise <| NotSupportedException("PersistedCloudFlow not available for local evaluation.")
+            raise <| InvalidOperationException("PersistedCloudFlow not available for local evaluation.")
 
     interface seq<'T> with
         member x.GetEnumerator() = x.ToEnumerable().GetEnumerator() :> IEnumerator
@@ -104,7 +104,7 @@ type PersistedCloudFlow private () =
     static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : Local<PersistedCloudFlow<'T>> = local {
         let partitionThreshold = defaultArg partitionThreshold defaultTreshold
         let! currentWorker = Cloud.CurrentWorker
-        let! partitions = CloudValue.NewPartitioned(elems, ?storageLevel = storageLevel, partitionThreshold = partitionThreshold)
+        let! partitions = CloudValue.NewArrayPartitioned(elems, ?storageLevel = storageLevel, partitionThreshold = partitionThreshold)
         return new PersistedCloudFlow<'T>(partitions |> Array.map (fun p -> (currentWorker,p)))
     }
 
