@@ -15,6 +15,12 @@ open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Vagabond
 
+[<AutoOpen>]
+module private StoreCloudValueConfig =
+    
+    [<Literal>]
+    let persistFileSuffix = ".cv"
+
 // StoreCloudValue instances have three possible representations
 //  * Encapsulated: values small enough to be encapsulated in the CloudValue instance
 //  * VagabondValue: large values managed by Vagabond and are therefore available in the local context
@@ -23,46 +29,57 @@ open MBrace.Runtime.Vagabond
 type private CachedEntityId =
     | Encapsulated of value:obj * hash:HashResult
     | VagabondValue of hash:HashResult
-    | Cached of hash:HashResult
+    | Cached of level:StorageLevel * hash:HashResult
 with
     /// Gets the FsPickler hashcode of the cached value
     member c.Hash =
         match c with
         | Encapsulated (_,hash) -> hash
-        | Cached hash -> hash
+        | Cached (_, hash) -> hash
         | VagabondValue hash -> hash
+
+    member c.Level =
+        match c with
+        | Encapsulated _ -> StorageLevel.Encapsulated
+        | VagabondValue _ -> StorageLevel.Other
+        | Cached (l,_) -> l
 
     /// <summary>
     ///     Creates a cache entity identifier for provided object graph.
     /// </summary>
     /// <param name="obj">Input serializable object graph.</param>
     /// <param name="sizeThreshold">Size threshold in bytes. Objects less than the treshold will be encapsulated in CloudValue instance.</param>
-    static member FromObject(obj:obj, sizeThreshold:int64) : CachedEntityId =
+    static member FromObject(obj:obj, level : StorageLevel, sizeThreshold:int64) : CachedEntityId =
         let vgb = VagabondRegistry.Instance
         let hash = vgb.Serializer.ComputeHash obj
         if obj = null || hash.Length <= sizeThreshold then Encapsulated(obj, hash)
         else
             match vgb.TryGetBindingByHash hash with
             | Some _ -> VagabondValue hash
-            | None -> Cached hash
+            | None -> Cached(level, hash)
 
 /// Cached value representation; can be stored as materialized object or pickled bytes
 [<AutoSerializable(false); NoEquality; NoComparison>]
 type private CachedValue = 
-    | Pickled of byte []
-    | Reified of obj
+    | Pickled of StorageLevel * byte []
+    | Reified of StorageLevel * obj
 with
+    member inline cv.Level =
+        match cv with
+        | Pickled (l,_) -> l
+        | Reified (l,_) -> l
+
     member inline cv.Value = 
         match cv with
-        | Pickled bytes -> VagabondRegistry.Instance.Serializer.UnPickle<obj> bytes
-        | Reified o -> o
+        | Pickled (_, bytes) -> VagabondRegistry.Instance.Serializer.UnPickle<obj> bytes
+        | Reified (_, o) -> o
 
-    static member inline Create(value : obj, pickle:bool) = 
-        if pickle then
+    static member inline Create(value : obj, level : StorageLevel) = 
+        if level.HasFlag StorageLevel.MemorySerialized then
             let bytes = VagabondRegistry.Instance.Serializer.Pickle<obj> value
-            Pickled bytes
+            Pickled(level, bytes)
         else
-            Reified value
+            Reified(level, value)
 
 /// Header value serialized at the beginning of a disk-persisted value
 [<NoEquality; NoComparison>]
@@ -106,7 +123,7 @@ with
             else txt.Substring(0, n)
 
         let base32Enc = Convert.BytesToBase32 (Array.append (BitConverter.GetBytes hash.Length) hash.Hash)
-        let fileName = sprintf "%s-%s.cv" (truncate 40 hash.Type) base32Enc
+        let fileName = sprintf "%s-%s.%s" (truncate 40 hash.Type) base32Enc persistFileSuffix
         c.FileStore.Combine(c.StoreContainer, fileName)
 
 /// Registry for StoreCloudValue configurations; used for StoreCloudValue deserialization
@@ -131,7 +148,7 @@ type private StoreCloudValueRegistry private () =
 
 /// Store-based CloudValue implementation
 [<DataContract>]
-type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, reflectedType : Type, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
+type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, reflectedType : Type, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
 
     [<DataMember(Name = "Id")>]
     let id = id
@@ -141,9 +158,6 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
 
     [<DataMember(Name = "ReflectedType")>]
     let reflectedType = reflectedType
-
-    [<DataMember(Name = "StorageLevel")>]
-    let level = level
 
     [<DataMember(Name = "ConfigId")>]
     let configId = config.Id
@@ -169,41 +183,51 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
             let f = VagabondRegistry.Instance.TryGetBindingByHash hash |> Option.get
             return f.GetValue(null) :?> 'T
 
-        | Cached hash ->
+        | Cached (level, hash) ->
             let config = getConfig()
             match localCache.TryFind hash.Id with
             | Some (:? CachedValue as cv) -> return cv.Value :?> 'T
             | Some _ -> return invalidOp "StoreCloudValue: internal error, cached value was of invalid type."
             | None when level.HasFlag StorageLevel.Disk ->
                 let filePath = config.GetPath hash
-                use! fs = config.FileStore.BeginRead filePath
-                let _ = config.Serializer.Deserialize<CloudValueHeader>(fs, leaveOpen = true)
-                let value = config.Serializer.Deserialize<obj>(fs, leaveOpen = true) :?> 'T
-                return
-                    if level.HasFlag StorageLevel.MemorySerialized then
-                        ignore <| localCache.Add(hash.Id, CachedValue.Create(value, pickle = true))
-                        value
-                    elif level.HasFlag StorageLevel.Memory then
-                        if localCache.Add(hash.Id, CachedValue.Create(value, pickle = false)) then value
-                        else localCache.Get hash.Id :?> 'T
-                    else
-                        value
+                try
+                    use! stream = config.FileStore.BeginRead filePath
+                    let _ = config.Serializer.Deserialize<CloudValueHeader>(stream, leaveOpen = true)
+                    let value = config.Serializer.Deserialize<obj>(stream, leaveOpen = true) :?> 'T
+                    return
+                        if level.HasFlag StorageLevel.MemorySerialized then
+                            ignore <| localCache.Add(hash.Id, CachedValue.Create(value, level))
+                            value
+                        elif level.HasFlag StorageLevel.Memory then
+                            let isSuccess = localCache.Add(hash.Id, CachedValue.Create(value, level))
+                            if isSuccess then value
+                            else localCache.Get hash.Id :?> 'T
+                        else
+                            value
+
+                with 
+                | :? System.IO.FileNotFoundException -> 
+                    return raise <| new ObjectDisposedException(hash.Id, "Could not dereference CloudValue from store.")
+
+                | :? System.Runtime.Serialization.SerializationException
+                | :? Nessos.FsPickler.FsPicklerException as e ->
+                    return raise <| new SerializationException(sprintf "Error deserializing CloudValue '%s'" hash.Id, e)
 
             | None ->
-                return raise <| new ObjectDisposedException(sprintf "CloudValue '%s'not found." hash.Id)
+                return raise <| new ObjectDisposedException(hash.Id, "Could not dereference CloudValue from local cache.")
     }
 
     member internal __.ElementCount = elementCount
 
     /// StoreCloudValue factory method which ensures that array types are mapped to the proper ICloudArray subtype
-    static member internal CreateReflected(id : CachedEntityId, elementCount:int, containerType : Type, reflectedType : Type, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
+    static member internal CreateReflected(id : CachedEntityId, elementCount:int, containerType : Type, reflectedType : Type, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
         if containerType.IsArray && containerType.GetArrayRank() = 1 then
             let et = containerType.GetElementType()
             let e = Existential.FromType et
-            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'et> () = new StoreCloudArray<'et>(id, elementCount, level, config, localCache) :> ICloudValue }
+            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'et> () = new StoreCloudArray<'et>(id, elementCount, config, localCache) :> ICloudValue }
         else
             let e = Existential.FromType containerType
-            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'T>() = new StoreCloudValue<'T>(id, elementCount, reflectedType, level, config, localCache) :> ICloudValue }
+            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'T>() = new StoreCloudValue<'T>(id, elementCount, reflectedType, config, localCache) :> ICloudValue }
 
     [<OnDeserialized>]
     member private __.OnDeserialized (_ : StreamingContext) =
@@ -211,19 +235,16 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
         | Some(lc,cfg) -> localCache <- lc ; config <- Some cfg
         | None -> ()
 
-    member internal __.Dispose() = async {
-        match id with
-        | Encapsulated _
-        | VagabondValue _ -> return ()
-        | Cached hash -> 
-            let config = getConfig()
-            do! config.FileStore.DeleteFile (config.GetPath hash)
-            ignore <| localCache.Delete hash.Id
-    }
-
     interface ICloudValue<'T> with
         member x.Dispose(): Async<unit> = async {
-            return! x.Dispose()
+            match id with
+            | Encapsulated _
+            | VagabondValue _ -> return ()
+            | Cached (level, hash) -> 
+                let config = getConfig()
+                if level.HasFlag StorageLevel.Disk then do! config.FileStore.DeleteFile (config.GetPath hash)
+                if level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized then
+                    ignore <| localCache.Delete hash.Id
         }
         
         member x.GetBoxedValueAsync(): Async<obj> = async {
@@ -239,11 +260,11 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
             match id with
             | Encapsulated _ -> true
             | VagabondValue _ -> true
-            | Cached hash -> localCache.ContainsKey hash.Id
+            | Cached (_,hash) -> localCache.ContainsKey hash.Id
         
         member x.Size: int64 = id.Hash.Length
         
-        member x.StorageLevel: StorageLevel = level
+        member x.StorageLevel: StorageLevel = id.Level
         
         member x.Type: Type = typeof<'T>
 
@@ -257,14 +278,14 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
 
         member x.Cast<'S> () : ICloudValue<'S> =
             if typeof<'S>.IsAssignableFrom reflectedType then
-                StoreCloudValue<_>.CreateReflected(id, elementCount, typeof<'S>, reflectedType, level, getConfig(), localCache) :?> ICloudValue<'S>
+                StoreCloudValue<_>.CreateReflected(id, elementCount, typeof<'S>, reflectedType, getConfig(), localCache) :?> ICloudValue<'S>
             else
                 raise <| new InvalidCastException()
             
 
 and [<Sealed; DataContract>]
-  private StoreCloudArray<'T>(id:CachedEntityId, elementCount:int, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
-    inherit StoreCloudValue<'T []>(id, elementCount, typeof<'T[]>, level, config, localCache)
+  private StoreCloudArray<'T>(id:CachedEntityId, elementCount:int, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
+    inherit StoreCloudValue<'T []>(id, elementCount, typeof<'T[]>, config, localCache)
 
     interface ICloudArray<'T> with
         member x.Length = x.ElementCount
@@ -339,8 +360,8 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
         use! stream = config.FileStore.BeginRead path
         try
             let header = config.Serializer.Deserialize<CloudValueHeader>(stream, leaveOpen = true)
-            let ceid = Cached header.Hash
-            return StoreCloudArray<_>.CreateReflected(ceid, header.Count, header.Type, header.Type, header.Level, config, getLocalCache())
+            let ceid = Cached(header.Level, header.Hash)
+            return StoreCloudArray<_>.CreateReflected(ceid, header.Count, header.Type, header.Type, config, getLocalCache())
         with e ->
             return raise <| new FormatException(sprintf "Could not read CloudValue from '%s'." path, e)
     }
@@ -356,23 +377,21 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
     }
 
     let createCloudValue (level : StorageLevel) (value:'T) = async {
-        let ceid = CachedEntityId.FromObject(value, config.EncapsulationTreshold)
+        let ceid = CachedEntityId.FromObject(value, level, config.EncapsulationTreshold)
         let elementCount = match box value with :? System.Array as a when a.Rank = 1 -> a.Length | _ -> 1
 
         match ceid with
-        | Cached hash ->
+        | Cached (level, hash) ->
             // persist to store; TODO: make asynchronous?
             if level.HasFlag StorageLevel.Disk then do! persistValue level hash elementCount value
 
             // persist to cache
-            if level.HasFlag StorageLevel.MemorySerialized then
-                ignore <| getLocalCache().Add(hash.Id, CachedValue.Create(value, pickle = true))
-            elif level.HasFlag StorageLevel.Memory then
-                ignore <| getLocalCache().Add(hash.Id, CachedValue.Create(value, pickle = false))
+            if level.HasFlag StorageLevel.MemorySerialized || level.HasFlag StorageLevel.Memory then
+                ignore <| getLocalCache().Add(hash.Id, CachedValue.Create(value, level))
                 
         | _ -> ()
 
-        return StoreCloudValue<_>.CreateReflected(ceid, elementCount, typeof<'T>, getReflectedType value, level, config, getLocalCache()) :?> ICloudValue<'T>
+        return StoreCloudValue<_>.CreateReflected(ceid, elementCount, typeof<'T>, getReflectedType value, config, getLocalCache()) :?> ICloudValue<'T>
     }
 
     /// <summary>
@@ -459,6 +478,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
             let! files = config.FileStore.EnumerateFiles(config.StoreContainer)
             return!
                 files
+                |> Seq.filter (fun f -> f.EndsWith persistFileSuffix)
                 |> Seq.map config.FileStore.DeleteFile
                 |> Async.Parallel
                 |> Async.Ignore
@@ -469,14 +489,29 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
             let! files = config.FileStore.EnumerateFiles(config.StoreContainer)
             let! cvalues =
                 files
+                |> Seq.filter (fun f -> f.EndsWith persistFileSuffix)
                 |> Seq.map (getPersistedCloudValueByPath >> Async.Catch)
                 |> Async.Parallel
 
             return cvalues |> Array.choose (function Choice1Of2 v -> Some v | _ -> None)
         }
 
-        member x.GetById(id:string) : Async<ICloudValue> = async {
+        member x.GetValueById(id:string) : Async<ICloudValue> = async {
             ensureActive()
-            let path = config.FileStore.Combine(config.StoreContainer, id)
-            return! getPersistedCloudValueByPath path
+            let hash = HashResult.Parse id
+            let localCache = getLocalCache()
+            match getLocalCache().TryFind hash.Id with
+            // Step 1. attempt to resolve CloudValue from local cache state
+            | Some (:? CachedValue as cv) when not <| let l = cv.Level in not <| l.HasFlag StorageLevel.Disk ->
+                let value = cv.Value
+                let count = match value with :? System.Array as a when a.Rank = 1 -> a.Length | _ -> 1
+                let reflectedType = getReflectedType value
+                return StoreCloudValue<_>.CreateReflected(Cached (cv.Level, hash), count, reflectedType, reflectedType, config, localCache)
+
+            // Step 2. attempt to look up from store
+            | _ ->
+                let path = config.GetPath hash
+                try return! getPersistedCloudValueByPath path
+                with :? System.IO.FileNotFoundException ->
+                    return raise <| new ObjectDisposedException(hash.Id, "CloudValue could not be found in store.")
         }

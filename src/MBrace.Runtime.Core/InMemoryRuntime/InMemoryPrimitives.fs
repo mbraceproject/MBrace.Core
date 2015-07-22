@@ -23,7 +23,7 @@ type MemoryEmulation =
     | Copied                = 2
 
 [<NoEquality; NoComparison; AutoSerializable(false)>]
-type private EmulatedValue<'T> =
+type internal EmulatedValue<'T> =
     | Shared of 'T
     | Cloned of 'T
 with
@@ -36,17 +36,6 @@ with
         match ev with
         | Shared t -> t
         | Cloned t -> t
-
-    member inline ev.Cast<'S> () =
-        let inline cast(t : 'T) =
-            match box t with
-            | null as n -> n :?> 'S
-            | :? 'S as s -> s
-            | _ -> raise <| new InvalidCastException()
-
-        match ev with 
-        | Shared t -> Shared (cast t)
-        | Cloned t -> Cloned (cast t)
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module private MemoryEmulation =

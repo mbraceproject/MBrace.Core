@@ -20,6 +20,14 @@ type StorageLevel =
     /// Slower access but dense representation.
     | MemorySerialized          = 4
 
+    /// Data small enough to be encapsulated by reference object.
+    /// Used by storage implementations as an optimization.
+    | Encapsulated              = 8
+
+    /// Data is managed by a resource independent of the caching implementation.
+    /// For instance, it could be a Vagabond data dependency.
+    | Other                     = 16
+
     // Enumerations combining multiple storage levels
 
     /// Data persisted to disk and cached in-memory as materialized object.
@@ -107,7 +115,7 @@ type ICloudValueProvider =
     ///     Gets CloudValue by cache id
     /// </summary>
     /// <param name="id">Object identifier.</param>
-    abstract GetById : id:string -> Async<ICloudValue>
+    abstract GetValueById : id:string -> Async<ICloudValue>
 
     /// <summary>
     ///     Gets all cloud value references contained in instance.
@@ -175,6 +183,23 @@ type CloudValue =
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
         return! provider.CreatePartitionedArray(values, storageLevel, ?partitionThreshold = partitionThreshold)
+    }
+
+    /// <summary>
+    ///     Retrieves a CloudValue instance by provided id.
+    /// </summary>
+    /// <param name="id">CloudValue identifier.</param>
+    static member GetValueById(id : string) : Local<ICloudValue> = local {
+        let! provider = Cloud.GetResource<ICloudValueProvider> ()
+        return! provider.GetValueById(id)
+    }
+
+    /// <summary>
+    ///     Fetches all existing CloudValue from underlying store.
+    /// </summary>
+    static member GetAllValues() : Local<ICloudValue []> = local {
+        let! provider = Cloud.GetResource<ICloudValueProvider> ()
+        return! provider.GetAllValues()
     }
 
     /// <summary>

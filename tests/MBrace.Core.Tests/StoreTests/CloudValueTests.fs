@@ -86,7 +86,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
     [<Test>]
-    member __.``Simple value disk cached`` () =
+    member __.``Simple value disk persisted`` () =
         if __.IsSupportedLevel StorageLevel.Disk then
             let value = getUniqueValue()
             cloud {
@@ -136,7 +136,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             } |> runRemote
 
     [<Test>]
-    member __.``Remote value disk cached`` () =
+    member __.``Remote value disk persisted`` () =
         if __.IsSupportedLevel StorageLevel.Disk then
             let value = getUniqueValue()
             cloud {
@@ -212,5 +212,73 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let! value = CloudValue.New<obj>([|1 .. size|], storageLevel = level)
             let value' = value.Cast<int[]>() :?> ICloudArray<int>
             let! t = Cloud.StartAsTask(cloud { value'.Length |> shouldEqual size })
+            return! t.AwaitResult()
+        } |> runRemote
+
+
+    [<Test>]
+    member __.``Dispose CloudValue`` () =
+        let value = getUniqueValue()
+        fun () ->
+            cloud {
+                let! cv = CloudValue.New value
+                do! CloudValue.Delete cv
+                do! Cloud.Sleep 2000
+                let! t = Cloud.StartAsTask(cloud { return! cv.GetValueAsync() })
+                return! t.AwaitResult()
+            } |> runRemote
+
+        |> shouldFailwith<_,System.ObjectDisposedException>
+
+    [<Test>]
+    member __.``Get CloudValue by Id`` () =
+        let value = getUniqueValue()
+        cloud {
+            let! cv = CloudValue.New value
+            let isCacheable = cv.StorageLevel.HasFlag StorageLevel.Memory
+            let! t = Cloud.StartAsTask(cloud {
+                let! cv' = CloudValue.GetValueById cv.Id
+                let cv' = CloudValue.Cast<int list> cv
+                cv'.Id |> shouldEqual cv.Id
+                let! v' = cv'.GetValueAsync()
+                if isCacheable then cv'.IsCachedLocally |> shouldEqual true
+                if isCacheable then cv.IsCachedLocally |> shouldEqual true
+                let! v = cv.GetValueAsync()
+                if isCacheable then obj.ReferenceEquals(v,v') |> shouldEqual true
+                v' |> shouldEqual v
+            })
+
+            return! t.AwaitResult()
+        } |> runRemote
+
+    [<Test>]
+    member __.``Get Disposed CloudValue by Id`` () =
+        let value = getUniqueValue()
+        fun () ->
+            cloud {
+                let! cv = CloudValue.New value
+                let id = cv.Id
+                do! CloudValue.Delete cv
+                do! Cloud.Sleep 2000
+                let! t = Cloud.StartAsTask(cloud {
+                    return! CloudValue.GetValueById id
+                })
+                return! t.AwaitResult()
+            } |> runRemote
+
+        |> shouldFailwith<_, System.ObjectDisposedException>
+
+    [<Test>]
+    member __.``Get All CloudValues`` () =
+        let value = getUniqueValue()
+        let value' = getUniqueValue()
+        cloud {
+            let! cv1 = CloudValue.New value
+            let! cv2 = CloudValue.New value'
+            let! t = Cloud.StartAsTask(cloud {
+                let! allValues = CloudValue.GetAllValues()
+                allValues |> Array.exists (fun v -> v.Id = cv1.Id && cv1.Value = (v.Cast<int list>()).Value) |> shouldEqual true
+                allValues |> Array.exists (fun v -> v.Id = cv2.Id && cv2.Value = (v.Cast<int list>()).Value) |> shouldEqual true
+            })
             return! t.AwaitResult()
         } |> runRemote
