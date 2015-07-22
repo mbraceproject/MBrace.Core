@@ -34,19 +34,17 @@ module Utils =
         
         [<AutoSerializable(false)>]
         type private ResizeArrayConcatenator<'T>(inputs : ResizeArray<'T> []) =
-            let isEmpty = Array.isEmpty inputs
+            static let empty = [|new ResizeArray<'T>()|]
+            let inputs = if Array.isEmpty inputs then empty else inputs
             let mutable lp = 0
             let mutable ep = -1
-            let mutable l =
-                if isEmpty then Unchecked.defaultof<_> 
-                else inputs.[0]
+            let mutable l = inputs.[0]
 
             interface IEnumerator<'T> with
                 member x.Current: 'T = l.[ep]
                 member x.Current: obj = l.[ep] :> obj
                 member x.Dispose(): unit = ()
                 member x.MoveNext(): bool =
-                    if isEmpty then false else
                     if ep + 1 = l.Count then
                         // shift to next List, skipping empty occurences
                         lp <- lp + 1
@@ -62,8 +60,7 @@ module Utils =
                         ep <- ep + 1
                         true
                 
-                member x.Reset(): unit = 
-                    if isEmpty then () else
+                member x.Reset(): unit =
                     lp <- 0
                     l <- inputs.[0]
                     ep <- -1
