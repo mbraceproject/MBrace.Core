@@ -57,7 +57,7 @@ type ``CloudFlow tests`` () as self =
             let expected = inputs |> Array.concat
             ResizeArray.concat tas |> Seq.toArray |> shouldEqual expected
 
-        Check.QuickThrowOnFail(check, maxRuns = 1000)
+        Check.QuickThrowOnFail check
 
     // #region Flow persist tests
 
