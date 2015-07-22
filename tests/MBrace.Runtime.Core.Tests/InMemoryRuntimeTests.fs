@@ -59,7 +59,7 @@ type ``InMemory CloudValue Tests`` () =
     let valueProvider = MBrace.Runtime.InMemoryRuntime.InMemoryValueProvider() :> ICloudValueProvider
     let imem = InMemoryRuntime.Create(memoryMode = MemoryEmulation.Shared, valueProvider = valueProvider)
 
-    override __.IsSupportedLevel lvl = valueProvider.IsSupportedStorageLevel lvl
+    override __.IsSupportedLevel lvl = lvl = StorageLevel.Memory || lvl = StorageLevel.MemorySerialized
 
     override __.RunRemote(workflow) = imem.Run workflow
     override __.RunLocally(workflow) = imem.Run workflow

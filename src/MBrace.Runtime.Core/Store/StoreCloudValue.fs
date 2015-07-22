@@ -287,6 +287,11 @@ and [<Sealed; DataContract>]
 /// CloudValue provider implementation that is based on cloud storage
 and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
 
+    static let isSupportedLevel (level : StorageLevel) =
+        level.HasFlag StorageLevel.Disk || 
+        level.HasFlag StorageLevel.Memory || 
+        level.HasFlag StorageLevel.MemorySerialized
+
     [<DataMember(Name = "Configuration")>]
     let config = config
 
@@ -415,9 +420,11 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
         member x.Id: string = sprintf "StoreCloudValue [%s] at %s." config.FileStore.Id config.StoreContainer
         member x.Name: string = "StoreCloudValue"
         member x.DefaultStorageLevel = StorageLevel.MemoryAndDisk
-        member x.IsSupportedStorageLevel (_ : StorageLevel) = true
+        member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
 
         member x.CreatePartitionedArray(values : seq<'T>, level : StorageLevel, ?partitionThreshold : int64) = async {
+            ensureActive()
+            if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Not supported storage level '%O'." level
             match partitionThreshold with
             | None -> let! cv = createCloudValue level (Seq.toArray values) in return [| cv :?> ICloudArray<'T> |]
             | Some pt -> 
@@ -430,6 +437,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
 
         member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {
             ensureActive()
+            if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Not supported storage level '%O'." level
             return! createCloudValue level payload
         }
         

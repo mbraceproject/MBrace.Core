@@ -50,7 +50,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Invalid StorageLevel enumeration passed to CloudValue`` () =
         fun () -> CloudValue.New(getUniqueValue(), enum 0) |> runRemote
-        |> shouldfail
+        |> shouldFailwith<_, System.ArgumentException>
 
     [<Test>]
     member __.``CloudValue of array should be CloudArray instance`` () =

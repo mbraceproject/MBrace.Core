@@ -17,6 +17,9 @@ open MBrace.Runtime.Utils
 
 [<AutoSerializable(false); CloneableOnly>]
 type private InMemoryValue<'T> (payload : EmulatedValue<'T>, hash : HashResult) =
+    let mutable isDisposed = false
+    let checkDisposed () =
+        if isDisposed then raise <| new ObjectDisposedException(hash.Id)
 
     /// Constructor that ensures arrays are initialized as ICloudArray instances
     static let mkValue (hash : HashResult) (payload : EmulatedValue<'S>) =
@@ -41,6 +44,8 @@ type private InMemoryValue<'T> (payload : EmulatedValue<'T>, hash : HashResult) 
         let payload = EmulatedValue.create mode false value
         mkValue hash payload
 
+    member internal __.IsDisposed = isDisposed
+
     interface ICloudValue<'T> with
         member x.Id: string = hash.Id
         member x.Size: int64 = hash.Length
@@ -51,38 +56,45 @@ type private InMemoryValue<'T> (payload : EmulatedValue<'T>, hash : HashResult) 
 
         member x.Type: Type = typeof<'T>
         member x.ReflectedType : Type = getReflectedType payload.RawValue
-        member x.GetBoxedValueAsync(): Async<obj> = async { return payload.Value :> obj }
-        member x.GetValueAsync(): Async<'T> = async { return payload.Value }
-        member x.IsCachedLocally: bool = true
-        member x.Value: 'T = payload.Value
-        member x.GetBoxedValue () : obj = payload.Value :> obj
-        member x.Cast<'S> () = mkValue hash (payload.Cast<'S> ()) :> ICloudValue<'S>
-        member x.Dispose() = async.Return()
+        member x.GetBoxedValueAsync(): Async<obj> = async { let _ = checkDisposed () in return payload.Value :> obj }
+        member x.GetValueAsync(): Async<'T> = async { let _ = checkDisposed () in return payload.Value }
+        member x.IsCachedLocally: bool = not isDisposed
+        member x.Value: 'T = checkDisposed() ; payload.Value
+        member x.GetBoxedValue () : obj = checkDisposed() ; payload.Value :> obj
+        member x.Cast<'S> () = checkDisposed() ; mkValue hash (payload.Cast<'S> ()) :> ICloudValue<'S>
+        member x.Dispose() = async { isDisposed <- true }
 
 and [<AutoSerializable(false); Sealed; CloneableOnly>]
-  private InMemoryArray<'T> (value : EmulatedValue<'T []>, hash : HashResult) =
+  private InMemoryArray<'T> (value : EmulatedValue<'T []>, hash : HashResult) as self =
     inherit InMemoryValue<'T[]> (value, hash)
 
+    let checkDisposed () =
+        if (self :> InMemoryValue<'T[]>).IsDisposed then 
+            raise <| new ObjectDisposedException(hash.Id)
+
     interface ICloudArray<'T> with
-        member x.Length = value.Value.Length
+        member x.Length = checkDisposed () ; value.Value.Length
 
     interface seq<'T> with
-        member x.GetEnumerator(): Collections.IEnumerator = value.Value.GetEnumerator()
-        member x.GetEnumerator(): IEnumerator<'T> = (value.Value :> seq<'T>).GetEnumerator()
+        member x.GetEnumerator(): Collections.IEnumerator = checkDisposed () ; value.Value.GetEnumerator()
+        member x.GetEnumerator(): IEnumerator<'T> = checkDisposed () ; (value.Value :> seq<'T>).GetEnumerator()
 
     interface ICloudCollection<'T> with
-        member x.IsKnownCount: bool = true
-        member x.IsKnownSize: bool = true
-        member x.IsMaterialized: bool = true
-        member x.GetCount(): Async<int64> =  async { return value.Value.LongLength }
-        member x.GetSize(): Async<int64> = async { return hash.Length }
-        member x.ToEnumerable(): Async<seq<'T>> = async { return value.Value :> _ }
+        member x.IsKnownCount: bool = checkDisposed () ; true
+        member x.IsKnownSize: bool = checkDisposed () ; true
+        member x.IsMaterialized: bool = checkDisposed () ; true
+        member x.GetCount(): Async<int64> =  async { let _ = checkDisposed () in return value.Value.LongLength }
+        member x.GetSize(): Async<int64> = async { let _ = checkDisposed () in return hash.Length }
+        member x.ToEnumerable(): Async<seq<'T>> = async { let _ = checkDisposed () in return value.Value :> _ }
 
 /// Provides an In-Memory CloudValue implementation
 [<Sealed; AutoSerializable(false)>] 
 type InMemoryValueProvider () =
     let id = mkUUID()
     let cache = new ConcurrentDictionary<string, ICloudValue>()
+
+    static let isSupportedLevel (level : StorageLevel) =
+        level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized
 
     static let partitionBySize (threshold:int64) (ts:seq<'T>) =
         let accumulated = new ResizeArray<'T []>()
@@ -123,12 +135,16 @@ type InMemoryValueProvider () =
         member x.Id: string = id
         member x.Name: string = "In-Memory Value Provider"
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
-        member x.IsSupportedStorageLevel (level : StorageLevel) = not <| level.HasFlag StorageLevel.Disk
+        member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
         member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {
+            // tolerate StorageLevel.Disk inputs in InMemory configuration for compatibility reasons
+            if not (isSupportedLevel level || level.HasFlag StorageLevel.Disk) then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
             return createNewValue level payload
         }
 
         member x.CreatePartitionedArray(payload : seq<'T>, level : StorageLevel, ?partitionThreshold : int64) = async {
+            // tolerate StorageLevel.Disk inputs in InMemory configuration for compatibility reasons
+            if not (isSupportedLevel level || level.HasFlag StorageLevel.Disk) then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
             match partitionThreshold with
             | None -> return [| createNewValue level (Seq.toArray payload) :?> ICloudArray<'T> |]
             | Some pt -> return partitionBySize pt payload |> Seq.map (fun vs -> createNewValue level vs :?> ICloudArray<'T>) |> Seq.toArray
@@ -274,19 +290,23 @@ type InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
     let clone (t:'T) = EmulatedValue.create mode true t
     let dict = new ConcurrentDictionary<string, EmulatedValue<'T>> ()
     let toEnum() = dict |> Seq.map (fun kv -> new KeyValuePair<_,_>(kv.Key, kv.Value.Value))
+    let mutable isDisposed = false
+    let checkDisposed() = 
+        if isDisposed then raise <| new ObjectDisposedException(id)
 
     interface seq<KeyValuePair<string, 'T>> with
-        member x.GetEnumerator() = toEnum().GetEnumerator() :> Collections.IEnumerator
-        member x.GetEnumerator() = toEnum().GetEnumerator()
+        member x.GetEnumerator() = checkDisposed() ; toEnum().GetEnumerator() :> Collections.IEnumerator
+        member x.GetEnumerator() = checkDisposed() ; toEnum().GetEnumerator()
     
     interface ICloudDictionary<'T> with
         member x.Add(key : string, value : 'T) : Async<unit> =
-            async { return dict.[key] <- clone value }
+            async { let _ = checkDisposed() in return dict.[key] <- clone value }
 
         member x.TryAdd(key: string, value: 'T): Async<bool> = 
-            async { return dict.TryAdd(key, clone value) }
+            async { let _ = checkDisposed() in return dict.TryAdd(key, clone value) }
                     
         member x.Transact(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
+            checkDisposed()
             let result = ref Unchecked.defaultof<'R>
             let updater (curr : EmulatedValue<'T> option) =
                 let currv = curr |> Option.map (fun c -> c.Value)
@@ -299,30 +319,30 @@ type InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
         }
                     
         member x.ContainsKey(key: string): Async<bool> = 
-            async { return dict.ContainsKey key }
+            async { let _ = checkDisposed() in return dict.ContainsKey key }
 
-        member x.IsKnownCount = true
-        member x.IsKnownSize = true
-        member x.IsMaterialized = true
+        member x.IsKnownCount = checkDisposed(); true
+        member x.IsKnownSize = checkDisposed(); true
+        member x.IsMaterialized = checkDisposed(); true
                     
         member x.GetCount(): Async<int64> = 
-            async { return int64 dict.Count }
+            async { let _ = checkDisposed() in return int64 dict.Count }
 
         member x.GetSize(): Async<int64> = 
-            async { return int64 dict.Count }
+            async { let _ = checkDisposed() in return int64 dict.Count }
                     
-        member x.Dispose(): Async<unit> = async.Zero()
+        member x.Dispose(): Async<unit> = async { isDisposed <- true }
 
         member x.Id: string = id
                     
         member x.Remove(key: string): Async<bool> = 
-            async { return dict.TryRemove key |> fst }
+            async { let _ = checkDisposed() in return dict.TryRemove key |> fst }
                     
         member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
-            async { return toEnum() }
+            async { let _ = checkDisposed() in return toEnum() }
                     
         member x.TryFind(key: string): Async<'T option> = 
-            async { return let ok,v = dict.TryGetValue key in if ok then Some v.Value else None }
+            async { let _ = checkDisposed() in return let ok,v = dict.TryGetValue key in if ok then Some v.Value else None }
 
 /// Defines an in-memory dictionary factory using ConcurrentDictionary
 [<Sealed; AutoSerializable(false)>]
