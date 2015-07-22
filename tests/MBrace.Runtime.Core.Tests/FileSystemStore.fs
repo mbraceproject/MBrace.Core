@@ -10,17 +10,6 @@ open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
 open MBrace.Runtime.InMemoryRuntime
 
-[<AutoOpen>]
-module private Config =
-    do VagabondRegistry.Initialize(throwOnError = false)
-
-    let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-
-    let fsStore = FileSystemStore.CreateSharedLocal()
-    let serializer = new FsPicklerBinaryStoreSerializer()
-    let fsConfig = CloudFileStoreConfiguration.Create(fsStore)
-
-
 [<TestFixture>]
 type ``Local FileSystemStore Tests`` () =
     inherit ``CloudFileStore Tests``(parallelismFactor = 100)

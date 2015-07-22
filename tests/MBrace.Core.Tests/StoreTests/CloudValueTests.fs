@@ -200,3 +200,17 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             values.Length |> shouldBe (fun l -> l >= 10 && l <= 50)
             values |> Seq.concat |> Seq.length |> shouldEqual size
         } |> runRemote
+
+    [<Test>]
+    member __.``CloudArray count`` () =
+        let level = 
+            if __.IsSupportedLevel StorageLevel.Disk then StorageLevel.Disk
+            else StorageLevel.Memory
+
+        cloud {
+            let size = 10000
+            let! value = CloudValue.New<obj>([|1 .. size|], storageLevel = level)
+            let value' = value.Cast<int[]>() :?> ICloudArray<int>
+            let! t = Cloud.StartAsTask(cloud { value'.Length |> shouldEqual size })
+            return! t.AwaitResult()
+        } |> runRemote

@@ -49,6 +49,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <Compile Include="Config.fs" />
     <Compile Include="FileSystemStore.fs" />
     <Compile Include="InMemoryRuntimeTests.fs" />
     <Content Include="App.config" />

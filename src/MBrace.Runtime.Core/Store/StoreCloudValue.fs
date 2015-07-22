@@ -68,9 +68,14 @@ with
 [<NoEquality; NoComparison>]
 type private CloudValueHeader =
     {
+        /// Reflected type of persisted value
         Type : Type
+        /// FsPickler hashcode for persisted value
         Hash : HashResult
+        /// User-specified storage level for entity
         Level : StorageLevel
+        /// Element count if persisted array
+        Count : int
     }
 
 /// StoreConfiguration object specific to local process
@@ -126,10 +131,13 @@ type private StoreCloudValueRegistry private () =
 
 /// Store-based CloudValue implementation
 [<DataContract>]
-type private StoreCloudValue<'T> internal (id:CachedEntityId, reflectedType : Type, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
+type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, reflectedType : Type, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
 
     [<DataMember(Name = "Id")>]
     let id = id
+
+    [<DataMember(Name = "Count")>]
+    let elementCount = elementCount
 
     [<DataMember(Name = "ReflectedType")>]
     let reflectedType = reflectedType
@@ -185,15 +193,17 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, reflectedType : Ty
                 return raise <| new ObjectDisposedException(sprintf "CloudValue '%s'not found." hash.Id)
     }
 
+    member internal __.ElementCount = elementCount
+
     /// StoreCloudValue factory method which ensures that array types are mapped to the proper ICloudArray subtype
-    static member internal CreateReflected(id : CachedEntityId, containerType : Type, reflectedType : Type, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
+    static member internal CreateReflected(id : CachedEntityId, elementCount:int, containerType : Type, reflectedType : Type, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
         if containerType.IsArray && containerType.GetArrayRank() = 1 then
             let et = containerType.GetElementType()
             let e = Existential.FromType et
-            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'et> () = new StoreCloudArray<'et>(id, level, config, localCache) :> ICloudValue }
+            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'et> () = new StoreCloudArray<'et>(id, elementCount, level, config, localCache) :> ICloudValue }
         else
             let e = Existential.FromType containerType
-            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'T>() = new StoreCloudValue<'T>(id, reflectedType, level, config, localCache) :> ICloudValue }
+            e.Apply { new IFunc<ICloudValue> with member __.Invoke<'T>() = new StoreCloudValue<'T>(id, elementCount, reflectedType, level, config, localCache) :> ICloudValue }
 
     [<OnDeserialized>]
     member private __.OnDeserialized (_ : StreamingContext) =
@@ -247,17 +257,17 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, reflectedType : Ty
 
         member x.Cast<'S> () : ICloudValue<'S> =
             if typeof<'S>.IsAssignableFrom reflectedType then
-                StoreCloudValue<_>.CreateReflected(id, typeof<'S>, reflectedType, level, getConfig(), localCache) :?> ICloudValue<'S>
+                StoreCloudValue<_>.CreateReflected(id, elementCount, typeof<'S>, reflectedType, level, getConfig(), localCache) :?> ICloudValue<'S>
             else
                 raise <| new InvalidCastException()
             
 
 and [<Sealed; DataContract>]
-  private StoreCloudArray<'T>(id:CachedEntityId, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
-    inherit StoreCloudValue<'T []>(id, typeof<'T[]>, level, config, localCache)
+  private StoreCloudArray<'T>(id:CachedEntityId, elementCount:int, level : StorageLevel, config : StoreCloudValueConfiguration, localCache : InMemoryCache) =
+    inherit StoreCloudValue<'T []>(id, elementCount, typeof<'T[]>, level, config, localCache)
 
     interface ICloudArray<'T> with
-        member x.Length = (x :> ICloudValue<'T []>).Value.Length
+        member x.Length = x.ElementCount
 
     interface seq<'T> with
         member x.GetEnumerator() = (x :> ICloudValue<'T []>).Value.GetEnumerator()
@@ -265,18 +275,15 @@ and [<Sealed; DataContract>]
 
     interface ICloudCollection<'T> with
         member x.GetCount(): Async<int64> = async {
-            let! v = (x :> ICloudValue<'T []>).GetValueAsync()
-            return int64 v.Length
+            return int64 x.ElementCount
         }
         
         member x.GetSize(): Async<int64> = async {
             return (x :> ICloudValue).Size
         }
         
-        member x.IsKnownCount: bool = (x :> ICloudValue).IsCachedLocally
-        
+        member x.IsKnownCount: bool = true
         member x.IsKnownSize: bool = true
-        
         member x.IsMaterialized: bool = (x :> ICloudValue).IsCachedLocally
         
         member x.ToEnumerable(): Async<seq<'T>> = async {
@@ -333,28 +340,29 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
         try
             let header = config.Serializer.Deserialize<CloudValueHeader>(stream, leaveOpen = true)
             let ceid = Cached header.Hash
-            return StoreCloudArray<_>.CreateReflected(ceid, header.Type, header.Type, header.Level, config, getLocalCache())
+            return StoreCloudArray<_>.CreateReflected(ceid, header.Count, header.Type, header.Type, header.Level, config, getLocalCache())
         with e ->
             return raise <| new FormatException(sprintf "Could not read CloudValue from '%s'." path, e)
     }
 
-    let persistValue (level : StorageLevel) (hash : HashResult) (value : obj) = async {
+    let persistValue (level : StorageLevel) (hash : HashResult) (elementCount : int) (value : obj) = async {
         let path = config.GetPath hash
         let! exists = config.FileStore.FileExists path
         if not exists then
             use! stream = config.FileStore.BeginWrite path
-            let header = { Type = getReflectedType value ; Hash = hash ; Level = level }
+            let header = { Type = getReflectedType value ; Hash = hash ; Level = level ; Count = elementCount }
             config.Serializer.Serialize<CloudValueHeader>(stream, header, leaveOpen = true)
             config.Serializer.Serialize<obj>(stream, value, leaveOpen = true)
     }
 
     let createCloudValue (level : StorageLevel) (value:'T) = async {
         let ceid = CachedEntityId.FromObject(value, config.EncapsulationTreshold)
+        let elementCount = match box value with :? System.Array as a when a.Rank = 1 -> a.Length | _ -> 1
 
         match ceid with
         | Cached hash ->
             // persist to store; TODO: make asynchronous?
-            if level.HasFlag StorageLevel.Disk then do! persistValue level hash value
+            if level.HasFlag StorageLevel.Disk then do! persistValue level hash elementCount value
 
             // persist to cache
             if level.HasFlag StorageLevel.MemorySerialized then
@@ -364,7 +372,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : StoreClou
                 
         | _ -> ()
 
-        return StoreCloudValue<_>.CreateReflected(ceid, typeof<'T>, getReflectedType value, level, config, getLocalCache()) :?> ICloudValue<'T>
+        return StoreCloudValue<_>.CreateReflected(ceid, elementCount, typeof<'T>, getReflectedType value, level, config, getLocalCache()) :?> ICloudValue<'T>
     }
 
     /// <summary>
