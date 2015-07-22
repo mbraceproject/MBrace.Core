@@ -3,12 +3,15 @@
 open System
 open System.Threading
 open System.Threading.Tasks
+open System.Collections
+open System.Collections.Generic
 
 open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Flow
 
 [<AutoOpen>]
-module internal Utils =
+module Utils =
 
     type Async with
         static member AwaitTask(t : Task) = Async.AwaitTask(t.ContinueWith(ignore, TaskContinuationOptions.None))
@@ -27,7 +30,52 @@ module internal Utils =
             if t.HasValue then Some t.Value
             else None
 
-    module internal Partition =
+    module ResizeArray =
+        
+        [<AutoSerializable(false)>]
+        type private ResizeArrayConcatenator<'T>(inputs : ResizeArray<'T> []) =
+            let isEmpty = Array.isEmpty inputs
+            let mutable lp = 0
+            let mutable ep = -1
+            let mutable l =
+                if isEmpty then Unchecked.defaultof<_> 
+                else inputs.[0]
+
+            interface IEnumerator<'T> with
+                member x.Current: 'T = l.[ep]
+                member x.Current: obj = l.[ep] :> obj
+                member x.Dispose(): unit = ()
+                member x.MoveNext(): bool =
+                    if isEmpty then false else
+                    if ep + 1 = l.Count then
+                        // shift to next List, skipping empty occurences
+                        lp <- lp + 1
+                        while lp < inputs.Length && inputs.[lp].Count = 0 do
+                            lp <- lp + 1
+                            
+                        if lp = inputs.Length then false
+                        else
+                            l <- inputs.[lp]
+                            ep <- 0
+                            true
+                    else
+                        ep <- ep + 1
+                        true
+                
+                member x.Reset(): unit = 
+                    if isEmpty then () else
+                    lp <- 0
+                    l <- inputs.[0]
+                    ep <- -1
+
+        /// Ad-hoc ResizeArray concatenation combinator
+        let concat (inputs : seq<ResizeArray<'T>>) : seq<'T> =
+            let inputs = Seq.toArray inputs
+            Seq.fromEnumerator (fun () -> new ResizeArrayConcatenator<'T>(inputs) :> _)
+
+    module Partition =
+
+        // TODO : property tests!
 
         let ofLongRange (n : int) (length : int64) : (int64 * int64) []  = 
             let n = int64 n

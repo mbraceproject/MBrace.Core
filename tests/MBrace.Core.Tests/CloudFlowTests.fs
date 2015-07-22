@@ -9,6 +9,7 @@ open System.IO
 open FsCheck
 open NUnit.Framework
 open MBrace.Flow
+open MBrace.Flow.Internals
 open MBrace.Core
 open System.Text
 
@@ -44,14 +45,25 @@ type ``CloudFlow tests`` () as self =
 
     abstract RunRemote : Cloud<'T> -> 'T
     abstract RunLocally : Cloud<'T> -> 'T
+    abstract IsSupportedStorageLevel : StorageLevel -> bool
     abstract FsCheckMaxNumberOfTests : int
     abstract FsCheckMaxNumberOfIOBoundTests : int
+
+
+    [<Test>]
+    member __.``0. ResizeArray concatenator`` () =
+        let check (inputs : int[][]) =
+            let tas = inputs |> Array.map (fun ts -> new ResizeArray<_>(ts))
+            let expected = inputs |> Array.concat
+            ResizeArray.concat tas |> Seq.toArray |> shouldEqual expected
+
+        Check.QuickThrowOnFail(check, maxRuns = 1000)
 
     // #region Flow persist tests
 
     [<Test>]
     member __.``1. PersistedCloudFlow : simple persist`` () =
-        if CloudValue.IsSupportedStorageLevel StorageLevel.Disk |> runLocally then
+        if __.IsSupportedStorageLevel StorageLevel.Disk then
             let inputs = [|1L .. 1000000L|]
             let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runRemote
             let workers = Cloud.GetWorkerCount() |> runRemote

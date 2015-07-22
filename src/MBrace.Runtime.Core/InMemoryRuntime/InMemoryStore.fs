@@ -98,7 +98,8 @@ and [<Sealed; AutoSerializable(false)>]
     let cache = new ConcurrentDictionary<HashResult, EmulatedValue<obj>>()
 
     static let isSupportedLevel (level : StorageLevel) =
-        level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized
+        // while this implementation does not support disk persistence, tolerate inputs for compatibility reasons
+        level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized || level.HasFlag StorageLevel.Disk
 
     static let computeHash (payload : 'T) =
         try FsPickler.ComputeHash payload
@@ -137,14 +138,12 @@ and [<Sealed; AutoSerializable(false)>]
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
         member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
         member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {
-            // tolerate StorageLevel.Disk inputs in InMemory configuration for compatibility reasons
-            if not (isSupportedLevel level || level.HasFlag StorageLevel.Disk) then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
+            if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
             return createNewValue level payload
         }
 
         member x.CreateCloudArrayPartitioned(sequence : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
-            // tolerate StorageLevel.Disk inputs in InMemory configuration for compatibility reasons
-            if not (isSupportedLevel level || level.HasFlag StorageLevel.Disk) then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
+            if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
             return! FsPickler.PartitionSequenceBySize(sequence, partitionThreshold, fun ts -> async { return createNewValue level ts :?> ICloudArray<'T> })
         }
         

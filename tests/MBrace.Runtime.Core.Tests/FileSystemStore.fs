@@ -51,5 +51,6 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
 
     override __.RunRemote(wf : Cloud<'T>) = imem.Run wf
     override __.RunLocally(wf : Cloud<'T>) = imem.Run wf
+    override __.IsSupportedStorageLevel level = cloudValueProvider.IsSupportedStorageLevel level
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

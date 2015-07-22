@@ -6,7 +6,7 @@ open System.IO
 open System
 open System.IO
 
-/// Stateful instance used for counting sizes of streams
+/// Stateful instance used for counting sizes of object streams
 type IObjectSizeCounter<'T> =
     inherit IDisposable
     /// Append object graph to count.

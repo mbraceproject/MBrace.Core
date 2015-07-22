@@ -498,13 +498,13 @@ module CloudFlow =
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
     /// <param name="flow">CloudFlow to be persisted.</param>
     /// <returns>A persisted copy of given CloudFlow.</returns>
-    let cache (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = StorageLevel.Memory)
+    let cache (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.OfCloudFlow(flow, storageLevel = StorageLevel.Memory)
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow, with its partitions cached to local memory.</summary>
     /// <param name="storageLevel">Storage level to be used when persisting CloudFlow.</param>
     /// <param name="flow">CloudFlow to be persisted.</param>
     /// <returns>A persisted copy of given CloudFlow.</returns>
-    let persist (storageLevel : StorageLevel) (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.Persist(flow, storageLevel = storageLevel)
+    let persist (storageLevel : StorageLevel) (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.OfCloudFlow(flow, storageLevel = storageLevel)
 
     let inline private mkDescComparer (comparer: IComparer<'T>) = { new IComparer<'T> with member __.Compare(x,y) = -comparer.Compare(x,y) }
 

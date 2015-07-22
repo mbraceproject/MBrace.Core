@@ -6,10 +6,13 @@ open System.Collections
 open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Threading
+open System.Threading.Tasks
 
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
+
+open MBrace.Flow.Internals
 
 #nowarn "444"
 
@@ -100,7 +103,7 @@ type PersistedCloudFlow private () =
     /// </summary>
     /// <param name="elems">Input sequence.</param>
     /// <param name="elems">Storage level used for caching.</param>
-    /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to 1GB.</param>
+    /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to 1GiB.</param>
     static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : Local<PersistedCloudFlow<'T>> = local {
         let partitionThreshold = defaultArg partitionThreshold defaultTreshold
         let! currentWorker = Cloud.CurrentWorker
@@ -127,22 +130,29 @@ type PersistedCloudFlow private () =
         new PersistedCloudFlow<'T>(partitions)
 
     /// <summary>
-    ///     Persists given flow to store.
+    ///     Create a persisted copy of provided CloudFlow.
     /// </summary>
     /// <param name="flow">Input CloudFlow.</param>
-    /// <param name="flow">StorageLevel to be used. Defaults to implementation default.</param>
-    static member Persist (flow : CloudFlow<'T>, ?storageLevel : StorageLevel) : Cloud<PersistedCloudFlow<'T>> = cloud {
+    /// <param name="storageLevel">StorageLevel to be used. Defaults to implementation default.</param>
+    /// <param name="partitionThreshold">PersistedCloudFlow partition threshold in bytes. Defaults to 1GiB.</param>
+    static member OfCloudFlow (flow : CloudFlow<'T>, ?storageLevel : StorageLevel, ?partitionThreshold:int64) : Cloud<PersistedCloudFlow<'T>> = cloud {
         let! defaultLevel = CloudValue.DefaultStorageLevel
         let storageLevel = defaultArg storageLevel defaultLevel
+        let! isSupportedStorageLevel = CloudValue.IsSupportedStorageLevel storageLevel
+
+        do
+            if not isSupportedStorageLevel then invalidArg "storageLevel" "Specified storage level not supported by the current runtime."
+            if partitionThreshold |> Option.exists (fun p -> p <= 0L) then invalidArg "partitionThreshold" "Must be positive value."
+
         match flow with
-        // TODO : storage level update semantics feels wrong; check later
-        | :? PersistedCloudFlow<'T> as cv when cv.StorageLevel.HasFlag defaultLevel -> return cv
+        // return the same persisted cloud flow if there is a storage level mismatch
+        | :? PersistedCloudFlow<'T> as cv when cv.StorageLevel.HasFlag storageLevel -> return cv
         | _ ->
             let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
                 let results = new List<List<'T>>()
                 let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return 
-                  { new Collector<'T, 'T []> with
+                  { new Collector<'T, seq<'T>> with
                     member self.DegreeOfParallelism = flow.DegreeOfParallelism 
                     member self.Iterator() = 
                         let list = new List<'T>()
@@ -150,19 +160,10 @@ type PersistedCloudFlow private () =
                         {   Index = ref -1; 
                             Func = (fun value -> list.Add(value));
                             Cts = cts }
-                    member self.Result = 
-                        let count = results |> Seq.sumBy (fun list -> list.Count)
-                        let values = Array.zeroCreate<'T> count
-                        let mutable counter = 0
-                        for list in results do
-                            for i = 0 to list.Count - 1 do
-                                let value = list.[i]
-                                values.[counter] <- value
-                                counter <- counter + 1
-                        values }
+                    member self.Result = ResizeArray.concat results }
             }
 
             let! cts = Cloud.CreateCancellationTokenSource()
-            let createVector (ts : 'T []) = PersistedCloudFlow.New(ts, storageLevel = storageLevel)
+            let createVector (ts : seq<'T>) = PersistedCloudFlow.New(ts, storageLevel = storageLevel, ?partitionThreshold = partitionThreshold)
             return! flow.WithEvaluators (collectorf cts) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
     }
