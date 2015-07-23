@@ -236,6 +236,27 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         let dir = self.FileStore.GetRandomDirectoryName()
         self.FileStore.DeleteDirectory(dir, false) |> Async.RunSync
 
+    [<Test>]
+    member self.``1. FileStore : Reading non-existent file should raise FileNotFoundException.`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
+        fun () -> self.FileStore.BeginRead file |> Async.RunSync
+        |> shouldFailwith<_, FileNotFoundException>
+
+        fun () -> self.FileStore.GetFileSize file |> Async.RunSync
+        |> shouldFailwith<_, FileNotFoundException>
+
+        fun () -> self.FileStore.CopyToStream(file, new System.IO.MemoryStream()) |> Async.RunSync
+        |> shouldFailwith<_, FileNotFoundException>
+
+
+    [<Test>]
+    member self.``1. FileStore : Reading non-existent directory should raise DirectoryNotFoundException.`` () =
+        let dir = self.FileStore.GetRandomDirectoryName()
+        fun () -> self.FileStore.EnumerateFiles dir |> Async.RunSync
+        |> shouldFailwith<_, DirectoryNotFoundException>
+
+        fun () -> self.FileStore.EnumerateFiles dir |> Async.RunSync
+        |> shouldFailwith<_, DirectoryNotFoundException>
 
     //
     //  Section 2. FileStore via MBrace runtime
