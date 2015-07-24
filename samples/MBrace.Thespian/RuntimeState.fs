@@ -69,7 +69,8 @@ with
         let cloudValueProvider = 
             StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, 
                                                             cacheFactory = (fun () -> Config.ObjectCache), 
-                                                            localFileStore = (fun () -> CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")))
+//                                                            localFileStore = (fun () -> CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")),
+                                                            shadowPersistObjects = true)
 
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))

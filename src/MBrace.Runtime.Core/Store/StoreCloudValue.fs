@@ -120,6 +120,8 @@ module private StoreCloudValueImpl =
             Serializer : ISerializer
             /// Cache factory method
             CacheFactory : (unit -> InMemoryCache) option
+            /// Asynchronously persist 'StorageLevel.Memory' to disk
+            ShadowPersistObjects : bool
         }
 
     /// StoreConfiguration object specific to local process
@@ -286,18 +288,10 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
             match config.LocalCache.TryFind hash.Id with
             | Some (:? CachedValue as cv) -> return cv.Value :?> 'T
             | Some _ -> return invalidOp "StoreCloudValue: internal error, cached value was of invalid type."
-            // There are three design possibilities here:
-            //   1) cache to local disk only if StorageLevel.Disk is specified
-            //   2) silently cache to local disk regardless of StorageLevel - this would help in AppDomain isolation related corner cases.
-            //   3) use a separate storage level (i.e. StorageLevel.LocalDisk) for caching
-            // We stick with (1) for now ...
-            | None when not <| level.HasFlag StorageLevel.Disk -> 
+            | None when not (level.HasFlag StorageLevel.Disk || config.Global.ShadowPersistObjects) -> 
                 return raise <| new ObjectDisposedException(hash.Id, "Could not dereference CloudValue from local cache.")
 
             | None ->
-                // check master store for contained hash before consulting local cache
-                let! existsInMaster = config.Global.MainStore.ContainsHash hash
-                if not existsInMaster then raise <| new ObjectDisposedException(hash.Id, "Could not dereference CloudValue from store.")
 
                 // look up local file system store cache, if available
                 let! localCached = async {
@@ -314,10 +308,10 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                     | None -> 
                         let! globalValue = config.Global.MainStore.TryDeserialize<'T>(config.Global.Serializer, hash)
                         match globalValue with
-                        // value not found in implementation
+                        // value not found in any storage level
                         | None -> return raise <| new ObjectDisposedException(hash.Id, "Could not dereference CloudValue from store.")
                         | Some gv ->
-                            // serialize asynchronously to local cache
+                            // serialize asynchronously to local store
                             match config.LocalStore with
                             | Some ls -> 
                                 let header = CloudValueHeader.FromValue(gv, hash, level)
@@ -334,7 +328,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                 match value with
                 | None -> return raise <| new ObjectDisposedException(hash.Id, "Could not dereference CloudValue from store.")
                 | Some value ->
-                    // cache locally before returning
+                    // have value, cache in-memory before returning
                     return
                         if level.HasFlag StorageLevel.MemorySerialized then
                             ignore <| config.LocalCache.Add(hash.Id, CachedValue.Create(value, level))
@@ -476,21 +470,31 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
             return StoreCloudArray<_>.CreateReflected(ceid, hd.Count, hd.Type, hd.Type, config)
     }
 
+    /// persist value to disk
     let persistValue (level : StorageLevel) (hash : HashResult) (elementCount : int) (value : obj) = async {
         let config = getConfig()
         let header = { Type = getReflectedType value ; Hash = hash ; Level = level ; Count = elementCount }
-        return! config.Global.MainStore.Serialize(config.Global.Serializer, header, value, overwrite = false)
+        match config.LocalStore with
+        | Some lc -> ignore <| Async.StartAsTask(lc.Serialize(config.Global.Serializer, header, value, overwrite = false))
+        | None -> ()
+
+        do! config.Global.MainStore.Serialize(config.Global.Serializer, header, value, overwrite = false)
     }
 
     let createCloudValue (level : StorageLevel) (value:'T) = async {
         let config = getConfig()
+        let value = box value
         let ceid = CachedEntityId.FromObject(value, level, config.Global.EncapsulationTreshold)
-        let elementCount = match box value with :? System.Array as a when a.Rank = 1 -> a.Length | _ -> 1
+        let elementCount = match value with :? System.Array as a when a.Rank = 1 -> a.Length | _ -> 1
 
         match ceid with
         | Cached (level, hash) ->
-            // persist to store; TODO: make asynchronous?
+            // persist synchronously to disk if Storage level is disk
             if level.HasFlag StorageLevel.Disk then do! persistValue level hash elementCount value
+
+            // if shadow persisting is support, write to disk asynchronously
+            elif config.Global.ShadowPersistObjects then
+                ignore <| Async.StartAsTask(persistValue level hash elementCount value)
 
             // persist to cache
             if level.HasFlag StorageLevel.MemorySerialized || level.HasFlag StorageLevel.Memory then
@@ -506,10 +510,13 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
     /// </summary>
     /// <param name="storeConfig">Main CloudFileStore configuration used for persisting values.</param>
     /// <param name="cacheFactory">User-supplied InMemory cache factory. Must be serializable.</param>
+    /// <param name="localFileStore">Optional local file store factory used for caching persisted values. Defaults to none.</param>
     /// <param name="serializer">Serializer instance used for persisting values. Defaults to FsPickler.</param>
     /// <param name="encapsulationThreshold">Values less than this size will be encapsulated in CloudValue instance. Defaults to 512KiB.</param>
+    /// <param name="shadowPersistObjects">Asynchronously persist values to store, even if StorageLevel is declared memory only.</param>
     static member InitCloudValueProvider(mainStore:CloudFileStoreConfiguration, ?cacheFactory : unit -> InMemoryCache, 
-                                            ?localFileStore:(unit -> CloudFileStoreConfiguration), ?serializer:ISerializer, ?encapsulationThreshold:int64) =
+                                            ?localFileStore:(unit -> CloudFileStoreConfiguration), ?serializer:ISerializer, 
+                                            ?encapsulationThreshold:int64, ?shadowPersistObjects:bool) =
 
         let id = sprintf "%s:%s/%s" mainStore.FileStore.Name mainStore.FileStore.Id mainStore.DefaultDirectory
         let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> ISerializer
@@ -523,6 +530,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
                 Serializer = serializer
                 CacheFactory = cacheFactory
                 EncapsulationTreshold = encapsulationThreshold
+                ShadowPersistObjects = defaultArg shadowPersistObjects true
             }
 
         let localConfig = StoreCloudValueRegistry.Install config

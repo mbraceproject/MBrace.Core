@@ -35,13 +35,6 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
             let _,ca = partitions.[0]
             partitions |> Array.fold (fun s (_,cv) -> s &&& cv.StorageLevel) ca.StorageLevel
 
-    /// Indicates whether this CloudFlow instance is available for consumption from the local context.
-    member __.IsAvailableLocally : bool =
-        let isAvailablePartition (_, cv : ICloudValue) =
-            cv.StorageLevel.HasFlag StorageLevel.Disk || cv.IsCachedLocally
-
-        partitions |> Array.forall isAvailablePartition
-
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.GetPartitions () = partitions
     /// Computes the size (in bytes) of the PersistedCloudFlow
@@ -51,13 +44,10 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>
 
     /// Gets an enumerable for all elements in the PersistedCloudFlow
     member private __.ToEnumerable() : seq<'T> =
-        if __.IsAvailableLocally then
-            match partitions with
-            | [||] -> Seq.empty
-            | [| (_,p) |] -> p.Value :> seq<'T>
-            | _ -> partitions |> Seq.collect snd
-        else
-            raise <| InvalidOperationException("PersistedCloudFlow not available for local evaluation.")
+        match partitions with
+        | [||] -> Seq.empty
+        | [| (_,p) |] -> p.Value :> seq<'T>
+        | _ -> partitions |> Seq.collect snd
 
     interface seq<'T> with
         member x.GetEnumerator() = x.ToEnumerable().GetEnumerator() :> IEnumerator
