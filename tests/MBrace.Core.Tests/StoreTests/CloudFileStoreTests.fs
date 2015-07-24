@@ -231,6 +231,11 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         self.FileStore.DeleteFile file |> Async.RunSync
 
+        // test paths in non-existent directories
+        let dir = self.FileStore.GetRandomDirectoryName()
+        let file' = self.FileStore.GetRandomFilePath dir
+        self.FileStore.DeleteFile file' |> Async.RunSync
+
     [<Test>]
     member self.``1. FileStore : Deleting non-existent directory`` () =
         let dir = self.FileStore.GetRandomDirectoryName()
@@ -245,7 +250,15 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         fun () -> self.FileStore.GetFileSize file |> Async.RunSync
         |> shouldFailwith<_, FileNotFoundException>
 
-        fun () -> self.FileStore.CopyToStream(file, new System.IO.MemoryStream()) |> Async.RunSync
+        // test paths in non-existent directories
+
+        let dir = self.FileStore.GetRandomDirectoryName()
+        let file' = self.FileStore.GetRandomFilePath dir
+        
+        fun () -> self.FileStore.BeginRead file' |> Async.RunSync
+        |> shouldFailwith<_, FileNotFoundException>
+
+        fun () -> self.FileStore.GetFileSize file' |> Async.RunSync
         |> shouldFailwith<_, FileNotFoundException>
 
 

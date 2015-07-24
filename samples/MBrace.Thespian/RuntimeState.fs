@@ -66,7 +66,10 @@ with
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
         let storeCloudValueConfig = CloudFileStoreConfiguration.Create(fileStoreConfig.FileStore, defaultDirectory = cacheDirectory)
-        let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig)
+        let cloudValueProvider = 
+            StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, 
+                                                            cacheFactory = (fun () -> Config.ObjectCache), 
+                                                            localFileStore = (fun () -> CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")))
 
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))

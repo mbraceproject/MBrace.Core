@@ -24,6 +24,7 @@ type Config private () =
 
     static let isInitialized = ref false
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
+    static let mutable localFileStore = Unchecked.defaultof<FileSystemStore>
     static let mutable workingDirectory = Unchecked.defaultof<string>
     static let mutable localEndpoint = Unchecked.defaultof<IPEndPoint>
 
@@ -50,6 +51,9 @@ type Config private () =
             let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
             objectCache <- InMemoryCache.Create()
 
+            let fsStoreDirectory = Path.Combine(workingDirectory, "store")
+            localFileStore <- FileSystemStore.Create(fsStoreDirectory, create = true, cleanup = populateDirs)
+
             // thespian initialization
             Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
             Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
@@ -61,6 +65,10 @@ type Config private () =
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
     /// Working directory used by the instance
     static member WorkingDirectory = checkInitialized() ; workingDirectory
+    /// Local FileSystemStore instance
+    static member FileSystemStore = checkInitialized() ; localFileStore
+    /// Object Cache used by the instance
+    static member ObjectCache = checkInitialized() ; objectCache
     /// TCP Endpoing used by the local Thespian instance
     static member LocalEndPoint = checkInitialized() ; localEndpoint
     /// Local TCP address used by the local Thespian instance

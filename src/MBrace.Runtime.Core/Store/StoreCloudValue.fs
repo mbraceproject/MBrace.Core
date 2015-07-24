@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Runtime.Store
 
 open System
+open System.IO
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 
@@ -154,8 +155,9 @@ module private StoreCloudValueImpl =
                 if n >= txt.Length then txt
                 else txt.Substring(0, n)
 
-            let base32Enc = Convert.BytesToBase32 (Array.append (BitConverter.GetBytes hash.Length) hash.Hash)
-            let fileName = sprintf "%s-%s.%s" (truncate 40 hash.Type) base32Enc persistFileSuffix
+            let lengthEnc = BitConverter.GetBytes hash.Length
+            let base32Enc = Convert.BytesToBase32 (Array.append lengthEnc hash.Hash)
+            let fileName = sprintf "%s-%s%s" (truncate 40 hash.Type) base32Enc persistFileSuffix
             c.FileStore.Combine(c.DefaultDirectory, fileName)
 
         /// <summary>
@@ -286,7 +288,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
             | Some _ -> return invalidOp "StoreCloudValue: internal error, cached value was of invalid type."
             // There are three design possibilities here:
             //   1) cache to local disk only if StorageLevel.Disk is specified
-            //   2) silently cache to local disk regardless of StorageLevel - this would help in AppDomain isolation related corned cases.
+            //   2) silently cache to local disk regardless of StorageLevel - this would help in AppDomain isolation related corner cases.
             //   3) use a separate storage level (i.e. StorageLevel.LocalDisk) for caching
             // We stick with (1) for now ...
             | None when not <| level.HasFlag StorageLevel.Disk -> 

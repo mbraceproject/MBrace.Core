@@ -23,7 +23,8 @@ type FileSystemStore private (rootPath : string) =
     static let ioConcurrencyPolicy = 
         Policy(fun _ exn ->
             match exn with
-            | :? FileNotFoundException -> None
+            | :? FileNotFoundException 
+            | :? DirectoryNotFoundException -> None
             | :? IOException -> TimeSpan.FromMilliseconds 200. |> Some
             | _ -> None)
 
@@ -102,7 +103,8 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member __.DeleteFile(file : string) = async {
-            return File.Delete(normalize file)
+            try return File.Delete(normalize file)
+            with :? DirectoryNotFoundException -> return ()
         }
 
         member __.EnumerateFiles(directory : string) = async {
@@ -134,13 +136,14 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member __.BeginRead(path : string) = async {
-            return retry ioConcurrencyPolicy (fun () -> new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream)
+            try return! retryAsync ioConcurrencyPolicy <| async { return new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream }
+            with :? DirectoryNotFoundException -> return raise <| new FileNotFoundException(path)
         }
 
         member self.CopyOfStream(source : Stream, target : string) = async {
             let target = normalize target
             initDir <| Path.GetDirectoryName target
-            use fs = retry ioConcurrencyPolicy (fun () -> new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
+            use! fs = retryAsync ioConcurrencyPolicy <| async { return new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None) }
             do! source.CopyToAsync fs
         }
 
