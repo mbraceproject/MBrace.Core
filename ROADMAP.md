@@ -1,8 +1,8 @@
-# Road map for MBrace.Core
+# Road map for MBrace.Core and MBrace.Azure
 
-## Towards MBrace.Core 1.0
+## Towards MBrace.Core 1.0 and MBrace.Azure 1.0
 
-* The current focus is on finalizing the 1.0 release of MBrace.Core and MBrace.Azure
+* The current focus is on finalizing the 1.0 release of MBrace.Core 
 
 * A major piece of work is a runtime refactoring, taking fabric independent parts of MBrace.Azure into a new component MBrace.Runtime.Core.
 
