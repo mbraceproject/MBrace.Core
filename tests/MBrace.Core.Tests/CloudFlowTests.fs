@@ -16,6 +16,40 @@ open System.Text
 // Helper type
 type Separator = N | R | RN
 
+[<ReferenceEquality; NoComparison>]
+type private ReferenceEqualityContainer<'T> = { Payload : 'T }
+
+// General-purpose, runtime independent CloudFlow tests
+[<TestFixture>]
+module ``CloudFlow Core property tests`` =
+
+    [<Test>]
+    let ``ResizeArray concatenator`` () =
+        let check (inputs : int[][]) =
+            let tas = inputs |> Array.map (fun ts -> new ResizeArray<_>(ts))
+            let expected = inputs |> Array.concat
+            ResizeArray.concat tas |> Seq.toArray |> shouldEqual expected
+
+        Check.QuickThrowOnFail check
+
+    [<Test>]
+    let ``Partition by size`` () =
+        let check (inputs : int64 [], maxSize : int64) =
+            let maxSize = 1L + abs maxSize
+            let partitions =
+                inputs
+                |> Partition.partitionBySize (fun i -> async { return abs i }) maxSize
+                |> Async.RunSynchronously
+        
+            Array.concat partitions |> shouldEqual inputs
+
+            for p in partitions do
+                if Array.sum p > maxSize then
+                    Array.sum p.[0 .. p.Length - 2] |> shouldBe (fun s -> s <= maxSize)
+
+        Check.QuickThrowOnFail check
+
+
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
     let runRemote (workflow : Cloud<'T>) = self.RunRemote(workflow)
@@ -49,16 +83,6 @@ type ``CloudFlow tests`` () as self =
     abstract FsCheckMaxNumberOfTests : int
     abstract FsCheckMaxNumberOfIOBoundTests : int
 
-
-    [<Test>]
-    member __.``0. ResizeArray concatenator`` () =
-        let check (inputs : int[][]) =
-            let tas = inputs |> Array.map (fun ts -> new ResizeArray<_>(ts))
-            let expected = inputs |> Array.concat
-            ResizeArray.concat tas |> Seq.toArray |> shouldEqual expected
-
-        Check.QuickThrowOnFail check
-
     // #region Flow persist tests
 
     [<Test>]
@@ -71,6 +95,14 @@ type ``CloudFlow tests`` () as self =
             persisted.PartitionCount |> shouldEqual workers
             persisted |> CloudFlow.toArray |> runRemote |> shouldEqual inputs
             persisted |> Seq.toArray |> shouldEqual inputs
+
+    [<Test>]
+    member __.``1. PersistedCloudFlow : randomized persist`` () =
+        let f(xs : int[]) =            
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runRemote
+            let y = xs |> Seq.map ((+)1) |> Seq.toArray
+            Assert.AreEqual(y, x |> Seq.toArray)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : caching`` () =
@@ -88,36 +120,49 @@ type ``CloudFlow tests`` () as self =
         persisted |> Cloud.Dispose |> runRemote
         shouldfail(fun () -> persisted |> CloudFlow.length |> runRemote |> ignore)
 
-//    [<Test>]
-//    member __.``1. PersistedCloudFlow : merging`` () =
-//        let inputs = [|1 .. 1000000|]
-//        let N = 10
-//        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
-//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
-//        merged.PartitionCount |> shouldEqual (N * persisted.PartitionCount)
-//        merged.IsCachingEnabled |> shouldEqual false
-//        merged.Partitions
-//        |> Seq.groupBy (fun p -> p.Path)
-//        |> Seq.map (fun (_,ps) -> Seq.length ps)
-//        |> Seq.forall ((=) N)
-//        |> shouldEqual true
-//
-//        for i = 0 to merged.PartitionCount - 1 do
-//            merged.[i].Path |> shouldEqual (persisted.[i % persisted.PartitionCount].Path)
-//
-//        cloud { return! merged.ToEnumerable() }
-//        |> runLocally
-//        |> Seq.toArray
-//        |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
-//
-//    [<Test>]
-//    member __.``1. PersistedCloudFlow : merged disposal`` () =
-//        let inputs = [|1 .. 1000000|]
-//        let N = 10
-//        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> run
-//        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
-//        merged |> Cloud.Dispose |> run
-//        shouldfail(fun () -> cloud { return! persisted.ToEnumerable() } |> runLocally |> Seq.iter ignore)
+    [<Test>]
+    member __.``1. PersistedCloudFlow : cached objects`` () =
+        // ensure that initial array is large enough for disk caching to kick in,
+        // otherwise persisted fragments will be encapsulated in the reference as an optimization.
+        // Limit is currently set to 512KiB, so total size must be 512KiB * cluster size.
+        let xs = Array.init 10000 (fun _ -> "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+        let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> { Payload = x }) |> CloudFlow.cache |> runRemote
+        let x = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runRemote
+        for i in 1 .. 5 do
+            let y = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runRemote
+            Assert.AreEqual(x, y)
+
+    [<Test>]
+    member __.``1. PersistedCloudFlow : merging`` () =
+        let inputs = [|1 .. 1000000|]
+        let N = 10
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runRemote
+        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
+        merged.PartitionCount |> shouldEqual (N * persisted.PartitionCount)
+        
+        let partitions = persisted.GetPartitions() |> Array.map snd
+        let mergedPartitions = merged.GetPartitions() |> Array.map snd
+        
+        mergedPartitions
+        |> Seq.countBy (fun p -> p.Id)
+        |> Seq.forall (fun (_,n) -> n = N)
+        |> shouldEqual true
+
+        for i = 0 to mergedPartitions.Length - 1 do
+            mergedPartitions.[i].Id |> shouldEqual (partitions.[i % persisted.PartitionCount].Id)
+
+        merged
+        |> Seq.toArray
+        |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
+
+    [<Test>]
+    member __.``1. PersistedCloudFlow : merged disposal`` () =
+        let inputs = [|1 .. 1000000|]
+        let N = 10
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runRemote
+        let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
+        merged |> Cloud.Dispose |> runRemote
+        shouldfail(fun () -> persisted |> Seq.iter ignore)
 
     // #region Streams tests
 
@@ -128,28 +173,6 @@ type ``CloudFlow tests`` () as self =
             let y = xs |> Seq.map ((+)1) |> Seq.length
             Assert.AreEqual(y, int x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-
-    [<Test>]
-    member __.``2. CloudFlow : persist`` () =
-        let f(xs : int[]) =            
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runRemote
-            let y = xs |> Seq.map ((+)1) |> Seq.toArray
-            Assert.AreEqual(y, x |> Seq.toArray)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
-
-
-    [<Test>]
-    member __.``2. CloudFlow : persistCached`` () =
-        // ensure that initial array is large enough for disk caching to kick in,
-        // otherwise persisted fragments will be encapsulated in the reference as an optimization.
-        // Limit is currently set to 512KiB, so total size must be 512KiB * cluster size.
-        let xs = Array.init 10000 (fun _ -> "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
-        let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> new StringBuilder(x)) |> CloudFlow.cache |> runRemote
-        let x = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> runRemote
-        for i in 1 .. 5 do
-            let y = cv |> CloudFlow.map (fun sb -> sb.GetHashCode()) |> CloudFlow.toArray |> runRemote
-            Assert.AreEqual(x, y)
 
     [<Test>]
     member __.``2. CloudFlow : ofSeqs`` () =

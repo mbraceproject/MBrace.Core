@@ -72,35 +72,19 @@ module Utils =
 
     module Partition =
 
-        // TODO : property tests!
-
-        let ofLongRange (n : int) (length : int64) : (int64 * int64) []  = 
-            let n = int64 n
-            [| 
-                for i in 0L .. n - 1L ->
-                    let i, j = length * i / n, length * (i + 1L) / n in (i, j) 
-            |]
-
-        let ofRange (totalWorkers : int) (length : int) : (int * int) [] = 
-            ofLongRange totalWorkers (int64 length)
-            |> Array.map (fun (s,e) -> int s, int e)
-
-        let ofArray (totalWorkers : int) (array : 'T []) : 'T [] [] =
-            ofRange totalWorkers array.Length
-            |> Array.map (fun (s,e) -> Array.sub array s (e-s))
-
         /// partition elements so that size in accumulated groupings does not surpass maxSize
         let partitionBySize (getSize : 'T -> Async<int64>) (maxSize : int64) (inputs : 'T []) = async {
+            if maxSize <= 0L then invalidArg "maxSize" "Must be positive value."
+
             let rec aux i accSize (accElems : 'T list) (accGroupings : 'T list list) = async {
                 if i >= inputs.Length then return accElems :: accGroupings
                 else
                     let t = inputs.[i]
                     let! size = getSize t
-                    // if size of element exceeds limit, put element in grouping of its own; 
-                    // note that this may affect ordering of partitioned elements
-                    if size >= maxSize then return! aux (i + 1) accSize accElems ([t] :: accGroupings)
+                    // if size of element alone exceeds maximum, then incorporate in current grouping provided it is sufficiently small.
+                    if size >= maxSize && accSize < 5L * maxSize then return! aux (i + 1) 0L [] ((t :: accElems) :: accGroupings)
                     // accumulated length exceeds limit, flush accumulated elements to groupings and retry
-                    elif accSize + size >= maxSize then return! aux i 0L [] (accElems :: accGroupings)
+                    elif accSize + size > maxSize then return! aux (i + 1) size [t] (accElems :: accGroupings)
                     // within limit, append to accumulated elements
                     else return! aux (i + 1) (accSize + size) (t :: accElems) accGroupings
             }
