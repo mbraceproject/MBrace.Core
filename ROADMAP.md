@@ -10,7 +10,8 @@ The [open issues for the milestone release are here](https://github.com/mbracepr
 
 Ways you can contribute to the 1.0 release:
 
-* (MBrace.CSharp rewrite](https://github.com/mbraceproject/MBrace.Core/issues/22)
+* [MBrace.CSharp rewrite](https://github.com/mbraceproject/MBrace.Core/issues/22). This is a rewrite and redesign of the C#
+  API to access MBrace.Core.
 
 * Improve the documentation, particularly [the website content here](https://github.com/mbraceproject/mbrace-docs/tree/master/docs/content)
 
