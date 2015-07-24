@@ -15,6 +15,10 @@ Prerelease packages are available on Nuget [[1](http://www.nuget.org/packages/MB
 * [MBrace.Runtime.Core](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Runtime.Core): foundations and common implementations for developing MBrace runtimes.
 * [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/master/samples/MBrace.Thespian): Sample MBrace runtime implementation using [Thespian](http://nessos.github.io/Thespian).
 
+### Road map
+
+See [ROADMAP.md](ROADMAP.md)
+
 ### Build Status
 
 Head (branch master), Build & Unit tests
