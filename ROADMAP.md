@@ -33,3 +33,4 @@ Ways you can contribute to the 1.0 release:
 
 * Help target MBrace.Core and MBrace.Runtime.Core at new platform targets such as Mesos, Docker-based fabrics and YARN.
 
+* Fix [the brittle version dependency between MBrace.Core MBrace.Azure](https://github.com/mbraceproject/MBrace.Azure/issues/20)
