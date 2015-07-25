@@ -1,10 +1,20 @@
-﻿namespace MBrace.Store.Internals
+﻿namespace MBrace.Core.Internals
 
 open System
 open System.IO
 
 open System
 open System.IO
+
+/// Stateful instance used for counting sizes of object streams
+type IObjectSizeCounter<'T> =
+    inherit IDisposable
+    /// Append object graph to count.
+    abstract Append : graph:'T -> unit
+    /// Gets the total number of appended objects.
+    abstract TotalObjects : int64
+    /// Gets the total number of counted bytes.
+    abstract TotalBytes : int64
 
 /// Serialization abstraction
 type ISerializer =
@@ -39,23 +49,13 @@ type ISerializer =
     /// <param name="source">Source stream.</param>
     abstract SeqDeserialize<'T> : source:Stream * leaveOpen:bool -> seq<'T>
 
-[<AutoOpen>]
-module SerializerUtils =
-    
-    type ISerializer with
-        /// <summary>
-        ///     Serializes value to byte array
-        /// </summary>
-        /// <param name="value">Input value.</param>
-        member s.Pickle<'T>(value : 'T) : byte [] =
-            use m = new MemoryStream()
-            s.Serialize(m, value, false)
-            m.ToArray()
+    /// <summary>
+    ///     Computes serialization size of provided object graph in bytes.
+    /// </summary>
+    /// <param name="graph">Serializable object graph.</param>
+    abstract ComputeObjectSize<'T> : graph:'T -> int64
 
-        /// <summary>
-        ///     Deserializes value from byte array.
-        /// </summary>
-        /// <param name="pickle">Input serialization</param>
-        member s.UnPickle<'T>(pickle : byte []) : 'T =
-            use m = new MemoryStream(pickle)
-            s.Deserialize<'T>(m, false)
+    /// <summary>
+    ///     Creates a typed object counter instance.
+    /// </summary>
+    abstract CreateObjectSizeCounter<'T> : unit -> IObjectSizeCounter<'T>

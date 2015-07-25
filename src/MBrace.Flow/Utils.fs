@@ -3,12 +3,15 @@
 open System
 open System.Threading
 open System.Threading.Tasks
+open System.Collections
+open System.Collections.Generic
 
 open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Flow
 
 [<AutoOpen>]
-module internal Utils =
+module Utils =
 
     type Async with
         static member AwaitTask(t : Task) = Async.AwaitTask(t.ContinueWith(ignore, TaskContinuationOptions.None))
@@ -27,35 +30,61 @@ module internal Utils =
             if t.HasValue then Some t.Value
             else None
 
-    module internal Partition =
+    module ResizeArray =
+        
+        [<AutoSerializable(false)>]
+        type private ResizeArrayConcatenator<'T>(inputs : ResizeArray<'T> []) =
+            static let empty = [|new ResizeArray<'T>()|]
+            let inputs = if Array.isEmpty inputs then empty else inputs
+            let mutable lp = 0
+            let mutable ep = -1
+            let mutable l = inputs.[0]
 
-        let ofLongRange (n : int) (length : int64) : (int64 * int64) []  = 
-            let n = int64 n
-            [| 
-                for i in 0L .. n - 1L ->
-                    let i, j = length * i / n, length * (i + 1L) / n in (i, j) 
-            |]
+            interface IEnumerator<'T> with
+                member x.Current: 'T = l.[ep]
+                member x.Current: obj = l.[ep] :> obj
+                member x.Dispose(): unit = ()
+                member x.MoveNext(): bool =
+                    if ep + 1 = l.Count then
+                        // shift to next List, skipping empty occurences
+                        lp <- lp + 1
+                        while lp < inputs.Length && inputs.[lp].Count = 0 do
+                            lp <- lp + 1
+                            
+                        if lp = inputs.Length then false
+                        else
+                            l <- inputs.[lp]
+                            ep <- 0
+                            true
+                    else
+                        ep <- ep + 1
+                        true
+                
+                member x.Reset(): unit =
+                    lp <- 0
+                    l <- inputs.[0]
+                    ep <- -1
 
-        let ofRange (totalWorkers : int) (length : int) : (int * int) [] = 
-            ofLongRange totalWorkers (int64 length)
-            |> Array.map (fun (s,e) -> int s, int e)
+        /// Ad-hoc ResizeArray concatenation combinator
+        let concat (inputs : seq<ResizeArray<'T>>) : seq<'T> =
+            let inputs = Seq.toArray inputs
+            Seq.fromEnumerator (fun () -> new ResizeArrayConcatenator<'T>(inputs) :> _)
 
-        let ofArray (totalWorkers : int) (array : 'T []) : 'T [] [] =
-            ofRange totalWorkers array.Length
-            |> Array.map (fun (s,e) -> Array.sub array s (e-s))
+    module Partition =
 
         /// partition elements so that size in accumulated groupings does not surpass maxSize
-        let partitionBySize (getSize : 'T -> Local<int64>) (maxSize : int64) (inputs : 'T []) = local {
-            let rec aux i accSize (accElems : 'T list) (accGroupings : 'T list list) = local {
+        let partitionBySize (getSize : 'T -> Async<int64>) (maxSize : int64) (inputs : 'T []) = async {
+            if maxSize <= 0L then invalidArg "maxSize" "Must be positive value."
+
+            let rec aux i accSize (accElems : 'T list) (accGroupings : 'T list list) = async {
                 if i >= inputs.Length then return accElems :: accGroupings
                 else
                     let t = inputs.[i]
                     let! size = getSize t
-                    // if size of element exceeds limit, put element in grouping of its own; 
-                    // note that this may affect ordering of partitioned elements
-                    if size >= maxSize then return! aux (i + 1) accSize accElems ([t] :: accGroupings)
+                    // if size of element alone exceeds maximum, then incorporate in current grouping provided it is sufficiently small.
+                    if size >= maxSize && accSize < 5L * maxSize then return! aux (i + 1) 0L [] ((t :: accElems) :: accGroupings)
                     // accumulated length exceeds limit, flush accumulated elements to groupings and retry
-                    elif accSize + size >= maxSize then return! aux i 0L [] (accElems :: accGroupings)
+                    elif accSize + size > maxSize then return! aux (i + 1) size [t] (accElems :: accGroupings)
                     // within limit, append to accumulated elements
                     else return! aux (i + 1) (accSize + size) (t :: accElems) accGroupings
             }

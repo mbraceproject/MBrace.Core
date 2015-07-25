@@ -10,8 +10,6 @@ open Nessos.Streams.Internals
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Flow
 
 #nowarn "444"
@@ -116,7 +114,8 @@ module Fold =
                                                   (fun keyValues -> local {
                                                         let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'State>>()
                                                         for (key, value) in keyValues do
-                                                            let! values = PersistedCloudFlow.New(value, cache = false)
+                                                            // partition in entities of 1GB
+                                                            let! values = PersistedCloudFlow.New(value, storageLevel = StorageLevel.Disk)
                                                             dict.[key] <- values
                                                         let values = dict |> Seq.map (fun keyValue -> (keyValue.Key, keyValue.Value))
                                                         return Seq.toArray values }) combiner'
@@ -139,8 +138,6 @@ module Fold =
                     {   Index = ref -1;
                         Func =
                             (fun (_, keyValues) ->
-                                let keyValues = Cloud.RunSynchronously(keyValues.ToEnumerable(), ctx.Resources, ctx.CancellationToken)
-
                                 for (key, value) in keyValues do
                                     let mutable grouping = Unchecked.defaultof<_>
                                     if dict.TryGetValue(key, &grouping) then
@@ -163,7 +160,7 @@ module Fold =
             cloud {
                 let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! keyValueArray = flow.WithEvaluators (reducerf cts) (fun keyValues -> PersistedCloudFlow.New(keyValues, cache = false)) combiner'
+                let! keyValueArray = flow.WithEvaluators (reducerf cts) (fun keyValues -> PersistedCloudFlow.New(keyValues, storageLevel = StorageLevel.Disk)) combiner'
                 return keyValueArray
             }
         { new CloudFlow<'Key * 'State> with

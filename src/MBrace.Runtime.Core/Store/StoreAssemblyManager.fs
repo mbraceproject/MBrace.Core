@@ -10,11 +10,11 @@ open Nessos.Vagabond.AssemblyProtocols
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Client
+open MBrace.Library
+
 open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Runtime.InMemoryRuntime
 open MBrace.Runtime.Vagabond
 
 #nowarn "1571"
@@ -32,14 +32,14 @@ module private Common =
 
 /// Assembly to file store uploader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
+type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
     let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
-            let! c = CloudValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id, enableCache = false)
-            let! md = c.Value
+            let! c = FilePersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+            let! md = c.GetValueAsync()
             return Some md
 
         with :? FileNotFoundException -> return None
@@ -124,7 +124,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
         do! dataFiles |> Seq.map uploadDataFile |> Local.Parallel |> Local.Ignore
 
         // upload metadata record; TODO: use CloudAtom for synchronization?
-        let! _ = CloudValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
+        let! _ = FilePersistedValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
         return Loaded(va.Id, false, va.Metadata)
     }
 
@@ -140,7 +140,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : LocalRuntime, assemblyContainer : string, logger : ISystemLogger) =
+type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, assemblyContainer : string, logger : ISystemLogger) =
     let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
 
     interface IAssemblyDownloader with
@@ -161,8 +161,8 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
         
         member x.ReadMetadata(id: AssemblyId): Async<VagabondMetadata> = 
             local {
-                let! c = CloudValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id, enableCache = false)
-                return! c.Value
+                let! c = FilePersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+                return! c.GetValueAsync()
             } |> imem.RunAsync
 
         member x.GetPersistedDataDependencyReader(id: AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {
@@ -178,7 +178,7 @@ type private AssemblyManagerMsg =
 /// Assembly manager instance
 [<Sealed; AutoSerializable(false)>]
 type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, logger : ISystemLogger) =
-    let imem = LocalRuntime.Create(fileConfig = storeConfig, serializer = serializer)
+    let imem = InMemoryRuntime.Create(fileConfig = storeConfig, serializer = serializer)
     let uploader = new StoreAssemblyUploader(storeConfig, imem, container, logger)
     let downloader = new StoreAssemblyDownloader(storeConfig, imem, container, logger)
 

@@ -53,9 +53,11 @@ module Continuation =
         {
             Success = 
                 fun ctx s -> 
-                    match (try f s |> Choice1Of2 with e -> Choice2Of2 e) with
-                    | Choice1Of2 t -> tcont.Success ctx t
-                    | Choice2Of2 e -> tcont.Exception ctx (ExceptionDispatchInfo.Capture e) 
+                    let r = ValueOrException.protect f s
+                    if r.IsValue then 
+                        tcont.Success ctx r.Value
+                    else
+                        tcont.Exception ctx (ExceptionDispatchInfo.Capture r.Exception)
 
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation

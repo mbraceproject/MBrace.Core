@@ -8,7 +8,8 @@ open System.Threading
 
 open NUnit.Framework
 
-open MBrace.Store.Internals
+open MBrace.Core
+open MBrace.Core.Internals
 
 [<AutoOpen>]
 module Utils =
@@ -18,12 +19,16 @@ module Utils =
     let isTravisInstance = System.Environment.GetEnvironmentVariable("TRAVIS") <> null
 
     let shouldfail (f : unit -> 'T) =
-        try let v = f () in raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
-        with _ -> ()
+        let result = try let v = f () in Some v with _ -> None
+        match result with
+        | Some v -> raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
+        | None -> ()
 
     let shouldFailwith<'T, 'Exn when 'Exn :> exn> (f : unit -> 'T) =
-        try let v = f () in raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
-        with :? 'Exn -> ()
+        let result = try let v = f () in Some v with :? 'Exn -> None
+        match result with
+        | Some v -> raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
+        | None -> ()
 
     /// type safe equality tester
     let shouldEqual (expected : 'T) (input : 'T) = 
@@ -95,7 +100,7 @@ module Utils =
             member __.Reset () = check () ; e.Reset()
             
     [<AutoSerializable(true)>]
-    type DisposableSeq<'T> (ts : seq<'T>) =
+    type internal DisposableSeq<'T> (ts : seq<'T>) =
         let isDisposed = ref false
 
         member __.IsDisposed = !isDisposed
@@ -104,4 +109,16 @@ module Utils =
             member __.GetEnumerator() = new DisposableEnumerable<'T>(isDisposed, ts) :> IEnumerator<'T>
             member __.GetEnumerator() = new DisposableEnumerable<'T>(isDisposed, ts) :> System.Collections.IEnumerator
 
-    let dseq ts = new DisposableSeq<'T>(ts)
+    let internal dseq ts = new DisposableSeq<'T>(ts)
+
+    type internal InMemoryCancellationToken(token : CancellationToken) =
+        new () = new InMemoryCancellationToken(new CancellationToken(canceled = false))
+        interface ICloudCancellationToken with
+            member x.IsCancellationRequested: bool = token.IsCancellationRequested
+            member x.LocalToken: CancellationToken = token
+
+    type internal InMemoryCancellationTokenSource(source : CancellationTokenSource) =
+        new () = new InMemoryCancellationTokenSource(new CancellationTokenSource())
+        interface ICloudCancellationTokenSource with
+            member x.Cancel(): unit = source.Cancel()
+            member x.Token: ICloudCancellationToken = new InMemoryCancellationToken(source.Token) :> _

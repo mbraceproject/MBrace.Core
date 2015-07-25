@@ -7,8 +7,6 @@ open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 
 [<AutoOpen>]
 module private ActorAtom =
@@ -74,7 +72,7 @@ module private ActorAtom =
                 return unpickle bytes
             }
 
-            member __.Dispose() = Cloud.OfAsync <| async { return! source <!- Dispose }
+            member __.Dispose() = async { return! source <!- Dispose }
 
             member __.Force(value : 'T) = async {
                 return! source <!- fun ch -> ForceValue(pickle value, ch) 

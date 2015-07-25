@@ -1,6 +1,4 @@
-﻿namespace MBrace.Store
-
-open MBrace.Core
+﻿namespace MBrace.Core
 
 /// Represent a distributed atomically updatable value reference
 type ICloudAtom<'T> =
@@ -25,11 +23,9 @@ type ICloudAtom<'T> =
     /// <param name="value">value to be set.</param>
     abstract Force : value:'T -> Async<unit>
 
-namespace MBrace.Store.Internals
+namespace MBrace.Core.Internals
  
 open MBrace.Core
-open MBrace.Core.Internals
-open MBrace.Store
 
 /// Defines a factory for distributed atoms
 type ICloudAtomProvider =
@@ -84,11 +80,9 @@ with
         }
 
 
-namespace MBrace.Store
+namespace MBrace.Core
 
-open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store.Internals
 
 #nowarn "444"
 
@@ -145,7 +139,9 @@ type CloudAtom =
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (atom : ICloudAtom<'T>) : Local<unit> = dispose atom
+    static member Delete (atom : ICloudAtom<'T>) : Local<unit> = local {
+        return! atom.Dispose()
+    }
 
     /// <summary>
     ///     Deletes container and all its contained atoms.

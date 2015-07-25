@@ -41,13 +41,6 @@ module Utils =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
 
-    type internal Latch (init : int) =
-        [<VolatileField>]
-        let mutable value = init
-
-        member __.Increment() = Interlocked.Increment &value
-        member __.Value = value
-
     [<RequireQualifiedAccess>]
     module Array =
 
@@ -182,26 +175,51 @@ module Utils =
                 splitWeightedRange weights 0L (int64 input.Length)
                 |> Array.map (function None -> [||] | Some (s,e) -> input.[int s .. int e])
 
-
-        /// computes the gcd for a collection of integers
-        let inline gcd (inputs : 't []) : 't =
-            let rec gcd m n =
-                if n > m then gcd n m
-                elif n = LanguagePrimitives.GenericZero then m
-                else gcd n (m % n)
-
-            Array.fold gcd LanguagePrimitives.GenericZero inputs
-
-        /// normalize a collection of inputs w.r.t. gcd
-        let inline gcdNormalize (inputs : 't []) : 't [] =
-            let gcd = gcd inputs
-            inputs |> Array.map (fun i -> i / gcd)
-
+    [<RequireQualifiedAccess>]
     module Seq =
+
+        /// <summary>
+        ///     Creates an anonymous IEnumerable instance from an enumerator factory.
+        /// </summary>
+        /// <param name="enum">Enumerator factory.</param>
         let fromEnumerator (enum : unit -> IEnumerator<'T>) =
             { new IEnumerable<'T> with
                 member __.GetEnumerator () = enum () 
                 member __.GetEnumerator () = enum () :> IEnumerator }
+        
+        /// <summary>
+        ///     Groups a collection of elements by key, grouping together
+        ///     matching keys as long as they are sequential occurrences.
+        /// </summary>
+        /// <param name="proj">Key projection.</param>
+        /// <param name="ts">Input sequence.</param>
+        let groupBySequential (proj : 'T -> 'K) (ts : seq<'T>) : ('K * 'T []) [] =
+            use enum = ts.GetEnumerator()
+            let results = new ResizeArray<'K * 'T []> ()
+            let grouped = new ResizeArray<'T> ()
+            let mutable isFirst = true
+            let mutable curr = Unchecked.defaultof<'K>
+            while enum.MoveNext() do
+                let t = enum.Current
+                let k = proj t
+                if isFirst then 
+                    isFirst <- false
+                    curr <- k
+                    grouped.Add t
+                elif k = curr then
+                    grouped.Add t
+                else
+                    let ts = grouped.ToArray()
+                    grouped.Clear()
+                    results.Add(curr, ts)
+                    curr <- k
+                    grouped.Add t
+
+            if grouped.Count > 0 then
+                let ts = grouped.ToArray()
+                results.Add(curr, ts)
+
+            results.ToArray()
 
     type Task<'T> with
 
@@ -234,7 +252,8 @@ module Utils =
             let onCompletion (t : Task<'T>) =
                 if t.IsCompleted then tcs.TrySetResult (Some t.Result) |> ignore
                 elif t.IsCanceled then tcs.TrySetCanceled () |> ignore
-                elif t.IsFaulted then tcs.TrySetException t.Exception.InnerExceptions |> ignore
+                elif t.IsFaulted then
+                    tcs.TrySetException (t.Exception.InnerExceptions.[0]) |> ignore
 
             let _ = t.ContinueWith onCompletion
 
@@ -244,3 +263,34 @@ module Utils =
                 ()
 
             tcs.Task
+
+    /// A struct that can either contain a type or an exception.
+    [<Struct; AutoSerializable(true); NoEquality; NoComparison>]
+    type ValueOrException<'T> =
+        val private isValue : bool
+        val private value : 'T
+        val private exn : exn
+
+        member x.IsValue = x.isValue
+        member x.IsException = not x.isValue
+        member x.Value = if x.isValue then x.value else invalidOp "not a value."
+        member x.Exception = if x.isValue then invalidOp "not an exception." else x.exn
+
+        private new (isValue : bool, value : 'T, exn : exn) = { isValue = isValue ; value = value ; exn = exn }
+
+        static member NewValue(value : 'T) = new ValueOrException<'T>(true, value, null)
+        static member NewException(exn : exn) = new ValueOrException<'T>(false, Unchecked.defaultof<'T>, exn)
+
+    module ValueOrException =
+        /// Creates a new wrapper for given value.
+        let inline Value(value : 'T) = ValueOrException<'T>.NewValue(value)
+        /// Creates a new wrapper for given exception.
+        let inline Exception(exn : exn) = ValueOrException<'T>.NewException(exn)
+        /// Applies function to given argument, protecting in case of exception.
+        let inline protect (f : 'T -> 'S) (t : 'T) =
+            try f t |> ValueOrException<'S>.NewValue
+            with e -> ValueOrException<'S>.NewException e
+
+        let inline bind (f : 'T -> 'S) (input : ValueOrException<'T>) =
+            if input.IsValue then protect f input.Value
+            else ValueOrException<'S>.NewException(input.Exception)

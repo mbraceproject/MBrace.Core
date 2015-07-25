@@ -1,4 +1,4 @@
-﻿namespace MBrace.Store
+﻿namespace MBrace.Core
 
 open MBrace.Core
 
@@ -36,10 +36,9 @@ type ICloudQueue<'T> =
     /// </summary>
     abstract TryDequeue : unit -> Async<'T option>
 
-namespace MBrace.Store.Internals
+namespace MBrace.Core.Internals
 
 open MBrace.Core
-open MBrace.Store
 
 /// Defines a factory for distributed queues
 type ICloudQueueProvider =
@@ -86,11 +85,10 @@ with
             DefaultContainer = match defaultContainer with Some c -> c | None -> queueProvider.CreateUniqueContainerName()
         }
 
-namespace MBrace.Store
+namespace MBrace.Core
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store.Internals
 
 #nowarn "444"
 
@@ -148,7 +146,7 @@ type CloudQueue =
     /// </summary>
     /// <param name="queue">Queue to be disposed.</param>
     static member Delete(queue : ICloudQueue<'T>) : Local<unit> = 
-        local { return! dispose queue }
+        local { return! queue.Dispose() }
 
     /// <summary>
     ///     Deletes container and all its contained queues.

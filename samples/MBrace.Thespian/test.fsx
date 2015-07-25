@@ -8,8 +8,7 @@
 
 open System
 open MBrace.Core
-open MBrace.Store
-open MBrace.Workflows
+open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
@@ -24,7 +23,7 @@ runtime.ShowProcessInfo()
 runtime.ShowWorkerInfo()
 
 let proc = 
-    CloudFlow.OfHTTPFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
+    CloudFlow.OfHttpFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
     |> CloudFlow.length
     |> runtime.CreateProcess
 
@@ -63,19 +62,6 @@ cloud {
     return client
 } |> runtime.Run
 
+let cv = runtime.Run (CloudValue.New(32, enum 0))
 
-let inputs = [|1L .. 1000000L|]
-let vector = inputs |> CloudFlow.OfArray |> CloudFlow.persist |> runtime.Run
-let workers = Cloud.GetWorkerCount() |> runtime.Run
-vector.PartitionCount 
-vector.IsCachingEnabled
-cloud { return! vector.ToEnumerable() } |> runtime.RunLocally
-vector |> CloudFlow.sum |> runtime.RunLocally
-
-let proc = runtime.CreateProcess(Cloud.Parallel [for i in 1 .. 10 -> Cloud.Sleep (i * 1000)], taskName = "test")
-
-proc.ShowInfo()
-
-runtime.ShowProcessInfo()
-
-runtime.Run(Cloud.Parallel [for i in 1 .. 100 -> cloud { return i * i }])
+cv.Value

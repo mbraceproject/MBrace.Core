@@ -6,39 +6,27 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Client
 
 [<TestFixture; AbstractClass>]
 type ``CloudAtom Tests`` (parallelismFactor : int) as self =
 
     static let nSequential = 100
 
-    let runRemote wf = self.Run wf 
+    let runRemote wf = self.RunRemote wf 
     let runLocally wf = self.RunLocally wf
 
     let repeat f = repeat self.Repeats f
 
     let runProtected wf = 
-        try self.Run wf |> Choice1Of2
+        try self.RunRemote wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
-    abstract Run : Cloud<'T> -> 'T
+    abstract RunRemote : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
-    /// Local store client instance
-    abstract AtomClient : CloudAtomClient
     /// Maximum number of repeats to run nondeterministic tests
     abstract Repeats : int
-
-    [<Test>]
-    member __.``Local StoreClient`` () =
-        let ac = __.AtomClient
-        let atom = ac.Create(41)
-        ac.Update(atom, (+) 1)
-        ac.Read atom |> shouldEqual 42
 
     [<Test>]
     member __.``Atom: update with contention`` () =

@@ -3,41 +3,26 @@
 open System
 
 open MBrace.Core
-open MBrace.Store
-open MBrace.Workflows
-open MBrace.Client
+open MBrace.Library
 
 open NUnit.Framework
 
 [<TestFixture; AbstractClass>]
 type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
-    let runRemote wf = self.Run wf 
+    let runRemote wf = self.RunRemote wf 
     let runLocally wf = self.RunLocally wf
 
     let runProtected wf = 
-        try self.Run wf |> Choice1Of2
+        try self.RunRemote wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// Specifies if test is running in-memory
     abstract IsInMemoryFixture : bool
     /// Run workflow in the runtime under test
-    abstract Run : Cloud<'T> -> 'T
+    abstract RunRemote : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
-    /// Local store client instance
-    abstract DictionaryClient : CloudDictionaryClient
-
-
-    [<Test>]
-    member __.``Local StoreClient`` () =
-        let dc = __.DictionaryClient
-        let dict = dc.New()
-        dc.TryAdd "key" 42 dict |> shouldEqual true
-        dc.ContainsKey "key" dict |> shouldEqual true
-        dc.TryFind "key" dict |> shouldEqual (Some 42)
-        dc.Remove "key" dict |> shouldEqual true
-        dc.ContainsKey "key" dict |> shouldEqual false
 
     [<Test>]
     member __.``add/remove`` () =
@@ -69,7 +54,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 
-            return! dict.Count
+            return! dict.GetCount()
         } |> runRemote |> shouldEqual (int64 parallelismFactor)
 
     [<Test>]

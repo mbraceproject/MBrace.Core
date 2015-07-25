@@ -12,8 +12,6 @@ open Nessos.Streams.Internals
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Flow
 
 #nowarn "444"
@@ -52,7 +50,7 @@ module Distinct =
                                                       local {
                                                          let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'T>>()
                                                          for (k, kvs') in kvs do
-                                                             let! pkvs = PersistedCloudFlow.New(kvs', cache = false)
+                                                             let! pkvs = PersistedCloudFlow.New(kvs', storageLevel = StorageLevel.Disk)
                                                              dict.[k] <- pkvs;
                                                          return dict |> Seq.map (fun kv -> kv.Key, kv.Value) |> Seq.toArray
                                                       })
@@ -68,16 +66,13 @@ module Distinct =
         let reducerF (cloudCts : ICloudCancellationTokenSource) =
             local {
                 let dict = new ConcurrentDictionary<'Key, 'T>()
-                let! ctx = Cloud.GetExecutionContext()
                 let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
                 return
                     { new Collector<int * PersistedCloudFlow<'Key * 'T>, seq<'T>> with
                       member __.DegreeOfParallelism = source.DegreeOfParallelism
                       member __.Iterator() =
                           { Index = ref -1;
-                            Func = (fun (_, pkvs) ->
-                                        let kvs = Cloud.RunSynchronously(pkvs.ToEnumerable(), ctx.Resources, ctx.CancellationToken)
-                                        for (k, v) in kvs do dict.TryAdd(k, v) |> ignore);
+                            Func = (fun (_, pkvs) -> for (k, v) in pkvs do dict.TryAdd(k, v) |> ignore);
                             Cts = cts }
                       member __.Result = dict |> Seq.map (fun kv -> kv.Value)
                     }
@@ -86,7 +81,7 @@ module Distinct =
             cloud {
                 let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! pkvs = flow.WithEvaluators (reducerF cts) (fun kvs -> PersistedCloudFlow.New(kvs, cache = false)) combiner'
+                let! pkvs = flow.WithEvaluators (reducerF cts) (fun kvs -> PersistedCloudFlow.New(kvs, storageLevel = StorageLevel.Disk)) combiner'
                 return pkvs
             }
         { new CloudFlow<'T> with

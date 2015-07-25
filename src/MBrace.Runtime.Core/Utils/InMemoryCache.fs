@@ -1,18 +1,21 @@
-﻿namespace MBrace.Runtime.Store
+﻿namespace MBrace.Runtime.Utils
 
 open System
 open System.Collections.Generic
 open System.Collections.Specialized
 open System.Runtime.Caching
 
+open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 
 /// In-Memory caching mechanism using System.Runtime.Caching.MemoryCache
+[<AutoSerializable(false)>]
 type InMemoryCache private (name : string, config : NameValueCollection) =
     let cache = new MemoryCache(name, config)
     let policy = new CacheItemPolicy()
+
+    /// Cache instance identifier
+    member __.Name = name
 
     /// <summary>
     ///     Creates a new in-memory cache instance.
@@ -77,8 +80,3 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
             let _ = cache.Remove(key) in true
         else
             false
-
-    interface IObjectCache with
-        member self.ContainsKey key = async { return self.ContainsKey key }
-        member self.Add(key : string, value : obj) = async { return self.Add(key, value) }
-        member self.TryFind(key : string) = async { return self.TryFind key }

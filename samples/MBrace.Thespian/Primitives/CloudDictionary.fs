@@ -7,8 +7,6 @@ open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 
 [<AutoOpen>]
 module private ActorCloudDictionary =
@@ -90,6 +88,15 @@ module private ActorCloudDictionary =
     type ActorCloudDictionary<'T> internal (id : string, source : ActorRef<CloudDictionaryMsg>) =
         static let pickle t = Config.Serializer.Pickle t
         static let unpickle bytes = Config.Serializer.UnPickle<'T> bytes
+
+        let toEnum () = async {
+            let! pairs = source <!- ToArray
+            return pairs |> Seq.map (fun (k,b) -> new KeyValuePair<_,_>(k, unpickle b))
+        }
+
+        interface seq<KeyValuePair<string,'T>> with
+            member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator() :> Collections.IEnumerator
+            member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator()
         
         interface ICloudDictionary<'T> with
             member x.Add(key: string, value: 'T): Async<unit> = async { 
@@ -137,28 +144,28 @@ module private ActorCloudDictionary =
             }
 
         interface ICloudCollection<KeyValuePair<string,'T>> with
-            member x.Count: Local<int64> = local {
+            member x.GetCount(): Async<int64> = async {
                 return! source <!- GetCount
             }
 
             member x.IsKnownSize = true
             member x.IsKnownCount = true
+            member x.IsMaterialized = false
 
-            member x.Size : Local<int64> = local {
+            member x.GetSize(): Async<int64> = async {
                 return! source <!- GetCount
             }
 
-            member x.ToEnumerable() = local {
-                let! pairs = source <!- ToArray
-                return pairs |> Seq.map (fun (k,b) -> new KeyValuePair<_,_>(k, unpickle b))
-            }
+            member x.ToEnumerable() = toEnum ()
 
         interface ICloudDisposable with
-            member x.Dispose(): Local<unit> = local.Zero ()
+            member x.Dispose(): Async<unit> = async.Zero ()
 
 /// Defines a distributed cloud channel factory
-type ActorDictionaryProvider (factory : ResourceFactory) =
+type ActorDictionaryProvider (id : string, factory : ResourceFactory) =
     interface ICloudDictionaryProvider with
+        member __.Name = "ActorDictionary"
+        member __.Id = id
         member __.IsSupportedValue _ = true
         member __.Create<'T> () = async {
             let id = mkUUID()

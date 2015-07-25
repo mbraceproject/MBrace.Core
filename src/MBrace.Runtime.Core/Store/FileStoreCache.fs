@@ -9,9 +9,8 @@ open System.Security.Cryptography
 open System.Text
 open System.Threading
 
-open MBrace
-open MBrace.Store
-open MBrace.Store.Internals
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.Retry

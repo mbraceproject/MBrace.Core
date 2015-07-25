@@ -16,7 +16,8 @@ module AsyncUtils =
         /// </summary>
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
-        static member WithTimeout(workflow : Async<'T>, timeoutMilliseconds:int) : Async<'T> = async {
+        static member WithTimeout(workflow : Async<'T>, ?timeoutMilliseconds:int) : Async<'T> = async {
+            let timeoutMilliseconds = defaultArg timeoutMilliseconds Timeout.Infinite
             if timeoutMilliseconds = 0 then return raise <| new TimeoutException()
             elif timeoutMilliseconds = Timeout.Infinite then return! workflow
             else
@@ -26,6 +27,15 @@ module AsyncUtils =
                 let _ = new Timer(timeoutCallback, null, timeoutMilliseconds, Timeout.Infinite)
                 do Async.StartWithContinuations(workflow, tcs.TrySetResult >> ignore, tcs.TrySetException >> ignore, ignore >> tcs.TrySetCanceled >> ignore, ct)
                 return! tcs.Task.AwaitResultAsync()
+        }
+
+        /// <summary>
+        ///     Asynchronously awaits a task in a way that correctly exposes user exceptions.
+        /// </summary>
+        /// <param name="task">Task to be awaited.</param>
+        static member AwaitTaskCorrect(task : Task<'T>) = async {
+            try return! Async.AwaitTask task
+            with :? AggregateException as ae -> return! Async.Raise (ae.InnerExceptions.[0])
         }
 
         /// <summary>

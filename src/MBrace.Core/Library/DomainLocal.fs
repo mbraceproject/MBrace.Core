@@ -1,9 +1,10 @@
-﻿namespace MBrace.Core
+﻿namespace MBrace.Library
 
 open System
 open System.Runtime.Serialization
 open System.Collections.Concurrent
 
+open MBrace.Core
 open MBrace.Core.Internals
 
 #nowarn "444"

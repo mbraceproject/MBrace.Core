@@ -3,7 +3,11 @@
 //  Cloud builder implementation
 
 open System
+open System.Runtime.Serialization
+
 open MBrace.Core.Internals
+
+#nowarn "444"
 
 [<AutoOpen>]
 module internal BuilderImpl =
@@ -24,20 +28,17 @@ module internal BuilderImpl =
     type Continuation<'T> with
         member inline c.Cancel ctx = c.Cancellation ctx (new System.OperationCanceledException())
 
-        member inline c.Choice (ctx, choice : Choice<'T, exn>) =
-            match choice with
-            | Choice1Of2 t -> c.Success ctx t
-            | Choice2Of2 e -> c.Exception ctx (capture e)
+        member inline c.ContinueWith (ctx, result : ValueOrException<'T>) =
+            if result.IsValue then c.Success ctx result.Value
+            else c.Exception ctx (capture result.Exception)
 
-        member inline c.Choice2 (ctx, choice : Choice<#Cloud<'T>, exn>) =
-            match choice with
-            | Choice1Of2 wf -> wf.Body ctx c
-            | Choice2Of2 e -> c.Exception ctx (capture e)
+        member inline c.ContinueWith2 (ctx, result : ValueOrException<#Cloud<'T>>) =
+            if result.IsValue then result.Value.Body ctx c
+            else c.Exception ctx (capture result.Exception)
 
-        member inline c.Choice3 (ctx, choice : Choice<Body<'T>, exn>) =
-            match choice with
-            | Choice1Of2 f -> f ctx c
-            | Choice2Of2 e -> c.Exception ctx (capture e)
+        member inline c.ContinueWith2 (ctx, result : ValueOrException<Body<'T>>) =
+            if result.IsValue then result.Value ctx c
+            else c.Exception ctx (capture result.Exception)
 
     type ExecutionContext with
         member inline ctx.IsCancellationRequested = ctx.CancellationToken.IsCancellationRequested
@@ -58,6 +59,36 @@ module internal BuilderImpl =
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken)
 
+    let inline delay (f : unit -> #Cloud<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
+        if ctx.IsCancellationRequested then cont.Cancel ctx else
+        if Trampoline.IsBindThresholdReached() then 
+            Trampoline.QueueWorkItem (fun () -> cont.ContinueWith2(ctx, ValueOrException.protect f ()))
+        else
+            cont.ContinueWith2(ctx, ValueOrException.protect f ())
+    
+    let inline delay' (f : unit -> Body<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
+        if ctx.IsCancellationRequested then cont.Cancel ctx else
+        if Trampoline.IsBindThresholdReached() then 
+            Trampoline.QueueWorkItem (fun () -> cont.ContinueWith2(ctx, ValueOrException.protect f ()))
+        else
+            cont.ContinueWith2(ctx, ValueOrException.protect f ())
+
+    // provides an explicit FSharpFunc implementation for delayed computation;
+    // this is to deal with leaks of internal closure types in serialized cloud workflows.
+    [<Sealed; DataContract>]
+    type private ExplicitDelayWrapper<'T, 'TCloud when 'TCloud :> Cloud<'T>>(body : unit -> 'TCloud) =
+        // F# won't let use inherit OptimizedClosures.FSharpFunc<_,_,_> because of the unit return type
+        inherit FSharpFunc<ExecutionContext, Continuation<'T> -> unit> ()
+
+        [<DataMember(Name = "Body")>]
+        let body = body
+
+        override __.Invoke(ctx : ExecutionContext) = fun c -> delay body ctx c
+
+    let inline mkExplicitDelay (body : unit -> #Cloud<'T>) : Body<'T> =
+        let edw = new ExplicitDelayWrapper<'T,_>(body)
+        edw :> obj :?> Body<'T>
+
     let inline bind (f : Body<'T>) (g : 'T -> #Cloud<'S>) : Body<'S> =
         fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
@@ -66,9 +97,9 @@ module internal BuilderImpl =
                     fun ctx t ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
                         elif Trampoline.IsBindThresholdReached() then
-                            Trampoline.QueueWorkItem(fun () -> cont.Choice2(ctx, protect g t))
+                            Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect g t))
                         else
-                            cont.Choice2(ctx, protect g t)
+                            cont.ContinueWith2(ctx, ValueOrException.protect g t)
 
                 Exception = 
                     fun ctx e -> 
@@ -94,9 +125,9 @@ module internal BuilderImpl =
                     fun ctx t ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
                         elif Trampoline.IsBindThresholdReached() then
-                            Trampoline.QueueWorkItem(fun () -> cont.Choice3(ctx, protect g t))
+                            Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect g t))
                         else
-                            cont.Choice3(ctx, protect g t)
+                            cont.ContinueWith2(ctx, ValueOrException.protect g t)
 
                 Exception = 
                     fun ctx e -> 
@@ -158,9 +189,9 @@ module internal BuilderImpl =
                     fun ctx edi ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
                         elif Trampoline.IsBindThresholdReached() then
-                            Trampoline.QueueWorkItem(fun () -> cont.Choice2(ctx, protect handler (extract edi)))
+                            Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect handler (extract edi)))
                         else
-                            cont.Choice2(ctx, protect handler (extract edi))
+                            cont.ContinueWith2(ctx, ValueOrException.protect handler (extract edi))
 
                 Cancellation = cont.Cancellation
             }
@@ -202,15 +233,13 @@ module internal BuilderImpl =
             else
                 f ctx cont'
 
-    let inline delay (f : unit -> #Cloud<'T>) : Body<'T> = bind zero f
-    let inline delay' (f : unit -> Body<'T>) : Body<'T> = bind' zero f
-    let inline dispose (d : ICloudDisposable) = mkLocal <| delay d.Dispose
+    let inline dispose (d : ICloudDisposable) = ofAsync (async { return! d.Dispose() })
 
     let inline usingIDisposable (t : #IDisposable) (g : #IDisposable -> #Cloud<'S>) : Body<'S> =
         tryFinally (bind ((ret t)) g) (retFunc t.Dispose)
 
     let inline usingICloudDisposable (t : #ICloudDisposable) (g : #ICloudDisposable -> #Cloud<'S>) : Body<'S> =
-        tryFinally (bind (ret t) g) (delay t.Dispose)
+        tryFinally (bind (ret t) g) (dispose t)
 
     let inline forArray (body : 'T -> #Cloud<unit>) (ts : 'T []) : Body<unit> =
         let rec loop i () =
@@ -284,7 +313,7 @@ module Builders =
         let czero : Cloud<unit> = mkCloud zero
         member __.Return (t : 'T) : Cloud<'T> = mkCloud <| ret t
         member __.Zero () : Cloud<unit> = czero
-        member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| delay f
+        member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| mkExplicitDelay f
         member __.ReturnFrom (c : Cloud<'T>) : Cloud<'T> = c
         member __.ReturnFrom (c : Async<'T>) : Cloud<'T> = mkCloud <| ofAsync c
         member __.Combine(f : Cloud<unit>, g : Cloud<'T>) : Cloud<'T> = mkCloud <| combine f.Body g.Body
@@ -315,7 +344,7 @@ module Builders =
         let lzero : Local<unit> = mkLocal zero
         member __.Return (t : 'T) : Local<'T> = mkLocal <| ret t
         member __.Zero () : Local<unit> = lzero
-        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| delay f
+        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| mkExplicitDelay f
         member __.ReturnFrom (c : Local<'T>) : Local<'T> = c
         member __.ReturnFrom (c : Async<'T>) : Local<'T> = mkLocal (ofAsync c)
         member __.Combine(f : Local<unit>, g : Local<'T>) : Local<'T> = mkLocal <| combine f.Body g.Body

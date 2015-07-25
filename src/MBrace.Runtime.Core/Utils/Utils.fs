@@ -5,18 +5,25 @@ open System.Reflection
 open System.IO
 open System.Diagnostics
 open System.Net
+open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open System.Threading.Tasks
+open System.Text
+open System.Text.RegularExpressions
 
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime.Utils.Retry
 
+open Nessos.FsPickler.Hashing
+
 #nowarn "444"
 
 [<AutoOpen>]
 module Utils =
+
+    let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
 
     /// Value or exception
     [<NoEquality; NoComparison>]
@@ -30,12 +37,16 @@ module Utils =
             | Success t -> t
             | Error e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
 
+    [<RequireQualifiedAccess>]
     module Exn =
+
         let inline catch (f : unit -> 'T) =
             try f () |> Success with e -> Error e
 
         let inline protect f t = try f t |> Success with e -> Error e
         let inline protect2 f t s = try f t s |> Success with e -> Error e
+
+        let inline get (e : Exn<'T>) : 'T = e.Value
 
         let map (f : 'T -> 'S) (x : Exn<'T>) =
             match x with
@@ -49,6 +60,7 @@ module Utils =
 
     [<RequireQualifiedAccess>]
     module Option =
+
         let toNullable(x : 'T option) =
             match x with
             | None -> new Nullable<'T>()
@@ -108,6 +120,11 @@ module Utils =
         if obj.ReferenceEquals(x, null) <> obj.ReferenceEquals(y, null) then false
         elif x.GetType() <> y.GetType() then false
         else x = y
+
+    /// Gets the actual System.Type of the underlying object
+    let inline getReflectedType (o:obj) =
+        if obj.ReferenceEquals(o, null) then typeof<obj>
+        else o.GetType()
             
 
     /// generates a human readable string for byte sizes
@@ -125,19 +142,6 @@ module Utils =
             let t0 = t.ContinueWith ignore
             ab.Bind(Async.AwaitTask t0, cont)
 
-    type Async with
-        static member OfCloud(workflow : Local<'T>, ?resources : ResourceRegistry) = async {
-            let! ct = Async.CancellationToken
-            let cct = new InMemoryRuntime.InMemoryCancellationToken(ct)
-            let resources = defaultArg resources ResourceRegistry.Empty
-            return! Cloud.ToAsync(workflow, resources, cct)
-        }
-
-    module MBraceAsyncExtensions =
-        
-        type AsyncBuilder with
-            member inline ab.Bind(workflow : Local<'T>, f : 'T -> Async<'S>) = ab.Bind(Async.OfCloud(workflow), f)
-
     type ConcurrentDictionary<'K,'V> with
         member dict.TryAdd(key : 'K, value : 'V, ?forceUpdate) =
             if defaultArg forceUpdate false then
@@ -152,6 +156,11 @@ module Utils =
 
     type ICloudLogger with
         member inline l.Logf fmt = Printf.ksprintf l.Log fmt
+
+    type IDictionary<'K,'V> with
+        member d.TryFind(k : 'K) : 'V option =
+            let mutable v = Unchecked.defaultof<'V>
+            if d.TryGetValue(k, &v) then Some v else None
     
     type WorkingDirectory =
         /// Generates a working directory path that is unique to the current process

@@ -3,8 +3,7 @@
 open System
 
 open MBrace.Core
-open MBrace.Store
-open MBrace.Store.Internals
+open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
 

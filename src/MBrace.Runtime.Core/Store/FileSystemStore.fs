@@ -5,9 +5,8 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
+open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
@@ -18,6 +17,16 @@ type FileSystemStore private (rootPath : string) =
 
     [<DataMember(Name = "RootPath")>]
     let rootPath = rootPath
+
+    // IOException will be signifies attempt to perform concurrent writes of file.
+    // An exception to this rule is FileNotFoundException, which is a subtype of IOException.
+    static let ioConcurrencyPolicy = 
+        Policy(fun _ exn ->
+            match exn with
+            | :? FileNotFoundException 
+            | :? DirectoryNotFoundException -> None
+            | :? IOException -> TimeSpan.FromMilliseconds 200. |> Some
+            | _ -> None)
 
     let initDir dir =
         retry (RetryPolicy.Retry(2, 0.5<sec>))
@@ -94,7 +103,8 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member __.DeleteFile(file : string) = async {
-            return File.Delete(normalize file)
+            try return File.Delete(normalize file)
+            with :? DirectoryNotFoundException -> return ()
         }
 
         member __.EnumerateFiles(directory : string) = async {
@@ -110,7 +120,9 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member __.DeleteDirectory(container : string, recursiveDelete : bool) = async {
-            return Directory.Delete(normalize container, recursiveDelete)
+            return 
+                try Directory.Delete(normalize container, recursiveDelete)
+                with :? DirectoryNotFoundException -> ()
         }
 
         member __.EnumerateDirectories(directory) = async {
@@ -118,18 +130,20 @@ type FileSystemStore private (rootPath : string) =
         }
 
         member __.BeginWrite(path : string) = async {
+            let path = normalize path
             initDir <| Path.GetDirectoryName path
-            return new FileStream(normalize path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream
+            return retry ioConcurrencyPolicy (fun () -> new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream)
         }
 
         member __.BeginRead(path : string) = async {
-            return new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream
+            try return! retryAsync ioConcurrencyPolicy <| async { return new FileStream(normalize path, FileMode.Open, FileAccess.Read, FileShare.Read) :> Stream }
+            with :? DirectoryNotFoundException -> return raise <| new FileNotFoundException(path)
         }
 
         member self.CopyOfStream(source : Stream, target : string) = async {
-            let path = normalize target
-            initDir <| Path.GetDirectoryName path
-            use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
+            let target = normalize target
+            initDir <| Path.GetDirectoryName target
+            use! fs = retryAsync ioConcurrencyPolicy <| async { return new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None) }
             do! source.CopyToAsync fs
         }
 
@@ -148,7 +162,7 @@ type FileSystemStore private (rootPath : string) =
         member __.WriteETag(path : string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = async {
             let path = normalize path
             initDir <| Path.GetDirectoryName path
-            use fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
+            use fs = retry ioConcurrencyPolicy (fun () -> new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
             let! r = writer fs
             // flush to disk before closing stream to ensure etag is correct
             if fs.CanWrite then fs.Flush(flushToDisk = true)
@@ -157,7 +171,7 @@ type FileSystemStore private (rootPath : string) =
 
         member __.ReadETag(path : string, etag : ETag) = async {
             let path = normalize path
-            let fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)
+            let fs = retry ioConcurrencyPolicy (fun () -> new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
             if etag = getETag path then
                 return Some(fs :> Stream)
             else

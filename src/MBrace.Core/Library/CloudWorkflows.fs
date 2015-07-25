@@ -1,5 +1,5 @@
 ﻿/// Assortment of workflow combinators that act on collections distributively.
-module MBrace.Workflows.Cloud
+module MBrace.Library.Cloud
 
 open System.Collections.Generic
 

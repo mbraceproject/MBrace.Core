@@ -8,9 +8,6 @@ open Nessos.Thespian
 open MBrace.Core
 open MBrace.Core.Internals
 
-open MBrace.Store
-open MBrace.Store.Internals
-
 open MBrace.Runtime.Utils
 
 [<AutoOpen>]
@@ -92,7 +89,7 @@ module private ActorQueue =
                 return result |> Option.map (fun p -> Config.Serializer.UnPickle<'T> p)
             }
 
-            member __.Dispose () = local.Zero()
+            member __.Dispose () = async.Zero()
 
 /// Defines a distributed cloud channel factory
 type ActorQueueProvider (factory : ResourceFactory) =
