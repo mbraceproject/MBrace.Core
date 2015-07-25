@@ -20,8 +20,6 @@ type internal Body<'T> = ExecutionContext -> Continuation<'T> -> unit
 
 /// Representation of an MBrace workflow, which, when run 
 /// will produce a value of type 'T, or raise an exception.
-/// Representation of a cloud computation, which, when run 
-/// will produce a value of type 'T, or raise an exception.
 [<DataContract>]
 type Cloud<'T> =
     [<DataMember(Name = "Body")>]

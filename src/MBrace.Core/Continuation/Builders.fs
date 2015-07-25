@@ -60,6 +60,25 @@ module internal BuilderImpl =
             if ctx.IsCancellationRequested then cont.Cancel ctx else
             Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken)
 
+    let inline delay (f : unit -> #Cloud<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
+        if ctx.IsCancellationRequested then cont.Cancel ctx else
+        if Trampoline.IsBindThresholdReached() then 
+            Trampoline.QueueWorkItem (fun () -> cont.Choice2(ctx, protect f ()))
+        else
+            cont.Choice2(ctx, protect f ())
+    
+    let inline delay' (f : unit -> Body<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
+        if ctx.IsCancellationRequested then cont.Cancel ctx else
+        if Trampoline.IsBindThresholdReached() then 
+            Trampoline.QueueWorkItem (fun () -> cont.Choice3(ctx, protect f ()))
+        else
+            cont.Choice3(ctx, protect f ())
+
+    type ExplicitDelayWrapper<'T, 'S when 'S :> Cloud<'T>>(f : unit -> 'S) =
+        inherit FSharpFunc<ExecutionContext, Continuation<'T> -> unit> ()
+        override __.Invoke(ctx : ExecutionContext) = fun c -> delay f ctx c
+        member x.Func = x :> obj :?> Body<'T>
+
     let inline bind (f : Body<'T>) (g : 'T -> #Cloud<'S>) : Body<'S> =
         fun ctx cont ->
             if ctx.IsCancellationRequested then cont.Cancel ctx else
@@ -204,8 +223,6 @@ module internal BuilderImpl =
             else
                 f ctx cont'
 
-    let inline delay (f : unit -> #Cloud<'T>) : Body<'T> = bind zero f
-    let inline delay' (f : unit -> Body<'T>) : Body<'T> = bind' zero f
     let inline dispose (d : ICloudDisposable) = ofAsync (async { return! d.Dispose() })
 
     let inline usingIDisposable (t : #IDisposable) (g : #IDisposable -> #Cloud<'S>) : Body<'S> =
@@ -286,7 +303,7 @@ module Builders =
         let czero : Cloud<unit> = mkCloud zero
         member __.Return (t : 'T) : Cloud<'T> = mkCloud <| ret t
         member __.Zero () : Cloud<unit> = czero
-        member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| delay f
+        member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| ExplicitDelayWrapper<_,_>(f).Func
         member __.ReturnFrom (c : Cloud<'T>) : Cloud<'T> = c
         member __.ReturnFrom (c : Async<'T>) : Cloud<'T> = mkCloud <| ofAsync c
         member __.Combine(f : Cloud<unit>, g : Cloud<'T>) : Cloud<'T> = mkCloud <| combine f.Body g.Body
@@ -317,7 +334,7 @@ module Builders =
         let lzero : Local<unit> = mkLocal zero
         member __.Return (t : 'T) : Local<'T> = mkLocal <| ret t
         member __.Zero () : Local<unit> = lzero
-        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| delay f
+        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| ExplicitDelayWrapper<_,_>(f).Func
         member __.ReturnFrom (c : Local<'T>) : Local<'T> = c
         member __.ReturnFrom (c : Async<'T>) : Local<'T> = mkLocal (ofAsync c)
         member __.Combine(f : Local<unit>, g : Local<'T>) : Local<'T> = mkLocal <| combine f.Body g.Body
