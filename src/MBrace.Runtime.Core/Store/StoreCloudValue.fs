@@ -360,7 +360,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
         | Some cfg -> config <- Some cfg
         | None -> ()
 
-    interface ICloudValue<'T> with
+    interface CloudValue<'T> with
         member x.Dispose(): Async<unit> = async {
             match id with
             | Encapsulated _
@@ -406,9 +406,9 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
         member x.GetBoxedValue() : obj = 
             getValue() |> Async.RunSync |> box
 
-        member x.Cast<'S> () : ICloudValue<'S> =
+        member x.Cast<'S> () : CloudValue<'S> =
             if typeof<'S>.IsAssignableFrom reflectedType then
-                StoreCloudValue<_>.CreateReflected(id, elementCount, typeof<'S>, reflectedType, getConfig()) :?> ICloudValue<'S>
+                StoreCloudValue<_>.CreateReflected(id, elementCount, typeof<'S>, reflectedType, getConfig()) :?> CloudValue<'S>
             else
                 raise <| new InvalidCastException()
             
@@ -417,12 +417,12 @@ and [<Sealed; DataContract>]
   private StoreCloudArray<'T>(id:CachedEntityId, elementCount:int, config : LocalStoreCloudValueConfiguration) =
     inherit StoreCloudValue<'T []>(id, elementCount, typeof<'T[]>, config)
 
-    interface ICloudArray<'T> with
+    interface CloudArray<'T> with
         member x.Length = x.ElementCount
 
     interface seq<'T> with
-        member x.GetEnumerator() = (x :> ICloudValue<'T []>).Value.GetEnumerator()
-        member x.GetEnumerator() = ((x :> ICloudValue<'T []>).Value :> seq<'T>).GetEnumerator()
+        member x.GetEnumerator() = (x :> CloudValue<'T []>).Value.GetEnumerator()
+        member x.GetEnumerator() = ((x :> CloudValue<'T []>).Value :> seq<'T>).GetEnumerator()
 
     interface ICloudCollection<'T> with
         member x.GetCount(): Async<int64> = async {
@@ -438,7 +438,7 @@ and [<Sealed; DataContract>]
         member x.IsMaterialized: bool = (x :> ICloudValue).IsCachedLocally
         
         member x.ToEnumerable(): Async<seq<'T>> = async {
-            let! v = (x :> ICloudValue<'T []>).GetValueAsync()
+            let! v = (x :> CloudValue<'T []>).GetValueAsync()
             return v :> seq<'T>
         }
 
@@ -502,7 +502,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
 
         | _ -> ()
 
-        return StoreCloudValue<_>.CreateReflected(ceid, elementCount, typeof<'T>, getReflectedType value, config) :?> ICloudValue<'T>
+        return StoreCloudValue<_>.CreateReflected(ceid, elementCount, typeof<'T>, getReflectedType value, config) :?> CloudValue<'T>
     }
 
     /// <summary>
@@ -569,10 +569,10 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         member x.CreateCloudArrayPartitioned(values : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
             let _ = getConfig()
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Not supported storage level '%O'." level
-            return! FsPickler.PartitionSequenceBySize(values, partitionThreshold, fun ts -> async { let! cv = createCloudValue level ts in return cv :?> ICloudArray<'T> })
+            return! FsPickler.PartitionSequenceBySize(values, partitionThreshold, fun ts -> async { let! cv = createCloudValue level ts in return cv :?> CloudArray<'T> })
         }
 
-        member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {
+        member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<CloudValue<'T>> = async {
             let _ = getConfig()
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Not supported storage level '%O'." level
             return! createCloudValue level payload

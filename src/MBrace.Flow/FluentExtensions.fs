@@ -344,7 +344,7 @@ type CloudFlowExtensions() =
     /// <param name="channel">the SendPort of a CloudQueue.</param>
     /// <returns>Nothing.</returns>
     [<System.Runtime.CompilerServices.Extension>]
-    static member inline toCloudQueue (this : CloudFlow<'T>, channel : ICloudQueue<'T>) : Cloud<unit> = CloudFlow.toCloudQueue channel this
+    static member inline toCloudQueue (this : CloudFlow<'T>, channel : CloudQueue<'T>) : Cloud<unit> = CloudFlow.toCloudQueue channel this
 
     /// <summary>
     ///     Returs true if the flow is empty and false otherwise.

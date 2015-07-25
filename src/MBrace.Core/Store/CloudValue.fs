@@ -58,11 +58,11 @@ type ICloudValue =
     /// Asynchronously gets the boxed payload of the CloudValue.
     abstract GetBoxedValueAsync : unit -> Async<obj>
     /// Casts CloudValue to specified type, if applicable.
-    abstract Cast<'S> : unit -> ICloudValue<'S>
+    abstract Cast<'S> : unit -> CloudValue<'S>
 
 /// Serializable entity that represents an immutable 
 /// .NET object that has been cached by the MBrace runtime.
-and ICloudValue<'T> =
+and CloudValue<'T> =
     inherit ICloudValue
     /// Gets the payload of the CloudValue.
     abstract Value : 'T
@@ -71,8 +71,8 @@ and ICloudValue<'T> =
 
 /// Serializable entity that represents an immutable 
 /// array that has been cached by the MBrace runtime.
-type ICloudArray<'T> =
-    inherit ICloudValue<'T []>
+type CloudArray<'T> =
+    inherit CloudValue<'T []>
     inherit ICloudCollection<'T>
     /// Array element count
     abstract Length : int
@@ -101,7 +101,7 @@ type ICloudValueProvider =
     /// </summary>
     /// <param name="payload">Payload to be cached.</param>
     /// <param name="storageLevel">Storage level for cloud value.</param>
-    abstract CreateCloudValue : payload:'T * storageLevel:StorageLevel -> Async<ICloudValue<'T>>
+    abstract CreateCloudValue : payload:'T * storageLevel:StorageLevel -> Async<CloudValue<'T>>
 
     /// <summary>
     ///     Creates a sequence partitioning implementation that splits inputs into chunks
@@ -110,7 +110,7 @@ type ICloudValueProvider =
     /// <param name="sequence">Input sequence to be partitioned.</param>
     /// <param name="partitionThreshold">Maximum partition size in bytes per chunk.</param>
     /// <param name="storageLevel">Storage level for cloud arrays.</param>
-    abstract CreateCloudArrayPartitioned : sequence:seq<'T> * partitionThreshold:int64 * storageLevel:StorageLevel -> Async<ICloudArray<'T> []>
+    abstract CreateCloudArrayPartitioned : sequence:seq<'T> * partitionThreshold:int64 * storageLevel:StorageLevel -> Async<CloudArray<'T> []>
 
     /// <summary>
     ///     Gets CloudValue by cache id
@@ -161,7 +161,7 @@ type CloudValue =
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValue.</param>
-    static member New<'T>(value : 'T, ?storageLevel : StorageLevel) : Local<ICloudValue<'T>> = local {
+    static member New<'T>(value : 'T, ?storageLevel : StorageLevel) : Local<CloudValue<'T>> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
         return! provider.CreateCloudValue(value, storageLevel)
@@ -172,9 +172,9 @@ type CloudValue =
     /// </summary>
     /// <param name="values">Input set of values.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValues.</param>
-    static member NewArray<'T>(values : seq<'T>, ?storageLevel : StorageLevel) : Local<ICloudArray<'T>> = local {
+    static member NewArray<'T>(values : seq<'T>, ?storageLevel : StorageLevel) : Local<CloudArray<'T>> = local {
         let! cval = CloudValue.New(Seq.toArray values, ?storageLevel = storageLevel)
-        return cval :?> ICloudArray<'T>
+        return cval :?> CloudArray<'T>
     }
 
     /// <summary>
@@ -183,29 +183,17 @@ type CloudValue =
     /// <param name="values">Input set of values.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValues.</param>
-    static member NewArrayPartitioned<'T>(values : seq<'T>, partitionThreshold : int64, ?storageLevel : StorageLevel) : Local<ICloudArray<'T> []> = local {
+    static member NewArrayPartitioned<'T>(values : seq<'T>, partitionThreshold : int64, ?storageLevel : StorageLevel) : Local<CloudArray<'T> []> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
         return! provider.CreateCloudArrayPartitioned(values, partitionThreshold, storageLevel)
     }
-//        let partitioner = provider.CreatePartitioner(values, partitionThreshold)
-//        let agg = new ResizeArray<Task<ICloudValue<'T []>>>()
-//        for chunk in partitioner do
-//            let t = Async.StartAsTask(provider.CreateCloudValue(chunk, storageLevel))
-//            agg.Add t
-//
-//        let tasks = agg.ToArray()
-//        let t = Task.Factory.ContinueWhenAll(tasks, ignore)
-//        
-//
-//        return failwith ""
-//    }
 
     /// <summary>
     ///     Casts given CloudValue instance to specified type.
     /// </summary>
     /// <param name="cloudValue">CloudValue instance to be cast.</param>
-    static member Cast<'T>(cloudValue : ICloudValue) : ICloudValue<'T> =
+    static member Cast<'T>(cloudValue : ICloudValue) : CloudValue<'T> =
         cloudValue.Cast<'T> ()
 
     /// <summary>
@@ -229,7 +217,7 @@ type CloudValue =
     ///     Dereferences a cloud value.
     /// </summary>
     /// <param name="value">CloudValue instance.</param>
-    static member Read(value : ICloudValue<'T>) : Local<'T> = local {
+    static member Read(value : CloudValue<'T>) : Local<'T> = local {
         return! value.GetValueAsync()
     }
 

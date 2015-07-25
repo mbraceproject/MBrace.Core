@@ -98,7 +98,7 @@ module private ActorCloudDictionary =
             member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator() :> Collections.IEnumerator
             member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator()
         
-        interface ICloudDictionary<'T> with
+        interface CloudDictionary<'T> with
             member x.Add(key: string, value: 'T): Async<unit> = async { 
                 let! _ = source <!- fun ch -> ForceAdd(key, pickle value, ch) in return () 
             }
@@ -171,5 +171,5 @@ type ActorDictionaryProvider (id : string, factory : ResourceFactory) =
             let id = mkUUID()
             let! actor = factory.RequestResource(fun () -> ActorCloudDictionary.init())
             let dict = new ActorCloudDictionary<'T>(mkUUID(), actor)
-            return dict :> ICloudDictionary<'T>
+            return dict :> CloudDictionary<'T>
         }

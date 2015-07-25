@@ -21,28 +21,28 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    member c.CreateAsync<'T>(initial : 'T, ?container : string) : Async<ICloudAtom<'T>> =
+    member c.CreateAsync<'T>(initial : 'T, ?container : string) : Async<CloudAtom<'T>> =
         CloudAtom.New(initial, ?container = container) |> toAsync
 
     /// <summary>
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    member c.Create<'T>(initial : 'T, ?container : string) : ICloudAtom<'T> =
+    member c.Create<'T>(initial : 'T, ?container : string) : CloudAtom<'T> =
         c.CreateAsync(initial, ?container = container) |> toSync
        
     /// <summary>
     ///     Dereferences a cloud atom.
     /// </summary>
     /// <param name="atom">Atom instance.</param>
-    member c.ReadAsync(atom : ICloudAtom<'T>) : Async<'T> = 
+    member c.ReadAsync(atom : CloudAtom<'T>) : Async<'T> = 
         CloudAtom.Read(atom) |> toAsync
 
     /// <summary>
     ///     Dereferences a cloud atom.
     /// </summary>
     /// <param name="atom">Atom instance.</param>
-    member c.Read(atom : ICloudAtom<'T>) : 'T = 
+    member c.Read(atom : CloudAtom<'T>) : 'T = 
         c.ReadAsync(atom) |> toSync
 
     /// <summary>
@@ -51,7 +51,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    member c.UpdateAsync (atom : ICloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int): Async<unit> =
+    member c.UpdateAsync (atom : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int): Async<unit> =
         CloudAtom.Update(atom, updater, ?maxRetries = maxRetries) |> toAsync
 
     /// <summary>
@@ -60,7 +60,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    member c.Update (atom : ICloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int): unit = 
+    member c.Update (atom : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int): unit = 
         c.UpdateAsync (atom, updater, ?maxRetries = maxRetries) |> toSync
 
     /// <summary>
@@ -68,7 +68,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member c.ForceAsync (atom : ICloudAtom<'T>, value : 'T) : Async<unit> =
+    member c.ForceAsync (atom : CloudAtom<'T>, value : 'T) : Async<unit> =
         CloudAtom.Force(atom, value) |> toAsync
 
     /// <summary>
@@ -76,7 +76,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    member c.Force (atom : ICloudAtom<'T>, value : 'T) : unit = 
+    member c.Force (atom : CloudAtom<'T>, value : 'T) : unit = 
         c.ForceAsync(atom, value) |> toSync
 
     /// <summary>
@@ -85,7 +85,7 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     /// <param name="atom">Atom instance to be updated.</param>
     /// <param name="transactF">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    member c.TransactAsync (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Async<'R> =
+    member c.TransactAsync (atom : CloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Async<'R> =
         CloudAtom.Transact(atom, transactF, ?maxRetries = maxRetries) |> toAsync
 
     /// <summary>
@@ -94,21 +94,21 @@ type CloudAtomClient internal (registry : ResourceRegistry) =
     /// <param name="atom">Atom instance to be updated.</param>
     /// <param name="transactF">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    member c.Transact (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : 'R = 
+    member c.Transact (atom : CloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : 'R = 
         c.TransactAsync(atom, transactF, ?maxRetries = maxRetries) |> toSync
 
     /// <summary>
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    member c.DeleteAsync (atom : ICloudAtom<'T>) : Async<unit> = 
+    member c.DeleteAsync (atom : CloudAtom<'T>) : Async<unit> = 
         CloudAtom.Delete atom |> toAsync
 
     /// <summary>
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    member c.Delete (atom : ICloudAtom<'T>) : unit = 
+    member c.Delete (atom : CloudAtom<'T>) : unit = 
         c.DeleteAsync atom |> toSync
 
     /// <summary>
@@ -153,14 +153,14 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     ///     Creates a new queue instance.
     /// </summary>
     /// <param name="container">Container for cloud queue.</param>
-    member c.CreateAsync<'T>(?container : string) : Async<ICloudQueue<'T>> = 
+    member c.CreateAsync<'T>(?container : string) : Async<CloudQueue<'T>> = 
         CloudQueue.New<'T>(?container = container) |> toAsync
 
     /// <summary>
     ///     Creates a new queue instance.
     /// </summary>
     /// <param name="container">Container for cloud queue.</param>
-    member c.Create<'T>(?container : string) : ICloudQueue<'T> = 
+    member c.Create<'T>(?container : string) : CloudQueue<'T> = 
         c.CreateAsync<'T>(?container = container) |> toSync
 
     /// <summary>
@@ -168,7 +168,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="queue">Target queue.</param>
     /// <param name="message">Message to enqueue.</param>
-    member c.EnqueueAsync<'T> (queue : ICloudQueue<'T>, message : 'T) : Async<unit> = 
+    member c.EnqueueAsync<'T> (queue : CloudQueue<'T>, message : 'T) : Async<unit> = 
         CloudQueue.Enqueue<'T> (queue, message) |> toAsync
 
     /// <summary>
@@ -176,7 +176,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="queue">Target queue.</param>
     /// <param name="message">Message to enqueue.</param>
-    member c.Enqueue<'T> (queue : ICloudQueue<'T>, message : 'T) : unit = 
+    member c.Enqueue<'T> (queue : CloudQueue<'T>, message : 'T) : unit = 
         c.EnqueueAsync<'T>(queue, message) |> toSync
 
     /// <summary>
@@ -184,7 +184,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="queue">Target queue.</param>
     /// <param name="messages">Messages to enqueue.</param>
-    member c.EnqueueBatchAsync<'T> (queue : ICloudQueue<'T>, messages : seq<'T>) : Async<unit> =
+    member c.EnqueueBatchAsync<'T> (queue : CloudQueue<'T>, messages : seq<'T>) : Async<unit> =
         CloudQueue.EnqueueBatch<'T>(queue, messages) |> toAsync
 
     /// <summary>
@@ -192,7 +192,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="queue">Target queue.</param>
     /// <param name="messages">Messages to enqueue.</param>
-    member c.EnqueueBatch<'T> (queue : ICloudQueue<'T>, messages : seq<'T>) : Async<unit> =
+    member c.EnqueueBatch<'T> (queue : CloudQueue<'T>, messages : seq<'T>) : Async<unit> =
         CloudQueue.EnqueueBatch<'T>(queue, messages) |> toAsync
 
     /// <summary>
@@ -200,7 +200,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="queue">Source queue.</param>
     /// <param name="timeout">Timeout in milliseconds. Defaults to infinite timeout.</param>
-    member c.DequeueAsync<'T> (queue : ICloudQueue<'T>, ?timeout : int) : Async<'T> = 
+    member c.DequeueAsync<'T> (queue : CloudQueue<'T>, ?timeout : int) : Async<'T> = 
         CloudQueue.Dequeue(queue, ?timeout = timeout) |> toAsync
 
     /// <summary>
@@ -208,7 +208,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="queue">Source queue.</param>
     /// <param name="timeout">Timeout in milliseconds. Defaults to infinite timeout.</param>
-    member c.Dequeue<'T> (queue : ICloudQueue<'T>, ?timeout : int) : 'T = 
+    member c.Dequeue<'T> (queue : CloudQueue<'T>, ?timeout : int) : 'T = 
         c.DequeueAsync(queue, ?timeout = timeout) |> toSync
 
     /// <summary>
@@ -216,7 +216,7 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     ///     Returns instantly, with None if empty or Some element if found.
     /// </summary>
     /// <param name="queue">Source queue.</param>
-    member c.TryDequeueAsync<'T> (queue : ICloudQueue<'T>) : Async<'T option> =
+    member c.TryDequeueAsync<'T> (queue : CloudQueue<'T>) : Async<'T option> =
         CloudQueue.TryDequeue(queue) |> toAsync
 
     /// <summary>
@@ -224,21 +224,21 @@ type CloudQueueClient internal (registry : ResourceRegistry) =
     ///     Returns instantly, with None if empty or Some element if found.
     /// </summary>
     /// <param name="queue">Source queue.</param>
-    member c.TryDequeue<'T> (queue : ICloudQueue<'T>) : 'T option =
+    member c.TryDequeue<'T> (queue : CloudQueue<'T>) : 'T option =
         c.TryDequeueAsync(queue) |> toSync
 
     /// <summary>
     ///     Deletes the provided queue instance.
     /// </summary>
     /// <param name="queue">Queue to be deleted.</param>
-    member c.DeleteAsync(queue : ICloudQueue<'T>) : Async<unit> = 
+    member c.DeleteAsync(queue : CloudQueue<'T>) : Async<unit> = 
         CloudQueue.Delete queue |> toAsync
 
     /// <summary>
     ///     Deletes the provided queue instance.
     /// </summary>
     /// <param name="queue">Queue to be deleted.</param>    
-    member c.Delete(queue : ICloudQueue<'T>) : unit = c.DeleteAsync queue |> toSync
+    member c.Delete(queue : CloudQueue<'T>) : unit = c.DeleteAsync queue |> toSync
 
     /// <summary>
     ///     Deletes the provided queue container and all its contents.
@@ -271,17 +271,17 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     let toSync (wf : Async<'T>) : 'T = Async.RunSync wf
 
     /// Asynchronously creates a new CloudDictionary instance.
-    member __.NewAsync<'T> () : Async<ICloudDictionary<'T>> = CloudDictionary.New<'T> () |> toAsync
+    member __.NewAsync<'T> () : Async<CloudDictionary<'T>> = CloudDictionary.New<'T> () |> toAsync
 
     /// Creates a new CloudDictionary instance.
-    member __.New<'T> () : ICloudDictionary<'T> = __.NewAsync<'T> () |> toSync
+    member __.New<'T> () : CloudDictionary<'T> = __.NewAsync<'T> () |> toSync
 
     /// <summary>
     ///     Asynchronously checks if entry of given key exists in dictionary.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="dictionary">Dictionary to be checked.</param>
-    member __.ContainsKeyAsync (key : string) (dictionary : ICloudDictionary<'T>) : Async<bool> =
+    member __.ContainsKeyAsync (key : string) (dictionary : CloudDictionary<'T>) : Async<bool> =
         CloudDictionary.ContainsKey key dictionary |> toAsync
 
     /// <summary>
@@ -289,7 +289,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="dictionary">Dictionary to be checked.</param>
-    member __.ContainsKey (key : string) (dictionary : ICloudDictionary<'T>) : bool =
+    member __.ContainsKey (key : string) (dictionary : CloudDictionary<'T>) : bool =
         __.ContainsKeyAsync key dictionary |> toSync
 
     /// <summary>
@@ -298,7 +298,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="value">Value to entry.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.AddAsync (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : Async<unit> =
+    member __.AddAsync (key : string) (value : 'T) (dictionary : CloudDictionary<'T>) : Async<unit> =
         CloudDictionary.Add key value dictionary |> toAsync
 
     /// <summary>
@@ -307,7 +307,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="value">Value to entry.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.Add (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : unit =
+    member __.Add (key : string) (value : 'T) (dictionary : CloudDictionary<'T>) : unit =
         __.AddAsync key value dictionary |> toSync
 
     /// <summary>
@@ -316,7 +316,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="value">Value to entry.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.TryAddAsync (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : Async<bool> =
+    member __.TryAddAsync (key : string) (value : 'T) (dictionary : CloudDictionary<'T>) : Async<bool> =
         CloudDictionary.TryAdd key value dictionary |> toAsync
 
     /// <summary>
@@ -325,7 +325,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="value">Value to entry.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.TryAdd (key : string) (value : 'T) (dictionary : ICloudDictionary<'T>) : bool =
+    member __.TryAdd (key : string) (value : 'T) (dictionary : CloudDictionary<'T>) : bool =
         __.TryAddAsync key value dictionary |> toSync
 
     /// <summary>
@@ -334,7 +334,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Value updater function.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.AddOrUpdateAsync (key : string) (updater : 'T option -> 'T) (dictionary : ICloudDictionary<'T>) : Async<'T> =
+    member __.AddOrUpdateAsync (key : string) (updater : 'T option -> 'T) (dictionary : CloudDictionary<'T>) : Async<'T> =
         CloudDictionary.AddOrUpdate key updater dictionary |> toAsync
 
     /// <summary>
@@ -343,7 +343,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Value updater function.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.AddOrUpdate (key : string) (updater : 'T option -> 'T) (dictionary : ICloudDictionary<'T>) : 'T =
+    member __.AddOrUpdate (key : string) (updater : 'T option -> 'T) (dictionary : CloudDictionary<'T>) : 'T =
         __.AddOrUpdateAsync key updater dictionary |> toSync
 
     /// <summary>
@@ -352,7 +352,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Value updater function.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.UpdateAsync (key : string) (updater : 'T -> 'T) (dictionary : ICloudDictionary<'T>) : Async<'T> =
+    member __.UpdateAsync (key : string) (updater : 'T -> 'T) (dictionary : CloudDictionary<'T>) : Async<'T> =
         CloudDictionary.Update key updater dictionary |> toAsync
 
     /// <summary>
@@ -361,7 +361,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Value updater function.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.Update (key : string) (updater : 'T -> 'T) (dictionary : ICloudDictionary<'T>) : 'T =
+    member __.Update (key : string) (updater : 'T -> 'T) (dictionary : CloudDictionary<'T>) : 'T =
         __.UpdateAsync key updater dictionary |> toSync
 
     /// <summary>
@@ -369,7 +369,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="key">Key for entry to be removed.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.RemoveAsync (key : string) (dictionary : ICloudDictionary<'T>) : Async<bool> =
+    member __.RemoveAsync (key : string) (dictionary : CloudDictionary<'T>) : Async<bool> =
         CloudDictionary.Remove key dictionary |> toAsync
 
     /// <summary>
@@ -377,7 +377,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="key">Key for entry to be removed.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    member __.Remove (key : string) (dictionary : ICloudDictionary<'T>) : bool =
+    member __.Remove (key : string) (dictionary : CloudDictionary<'T>) : bool =
         __.RemoveAsync key dictionary |> toSync
 
     /// <summary>
@@ -385,7 +385,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="key">Key to be looked up.</param>
     /// <param name="dictionary">Dictionary to be accessed.</param>
-    member __.TryFindAsync (key : string) (dictionary : ICloudDictionary<'T>) : Async<'T option> =
+    member __.TryFindAsync (key : string) (dictionary : CloudDictionary<'T>) : Async<'T option> =
         CloudDictionary.TryFind key dictionary |> toAsync
 
     /// <summary>
@@ -393,7 +393,7 @@ type CloudDictionaryClient internal (registry : ResourceRegistry) =
     /// </summary>
     /// <param name="key">Key to be looked up.</param>
     /// <param name="dictionary">Dictionary to be accessed.</param>
-    member __.TryFind (key : string) (dictionary : ICloudDictionary<'T>) : 'T option =
+    member __.TryFind (key : string) (dictionary : CloudDictionary<'T>) : 'T option =
         __.TryFindAsync key dictionary |> toSync
 
 
@@ -836,14 +836,14 @@ type CloudValueClient internal (registry : ResourceRegistry) =
     ///     Dereferences a Cloud value.
     /// </summary>
     /// <param name="cloudValue">CloudValue to be dereferenced.</param>
-    member __.ReadAsync(cloudValue : ICloudValue<'T>) : Async<'T> = 
+    member __.ReadAsync(cloudValue : CloudValue<'T>) : Async<'T> = 
         CloudValue.Read(cloudValue) |> toAsync
 
     /// <summary>
     ///     Dereferences a Cloud value.
     /// </summary>
     /// <param name="cloudValue">CloudValue to be dereferenced.</param>
-    member __.Read(cloudValue : ICloudValue<'T>) : 'T = 
+    member __.Read(cloudValue : CloudValue<'T>) : 'T = 
         __.ReadAsync(cloudValue) |> toSync
 
 /// Client-side API for cloud store operations

@@ -18,7 +18,7 @@ open MBrace.Flow.Internals
 
 /// Persisted CloudFlow implementation.
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
-type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * ICloudArray<'T>) []) =
+type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>) []) =
 
     [<DataMember(Name = "Partitions")>]
     let partitions = partitions
@@ -105,9 +105,9 @@ type PersistedCloudFlow private () =
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
     /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
-    static member OfCloudArrays (cloudArrays : seq<#ICloudArray<'T>>) : Local<PersistedCloudFlow<'T>> = local {
+    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : Local<PersistedCloudFlow<'T>> = local {
         let! workers = Cloud.GetAvailableWorkers()
-        let partitions = cloudArrays |> Seq.mapi (fun i ca -> workers.[i % workers.Length], ca :> ICloudArray<'T>) |> Seq.toArray
+        let partitions = cloudArrays |> Seq.mapi (fun i ca -> workers.[i % workers.Length], ca :> CloudArray<'T>) |> Seq.toArray
         return new PersistedCloudFlow<'T>(Seq.toArray partitions)
     }
     

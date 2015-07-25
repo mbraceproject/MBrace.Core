@@ -51,7 +51,7 @@ module private ActorQueue =
     /// Actor CloudQueue implementation
     type ActorQueue<'T> internal (id : string, source : ActorRef<QueueMsg>) =
 
-        interface ICloudQueue<'T> with
+        interface CloudQueue<'T> with
             member __.Id = id
 
             member __.Count = async {
@@ -102,7 +102,7 @@ type ActorQueueProvider (factory : ResourceFactory) =
         member __.CreateQueue<'T> (container : string) = async {
             let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
             let! actor = factory.RequestResource(fun () -> ActorQueue.init())
-            return new ActorQueue<'T>(id, actor) :> ICloudQueue<'T>
+            return new ActorQueue<'T>(id, actor) :> CloudQueue<'T>
         }
 
         member __.DisposeContainer _ = async.Zero()

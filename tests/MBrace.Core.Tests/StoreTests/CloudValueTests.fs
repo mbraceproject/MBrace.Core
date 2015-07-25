@@ -55,7 +55,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``CloudValue of array should be CloudArray instance`` () =
         let cv = CloudValue.New [|1 .. 1000|] |> runRemote
-        let ca = cv :?> ICloudArray<int>
+        let ca = cv :?> CloudArray<int>
         ca.ReflectedType |> shouldEqual typeof<int []>
         ca.Length |> shouldEqual 1000
 
@@ -237,7 +237,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         cloud {
             let size = 10000
             let! value = CloudValue.New<obj>([|1 .. size|], storageLevel = level)
-            let value' = value.Cast<int[]>() :?> ICloudArray<int>
+            let value' = value.Cast<int[]>() :?> CloudArray<int>
             let! t = Cloud.StartAsTask(cloud { value'.Length |> shouldEqual size })
             return! t.AwaitResult()
         } |> runRemote
