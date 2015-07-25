@@ -65,7 +65,7 @@ module private ActorAtom =
         static let pickle (t : 'T) = Config.Serializer.Pickle t
         static let unpickle (bytes : byte[]) = Config.Serializer.UnPickle<'T> bytes
 
-        interface ICloudAtom<'T> with
+        interface CloudAtom<'T> with
             member __.Id = id
             member __.Value = async {
                 let! _,bytes = source <!- GetValue
@@ -106,11 +106,11 @@ module private ActorAtom =
 type ActorAtomProvider (factory : ResourceFactory) =
     let id = mkUUID()
     interface ICloudAtomProvider with
-        member x.CreateAtom(container: string, initValue: 'T): Async<ICloudAtom<'T>> = async {
+        member x.CreateAtom(container: string, initValue: 'T): Async<CloudAtom<'T>> = async {
             let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
             let initPickle = Config.Serializer.Pickle initValue
             let! actor = factory.RequestResource(fun () -> ActorAtom.init id initPickle)
-            return new ActorAtom<'T>(id, actor) :> ICloudAtom<'T>
+            return new ActorAtom<'T>(id, actor) :> CloudAtom<'T>
         }
 
         member x.CreateUniqueContainerName () = System.Guid.NewGuid().ToString()

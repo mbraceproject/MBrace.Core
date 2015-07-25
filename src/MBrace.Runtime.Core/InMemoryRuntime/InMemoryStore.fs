@@ -46,7 +46,7 @@ type private InMemoryValue<'T> (hash : HashResult, provider : InMemoryValueProvi
         let et = Existential.FromType t
         et.Apply { new IFunc<ICloudValue> with member __.Invoke<'T> () = InMemoryValue<'T>.Create(hash, payload, provider) :> ICloudValue }
 
-    interface ICloudValue<'T> with
+    interface CloudValue<'T> with
         member x.Id: string = hash.Id
         member x.Size: int64 = hash.Length
         member x.StorageLevel : StorageLevel =
@@ -61,7 +61,7 @@ type private InMemoryValue<'T> (hash : HashResult, provider : InMemoryValueProvi
         member x.IsCachedLocally: bool = not <| provider.IsDisposed hash
         member x.Value: 'T = getPayload().Value :?> 'T
         member x.GetBoxedValue () : obj = getPayload().Value
-        member x.Cast<'S> () = InMemoryValue<'S>.Create(hash, getPayload(), provider) :> ICloudValue<'S>
+        member x.Cast<'S> () = InMemoryValue<'S>.Create(hash, getPayload(), provider) :> CloudValue<'S>
         member x.Dispose() = async { provider.Dispose hash }
 
 and [<AutoSerializable(false); Sealed; CloneableOnly>]
@@ -76,7 +76,7 @@ and [<AutoSerializable(false); Sealed; CloneableOnly>]
     let checkDisposed () =
         if provider.IsDisposed hash then raise <| new ObjectDisposedException(hash.Id, "CloudValue payload has been disposed.")
 
-    interface ICloudArray<'T> with
+    interface CloudArray<'T> with
         member x.Length = (getPayload().RawValue :?> 'T[]).Length
 
     interface seq<'T> with
@@ -123,7 +123,7 @@ and [<Sealed; AutoSerializable(false)>]
             EmulatedValue.create mode false (box value)
 
         let payload = cache.GetOrAdd(hash, createPayload)
-        InMemoryValue<'T>.Create(hash, payload, self) :> ICloudValue<'T>
+        InMemoryValue<'T>.Create(hash, payload, self) :> CloudValue<'T>
 
     member internal __.TryGetPayload(hash : HashResult) : EmulatedValue<obj> option = cache.TryFind hash
     member internal __.IsDisposed(hash : HashResult) = not <| cache.ContainsKey hash
@@ -137,14 +137,14 @@ and [<Sealed; AutoSerializable(false)>]
         member x.Name: string = "In-Memory Value Provider"
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
         member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
-        member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<ICloudValue<'T>> = async {
+        member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<CloudValue<'T>> = async {
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
             return createNewValue level payload
         }
 
         member x.CreateCloudArrayPartitioned(sequence : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
-            return! FsPickler.PartitionSequenceBySize(sequence, partitionThreshold, fun ts -> async { return createNewValue level ts :?> ICloudArray<'T> })
+            return! FsPickler.PartitionSequenceBySize(sequence, partitionThreshold, fun ts -> async { return createNewValue level ts :?> CloudArray<'T> })
         }
         
         member x.Dispose(cv: ICloudValue): Async<unit> = async { return! cv.Dispose() }
@@ -164,7 +164,7 @@ type private InMemoryAtom<'T> internal (id : string, initial : 'T, mode : Memory
         | None -> raise <| new ObjectDisposedException(id, "CloudAtom has been disposed.")
         | Some a -> a
 
-    interface ICloudAtom<'T> with
+    interface CloudAtom<'T> with
         member x.Id = id
         member x.Value = async { return getAtom().Value.Value }
 
@@ -217,7 +217,7 @@ type private InMemoryQueue<'T> internal (id : string, mode : MemoryEmulation) =
 
     let mbox = new MailboxProcessor<EmulatedValue<'T>>(fun _ -> async.Zero())
 
-    interface ICloudQueue<'T> with
+    interface CloudQueue<'T> with
         member x.Id: string = id
 
         member x.Count: Async<int64> = async {
@@ -276,7 +276,7 @@ type InMemoryQueueProvider (mode : MemoryEmulation) =
                 raise <| new SerializationException(msg)
 
             let id = sprintf "%s/%s" container <| mkUUID()
-            return new InMemoryQueue<'T>(id, mode) :> ICloudQueue<'T>
+            return new InMemoryQueue<'T>(id, mode) :> CloudQueue<'T>
         }
 
         member __.DisposeContainer _ = async.Zero()
@@ -295,7 +295,7 @@ type private InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
         member x.GetEnumerator() = checkDisposed() ; toEnum().GetEnumerator() :> Collections.IEnumerator
         member x.GetEnumerator() = checkDisposed() ; toEnum().GetEnumerator()
     
-    interface ICloudDictionary<'T> with
+    interface CloudDictionary<'T> with
         member x.Add(key : string, value : 'T) : Async<unit> =
             async { let _ = checkDisposed() in return dict.[key] <- clone value }
 
@@ -355,5 +355,5 @@ type InMemoryDictionaryProvider (mode : MemoryEmulation) =
                 let msg = sprintf "Cannot create queue for non-serializable type '%O'." typeof<'T>
                 raise <| new SerializationException(msg)
 
-            return new InMemoryDictionary<'T>(mode) :> ICloudDictionary<'T>
+            return new InMemoryDictionary<'T>(mode) :> CloudDictionary<'T>
         }

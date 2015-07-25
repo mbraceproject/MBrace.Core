@@ -3,7 +3,7 @@
 open MBrace.Core
 
 /// Distributed Queue abstraction
-type ICloudQueue<'T> =
+type CloudQueue<'T> =
     inherit ICloudDisposable
 
     /// Queue identifier
@@ -56,7 +56,7 @@ type ICloudQueueProvider =
     ///     Creates a new queue instance of given type.
     /// </summary>
     /// <param name="container">Container for queue.</param>
-    abstract CreateQueue<'T> : container:string -> Async<ICloudQueue<'T>>
+    abstract CreateQueue<'T> : container:string -> Async<CloudQueue<'T>>
 
     /// <summary>
     ///     Disposes all queues in provided container.
@@ -110,7 +110,7 @@ type CloudQueue =
     /// </summary>
     /// <param name="message">Message to send.</param>
     /// <param name="queue">Target queue.</param>
-    static member Enqueue<'T> (queue : ICloudQueue<'T>, message : 'T) = local {
+    static member Enqueue<'T> (queue : CloudQueue<'T>, message : 'T) = local {
         return! queue.Enqueue message
     }
 
@@ -119,7 +119,7 @@ type CloudQueue =
     /// </summary>
     /// <param name="messages">Message to be enqueued.</param>
     /// <param name="queue">Target queue.</param>
-    static member EnqueueBatch<'T> (queue : ICloudQueue<'T>, messages : seq<'T>) = local {
+    static member EnqueueBatch<'T> (queue : CloudQueue<'T>, messages : seq<'T>) = local {
         return! queue.EnqueueBatch messages
     }
 
@@ -128,7 +128,7 @@ type CloudQueue =
     /// </summary>
     /// <param name="queue">Source queue.</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    static member Dequeue<'T> (queue : ICloudQueue<'T>, ?timeout : int) = local {
+    static member Dequeue<'T> (queue : CloudQueue<'T>, ?timeout : int) = local {
         return! queue.Dequeue (?timeout = timeout)
     }
 
@@ -137,7 +137,7 @@ type CloudQueue =
     ///     Returns None instantly if no message is currently available.
     /// </summary>
     /// <param name="queue"></param>
-    static member TryDequeue<'T> (queue : ICloudQueue<'T>) = local {
+    static member TryDequeue<'T> (queue : CloudQueue<'T>) = local {
         return! queue.TryDequeue()
     }
 
@@ -145,7 +145,7 @@ type CloudQueue =
     ///     Deletes cloud queue instance.
     /// </summary>
     /// <param name="queue">Queue to be disposed.</param>
-    static member Delete(queue : ICloudQueue<'T>) : Local<unit> = 
+    static member Delete(queue : CloudQueue<'T>) : Local<unit> = 
         local { return! queue.Dispose() }
 
     /// <summary>

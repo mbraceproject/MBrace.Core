@@ -1,7 +1,7 @@
 ﻿namespace MBrace.Core
 
 /// Represent a distributed atomically updatable value reference
-type ICloudAtom<'T> =
+type CloudAtom<'T> =
     inherit ICloudDisposable
 
     /// Cloud atom identifier
@@ -50,7 +50,7 @@ type ICloudAtomProvider =
     /// </summary>
     /// <param name="container">Atom container.</param>
     /// <param name="initValue"></param>
-    abstract CreateAtom<'T> : container:string * initValue:'T -> Async<ICloudAtom<'T>>
+    abstract CreateAtom<'T> : container:string * initValue:'T -> Async<CloudAtom<'T>>
 
     /// <summary>
     ///     Disposes all atoms in provided container
@@ -92,7 +92,7 @@ type CloudAtom =
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    static member New<'T>(initial : 'T, ?container : string) : Local<ICloudAtom<'T>> = local {
+    static member New<'T>(initial : 'T, ?container : string) : Local<CloudAtom<'T>> = local {
         let! config = Cloud.GetResource<CloudAtomConfiguration> ()
         let container = defaultArg container config.DefaultContainer
         return! config.AtomProvider.CreateAtom(container, initial)
@@ -102,7 +102,7 @@ type CloudAtom =
     ///     Dereferences a cloud atom.
     /// </summary>
     /// <param name="atom">Atom instance.</param>
-    static member Read(atom : ICloudAtom<'T>) : Local<'T> = local {
+    static member Read(atom : CloudAtom<'T>) : Local<'T> = local {
         return! atom.Value
     }
 
@@ -112,7 +112,7 @@ type CloudAtom =
     /// <param name="updater">value updating function.</param>
     /// <param name="atom">Atom instance to be updated.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    static member Update (atom : ICloudAtom<'T>, updateF : 'T -> 'T, ?maxRetries : int)  : Local<unit> = local {
+    static member Update (atom : CloudAtom<'T>, updateF : 'T -> 'T, ?maxRetries : int)  : Local<unit> = local {
         return! atom.Transact((fun t -> (), updateF t), ?maxRetries = maxRetries)
     }
 
@@ -121,7 +121,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="value">Value to be set.</param>
     /// <param name="atom">Atom instance to be updated.</param>
-    static member Force (atom : ICloudAtom<'T>, value : 'T) : Local<unit> = local {
+    static member Force (atom : CloudAtom<'T>, value : 'T) : Local<unit> = local {
         return! atom.Force value
     }
 
@@ -131,7 +131,7 @@ type CloudAtom =
     /// <param name="atom">Input atom.</param>
     /// <param name="transactF">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    static member Transact (atom : ICloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Local<'R> = local {
+    static member Transact (atom : CloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Local<'R> = local {
         return! atom.Transact(transactF, ?maxRetries = maxRetries)
     }
 
@@ -139,7 +139,7 @@ type CloudAtom =
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (atom : ICloudAtom<'T>) : Local<unit> = local {
+    static member Delete (atom : CloudAtom<'T>) : Local<unit> = local {
         return! atom.Dispose()
     }
 
@@ -174,7 +174,7 @@ type CloudAtom =
     ///     Increments a cloud counter by one.
     /// </summary>
     /// <param name="atom">Input atom.</param>
-    static member inline Incr (atom : ICloudAtom<'T>) : Local<'T> = local {
+    static member inline Incr (atom : CloudAtom<'T>) : Local<'T> = local {
         return! atom.Transact (fun i -> let i' = i + LanguagePrimitives.GenericOne in i',i')
     }
 
@@ -182,6 +182,6 @@ type CloudAtom =
     ///     Decrements a cloud counter by one.
     /// </summary>
     /// <param name="atom">Input atom.</param>
-    static member inline Decr (atom : ICloudAtom<'T>) : Local<'T> = local {
+    static member inline Decr (atom : CloudAtom<'T>) : Local<'T> = local {
         return! atom.Transact (fun i -> let i' = i - LanguagePrimitives.GenericOne in i',i')
     }

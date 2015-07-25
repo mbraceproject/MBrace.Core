@@ -42,7 +42,7 @@ type CloudFlow =
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
     /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
-    static member OfCloudArrays (cloudArrays : seq<#ICloudArray<'T>>) : Local<PersistedCloudFlow<'T>> =
+    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : Local<PersistedCloudFlow<'T>> =
         PersistedCloudFlow.OfCloudArrays cloudArrays
 
     /// <summary>
@@ -257,7 +257,7 @@ type CloudFlow =
     /// <param name="channel">the ReceivePort of a CloudQueue.</param>
     /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
     /// <returns>The result CloudFlow.</returns>
-    static member OfCloudQueue (channel : ICloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
+    static member OfCloudQueue (channel : CloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
         CloudQueue.ToCloudFlow(channel, degreeOfParallelism)
 
 /// Provides basic operations on CloudFlows.
@@ -704,7 +704,7 @@ module CloudFlow =
     /// <param name="queue">Target CloudQueue.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>Nothing.</returns>
-    let toCloudQueue (queue : ICloudQueue<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
+    let toCloudQueue (queue : CloudQueue<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
         // TODO : use EnqueueBatch overload
         flow |> iterLocal (fun v -> CloudQueue.Enqueue(queue, v))
 
