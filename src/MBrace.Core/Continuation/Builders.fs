@@ -79,7 +79,7 @@ module internal BuilderImpl =
     // provides an explicit FSharpFunc implementation for delayed computation;
     // this is to deal with leaks of internal closure types in serialized cloud workflows.
     [<Sealed; DataContract>]
-    type private ExplicitDelayWrapper<'T, 'S when 'S :> Cloud<'T>>(body : unit -> 'S) =
+    type private ExplicitDelayWrapper<'T, 'TCloud when 'TCloud :> Cloud<'T>>(body : unit -> 'TCloud) =
         // F# won't let use inherit OptimizedClosures.FSharpFunc<_,_,_> because of the unit return type
         inherit FSharpFunc<ExecutionContext, Continuation<'T> -> unit> ()
 
