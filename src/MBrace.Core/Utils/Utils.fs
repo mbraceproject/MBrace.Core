@@ -263,3 +263,34 @@ module Utils =
                 ()
 
             tcs.Task
+
+    /// A struct that can either contain a type or an exception.
+    [<Struct; AutoSerializable(true); NoEquality; NoComparison>]
+    type ValueOrException<'T> =
+        val private isValue : bool
+        val private value : 'T
+        val private exn : exn
+
+        member x.IsValue = x.isValue
+        member x.IsException = not x.isValue
+        member x.Value = if x.isValue then x.value else invalidOp "not a value."
+        member x.Exception = if x.isValue then invalidOp "not an exception." else x.exn
+
+        private new (isValue : bool, value : 'T, exn : exn) = { isValue = isValue ; value = value ; exn = exn }
+
+        static member NewValue(value : 'T) = new ValueOrException<'T>(true, value, null)
+        static member NewException(exn : exn) = new ValueOrException<'T>(false, Unchecked.defaultof<'T>, exn)
+
+    module ValueOrException =
+        /// Creates a new wrapper for given value.
+        let inline Value(value : 'T) = ValueOrException<'T>.NewValue(value)
+        /// Creates a new wrapper for given exception.
+        let inline Exception(exn : exn) = ValueOrException<'T>.NewException(exn)
+        /// Applies function to given argument, protecting in case of exception.
+        let inline protect (f : 'T -> 'S) (t : 'T) =
+            try f t |> ValueOrException<'S>.NewValue
+            with e -> ValueOrException<'S>.NewException e
+
+        let inline bind (f : 'T -> 'S) (input : ValueOrException<'T>) =
+            if input.IsValue then protect f input.Value
+            else ValueOrException<'S>.NewException(input.Exception)

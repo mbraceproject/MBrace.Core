@@ -159,8 +159,8 @@ type Cloud =
     [<CompilerMessage("'GetResource' only intended for runtime implementers.", 444)>]
     static member GetResource<'TResource> () : Local<'TResource> =
         Local.FromContinuations(fun ctx cont ->
-            let res = protect (fun () -> ctx.Resources.Resolve<'TResource> ()) ()
-            cont.Choice(ctx, res))
+            let res = ValueOrException.protect (fun () -> ctx.Resources.Resolve<'TResource> ()) ()
+            cont.ContinueWith(ctx, res))
 
     /// <summary>
     ///     Try Getting resource from current execution context.
