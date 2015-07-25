@@ -16,9 +16,6 @@ open System.Text
 // Helper type
 type Separator = N | R | RN
 
-[<ReferenceEquality; NoComparison>]
-type private ReferenceEqualityContainer<'T> = { Payload : 'T }
-
 // General-purpose, runtime independent CloudFlow tests
 [<TestFixture>]
 module ``CloudFlow Core property tests`` =
@@ -86,7 +83,7 @@ type ``CloudFlow tests`` () as self =
     // #region Flow persist tests
 
     [<Test>]
-    member __.``1. PersistedCloudFlow : simple persist`` () =
+    member __.``1. PersistedCloudFlow : Simple StorageLevel.Disk`` () =
         if __.IsSupportedStorageLevel StorageLevel.Disk then
             let inputs = [|1L .. 1000000L|]
             let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runRemote
@@ -97,21 +94,23 @@ type ``CloudFlow tests`` () as self =
             persisted |> Seq.toArray |> shouldEqual inputs
 
     [<Test>]
-    member __.``1. PersistedCloudFlow : randomized persist`` () =
-        let f(xs : int[]) =            
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runRemote
-            let y = xs |> Seq.map ((+)1) |> Seq.toArray
-            Assert.AreEqual(y, x |> Seq.toArray)
-        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+    member __.``1. PersistedCloudFlow : Randomized StorageLevel.Disk`` () =
+        if __.IsSupportedStorageLevel StorageLevel.Disk then
+            let f(xs : int[]) =            
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runRemote
+                let y = xs |> Seq.map ((+)1) |> Seq.toArray
+                Assert.AreEqual(y, x |> Seq.toArray)
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
-    member __.``1. PersistedCloudFlow : caching`` () =
-        let inputs = [|1L .. 1000000L|]
-        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runRemote
-        let workers = Cloud.GetWorkerCount() |> runRemote
-        persisted.StorageLevel |> shouldEqual StorageLevel.Memory
-        persisted.PartitionCount |> shouldEqual workers
-        persisted |> CloudFlow.toArray |> runRemote |> shouldEqual inputs
+    member __.``1. PersistedCloudFlow : StorageLevel.Memory`` () =
+        if __.IsSupportedStorageLevel StorageLevel.Memory then
+            let inputs = [|1L .. 1000000L|]
+            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runRemote
+            let workers = Cloud.GetWorkerCount() |> runRemote
+            persisted.StorageLevel |> shouldEqual StorageLevel.Memory
+            persisted.PartitionCount |> shouldEqual workers
+            persisted |> CloudFlow.toArray |> runRemote |> shouldEqual inputs
 
     [<Test>]
     member __.``1. PersistedCloudFlow : disposal`` () =
@@ -121,16 +120,26 @@ type ``CloudFlow tests`` () as self =
         shouldfail(fun () -> persisted |> CloudFlow.length |> runRemote |> ignore)
 
     [<Test>]
-    member __.``1. PersistedCloudFlow : cached objects`` () =
-        // ensure that initial array is large enough for disk caching to kick in,
-        // otherwise persisted fragments will be encapsulated in the reference as an optimization.
-        // Limit is currently set to 512KiB, so total size must be 512KiB * cluster size.
-        let xs = Array.init 10000 (fun _ -> "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
-        let cv = xs |> CloudFlow.OfArray |> CloudFlow.map (fun x -> { Payload = x }) |> CloudFlow.cache |> runRemote
-        let x = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runRemote
-        for i in 1 .. 5 do
-            let y = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runRemote
-            Assert.AreEqual(x, y)
+    member __.``1. PersistedCloudFlow : StorageLevel.Memory caching`` () =
+        if __.IsSupportedStorageLevel StorageLevel.Memory then
+            // ensure that initial array is large enough for disk caching to kick in,
+            // otherwise persisted fragments will be encapsulated in the reference as an optimization.
+            // Limit is currently set to 512KiB, so total size must be 512KiB * cluster size.
+            // Arrays have reference equality semantics, compare hashcodes to ensure that caching is taking place.
+            let cv = [|1 .. 20|] |> CloudFlow.OfArray |> CloudFlow.map (fun _ -> [|1L .. 1000000L|]) |> CloudFlow.cache |> runRemote
+            let x = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runRemote
+            for i in 1 .. 5 do
+                let y = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runRemote
+                Assert.AreEqual(x, y)
+
+    [<Test>]
+    member __.``1. PersistedCloudFlow : Simple StorageLevel.MemorySerialized`` () =
+        if __.IsSupportedStorageLevel StorageLevel.MemorySerialized then
+            let f(xs : int[]) =            
+                let pf = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.MemorySerialized |> runRemote
+                let ys = pf |> CloudFlow.length |> runRemote
+                Assert.AreEqual(ys, xs.LongLength)
+            Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : merging`` () =
