@@ -3,6 +3,8 @@
 //  Cloud builder implementation
 
 open System
+open System.Runtime.Serialization
+
 open MBrace.Core.Internals
 
 #nowarn "444"
@@ -74,10 +76,21 @@ module internal BuilderImpl =
         else
             cont.Choice3(ctx, protect f ())
 
-    type ExplicitDelayWrapper<'T, 'S when 'S :> Cloud<'T>>(f : unit -> 'S) =
+    // provides an explicit FSharpFunc implementation for delayed computation;
+    // this is to deal with leaks of internal closure types in serialized cloud workflows.
+    [<Sealed; DataContract>]
+    type private ExplicitDelayWrapper<'T, 'S when 'S :> Cloud<'T>>(body : unit -> 'S) =
+        // F# won't let use inherit OptimizedClosures.FSharpFunc<_,_,_> because of the unit return type
         inherit FSharpFunc<ExecutionContext, Continuation<'T> -> unit> ()
-        override __.Invoke(ctx : ExecutionContext) = fun c -> delay f ctx c
-        member x.Func = x :> obj :?> Body<'T>
+
+        [<DataMember(Name = "Body")>]
+        let body = body
+
+        override __.Invoke(ctx : ExecutionContext) = fun c -> delay body ctx c
+
+    let inline mkExplicitDelay (body : unit -> #Cloud<'T>) : Body<'T> =
+        let edw = new ExplicitDelayWrapper<'T,_>(body)
+        edw :> obj :?> Body<'T>
 
     let inline bind (f : Body<'T>) (g : 'T -> #Cloud<'S>) : Body<'S> =
         fun ctx cont ->
@@ -303,7 +316,7 @@ module Builders =
         let czero : Cloud<unit> = mkCloud zero
         member __.Return (t : 'T) : Cloud<'T> = mkCloud <| ret t
         member __.Zero () : Cloud<unit> = czero
-        member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| ExplicitDelayWrapper<_,_>(f).Func
+        member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| mkExplicitDelay f
         member __.ReturnFrom (c : Cloud<'T>) : Cloud<'T> = c
         member __.ReturnFrom (c : Async<'T>) : Cloud<'T> = mkCloud <| ofAsync c
         member __.Combine(f : Cloud<unit>, g : Cloud<'T>) : Cloud<'T> = mkCloud <| combine f.Body g.Body
@@ -334,7 +347,7 @@ module Builders =
         let lzero : Local<unit> = mkLocal zero
         member __.Return (t : 'T) : Local<'T> = mkLocal <| ret t
         member __.Zero () : Local<unit> = lzero
-        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| ExplicitDelayWrapper<_,_>(f).Func
+        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| mkExplicitDelay f
         member __.ReturnFrom (c : Local<'T>) : Local<'T> = c
         member __.ReturnFrom (c : Async<'T>) : Local<'T> = mkLocal (ofAsync c)
         member __.Combine(f : Local<unit>, g : Local<'T>) : Local<'T> = mkLocal <| combine f.Body g.Body
