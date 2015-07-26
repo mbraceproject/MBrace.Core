@@ -13,4 +13,5 @@ nuget Unquote >= 2.2.2
 nuget Streams 0.3.0
 nuget Streams.CSharp 0.3.0
 nuget NuGet.CommandLine
+nuget FSharp.Compiler.Service
 nuget FAKE

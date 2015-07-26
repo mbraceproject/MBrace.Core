@@ -2,4 +2,5 @@ NUnit
 FsCheck
 Vagabond
 Thespian.Core
+FSharp.Compiler.Service
 Streams
