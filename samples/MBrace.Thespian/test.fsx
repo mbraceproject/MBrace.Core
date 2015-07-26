@@ -19,7 +19,7 @@ MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.The
 let cluster = MBraceThespian.InitLocal 4
 cluster.AttachLogger(new ConsoleLogger())
 
-let w = cluster.Workers
+let workers = cluster.Workers
 
 cloud { return 42 } |> cluster.Run
 
@@ -32,3 +32,20 @@ let proc =
     |> cluster.CreateProcess
 
 proc.AwaitResult() |> Async.RunSynchronously
+
+
+let test = cloud {
+    let cell = ref 0
+    let! results = Cloud.Parallel [ for i in 1 .. 10 -> cloud { incr cell } ]
+    return !cell
+}
+
+cluster.RunLocally(test, memoryEmulation = MemoryEmulation.Shared)
+cluster.RunLocally(test, memoryEmulation = MemoryEmulation.Copied)
+
+let test' = cloud {
+    return box(new System.IO.MemoryStream())
+}
+
+cluster.RunLocally(test', memoryEmulation = MemoryEmulation.Shared)
+cluster.RunLocally(test', memoryEmulation = MemoryEmulation.EnsureSerializable)

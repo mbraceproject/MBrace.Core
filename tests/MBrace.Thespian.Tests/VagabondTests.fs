@@ -222,6 +222,6 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
             let rec toInt p = match p with Z -> 0 | S pd -> 1 + toInt pd  
         """
 
-        fsi.EvalInteraction "let cv = cluster.StoreClient.CloudValue.New (S (S (S Z)))"
+        fsi.EvalInteraction "let cv = cluster.Store.CloudValue.New (S (S (S Z)))"
 
         fsi.EvalExpression "toInt cv.Value" |> shouldEqual 3

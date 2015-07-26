@@ -1,76 +1,115 @@
 ﻿namespace MBrace.Runtime.InMemoryRuntime
 
-open System
 open System.Threading
-open System.Threading.Tasks
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Runtime.Utils
 
 #nowarn "444"
 
-/// .NET ThreadPool distribution provider
+/// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
-type ThreadPoolDistributionProvider private (faultPolicy : FaultPolicy, memoryMode : MemoryEmulation, logger : ICloudLogger) =
+type InMemoryRuntime private (provider : ThreadPoolParallelismProvider, resources : ResourceRegistry, vagabondGraphChecker : (obj -> unit) option) =
 
-    static let mkNestedCts (ct : ICloudCancellationToken) = 
-        InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
+    // set memory emulation semantics if specified at the method level
+    let getResources (memoryEmulation : MemoryEmulation option) =
+        match memoryEmulation with
+        | Some me when provider.MemoryEmulation <> me ->
+            let provider' = provider.WithMemoryEmulation me
+            let resources = resources.Register<IDistributionProvider> provider'
+            me, resources
+        | _ -> provider.MemoryEmulation, resources
+
+    /// ResourceRegistry used by the local runtime instance.
+    member r.Resources = resources
+    member r.MemoryEmulation = provider.MemoryEmulation
+    
+    /// <summary>
+    ///     Asynchronously executes a cloud computation in the local process,
+    ///     with parallelism provided by the .NET thread pool.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
+    member r.RunAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
+        match vagabondGraphChecker with
+        | Some v -> v workflow
+        | None -> ()
+        let mode, resources = getResources memoryEmulation
+        ThreadPool.ToAsync(workflow, mode, resources)
 
     /// <summary>
-    ///     Creates a new threadpool runtime instance.
+    ///     Executes a cloud computation in the local process,
+    ///     with parallelism provided by the .NET thread pool.
     /// </summary>
-    /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
-    /// <param name="faultPolicy">Fault policy for runtime. Defaults to no retry.</param>
-    /// <param name="memoryMode">Memory semantics used for parallelism. Defaults to shared memory.</param>
-    static member Create (?logger : ICloudLogger, ?faultPolicy, ?memoryMode : MemoryEmulation) = 
-        let logger = 
-            match logger with 
-            | Some l -> l 
-            | None -> { new ICloudLogger with member __.Log _ = () }
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token passed to computation.</param>
+    /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
+    member r.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T =
+        match vagabondGraphChecker with
+        | Some v -> v workflow
+        | None -> ()
+        let mode, resources = getResources memoryEmulation
+        ThreadPool.RunSynchronously(workflow, mode, resources, ?cancellationToken = cancellationToken)
 
-        let faultPolicy = match faultPolicy with Some f -> f | None -> FaultPolicy.NoRetry
-        let memoryMode = defaultArg memoryMode MemoryEmulation.Shared
-        new ThreadPoolDistributionProvider(faultPolicy, memoryMode, logger)
-        
-    interface IDistributionProvider with
-        member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
-            return InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
+    /// <summary>
+    ///     Executes a cloud computation in the local process,
+    ///     with parallelism provided by the .NET thread pool.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="cancellationToken">Cancellation token passed to computation.</param>
+    /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
+    member r.Run(workflow : Cloud<'T>, cancellationToken : CancellationToken, ?memoryEmulation : MemoryEmulation) : 'T =
+        match vagabondGraphChecker with
+        | Some v -> v workflow
+        | None -> ()
+        let cancellationToken = new InMemoryCancellationToken(cancellationToken)
+        let mode, resources = getResources memoryEmulation
+        ThreadPool.RunSynchronously(workflow, mode, resources, cancellationToken)
+
+    /// Creates a new cancellation token source
+    member r.CreateCancellationTokenSource() = 
+        InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [||] :> ICloudCancellationTokenSource
+
+    /// <summary>
+    ///     Creates an InMemory runtime instance with provided store components.
+    /// </summary>
+    /// <param name="logger">Logger abstraction. Defaults to no logging.</param>
+    /// <param name="memoryEmulation">Memory semantics used for parallelism. Defaults to shared memory.</param>
+    /// <param name="fileConfig">File store configuration. Defaults to no file store.</param>
+    /// <param name="serializer">Default serializer implementations. Defaults to no serializer.</param>
+    /// <param name="valueProvider">CloudValue provider instance. Defaults to in-memory implementation.</param>
+    /// <param name="atomConfig">Cloud atom configuration. Defaults to in-memory atoms.</param>
+    /// <param name="queueConfig">Cloud queue configuration. Defaults to in-memory queues.</param>
+    /// <param name="dictionaryProvider">Cloud dictionary configuration. Defaults to in-memory dictionary.</param>
+    /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
+    /// <param name="vagabondChecker">User-supplied workflow checker function.</param>
+    static member Create(?logger : ICloudLogger,
+                            ?memoryEmulation : MemoryEmulation,
+                            ?fileConfig : CloudFileStoreConfiguration,
+                            ?serializer : ISerializer,
+                            ?valueProvider : ICloudValueProvider,
+                            ?atomConfig : CloudAtomConfiguration,
+                            ?queueConfig : CloudQueueConfiguration,
+                            ?dictionaryProvider : ICloudDictionaryProvider,
+                            ?resources : ResourceRegistry,
+                            ?vagabondChecker : obj -> unit) : InMemoryRuntime =
+
+        let memoryEmulation = match memoryEmulation with Some m -> m | None -> MemoryEmulation.Shared
+        let parallelismProvider = ThreadPoolParallelismProvider.Create(?logger = logger, memoryEmulation = memoryEmulation)
+        let valueProvider = match valueProvider with Some vp -> vp | None -> new InMemoryValueProvider() :> _
+        let atomConfig = match atomConfig with Some ac -> ac | None -> InMemoryAtomProvider.CreateConfiguration(memoryEmulation)
+        let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new InMemoryDictionaryProvider(memoryEmulation) :> _
+        let queueConfig = match queueConfig with Some cc -> cc | None -> InMemoryQueueProvider.CreateConfiguration(memoryEmulation)
+
+        let resources = resource {
+            yield valueProvider
+            yield atomConfig
+            yield dictionaryProvider
+            yield queueConfig
+            match fileConfig with Some fc -> yield fc | None -> ()
+            match serializer with Some sr -> yield sr | None -> ()
+            match resources with Some r -> yield! r | None -> ()
+            yield parallelismProvider :> IDistributionProvider
         }
 
-        member __.ProcessId = sprintf "In-Memory cloud process (pid:%d)" <| System.Diagnostics.Process.GetCurrentProcess().Id
-        member __.JobId = sprintf "TheadId %d" <| System.Threading.Thread.CurrentThread.ManagedThreadId
-        member __.Logger = logger
-        member __.IsTargetedWorkerSupported = false
-        member __.GetAvailableWorkers () = async {
-            return [| InMemoryWorker.LocalInstance :> IWorkerRef |]
-        }
-
-        member __.CurrentWorker = InMemoryWorker.LocalInstance :> IWorkerRef
-
-        member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy newFp = new ThreadPoolDistributionProvider(newFp, memoryMode, logger) :> IDistributionProvider
-
-        member __.IsForcedLocalParallelismEnabled = MemoryEmulation.isShared memoryMode
-        member __.WithForcedLocalParallelismSetting (setting : bool) =
-            if setting then new ThreadPoolDistributionProvider(faultPolicy, MemoryEmulation.Shared, logger) :> IDistributionProvider
-            else
-                __ :> IDistributionProvider
-
-        member __.ScheduleParallel computations = cloud {
-            return! ThreadPool.Parallel(mkNestedCts, memoryMode, Seq.map fst computations)
-        }
-
-        member __.ScheduleChoice computations = cloud {
-            return! ThreadPool.Choice(mkNestedCts, memoryMode, Seq.map fst computations)
-        }
-
-        member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, MemoryEmulation.Shared, computations)
-        member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts, MemoryEmulation.Shared, computations)
-
-        member __.ScheduleStartAsTask (workflow:Cloud<'T>, _:FaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
-            ignore taskName
-            target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
-            let! resources = Cloud.GetResourceRegistry()
-            return ThreadPool.StartAsTask(workflow, memoryMode, resources, ?cancellationToken = cancellationToken) :> ICloudTask<'T>
-        }
+        new InMemoryRuntime(parallelismProvider, resources, vagabondChecker)

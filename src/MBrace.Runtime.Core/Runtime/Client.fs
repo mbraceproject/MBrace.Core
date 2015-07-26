@@ -10,7 +10,10 @@ open MBrace.Runtime.Utils
 [<AbstractClass>]
 type MBraceClient (runtime : IRuntimeManager) =
 
-    let imem = InMemoryRuntime.Create(resources = runtime.ResourceRegistry)
+    let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
+    let imem = InMemoryRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
+    let storeClient = CloudStoreClient.Create(imem)
+
     let taskManagerClient = new CloudTaskManagerClient(runtime)
     let getWorkers () = async {
         let! workers = runtime.WorkerManager.GetAvailableWorkers()
@@ -106,14 +109,8 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// Prints a report of all currently executing processes to stdout
     member __.ShowProcessInfo() = taskManagerClient.ShowProcessInfo()
 
-    /// <summary>
-    ///     Run workflow as local, in-memory computation
-    /// </summary>
-    /// <param name="workflow">Workflow to execute</param>
-    member __.RunLocallyAsync(workflow : Cloud<'T>) : Async<'T> = imem.RunAsync workflow
-
-    /// Returns the store client for provided runtime.
-    member __.StoreClient = imem.StoreClient
+    /// Gets the store client for provided runtime.
+    member __.Store = storeClient
 
     /// Gets all available workers for current runtime.
     member __.Workers = workers.Value
@@ -126,8 +123,18 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.GetResource<'TResource> () : 'TResource = runtime.ResourceRegistry.Resolve<'TResource> ()
 
     /// <summary>
+    ///     Wraps a cloud workflow in a locally executing, async workflow.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to execute.</param>
+    /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
+    member __.RunLocallyAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
+        imem.RunAsync(workflow, ?memoryEmulation = memoryEmulation)
+
+    /// <summary>
     ///     Run workflow as local, in-memory computation.
     /// </summary>
-    /// <param name="workflow">Workflow to execute</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    member __.RunLocally(workflow, ?cancellationToken) : 'T = imem.Run(workflow, ?cancellationToken = cancellationToken)
+    /// <param name="workflow">Cloud workflow to execute.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
+    member __.RunLocally(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
+        imem.Run(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)

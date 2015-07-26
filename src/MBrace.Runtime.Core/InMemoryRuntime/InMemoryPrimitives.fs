@@ -12,16 +12,6 @@ open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
 
-/// Specifies memory semantics in InMemory MBrace execution
-type MemoryEmulation =
-    /// Freely share values across MBrace workflows; async semantics.
-    | Shared                = 0
-    /// Freely share values across MBrace workflows but
-    /// emulate serialization errors by checking that they are serializable.
-    | EnsureSerializable    = 1
-    /// Values copied when passed across worfklows; full distributed semantics.
-    | Copied                = 2
-
 [<NoEquality; NoComparison; AutoSerializable(false)>]
 type internal EmulatedValue<'T> =
     | Shared of 'T

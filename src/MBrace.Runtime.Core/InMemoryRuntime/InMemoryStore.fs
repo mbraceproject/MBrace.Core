@@ -116,11 +116,11 @@ and [<Sealed; AutoSerializable(false)>]
     let createNewValue (level : StorageLevel) (value : 'T) =
         let hash = computeHash value
         let createPayload _ =
-            let mode =
+            let memoryEmulation =
                 if level.HasFlag StorageLevel.MemorySerialized then MemoryEmulation.Copied
                 else MemoryEmulation.Shared
 
-            EmulatedValue.create mode false (box value)
+            EmulatedValue.create memoryEmulation false (box value)
 
         let payload = cache.GetOrAdd(hash, createPayload)
         InMemoryValue<'T>.Create(hash, payload, self) :> CloudValue<'T>
@@ -154,9 +154,9 @@ and [<Sealed; AutoSerializable(false)>]
 
 
 [<AutoSerializable(false); Sealed; CloneableOnly>]
-type private InMemoryAtom<'T> internal (id : string, initial : 'T, mode : MemoryEmulation) =
+type private InMemoryAtom<'T> internal (id : string, initial : 'T, memoryEmulation : MemoryEmulation) =
     // false: always clone value when reading payload
-    let clone (t:'T) = EmulatedValue.create mode false t
+    let clone (t:'T) = EmulatedValue.create memoryEmulation false t
 
     let mutable atom = Some <| Atom.create (clone initial)
     let getAtom() =
@@ -184,15 +184,15 @@ type private InMemoryAtom<'T> internal (id : string, initial : 'T, mode : Memory
         member x.Dispose () = async { return atom <- None }
 
 [<Sealed; AutoSerializable(false)>]
-type InMemoryAtomProvider (mode : MemoryEmulation) =
+type InMemoryAtomProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
     /// <summary>
     ///     Creates an In-Memory Atom configuration object.
     /// </summary>
-    /// <param name="mode">Memory emulation mode.</param>
-    static member CreateConfiguration(mode : MemoryEmulation) =
-        let imap = new InMemoryAtomProvider(mode)
+    /// <param name="memoryEmulation">Memory emulation memoryEmulation.</param>
+    static member CreateConfiguration(memoryEmulation : MemoryEmulation) =
+        let imap = new InMemoryAtomProvider(memoryEmulation)
         CloudAtomConfiguration.Create(imap)
 
     interface ICloudAtomProvider with
@@ -201,7 +201,7 @@ type InMemoryAtomProvider (mode : MemoryEmulation) =
         member __.IsSupportedValue _ = true
         member __.CreateAtom<'T>(_, init : 'T) = async { 
             let id = mkUUID()
-            return new InMemoryAtom<'T>(id, init, mode) :> _ 
+            return new InMemoryAtom<'T>(id, init, memoryEmulation) :> _ 
         }
 
         member __.CreateUniqueContainerName () = mkUUID()
@@ -209,9 +209,9 @@ type InMemoryAtomProvider (mode : MemoryEmulation) =
 
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
-type private InMemoryQueue<'T> internal (id : string, mode : MemoryEmulation) =
+type private InMemoryQueue<'T> internal (id : string, memoryEmulation : MemoryEmulation) =
     // true: value will be dequeued only once so clone on eqnueue only
-    let clone (t : 'T) = EmulatedValue.create mode true t
+    let clone (t : 'T) = EmulatedValue.create memoryEmulation true t
     let mutable isDisposed = false
     let checkDisposed () =
         if isDisposed then raise <| new ObjectDisposedException(id, "CloudQueue has been disposed.")
@@ -255,15 +255,15 @@ type private InMemoryQueue<'T> internal (id : string, mode : MemoryEmulation) =
 
 /// Defines an in-memory queue factory using mailbox processor
 [<Sealed; AutoSerializable(false)>]
-type InMemoryQueueProvider (mode : MemoryEmulation) =
+type InMemoryQueueProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
     /// <summary>
     ///     Creates an In-Memory Queue configuration object.
     /// </summary>
-    /// <param name="mode">Memory emulation mode.</param>
-    static member CreateConfiguration(mode : MemoryEmulation) =
-        let imqp = new InMemoryQueueProvider(mode)
+    /// <param name="memoryEmulation">Memory emulation memoryEmulation.</param>
+    static member CreateConfiguration(memoryEmulation : MemoryEmulation) =
+        let imqp = new InMemoryQueueProvider(memoryEmulation)
         CloudQueueConfiguration.Create(imqp)
 
     interface ICloudQueueProvider with
@@ -272,20 +272,20 @@ type InMemoryQueueProvider (mode : MemoryEmulation) =
         member __.CreateUniqueContainerName () = mkUUID()
 
         member __.CreateQueue<'T> (container : string) = async {
-            if not <| MemoryEmulation.isShared mode && not <| FsPickler.IsSerializableType<'T>() then
+            if not <| MemoryEmulation.isShared memoryEmulation && not <| FsPickler.IsSerializableType<'T>() then
                 let msg = sprintf "Cannot create queue for non-serializable type '%O'." typeof<'T>
                 raise <| new SerializationException(msg)
 
             let id = sprintf "%s/%s" container <| mkUUID()
-            return new InMemoryQueue<'T>(id, mode) :> CloudQueue<'T>
+            return new InMemoryQueue<'T>(id, memoryEmulation) :> CloudQueue<'T>
         }
 
         member __.DisposeContainer _ = async.Zero()
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
-type private InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
+type private InMemoryDictionary<'T> internal (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
-    let clone (t:'T) = EmulatedValue.create mode true t
+    let clone (t:'T) = EmulatedValue.create memoryEmulation true t
     let dict = new ConcurrentDictionary<string, EmulatedValue<'T>> ()
     let toEnum() = dict |> Seq.map (fun kv -> new KeyValuePair<_,_>(kv.Key, kv.Value.Value))
     let mutable isDisposed = false
@@ -344,7 +344,7 @@ type private InMemoryDictionary<'T> internal (mode : MemoryEmulation) =
 
 /// Defines an in-memory dictionary factory using ConcurrentDictionary
 [<Sealed; AutoSerializable(false)>]
-type InMemoryDictionaryProvider (mode : MemoryEmulation) =
+type InMemoryDictionaryProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
     interface ICloudDictionaryProvider with
@@ -352,9 +352,9 @@ type InMemoryDictionaryProvider (mode : MemoryEmulation) =
         member s.Id = id
         member s.IsSupportedValue _ = true
         member s.Create<'T> () = async {
-            if not <| MemoryEmulation.isShared mode && not <| FsPickler.IsSerializableType<'T>() then
+            if not <| MemoryEmulation.isShared memoryEmulation && not <| FsPickler.IsSerializableType<'T>() then
                 let msg = sprintf "Cannot create queue for non-serializable type '%O'." typeof<'T>
                 raise <| new SerializationException(msg)
 
-            return new InMemoryDictionary<'T>(mode) :> CloudDictionary<'T>
+            return new InMemoryDictionary<'T>(memoryEmulation) :> CloudDictionary<'T>
         }

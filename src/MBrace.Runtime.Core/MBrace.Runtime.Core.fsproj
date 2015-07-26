@@ -77,9 +77,9 @@
     <Compile Include="InMemoryRuntime\InMemoryPrimitives.fs" />
     <Compile Include="InMemoryRuntime\InMemoryStore.fs" />
     <Compile Include="InMemoryRuntime\InMemoryCombinators.fs" />
+    <Compile Include="InMemoryRuntime\InMemoryParallelismProvider.fs" />
     <Compile Include="InMemoryRuntime\InMemoryRuntime.fs" />
     <Compile Include="InMemoryRuntime\StoreClient.fs" />
-    <Compile Include="InMemoryRuntime\LocalRuntime.fs" />
     <Compile Include="Runtime\Primitives.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\TaskManager.fs" />

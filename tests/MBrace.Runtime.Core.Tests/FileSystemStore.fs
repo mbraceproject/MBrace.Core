@@ -16,7 +16,7 @@ type ``Local FileSystemStore Tests`` () =
 
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let serializer = Config.serializer
-    let imem = InMemoryRuntime.Create(serializer = serializer, fileConfig = fsConfig, memoryMode = MemoryEmulation.Copied)
+    let imem = InMemoryRuntime.Create(serializer = serializer, fileConfig = fsConfig, memoryEmulation = MemoryEmulation.Copied)
 
     override __.FileStore = fsConfig.FileStore
     override __.Serializer = serializer :> _
@@ -31,7 +31,7 @@ type ``Local FileSystemStore CloudValue Tests`` () =
     let fsStore = Config.fsStore :> ICloudFileStore
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsConfig, serializer = Config.serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
-    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryMode = MemoryEmulation.Copied)
+    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunRemote(wf : Cloud<'T>) = imem.Run wf
     override __.RunLocally(wf : Cloud<'T>) = imem.Run wf
@@ -46,7 +46,7 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let container = fsStore.GetRandomDirectoryName()
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsConfig, serializer = Config.serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
-    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryMode = MemoryEmulation.Copied)
+    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunRemote(wf : Cloud<'T>) = imem.Run wf
     override __.RunLocally(wf : Cloud<'T>) = imem.Run wf

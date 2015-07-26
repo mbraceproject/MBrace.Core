@@ -4,6 +4,19 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
+/// Specifies memory semantics in InMemory MBrace execution
+type MemoryEmulation =
+    /// Freely share values across MBrace workflows; async semantics.
+    | Shared                = 0
+
+    /// Freely share values across MBrace workflows but
+    /// emulate serialization errors by checking that they are serializable.
+    | EnsureSerializable    = 1
+
+    /// Values copied when passed across worfklows; full distributed semantics.
+    | Copied                = 2
+
+
 /// Denotes a reference to a worker node in the cluster.
 type IWorkerRef =
     inherit IComparable
