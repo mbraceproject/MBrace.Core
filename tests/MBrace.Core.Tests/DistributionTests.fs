@@ -665,7 +665,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 let! task = Cloud.StartAsTask(tworkflow)
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 0
-                return! Cloud.AwaitCloudTask task
+                return! Cloud.AwaitTask task
             } |> runRemote |> Choice.shouldEqual 1)
 
     [<Test>]
@@ -687,7 +687,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 // ensure no exception is raised in parent workflow
                 // before the child workflow is properly evaluated
                 let! _ = CloudAtom.Incr count
-                return! Cloud.AwaitCloudTask task
+                return! Cloud.AwaitTask task
             } |> runRemote |> Choice.shouldFailwith<_, InvalidOperationException>
 
             count.Value |> shouldEqual 2)
@@ -709,7 +709,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 1
                 cts.Cancel()
-                return! Cloud.AwaitCloudTask task
+                return! Cloud.AwaitTask task
             } |> runRemote |> Choice.shouldFailwith<_, OperationCanceledException>
             
             // ensure final increment was cancelled.
@@ -723,7 +723,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 cloud {
                     let! currentWorker = Cloud.CurrentWorker
                     let! task = Cloud.StartAsTask(Cloud.CurrentWorker, target = currentWorker)
-                    let! result = Cloud.AwaitCloudTask task
+                    let! result = Cloud.AwaitTask task
                     return result = currentWorker
                 } |> runRemote |> Choice.shouldEqual true)
 
@@ -733,7 +733,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
         repeat(fun () ->
             cloud {
                 let! task = Cloud.StartAsTask(Cloud.Sleep (5 * delayFactor))
-                return! Cloud.AwaitCloudTask(task, timeoutMilliseconds = 1)
+                return! Cloud.AwaitTask(task, timeoutMilliseconds = 1)
             } |> runRemote |> Choice.shouldFailwith<_, TimeoutException>)
 
     [<Test>]

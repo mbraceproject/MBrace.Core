@@ -69,22 +69,6 @@ type Cloud =
     static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : Local<unit> =
         local { return! disposable.Dispose () }
 
-    /// <summary>
-    ///     Asynchronously awaits a System.Threading.Task for completion.
-    /// </summary>
-    /// <param name="task">Awaited task.</param>
-    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
-    static member AwaitTask(task : Task<'T>, ?timeoutMilliseconds : int) : Local<'T> =
-        Local.FromContinuations(fun ctx cont ->
-            let task = match timeoutMilliseconds with None -> task | Some ms -> task.WithTimeout ms
-            let onCompletion (t : Task<'T>) =
-                match t.Status with
-                | TaskStatus.Faulted -> cont.Exception ctx (capture t.InnerException)
-                | TaskStatus.Canceled -> cont.Cancellation ctx (new System.OperationCanceledException())
-                | _ -> cont.Success ctx t.Result
-
-            let _ = task.ContinueWith(onCompletion, TaskContinuationOptions.None) in ())
-
     // region : runtime API
 
     /// <summary>
@@ -239,7 +223,7 @@ type Cloud =
     /// </summary>
     /// <param name="task">Task to be awaited.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
-    static member AwaitCloudTask(task : ICloudTask<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
+    static member AwaitTask(task : ICloudTask<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
         return! task.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
     }
 
