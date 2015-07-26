@@ -166,7 +166,8 @@ type private InMemoryAtom<'T> internal (id : string, initial : 'T, mode : Memory
 
     interface CloudAtom<'T> with
         member x.Id = id
-        member x.Value = async { return getAtom().Value.Value }
+        member x.Value = getAtom().Value.Value
+        member x.GetValueAsync() = async { return getAtom().Value.Value }
 
         member x.Transact(updater : 'T -> 'R * 'T, _) = async { 
             let transacter (ct : EmulatedValue<'T>) : EmulatedValue<'T> * 'R =

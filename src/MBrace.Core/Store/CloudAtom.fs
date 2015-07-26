@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Core
 
-/// Represent a distributed atomically updatable value reference
+/// Represents a distributed, atomically updatable value reference
 type CloudAtom<'T> =
     inherit ICloudDisposable
 
@@ -8,7 +8,10 @@ type CloudAtom<'T> =
     abstract Id : string
 
     /// Gets the current value of the atom.
-    abstract Value : Async<'T>
+    abstract Value : 'T
+
+    /// Asynchronously gets the current value of the atom.
+    abstract GetValueAsync : unit -> Async<'T>
 
     /// <summary>
     ///     Atomically updates table entry of given id using updating function.
@@ -103,7 +106,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="atom">Atom instance.</param>
     static member Read(atom : CloudAtom<'T>) : Local<'T> = local {
-        return! atom.Value
+        return! atom.GetValueAsync()
     }
 
     /// <summary>

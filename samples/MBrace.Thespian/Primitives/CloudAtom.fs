@@ -65,12 +65,15 @@ module private ActorAtom =
         static let pickle (t : 'T) = Config.Serializer.Pickle t
         static let unpickle (bytes : byte[]) = Config.Serializer.UnPickle<'T> bytes
 
+        let getValue() = async {
+            let! _,bytes = source <!- GetValue
+            return unpickle bytes
+        }
+
         interface CloudAtom<'T> with
             member __.Id = id
-            member __.Value = async {
-                let! _,bytes = source <!- GetValue
-                return unpickle bytes
-            }
+            member __.Value = getValue() |> Async.RunSync
+            member __.GetValueAsync() = getValue()
 
             member __.Dispose() = async { return! source <!- Dispose }
 

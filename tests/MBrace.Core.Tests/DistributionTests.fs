@@ -88,10 +88,10 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
         cloud {
             use foo = { new ICloudDisposable with member __.Dispose () = c.Transact(fun i -> (), i + 1) }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Incr c) |> Cloud.Parallel
-            return! c.Value
+            return! CloudAtom.Read c
         } |> runRemote |> Choice.shouldEqual parallelismFactor
 
-        c.Value |> Async.RunSync |> shouldEqual (parallelismFactor + 1)
+        c.Value |> shouldEqual (parallelismFactor + 1)
 
     [<Test>]
     member  __.``1. Parallel : exception handler`` () =
@@ -112,7 +112,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
             return () }, CloudAtom.Incr trigger |> Local.Ignore)
         |> runRemote |> Choice.shouldFailwith<_, InvalidOperationException>
 
-        trigger.Value |> Async.RunSync |> shouldEqual 1
+        trigger.Value |> shouldEqual 1
 
     [<Test>]
     member __.``1. Parallel : simple nested`` () =
@@ -170,7 +170,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                     let! _ = Array.init 20 worker |> Cloud.Parallel
                     return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
                 with :? InvalidOperationException ->
-                    return! counter.Value
+                    return! CloudAtom.Read counter
             } |> runRemote |> Choice.shouldEqual 0)
 
     [<Test>]
@@ -193,7 +193,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                     return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
                 with :? InvalidOperationException ->
                     do! Cloud.Sleep delayFactor
-                    return! counter.Value
+                    return! CloudAtom.Read counter
 
             } |> runRemote |> Choice.shouldEqual 0)
             
@@ -215,7 +215,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 return ()
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-            counter.Value |> Async.RunSync |> shouldEqual 0)
+            counter.Value |> shouldEqual 0)
 
     [<Test>]
     member __.``1. Parallel : as local`` () =
@@ -425,7 +425,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 return! Array.init parallelismFactor worker |> Cloud.Choice
             } |> runRemote |> Choice.shouldEqual None
 
-            count.Value |> Async.RunSync |> shouldEqual parallelismFactor)
+            count.Value |> shouldEqual parallelismFactor)
 
     [<Test>]
     member __.``2. Choice : one input 'Some'`` () =
@@ -445,7 +445,8 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
 
                 return! Array.init parallelismFactor worker |> Cloud.Choice
             } |> runRemote |> Choice.shouldEqual (Some 0)
-            count.Value |> Async.RunSync |> shouldEqual 0)
+            
+            count.Value |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : all inputs 'Some'`` () =
@@ -459,7 +460,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
             } |> runRemote |> Choice.shouldEqual (Some 42)
 
             // ensure only one success continuation call
-            successcounter.Value |> Async.RunSync |> shouldEqual 1)
+            successcounter.Value |> shouldEqual 1)
 
     [<Test>]
     member __.``2. Choice : simple nested`` () =
@@ -482,7 +483,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 return! Array.init nNested cluster |> Cloud.Choice
             } |> runRemote |> Choice.shouldEqual (Some(0,0))
 
-            counter.Value |> Async.RunSync |> shouldBe (fun i ->  i < parallelismFactor / 2))
+            counter.Value |> shouldBe (fun i ->  i < parallelismFactor / 2))
 
     [<Test>]
     member __.``2. Choice : nested exception cancellation`` () =
@@ -504,7 +505,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 return! Array.init nNested cluster |> Cloud.Choice
             } |> runRemote |> Choice.shouldFailwith<_, InvalidOperationException>
 
-            counter.Value |> Async.RunSync |> shouldEqual 0)
+            counter.Value |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : simple cancellation`` () =
@@ -524,7 +525,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                     return! Array.init parallelismFactor worker |> Cloud.Choice
             }) |> Choice.shouldFailwith<_, OperationCanceledException>
 
-            counter.Value |> Async.RunSync |> shouldEqual 0)
+            counter.Value |> shouldEqual 0)
 
     [<Test>]
     member __.``2. Choice : as local`` () =
@@ -620,7 +621,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                     let! workers = Cloud.GetAvailableWorkers()
                     let! counter = CloudAtom.New 0
                     let! _ = Cloud.ChoiceEverywhere (cloud { let! _ = CloudAtom.Incr counter in return Option<int>.None })
-                    let! value = counter.Value
+                    let! value = CloudAtom.Read counter
                     return value = workers.Length
                 } |> runRemote |> Choice.shouldEqual true)
 
@@ -658,11 +659,11 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 let tworkflow = cloud {
                     do! Cloud.Sleep delayFactor
                     let! _ = CloudAtom.Incr count
-                    return! count.Value
+                    return! CloudAtom.Read count
                 }
 
                 let! task = Cloud.StartAsTask(tworkflow)
-                let! value = count.Value
+                let! value = CloudAtom.Read count
                 value |> shouldEqual 0
                 return! Cloud.AwaitCloudTask task
             } |> runRemote |> Choice.shouldEqual 1)
@@ -680,7 +681,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 }
 
                 let! task = Cloud.StartAsTask(tworkflow)
-                let! value = count.Value
+                let! value = CloudAtom.Read count
                 value |> shouldEqual 0
                 do! Cloud.Sleep (delayFactor / 10)
                 // ensure no exception is raised in parent workflow
@@ -689,7 +690,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 return! Cloud.AwaitCloudTask task
             } |> runRemote |> Choice.shouldFailwith<_, InvalidOperationException>
 
-            count.Value |> Async.RunSync |> shouldEqual 2)
+            count.Value |> shouldEqual 2)
 
     [<Test>]
     member __.``3. Task: with cancellation token`` () =
@@ -705,14 +706,14 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
                 }
                 let! task = Cloud.StartAsTask(tworkflow, cancellationToken = cts.Token)
                 do! Cloud.Sleep (delayFactor / 3)
-                let! value = count.Value
+                let! value = CloudAtom.Read count
                 value |> shouldEqual 1
                 cts.Cancel()
                 return! Cloud.AwaitCloudTask task
             } |> runRemote |> Choice.shouldFailwith<_, OperationCanceledException>
             
             // ensure final increment was cancelled.
-            count.Value |> Async.RunSync |> shouldEqual 1)
+            count.Value |> shouldEqual 1)
 
     [<Test>]
     member __.``3. Task: to current worker`` () =
