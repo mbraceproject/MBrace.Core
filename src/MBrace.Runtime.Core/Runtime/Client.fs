@@ -6,7 +6,7 @@ open MBrace.Runtime.InMemoryRuntime
 
 open MBrace.Runtime.Utils
 
-/// MBrace Sample runtime client instance.
+/// MBrace runtime client handle abstract class.
 [<AbstractClass>]
 type MBraceClient (runtime : IRuntimeManager) =
 
