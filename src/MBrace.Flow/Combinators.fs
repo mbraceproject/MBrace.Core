@@ -65,7 +65,7 @@ type CloudFlow =
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                    let toCloudSeq (path : string) = FilePersistedSequence.OfCloudFile(path, ?deserializer = deserializer)
+                    let toCloudSeq (path : string) = PersistedSequence.OfCloudFile(path, ?deserializer = deserializer)
                     let! cseqs = Local.Sequential.map toCloudSeq paths
                     let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<'T>) |> CloudCollection.Concat
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
@@ -176,7 +176,7 @@ type CloudFlow =
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
                 let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                let toLineReader (path : string) = FilePersistedSequence.OfCloudFileByLine(path, ?encoding = encoding)
+                let toLineReader (path : string) = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding)
                 let! cseqs = Local.Sequential.map toLineReader paths
                 let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<string>) |> CloudCollection.Concat
                 let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
@@ -210,7 +210,7 @@ type CloudFlow =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let! cseq = FilePersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, force = false)
+                let! cseq = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, force = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }

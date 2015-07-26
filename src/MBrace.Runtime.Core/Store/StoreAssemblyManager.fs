@@ -38,7 +38,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
-            let! c = FilePersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+            let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
             let! md = c.GetValueAsync()
             return Some md
 
@@ -124,7 +124,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
         do! dataFiles |> Seq.map uploadDataFile |> Local.Parallel |> Local.Ignore
 
         // upload metadata record; TODO: use CloudAtom for synchronization?
-        let! _ = FilePersistedValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
+        let! _ = PersistedValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
         return Loaded(va.Id, false, va.Metadata)
     }
 
@@ -161,7 +161,7 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
         
         member x.ReadMetadata(id: AssemblyId): Async<VagabondMetadata> = 
             local {
-                let! c = FilePersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+                let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
                 return! c.GetValueAsync()
             } |> imem.RunAsync
 

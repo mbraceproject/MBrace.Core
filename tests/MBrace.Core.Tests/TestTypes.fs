@@ -14,15 +14,15 @@ type DummyDisposable() =
 
 type CloudTree<'T> = Leaf | Branch of 'T * TreeRef<'T> * TreeRef<'T>
 
-and TreeRef<'T> = FilePersistedValue<CloudTree<'T>>
+and TreeRef<'T> = PersistedValue<CloudTree<'T>>
 
 module CloudTree =
 
     let rec createTree d = cloud {
-        if d = 0 then return! FilePersistedValue.New Leaf
+        if d = 0 then return! PersistedValue.New Leaf
         else
             let! l,r = createTree (d-1) <||> createTree (d-1)
-            return! FilePersistedValue.New (Branch(d, l, r))
+            return! PersistedValue.New (Branch(d, l, r))
     }
 
     let rec getBranchCount (tree : TreeRef<int>) = cloud {

@@ -277,14 +277,14 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : PersistedValue - simple`` () = 
-        let ref = runRemote <| FilePersistedValue.New 42
+        let ref = runRemote <| PersistedValue.New 42
         ref.Value |> shouldEqual 42
 
     [<Test>]
     member __.``2. MBrace : PersistedValue - should error if reading from changed persist file`` () =
         fun () ->
             cloud {
-                let! c = FilePersistedValue.New [1..10000]
+                let! c = PersistedValue.New [1..10000]
                 do! CloudFile.Delete c.Path
                 // overwrite persist file with payload of compatible type
                 // cloudvalue should use etag implementation to infer that content has changed
@@ -298,7 +298,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : PersistedValue - Parallel`` () =
         cloud {
-            let! ref = FilePersistedValue.New [1 .. 100]
+            let! ref = PersistedValue.New [1 .. 100]
             let! (x, y) = cloud { return ref.Value.Length } <||> cloud { return ref.Value.Length }
             return x + y
         } |> runRemote |> shouldEqual 200
@@ -311,7 +311,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - simple`` () = 
-        let b = runRemote <| FilePersistedSequence.New [1..10000]
+        let b = runRemote <| PersistedSequence.New [1..10000]
         b.Count |> shouldEqual 10000L
         b |> Seq.sum |> shouldEqual (List.sum [1..10000])
         b.ToArray() |> Array.sum |> shouldEqual (List.sum [1..10000])
@@ -320,7 +320,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     member __.``2. MBrace : PersistedSequence - should error if reading from changed persist file`` () =
         fun () ->
             cloud {
-                let! c = FilePersistedSequence.New [1..10000]
+                let! c = PersistedSequence.New [1..10000]
                 do! CloudFile.Delete c.Path
                 let! serializer = Cloud.GetResource<ISerializer> ()
                 // overwrite persist file with payload of compatible type
@@ -333,10 +333,10 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - parallel`` () =
-        let ref = runRemote <| FilePersistedSequence.New [1..10000]
+        let ref = runRemote <| PersistedSequence.New [1..10000]
         ref |> Seq.length |> shouldEqual 10000
         cloud {
-            let! ref = FilePersistedSequence.New [1 .. 10000]
+            let! ref = PersistedSequence.New [1 .. 10000]
             let! (x, y) = 
                 cloud { return Seq.length ref } 
                     <||>
@@ -348,7 +348,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : PersistedSequence - partitioned`` () =
         cloud {
-            let! seqs = FilePersistedSequence.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
+            let! seqs = PersistedSequence.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
             seqs.Length |> shouldBe (fun l -> l >= 8 && l < 10)
             let! partialSums = seqs |> Array.map (fun c -> cloud {  return Seq.sum c }) |> Cloud.Parallel
             return Array.sum partialSums
@@ -366,7 +366,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                         yield textReader.ReadLine()
                 }
 
-            let! seq = FilePersistedSequence.OfCloudFile(file.Path, deserializer)
+            let! seq = PersistedSequence.OfCloudFile(file.Path, deserializer)
             let! ch = Cloud.StartChild(cloud { return Seq.length seq })
             return! ch
         } |> runRemote |> shouldEqual 100
@@ -376,7 +376,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         cloud {
             let! path = CloudPath.GetRandomFileName()
             use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
-            let! cseq = FilePersistedSequence.OfCloudFileByLine(file.Path)
+            let! cseq = PersistedSequence.OfCloudFileByLine(file.Path)
             return Seq.length cseq
         } |> runRemote |> shouldEqual 100
 
@@ -393,7 +393,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! path = CloudPath.GetRandomFileName()
                 let! file = CloudFile.WriteAllLines(path, lines)
-                let! cseq = FilePersistedSequence.OfCloudFileByLine file.Path   
+                let! cseq = PersistedSequence.OfCloudFileByLine file.Path   
                 return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
             } |> runLocally
 
