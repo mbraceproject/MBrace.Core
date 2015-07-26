@@ -157,9 +157,19 @@ module private StoreCloudValueImpl =
                 if n >= txt.Length then txt
                 else txt.Substring(0, n)
 
-            let lengthEnc = BitConverter.GetBytes hash.Length
-            let base32Enc = Convert.BytesToBase32 (Array.append lengthEnc hash.Hash)
-            let fileName = sprintf "%s-%s%s" (truncate 40 hash.Type) base32Enc persistFileSuffix
+            // encode a positive long to variable-length byte array
+            // we do this to save a few bytes and avoid the dreaded PathTooLongException.
+            let long2Bytes (long : int64) =
+                let bs = new ResizeArray<byte> ()
+                let mutable long = long
+                while long > 0L do
+                    bs.Add (byte long)
+                    long <- long / 256L
+                bs.ToArray()
+
+            let lengthEnc = long2Bytes hash.Length |> Convert.BytesToBase32
+            let hashEnc = hash.Hash |> Convert.BytesToBase32
+            let fileName = sprintf "%s-%s-%s%s" (truncate 40 hash.Type) lengthEnc hashEnc persistFileSuffix
             c.FileStore.Combine(c.DefaultDirectory, fileName)
 
         /// <summary>
