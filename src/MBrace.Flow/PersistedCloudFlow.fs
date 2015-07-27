@@ -90,14 +90,13 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
                 |> Async.Ignore
         }
 
-    member private __.StructuredFormatDisplay = __.ToString()
-    override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
-
     /// Gets printed information on the persisted CloudFlow.
-    member __.GetInfo() : string = PersistedCloudFlowReporter<'T>.Report partitions
+    member __.GetInfo() : string = PersistedCloudFlowReporter<'T>.Report(partitions, title = "PersistedCloudFlow partition info:")
     /// Prints information on the persisted CloudFlow to stdout.
-    member __.ShowInfo() = Console.WriteLine(PersistedCloudFlowReporter<'T>.Report partitions)
-        
+    member __.ShowInfo() = Console.WriteLine(__.GetInfo())
+
+    override __.ToString() = PersistedCloudFlowReporter<'T>.Report(partitions)
+    member private __.StructuredFormatDisplay = __.ToString()
 
 and PersistedCloudFlow private () =
 
@@ -176,15 +175,14 @@ and PersistedCloudFlow private () =
 and private PersistedCloudFlowReporter<'T> () =
     static let template : Field<int * IWorkerRef * CloudArray<'T>> list =
         [   
-            Field.create "Id" Left (fun (i,_,_) -> i)
-            Field.create "Worker Id" Left (fun (_,w,_) -> w.Id)
+            Field.create "Partition Id" Left (fun (i,_,_) -> "Partition #" + string i)
+            Field.create "Assigned Worker" Left (fun (_,w,_) -> w.Id)
             Field.create "Element Count" Left (fun (_,_,a) -> a.Length.ToString("#,##0"))
-            Field.create "Size (Bytes)" Left (fun (_,_,a) -> getHumanReadableByteSize a.Size)
+            Field.create "Partition Size" Left (fun (_,_,a) -> getHumanReadableByteSize a.Size)
             Field.create "Storage Level" Left (fun (_,_,a) -> a.StorageLevel)
             Field.create "Cache Id" Left (fun (_,_,a) -> a.Id)
         ]
 
-    static member Report(partitions : (IWorkerRef * CloudArray<'T>) []) =
-        let title = sprintf "Persisted CloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
+    static member Report(partitions : (IWorkerRef * CloudArray<'T>) [], ?title : string) =
         let partitions = partitions |> Seq.mapi (fun i (w,p) -> i,w,p) |> Seq.toList
-        Record.PrettyPrint(template, partitions, title = title, useBorders = false)
+        Record.PrettyPrint(template, partitions, ?title = title, useBorders = false)
