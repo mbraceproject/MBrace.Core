@@ -70,6 +70,15 @@ module Utils =
             let inputs = Seq.toArray inputs
             Seq.fromEnumerator (fun () -> new ResizeArrayConcatenator<'T>(inputs) :> _)
 
+    /// generates a human readable string for byte sizes
+    /// including a KiB, MiB, GiB or TiB suffix depending on size
+    let internal getHumanReadableByteSize (size : int64) =
+        if size <= 512L then sprintf "%d bytes" size
+        elif size <= 512L * 1024L then sprintf "%.2f KiB" (decimal size / decimal 1024L)
+        elif size <= 512L * 1024L * 1024L then sprintf "%.2f MiB" (decimal size / decimal (1024L * 1024L))
+        elif size <= 512L * 1024L * 1024L * 1024L then sprintf "%.2f GiB" (decimal size / decimal (1024L * 1024L * 1024L))
+        else sprintf "%.2f TiB" (decimal size / decimal (1024L * 1024L * 1024L * 1024L))
+
     module Partition =
 
         /// partition elements so that size in accumulated groupings does not surpass maxSize

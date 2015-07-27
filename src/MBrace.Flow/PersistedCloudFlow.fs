@@ -14,9 +14,11 @@ open MBrace.Library
 
 open MBrace.Flow.Internals
 
+open MBrace.Runtime.Utils.PrettyPrinters
+
 #nowarn "444"
 
-/// Persisted CloudFlow implementation.
+/// CloudFlow instance whose elements are persisted across an MBrace cluster
 [<Sealed; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>) []) =
 
@@ -28,12 +30,20 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
 
     member __.Item with get i = partitions.[i]
 
-    /// Caching level for persisted data
-    member __.StorageLevel : StorageLevel = 
+    /// Gets the common StorageLevel of all persisted partitions.
+    member __.StorageLevel : StorageLevel =
         if partitions.Length = 0 then StorageLevel.Memory
         else
-            let _,ca = partitions.[0]
-            partitions |> Array.fold (fun s (_,cv) -> s &&& cv.StorageLevel) ca.StorageLevel
+            partitions |> Array.fold (fun sl (_,p) -> sl &&& p.StorageLevel) (enum Int32.MaxValue)
+
+    /// Gets all supported storage level by contained partitions
+    /// of persisted CloudFlow.
+    member __.StorageLevels : StorageLevel [] = 
+        partitions
+        |> Seq.map (fun (_,p) -> p.StorageLevel)
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.toArray
 
     /// Gets the CloudSequence partitions of the PersistedCloudFlow
     member __.GetPartitions () = partitions
@@ -82,9 +92,14 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
 
     member private __.StructuredFormatDisplay = __.ToString()
     override __.ToString() = sprintf "PersistedCloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
+
+    /// Gets printed information on the persisted CloudFlow.
+    member __.GetInfo() : string = PersistedCloudFlowReporter<'T>.Report partitions
+    /// Prints information on the persisted CloudFlow to stdout.
+    member __.ShowInfo() = Console.WriteLine(PersistedCloudFlowReporter<'T>.Report partitions)
         
 
-type PersistedCloudFlow private () =
+and PersistedCloudFlow private () =
 
     static let defaultTreshold = 1024L * 1024L * 1024L
 
@@ -135,8 +150,7 @@ type PersistedCloudFlow private () =
             if partitionThreshold |> Option.exists (fun p -> p <= 0L) then invalidArg "partitionThreshold" "Must be positive value."
 
         match flow with
-        // return the same persisted cloud flow if there is a storage level mismatch
-        | :? PersistedCloudFlow<'T> as cv when cv.StorageLevel.HasFlag storageLevel -> return cv
+        | :? PersistedCloudFlow<'T> as pcf -> return pcf
         | _ ->
             let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
                 let results = new List<List<'T>>()
@@ -157,3 +171,20 @@ type PersistedCloudFlow private () =
             let createVector (ts : seq<'T>) = PersistedCloudFlow.New(ts, storageLevel = storageLevel, ?partitionThreshold = partitionThreshold)
             return! flow.WithEvaluators (collectorf cts) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
     }
+
+
+and private PersistedCloudFlowReporter<'T> () =
+    static let template : Field<int * IWorkerRef * CloudArray<'T>> list =
+        [   
+            Field.create "Id" Left (fun (i,_,_) -> i)
+            Field.create "Worker Id" Left (fun (_,w,_) -> w.Id)
+            Field.create "Element Count" Left (fun (_,_,a) -> a.Length.ToString("#,##0"))
+            Field.create "Size (Bytes)" Left (fun (_,_,a) -> getHumanReadableByteSize a.Size)
+            Field.create "Storage Level" Left (fun (_,_,a) -> a.StorageLevel)
+            Field.create "Cache Id" Left (fun (_,_,a) -> a.Id)
+        ]
+
+    static member Report(partitions : (IWorkerRef * CloudArray<'T>) []) =
+        let title = sprintf "Persisted CloudFlow[%O] of %d partitions." typeof<'T> partitions.Length
+        let partitions = partitions |> Seq.mapi (fun i (w,p) -> i,w,p) |> Seq.toList
+        Record.PrettyPrint(template, partitions, title = title, useBorders = false)

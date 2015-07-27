@@ -49,3 +49,13 @@ let test' = cloud {
 
 cluster.RunLocally(test', memoryEmulation = MemoryEmulation.Shared)
 cluster.RunLocally(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
+
+let pflow =
+    CloudFlow.OfArray [|1 .. 500|]
+    |> CloudFlow.collect (fun i -> [|for j in 1L .. 1000L -> int64 i * j|])
+    |> CloudFlow.filter (fun i -> i % 3L <> 0L)
+    |> CloudFlow.map (fun i -> sprintf "Lorem ipsum dolor sit amet #%d" i)
+    |> CloudFlow.cache
+    |> cluster.Run
+
+pflow.ShowInfo()
