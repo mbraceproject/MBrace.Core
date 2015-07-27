@@ -22,7 +22,8 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
     /// </summary>
     /// <param name="name">Cache name. Defaults to self-assigned.</param>
     /// <param name="physicalMemoryLimitPercentage">Physical memory percentage threshold. Defaults to 60.</param>
-    static member Create(?name, ?physicalMemoryLimitPercentage : int) =
+    /// <param name="PollingInterval">Gets or sets a value that indicates the time interval after which the cache implementation compares the current memory load against the absolute and percentage-based memory limits that are set for the cache instance. Defaults to 00:00:10.</param>
+    static member Create(?name, ?physicalMemoryLimitPercentage : int, ?pollingInterval : TimeSpan) =
         let name =
             match name with
             | None -> mkUUID()
@@ -32,9 +33,10 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
             match defaultArg physicalMemoryLimitPercentage 60 with
             | n when n > 0 && n <= 100 -> n
             | _ -> invalidArg "physicalMemoryLimitPercentage" "must be between 1 and 100."
-
+        let pollingInterval = defaultArg pollingInterval (TimeSpan.FromSeconds(10.0))
         let config = new NameValueCollection()
         do config.Add("PhysicalMemoryLimitPercentage", percentage.ToString())
+        do config.Add("PollingInterval", pollingInterval.ToString())
         new InMemoryCache(name, config)
 
     /// <summary>
