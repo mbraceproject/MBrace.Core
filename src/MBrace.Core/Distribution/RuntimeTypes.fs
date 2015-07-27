@@ -33,10 +33,11 @@ type IWorkerRef =
     /// Worker Process Id
     abstract ProcessId : int
 
-/// Denotes a task that is being executed in the cluster.
-type ICloudTask<'T> =
+type ICloudTask =
     /// Unique task identifier
     abstract Id : string
+    /// Gets the cancellation corresponding to the Task instance
+    abstract CancellationToken : ICloudCancellationToken
     /// Gets a TaskStatus enumeration indicating the current task state.
     abstract Status : TaskStatus
     /// Gets a boolean indicating that the task has completed successfully.
@@ -45,14 +46,29 @@ type ICloudTask<'T> =
     abstract IsFaulted : bool
     /// Gets a boolean indicating that the task has been canceled.
     abstract IsCanceled : bool
-    /// Awaits task for completion, returning its eventual result
+    /// Synchronously gets the task result, blocking until it completes.
+    abstract ResultBoxed : obj
+    /// <summary>
+    ///     Awaits task for completion, returning its eventual result.
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
+    abstract AwaitResultBoxed : ?timeoutMilliseconds:int -> Async<obj>
+    /// Returns the task result if completed or None if still pending.
+    abstract TryGetResultBoxed : unit -> Async<obj option>
+
+/// Denotes a task that is being executed in the cluster.
+type ICloudTask<'T> =
+    inherit ICloudTask
+    /// <summary>
+    ///     Awaits task for completion, returning its eventual result.
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
     abstract AwaitResult : ?timeoutMilliseconds:int -> Async<'T>
-    /// Rreturns the task result if completed or None if still pending.
+    /// Returns the task result if completed or None if still pending.
     abstract TryGetResult : unit -> Async<'T option>
     /// Synchronously gets the task result, blocking until it completes.
     abstract Result : 'T
-    /// Gets the cancellation corresponding to the Task instance
-    abstract CancellationToken : ICloudCancellationToken
+
 
 namespace MBrace.Core.Internals
 

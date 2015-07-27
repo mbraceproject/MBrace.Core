@@ -19,6 +19,9 @@ open MBrace.Runtime.Utils.PrettyPrinters
 [<AbstractClass>]
 type CloudTask internal () =
 
+    /// Gets the parent cancellation token for the cloud task
+    abstract CancellationToken : ICloudCancellationToken
+
     /// <summary>
     ///     Asynchronously awaits boxed result of given cloud process.
     /// </summary>
@@ -63,6 +66,32 @@ type CloudTask internal () =
 
     /// Cancels execution of given process
     abstract Cancel : unit -> unit
+
+    interface ICloudTask with
+        member x.Id: string = x.Id
+
+        member x.AwaitResultBoxed(?timeoutMilliseconds: int): Async<obj> = 
+            x.AwaitResultBoxed(?timeoutMilliseconds = timeoutMilliseconds)
+    
+        member x.CancellationToken = x.CancellationToken
+        member x.IsCanceled: bool = 
+            match x.Status with
+            | CloudTaskStatus.Canceled -> true
+            | _ -> false
+        
+        member x.IsCompleted: bool = 
+            match x.Status with
+            | CloudTaskStatus.Completed -> true
+            | _ -> false
+        
+        member x.IsFaulted: bool = 
+            match x.Status with
+            | CloudTaskStatus.Faulted | CloudTaskStatus.UserException -> true
+            | _ -> false
+
+        member x.ResultBoxed: obj = x.ResultBoxed
+        member x.Status: TaskStatus = x.Status.TaskStatus
+        member x.TryGetResultBoxed(): Async<obj option> = x.TryGetResultBoxed()
 
     /// Gets a printed report on the current process status
     member p.GetInfo() : string = CloudTaskReporter.Report([|p|], "Process", false)
@@ -139,6 +168,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (s
         | Finished(_,_,ct) -> Some ct
         | _ -> None
 
+    override __.CancellationToken = entry.Info.CancellationTokenSource.Token
     /// Active number of jobs related to the process.
     override __.ActiveJobs = cell.Value.ActiveJobCount
     override __.MaxActiveJobs = cell.Value.MaxActiveJobCount
@@ -158,24 +188,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (s
         
         member x.CancellationToken: ICloudCancellationToken = 
             entry.Info.CancellationTokenSource.Token
-        
-        member x.Id: string = 
-            entry.Id
-        
-        member x.IsCanceled: bool = 
-            match cell.Value.Status with
-            | CloudTaskStatus.Canceled -> true
-            | _ -> false
-        
-        member x.IsCompleted: bool = 
-            match cell.Value.Status with
-            | CloudTaskStatus.Completed -> true
-            | _ -> false
-        
-        member x.IsFaulted: bool = 
-            match cell.Value.Status with
-            | CloudTaskStatus.Faulted | CloudTaskStatus.UserException -> true
-            | _ -> false
         
         member x.Result: 'T = x.Result
         

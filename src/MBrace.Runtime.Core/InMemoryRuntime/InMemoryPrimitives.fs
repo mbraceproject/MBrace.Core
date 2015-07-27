@@ -157,13 +157,24 @@ type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
             with :? AggregateException as e -> return! Async.Raise (e.InnerExceptions.[0])
         }
 
+        member __.AwaitResultBoxed(?timeoutMilliseconds:int) : Async<obj> = async {
+            try 
+                let! r = Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
+                return r :> obj
+
+            with :? AggregateException as e -> 
+                return! Async.Raise (e.InnerExceptions.[0])
+        }
+
         member __.TryGetResult () = async { return task.TryGetResult() }
+        member __.TryGetResultBoxed () = async { return task.TryGetResult() |> Option.map box }
         member __.Status = task.Status
         member __.IsCompleted = task.IsCompleted
         member __.IsFaulted = task.IsFaulted
         member __.IsCanceled = task.IsCanceled
         member __.CancellationToken = ct
         member __.Result = task.GetResult()
+        member __.ResultBoxed = task.GetResult() :> obj
 
 
 /// Cloud task implementation that wraps around System.Threading.TaskCompletionSource for inmemory runtimes
