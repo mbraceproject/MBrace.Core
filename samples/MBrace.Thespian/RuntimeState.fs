@@ -59,7 +59,7 @@ with
 
         let id = RuntimeId.Create()
         let resourceFactory = ResourceFactory.Create()
-        let workerManager = WorkerManager.Create()
+        let workerManager = WorkerManager.Create(localLogger)
         let taskManager = CloudTaskManager.Create()
         let jobQueue = JobQueue.Create(workerManager)
                 

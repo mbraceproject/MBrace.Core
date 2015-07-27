@@ -64,7 +64,7 @@ module private HeartbeatMonitor =
     /// <param name="threshold">Threshold after which worker is to be declared dead.</param>
     /// <param name="workerMonitor">Parent worker monitor that has spawned the heartbeat process.</param>
     /// <param name="worker">Worker to monitor.</param>
-    let create (threshold : TimeSpan) (workerMonitor : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
+    let create (threshold : TimeSpan) (logger : ISystemLogger) (workerMonitor : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
         let cts = new CancellationTokenSource()
         let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTime) (msg : HeartbeatMonitorMsg) = async {
             match msg with
@@ -73,6 +73,7 @@ module private HeartbeatMonitor =
                 return DateTime.Now
             | CheckHeartbeat ->
                 if DateTime.Now - lastRenew > threshold then
+                    logger.LogError <| sprintf "Worker '%s' has stopped sending heartbeats, declaring dead." worker.Id
                     // send message to parent worker monitor declaring worker dead
                     workerMonitor <-- DeclareDead worker
 
@@ -108,11 +109,11 @@ module private HeartbeatMonitor =
     /// </summary>
     /// <param name="threshold">Worker death threshold.</param>
     /// <param name="target">Target heartbeat monitor.</param>
-    let initHeartbeat (threshold : TimeSpan) (target : ActorRef<HeartbeatMonitorMsg>) = async {
+    let initHeartbeat (interval : TimeSpan) (target : ActorRef<HeartbeatMonitorMsg>) = async {
         let cts = new CancellationTokenSource()
         let rec loop () = async {
             try target <-- SendHeartbeat with _ -> ()
-            do! Async.Sleep(int threshold.TotalMilliseconds / 5)
+            do! Async.Sleep(int interval.TotalMilliseconds)
             return! loop ()
         }
 
@@ -123,7 +124,7 @@ module private HeartbeatMonitor =
 
 /// WorkerManager actor reference used for handling MBrace.Thespian worker instances
 [<AutoSerializable(true)>]
-type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
+type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<WorkerMonitorMsg>) =
 
     /// <summary>
     ///     Revokes worker subscription for given id.
@@ -164,7 +165,7 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
         
         member x.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
             let! heartbeatMon, threshold = source <!- fun ch -> Subscribe(unbox id, info, ch)
-            let! unsubscriber = HeartbeatMonitor.initHeartbeat threshold heartbeatMon
+            let! unsubscriber = HeartbeatMonitor.initHeartbeat heartbeatInterval heartbeatMon
             return new WorkerSubscriptionManager(x, id, unsubscriber) :> IDisposable
         }
         
@@ -175,9 +176,10 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
     /// <summary>
     ///     Creates a new worker manager instance running in the local process.
     /// </summary>
-    /// <param name="heartbeatThreshold">Maximum heartbeat threshold demanded by monitor. Defaults to 4 seconds.</param>
-    static member Create(?heartbeatThreshold : TimeSpan) =
-        let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 4.)
+    /// <param name="heartbeatThreshold">Maximum heartbeat threshold demanded by monitor. Defaults to 10 seconds.</param>
+    static member Create(logger : ISystemLogger, ?heartbeatThreshold : TimeSpan, ?heartbeatInterval : TimeSpan) =
+        let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 10.)
+        let heartbeatInterval = defaultArg heartbeatInterval (TimeSpan.FromSeconds 0.5)
         let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<WorkerId, WorkerState * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
             match msg with
             | Subscribe(w, info, rc) ->
@@ -193,7 +195,7 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
                         PerformanceMetrics = PerformanceInfo.Empty
                     }
 
-                let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
+                let hmon = HeartbeatMonitor.create heartbeatThreshold logger self.Ref w
                 do! rc.Reply(hmon, heartbeatThreshold)
                 return state.Add(w, (workerState, hmon))
 
@@ -256,7 +258,7 @@ type WorkerManager private (source : ActorRef<WorkerMonitorMsg>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new WorkerManager(aref)
+        new WorkerManager(heartbeatInterval, aref)
 
 
 /// Subscribption disposer object
