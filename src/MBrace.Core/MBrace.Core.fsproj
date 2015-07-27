@@ -75,7 +75,7 @@
     <Compile Include="Distribution\Logging.fs" />
     <Compile Include="Distribution\FaultPolicy.fs" />
     <Compile Include="Distribution\RuntimeTypes.fs" />
-    <Compile Include="Distribution\DistributionProvider.fs" />
+    <Compile Include="Distribution\ParallelismProvider.fs" />
     <Compile Include="Distribution\Combinators.fs" />
     <Compile Include="Store\Serializer.fs" />
     <Compile Include="Store\CloudFileStore.fs" />

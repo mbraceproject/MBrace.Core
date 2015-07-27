@@ -41,7 +41,7 @@ type ThreadPoolParallelismProvider private (memoryEmulation : MemoryEmulation, l
         let memoryEmulation = defaultArg memoryEmulation MemoryEmulation.Shared
         new ThreadPoolParallelismProvider(memoryEmulation, logger, FaultPolicy.NoRetry)
         
-    interface IDistributionProvider with
+    interface IParallelismProvider with
         member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
             return InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
         }
@@ -57,14 +57,14 @@ type ThreadPoolParallelismProvider private (memoryEmulation : MemoryEmulation, l
         member __.CurrentWorker = InMemoryWorker.LocalInstance :> IWorkerRef
 
         member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy newFp = new ThreadPoolParallelismProvider(memoryEmulation, logger, newFp) :> IDistributionProvider
+        member __.WithFaultPolicy newFp = new ThreadPoolParallelismProvider(memoryEmulation, logger, newFp) :> IParallelismProvider
 
         member __.IsForcedLocalParallelismEnabled = MemoryEmulation.isShared memoryEmulation
         member __.WithForcedLocalParallelismSetting (setting : bool) =
             if setting && memoryEmulation <> MemoryEmulation.Shared then 
-                new ThreadPoolParallelismProvider(MemoryEmulation.Shared, logger, faultPolicy) :> IDistributionProvider
+                new ThreadPoolParallelismProvider(MemoryEmulation.Shared, logger, faultPolicy) :> IParallelismProvider
             else
-                __ :> IDistributionProvider
+                __ :> IParallelismProvider
 
         member __.ScheduleParallel computations = cloud {
             return! ThreadPool.Parallel(mkNestedCts, memoryEmulation, Seq.map fst computations)

@@ -42,7 +42,7 @@ module JobEvaluator =
             yield! manager.ResourceRegistry
             yield jem
             yield manager
-            yield distributionProvider :> IDistributionProvider
+            yield distributionProvider :> IParallelismProvider
         }
 
         let ctx = { Resources = resources ; CancellationToken = job.CancellationToken }

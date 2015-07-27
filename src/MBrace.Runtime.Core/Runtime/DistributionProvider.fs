@@ -28,20 +28,20 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
         let logger = runtime.GetCloudLogger (currentWorker.WorkerId, job)
         new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, logger, false)
         
-    interface IDistributionProvider with
+    interface IParallelismProvider with
         member __.ProcessId = currentJob.TaskEntry.Id
         member __.JobId = currentJob.Id
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy (newPolicy : FaultPolicy) =
-            new DistributionProvider(currentWorker, runtime, currentJob, newPolicy, logger, isForcedLocalParallelism) :> IDistributionProvider
+            new DistributionProvider(currentWorker, runtime, currentJob, newPolicy, logger, isForcedLocalParallelism) :> IParallelismProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = mkCts false parents
 
         member __.IsTargetedWorkerSupported = true
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting (setting : bool) = 
-            new DistributionProvider(currentWorker, runtime, currentJob, faultPolicy, logger, setting) :> IDistributionProvider
+            new DistributionProvider(currentWorker, runtime, currentJob, faultPolicy, logger, setting) :> IParallelismProvider
 
         member __.ScheduleLocalParallel (computations : seq<Local<'T>>) = ThreadPool.Parallel(mkNestedCts false, MemoryEmulation.Shared, computations)
         member __.ScheduleLocalChoice (computations : seq<Local<'T option>>) = ThreadPool.Choice(mkNestedCts false, MemoryEmulation.Shared, computations)

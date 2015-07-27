@@ -7,10 +7,8 @@
 
 open MBrace.Core
 
-/// <summary>
-///     Executing runtime abstraction.
-/// </summary>
-type IDistributionProvider =
+/// MBrace dependency used for initiating parallel/distributed workflows.
+type IParallelismProvider =
 
     /// Get cloud process identifier
     abstract ProcessId : string
@@ -38,7 +36,7 @@ type IDistributionProvider =
     ///     Creates a new scheduler instance with updated fault policy.
     /// </summary>
     /// <param name="newPolicy">new fault policy.</param>
-    abstract WithFaultPolicy : newPolicy:FaultPolicy -> IDistributionProvider
+    abstract WithFaultPolicy : newPolicy:FaultPolicy -> IParallelismProvider
 
     /// Specifies whether runtime supports submission of tasks to specific worker nodes
     abstract IsTargetedWorkerSupported : bool
@@ -50,7 +48,7 @@ type IDistributionProvider =
     ///     Creates a new distribution provider instance with toggled local parallelism semantics
     /// </summary>
     /// <param name="localParallelismEnabled">With local parallelism enabled or disabled.</param>
-    abstract WithForcedLocalParallelismSetting : localParallelismEnabled:bool -> IDistributionProvider
+    abstract WithForcedLocalParallelismSetting : localParallelismEnabled:bool -> IParallelismProvider
 
     /// <summary>
     ///     Parallel fork/join implementation.

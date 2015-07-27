@@ -16,7 +16,7 @@ type InMemoryRuntime private (provider : ThreadPoolParallelismProvider, resource
         match memoryEmulation with
         | Some me when provider.MemoryEmulation <> me ->
             let provider' = provider.WithMemoryEmulation me
-            let resources = resources.Register<IDistributionProvider> provider'
+            let resources = resources.Register<IParallelismProvider> provider'
             me, resources
         | _ -> provider.MemoryEmulation, resources
 
@@ -109,7 +109,7 @@ type InMemoryRuntime private (provider : ThreadPoolParallelismProvider, resource
             match fileConfig with Some fc -> yield fc | None -> ()
             match serializer with Some sr -> yield sr | None -> ()
             match resources with Some r -> yield! r | None -> ()
-            yield parallelismProvider :> IDistributionProvider
+            yield parallelismProvider :> IParallelismProvider
         }
 
         new InMemoryRuntime(parallelismProvider, resources, vagabondChecker)
