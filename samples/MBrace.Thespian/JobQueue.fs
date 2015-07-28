@@ -235,15 +235,17 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                     else
                         state
 
+                let! isDeclaredAlive = workerMonitor.IsAlive worker
                 match state.Queue.TryDequeue worker with
-                | None ->
-                    do! rc.Reply None
-                    return state
-
-                | Some((pj,fs), queue') ->
+                | Some((pj,fs), queue') when isDeclaredAlive ->
                     let jlm = JobLeaseMonitor.create workerMonitor self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
                     do! rc.Reply(Some(pj, fs, jlm))
                     return { state with Queue = queue' }
+
+                | _ ->
+                    do! rc.Reply None
+                    return state
+
         }
 
         let ref =

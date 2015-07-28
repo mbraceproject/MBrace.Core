@@ -22,7 +22,7 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
     /// </summary>
     /// <param name="name">Cache name. Defaults to self-assigned.</param>
     /// <param name="physicalMemoryLimitPercentage">Physical memory percentage threshold. Defaults to 60.</param>
-    /// <param name="PollingInterval">Gets or sets a value that indicates the time interval after which the cache implementation compares the current memory load against the absolute and percentage-based memory limits that are set for the cache instance. Defaults to 00:00:10.</param>
+    /// <param name="PollingInterval">Value that indicates the time interval after which the cache implementation compares the current memory load against the absolute and percentage-based memory limits that are set for the cache instance. Defaults to 00:00:10.</param>
     static member Create(?name, ?physicalMemoryLimitPercentage : int, ?pollingInterval : TimeSpan) =
         let name =
             match name with

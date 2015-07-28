@@ -16,7 +16,7 @@ MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.The
 
 #time "on"
 
-let cluster = MBraceThespian.InitLocal 4
+let cluster = MBraceThespian.InitLocal 1
 cluster.AttachLogger(new ConsoleLogger())
 
 let workers = cluster.Workers
@@ -59,3 +59,16 @@ let pflow =
     |> cluster.Run
 
 pflow |> CloudFlow.length |> cluster.Run
+
+
+let values =
+    cloud { return! CloudValue.NewArrayPartitioned(seq {1L .. 10000000L}, partitionThreshold = 100000L, storageLevel = StorageLevel.Disk) }
+    |> cluster.RunLocally
+
+values |> Array.sumBy (fun v -> v.Size)
+
+cluster.ShowWorkerInfo()
+
+cluster.ShowProcessInfo()
+
+cluster.Run (cloud { return 42})
