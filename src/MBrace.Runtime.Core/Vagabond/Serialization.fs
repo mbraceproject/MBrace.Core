@@ -76,23 +76,35 @@ module FsPicklerExtensions =
         /// <param name="sequence">Input sequence to be partitioned.</param>
         /// <param name="partitionThreshold">Partition threshold in bytes.</param>
         /// <param name="chunkContinuation">Asynchronous chunk continuation.</param>
-        static member PartitionSequenceBySize(sequence : seq<'T>, partitionThreshold : int64, chunkContinuation : 'T[] -> Async<'R>, ?pickler : Pickler<'T>, ?serializer : FsPicklerSerializer) : Async<'R []> = async {
+        /// <param name="pickler">Pickler used for size computation.</param>
+        /// <param name="serializer">Serializer used for size counting.</param>
+        /// <param name="maxConcurrentContinuations">Maximum number of concurrent continuations allowed while evaluating sequence. Defaults to infinte.</param>
+        static member PartitionSequenceBySize(sequence : seq<'T>, partitionThreshold : int64, chunkContinuation : 'T[] -> Async<'R>, 
+                                                ?pickler : Pickler<'T>, ?serializer : FsPicklerSerializer, ?maxConcurrentContinuations : int) : Async<'R []> = async {
             if partitionThreshold <= 0L then invalidArg "partitionThreshold" "must be positive value."
             let pickler = match pickler with None -> FsPickler.GeneratePickler<'T> () | Some p -> p
             let sizeCounter = match serializer with Some s -> s.CreateObjectSizeCounter() | None -> FsPickler.CreateSizeCounter()
             use chunkEnumerator = new ChunkEnumerator<'T>(sequence, pickler, sizeCounter, partitionThreshold)
-            // rather than creating all chunks and mapping everything to Async.Parallel,
-            // this strategy passes the chunk to its continuation as it is being created in a separate thread.
-            let taskAggregator = new ResizeArray<Task<'R>> ()
-            do while chunkEnumerator.MoveNext() do
-                let task = Async.StartAsTask(chunkContinuation chunkEnumerator.Current)
-                taskAggregator.Add task
+            let taskQueue = new Queue<Task<'R>> ()
+            let results = new ResizeArray<'R> ()
+            while chunkEnumerator.MoveNext() do
+                if maxConcurrentContinuations |> Option.exists (fun cc -> cc < taskQueue.Count) then
+                    // concurrent continuation limit has been reached,
+                    // asynchronously wait until first task in queue has completed
+                    let t = taskQueue.Dequeue()
+                    let! result = t.AwaitResultAsync() // might raise excepton, but we are ok with this
+                    results.Add result
 
-            let all = taskAggregator.ToArray()
-            if Array.isEmpty all then return [||] else
-            let t = Task.Factory.ContinueWhenAll(all, ignore)
-            let! _ = Async.AwaitTask(t) |> Async.Catch
-            return all |> Array.map (fun t -> t.GetResult())
+                // no restrictions, apply current chunk to continuation 
+                // and append to task queue
+                let task = Async.StartAsTask(chunkContinuation chunkEnumerator.Current)
+                taskQueue.Enqueue task
+
+            for t in taskQueue do
+                let! result = t.AwaitResultAsync()
+                results.Add result
+
+            return results.ToArray()
         }
 
 

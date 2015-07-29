@@ -502,7 +502,8 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
             // persist synchronously to disk if Storage level is disk
             if level.HasFlag StorageLevel.Disk then do! persistValue level hash elementCount value
 
-            // if shadow persisting is support, write to disk asynchronously
+            // if shadow persisting is supported, write to disk asynchronously
+            // TODO: investigate if asynchronous persists should be sent to a queue?
             elif config.Global.ShadowPersistObjects then
                 ignore <| Async.StartAsTask(persistValue level hash elementCount value)
 
@@ -522,7 +523,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
     /// <param name="cacheFactory">User-supplied InMemory cache factory. Must be serializable.</param>
     /// <param name="localFileStore">Optional local file store factory used for caching persisted values. Defaults to none.</param>
     /// <param name="serializer">Serializer instance used for persisting values. Defaults to FsPickler.</param>
-    /// <param name="encapsulationThreshold">Values less than this size will be encapsulated in CloudValue instance. Defaults to 512KiB.</param>
+    /// <param name="encapsulationThreshold">Values less than this size will be encapsulated in CloudValue instance. Defaults to 64KiB.</param>
     /// <param name="shadowPersistObjects">Asynchronously persist values to store, even if StorageLevel is declared memory only.</param>
     static member InitCloudValueProvider(mainStore:CloudFileStoreConfiguration, ?cacheFactory : unit -> InMemoryCache, 
                                             ?localFileStore:(unit -> CloudFileStoreConfiguration), ?serializer:ISerializer, 
@@ -530,8 +531,8 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
 
         let id = sprintf "%s:%s/%s" mainStore.FileStore.Name mainStore.FileStore.Id mainStore.DefaultDirectory
         let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> ISerializer
-        let encapsulationThreshold = defaultArg encapsulationThreshold (512L * 1024L)
-        FsPickler.EnsureSerializable cacheFactory
+        let encapsulationThreshold = defaultArg encapsulationThreshold (64L * 1024L)
+        FsPickler.EnsureSerializable ((cacheFactory, localFileStore))
         let config = 
             { 
                 Id = id
@@ -579,7 +580,8 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         member x.CreateCloudArrayPartitioned(values : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
             let _ = getConfig()
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Not supported storage level '%O'." level
-            return! FsPickler.PartitionSequenceBySize(values, partitionThreshold, fun ts -> async { let! cv = createCloudValue level ts in return cv :?> CloudArray<'T> })
+            let createValue (ts:'T[]) = async { let! cv = createCloudValue level ts in return cv :?> CloudArray<'T> }
+            return! FsPickler.PartitionSequenceBySize(values, partitionThreshold, createValue, maxConcurrentContinuations = Environment.ProcessorCount)
         }
 
         member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<CloudValue<'T>> = async {

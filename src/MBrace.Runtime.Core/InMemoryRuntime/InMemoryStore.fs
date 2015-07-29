@@ -144,7 +144,8 @@ and [<Sealed; AutoSerializable(false)>]
 
         member x.CreateCloudArrayPartitioned(sequence : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
-            return! FsPickler.PartitionSequenceBySize(sequence, partitionThreshold, fun ts -> async { return createNewValue level ts :?> CloudArray<'T> })
+            let createArray (ts : 'T[]) = async { return createNewValue level ts :?> CloudArray<'T> }
+            return! FsPickler.PartitionSequenceBySize(sequence, partitionThreshold, createArray)
         }
         
         member x.Dispose(cv: ICloudValue): Async<unit> = async { return! cv.Dispose() }
