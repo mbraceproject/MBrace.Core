@@ -142,7 +142,7 @@ module private StoreCloudValueImpl =
                 LocalStore = config.LocalStore |> Option.map (fun f -> f ())
                 LocalCache =   
                     match config.CacheFactory with
-                    | None -> InMemoryCache.Create()
+                    | None -> InMemoryCache.Create(name = config.Id, physicalMemoryLimitPercentage = 80, pollingInterval = TimeSpan.FromSeconds 0.5)
                     | Some cf -> cf ()
             }
 
