@@ -42,6 +42,7 @@ let test = cloud {
 
 cluster.RunLocally(test, memoryEmulation = MemoryEmulation.Shared)
 cluster.RunLocally(test, memoryEmulation = MemoryEmulation.Copied)
+cluster.Run test
 
 let test' = cloud {
     return box(new System.IO.MemoryStream())
@@ -49,6 +50,7 @@ let test' = cloud {
 
 cluster.RunLocally(test', memoryEmulation = MemoryEmulation.Shared)
 cluster.RunLocally(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
+cluster.Run test'
 
 let pflow =
     CloudFlow.OfArray [|1 .. 100|]

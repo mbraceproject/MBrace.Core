@@ -64,7 +64,8 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
         finally
             lock sourceExn (fun () ->
                 if prepareForRaise then
-                    trySetRemoteStackTrace (newTrace + Environment.NewLine) sourceExn |> ignore
+                    let newStackTrace = if String.IsNullOrEmpty newTrace then newTrace else newTrace + Environment.NewLine
+                    trySetRemoteStackTrace newStackTrace sourceExn |> ignore
                 else
                     trySetStackTrace newTrace sourceExn |> ignore
                     trySetRemoteStackTrace null sourceExn |> ignore)
