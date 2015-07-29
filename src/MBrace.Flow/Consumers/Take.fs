@@ -41,14 +41,28 @@ module Take =
         let gather =
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
-                let! results = flow.WithEvaluators (collectorF cts) (local.Return) (fun results -> local { return Array.concat results })
-                return results.Take(n).ToArray()
+                let! flow = flow.WithEvaluators (collectorF cts) (fun value -> PersistedCloudFlow.New(value, storageLevel = StorageLevel.Disk) ) 
+                                                                 (fun results -> local { return PersistedCloudFlow.Concat results } )
+
+                // Calculate number of partitions up to n
+                let partitions = ResizeArray<_>()
+                let totalCount = ref 0
+                for (workerRef, cloudArray) in flow.GetPartitions() do
+                    if !totalCount < n then
+                        let count = cloudArray.GetCount() |> Async.RunSynchronously
+                        if !totalCount + int count <= n then
+                            partitions.Add(workerRef, cloudArray)
+                        else 
+                            let! cloudArray = CloudValue.NewArray(cloudArray.Take(n - !totalCount).ToArray(), storageLevel = StorageLevel.Disk)
+                            partitions.Add(workerRef, cloudArray)
+                        totalCount := !totalCount + int count
+                return new PersistedCloudFlow<_>(partitions.ToArray())
             }
         { new CloudFlow<'T> with
               member __.DegreeOfParallelism = flow.DegreeOfParallelism
               member __.WithEvaluators<'S, 'R>(collectorF: Local<Collector<'T, 'S>>) (projection: 'S -> Local<'R>) combiner =
                   cloud {
-                      let! result = gather
-                      return! (Array.ToCloudFlow result).WithEvaluators collectorF projection combiner
+                      let! flow = gather 
+                      return! (flow :> CloudFlow<_>).WithEvaluators collectorF projection combiner
                   }
         }
