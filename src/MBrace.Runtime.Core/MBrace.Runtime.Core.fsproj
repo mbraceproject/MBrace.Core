@@ -94,13 +94,11 @@
     <Compile Include="Runtime\JobEvaluator.fs" />
     <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Runtime\Client.fs" />
+    <Compile Include="Store\ClosureSiftManager.fs" />
     <Compile Include="Store\StoreCloudValue.fs" />
-    <Compile Include="Store\StoreEntity.fs" />
+    <Compile Include="Store\StoreAssemblyManager.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
-    <Compile Include="Store\CloudValueManager.fs" />
-    <Compile Include="Store\StoreResultAggregator.fs" />
-    <Compile Include="Store\StoreAssemblyManager.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
   </ItemGroup>

@@ -264,7 +264,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let! cv = CloudValue.New value
             let isCacheable = cv.StorageLevel.HasFlag StorageLevel.Memory
             let! t = Cloud.StartAsTask(cloud {
-                let! cv' = CloudValue.GetValueById cv.Id
+                let! cv' = CloudValue.TryGetValueById cv.Id
                 let cv' = CloudValue.Cast<int list> cv
                 cv'.Id |> shouldEqual cv.Id
                 let! v' = cv'.GetValueAsync()
@@ -288,7 +288,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 do! CloudValue.Delete cv
                 do! Cloud.Sleep 2000
                 let! t = Cloud.StartAsTask(cloud {
-                    return! CloudValue.GetValueById id
+                    return! CloudValue.TryGetValueById id
                 })
                 return! t.AwaitResult()
             } |> runRemote

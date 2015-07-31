@@ -2,6 +2,7 @@
 
 open System
 open System.Threading
+open System.Runtime.Serialization
 
 open Nessos.FsPickler
 open Nessos.Vagabond
@@ -9,17 +10,19 @@ open Nessos.Thespian
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Library
 open MBrace.Runtime
 open MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Runtime.Store
 
 /// Describes a pickled MBrace job.
 /// Can be used without any need for assembly dependencies being loaded.
 type internal Pickle =
     /// Single cloud job
-    | Single of job:Pickle<CloudJob>
+    | Single of job:Pickle<SiftedClosure<CloudJob>>
     /// Cloud job is part of a batch enqueue.
     /// Pickled together for size optimization reasons.
-    | Batch of index:int * jobs:Pickle<CloudJob []>
+    | Batch of index:int * jobs:Pickle<SiftedClosure<CloudJob []>>
 with
     /// Size of pickle in bytes
     member p.Size =
@@ -111,7 +114,8 @@ module private JobLeaseMonitor =
         ref
 
 /// Job lease token implementation, received when dequeuing a job from the queue.
-type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
+[<AutoSerializable(true)>]
+type JobLeaseToken internal (pjob : PickledJob, localSiftManager : DomainLocal<ClosureSiftManager> , faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
 
     interface ICloudJobLeaseToken with
         member x.DeclareCompleted() = async {
@@ -135,10 +139,16 @@ type JobLeaseToken internal (pjob : PickledJob, faultInfo : JobFaultInfo, leaseM
         member x.FaultInfo = faultInfo
         
         member x.GetJob(): Async<CloudJob> = async {
-            return
-                match pjob.Pickle with
-                | Single pj -> Config.Serializer.UnPickleTyped pj
-                | Batch(i,pjs) -> let js = Config.Serializer.UnPickleTyped pjs in js.[i]
+            let siftManager = localSiftManager.Value
+            match pjob.Pickle with
+            | Single pj -> 
+                let siftClosure = Config.Serializer.UnPickleTyped pj
+                return! siftManager.UnSiftClosure siftClosure
+
+            | Batch(i,pjs) -> 
+                let siftClosure = Config.Serializer.UnPickleTyped pjs
+                let! jobs = siftManager.UnSiftClosure siftClosure
+                return jobs.[i]
         }
         
         member x.Id: string = pjob.JobId
@@ -157,12 +167,24 @@ and private JobQueueTopic = TopicQueue<IWorkerId, PickledJob * JobFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
-type JobQueue private (source : ActorRef<JobQueueMsg>) =
+type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftConfiguration) =
+
+    static let mkLocalManager config logger =
+        DomainLocal.Create(fun () -> ClosureSiftManager.Create(config, ?localLogger = logger))
+
+    [<NonSerialized>]
+    let mutable siftManager = mkLocalManager siftConfig None
+    member private __.OnDeserialized(_ : StreamingContext) =
+        siftManager <- mkLocalManager siftConfig None
+
+    /// installs a local system logger instance to the job queue
+    member __.InstallLocalLogger(logger : ISystemLogger) =
+        siftManager <- mkLocalManager siftConfig (Some logger)
 
     interface IJobQueue with
         member x.BatchEnqueue(jobs: CloudJob []) = async {
-            // TODO: sifting & cloud values
-            let pickle = Config.Serializer.PickleTyped jobs
+            let! sifted = siftManager.Value.SiftClosure(jobs, allowNewSifts = false)
+            let pickle = Config.Serializer.PickleTyped sifted
             let mkPickle (index:int) (job : CloudJob) =
                 {
                     TaskEntry = job.TaskEntry
@@ -177,7 +199,9 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             do! source.AsyncPost (BatchEnqueue items)
         }
         
-        member x.Enqueue (job: CloudJob) = async {
+        member x.Enqueue (job: CloudJob, isClientEnqueue:bool) = async {
+            let! sifted = siftManager.Value.SiftClosure(job, allowNewSifts = isClientEnqueue)
+            let pickle = Config.Serializer.PickleTyped sifted
             let item =
                 {
                     TaskEntry = job.TaskEntry
@@ -185,7 +209,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                     JobType = job.JobType
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
-                    Pickle = Single(Config.Serializer.PickleTyped job)
+                    Pickle = Single pickle
                 }
 
             do! source.AsyncPost (Enqueue (item, NoFault))
@@ -195,7 +219,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             let! result = source <!- fun ch -> TryDequeue(worker, ch)
             match result with
             | Some(msg, faultState, leaseMonitor) ->
-                let leaseToken = new JobLeaseToken(msg, faultState, leaseMonitor)
+                let leaseToken = new JobLeaseToken(msg, siftManager, faultState, leaseMonitor)
                 return Some(leaseToken :> ICloudJobLeaseToken)
             | None -> return None
         }
@@ -205,7 +229,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
     /// </summary>
     /// <param name="workerMonitor">Worker monitor instance.</param>
     /// <param name="cleanupInterval">Topic queue cleanup interval. Defaults to 10 seconds.</param>
-    static member Create(workerMonitor : WorkerManager, ?cleanupInterval : TimeSpan) =
+    static member Create(workerMonitor : WorkerManager, logger : ISystemLogger, siftConfig : ClosureSiftConfiguration, ?cleanupInterval : TimeSpan) =
         let cleanupThreshold = defaultArg cleanupInterval (TimeSpan.FromSeconds 10.)
 
         let behaviour (self : Actor<JobQueueMsg>) (state : QueueState) (msg : JobQueueMsg) = async {
@@ -225,6 +249,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
                         let removed, state' = state.Queue.Cleanup (workerMonitor.IsAlive >> Async.RunSync >> not)
                         let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : JobFaultInfo) =
                             let worker = Option.get j.Target
+                            logger.Logf LogLevel.Warning "Redirecting job '%s' of type '%s' that has been targeted to dead worker '%s'." j.JobId j.Type worker.Id
                             let j = { j with Target = None }
                             let faultCount = faultState.FaultCount + 1
                             let faultState = IsTargetedJobOfDeadWorker(faultCount, worker)
@@ -253,4 +278,6 @@ type JobQueue private (source : ActorRef<JobQueueMsg>) =
             |> Actor.Publish
             |> Actor.ref
 
-        new JobQueue(ref)
+        let jq = new JobQueue(ref, siftConfig)
+        jq.InstallLocalLogger(logger)
+        jq

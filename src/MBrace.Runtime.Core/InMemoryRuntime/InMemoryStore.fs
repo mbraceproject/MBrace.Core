@@ -110,8 +110,8 @@ and [<Sealed; AutoSerializable(false)>]
     let getValueById (id:string) =
         let hash = HashResult.Parse id
         match cache.TryFind hash with
-        | None -> raise <| new ObjectDisposedException(id, "CloudValue could not be found in store.")
-        | Some payload -> InMemoryValue<_>.CreateUntyped(hash, payload, self)
+        | None -> None
+        | Some payload -> InMemoryValue<_>.CreateUntyped(hash, payload, self) |> Some
 
     let createNewValue (level : StorageLevel) (value : 'T) =
         let hash = computeHash value
@@ -137,6 +137,7 @@ and [<Sealed; AutoSerializable(false)>]
         member x.Name: string = "In-Memory Value Provider"
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
         member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
+        member x.GetCloudValueId (value : 'T) = computeHash(value).Id
         member x.CreateCloudValue(payload: 'T, level : StorageLevel): Async<CloudValue<'T>> = async {
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Unsupported storage level '%O'." level
             return createNewValue level payload
@@ -150,8 +151,8 @@ and [<Sealed; AutoSerializable(false)>]
         
         member x.Dispose(cv: ICloudValue): Async<unit> = async { return! cv.Dispose() }
         member x.DisposeAllValues(): Async<unit> = async { return cache.Clear() }
-        member x.GetValueById(id : string) : Async<ICloudValue> = async { return getValueById id }
-        member x.GetAllValues(): Async<ICloudValue []> = async { return cache |> Seq.map (fun kv -> InMemoryValue<_>.CreateUntyped(kv.Key, kv.Value, x)) |> Seq.toArray }
+        member x.TryGetCloudValueById(id : string) : Async<ICloudValue option> = async { return getValueById id }
+        member x.GetAllCloudValues(): Async<ICloudValue []> = async { return cache |> Seq.map (fun kv -> InMemoryValue<_>.CreateUntyped(kv.Key, kv.Value, x)) |> Seq.toArray }
 
 
 [<AutoSerializable(false); Sealed; CloneableOnly>]

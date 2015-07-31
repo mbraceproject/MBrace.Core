@@ -121,7 +121,8 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
         let dataFiles = 
             va.Metadata.DataDependencies 
             |> Seq.choose (fun dd -> match dd.Data with Persisted hash -> Some (hash, dd) | _ -> None)
-            |> Seq.map (fun (hash, dd) -> dd, hash, files.[dd.Id])
+            |> Seq.groupBy fst
+            |> Seq.map (fun (hash, dds) -> let dd = Seq.head dds |> snd in dd, hash, files.[dd.Id])
             |> Seq.toArray
 
         let uploadDataFile (dd : DataDependencyInfo, hash : HashResult, localPath : string) = local {
@@ -152,7 +153,6 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
             return! assemblies |> Seq.map uploadAssembly |> Local.Parallel |> imem.RunAsync
         }
 
-
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
 type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
@@ -180,8 +180,7 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
                 return! c.GetValueAsync()
             } |> imem.RunAsync
 
-        member x.GetPersistedDataDependencyReader(id : AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {
-            let hash = match dd.Data with Persisted h -> h | _ -> invalidOp "internal error: not persisted data dependency."
+        member x.GetPersistedDataDependencyReader(id : AssemblyId, dd : DataDependencyInfo, hash : HashResult): Async<Stream> = async {
             logger.Logf LogLevel.Info "Downloading data dependency '%s'." dd.Name
             return! config.FileStore.BeginRead(getStoreDataPath prefixDataByAssemblyId append id hash)
         }
@@ -243,7 +242,7 @@ type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, l
         let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, assemblies)
         if errors.Length > 0 then
             let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
-            localLogger.Logf LogLevel.Warning "Failed to upload bindings: %s" errors
+            localLogger.Logf LogLevel.Warning "Could not serialize data dependencies: %s" errors
 
         return errors
     }

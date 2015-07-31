@@ -137,7 +137,6 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
                             cont.Exception (withCancellationToken currentCts ctx) e
                         else // cancellation already triggered by different party, declare job completed.
                             JobExecutionMonitor.TriggerCompletion ctx
-
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onCancellation ctx c =
@@ -258,13 +257,15 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSour
 ///     Executes provided cloud workflow as a cloud task using the provided resources and parameters.
 /// </summary>
 /// <param name="runtime">Runtime management object.</param>
+/// <param name="isClientSideEnqueue">Declares that computation is being enqueued from an MBrace client process.</param>
 /// <param name="dependencies">Vagabond dependencies for computation.</param>
 /// <param name="taskId">Task id for computation.</param>
 /// <param name="faultPolicy">Fault policy for computation.</param>
 /// <param name="token">Optional cancellation token for computation.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
-let runStartAsCloudTask (runtime : IRuntimeManager) (dependencies : AssemblyId[]) (taskName : string option)
+let runStartAsCloudTask (runtime : IRuntimeManager) (isClientSideEnqueue : bool) 
+                        (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy:FaultPolicy) (token : ICloudCancellationToken option) 
                         (target : IWorkerRef option) (computation : Cloud<'T>) = async {
 
@@ -321,6 +322,6 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (dependencies : AssemblyId[]
         let ccont ctx c = setResult ctx (Cancelled c) CloudTaskStatus.Canceled
 
         let job = CloudJob.Create (tcs, cts, faultPolicy, scont, econt, ccont, JobType.TaskRoot, computation, ?target = target)
-        do! runtime.JobQueue.Enqueue job
+        do! runtime.JobQueue.Enqueue(job, isClientSideEnqueue)
         return new CloudTask<'T>(tcs)
 }

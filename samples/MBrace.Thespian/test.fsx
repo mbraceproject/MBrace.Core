@@ -62,3 +62,25 @@ let pflow =
 
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.Run
+
+
+let large = [|1L .. 10000000L|]
+
+#r "FsPickler.dll"
+
+Nessos.FsPickler.FsPickler.ComputeSize large
+
+80000034L > 5L * 1024L * 1024L
+
+let f x = cloud { return Array.length x }
+
+cluster.Run (f large)
+
+cluster.Run(cloud { return large.Length })
+cluster.AppendWorkers 2
+
+let test x = cloud {
+    return! Cloud.Parallel [for i in 1 .. 10 -> cloud { return x.GetHashCode() }]
+}
+
+cluster.Run(test large)

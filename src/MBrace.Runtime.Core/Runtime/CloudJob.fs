@@ -129,7 +129,8 @@ type IJobQueue =
     ///     Asynchronously enqueue a singular job to queue.
     /// </summary>
     /// <param name="job">Job to be enqueued.</param>
-    abstract Enqueue : job:CloudJob -> Async<unit>
+    /// <param name="isClientSideEnqueue">Declares that job is being enqueued on the client side.</param>
+    abstract Enqueue : job:CloudJob * isClientSideEnqueue:bool -> Async<unit>
 
     /// <summary>
     ///     Asynchronoulsy enqueue a batch of jobs to queue.
