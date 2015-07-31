@@ -42,8 +42,8 @@ type RuntimeState =
         CloudLogger  : ActorCloudLogger
         /// Misc resources appended to runtime state
         Resources : ResourceRegistry
-        /// Vagabond assembly directory
-        AssemblyDirectory : string
+        /// Vagabond store assembly configuration
+        VagabondStoreConfig : StoreAssemblyManagerConfiguration
     }
 with
     /// <summary>
@@ -66,17 +66,17 @@ with
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
         let storeCloudValueConfig = CloudFileStoreConfiguration.Create(fileStoreConfig.FileStore, defaultDirectory = cacheDirectory)
-        let cloudValueProvider = 
-            StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, 
-                                                            cacheFactory = (fun () -> Config.ObjectCache), 
-//                                                            localFileStore = (fun () -> CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")),
-                                                            shadowPersistObjects = true)
+        let mkCacheInstance () = Config.ObjectCache
+        let mkLocalCachingFileStore () = CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")
+        let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
+        let serializer = FsPicklerBinaryStoreSerializer()
+        let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = "vagabond")
 
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
             yield CloudQueueConfiguration.Create(new ActorQueueProvider(resourceFactory))
             yield new ActorDictionaryProvider(id.Id, resourceFactory) :> ICloudDictionaryProvider
-            yield new FsPicklerBinaryStoreSerializer() :> ISerializer
+            yield serializer :> ISerializer
             yield cloudValueProvider :> ICloudValueProvider
             match miscResources with Some r -> yield! r | None -> ()
             yield fileStoreConfig
@@ -93,7 +93,7 @@ with
             CloudLogger = ActorCloudLogger.Create(localLogger)
             JobQueue = jobQueue
             Resources = resources
-            AssemblyDirectory = assemblyDirectory
+            VagabondStoreConfig = vagabondStoreConfig
         }
 
     /// <summary>
@@ -126,7 +126,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
 
     let storeConfig = state.Resources.Resolve<CloudFileStoreConfiguration>()
     let serializer = state.Resources.Resolve<ISerializer>()
-    let assemblyManager = StoreAssemblyManager.Create(storeConfig, serializer, state.AssemblyDirectory, logger = logger)
+    let assemblyManager = StoreAssemblyManager.Create(state.VagabondStoreConfig, localLogger = logger)
     // Install cache in the local application domain
     do state.StoreCloudValueProvider.Install()
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)

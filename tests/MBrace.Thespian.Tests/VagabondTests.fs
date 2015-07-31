@@ -110,6 +110,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalInteraction "open MBrace.Thespian"
         fsi.EvalInteraction <| "MBraceThespian.WorkerExecutable <- @\"" + thespianExe + "\""
         fsi.EvalInteraction "let cluster = MBraceThespian.InitLocal 2"
+        fsi.EvalInteraction "cluster.AttachLogger(new ConsoleLogger())"
 
 
     let defineQuotationEvaluator (fsi : FsiEvaluationSession) =
@@ -225,3 +226,22 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalInteraction "let cv = cluster.Store.CloudValue.New (S (S (S Z)))"
 
         fsi.EvalExpression "toInt cv.Value" |> shouldEqual 3
+
+    [<Test>]
+    let ``09. Large static data dependency`` () =
+        let fsi = FsiSession.Value
+
+        fsi.EvalInteraction "let large = [|1L .. 1000000L|]"
+
+        fsi.EvalExpression "cloud { return large.Length } |> cluster.Run" |> shouldEqual 1000000
+
+    [<Test>]
+    let ``10. Large static data dependency updated value`` () =
+
+        let fsi = FsiSession.Value
+
+        fsi.EvalInteraction "let large = [|1L .. 1000000L|]"
+
+        for i in 1L .. 10L do
+            fsi.EvalInteraction <| sprintf "large.[499999] <- %dL" i
+            fsi.EvalExpression "cloud { return large.[499999] } |> cluster.Run" |> shouldEqual i

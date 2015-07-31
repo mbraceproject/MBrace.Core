@@ -5,6 +5,8 @@ open System.IO
 open System.Text.RegularExpressions
 open System.Runtime.Serialization
 
+open Nessos.FsPickler.Hashing
+
 open Nessos.Vagabond
 open Nessos.Vagabond.AssemblyProtocols
 
@@ -14,6 +16,7 @@ open MBrace.Library
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.String
 open MBrace.Runtime.InMemoryRuntime
 open MBrace.Runtime.Vagabond
 
@@ -23,18 +26,30 @@ open MBrace.Runtime.Vagabond
 module private Common =
 
     /// Gets a unique blob filename for provided assembly
-    let filename (id : AssemblyId) = Vagabond.GetFileName id
+    let filename (id : AssemblyId) = Vagabond.GetUniqueFileName id
 
     let getStoreAssemblyPath k id = k <| filename id + id.Extension
     let getStoreSymbolsPath k id = k <| filename id + ".pdb"
     let getStoreMetadataPath k id = k <| filename id + ".vgb"
-    let getStoreDataPath k id (dd : DataDependencyInfo) = k <| sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
+
+    let getStoreDataPath prefixByAssemblySessionId k (id : AssemblyId) (hash : HashResult) =
+        let fileName = Vagabond.GetUniqueFileName hash
+        if prefixByAssemblySessionId then
+            let truncate n (t : string) =
+                if t.Length <= n then t
+                else t.Substring(0, n)
+
+            let sourceId,_,_ = Vagabond.TryParseAssemblySliceName id.FullName |> Option.get
+            let prefix = sourceId.ToByteArray() |> Convert.BytesToBase32 |> truncate 13
+            k <| sprintf "%s-%s.dat" prefix fileName
+        else
+            k <| sprintf "%s.dat" fileName
 
 /// Assembly to file store uploader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, assemblyContainer : string, logger : ISystemLogger) =
+type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
     let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
-    let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
+    let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
 
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
@@ -105,12 +120,12 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
         let files = va.PersistedDataDependencies |> Map.ofArray
         let dataFiles = 
             va.Metadata.DataDependencies 
-            |> Seq.filter (fun dd -> match dd.Data with Persisted _ -> true | _ -> false)
-            |> Seq.map (fun dd -> dd, files.[dd.Id])
+            |> Seq.choose (fun dd -> match dd.Data with Persisted hash -> Some (hash, dd) | _ -> None)
+            |> Seq.map (fun (hash, dd) -> dd, hash, files.[dd.Id])
             |> Seq.toArray
 
-        let uploadDataFile (dd : DataDependencyInfo, localPath : string) = local {
-            let blobPath = getStoreDataPath append va.Id dd
+        let uploadDataFile (dd : DataDependencyInfo, hash : HashResult, localPath : string) = local {
+            let blobPath = getStoreDataPath prefixDataByAssemblyId append va.Id hash
             let! dataExists = CloudFile.Exists blobPath
             if not dataExists then
                 logger.Logf LogLevel.Info "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
@@ -140,8 +155,8 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, assemblyContainer : string, logger : ISystemLogger) =
-    let append (fileName : string) = config.FileStore.Combine(assemblyContainer, fileName)
+type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+    let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
 
     interface IAssemblyDownloader with
         member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
@@ -165,34 +180,58 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
                 return! c.GetValueAsync()
             } |> imem.RunAsync
 
-        member x.GetPersistedDataDependencyReader(id: AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {
+        member x.GetPersistedDataDependencyReader(id : AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {
+            let hash = match dd.Data with Persisted h -> h | _ -> invalidOp "internal error: not persisted data dependency."
             logger.Logf LogLevel.Info "Downloading data dependency '%s'." dd.Name
-            return! config.FileStore.BeginRead(getStoreDataPath append id dd)
+            return! config.FileStore.BeginRead(getStoreDataPath prefixDataByAssemblyId append id hash)
         }
 
-[<NoEquality; NoComparison>]
-type private AssemblyManagerMsg =
-    | Upload of seq<VagabondAssembly> * ReplyChannel<DataDependencyInfo []>
-    | Download of seq<AssemblyId> * ReplyChannel<VagabondAssembly []>
+/// Distributable StoreAssemblyManagement configuration object
+[<NoEquality; NoComparison; AutoSerializable(true)>]
+type StoreAssemblyManagerConfiguration =
+    {
+        /// Store instance used for persisted vagabond data
+        Store : ICloudFileStore
+        /// Store directory used for storing vagabond data
+        VagabondContainer : string
+        /// Serializer instance used for vagabond metadata
+        Serializer : ISerializer
+        /// Specifies if data dependencies are to be prefixed by their assembly session identifiers.
+        PrefixDataDependenciesByAssemblyId : bool
+    }
+with
+    /// <summary>
+    ///     Creates a Vagabond StoreAssemblyManager using given paramaters.
+    /// </summary>
+    /// <param name="store">Store instance used for persisted vagabond data.</param>
+    /// <param name="serializer">Serializer instance used for vagabond metadata.</param>
+    /// <param name="container">Store directory used for storing vagabond data. Defaults to "vagabond".</param>
+    /// <param name="prefixDataDependenciesByAssemblyId">Prefix upload data dependency files by their assembly session identifiers. Defaults to true.</param>
+    static member Create(store : ICloudFileStore, serializer : ISerializer, ?container : string, ?prefixDataDependenciesByAssemblyId : bool) =
+        {
+            Store = store
+            Serializer = serializer
+            VagabondContainer = defaultArg container "vagabond"
+            PrefixDataDependenciesByAssemblyId = defaultArg prefixDataDependenciesByAssemblyId true
+        }
 
 /// Assembly manager instance
 [<Sealed; AutoSerializable(false)>]
-type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, logger : ISystemLogger) =
-    let imem = InMemoryRuntime.Create(fileConfig = storeConfig, serializer = serializer)
-    let uploader = new StoreAssemblyUploader(storeConfig, imem, container, logger)
-    let downloader = new StoreAssemblyDownloader(storeConfig, imem, container, logger)
+type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, localLogger : ISystemLogger) =
+    let storeConfig = CloudFileStoreConfiguration.Create(config.Store, defaultDirectory = config.VagabondContainer)
+    let imem = InMemoryRuntime.Create(fileConfig = storeConfig, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
+    let uploader = new StoreAssemblyUploader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
+    let downloader = new StoreAssemblyDownloader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
 
     /// <summary>
-    ///     Creates a new StoreAssemblyManager instance with provided cloud resources. 
+    ///     Creates a local StoreAssemblyManager instance with provided configuration. 
     /// </summary>
-    /// <param name="storeConfig">ResourceRegistry collection.</param>
-    /// <param name="container">Containing directory in store for persisting assemblies.</param>
-    /// <param name="logger">Logger used by uploader. Defaults to no logging.</param>
-    static member Create(storeConfig : CloudFileStoreConfiguration, serializer : ISerializer, container : string, ?logger : ISystemLogger) =
+    /// <param name="config">StoreAssemblyManager configuration record.</param>
+    /// <param name="localLogger">Logger used by assembly manager instance. Defaults to no logging.</param>
+    static member Create(config : StoreAssemblyManagerConfiguration, ?localLogger : ISystemLogger) =
         ignore VagabondRegistry.Instance
-        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        new StoreAssemblyManager(storeConfig, serializer, container, logger)
-
+        let localLogger = match localLogger with Some l -> l | None -> new NullLogger() :> _
+        new StoreAssemblyManager(config, localLogger)
 
     /// <summary>
     ///     Asynchronously upload provided dependencies to store.
@@ -200,11 +239,11 @@ type StoreAssemblyManager private (storeConfig : CloudFileStoreConfiguration, se
     /// <param name="ids">Assemblies to be uploaded.</param>
     /// <returns>List of data dependencies that failed to be serialized.</returns>
     member __.UploadAssemblies(assemblies : seq<VagabondAssembly>) : Async<DataDependencyInfo []> = async {
-        logger.Logf LogLevel.Info "Uploading dependencies"
+        localLogger.Logf LogLevel.Info "Uploading dependencies"
         let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, assemblies)
         if errors.Length > 0 then
             let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
-            logger.Logf LogLevel.Warning "Failed to upload bindings: %s" errors
+            localLogger.Logf LogLevel.Warning "Failed to upload bindings: %s" errors
 
         return errors
     }
