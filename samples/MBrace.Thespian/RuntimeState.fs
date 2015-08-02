@@ -131,7 +131,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
     // Install cache in the local application domain
     do state.StoreCloudValueProvider.Install()
     // Install local logger in the job queue object
-    do state.JobQueue.InstallLocalLogger logger
+    let _ = state.JobQueue.AttachLocalLogger logger
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)
     let counterFactory = new ActorCounterFactory(state.ResourceFactory)
     let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory)

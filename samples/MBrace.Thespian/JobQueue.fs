@@ -169,17 +169,9 @@ and private JobQueueTopic = TopicQueue<IWorkerId, PickledJob * JobFaultInfo>
 [<AutoSerializable(true)>]
 type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftConfiguration) =
 
-    static let mkLocalManager config logger =
-        DomainLocal.Create(fun () -> ClosureSiftManager.Create(config, ?localLogger = logger))
+    let siftManager = DomainLocal.Create(fun () -> ClosureSiftManager.Create(siftConfig))
 
-    [<NonSerialized>]
-    let mutable siftManager = mkLocalManager siftConfig None
-    member private __.OnDeserialized(_ : StreamingContext) =
-        siftManager <- mkLocalManager siftConfig None
-
-    /// installs a local system logger instance to the job queue
-    member __.InstallLocalLogger(logger : ISystemLogger) =
-        siftManager <- mkLocalManager siftConfig (Some logger)
+    member __.AttachLocalLogger (logger : ISystemLogger) = siftManager.Value.AttachLogger logger
 
     interface IJobQueue with
         member x.BatchEnqueue(jobs: CloudJob []) = async {
@@ -278,6 +270,4 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
             |> Actor.Publish
             |> Actor.ref
 
-        let jq = new JobQueue(ref, siftConfig)
-        jq.InstallLocalLogger(logger)
-        jq
+        new JobQueue(ref, siftConfig)

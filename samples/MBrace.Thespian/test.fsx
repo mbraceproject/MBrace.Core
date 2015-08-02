@@ -16,7 +16,7 @@ MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.The
 
 #time "on"
 
-let cluster = MBraceThespian.InitLocal 4
+let cluster = MBraceThespian.InitLocal 1
 cluster.AttachLogger(new ConsoleLogger())
 
 let workers = cluster.Workers
