@@ -883,6 +883,35 @@ module CloudFlow =
         |> map (fun (k, xs) -> k, xs :> seq<_>)
 
 
+    /// <summary>Applies a key-generating functions to each element of the flows and yields a flow of unique keys and sequences of all elements that have each key.</summary>
+    /// <param name="firstProjection">A function to transform items of the first flow into comparable keys.</param>
+    /// <param name="secondProjection">A function to transform items of the second flow into comparable keys.</param>
+    /// <param name="firstSource">The first input flow.</param>
+    /// <param name="secondSource">The second input flow.</param>
+    /// <returns>A flow of tuples where each tuple contains the unique key and the sequences of all the elements that match the key.</returns>
+    let inline groupJoinBy (firstProjection : 'T -> 'Key) (secondProjection : 'R -> 'Key) (secondSource : CloudFlow<'R>) (firstSource : CloudFlow<'T>) : CloudFlow<'Key * seq<'T> * seq<'R>> =
+        Fold.foldByGen2 
+               (fun _ x -> firstProjection x)
+               (fun _ x -> secondProjection x)
+               (fun _ ((xs : ResizeArray<'T>, _ : ResizeArray<'R>) as tuple) x -> xs.Add x; tuple)
+               (fun _ ((_ : ResizeArray<'T>, ys : ResizeArray<'R>) as tuple) y -> ys.Add y; tuple)
+               (fun _ (xs, ys) (xs', ys') -> ((xs.AddRange(xs'); xs), (ys.AddRange(ys'); ys)))
+               (fun _ -> (new ResizeArray<'T>(), new ResizeArray<'R>()))
+               firstSource
+               secondSource
+        |> map (fun (k, (xs, ys)) -> k, xs :> seq<_>, ys :> seq<_>)
+
+    /// <summary>Applies a key-generating functions to each element of the flows and yields a flow of unique keys and elements that have each key.</summary>
+    /// <param name="firstProjection">A function to transform items of the first flow into comparable keys.</param>
+    /// <param name="secondProjection">A function to transform items of the second flow into comparable keys.</param>
+    /// <param name="firstSource">The first input flow.</param>
+    /// <param name="secondSource">The second input flow.</param>
+    /// <returns>A flow of tuples where each tuple contains the unique key and the values that match the key.</returns>
+    let inline join (firstProjection : 'T -> 'Key) (secondProjection : 'R -> 'Key) (secondSource : CloudFlow<'R>) (firstSource : CloudFlow<'T>) : CloudFlow<'Key * 'T * 'R> =
+        groupJoinBy firstProjection secondProjection secondSource firstSource
+        |> collect (fun (key, xs, ys) -> xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (key, x, y))) )
+
+
     /// <summary>Returns a flow that contains no duplicate entries according to the generic hash and equality comparisons on the keys returned by the given key-generating function. If an element occurs multiple times in the flow then only one is retained.</summary>
     /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
     /// <param name="source">The input flow.</param>
