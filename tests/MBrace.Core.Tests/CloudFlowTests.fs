@@ -571,6 +571,64 @@ type ``CloudFlow tests`` () as self =
 
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
+
+    [<Test>]
+    member __.``2. CloudFlow : leftOuterJoin`` () =
+        let f(xs : int[], ys : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.leftOuterJoin id id (CloudFlow.OfArray ys)
+                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.toArray
+                |> runRemote
+            let y =
+                xs.GroupJoin(ys, (fun x -> x), (fun y -> y), (fun x ys -> if Seq.isEmpty ys then Seq.singleton (x, None) else ys |> Seq.map (fun y -> (x, Some y)))).SelectMany(fun x -> x).ToArray()
+                
+            (x |> Array.sortBy id) = (y |> Array.sortBy id)
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+    [<Test>]
+    member __.``2. CloudFlow : rightOuterJoin`` () =
+        let f(xs : int[], ys : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.rightOuterJoin id id (CloudFlow.OfArray ys)
+                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.toArray
+                |> runRemote
+            let y =
+                ys.GroupJoin(xs, (fun y -> y), (fun x -> x),  (fun y xs -> if Seq.isEmpty xs then Seq.singleton (None, y) else xs |> Seq.map (fun x -> (Some x, y)))).SelectMany(fun x -> x).ToArray()
+                
+            (x |> Array.sortBy id) = (y |> Array.sortBy id)
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+    [<Test>]
+    member __.``2. CloudFlow : fullOuterJoin`` () =
+        let f(xs : int[], ys : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.fullOuterJoin id id (CloudFlow.OfArray ys)
+                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.toArray
+                |> runRemote
+            let left =
+                xs.GroupJoin(ys, (fun x -> x), (fun y -> y), (fun x ys -> if Seq.isEmpty ys then Seq.singleton (Some x, None) else ys |> Seq.map (fun y -> (Some x, Some y)))).SelectMany(fun x -> x).ToArray()
+            let right =
+                ys.GroupJoin(xs, (fun y -> y), (fun x -> x),  (fun y xs -> if Seq.isEmpty xs then Seq.singleton (None, Some y) else xs |> Seq.map (fun x -> (Some x, Some y)))).SelectMany(fun x -> x).ToArray()
+            let full = left.Union(right).ToArray()
+
+                
+            (x |> set) = (full |> set)
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
     [<Test>]
     member __.``2. CloudFlow : distinctBy`` () =
         let f(xs : int[]) =
