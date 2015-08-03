@@ -323,6 +323,7 @@ module Builders =
         member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingICloudDisposable value bindF
 
+        [<CompilerMessage("Use of System.IDisposable bindings in cloud workflows not recommended; consider containing to local workflows instead.", 443)>]
         member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingIDisposable value bindF
 
@@ -363,8 +364,6 @@ module Builders =
         member __.TryFinally(f : Local<'T>, finalizer : unit -> unit) : Local<'T> = 
             mkLocal <| tryFinally f.Body (retFunc finalizer)
 
-        member __.For(ts : 'T [], body : 'T -> Local<unit>) : Local<unit> = mkLocal <| forArray body ts
-        member __.For(ts : 'T list, body : 'T -> Local<unit>) : Local<unit> = mkLocal <| forList body ts
         member __.For(ts : seq<'T>, body : 'T -> Local<unit>) : Local<unit> = 
             match ts with
             | :? ('T []) as ts -> mkLocal <| forArray body ts
