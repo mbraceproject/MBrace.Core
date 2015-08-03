@@ -323,6 +323,9 @@ module Builders =
         member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingICloudDisposable value bindF
 
+        member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
+            mkCloud <| usingIDisposable value bindF
+
         member __.TryWith(f : Cloud<'T>, handler : exn -> Cloud<'T>) : Cloud<'T> = mkCloud <| tryWith f.Body handler
         member __.TryFinally(f : Cloud<'T>, finalizer : unit -> unit) : Cloud<'T> = 
             mkCloud <| tryFinally f.Body (retFunc finalizer)
@@ -376,3 +379,4 @@ module Builders =
 
     /// cloud builder instance
     let cloud = new CloudBuilder ()
+
