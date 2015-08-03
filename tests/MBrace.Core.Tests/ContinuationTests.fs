@@ -312,10 +312,10 @@ module ``Continuation Tests`` =
         !cell |> shouldEqual 55
 
     [<Test>]
-    let ``use binding`` () =
+    let ``use binding (ICloudDisposable)`` () =
         cloud {
             let! r1, d = cloud {
-                use d = new DummyDisposable()
+                use d = new DummyCloudDisposable()
                 return d.IsDisposed, d 
             }
 
@@ -323,10 +323,10 @@ module ``Continuation Tests`` =
         } |> run |> Choice.shouldEqual (false, true)
 
     [<Test>]
-    let ``use! binding`` () =
+    let ``use binding (IDisposable)`` () =
         cloud {
             let! r1, d = cloud {
-                use! d = cloud { return new DummyDisposable() }
+                use d = new DummyIDisposable()
                 return d.IsDisposed, d 
             }
 
@@ -334,9 +334,31 @@ module ``Continuation Tests`` =
         } |> run |> Choice.shouldEqual (false, true)
 
     [<Test>]
-    let ``use binding with exception`` () =
+    let ``use! binding (ICloudDisposable)`` () =
         cloud {
-            let d = new DummyDisposable ()
+            let! r1, d = cloud {
+                use! d = cloud { return new DummyCloudDisposable() }
+                return d.IsDisposed, d 
+            }
+
+            return r1, d.IsDisposed
+        } |> run |> Choice.shouldEqual (false, true)
+
+    [<Test>]
+    let ``use! binding (IDisposable)`` () =
+        cloud {
+            let! r1, d = cloud {
+                use! d = cloud { return new DummyIDisposable() }
+                return d.IsDisposed, d 
+            }
+
+            return r1, d.IsDisposed
+        } |> run |> Choice.shouldEqual (false, true)
+
+    [<Test>]
+    let ``use binding (ICloudDisposable) with exception`` () =
+        cloud {
+            let d = new DummyCloudDisposable ()
             try
                 use d = d
                 do failwith ""
@@ -347,9 +369,23 @@ module ``Continuation Tests`` =
         } |> run |> Choice.shouldEqual true
 
     [<Test>]
-    let ``use! binding with exception`` () =
+    let ``use binding (IDisposable) with exception`` () =
         cloud {
-            let d = new DummyDisposable ()
+            let d = new DummyIDisposable ()
+            try
+                use d = d
+                do failwith ""
+                return d.IsDisposed
+
+            with _ -> return d.IsDisposed
+
+        } |> run |> Choice.shouldEqual true
+
+
+    [<Test>]
+    let ``use! binding (ICloudDisposable) with exception`` () =
+        cloud {
+            let d = new DummyCloudDisposable ()
             try
                 use! d = cloud { return d }
                 do failwith ""
@@ -359,6 +395,18 @@ module ``Continuation Tests`` =
 
         } |> run |> Choice.shouldEqual true
 
+    [<Test>]
+    let ``use! binding (IDisposable) with exception`` () =
+        cloud {
+            let d = new DummyIDisposable ()
+            try
+                use! d = cloud { return d }
+                do failwith ""
+                return d.IsDisposed
+
+            with _ -> return d.IsDisposed
+
+        } |> run |> Choice.shouldEqual true
 
     //
     //  Advanced tests

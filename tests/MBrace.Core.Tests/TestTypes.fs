@@ -1,11 +1,19 @@
 ﻿namespace MBrace.Core.Tests
 
+open System
 open System.Collections.Generic
 
 open MBrace.Core
 open MBrace.Library
 
-type DummyDisposable() =
+type DummyIDisposable() =
+    let isDisposed = ref false
+    interface IDisposable with
+        member __.Dispose () = isDisposed := true 
+
+    member __.IsDisposed = !isDisposed
+
+type DummyCloudDisposable() =
     let isDisposed = ref false
     interface ICloudDisposable with
         member __.Dispose () = async { isDisposed := true }
