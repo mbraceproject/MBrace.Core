@@ -537,6 +537,41 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : groupJoinBy`` () =
+        let f(xs : int[], ys : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.groupJoinBy id id (CloudFlow.OfArray ys)
+                |> CloudFlow.collect (fun (k, xs, ys) -> xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (x, y))))
+                |> CloudFlow.toArray
+                |> runRemote
+            let y =
+                xs.Join(ys, (fun x -> x), (fun y -> y), (fun x y -> (x, y))).ToArray()
+                
+            (x |> Array.sortBy id) = (y |> Array.sortBy id)
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+
+    [<Test>]
+    member __.``2. CloudFlow : join`` () =
+        let f(xs : int[], ys : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.join id id (CloudFlow.OfArray ys)
+                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.toArray
+                |> runRemote
+            let y =
+                xs.Join(ys, (fun x -> x), (fun y -> y), (fun x y -> (x, y))).ToArray()
+                
+            (x |> Array.sortBy id) = (y |> Array.sortBy id)
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : distinctBy`` () =
         let f(xs : int[]) =
             let x =
