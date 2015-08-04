@@ -323,7 +323,7 @@ module Builders =
         member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingICloudDisposable value bindF
 
-        [<CompilerMessage("Use of System.IDisposable bindings in an unconstrained cloud { ... } workflows is not recommended because these values are normally not serializable; consider using a more constrained local { ... } cloud workflow instead, which are constrained to execute on a single machine. Any cloud computations which manipulate local resources should normally be written using local { ... } cloud workflows.", 443)>]
+        [<CompilerMessage("Use of System.IDisposable bindings in cloud { ... } workflows is not recommended because these values are normally not serializable. Consider using a more constrained local { ... } cloud workflow instead, which are constrained to execute on a single machine. Note that all cloud computations which manipulate local resources should normally be written using local { ... } cloud workflows.", 443)>]
         member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingIDisposable value bindF
 
@@ -333,14 +333,14 @@ module Builders =
 
         member __.For(ts : 'T [], body : 'T -> Cloud<unit>) : Cloud<unit> = mkCloud <| forArray body ts
         member __.For(ts : 'T list, body : 'T -> Cloud<unit>) : Cloud<unit> = mkCloud <| forList body ts
-        [<CompilerMessage("For loops indexed on IEnumerable are not recommended in cloud { ... } workflows because arbitrary IEnumerable values are often not serializable. Consider either explicitly converting to list or array, or using a more constrained local { ... } cloud workflow instead. These are constrained to execute on a single machine: any cloud computations which manipulate local memory or unserializable resources should normally be written using local { ... } cloud workflows.", 443)>]
+        [<CompilerMessage("For loops indexed on IEnumerable are not recommended in cloud { ... } workflows because arbitrary IEnumerable values are often not serializable. Consider either explicitly converting to list or array, or using a more constrained local { ... } cloud workflow instead. These are constrained to execute on a single machine. Note that all cloud computations which manipulate local memory or unserializable resources should normally be written using local { ... } cloud workflows.", 443)>]
         member __.For(ts : seq<'T>, body : 'T -> Cloud<unit>) : Cloud<unit> = 
             match ts with
             | :? ('T []) as ts -> mkCloud <| forArray body ts
             | :? ('T list) as ts -> mkCloud <| forList body ts
             | _ -> mkCloud <| forSeq body ts
 
-        [<CompilerMessage("While loops are not recommended in cloud { ... } workflows because they normally manipulate unserializable shared memory. Consider using a more constrained local { ... } cloud workflow instead. These are constrained to execute on a single machine: any cloud computations which manipulate local memory or unserializable resources should normally be written using local { ... } cloud workflows.", 443)>]
+        [<CompilerMessage("While loops are not recommended in cloud { ... } workflows because they normally manipulate unserializable shared memory. Consider using a more constrained local { ... } cloud workflow instead. These are constrained to execute on a single machine. Note that all cloud computations which manipulate local memory or unserializable resources should normally be written using local { ... } cloud workflows.", 443)>]
         member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = mkCloud <| whileM pred body.Body
 
     /// Represents a workflow builder used to specify single-machine cloud computations. 
