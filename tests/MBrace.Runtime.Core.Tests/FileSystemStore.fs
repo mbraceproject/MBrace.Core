@@ -21,7 +21,7 @@ type ``Local FileSystemStore Tests`` () =
     override __.FileStore = fsConfig.FileStore
     override __.Serializer = serializer :> _
     override __.RunOnCloud(wf : Cloud<'T>) = imem.Run wf
-    override __.RunOnClient(wf : Cloud<'T>) = imem.Run wf
+    override __.RunOnThisMachine(wf : Cloud<'T>) = imem.Run wf
 
 
 [<TestFixture>]
@@ -34,7 +34,7 @@ type ``Local FileSystemStore CloudValue Tests`` () =
     let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunOnCloud(wf : Cloud<'T>) = imem.Run wf
-    override __.RunOnClient(wf : Cloud<'T>) = imem.Run wf
+    override __.RunOnThisMachine(wf : Cloud<'T>) = imem.Run wf
     override __.IsSupportedLevel lvl = cloudValueProvider.IsSupportedStorageLevel lvl
 
 
@@ -49,7 +49,7 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
     let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunOnCloud(wf : Cloud<'T>) = imem.Run wf
-    override __.RunOnClient(wf : Cloud<'T>) = imem.Run wf
+    override __.RunOnThisMachine(wf : Cloud<'T>) = imem.Run wf
     override __.IsSupportedStorageLevel level = cloudValueProvider.IsSupportedStorageLevel level
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

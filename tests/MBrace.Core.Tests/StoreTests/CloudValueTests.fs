@@ -8,7 +8,7 @@ open MBrace.Core
 type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.RunOnCloud wf 
-    let runOnClient wf = self.RunOnClient wf
+    let runOnThisMachine wf = self.RunOnThisMachine wf
 
     let runProtected wf = 
         try self.RunOnCloud wf |> Choice1Of2
@@ -26,7 +26,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract RunOnCloud : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunOnClient : Cloud<'T> -> 'T
+    abstract RunOnThisMachine : Cloud<'T> -> 'T
     /// Checks if storage level is supported
     abstract IsSupportedLevel : StorageLevel -> bool
 

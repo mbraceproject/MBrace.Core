@@ -32,14 +32,14 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
 
     let runOnCloud (workflow : Cloud<'T>) = self.RunOnCloud workflow
     let runInCloudCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.RunOnCloud workflow
-    let runOnClient (workflow : Cloud<'T>) = self.RunOnClient workflow
+    let runOnThisMachine (workflow : Cloud<'T>) = self.RunOnThisMachine workflow
     
     /// Run workflow in the runtime under test
     abstract RunOnCloud : workflow:Cloud<'T> -> Choice<'T, exn>
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
     abstract RunOnCloud : workflow:(ICloudCancellationTokenSource -> #Cloud<'T>) -> Choice<'T, exn>
     /// Evaluate workflow in the local test process
-    abstract RunOnClient : workflow:Cloud<'T> -> 'T
+    abstract RunOnThisMachine : workflow:Cloud<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck
     abstract FsCheckMaxTests : int
     /// Maximum number of repeats to run nondeterministic tests
@@ -84,7 +84,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     [<Test>]
     member __.``1. Parallel : use binding`` () =
         let parallelismFactor = parallelismFactor
-        let c = CloudAtom.New 0 |> runOnClient
+        let c = CloudAtom.New 0 |> runOnThisMachine
         cloud {
             use foo = { new ICloudDisposable with member __.Dispose () = c.Transact(fun i -> (), i + 1) }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Incr c) |> Cloud.Parallel
@@ -106,7 +106,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
 
     [<Test>]
     member  __.``1. Parallel : finally`` () =
-        let trigger = runOnClient <| CloudAtom.New 0
+        let trigger = runOnThisMachine <| CloudAtom.New 0
         Cloud.TryFinally( cloud {
             let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
             return () }, CloudAtom.Incr trigger |> Local.Ignore)
@@ -202,7 +202,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     member __.``1. Parallel : simple cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let counter = CloudAtom.New 0 |> runOnClient
+            let counter = CloudAtom.New 0 |> runOnThisMachine
             runInCloudCts(fun cts -> cloud {
                 let f i = cloud {
                     if i = 0 then cts.Cancel() 
@@ -415,7 +415,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     member __.``2. Choice : all inputs 'None'`` () =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let count = CloudAtom.New 0 |> runOnClient
+            let count = CloudAtom.New 0 |> runOnThisMachine
             cloud {
                 let worker _ = cloud {
                     let! _ = CloudAtom.Incr count
@@ -432,7 +432,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let count = CloudAtom.New 0 |> runOnClient
+            let count = CloudAtom.New 0 |> runOnThisMachine
             cloud {
                 let worker i = cloud {
                     if i = 0 then return Some i
@@ -451,7 +451,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     [<Test>]
     member __.``2. Choice : all inputs 'Some'`` () =
         repeat(fun () ->
-            let successcounter = CloudAtom.New 0 |> runOnClient
+            let successcounter = CloudAtom.New 0 |> runOnThisMachine
             cloud {
                 let worker _ = cloud { return Some 42 }
                 let! result = Array.init 100 worker |> Cloud.Choice
@@ -468,7 +468,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             let nNested = nNested
-            let counter = CloudAtom.New 0 |> runOnClient
+            let counter = CloudAtom.New 0 |> runOnThisMachine
             cloud {
                 let worker i j = cloud {
                     if i = 0 && j = 0 then
@@ -490,7 +490,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
         let delayFactor = delayFactor
         repeat(fun () ->
             let nNested = nNested
-            let counter = CloudAtom.New 0 |> runOnClient
+            let counter = CloudAtom.New 0 |> runOnThisMachine
             cloud {
                 let worker i j = cloud {
                     if i = 0 && j = 0 then
@@ -512,7 +512,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let counter = CloudAtom.New 0 |> runOnClient
+            let counter = CloudAtom.New 0 |> runOnThisMachine
             runInCloudCts(fun cts ->
                 cloud {
                     let worker i = cloud {
@@ -672,7 +672,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     member __.``3. Task: task with exception`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let count = CloudAtom.New 0 |> runOnClient
+            let count = CloudAtom.New 0 |> runOnThisMachine
             cloud {
                 let tworkflow = cloud {
                     do! Cloud.Sleep delayFactor
@@ -696,7 +696,7 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     member __.``3. Task: with cancellation token`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let count = CloudAtom.New 0 |> runOnClient
+            let count = CloudAtom.New 0 |> runOnThisMachine
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
                 let tworkflow = cloud {

@@ -50,7 +50,7 @@ module ``CloudFlow Core property tests`` =
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
     let runOnCloud (workflow : Cloud<'T>) = self.RunOnCloud(workflow)
-    let runOnClient (workflow : Cloud<'T>) = self.RunOnClient(workflow)
+    let runOnThisMachine (workflow : Cloud<'T>) = self.RunOnThisMachine(workflow)
 
     /// Urls for running HTTP tests
     let testUrls = 
@@ -75,7 +75,7 @@ type ``CloudFlow tests`` () as self =
         lineCount
 
     abstract RunOnCloud : Cloud<'T> -> 'T
-    abstract RunOnClient : Cloud<'T> -> 'T
+    abstract RunOnThisMachine : Cloud<'T> -> 'T
     abstract IsSupportedStorageLevel : StorageLevel -> bool
     abstract FsCheckMaxNumberOfTests : int
     abstract FsCheckMaxNumberOfIOBoundTests : int
@@ -210,7 +210,7 @@ type ``CloudFlow tests`` () as self =
             let cfs = xs 
                      |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> runOnClient
+                     |> runOnThisMachine
 
             let paths = cfs |> Array.map (fun cf -> cf.Path)
             let x =     CloudFlow.OfCloudFiles(paths, (fun (stream : System.IO.Stream) -> seq { yield stream.Length })) 
@@ -222,8 +222,8 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``2. CloudFlow : ofCloudFiles with small threshold`` () =
-        let path = CloudPath.GetRandomFileName() |> runOnClient
-        let file = CloudFile.WriteAllText(path, "Lorem ipsum dolor sit amet") |> runOnClient
+        let path = CloudPath.GetRandomFileName() |> runOnThisMachine
+        let file = CloudFile.WriteAllText(path, "Lorem ipsum dolor sit amet") |> runOnThisMachine
         let f (size : int) =
             let size = abs size % 200
             let repeatedPaths = Array.init size (fun _ -> file.Path)
@@ -241,7 +241,7 @@ type ``CloudFlow tests`` () as self =
             let cfs = xs 
                      |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> runOnClient
+                     |> runOnThisMachine
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
                         |> CloudFlow.OfCloudFileByLine
@@ -249,7 +249,7 @@ type ``CloudFlow tests`` () as self =
                         |> runOnCloud
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunOnThisMachine(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -262,7 +262,7 @@ type ``CloudFlow tests`` () as self =
             let cfs = xs 
                      |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> runOnClient
+                     |> runOnThisMachine
 
             let x = cfs |> Array.map (fun cf -> cf.Path)
                         |> CloudFlow.OfCloudFileByLine
@@ -270,7 +270,7 @@ type ``CloudFlow tests`` () as self =
                         |> runOnCloud
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunOnThisMachine(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -288,8 +288,8 @@ type ``CloudFlow tests`` () as self =
                 | R -> "\r"
                 | RN -> "\r\n"
 
-            let path = CloudPath.GetRandomFileName() |> runOnClient
-            let cf = CloudFile.WriteAllText(path, xs |> String.concat separator) |> runOnClient
+            let path = CloudPath.GetRandomFileName() |> runOnThisMachine
+            let cf = CloudFile.WriteAllText(path, xs |> String.concat separator) |> runOnThisMachine
             let path = cf.Path
 
             let x = 
@@ -301,7 +301,7 @@ type ``CloudFlow tests`` () as self =
                     
             
             let y = 
-                __.RunOnClient(cloud { return! CloudFile.ReadLines cf.Path })
+                __.RunOnThisMachine(cloud { return! CloudFile.ReadLines cf.Path })
                 |> Seq.sortBy id
                 |> Seq.toArray
                     
@@ -319,8 +319,8 @@ type ``CloudFlow tests`` () as self =
                 | R -> "\r"
                 | RN -> "\r\n"
 
-            let path = CloudPath.GetRandomFileName() |> runOnClient
-            let cf = CloudFile.WriteAllText(path, [|1..(Math.Abs(count) * 1000)|] |> Array.map string |> String.concat separator) |> runOnClient
+            let path = CloudPath.GetRandomFileName() |> runOnThisMachine
+            let cf = CloudFile.WriteAllText(path, [|1..(Math.Abs(count) * 1000)|] |> Array.map string |> String.concat separator) |> runOnThisMachine
             let path = cf.Path
 
             let x = 
@@ -330,7 +330,7 @@ type ``CloudFlow tests`` () as self =
                 |> runOnCloud
                 
             let y = 
-                __.RunOnClient(cloud { let! lines = CloudFile.ReadLines path in return lines |> Seq.length })
+                __.RunOnThisMachine(cloud { let! lines = CloudFile.ReadLines path in return lines |> Seq.length })
                             
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
@@ -341,7 +341,7 @@ type ``CloudFlow tests`` () as self =
             let cfs = xs 
                      |> Array.map(fun text -> local { let! path = CloudPath.GetRandomFileName() in return! CloudFile.WriteAllLines(path, text) })
                      |> Cloud.Parallel
-                     |> runOnClient
+                     |> runOnThisMachine
 
             let x = cfs 
                         |> Array.map (fun cf -> cf.Path)
@@ -350,7 +350,7 @@ type ``CloudFlow tests`` () as self =
                         |> runOnCloud
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunOnThisMachine(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -804,13 +804,13 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : toTextCloudFiles`` () =
         let f(xs : int[]) =
             let xs = xs |> Array.map string
-            let dir = CloudPath.GetRandomDirectoryName() |> __.RunOnClient
+            let dir = CloudPath.GetRandomDirectoryName() |> __.RunOnThisMachine
             let cfs = 
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.toTextCloudFiles dir
                 |> runOnCloud
-            let ys = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let ys = cfs |> Array.map (fun f -> __.RunOnThisMachine(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Seq.toArray
             Assert.AreEqual(xs, ys)
