@@ -127,7 +127,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="workflow">Cloud workflow to execute.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunLocallyAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
+    member __.RunOnClientAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
         imem.RunAsync(workflow, ?memoryEmulation = memoryEmulation)
 
     /// <summary>
@@ -136,5 +136,5 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="workflow">Cloud workflow to execute.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunLocally(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
+    member __.RunOnClient(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
         imem.Run(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)

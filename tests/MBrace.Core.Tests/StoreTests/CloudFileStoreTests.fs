@@ -15,14 +15,14 @@ open MBrace.Library
 [<TestFixture; AbstractClass>]
 type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
-    let runRemote wf = self.RunRemote wf 
-    let runLocally wf = self.RunLocally wf
+    let runOnCloud wf = self.RunOnCloud wf 
+    let runOnClient wf = self.RunOnClient wf
 
     let testDirectory = lazy(self.FileStore.GetRandomDirectoryName())
     let runSync wf = Async.RunSync wf
 
     let runProtected wf = 
-        try self.RunRemote wf |> Choice1Of2
+        try self.RunOnCloud wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// FileStore implementation under test
@@ -31,9 +31,9 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     abstract Serializer : ISerializer
 
     /// Run workflow in the runtime under test
-    abstract RunRemote : Cloud<'T> -> 'T
+    abstract RunOnCloud : Cloud<'T> -> 'T
     /// Evaluate workflow under local semantics in the test process
-    abstract RunLocally : Cloud<'T> -> 'T
+    abstract RunOnClient : Cloud<'T> -> 'T
 
     //
     //  Section 1: Local raw fileStore tests
@@ -277,7 +277,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : PersistedValue - simple`` () = 
-        let ref = runRemote <| PersistedValue.New 42
+        let ref = runOnCloud <| PersistedValue.New 42
         ref.Value |> shouldEqual 42
 
     [<Test>]
@@ -291,7 +291,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 let! serializer = Cloud.GetResource<ISerializer> ()
                 let! _ = CloudFile.Create(c.Path, fun s -> async { return serializer.Serialize(s, [1..100], false)})
                 return c.Value
-            } |> runRemote
+            } |> runOnCloud
 
         |> shouldFailwith<_,InvalidDataException>
 
@@ -301,17 +301,17 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             let! ref = PersistedValue.New [1 .. 100]
             let! (x, y) = cloud { return ref.Value.Length } <||> cloud { return ref.Value.Length }
             return x + y
-        } |> runRemote |> shouldEqual 200
+        } |> runOnCloud |> shouldEqual 200
 
     [<Test>]
     member __.``2. MBrace : PersistedValue - Distributed tree`` () =
-        let tree = CloudTree.createTree 5 |> runRemote
-        CloudTree.getBranchCount tree |> runRemote |> shouldEqual 31
+        let tree = CloudTree.createTree 5 |> runOnCloud
+        CloudTree.getBranchCount tree |> runOnCloud |> shouldEqual 31
 
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - simple`` () = 
-        let b = runRemote <| PersistedSequence.New [1..10000]
+        let b = runOnCloud <| PersistedSequence.New [1..10000]
         b.Count |> shouldEqual 10000L
         b |> Seq.sum |> shouldEqual (List.sum [1..10000])
         b.ToArray() |> Array.sum |> shouldEqual (List.sum [1..10000])
@@ -327,13 +327,13 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 // cloudsequence should use etag implementation to infer that content has changed
                 let! _ = CloudFile.Create(c.Path, fun s -> async { return ignore <| serializer.SeqSerialize(s, [1..100], false)})
                 return c.ToArray()
-            } |> runRemote
+            } |> runOnCloud
 
         |> shouldFailwith<_,InvalidDataException>
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - parallel`` () =
-        let ref = runRemote <| PersistedSequence.New [1..10000]
+        let ref = runOnCloud <| PersistedSequence.New [1..10000]
         ref |> Seq.length |> shouldEqual 10000
         cloud {
             let! ref = PersistedSequence.New [1 .. 10000]
@@ -343,7 +343,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 cloud { return Seq.length ref } 
 
             return x + y
-        } |> runRemote |> shouldEqual 20000
+        } |> runOnCloud |> shouldEqual 20000
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - partitioned`` () =
@@ -352,7 +352,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             seqs.Length |> shouldBe (fun l -> l >= 8 && l < 10)
             let! partialSums = seqs |> Array.map (fun c -> cloud {  return Seq.sum c }) |> Cloud.Parallel
             return Array.sum partialSums
-        } |> runRemote |> shouldEqual (Array.sum [|1L .. 1000000L|])
+        } |> runOnCloud |> shouldEqual (Array.sum [|1L .. 1000000L|])
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - of deserializer`` () =
@@ -369,7 +369,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             let! seq = PersistedSequence.OfCloudFile(file.Path, deserializer)
             let! ch = Cloud.StartChild(cloud { return Seq.length seq })
             return! ch
-        } |> runRemote |> shouldEqual 100
+        } |> runOnCloud |> shouldEqual 100
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - read lines`` () =
@@ -378,7 +378,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
             let! cseq = PersistedSequence.OfCloudFileByLine(file.Path)
             return Seq.length cseq
-        } |> runRemote |> shouldEqual 100
+        } |> runOnCloud |> shouldEqual 100
 
     [<Test>]
     member __.``2. MBrace : PersistedSequence - read lines partitioned`` () =
@@ -395,7 +395,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 let! file = CloudFile.WriteAllLines(path, lines)
                 let! cseq = PersistedSequence.OfCloudFileByLine file.Path   
                 return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
-            } |> runLocally
+            } |> runOnClient
 
         let testPartitioning partitionCount =
             cloud {
@@ -403,7 +403,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 let! lines' = partitions |> Cloud.Balanced.collectLocal (fun c -> local { return! c.ToEnumerable() })
                 lines'.Length |> shouldEqual 1000
                 lines' |> Array.iteri check 
-            } |> runRemote
+            } |> runOnCloud
 
         // AppVeyor has performance bottleneck when doing concurrent IO; reduce number of tests
         let testedPartitionCounts = 
@@ -416,13 +416,13 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
-        let path = CloudPath.GetRandomFileName() |> runLocally
-        let file = CloudFile.WriteAllBytes(path, [|1uy .. 100uy|]) |> runRemote
+        let path = CloudPath.GetRandomFileName() |> runOnClient
+        let file = CloudFile.WriteAllBytes(path, [|1uy .. 100uy|]) |> runOnCloud
         file.Size |> shouldEqual 100L
         cloud {
             let! bytes = CloudFile.ReadAllBytes file.Path
             return bytes.Length
-        } |> runRemote |> shouldEqual 100
+        } |> runOnCloud |> shouldEqual 100
 
     [<Test>]
     member __.``2. MBrace : CloudFile - large`` () =
@@ -431,12 +431,12 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 let text = Seq.init 1000 (fun _ -> "lorem ipsum dolor sit amet")
                 let! path = CloudPath.GetRandomFileName()
                 return! CloudFile.WriteAllLines(path, text)
-            } |> runRemote
+            } |> runOnCloud
 
         cloud {
             let! lines = CloudFile.ReadLines file.Path
             return Seq.length lines
-        } |> runRemote |> shouldEqual 1000
+        } |> runOnCloud |> shouldEqual 1000
 
     [<Test>]
     member __.``2. MBrace : CloudFile - read from stream`` () =
@@ -452,7 +452,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                     stream.Dispose() })
 
             return! CloudFile.ReadAllBytes f.Path
-        } |> runRemote |> shouldEqual (mk n)
+        } |> runOnCloud |> shouldEqual (mk n)
 
     [<Test>]
     member __.``2. MBrace : CloudFile - get by name`` () =
@@ -462,7 +462,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             let! t = Cloud.StartChild(CloudFile.ReadAllBytes f.Path)
             let! bytes = t
             return bytes
-        } |> runRemote |> shouldEqual [|1uy .. 100uy|]
+        } |> runOnCloud |> shouldEqual [|1uy .. 100uy|]
 
     [<Test>]
     member __.``2. MBrace : CloudFile - disposable`` () =
@@ -485,7 +485,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
             let! files' = CloudFile.Enumerate container
             return files.Length = files'.Length
-        } |> runRemote |> shouldEqual true
+        } |> runOnCloud |> shouldEqual true
 
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
@@ -522,7 +522,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             do! CloudDirectory.Delete(dir.Path, recursiveDelete = true)
             let! exists = CloudDirectory.Exists dir.Path
             exists |> shouldEqual false
-        } |> runRemote
+        } |> runOnCloud
 
     [<Test>]
     member __.``2. MBrace : CloudDirectory - dispose`` () =
@@ -533,7 +533,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 let! path = CloudPath.GetRandomFileName dir.Path
                 let! file = CloudFile.WriteAllText(path, "lorem ipsum dolor")
                 return dir, file
-            } |> runRemote
+            } |> runOnCloud
 
-        CloudDirectory.Exists dir.Path |> runLocally |> shouldEqual false
-        CloudFile.Exists file.Path |> runLocally |> shouldEqual false
+        CloudDirectory.Exists dir.Path |> runOnClient |> shouldEqual false
+        CloudFile.Exists file.Path |> runOnClient |> shouldEqual false

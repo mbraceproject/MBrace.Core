@@ -10,19 +10,19 @@ open NUnit.Framework
 [<TestFixture; AbstractClass>]
 type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
-    let runRemote wf = self.RunRemote wf 
-    let runLocally wf = self.RunLocally wf
+    let runOnCloud wf = self.RunOnCloud wf 
+    let runOnClient wf = self.RunOnClient wf
 
     let runProtected wf = 
-        try self.RunRemote wf |> Choice1Of2
+        try self.RunOnCloud wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// Specifies if test is running in-memory
     abstract IsInMemoryFixture : bool
     /// Run workflow in the runtime under test
-    abstract RunRemote : Cloud<'T> -> 'T
+    abstract RunOnCloud : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocally : Cloud<'T> -> 'T
+    abstract RunOnClient : Cloud<'T> -> 'T
 
     [<Test>]
     member __.``add/remove`` () =
@@ -32,7 +32,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
             let! contains = dict.ContainsKey "key"
             contains |> shouldEqual true
             return! dict.TryFind "key"
-        } |> runRemote |> shouldEqual (Some 42)
+        } |> runOnCloud |> shouldEqual (Some 42)
 
     [<Test>]
     member __.``multiple adds`` () =
@@ -43,7 +43,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
             let! values = dict.ToEnumerable()
             return values |> Seq.map (fun kv -> kv.Value) |> Seq.sum
-        } |> runRemote |> shouldEqual 5050
+        } |> runOnCloud |> shouldEqual 5050
 
     [<Test>]
     member __.``concurrent adds`` () =
@@ -55,7 +55,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 
             return! dict.GetCount()
-        } |> runRemote |> shouldEqual (int64 parallelismFactor)
+        } |> runOnCloud |> shouldEqual (int64 parallelismFactor)
 
     [<Test>]
     member __.``concurrent add or update`` () =
@@ -69,4 +69,4 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> incr i ] |> Cloud.Ignore
             return! dict.TryFind "key"
-        } |> runRemote |> shouldEqual (Some (Array.sum [|1 .. parallelismFactor|]))
+        } |> runOnCloud |> shouldEqual (Some (Array.sum [|1 .. parallelismFactor|]))

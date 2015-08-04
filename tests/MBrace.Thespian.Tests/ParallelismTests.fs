@@ -17,7 +17,7 @@ type ``MBrace Thespian Parallelism Tests`` () as self =
 
     let session = new RuntimeSession(nodes = 4)
 
-    let runRemote (wf : Cloud<'T>) = self.RunRemote wf
+    let runOnCloud (wf : Cloud<'T>) = self.RunOnCloud wf
     let repeat f = repeat self.Repeats f
 
     [<TestFixtureSetUp>]
@@ -28,19 +28,19 @@ type ``MBrace Thespian Parallelism Tests`` () as self =
 
     override __.IsTargetWorkerSupported = true
 
-    override __.RunRemote (workflow : Cloud<'T>) = 
+    override __.RunOnCloud (workflow : Cloud<'T>) = 
         session.Runtime.RunAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
-    override __.RunRemote (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
+    override __.RunOnCloud (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
             return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
         } |> Async.RunSync
 
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
+    override __.RunOnClient(workflow : Cloud<'T>) = session.Runtime.RunOnClient(workflow)
 
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10
@@ -53,19 +53,19 @@ type ``MBrace Thespian Parallelism Tests`` () as self =
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
-        runRemote (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers.Length)
+        runOnCloud (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers.Length)
 
     [<Test>]
     member __.``Z4. Runtime : Get current worker`` () =
-        runRemote Cloud.CurrentWorker |> Choice.shouldBe (fun _ -> true)
+        runOnCloud Cloud.CurrentWorker |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z4. Runtime : Get process id`` () =
-        runRemote (Cloud.GetProcessId()) |> Choice.shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetProcessId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z4. Runtime : Get task id`` () =
-        runRemote (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z5. Fault Tolerance : map/reduce`` () =
