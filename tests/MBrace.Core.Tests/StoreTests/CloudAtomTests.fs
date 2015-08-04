@@ -12,19 +12,19 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
 
     static let nSequential = 100
 
-    let runRemote wf = self.RunRemote wf 
-    let runLocally wf = self.RunLocally wf
+    let runOnCloud wf = self.RunOnCloud wf 
+    let runOnThisMachine wf = self.RunOnThisMachine wf
 
     let repeat f = repeat self.Repeats f
 
     let runProtected wf = 
-        try self.RunRemote wf |> Choice1Of2
+        try self.RunOnCloud wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
-    abstract RunRemote : Cloud<'T> -> 'T
+    abstract RunOnCloud : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunLocally : Cloud<'T> -> 'T
+    abstract RunOnThisMachine : Cloud<'T> -> 'T
     /// Maximum number of repeats to run nondeterministic tests
     abstract Repeats : int
 
@@ -41,7 +41,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             let! _ = Seq.init parallelismFactor updater |> Cloud.Parallel
 
             return! CloudAtom.Read atom
-        } |> runRemote |> shouldEqual (parallelismFactor * nSequential)
+        } |> runOnCloud |> shouldEqual (parallelismFactor * nSequential)
 
     [<Test>]
     member __.``CloudAtom - Sequential updates`` () =
@@ -53,7 +53,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     do! CloudAtom.Incr a |> Local.Ignore
 
                 return a
-            } |> runRemote
+            } |> runOnCloud
             
         atom.Value |> shouldEqual nSequential
 
@@ -71,7 +71,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     }
                     do! Seq.init parallelismFactor worker |> Cloud.Parallel |> Cloud.Ignore
                     return a
-                } |> runRemote
+                } |> runOnCloud
         
             atom.Value |> shouldEqual (parallelismFactor * nSequential))
 
@@ -88,7 +88,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     do! Seq.init parallelismFactor (fun i -> CloudAtom.Update (atom, fun is -> i :: is)) |> Cloud.Parallel |> Cloud.Ignore
                     let! values = CloudAtom.Read atom
                     return List.sum values = List.sum [1 .. parallelismFactor]
-            } |> runRemote |> shouldEqual true)
+            } |> runOnCloud |> shouldEqual true)
 
     [<Test>]
     member __.``CloudAtom - transact with contention`` () =
@@ -99,7 +99,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 let! a = CloudAtom.New 0
                 let! results = Seq.init parallelismFactor (fun _ -> CloudAtom.Transact(a, fun i -> i, i+1)) |> Cloud.Parallel
                 return Array.sum results
-            } |> runRemote |> shouldEqual (Array.sum [|0 .. parallelismFactor - 1|]))
+            } |> runOnCloud |> shouldEqual (Array.sum [|0 .. parallelismFactor - 1|]))
 
     [<Test>]
     member __.``CloudAtom - force with contention`` () =
@@ -110,7 +110,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 let! a = CloudAtom.New 0
                 do! Seq.init parallelismFactor (fun i -> CloudAtom.Force(a, i + 1)) |> Cloud.Parallel |> Cloud.Ignore
                 return! CloudAtom.Read a
-            } |> runRemote |> shouldBe (fun i -> i > 0))
+            } |> runOnCloud |> shouldBe (fun i -> i > 0))
 
     [<Test>]
     member __.``CloudAtom - dispose`` () =

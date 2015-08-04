@@ -912,6 +912,51 @@ module CloudFlow =
         |> collect (fun (key, xs, ys) -> xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (key, x, y))) )
 
 
+    /// <summary>Applies a key-generating functions to each element of the flows and yields a flow of unique keys and elements of the left flow together with the optional values of the right flow that match the key.</summary>
+    /// <param name="leftProjection">A function to transform items of the left flow into comparable keys.</param>
+    /// <param name="rightProjection">A function to transform items of the right flow into comparable keys.</param>
+    /// <param name="leftSource">The left input flow.</param>
+    /// <param name="rightSource">The right input flow.</param>
+    /// <returns>A flow of tuples where each tuple contains the unique key and the values of the left flow together with the optional values of the right flow that match the key.</returns>
+    let inline leftOuterJoin (leftProjection : 'T -> 'Key) (rightProjection : 'R -> 'Key) (rightSource : CloudFlow<'R>) (leftSource : CloudFlow<'T>) : CloudFlow<'Key * 'T * 'R option> =
+        groupJoinBy leftProjection rightProjection rightSource leftSource
+        |> collect (fun (key, xs, ys) -> 
+            if Seq.isEmpty ys then
+                xs |> Seq.map (fun x -> (key, x, None))
+            else
+                xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (key, x, Some y))) )
+
+    /// <summary>Applies a key-generating functions to each element of the flows and yields a flow of unique keys and elements of the right flow together with the optional values of the left flow that match the key.</summary>
+    /// <param name="leftProjection">A function to transform items of the left flow into comparable keys.</param>
+    /// <param name="rightProjection">A function to transform items of the right flow into comparable keys.</param>
+    /// <param name="leftSource">The left input flow.</param>
+    /// <param name="rightSource">The right input flow.</param>
+    /// <returns>A flow of tuples where each tuple contains the unique key and the values of the right flow together with the optional values of the left flow that match the key.</returns>
+    let inline rightOuterJoin (leftProjection : 'T -> 'Key) (rightProjection : 'R -> 'Key) (rightSource : CloudFlow<'R>) (leftSource : CloudFlow<'T>) : CloudFlow<'Key * 'T option * 'R> =
+        groupJoinBy leftProjection rightProjection rightSource leftSource
+        |> collect (fun (key, xs, ys) -> 
+            if Seq.isEmpty xs then
+                ys |> Seq.map (fun y -> (key, None, y))
+            else
+                xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (key, Some x, y))) )
+
+
+    /// <summary>Applies a key-generating functions to each element of the flows and yields a flow of unique keys and optional values of the right flow together with the optional values of the left flow that match the key.</summary>
+    /// <param name="leftProjection">A function to transform items of the left flow into comparable keys.</param>
+    /// <param name="rightProjection">A function to transform items of the right flow into comparable keys.</param>
+    /// <param name="leftSource">The left input flow.</param>
+    /// <param name="rightSource">The right input flow.</param>
+    /// <returns>A flow of tuples where each tuple contains the unique key and the optional values of the right flow together with the optional values of the left flow that match the key.</returns>
+    let inline fullOuterJoin (leftProjection : 'T -> 'Key) (rightProjection : 'R -> 'Key) (rightSource : CloudFlow<'R>) (leftSource : CloudFlow<'T>) : CloudFlow<'Key * 'T option * 'R option> =
+        groupJoinBy leftProjection rightProjection rightSource leftSource
+        |> collect (fun (key, xs, ys) -> 
+            if Seq.isEmpty xs then
+                ys |> Seq.map (fun y -> (key, None, Some y))
+            else if Seq.isEmpty ys then
+                xs |> Seq.map (fun x -> (key, Some x, None))
+            else
+                xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (key, Some x, Some y))) )
+
     /// <summary>Returns a flow that contains no duplicate entries according to the generic hash and equality comparisons on the keys returned by the given key-generating function. If an element occurs multiple times in the flow then only one is retained.</summary>
     /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
     /// <param name="source">The input flow.</param>
