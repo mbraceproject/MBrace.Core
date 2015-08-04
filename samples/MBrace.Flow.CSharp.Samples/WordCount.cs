@@ -81,7 +81,7 @@ namespace MBrace.Flow.CSharp.Samples
         {
             var lines = files.SelectMany(path => File.ReadLines(path));
             // Temporary : No C# API for Standalone runtime and StoreClient.
-            var vector = runtime.RunLocally(CloudVector.New(lines, 100L), null);
+            var vector = runtime.RunOnThisMachine(CloudVector.New(lines, 100L), null);
             
             var count = 20;
 

@@ -34,7 +34,7 @@ namespace MBrace.Flow.CSharp.Tests
     abstract public class CloudFlowTests
     {
         abstract public T Run<T>(MBrace.Cloud<T> c);
-        abstract public T RunLocally<T>(MBrace.Cloud<T> c);
+        abstract public T RunOnThisMachine<T>(MBrace.Cloud<T> c);
         abstract public int MaxNumberOfTests { get; }
 
         internal void Run(MBrace.CSharp.CloudAction c)
@@ -77,7 +77,7 @@ namespace MBrace.Flow.CSharp.Tests
             {
                 var x = xs.AsCloudFlow().Select(i => i + 1).ToCloudVector();
                 var y = xs.Select(i => i + 1).ToArray();
-                var r = this.RunLocally(this.Run(x).ToEnumerable());
+                var r = this.RunOnThisMachine(this.Run(x).ToEnumerable());
                 return r.SequenceEqual(y);
             }).QuickThrowOnFail(this.MaxNumberOfTests);
         }
@@ -109,7 +109,7 @@ namespace MBrace.Flow.CSharp.Tests
                     this.Run(cfiles
                         .AsCloudFlow<string>(CloudFileReader.ReadAllText)
                         .ToArray());
-                var y = cfiles.Select(f => this.RunLocally(CloudFile.ReadAllText(f, null)));
+                var y = cfiles.Select(f => this.RunOnThisMachine(CloudFile.ReadAllText(f, null)));
 
                 var s1 = new HashSet<string>(x);
                 var s2 = new HashSet<string>(y);
@@ -130,7 +130,7 @@ namespace MBrace.Flow.CSharp.Tests
                         .AsCloudFlow(CloudFileReader.ReadLines)
                         .SelectMany(l => l.AsStream())
                         .ToArray());
-                var y = cfiles.Select(f => this.RunLocally(CloudFile.ReadAllLines(f,null)))
+                var y = cfiles.Select(f => this.RunOnThisMachine(CloudFile.ReadAllLines(f,null)))
                         .SelectMany(id => id);
 
                 var s1 = new HashSet<string>(x);
@@ -153,7 +153,7 @@ namespace MBrace.Flow.CSharp.Tests
                         .SelectMany(l => l.AsStream())
                         .ToArray());
 
-                var y = cfiles.Select(f => this.RunLocally(CloudFile.ReadAllLines(f, null)))
+                var y = cfiles.Select(f => this.RunOnThisMachine(CloudFile.ReadAllLines(f, null)))
                         .SelectMany(id => id);
 
                 var s1 = new HashSet<string>(x);

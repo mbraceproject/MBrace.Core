@@ -18,8 +18,11 @@ open MBrace.Core.Internals
 // cloud workflows form a continuation over reader monad.
 type internal Body<'T> = ExecutionContext -> Continuation<'T> -> unit
 
-/// Representation of an MBrace workflow, which, when run 
-/// will produce a value of type 'T, or raise an exception.
+/// Represents a distributed cloud computation. Constituent parts of the computation
+/// may be serialized, scheduled and may migrate between different distributed 
+/// execution contexts. If the computation accesses concurrent shared memory then
+/// replace by a more constrained "local" workflow.  
+/// When run will produce a value of type 'T, or raise an exception. 
 [<DataContract>]
 type Cloud<'T> =
     [<DataMember(Name = "Body")>]
@@ -27,8 +30,11 @@ type Cloud<'T> =
     internal new (body : Body<'T>) = { body = body }
     member internal __.Body = __.body
 
-/// Representation of an in-memory computation, which, when run 
-/// will produce a value of type 'T, or raise an exception.
+/// Represents a single-machine cloud computation. The
+/// computation runs to completion as a locally executing in-memory 
+/// computation. The computation may access concurrent shared memory and 
+/// unserializable resources.  When run will produce 
+/// a value of type 'T, or raise an exception.
 [<Sealed; DataContract>]
 type Local<'T> internal (body : Body<'T>) = 
     inherit Cloud<'T>(body)
