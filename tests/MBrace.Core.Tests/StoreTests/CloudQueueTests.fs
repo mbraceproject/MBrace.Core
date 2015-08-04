@@ -10,15 +10,15 @@ open NUnit.Framework
 [<TestFixture; AbstractClass>]
 type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
-    let runInCloud wf = self.RunInCloud wf 
+    let runOnCloud wf = self.RunOnCloud wf 
     let runOnClient wf = self.RunOnClient wf
 
     let runProtected wf = 
-        try self.RunInCloud wf |> Choice1Of2
+        try self.RunOnCloud wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
-    abstract RunInCloud : Cloud<'T> -> 'T
+    abstract RunOnCloud : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunOnClient : Cloud<'T> -> 'T
 
@@ -28,7 +28,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
             let! cq = CloudQueue.New<int> ()
             let! _,value = CloudQueue.Enqueue(cq, 42) <||> CloudQueue.Dequeue cq
             return value
-        } |> runInCloud |> shouldEqual 42
+        } |> runOnCloud |> shouldEqual 42
 
     [<Test>]
     member __.``Queues: multiple send/receive`` () =
@@ -51,7 +51,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
             let! _, result = sender 100 <||> receiver 0
             return result
-        } |> runInCloud |> shouldEqual 5050
+        } |> runOnCloud |> shouldEqual 5050
 
     [<Test>]
     member __.``Queues: multiple senders`` () =
@@ -73,4 +73,4 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
             let senders = Seq.init parallelismFactor (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
             let! _,result = senders <||> receiver 0 (parallelismFactor * 10)
             return result
-        } |> runInCloud |> shouldEqual (parallelismFactor * 10)
+        } |> runOnCloud |> shouldEqual (parallelismFactor * 10)

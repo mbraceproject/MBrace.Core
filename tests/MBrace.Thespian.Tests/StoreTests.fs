@@ -23,7 +23,7 @@ type ``MBrace Thespian FileStore Tests`` () =
     override __.FileStore = session.Runtime.GetResource<CloudFileStoreConfiguration>().FileStore
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
 
-    override __.RunInCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnClient(workflow : Cloud<'T>) = session.Runtime.RunOnClient workflow
 
 
@@ -38,7 +38,7 @@ type ``MBrace Thespian CloudValue Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.RunInCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnClient(workflow : Cloud<'T>) = session.Runtime.RunOnClient workflow
     override __.IsSupportedLevel _ = true
 
@@ -54,7 +54,7 @@ type ``MBrace Thespian Atom Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.RunInCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnClient(workflow : Cloud<'T>) = session.Runtime.RunOnClient workflow
 
 #if DEBUG
@@ -74,7 +74,7 @@ type ``MBrace Thespian Queue Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.RunInCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnClient(workflow : Cloud<'T>) = session.Runtime.RunOnClient workflow
 
 type ``MBrace Thespian Dictionary Tests`` () =
@@ -89,5 +89,5 @@ type ``MBrace Thespian Dictionary Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.IsInMemoryFixture = false
-    override __.RunInCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnClient(workflow : Cloud<'T>) = session.Runtime.RunOnClient workflow

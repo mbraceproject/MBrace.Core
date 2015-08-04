@@ -17,7 +17,7 @@ type ``MBrace Thespian Parallelism Tests`` () as self =
 
     let session = new RuntimeSession(nodes = 4)
 
-    let runInCloud (wf : Cloud<'T>) = self.RunInCloud wf
+    let runOnCloud (wf : Cloud<'T>) = self.RunOnCloud wf
     let repeat f = repeat self.Repeats f
 
     [<TestFixtureSetUp>]
@@ -28,12 +28,12 @@ type ``MBrace Thespian Parallelism Tests`` () as self =
 
     override __.IsTargetWorkerSupported = true
 
-    override __.RunInCloud (workflow : Cloud<'T>) = 
+    override __.RunOnCloud (workflow : Cloud<'T>) = 
         session.Runtime.RunAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
-    override __.RunInCloud (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
+    override __.RunOnCloud (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
@@ -53,19 +53,19 @@ type ``MBrace Thespian Parallelism Tests`` () as self =
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
-        runInCloud (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers.Length)
+        runOnCloud (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers.Length)
 
     [<Test>]
     member __.``Z4. Runtime : Get current worker`` () =
-        runInCloud Cloud.CurrentWorker |> Choice.shouldBe (fun _ -> true)
+        runOnCloud Cloud.CurrentWorker |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z4. Runtime : Get process id`` () =
-        runInCloud (Cloud.GetProcessId()) |> Choice.shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetProcessId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z4. Runtime : Get task id`` () =
-        runInCloud (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z5. Fault Tolerance : map/reduce`` () =
