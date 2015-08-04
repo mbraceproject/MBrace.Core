@@ -68,6 +68,8 @@ let large = [|1L .. 10000000L|]
 
 #r "FsPickler.dll"
 
+open Nessos.FsPickler
+
 Nessos.FsPickler.FsPickler.ComputeSize large
 
 80000034L > 5L * 1024L * 1024L

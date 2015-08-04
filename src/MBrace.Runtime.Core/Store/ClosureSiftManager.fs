@@ -1,6 +1,9 @@
 ﻿namespace MBrace.Runtime.Store
 
+open System
+open System.Collections
 open System.Collections.Concurrent
+open System.Collections.Generic
 open System.Reflection
 
 open Nessos.FsPickler
@@ -57,6 +60,26 @@ with
             SiftThreshold = siftThreshold
         }
 
+[<Sealed; AutoSerializable(false)>]
+type private LargeObjectSifter(serializer : FsPicklerSerializer, rootObj : obj, siftThreshold : int64) =
+    let siftedHashes = new Dictionary<HashResult, ResizeArray<int64>> ()
+
+    interface IObjectSifter with
+        member x.Sift(pickler: Pickler<'T>, id: int64, node: 'T): bool =
+            if obj.ReferenceEquals(node, rootObj) then false else
+
+            match box node with
+            | :? ICollection as collection ->
+                let x = collection.Count
+                
+//            | :? IEnumerable when isList node ->
+//                let hash = serializer.ComputeHash node
+//                if hash.Length > siftThreshold then
+                    
+
+            | _ -> false   
+        
+
 /// Local instance used for sifting large object graphs.
 [<Sealed; AutoSerializable(false)>]
 type ClosureSiftManager private (cloudValueProvider : ICloudValueProvider, siftThreshold : int64) =
@@ -66,15 +89,6 @@ type ClosureSiftManager private (cloudValueProvider : ICloudValueProvider, siftT
     let isSifted hash = localSifts.ContainsKey hash
     let append hash = ignore <| localSifts.TryAdd(hash, ())
     let logger = new AttacheableLogger()
-
-    static let listT = typedefof<_ list>
-    static let isList (value:obj) = 
-        let t = value.GetType()
-        if t.IsGenericType then
-            let gt = t.GetGenericTypeDefinition()
-            gt = listT
-        else
-            false
 
     /// <summary>
     ///     Creates a local ClosureSiftManager instance with provided configuration object.

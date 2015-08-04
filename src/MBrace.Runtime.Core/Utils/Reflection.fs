@@ -2,6 +2,7 @@
 module MBrace.Runtime.Utils.Reflection
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.Reflection
 
@@ -69,6 +70,30 @@ let (|FsTuple|_|) (t : Type) =
     if FSharpType.IsTuple t then
         Some(FSharpType.GetTupleElements t)
     else None
+
+let private listTy = typedefof<Microsoft.FSharp.Collections.List<_>>
+let private mapTy = typedefof<Microsoft.FSharp.Collections.Map<_,_>>
+let private setTy = typedefof<Microsoft.FSharp.Collections.Set<_>>
+let (|FSharpCollectionWithCount|_|) (obj:obj) =
+    match obj with
+    | :? IEnumerable ->
+        let t = obj.GetType()
+        if t.IsGenericType then 
+            let gtd = t.GetGenericTypeDefinition() 
+            if gtd = listTy then
+                let lp = t.GetProperty("Length")
+                lp.GetValue(obj) :?> int |> Some
+
+            elif gtd = mapTy || gtd = setTy then
+                let cp = t.GetProperty("Count")
+                cp.GetValue(obj) :?> int |> Some
+
+            else
+                None
+        else
+            None
+
+    | _ -> None
 
 type Assembly with
     static member TryFind(name : string) =
