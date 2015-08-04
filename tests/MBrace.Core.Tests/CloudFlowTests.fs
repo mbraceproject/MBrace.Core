@@ -49,7 +49,7 @@ module ``CloudFlow Core property tests`` =
 
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
-    let runOnCloud (workflow : Cloud<'T>) = self.RunOnCloud(workflow)
+    let runInCloud (workflow : Cloud<'T>) = self.RunInCloud(workflow)
     let runOnClient (workflow : Cloud<'T>) = self.RunOnClient(workflow)
 
     /// Urls for running HTTP tests
@@ -74,7 +74,7 @@ type ``CloudFlow tests`` () as self =
 
         lineCount
 
-    abstract RunOnCloud : Cloud<'T> -> 'T
+    abstract RunInCloud : Cloud<'T> -> 'T
     abstract RunOnClient : Cloud<'T> -> 'T
     abstract IsSupportedStorageLevel : StorageLevel -> bool
     abstract FsCheckMaxNumberOfTests : int
@@ -86,18 +86,18 @@ type ``CloudFlow tests`` () as self =
     member __.``1. PersistedCloudFlow : Simple StorageLevel.Disk`` () =
         if __.IsSupportedStorageLevel StorageLevel.Disk then
             let inputs = [|1L .. 1000000L|]
-            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
-            let workers = Cloud.GetWorkerCount() |> runOnCloud
+            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runInCloud
+            let workers = Cloud.GetWorkerCount() |> runInCloud
             persisted.StorageLevel |> shouldEqual StorageLevel.Disk
             persisted.PartitionCount |> shouldEqual workers
-            persisted |> CloudFlow.toArray |> runOnCloud |> shouldEqual inputs
+            persisted |> CloudFlow.toArray |> runInCloud |> shouldEqual inputs
             persisted |> Seq.toArray |> shouldEqual inputs
 
     [<Test>]
     member __.``1. PersistedCloudFlow : Randomized StorageLevel.Disk`` () =
         if __.IsSupportedStorageLevel StorageLevel.Disk then
             let f(xs : int[]) =            
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runInCloud
                 let y = xs |> Seq.map ((+)1) |> Seq.toArray
                 Assert.AreEqual(y, x |> Seq.toArray)
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -106,18 +106,18 @@ type ``CloudFlow tests`` () as self =
     member __.``1. PersistedCloudFlow : StorageLevel.Memory`` () =
         if __.IsSupportedStorageLevel StorageLevel.Memory then
             let inputs = [|1L .. 1000000L|]
-            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runOnCloud
-            let workers = Cloud.GetWorkerCount() |> runOnCloud
+            let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runInCloud
+            let workers = Cloud.GetWorkerCount() |> runInCloud
             persisted.StorageLevel |> shouldEqual StorageLevel.Memory
             persisted.PartitionCount |> shouldEqual workers
-            persisted |> CloudFlow.toArray |> runOnCloud |> shouldEqual inputs
+            persisted |> CloudFlow.toArray |> runInCloud |> shouldEqual inputs
 
     [<Test>]
     member __.``1. PersistedCloudFlow : disposal`` () =
         let inputs = [|1 .. 1000000|]
-        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
-        persisted |> Cloud.Dispose |> runOnCloud
-        shouldfail(fun () -> persisted |> CloudFlow.length |> runOnCloud |> ignore)
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runInCloud
+        persisted |> Cloud.Dispose |> runInCloud
+        shouldfail(fun () -> persisted |> CloudFlow.length |> runInCloud |> ignore)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : StorageLevel.Memory caching`` () =
@@ -126,18 +126,18 @@ type ``CloudFlow tests`` () as self =
             // otherwise persisted fragments will be encapsulated in the reference as an optimization.
             // Limit is currently set to 512KiB, so total size must be 512KiB * cluster size.
             // Arrays have reference equality semantics, compare hashcodes to ensure that caching is taking place.
-            let cv = [|1 .. 20|] |> CloudFlow.OfArray |> CloudFlow.map (fun _ -> [|1L .. 1000000L|]) |> CloudFlow.cache |> runOnCloud
-            let x = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runOnCloud
+            let cv = [|1 .. 20|] |> CloudFlow.OfArray |> CloudFlow.map (fun _ -> [|1L .. 1000000L|]) |> CloudFlow.cache |> runInCloud
+            let x = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runInCloud
             for i in 1 .. 5 do
-                let y = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runOnCloud
+                let y = cv |> CloudFlow.map (fun ref -> ref.GetHashCode()) |> CloudFlow.toArray |> runInCloud
                 Assert.AreEqual(x, y)
 
     [<Test>]
     member __.``1. PersistedCloudFlow : Simple StorageLevel.MemorySerialized`` () =
         if __.IsSupportedStorageLevel StorageLevel.MemorySerialized then
             let f(xs : int[]) =            
-                let pf = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.MemorySerialized |> runOnCloud
-                let ys = pf |> CloudFlow.length |> runOnCloud
+                let pf = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.MemorySerialized |> runInCloud
+                let ys = pf |> CloudFlow.length |> runInCloud
                 Assert.AreEqual(ys, xs.LongLength)
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
@@ -145,7 +145,7 @@ type ``CloudFlow tests`` () as self =
     member __.``1. PersistedCloudFlow : merging`` () =
         let inputs = [|1 .. 1000000|]
         let N = 10
-        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runOnCloud
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runInCloud
         let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
         merged.PartitionCount |> shouldEqual (N * persisted.PartitionCount)
         
@@ -168,9 +168,9 @@ type ``CloudFlow tests`` () as self =
     member __.``1. PersistedCloudFlow : merged disposal`` () =
         let inputs = [|1 .. 1000000|]
         let N = 10
-        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runOnCloud
+        let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runInCloud
         let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
-        merged |> Cloud.Dispose |> runOnCloud
+        merged |> Cloud.Dispose |> runInCloud
         shouldfail(fun () -> persisted |> Seq.iter ignore)
 
     // #region Streams tests
@@ -178,7 +178,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : ofArray`` () =
         let f(xs : int []) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.length |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.length |> runInCloud
             let y = xs |> Seq.map ((+)1) |> Seq.length
             Assert.AreEqual(y, int x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -191,7 +191,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.OfSeqs
                 |> CloudFlow.map (fun x -> x * x)
                 |> CloudFlow.sum
-                |> runOnCloud
+                |> runInCloud
 
             let seqResult =
                 xs
@@ -215,7 +215,7 @@ type ``CloudFlow tests`` () as self =
             let paths = cfs |> Array.map (fun cf -> cf.Path)
             let x =     CloudFlow.OfCloudFiles(paths, (fun (stream : System.IO.Stream) -> seq { yield stream.Length })) 
                         |> CloudFlow.length
-                        |> runOnCloud
+                        |> runInCloud
 
             Assert.AreEqual(paths.Length, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
@@ -230,7 +230,7 @@ type ``CloudFlow tests`` () as self =
             let length =
                 CloudFlow.OfCloudFiles(repeatedPaths, (fun (stream : System.IO.Stream) -> seq { yield stream.Length }), sizeThresholdPerCore = 1L)
                 |> CloudFlow.length
-                |> runOnCloud
+                |> runInCloud
 
             Assert.AreEqual(int64 size, length)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
@@ -246,7 +246,7 @@ type ``CloudFlow tests`` () as self =
             let x = cfs |> Array.map (fun cf -> cf.Path)
                         |> CloudFlow.OfCloudFileByLine
                         |> CloudFlow.toArray
-                        |> runOnCloud
+                        |> runInCloud
                         |> Set.ofArray
             
             let y = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
@@ -267,7 +267,7 @@ type ``CloudFlow tests`` () as self =
             let x = cfs |> Array.map (fun cf -> cf.Path)
                         |> CloudFlow.OfCloudFileByLine
                         |> CloudFlow.toArray
-                        |> runOnCloud
+                        |> runInCloud
                         |> Set.ofArray
             
             let y = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
@@ -296,7 +296,7 @@ type ``CloudFlow tests`` () as self =
                 path 
                 |> CloudFlow.OfCloudFileByLine
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
                 |> Array.sortBy id
                     
             
@@ -327,7 +327,7 @@ type ``CloudFlow tests`` () as self =
                 path 
                 |> CloudFlow.OfCloudFileByLine
                 |> CloudFlow.length
-                |> runOnCloud
+                |> runInCloud
                 
             let y = 
                 __.RunOnClient(cloud { let! lines = CloudFile.ReadLines path in return lines |> Seq.length })
@@ -347,7 +347,7 @@ type ``CloudFlow tests`` () as self =
                         |> Array.map (fun cf -> cf.Path)
                         |> CloudFlow.OfCloudFileByLine
                         |> CloudFlow.toArray
-                        |> runOnCloud
+                        |> runInCloud
                         |> Set.ofArray
 
             let y = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
@@ -366,7 +366,7 @@ type ``CloudFlow tests`` () as self =
                 let flowLength = 
                     CloudFlow.OfHttpFileByLine url
                     |> CloudFlow.length
-                    |> runOnCloud
+                    |> runInCloud
                             
                 Assert.AreEqual(lineCount, flowLength)
 
@@ -378,14 +378,14 @@ type ``CloudFlow tests`` () as self =
             let flowLength =
                 CloudFlow.OfHttpFileByLine testUrls
                 |> CloudFlow.length
-                |> runOnCloud
+                |> runInCloud
 
             Assert.AreEqual(lineCount, flowLength)
 
     [<Test>]
     member __.``2. CloudFlow : map`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map (fun n -> 2 * n) |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.map (fun n -> 2 * n) |> CloudFlow.toArray |> runInCloud
             let y = xs |> Seq.map (fun n -> 2 * n) |> Seq.toArray
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -393,7 +393,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : filter`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.filter (fun n -> n % 2 = 0) |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.filter (fun n -> n % 2 = 0) |> CloudFlow.toArray |> runInCloud
             let y = xs |> Seq.filter (fun n -> n % 2 = 0) |> Seq.toArray
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -401,7 +401,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : choose`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.choose (fun n -> if n % 2 = 0 then Some(string n) else None) |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.choose (fun n -> if n % 2 = 0 then Some(string n) else None) |> CloudFlow.toArray |> runInCloud
             let y = xs |> Seq.choose (fun n -> if n % 2 = 0 then Some(string n) else None) |> Seq.toArray
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -409,7 +409,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : collect`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.collect (fun n -> [|1..n|]) |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.collect (fun n -> [|1..n|]) |> CloudFlow.toArray |> runInCloud
             let y = xs |> Seq.collect (fun n -> [|1..n|]) |> Seq.toArray
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -417,7 +417,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : fold`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map (fun n -> 2 * n) |> CloudFlow.fold (+) (+) (fun () -> 0) |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.map (fun n -> 2 * n) |> CloudFlow.fold (+) (+) (fun () -> 0) |> runInCloud
             let y = xs |> Seq.map (fun n -> 2 * n) |> Seq.fold (+) 0 
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -425,7 +425,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : sum`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.map (fun n -> 2 * n) |> CloudFlow.sum |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.map (fun n -> 2 * n) |> CloudFlow.sum |> runInCloud
             let y = xs |> Seq.map (fun n -> 2 * n) |> Seq.sum
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -433,7 +433,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : length`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.filter (fun n -> n % 2 = 0) |> CloudFlow.length |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.filter (fun n -> n % 2 = 0) |> CloudFlow.length |> runInCloud
             let y = xs |> Seq.filter (fun n -> n % 2 = 0) |> Seq.length
             Assert.AreEqual(y, int x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -442,7 +442,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : countBy`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.countBy id |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.countBy id |> CloudFlow.toArray |> runInCloud
             let y = xs |> Seq.countBy id |> Seq.map (fun (k,c) -> k, int64 c) |> Seq.toArray
             Assert.AreEqual(set y, set x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -451,7 +451,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : sortBy`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.sortBy id 10 |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.sortBy id 10 |> CloudFlow.toArray |> runInCloud
             let y = (xs |> Seq.sortBy id).Take(10).ToArray()
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -460,10 +460,10 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : maxBy`` () =
         let f(xs : int[]) =
             if Array.isEmpty xs then
-                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.maxBy id |> runOnCloud in false
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.maxBy id |> runInCloud in false
                 with :? System.ArgumentException -> true
             else
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.maxBy id  |> runOnCloud
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.maxBy id  |> runInCloud
                 let y = xs |> Seq.maxBy id
                 x = y
 
@@ -473,10 +473,10 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : minBy`` () =
         let f(xs : int[]) =
             if Array.isEmpty xs then
-                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.minBy id |> runOnCloud in false
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.minBy id |> runInCloud in false
                 with :? System.ArgumentException -> true
             else
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.minBy id  |> runOnCloud
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.minBy id  |> runInCloud
                 let y = xs |> Seq.minBy id
                 x = y
 
@@ -486,10 +486,10 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : reduce`` () =
         let f(xs : int[]) =
             if Array.isEmpty xs then
-                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.reduce (+) |> runOnCloud in false
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.reduce (+) |> runInCloud in false
                 with :? System.ArgumentException -> true
             else
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.reduce (+) |> runOnCloud
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.reduce (+) |> runInCloud
                 let y = xs |> Seq.reduce (+)
                 x = y
 
@@ -498,7 +498,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : reduceBy`` () =
         let f(xs : int []) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.reduceBy id (+) |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.reduceBy id (+) |> CloudFlow.toArray |> runInCloud
             let y = xs |> Seq.groupBy id |> Seq.map (fun (k, vs) -> k, vs |> Seq.reduce (+)) |> Seq.toArray
             Assert.AreEqual(Array.sortBy fst y, Array.sortBy fst x)
 
@@ -508,10 +508,10 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : averageBy`` () =
         let f(xs : int[]) =
             if Array.isEmpty xs then
-                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.averageBy (float) |> runOnCloud in false
+                try let _ = xs |> CloudFlow.OfArray |> CloudFlow.averageBy (float) |> runInCloud in false
                 with :? System.ArgumentException -> true
             else
-                let x = xs |> CloudFlow.OfArray |> CloudFlow.averageBy (float) |> runOnCloud
+                let x = xs |> CloudFlow.OfArray |> CloudFlow.averageBy (float) |> runInCloud
                 let y = xs |> Seq.averageBy (float)
                 x = y
 
@@ -526,7 +526,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.groupBy id
                 |> CloudFlow.map (fun (k, xs) -> k, Seq.length xs)
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let y =
                 xs
                 |> Seq.groupBy id
@@ -545,7 +545,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.groupJoinBy id id (CloudFlow.OfArray ys)
                 |> CloudFlow.collect (fun (k, xs, ys) -> xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (x, y))))
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let y =
                 xs.Join(ys, (fun x -> x), (fun y -> y), (fun x y -> (x, y))).ToArray()
                 
@@ -563,7 +563,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.join id id (CloudFlow.OfArray ys)
                 |> CloudFlow.map (fun (k, x, y) -> (x, y))
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let y =
                 xs.Join(ys, (fun x -> x), (fun y -> y), (fun x y -> (x, y))).ToArray()
                 
@@ -581,7 +581,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.leftOuterJoin id id (CloudFlow.OfArray ys)
                 |> CloudFlow.map (fun (k, x, y) -> (x, y))
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let y =
                 xs.GroupJoin(ys, (fun x -> x), (fun y -> y), (fun x ys -> if Seq.isEmpty ys then Seq.singleton (x, None) else ys |> Seq.map (fun y -> (x, Some y)))).SelectMany(fun x -> x).ToArray()
                 
@@ -599,7 +599,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.rightOuterJoin id id (CloudFlow.OfArray ys)
                 |> CloudFlow.map (fun (k, x, y) -> (x, y))
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let y =
                 ys.GroupJoin(xs, (fun y -> y), (fun x -> x),  (fun y xs -> if Seq.isEmpty xs then Seq.singleton (None, y) else xs |> Seq.map (fun x -> (Some x, y)))).SelectMany(fun x -> x).ToArray()
                 
@@ -617,7 +617,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.fullOuterJoin id id (CloudFlow.OfArray ys)
                 |> CloudFlow.map (fun (k, x, y) -> (x, y))
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let left =
                 xs.GroupJoin(ys, (fun x -> x), (fun y -> y), (fun x ys -> if Seq.isEmpty ys then Seq.singleton (Some x, None) else ys |> Seq.map (fun y -> (Some x, Some y)))).SelectMany(fun x -> x).ToArray()
             let right =
@@ -638,7 +638,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.map (fun v -> Math.Abs v)
                 |> CloudFlow.distinctBy id
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let y =
                 xs
                 |> Seq.map (fun v -> Math.Abs v)
@@ -657,7 +657,7 @@ type ``CloudFlow tests`` () as self =
                 |> CloudFlow.map (fun v -> Math.Abs v)
                 |> CloudFlow.distinctBy id
                 |> CloudFlow.toArray
-                |> runOnCloud
+                |> runInCloud
             let y =
                 xs
                 |> Seq.map (fun v -> Math.Abs v)
@@ -671,7 +671,7 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : take`` () =
         let f (xs : int[], n : int) =
             let n = System.Math.Abs(n)
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.take n |> CloudFlow.toArray |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.take n |> CloudFlow.toArray |> runInCloud
             Assert.AreEqual(min xs.Length n, x.Length)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
@@ -683,7 +683,7 @@ type ``CloudFlow tests`` () as self =
                     |> CloudFlow.map (fun _ -> System.Diagnostics.Process.GetCurrentProcess().Id)
                     |> CloudFlow.withDegreeOfParallelism 1
                     |> CloudFlow.toArray
-                    |> runOnCloud
+                    |> runInCloud
             let x = r
                     |> Set.ofArray
                     |> Seq.length
@@ -694,7 +694,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : tryFind`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.tryFind (fun n -> n = 0) |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.tryFind (fun n -> n = 0) |> runInCloud
             let y = xs |> Seq.tryFind (fun n -> n = 0) 
             x = y
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -702,7 +702,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : find`` () =
         let f(xs : int[]) =
-            let x = try xs |> CloudFlow.OfArray |> CloudFlow.find (fun n -> n = 0) |> runOnCloud with | :? KeyNotFoundException -> -1
+            let x = try xs |> CloudFlow.OfArray |> CloudFlow.find (fun n -> n = 0) |> runInCloud with | :? KeyNotFoundException -> -1
             let y = try xs |> Seq.find (fun n -> n = 0) with | :? KeyNotFoundException -> -1
             x = y
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -710,7 +710,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : tryPick`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.tryPick (fun n -> if n = 0 then Some n else None) |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.tryPick (fun n -> if n = 0 then Some n else None) |> runInCloud
             let y = xs |> Seq.tryPick (fun n -> if n = 0 then Some n else None) 
             x = y
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -718,7 +718,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : pick`` () =
         let f(xs : int[]) =
-            let x = try xs |> CloudFlow.OfArray |> CloudFlow.pick (fun n -> if n = 0 then Some n else None) |> runOnCloud with | :? KeyNotFoundException -> -1
+            let x = try xs |> CloudFlow.OfArray |> CloudFlow.pick (fun n -> if n = 0 then Some n else None) |> runInCloud with | :? KeyNotFoundException -> -1
             let y = try xs |> Seq.pick (fun n -> if n = 0 then Some n else None)  with | :? KeyNotFoundException -> -1
             x = y
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -726,7 +726,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : exists`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.exists (fun n -> n = 0) |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.exists (fun n -> n = 0) |> runInCloud
             let y = xs |> Seq.exists (fun n -> n = 0) 
             x = y
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -735,7 +735,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : forall`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.forall (fun n -> n = 0) |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.forall (fun n -> n = 0) |> runInCloud
             let y = xs |> Seq.forall (fun n -> n = 0) 
             x = y
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
@@ -743,7 +743,7 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : isEmpty`` () =
         let f(xs : int[]) =
-            let x = xs |> CloudFlow.OfArray |> CloudFlow.isEmpty |> runOnCloud
+            let x = xs |> CloudFlow.OfArray |> CloudFlow.isEmpty |> runInCloud
             let y = xs |> Seq.isEmpty
             x = y
 
@@ -772,7 +772,7 @@ type ``CloudFlow tests`` () as self =
                             }]
                     return Option.get n
                 }
-                |> runOnCloud
+                |> runInCloud
             x = 2L
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
@@ -780,13 +780,13 @@ type ``CloudFlow tests`` () as self =
     [<Test>]
     member __.``2. CloudFlow : toCloudQueue`` () =
         let f(xs : int[]) =
-            let queue = CloudQueue.New() |> runOnCloud
+            let queue = CloudQueue.New() |> runInCloud
             let x = 
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.map (fun v -> v + 1)
                 |> CloudFlow.toCloudQueue queue
-                |> runOnCloud
+                |> runInCloud
             let x = 
                 cloud {
                     let list = ResizeArray<int>()
@@ -794,7 +794,7 @@ type ``CloudFlow tests`` () as self =
                         let! v = CloudQueue.Dequeue(queue)
                         list.Add(v)
                     return list
-                } |> runOnCloud
+                } |> runInCloud
             let y = xs |> Seq.map (fun v -> v + 1) |> Seq.toArray
             (set x) = (set y)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
@@ -809,7 +809,7 @@ type ``CloudFlow tests`` () as self =
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.toTextCloudFiles dir
-                |> runOnCloud
+                |> runInCloud
             let ys = cfs |> Array.map (fun f -> __.RunOnClient(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Seq.toArray
