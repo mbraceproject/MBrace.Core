@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Runtime.Store
 
 open System
+open System.Reflection
 open System.IO
 open System.Collections.Concurrent
 open System.Runtime.Serialization
@@ -30,7 +31,7 @@ module private StoreCloudValueImpl =
     [<AutoSerializable(true); NoEquality; NoComparison>]
     type CachedEntityId =
         | Encapsulated of value:obj * hash:HashResult
-        | VagabondValue of hash:HashResult
+        | VagabondValue of field:FieldInfo * hash:HashResult
         | Cached of level:StorageLevel * hash:HashResult
     with
         /// Gets the FsPickler hashcode of the cached value
@@ -38,7 +39,7 @@ module private StoreCloudValueImpl =
             match c with
             | Encapsulated (_,hash) -> hash
             | Cached (_, hash) -> hash
-            | VagabondValue hash -> hash
+            | VagabondValue (_, hash) -> hash
 
         member c.Level =
             match c with
@@ -57,7 +58,7 @@ module private StoreCloudValueImpl =
             if obj = null || hash.Length <= sizeThreshold then Encapsulated(obj, hash)
             else
                 match vgb.TryGetBindingByHash hash with
-                | Some _ -> VagabondValue hash
+                | Some f -> VagabondValue(f, hash)
                 | None -> Cached(level, hash)
 
     /// Cached value representation; can be stored as materialized object or pickled bytes
@@ -273,10 +274,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
     let getValue () = async {
         match id with
         | Encapsulated (value,_) -> return value :?> 'T
-        | VagabondValue hash ->
-            let f = VagabondRegistry.Instance.TryGetBindingByHash hash |> Option.get
-            return f.GetValue(null) :?> 'T
-
+        | VagabondValue (f, _) -> return f.GetValue(null) :?> 'T
         | Cached (level, hash) ->
             let config = getConfig()
             // look up InMemory cache first

@@ -281,19 +281,17 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Get Disposed CloudValue by Id`` () =
         let value = getUniqueValue()
-        fun () ->
-            cloud {
-                let! cv = CloudValue.New value
-                let id = cv.Id
-                do! CloudValue.Delete cv
-                do! Cloud.Sleep 2000
-                let! t = Cloud.StartAsTask(cloud {
-                    return! CloudValue.TryGetValueById id
-                })
-                return! t.AwaitResult()
-            } |> runOnCloud
+        cloud {
+            let! cv = CloudValue.New value
+            let id = cv.Id
+            do! CloudValue.Delete cv
+            do! Cloud.Sleep 2000
+            let! t = Cloud.StartAsTask(cloud {
+                return! CloudValue.TryGetValueById id
+            })
+            return! t.AwaitResult()
 
-        |> shouldFailwith<_, System.ObjectDisposedException>
+        } |> runOnCloud |> shouldEqual None
 
     [<Test>]
     member __.``Get All CloudValues`` () =

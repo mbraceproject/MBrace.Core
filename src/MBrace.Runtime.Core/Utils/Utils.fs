@@ -211,6 +211,11 @@ module Utils =
             m.PostAndAsyncReply msgB |> Async.RunSync
 
 
+    type ReferenceEqualityComparer<'T> () =
+        interface IEqualityComparer<'T> with
+            member __.Equals(x,y) = obj.ReferenceEquals(x,y)
+            member __.GetHashCode x = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode x
+
     /// Type existential container
     [<AbstractClass>]
     type Existential internal () =

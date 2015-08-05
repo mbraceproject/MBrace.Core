@@ -76,17 +76,19 @@ let private mapTy = typedefof<Microsoft.FSharp.Collections.Map<_,_>>
 let private setTy = typedefof<Microsoft.FSharp.Collections.Set<_>>
 let (|FSharpCollectionWithCount|_|) (obj:obj) =
     match obj with
-    | :? IEnumerable ->
+    | :? IEnumerable as e ->
         let t = obj.GetType()
         if t.IsGenericType then 
             let gtd = t.GetGenericTypeDefinition() 
             if gtd = listTy then
                 let lp = t.GetProperty("Length")
-                lp.GetValue(obj) :?> int |> Some
+                let length = lp.GetValue(obj) :?> int
+                Some(e, length)
 
             elif gtd = mapTy || gtd = setTy then
                 let cp = t.GetProperty("Count")
-                cp.GetValue(obj) :?> int |> Some
+                let count = cp.GetValue(obj) :?> int
+                Some(e, count)
 
             else
                 None
