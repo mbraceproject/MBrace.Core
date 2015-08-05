@@ -40,16 +40,16 @@ let test = cloud {
     return !cell
 }
 
-cluster.RunOnThisMachine(test, memoryEmulation = MemoryEmulation.Shared)
-cluster.RunOnThisMachine(test, memoryEmulation = MemoryEmulation.Copied)
+cluster.RunOnCurrentMachine(test, memoryEmulation = MemoryEmulation.Shared)
+cluster.RunOnCurrentMachine(test, memoryEmulation = MemoryEmulation.Copied)
 cluster.Run test
 
 let test' = cloud {
     return box(new System.IO.MemoryStream())
 }
 
-cluster.RunOnThisMachine(test', memoryEmulation = MemoryEmulation.Shared)
-cluster.RunOnThisMachine(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
+cluster.RunOnCurrentMachine(test', memoryEmulation = MemoryEmulation.Shared)
+cluster.RunOnCurrentMachine(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
 cluster.Run test'
 
 let pflow =
