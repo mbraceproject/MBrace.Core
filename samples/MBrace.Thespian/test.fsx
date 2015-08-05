@@ -16,7 +16,7 @@ MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.The
 
 #time "on"
 
-let cluster = MBraceThespian.InitLocal 1
+let cluster = MBraceThespian.InitLocal 4
 cluster.AttachLogger(new ConsoleLogger())
 
 let workers = cluster.Workers
@@ -66,14 +66,34 @@ pflow |> CloudFlow.length |> cluster.Run
 
 let large = [|1L .. 10000000L|]
 
+let large' = [for i in 1L .. 1000000L -> sprintf "value value value %d" i ]
+
 let test x = cloud {
     return! Cloud.Parallel [for i in 1 .. 10 -> cloud { return x.GetHashCode() }]
 }
 
-let test' = 
-    let x = [|1L .. 10000001L|] in
+let test' Ν = 
+    let x = [|1L .. Ν|]
+    let y = [|x;x;x;x|]
     cloud {
-        return! Cloud.Parallel [for i in 1 .. 10 -> cloud { return x.GetHashCode() }]
+        return! Cloud.Parallel [for i in 1 .. 10 -> cloud { return y.GetHashCode() }]
     }
 
-cluster.Run(test')
+cluster.Run(test' 10000001L)
+
+cluster.Run(test [|large'|])
+
+
+let test0 () =
+    let large = [|1L .. 10000002L|]
+    cloud {
+        let! workerCount = Cloud.GetWorkerCount()
+        let! hashCodes = Cloud.Parallel [for i in 1  .. 100 -> cloud { return large.GetHashCode() } ]
+        return
+            hashCodes 
+            |> Seq.distinct 
+            |> Seq.length
+
+    } |> cluster.Run
+
+test0()

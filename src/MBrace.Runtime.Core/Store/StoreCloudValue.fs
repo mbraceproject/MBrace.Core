@@ -330,7 +330,9 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                             let isSuccess = config.LocalCache.Add(hash.Id, CachedValue.Create(value, level))
                             // if already cached, return cached value rather than downloaded value
                             if isSuccess then value
-                            else config.LocalCache.Get hash.Id :?> 'T
+                            else 
+                                let cv = config.LocalCache.Get(hash.Id) :?> CachedValue
+                                cv.Value :?> 'T
                         else
                             value
     }

@@ -137,10 +137,19 @@ type private LargeObjectSifter(vagabond : VagabondManager, siftThreshold : int64
 
                     let averageSize = Seq.sum sizes / int64 sizes.Count
                     let uniformSize = hash.Length / int64 count
+
+                    // handle cases where elements are extremely small;
+                    // in such cases the projected size is a few bytes larger
+                    // than the uniform size since the former is serialized untyped,
+                    // necessitating the incorporation of type data in the serialization format.
+                    if averageSize > uniformSize && averageSize - uniformSize < 500L then
+                        siftResult.Add(node, (hash, None))
+                        true
+
                     // the ratio of the projected average size against
                     // the uniform size according to serialization size
                     // is an indication of recurring objects in the underlying graph.
-                    if averageSize < 5L * uniformSize / 6L then
+                    elif averageSize < 5L * uniformSize / 4L then
                         siftResult.Add(node, (hash, None))
                         true
                     else
