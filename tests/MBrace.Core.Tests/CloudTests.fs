@@ -904,6 +904,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             let large = [|1L .. 10000000L|]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
                 let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
                 do 
                     hashCodes 
@@ -920,6 +922,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             let smallContainer = [| large ; [||] ; large ; [||] ; large |]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode smallContainer}) |> Cloud.Ignore
                 let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode smallContainer, getRefHashCode smallContainer.[0] } ]
                 let containerHashCodes, largeHashCodes = Array.unzip hashCodes
                 do 
@@ -943,6 +947,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             let large = [for i in 1 .. 1000000 -> seq { for j in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
                 let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
 
                 do 
@@ -961,6 +967,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             let large = [ for i in 1 .. 200 -> mkSmall() ]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
                 let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
 
                 do 

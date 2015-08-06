@@ -12,6 +12,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Store
 
@@ -175,6 +176,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
 
     interface IJobQueue with
         member x.BatchEnqueue(jobs: CloudJob []) = async {
+            if jobs.Length = 0 then return () else
             let! sifted = siftManager.Value.SiftClosure(jobs, allowNewSifts = false)
             let pickle = Config.Serializer.PickleTyped sifted
             let mkPickle (index:int) (job : CloudJob) =
@@ -227,10 +229,13 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
         let behaviour (self : Actor<JobQueueMsg>) (state : QueueState) (msg : JobQueueMsg) = async {
             match msg with
             | Enqueue (pJob, faultState) -> 
+                logger.Logf LogLevel.Debug "Enqueued job of type '%s' and size %s." pJob.Type <| getHumanReadableByteSize pJob.Pickle.Size
                 let queue' = state.Queue.Enqueue((pJob, faultState), ?topic = pJob.Target)
                 return { state with Queue = queue' }
 
             | BatchEnqueue(pJobs) ->
+                let first = pJobs.[0]
+                logger.Logf LogLevel.Debug "Enqueued %d jobs of type '%s' and size %s." pJobs.Length first.Type <| getHumanReadableByteSize first.Pickle.Size
                 let queue' = (state.Queue, pJobs) ||> Array.fold (fun q j -> q.Enqueue((j, NoFault), ?topic = j.Target))
                 return { state with Queue = queue' }
 
@@ -255,6 +260,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
                 let! isDeclaredAlive = workerMonitor.IsAlive worker
                 match state.Queue.TryDequeue worker with
                 | Some((pj,fs), queue') when isDeclaredAlive ->
+                    logger.Logf LogLevel.Debug "Dequeueing job %s of type '%s'." pj.JobId pj.Type
                     let jlm = JobLeaseMonitor.create workerMonitor self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
                     do! rc.Reply(Some(pj, fs, jlm))
                     return { state with Queue = queue' }

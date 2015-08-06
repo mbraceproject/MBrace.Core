@@ -72,28 +72,34 @@ let (|FsTuple|_|) (t : Type) =
     else None
 
 let private listTy = typedefof<Microsoft.FSharp.Collections.List<_>>
-let private mapTy = typedefof<Microsoft.FSharp.Collections.Map<_,_>>
-let private setTy = typedefof<Microsoft.FSharp.Collections.Set<_>>
-let (|FSharpCollectionWithCount|_|) (obj:obj) =
-    match obj with
+let private icollectionTy = typedefof<System.Collections.Generic.ICollection<_>>
+let (|GenericCollectionWithCount|_|) (graph:obj) =
+    /// correctly resolves if type is assignable to generic interface
+    let rec tryFindGenericInterface (ty : Type) =
+        match ty.GetInterfaces() |> Array.tryFind(fun i -> i.IsGenericType && i.GetGenericTypeDefinition() = icollectionTy) with
+        | Some _ as r -> r
+        | None ->
+            match ty.BaseType with
+            | null -> None
+            | bt ->
+                if bt = typeof<obj> then None
+                else tryFindGenericInterface bt
+
+    match graph with
     | :? IEnumerable as e ->
-        let t = obj.GetType()
-        if t.IsGenericType then 
-            let gtd = t.GetGenericTypeDefinition() 
-            if gtd = listTy then
-                let lp = t.GetProperty("Length")
-                let length = lp.GetValue(obj) :?> int
-                Some(e, length)
+        let t = e.GetType()
+        if t.IsGenericType && t.GetGenericTypeDefinition() = listTy then
+            let lp = t.GetProperty("Length")
+            let length = lp.GetValue(e) :?> int
+            Some(e, length)
 
-            elif gtd = mapTy || gtd = setTy then
-                let cp = t.GetProperty("Count")
-                let count = cp.GetValue(obj) :?> int
-                Some(e, count)
-
-            else
-                None
         else
-            None
+            match tryFindGenericInterface t with
+            | None -> None
+            | Some interf ->
+                let cp = interf.GetProperty("Count")
+                let count = cp.GetValue(e) :?> int
+                Some(e, count)
 
     | _ -> None
 

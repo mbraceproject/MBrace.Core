@@ -88,7 +88,7 @@ type private LargeObjectSifter(vagabond : VagabondManager, siftThreshold : int64
     let (|Collection|_|) (obj : obj) =
         match obj with
         | :? ICollection as c -> Some(c :> IEnumerable, c.Count)
-        | FSharpCollectionWithCount(e, c) -> Some(e, c)
+        | GenericCollectionWithCount(e, c) -> Some(e, c)
         | _ -> None
 
     member __.SiftData = siftResult

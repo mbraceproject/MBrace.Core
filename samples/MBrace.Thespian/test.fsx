@@ -82,3 +82,12 @@ let test (ts : 'T  []) = cloud {
 cluster.Run(cloud { return 42})
 
 let y = test large in cluster.Run y
+
+
+let foo (ts : 'T []) = cloud {
+    let pair = [1;2] |> List.map (fun _ -> ts)
+    let! t = Cloud.StartAsTask(cloud { return obj.ReferenceEquals(pair.[0], pair.[1])})
+    return! t.AwaitResult()
+}
+
+foo large |> cluster.Run

@@ -13,6 +13,8 @@ open MBrace.Core.Tests
 [<TestFixture>]
 module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
+    let clusterSize = 2
+
     let is64BitProcess = IntPtr.Size = 8
 
     let runsOnMono = lazy(Type.GetType("Mono.Runtime") <> null)
@@ -109,7 +111,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalInteraction "open MBrace.Flow"
         fsi.EvalInteraction "open MBrace.Thespian"
         fsi.EvalInteraction <| "MBraceThespian.WorkerExecutable <- @\"" + thespianExe + "\""
-        fsi.EvalInteraction "let cluster = MBraceThespian.InitLocal 2"
+        fsi.EvalInteraction <| sprintf "let cluster = MBraceThespian.InitLocal %d" clusterSize
         fsi.EvalInteraction "cluster.AttachLogger(new ConsoleLogger())"
 
 
@@ -253,18 +255,19 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalInteraction "let large = [|1L .. 10000000L|]"
 
         fsi.EvalInteraction """
-            let test (ts : 'T  []) = cloud {
-                let! workerCount = Cloud.GetWorkerCount()
-                // warmup; ensure cached everywhere before sending actual test
-                do! Cloud.ParallelEverywhere(cloud { return ts.GetHashCode() }) |> Cloud.Ignore
-                let! hashCodes = Cloud.Parallel [for i in 1 .. 5 * workerCount -> cloud { return ts.GetHashCode() }]
-                let uniqueHashes =
-                    hashCodes
-                    |> Seq.distinct
-                    |> Seq.length
+            let test (ts : 'T  []) = 
+                cloud {
+                    let! workerCount = Cloud.GetWorkerCount()
+                    // warmup; ensure cached everywhere before sending actual test
+                    do! Cloud.ParallelEverywhere(cloud { return ts.GetHashCode() }) |> Cloud.Ignore
+                    let! hashCodes = Cloud.Parallel [for i in 1 .. 5 * workerCount -> cloud { return ts.GetHashCode() }]
+                    let uniqueHashes =
+                        hashCodes
+                        |> Seq.distinct
+                        |> Seq.length
 
-                return workerCount = uniqueHashes
-            }
+                    return workerCount = uniqueHashes
+                } |> cluster.Run
         """
 
-        fsi.EvalExpression "test large |> cluster.Run" |> shouldEqual true
+        fsi.EvalExpression "test large" |> shouldEqual true
