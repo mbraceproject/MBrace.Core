@@ -245,3 +245,26 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         for i in 1L .. 10L do
             fsi.EvalInteraction <| sprintf "large.[499999] <- %dL" i
             fsi.EvalExpression "cloud { return large.[499999] } |> cluster.Run" |> shouldEqual i
+
+    [<Test>]
+    let ``11. Sifting large static binding`` () =
+        let fsi = FsiSession.Value
+
+        fsi.EvalInteraction "let large = [|1L .. 10000000L|]"
+
+        fsi.EvalInteraction """
+            let test (ts : 'T  []) = cloud {
+                let! workerCount = Cloud.GetWorkerCount()
+                // warmup; ensure cached everywhere before sending actual test
+                do! Cloud.ParallelEverywhere(cloud { return ts.GetHashCode() }) |> Cloud.Ignore
+                let! hashCodes = Cloud.Parallel [for i in 1 .. 5 * workerCount -> cloud { return ts.GetHashCode() }]
+                let uniqueHashes =
+                    hashCodes
+                    |> Seq.distinct
+                    |> Seq.length
+
+                return workerCount = uniqueHashes
+            }
+        """
+
+        fsi.EvalExpression "test large |> cluster.Run" |> shouldEqual true

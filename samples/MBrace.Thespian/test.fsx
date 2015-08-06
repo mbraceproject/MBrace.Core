@@ -66,67 +66,19 @@ pflow |> CloudFlow.length |> cluster.Run
 
 let large = [|1L .. 10000000L|]
 
-let large' = [for i in 1L .. 1000000L -> sprintf "value value value %d" i ]
+let test (ts : 'T  []) = cloud {
+    let! workerCount = Cloud.GetWorkerCount()
+    // warmup; ensure cached everywhere before sending actual test
+    do! Cloud.ParallelEverywhere(cloud { return ts.GetHashCode() }) |> Cloud.Ignore
+    let! hashCodes = Cloud.Parallel [for i in 1 .. 5 * workerCount -> cloud { return ts.GetHashCode() }]
+    let uniqueHashes =
+        hashCodes
+        |> Seq.distinct
+        |> Seq.length
 
-let test x = cloud {
-    return! Cloud.Parallel [for i in 1 .. 10 -> cloud { return x.GetHashCode() }]
+    return workerCount = uniqueHashes
 }
 
-let test' Ν = 
-    let x = [|1L .. Ν|]
-    let y = [|x;x;x;x|]
-    cloud {
-        return! Cloud.Parallel [for i in 1 .. 10 -> cloud { return y.GetHashCode() }]
-    }
+cluster.Run(cloud { return 42})
 
-cluster.Run(test' 10000001L)
-
-cluster.Run(test [|large'|])
-
-
-let test0 () =
-    let large = [|1L .. 10000002L|]
-    cloud {
-        let! workerCount = Cloud.GetWorkerCount()
-        let! hashCodes = Cloud.Parallel [for i in 1  .. 100 -> cloud { return large.GetHashCode() } ]
-        return
-            hashCodes 
-            |> Seq.distinct 
-            |> Seq.length
-
-    } |> cluster.Run
-
-test0()
-
-#r "FsPickler.dll"
-open Nessos.FsPickler
-
-
-let small = [|1 .. 1000000|]
-
-
-
-
-let test () =
-    let large = [|for i in 1 .. 99 -> [|1 .. 1000000|]|]
-    cluster.Run (cloud { return large.GetHashCode() })
-
-
-let test () =
-
-    let getRefHashCode (t : 'T when 'T : not struct) = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode t
-
-    let large = [for i in 1 .. 1000000 -> seq { for j in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
-    cloud {
-        let! workerCount = Cloud.GetWorkerCount()
-        let! hashCodes = Cloud.Parallel [for i in 1  .. (3 * workerCount) -> cloud { return getRefHashCode large } ]
-
-        return
-            hashCodes 
-            |> Seq.distinct 
-            |> Seq.sort
-            |> Seq.toArray
-
-    } |> cluster.Run
-
-test()
+let y = test large in cluster.Run y
