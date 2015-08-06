@@ -62,32 +62,3 @@ let pflow =
 
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.Run
-
-
-let large = [|1L .. 10000000L|]
-
-let test (ts : 'T  []) = cloud {
-    let! workerCount = Cloud.GetWorkerCount()
-    // warmup; ensure cached everywhere before sending actual test
-    do! Cloud.ParallelEverywhere(cloud { return ts.GetHashCode() }) |> Cloud.Ignore
-    let! hashCodes = Cloud.Parallel [for i in 1 .. 5 * workerCount -> cloud { return ts.GetHashCode() }]
-    let uniqueHashes =
-        hashCodes
-        |> Seq.distinct
-        |> Seq.length
-
-    return workerCount = uniqueHashes
-}
-
-cluster.Run(cloud { return 42})
-
-let y = test large in cluster.Run y
-
-
-let foo (ts : 'T []) = cloud {
-    let pair = [1;2] |> List.map (fun _ -> ts)
-    let! t = Cloud.StartAsTask(cloud { return obj.ReferenceEquals(pair.[0], pair.[1])})
-    return! t.AwaitResult()
-}
-
-foo large |> cluster.Run
