@@ -80,7 +80,7 @@ type private LargeObjectSifter(vagabond : VagabondManager, siftThreshold : int64
         for f,h in vagabond.StaticBindings do
             match f.GetValue(null) with
             | null -> ()
-            | o -> d.Add(o, (f,h))
+            | o -> d.[o] <- (f,h)
         d
 
     let siftResult = new Dictionary<obj, HashResult * FieldInfo option> (refEq)
