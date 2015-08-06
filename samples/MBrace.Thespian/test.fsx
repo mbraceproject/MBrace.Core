@@ -97,3 +97,36 @@ let test0 () =
     } |> cluster.Run
 
 test0()
+
+#r "FsPickler.dll"
+open Nessos.FsPickler
+
+
+let small = [|1 .. 1000000|]
+
+
+
+
+let test () =
+    let large = [|for i in 1 .. 99 -> [|1 .. 1000000|]|]
+    cluster.Run (cloud { return large.GetHashCode() })
+
+
+let test () =
+
+    let getRefHashCode (t : 'T when 'T : not struct) = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode t
+
+    let large = [for i in 1 .. 1000000 -> seq { for j in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
+    cloud {
+        let! workerCount = Cloud.GetWorkerCount()
+        let! hashCodes = Cloud.Parallel [for i in 1  .. (3 * workerCount) -> cloud { return getRefHashCode large } ]
+
+        return
+            hashCodes 
+            |> Seq.distinct 
+            |> Seq.sort
+            |> Seq.toArray
+
+    } |> cluster.Run
+
+test()

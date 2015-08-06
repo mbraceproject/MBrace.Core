@@ -904,7 +904,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             let large = [|1L .. 10000000L|]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
-                let! hashCodes = Cloud.Parallel [for i in 1  .. 100 -> cloud { return getRefHashCode large } ]
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
                 do 
                     hashCodes 
                     |> Seq.distinct 
@@ -920,13 +920,13 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             let smallContainer = [| large ; [||] ; large ; [||] ; large |]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
-                let! hashCodes = Cloud.Parallel [for i in 1  .. 100 -> cloud { return getRefHashCode smallContainer, getRefHashCode smallContainer.[0] } ]
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode smallContainer, getRefHashCode smallContainer.[0] } ]
                 let containerHashCodes, largeHashCodes = Array.unzip hashCodes
                 do 
                     containerHashCodes
                     |> Seq.distinct 
                     |> Seq.length
-                    |> shouldBe (fun l -> l > 80)
+                    |> shouldBe (fun l -> l > 4 * workerCount)
 
                 do 
                     largeHashCodes 
@@ -943,7 +943,25 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             let large = [for i in 1 .. 1000000 -> seq { for j in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
-                let! hashCodes = Cloud.Parallel [for i in 1  .. 100 -> cloud { return getRefHashCode large } ]
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
+
+                do 
+                    hashCodes 
+                    |> Seq.distinct 
+                    |> Seq.length
+                    |> shouldBe (fun l -> l <= workerCount)
+
+            } |> runOnCloud |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``5. Sifting array of intermediately sized elements`` () =
+        if __.IsSiftedWorkflowSupported then
+            // assumes sift threshold between ~ 500K and 20MB
+            let mkSmall() = [|1 .. 100000|]
+            let large = [ for i in 1 .. 200 -> mkSmall() ]
+            cloud {
+                let! workerCount = Cloud.GetWorkerCount()
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
 
                 do 
                     hashCodes 

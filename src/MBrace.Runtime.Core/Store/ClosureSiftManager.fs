@@ -112,48 +112,47 @@ type private LargeObjectSifter(vagabond : VagabondManager, siftThreshold : int64
             //   * large F# collections (which do not implement ICollection)
             | Collection(enum, count) when count > 1 ->
                 let hash = serializer.ComputeHash node
+                let siftNode () = siftResult.Add(node, (hash, None)) ; true
+
                 if isSifted hash then
                     // value already declared sifted in session; append as appropriate.
-                    siftResult.Add(node, (hash, None))
-                    true
+                    siftNode ()
 
                 elif hash.Length > siftThreshold && allowNewSifts then
-                    // not all collection of large serialization size may be 'large' in their own right.
+                    // not all collections of large serialization size may be 'large' in their own right.
                     // In many cases a large object may simply be encapsulated further down the object graph.
                     // Perform a simple heuristic to identify what is the case here.
                     // We traverse a small segment of the collection, computing an expected serialization
                     // size for each element. We use this to attain a 'replication metric' for the collection graph.
-                    let e = enum.GetEnumerator()
-                    let sizeCounter = serializer.CreateObjectSizeCounter()
-                    let sizes = new ResizeArray<int64> ()
-                    let mutable currSize = 0L
-                    let threshold = 5L * hash.Length
-                    while e.MoveNext() && currSize < threshold && sizeCounter.ObjectCount < 1000L do
-                        sizeCounter.Append e.Current
-                        let count = sizeCounter.Count
-                        sizes.Add(count - currSize)
-                        currSize <- count
-                        sizeCounter.ResetSerializationCache()
 
-                    let averageSize = Seq.sum sizes / int64 sizes.Count
-                    let uniformSize = hash.Length / int64 count
+                    let averageElementSize = hash.Length / int64 count
 
-                    // handle cases where elements are extremely small;
-                    // in such cases the projected size is a few bytes larger
-                    // than the uniform size since the former is serialized untyped,
-                    // necessitating the incorporation of type data in the serialization format.
-                    if averageSize > uniformSize && averageSize - uniformSize < 500L then
-                        siftResult.Add(node, (hash, None))
-                        true
+                    // large collections that have elements of small average size will always be sifted
+                    if averageElementSize < 256L then siftNode () else
 
-                    // the ratio of the projected average size against
-                    // the uniform size according to serialization size
-                    // is an indication of recurring objects in the underlying graph.
-                    elif averageSize < 5L * uniformSize / 4L then
-                        siftResult.Add(node, (hash, None))
-                        true
+                    // perform replication test by sampling individual elements of the collection
+                    let averageSampleSize =
+                        let e = enum.GetEnumerator()
+                        let sizeCounter = serializer.CreateObjectSizeCounter()
+                        let sizes = new ResizeArray<int64> ()
+                        let mutable currSize = 0L
+                        let sizeThreshold = 3L * hash.Length
+                        while e.MoveNext() && currSize < sizeThreshold && sizeCounter.ObjectCount < 1000L do
+                            sizeCounter.Append e.Current
+                            let count = sizeCounter.Count
+                            sizes.Add(count - currSize)
+                            currSize <- count
+                            sizeCounter.ResetSerializationCache() // clear FsPickler ObjectCache so that recurring objects are always taken into account
+
+                        Seq.sum sizes / int64 sizes.Count
+
+                    // a collection demonstrates replication of data 
+                    // (i.e. has a large object referenced further down the object graph referenced by multiple elements)
+                    // if the sampled element size greatly exceeds the projected average then this is a clear indication
+                    // of replication and thus the current array will not be sifted.
+                    if averageSampleSize > 2L * averageElementSize then false
                     else
-                        false
+                        siftNode ()
                 else
                     false
 
