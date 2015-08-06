@@ -39,9 +39,9 @@ let query1 =
 
 runtime.Run <| CloudFlow.cache(query1)
 
-query1.CacheMap.Value |> runtime.RunOnThisMachine
+query1.CacheMap.Value |> runtime.RunOnCurrentMachine
 
-runtime.RunOnThisMachine(query1.ToEnumerable())
+runtime.RunOnCurrentMachine(query1.ToEnumerable())
 |> Seq.toArray
 
 let query2 = runtime.Run (
