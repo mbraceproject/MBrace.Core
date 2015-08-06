@@ -30,5 +30,5 @@ open MBrace.Core
 //    member __.Fini () = session.Stop()
 //
 //    override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
-//    override __.RunOnThisMachine(workflow : Cloud<'T>) = session.Runtime.RunOnThisMachine(workflow)
+//    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine(workflow)
 //    override __.MaxNumberOfTests = 10

@@ -40,7 +40,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
             return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
         } |> Async.RunSync
 
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = session.Runtime.RunOnThisMachine(workflow)
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine(workflow)
 
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10

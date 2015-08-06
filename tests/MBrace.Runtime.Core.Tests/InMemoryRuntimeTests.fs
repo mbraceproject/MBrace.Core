@@ -34,7 +34,7 @@ type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
         Choice.protect(fun () ->
             imem.Run(workflow cts, cancellationToken = cts.Token))
 
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = imem.Run(workflow)
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
     override __.IsSiftedWorkflowSupported = false
     override __.Logs = logger :> _
@@ -92,7 +92,7 @@ type ``InMemory CloudValue Tests`` () =
     override __.IsSupportedLevel lvl = lvl = StorageLevel.Memory || lvl = StorageLevel.MemorySerialized
 
     override __.RunOnCloud(workflow) = imem.Run workflow
-    override __.RunOnThisMachine(workflow) = imem.Run workflow
+    override __.RunOnCurrentMachine(workflow) = imem.Run workflow
 
 type ``InMemory CloudAtom Tests`` () =
     inherit ``CloudAtom Tests`` (parallelismFactor = 100)
@@ -100,7 +100,7 @@ type ``InMemory CloudAtom Tests`` () =
     let imem = InMemoryRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.RunOnCloud(workflow) = imem.Run workflow
-    override __.RunOnThisMachine(workflow) = imem.Run workflow
+    override __.RunOnCurrentMachine(workflow) = imem.Run workflow
 #if DEBUG
     override __.Repeats = 10
 #else
@@ -113,7 +113,7 @@ type ``InMemory CloudQueue Tests`` () =
     let imem = InMemoryRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.RunOnCloud(workflow) = imem.Run workflow
-    override __.RunOnThisMachine(workflow) = imem.Run workflow
+    override __.RunOnCurrentMachine(workflow) = imem.Run workflow
 
 type ``InMemory CloudDictionary Tests`` () =
     inherit ``CloudDictionary Tests`` (parallelismFactor = 100)
@@ -122,7 +122,7 @@ type ``InMemory CloudDictionary Tests`` () =
 
     override __.IsInMemoryFixture = true
     override __.RunOnCloud(workflow) = imem.Run workflow
-    override __.RunOnThisMachine(workflow) = imem.Run workflow
+    override __.RunOnCurrentMachine(workflow) = imem.Run workflow
 
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
@@ -130,7 +130,7 @@ type ``InMemory CloudFlow tests`` () =
     let imem = InMemoryRuntime.Create(fileConfig = Config.fsConfig, serializer = Config.serializer, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunOnCloud(workflow : Cloud<'T>) = imem.Run workflow
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = imem.Run workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = imem.Run workflow
     override __.IsSupportedStorageLevel(level : StorageLevel) = level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

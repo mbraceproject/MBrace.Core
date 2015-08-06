@@ -68,5 +68,5 @@ let getTop count =
 let persistedFlow = runtime.Run(getTop 20)
 
 persistedFlow.ToEnumerable()
-|> runtime.RunOnThisMachine
+|> runtime.RunOnCurrentMachine
 |> Seq.iter (printfn "%A")

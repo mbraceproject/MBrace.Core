@@ -24,7 +24,7 @@ type ``MBrace Thespian FileStore Tests`` () =
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
 
     override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = session.Runtime.RunOnThisMachine workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
 
 
 type ``MBrace Thespian CloudValue Tests`` () =
@@ -39,7 +39,7 @@ type ``MBrace Thespian CloudValue Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = session.Runtime.RunOnThisMachine workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
     override __.IsSupportedLevel _ = true
 
 
@@ -55,7 +55,7 @@ type ``MBrace Thespian Atom Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = session.Runtime.RunOnThisMachine workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
 
 #if DEBUG
     override __.Repeats = 10
@@ -75,7 +75,7 @@ type ``MBrace Thespian Queue Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = session.Runtime.RunOnThisMachine workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
 
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)
@@ -90,4 +90,4 @@ type ``MBrace Thespian Dictionary Tests`` () =
 
     override __.IsInMemoryFixture = false
     override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnThisMachine(workflow : Cloud<'T>) = session.Runtime.RunOnThisMachine workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
