@@ -21,15 +21,15 @@ cluster.AttachLogger(new ConsoleLogger())
 
 let workers = cluster.Workers
 
-cloud { return 42 } |> cluster.Run
+cloud { return 42 } |> cluster.RunOnCloud
 
-cluster.ShowProcessInfo()
+cluster.ShowCloudTaskInfo()
 cluster.ShowWorkerInfo()
 
 let proc = 
     CloudFlow.OfHttpFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
     |> CloudFlow.length
-    |> cluster.CreateProcess
+    |> cluster.CreateCloudTask
 
 proc.AwaitResult() |> Async.RunSynchronously
 
@@ -40,17 +40,17 @@ let test = cloud {
     return !cell
 }
 
-cluster.RunOnCurrentMachine(test, memoryEmulation = MemoryEmulation.Shared)
-cluster.RunOnCurrentMachine(test, memoryEmulation = MemoryEmulation.Copied)
-cluster.Run test
+cluster.RunOnCurrentProcess(test, memoryEmulation = MemoryEmulation.Shared)
+cluster.RunOnCurrentProcess(test, memoryEmulation = MemoryEmulation.Copied)
+cluster.RunOnCloud test
 
 let test' = cloud {
     return box(new System.IO.MemoryStream())
 }
 
-cluster.RunOnCurrentMachine(test', memoryEmulation = MemoryEmulation.Shared)
-cluster.RunOnCurrentMachine(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
-cluster.Run test'
+cluster.RunOnCurrentProcess(test', memoryEmulation = MemoryEmulation.Shared)
+cluster.RunOnCurrentProcess(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
+cluster.RunOnCloud test'
 
 let pflow =
     CloudFlow.OfArray [|1 .. 100|]
@@ -58,7 +58,7 @@ let pflow =
     |> CloudFlow.filter (fun i -> i % 3L <> 0L)
     |> CloudFlow.map (fun i -> sprintf "Lorem ipsum dolor sit amet #%d" i)
     |> CloudFlow.cache
-    |> cluster.Run
+    |> cluster.RunOnCloud
 
 pflow |> Seq.length
-pflow |> CloudFlow.length |> cluster.Run
+pflow |> CloudFlow.length |> cluster.RunOnCloud

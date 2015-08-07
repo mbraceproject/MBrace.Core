@@ -23,8 +23,8 @@ type ``MBrace Thespian FileStore Tests`` () =
     override __.FileStore = session.Runtime.GetResource<CloudFileStoreConfiguration>().FileStore
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
 
-    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 
 type ``MBrace Thespian CloudValue Tests`` () =
@@ -38,8 +38,8 @@ type ``MBrace Thespian CloudValue Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
     override __.IsSupportedLevel _ = true
 
 
@@ -54,8 +54,8 @@ type ``MBrace Thespian Atom Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 #if DEBUG
     override __.Repeats = 10
@@ -74,8 +74,8 @@ type ``MBrace Thespian Queue Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)
@@ -89,5 +89,5 @@ type ``MBrace Thespian Dictionary Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.IsInMemoryFixture = false
-    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine workflow
+    override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow

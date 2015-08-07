@@ -29,7 +29,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     override __.IsTargetWorkerSupported = true
 
     override __.RunOnCloud (workflow : Cloud<'T>) = 
-        session.Runtime.RunAsync (workflow)
+        session.Runtime.RunOnCloudAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
@@ -37,10 +37,10 @@ type ``MBrace Thespian Cloud Tests`` () as self =
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
-            return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            return! runtime.RunOnCloudAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
         } |> Async.RunSync
 
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentMachine(workflow)
+    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
 
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10
@@ -72,7 +72,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     member __.``Z5. Fault Tolerance : map/reduce`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateProcess(WordCount.run 20 WordCount.mapReduceRec)
+            let t = runtime.CreateCloudTask(WordCount.run 20 WordCount.mapReduceRec)
             do Thread.Sleep 4000
             session.Chaos()
             t.Result |> shouldEqual 100)
@@ -81,7 +81,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     member __.``Z5. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateProcess(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+            let t = runtime.CreateCloudTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
             do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
@@ -90,7 +90,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     member __.``Z5. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateProcess(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+            let t = runtime.CreateCloudTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
             do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
@@ -106,6 +106,6 @@ type ``MBrace Thespian Cloud Tests`` () as self =
             }
 
             do Thread.Sleep 1000
-            let t = runtime.Run (wf ())
+            let t = runtime.RunOnCloud (wf ())
             session.Chaos()
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

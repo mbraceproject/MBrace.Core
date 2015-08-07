@@ -22,7 +22,10 @@ type MBraceClient (runtime : IRuntimeManager) =
 
     let workers = CacheAtom.Create(getWorkers(), intervalMilliseconds = 500)
 
-    /// Creates a fresh cloud cancellation token source for this runtime
+    /// <summary>
+    ///     Creates a fresh cloud cancellation token source for use in the MBrace cluster.
+    /// </summary>
+    /// <param name="parents">Parent cancellation token sources. New cancellation token will be canceled if any of the parents is canceled.</param>
     member c.CreateCancellationTokenSource (?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
         async {
             let parents = parents |> Option.map Seq.toArray
@@ -31,15 +34,16 @@ type MBraceClient (runtime : IRuntimeManager) =
         } |> Async.RunSync
 
     /// <summary>
-    ///     Asynchronously execute a workflow on the distributed runtime as task.
+    ///     Asynchronously submits supplied cloud workflow for execution in the current MBrace runtime.
+    ///     Returns an instance of CloudTask, which can be queried for information on the progress of the computation.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member c.CreateProcessAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                                ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<CloudTask<'T>> = async {
+    member c.CreateCloudTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
+                                    ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<CloudTask<'T>> = async {
 
         let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
@@ -49,71 +53,74 @@ type MBraceClient (runtime : IRuntimeManager) =
     }
 
     /// <summary>
-    ///     Execute a workflow on the distributed runtime as task.
+    ///     Submits supplied cloud workflow for execution in the current MBrace runtime.
+    ///     Returns an instance of CloudTask, which can be queried for information on the progress of the computation.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : CloudTask<'T> =
-        __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
+    member __.CreateCloudTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : CloudTask<'T> =
+        __.CreateCloudTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
 
     /// <summary>
-    ///     Asynchronously executes a workflow on the distributed runtime.
+    ///     Asynchronously submits a cloud workflow for execution in the current MBrace runtime
+    ///     and waits until the computation completes with a value or fails with an exception.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
-        let! task = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName)
+    member __.RunOnCloudAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
+        let! task = __.CreateCloudTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName)
         return! task.AwaitResult()
     }
 
     /// <summary>
-    ///     Execute a workflow on the distributed runtime synchronously
+    ///     Submits a cloud workflow for execution in the current MBrace runtime
+    ///     and waits until the computation completes with a value or fails with an exception.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
     /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : 'T =
-        __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
+    member __.RunOnCloud(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?taskName : string) : 'T =
+        __.RunOnCloudAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?taskName = taskName) |> Async.RunSync
 
-    /// Gets all processes of provided cluster
-    member __.GetAllProcesses () = taskManagerClient.GetAllTasks() |> Async.RunSync
-
-    /// <summary>
-    ///     Gets process object by process id.
-    /// </summary>
-    /// <param name="id">Task id.</param>
-    member __.TryGetProcessById(taskId:string) = taskManagerClient.TryGetTaskById(taskId) |> Async.RunSync
+    /// Gets a collection of all running or completed cloud tasks that exist in the current MBrace runtime.
+    member __.GetAllCloudTasks () : CloudTask [] = taskManagerClient.GetAllTasks() |> Async.RunSync
 
     /// <summary>
-    ///     Clear cluster data for provided process.
+    ///     Attempts to get a Cloud task instance using supplied identifier.
     /// </summary>
-    /// <param name="task">Process to be cleared.</param>
-    member __.ClearProcess(task:CloudTask<'T>) = taskManagerClient.ClearTask(task) |> Async.RunSync
+    /// <param name="id">Input task identifier.</param>
+    member __.TryGetCloudTaskById(taskId:string) = taskManagerClient.TryGetTaskById(taskId) |> Async.RunSync
 
     /// <summary>
-    ///     Clear all process data from cluster.
+    ///     Deletes cloud task and all related data from MBrace cluster.
     /// </summary>
-    member __.ClearAllProcesses() = taskManagerClient.ClearAllTasks() |> Async.RunSync
+    /// <param name="task">Cloud task to be cleared.</param>
+    member __.ClearCloudTask(task:CloudTask<'T>) : unit = taskManagerClient.ClearTask(task) |> Async.RunSync
 
-    /// Gets a printed report of all currently executing processes
-    member __.GetProcessInfo() = taskManagerClient.GetProcessInfo()
-    /// Prints a report of all currently executing processes to stdout
-    member __.ShowProcessInfo() = taskManagerClient.ShowProcessInfo()
+    /// <summary>
+    ///     Deletes *all* cloud tasks and related data from MBrace cluster.
+    /// </summary>
+    member __.ClearAllCloudTasks() : unit = taskManagerClient.ClearAllTasks() |> Async.RunSync
 
-    /// Gets the store client for provided runtime.
-    member __.Store = storeClient
+    /// Gets a printed report of all current cloud tasks.
+    member __.GetCloudTaskInfo() : string = taskManagerClient.GetProcessInfo()
+    /// Prints a report of all current cloud tasks to stdout.
+    member __.ShowCloudTaskInfo() : unit = taskManagerClient.ShowProcessInfo()
 
-    /// Gets all available workers for current runtime.
-    member __.Workers = workers.Value
+    /// Gets a client object that can be used for interoperating with the MBrace store.
+    member __.Store : CloudStoreClient = storeClient
+
+    /// Gets all available workers for the MBrace runtime.
+    member __.Workers : WorkerRef [] = workers.Value
 
     /// Gets a printed report on all workers on the runtime
     member __.GetWorkerInfo () = WorkerReporter.Report(__.Workers, title = "Workers", borders = false)
@@ -123,18 +130,20 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.GetResource<'TResource> () : 'TResource = runtime.ResourceRegistry.Resolve<'TResource> ()
 
     /// <summary>
-    ///     Wraps a cloud workflow in a locally executing, async workflow.
+    ///     Asynchronously executes supplied cloud workflow within the current, client process.
+    ///     Parallelism is afforded through the .NET thread pool.
     /// </summary>
     /// <param name="workflow">Cloud workflow to execute.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunOnCurrentMachineAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
+    member __.RunOnCurrentProcessAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
         imem.RunAsync(workflow, ?memoryEmulation = memoryEmulation)
 
     /// <summary>
-    ///     Run workflow as a local, in-memory computation on this machine.
+    ///     Asynchronously executes supplied cloud workflow within the current, client process.
+    ///     Parallelism is afforded through the .NET thread pool.
     /// </summary>
     /// <param name="workflow">Cloud workflow to execute.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunOnCurrentMachine(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
+    member __.RunOnCurrentProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
         imem.Run(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)
