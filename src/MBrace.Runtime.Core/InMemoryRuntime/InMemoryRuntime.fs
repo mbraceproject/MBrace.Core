@@ -7,6 +7,20 @@ open MBrace.Core.Internals
 
 #nowarn "444"
 
+type Cloud =
+    /// <summary>
+    ///     Converts a cloud workflow to an async workflow with provided resources and 
+    ///     cancellation token that is inherited from the async context.
+    /// </summary>
+    /// <param name="workflow">Workflow to be executed.</param>
+    /// <param name="resources">ResourceRegistry for workflow. Defaults to the empty resource registry.</param>
+    static member ToAsyncWithCurrentCancellationToken(workflow : Cloud<'T>, ?resources : ResourceRegistry) : Async<'T> = async {
+        let resources = match resources with None -> ResourceRegistry.Empty | Some r -> r
+        let! ct = Async.CancellationToken
+        let cct = new InMemoryCancellationToken(ct)
+        return! Cloud.ToAsync(workflow, resources, cct :> ICloudCancellationToken)
+    }
+
 /// Handle for in-memory execution of cloud workflows.
 [<Sealed; AutoSerializable(false)>]
 type InMemoryRuntime private (provider : ThreadPoolParallelismProvider, resources : ResourceRegistry, vagabondGraphChecker : (obj -> unit) option) =

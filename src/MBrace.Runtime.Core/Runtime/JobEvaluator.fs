@@ -144,17 +144,37 @@ module JobEvaluator =
     }
        
 
+/// Defines a Cloud job evaluator that runs code within the current application domain
 [<AutoSerializable(false)>]
-type LocalJobEvaluator(manager : IRuntimeManager, currentWorker : IWorkerId) =
+type LocalJobEvaluator private (manager : IRuntimeManager, currentWorker : IWorkerId) =
+    /// <summary>
+    ///     Creates a new local job evaluator instance with provided runtime configuration.
+    /// </summary>
+    /// <param name="manager">Runtime manager object.</param>
+    /// <param name="currentWorker">Current worker identifier.</param>
+    static member Create(manager : IRuntimeManager, currentWorker : IWorkerId) =
+        new LocalJobEvaluator(manager, currentWorker)
+
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
             return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken
         }
 
+/// Defines a Cloud job evaluator that runs in a managed pool of application domains.
+/// Loading of assembly dependencies is performed by Vagabond, in a way where conflicting
+/// dependencies will never be collocated in the same AppDomain.
 [<AutoSerializable(false)>]
-type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeManager * IWorkerId>, pool : AppDomainEvaluatorPool) =
+type AppDomainJobEvaluator private (configInitializer : DomainLocal<IRuntimeManager * IWorkerId>, pool : AppDomainEvaluatorPool) =
 
-    static member Create(managerF : DomainLocal<IRuntimeManager * IWorkerId>,
+    /// <summary>
+    ///     Creates a new AppDomain evaluator instance with provided parameters.
+    /// </summary>
+    /// <param name="initRuntimeConfig">AppDomain runtime configuration factory. Must be serializable lambda.</param>
+    /// <param name="initializer">Optional domain initialization code. Is run before the configuration factory upon domain creation.</param>
+    /// <param name="threshold">Timespan after which unused domain will be discarded.</param>
+    /// <param name="minConcurrentDomains">Minimum permitted number of concurrent AppDomains.</param>
+    /// <param name="maxConcurrentDomains">Maximum permitted number of concurrent AppDomains.</param>
+    static member Create(initRuntimeConfig : unit -> IRuntimeManager * IWorkerId,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
                                 ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
 
@@ -163,14 +183,14 @@ type AppDomainJobEvaluator(managerF : DomainLocal<IRuntimeManager * IWorkerId>, 
                                                     ?minimumConcurrentDomains = minConcurrentDomains,
                                                     ?maximumConcurrentDomains = maxConcurrentDomains)
 
-        new AppDomainJobEvaluator(managerF, pool)
+        new AppDomainJobEvaluator(DomainLocal.Create initRuntimeConfig, pool)
 
     interface ICloudJobEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
             // avoid capturing evaluator in closure
-            let managerF = managerF
+            let configInitializer = configInitializer
             let eval () = async { 
-                let manager, currentWorker = managerF.Value 
+                let manager, currentWorker = configInitializer.Value
                 return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken 
             }
 

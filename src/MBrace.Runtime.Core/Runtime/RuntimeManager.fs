@@ -25,10 +25,24 @@ type IRuntimeManager =
     abstract ResourceRegistry : ResourceRegistry
     /// Runtime worker manager object.
     abstract WorkerManager : IWorkerManager
-    /// Logger abstraction for user-specified cloud logging.
+
+    /// <summary>
+    ///     Gets a CloudLogger instance specific to supplied CloudJob.
+    /// </summary>
+    /// <param name="worker">Current worker identifier.</param>
+    /// <param name="job">Current cloud job.</param>
     abstract GetCloudLogger : worker:IWorkerId * job:CloudJob -> ICloudLogger
+
     /// Logger abstraction used for local worker logging.
     abstract SystemLogger : ISystemLogger
+
+    /// <summary>
+    ///     Attaches a logger to the local runtime manager instance.
+    ///     Returns an uninstallation token.
+    /// </summary>
+    /// <param name="localLogger">Logger to be attached.</param>
+    abstract AttachSystemLogger : localLogger:ISystemLogger -> IDisposable
+
     /// Gets the job queue instance for the runtime.
     abstract JobQueue : IJobQueue
     /// Gets the Vagabond assembly manager for this runtime.

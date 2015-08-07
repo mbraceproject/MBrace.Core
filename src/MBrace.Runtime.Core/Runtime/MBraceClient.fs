@@ -147,3 +147,10 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
     member __.RunOnCurrentProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
         imem.Run(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)
+
+    /// <summary>
+    ///     Attaches user-supplied logger to client instance.
+    ///     Returns an unsubscribe token if successful.
+    /// </summary>
+    /// <param name="logger">Logger instance to be attached.</param>
+    member __.AttachLogger(logger : ISystemLogger) : System.IDisposable = runtime.AttachSystemLogger logger

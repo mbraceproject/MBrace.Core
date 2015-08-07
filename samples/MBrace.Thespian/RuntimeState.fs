@@ -2,6 +2,7 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Library
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
@@ -27,6 +28,8 @@ type RuntimeState =
         Id : RuntimeId
         /// Thespian address of the runtime state hosting process
         Address : string
+        /// Default serializer instance
+        Serializer : ISerializer
         /// Resource factory instace used for instantiating resources
         /// in the cluster state hosting process
         ResourceFactory : ResourceFactory
@@ -42,39 +45,51 @@ type RuntimeState =
         CloudLogger  : ActorCloudLogger
         /// Misc resources appended to runtime state
         Resources : ResourceRegistry
-        /// Vagabond store assembly configuration
-        VagabondStoreConfig : StoreAssemblyManagerConfiguration
-        /// Persisted value manager instance
-        PersistedValueManager : PersistedValueManager
+        /// Local node state factory instance
+        LocalStateFactory : LocalStateFactory
     }
 with
     /// <summary>
     ///     Creates a cluster state object that is hosted in the local process
     /// </summary>
-    /// <param name="localLogger">Local recipient logger instance.</param>
     /// <param name="fileStoreConfig">File store configuration.</param>
     /// <param name="assemblyDirectory">Assembly directory used in store.</param>
     /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
-    static member Create(localLogger : ISystemLogger, fileStoreConfig : CloudFileStoreConfiguration, 
-                                ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
+    static member Create(fileStoreConfig : CloudFileStoreConfiguration, ?jobsDirectory : string, 
+                            ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
 
-        let id = RuntimeId.Create()
-        let resourceFactory = ResourceFactory.Create()
-        let workerManager = WorkerManager.Create(localLogger)
-        let serializer = FsPicklerBinaryStoreSerializer()
-        let pvm = PersistedValueManager.Create(fileStoreConfig.FileStore, container = "mbrace-data", serializer = serializer, persistThreshold = 512L * 1024L)
-        let taskManager = CloudTaskManager.Create(pvm)
-                
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
+        let jobsDirectory = defaultArg jobsDirectory "mbrace-data"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
+
+        let serializer = FsPicklerBinaryStoreSerializer()
         let storeCloudValueConfig = CloudFileStoreConfiguration.Create(fileStoreConfig.FileStore, defaultDirectory = cacheDirectory)
         let mkCacheInstance () = Config.ObjectCache
         let mkLocalCachingFileStore () = CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")
         let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
-        let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = "vagabond")
-        let closureSiftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
-        let jobQueue = JobQueue.Create(workerManager, localLogger, closureSiftConfig, pvm)
+        let persistedValueManager = PersistedValueManager.Create(fileStoreConfig.FileStore, container = "mbrace-data", serializer = serializer, persistThreshold = 512L * 1024L)
+
+        let localStateFactory = DomainLocal.Create(fun () ->
+            let logger = new AttacheableLogger()
+            let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = assemblyDirectory)
+            let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
+            let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
+            let siftManager = ClosureSiftManager.Create(siftConfig, logger)
+            {
+                Logger = logger
+                PersistedValueManager = persistedValueManager
+                AssemblyManager = assemblyManager
+                SiftManager = siftManager
+            })
+
+        let id = RuntimeId.Create()
+        let resourceFactory = ResourceFactory.Create()
+        let workerManager = WorkerManager.Create(localStateFactory)
+        let taskManager = CloudTaskManager.Create(localStateFactory)
+        let jobQueue = JobQueue.Create(workerManager, localStateFactory)
+        let actorLogger = ActorCloudLogger.Create(localStateFactory.Value.Logger)
+
 
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
@@ -89,16 +104,16 @@ with
         {
             Id = RuntimeId.Create()
             Address = Config.LocalAddress
+            Serializer = serializer :> ISerializer
 
             ResourceFactory = resourceFactory
             StoreCloudValueProvider = cloudValueProvider
             WorkerManager = workerManager
             TaskManager = taskManager
-            CloudLogger = ActorCloudLogger.Create(localLogger)
+            CloudLogger = actorLogger
             JobQueue = jobQueue
             Resources = resources
-            VagabondStoreConfig = vagabondStoreConfig
-            PersistedValueManager = pvm
+            LocalStateFactory = localStateFactory
         }
 
     /// <summary>
@@ -106,8 +121,8 @@ with
     ///     and given local logger instance.
     /// </summary>
     /// <param name="localLogger">Logger instance bound to local process.</param>
-    member state.GetLocalRuntimeManager(localLogger : ISystemLogger) =
-        new RuntimeManager(state, localLogger) :> IRuntimeManager
+    member state.GetLocalRuntimeManager() =
+        new RuntimeManager(state) :> IRuntimeManager
 
     /// <summary>
     ///     Serializes runtime state object to BASE64 string.
@@ -127,23 +142,19 @@ with
         Config.Serializer.UnPickle<RuntimeState> bytes
 
 /// Local IRuntimeManager implementation
-and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, logger : ISystemLogger) =
-
-    let storeConfig = state.Resources.Resolve<CloudFileStoreConfiguration>()
-    let serializer = state.Resources.Resolve<ISerializer>()
-    let assemblyManager = StoreAssemblyManager.Create(state.VagabondStoreConfig, localLogger = logger)
+and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =
+    // force initialization of local configuration in the current AppDomain
+    let localState = state.LocalStateFactory.Value
     // Install cache in the local application domain
-    do state.StoreCloudValueProvider.Install()
-    // Install local logger in the job queue object
-    let _ = state.JobQueue.AttachLocalLogger logger
+    do state.StoreCloudValueProvider.InstallCacheOnLocalAppDomain()
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)
     let counterFactory = new ActorCounterFactory(state.ResourceFactory)
-    let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory, state.PersistedValueManager)
+    let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory, localState.PersistedValueManager)
 
     interface IRuntimeManager with
         member x.Id = state.Id :> _
         member x.Serializer = Config.Serializer :> _
-        member x.AssemblyManager: IAssemblyManager = assemblyManager :> _
+        member x.AssemblyManager: IAssemblyManager = localState.AssemblyManager :> _
         
         member x.CancellationEntryFactory: ICancellationEntryFactory = cancellationEntryFactory :> _
         member x.CounterFactory: ICloudCounterFactory = counterFactory :> _
@@ -155,7 +166,9 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
         
         member x.GetCloudLogger (workerId : IWorkerId, job:CloudJob) : ICloudLogger = state.CloudLogger.GetCloudLogger(workerId, job)
 
-        member x.SystemLogger : ISystemLogger = logger
+        member x.SystemLogger : ISystemLogger = localState.Logger :> _
+        
+        member x.AttachSystemLogger (l : ISystemLogger) = localState.Logger.AttachLogger l
         
         member x.TaskManager = state.TaskManager :> _
         

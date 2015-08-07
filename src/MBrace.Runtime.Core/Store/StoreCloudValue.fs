@@ -437,7 +437,7 @@ and [<Sealed; DataContract>]
             return v :> seq<'T>
         }
 
-/// CloudValue provider implementation that is based on cloud storage
+/// CloudValue provider implementation that is based on cloud storage.
 and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStoreCloudValueConfiguration) =
 
     static let isSupportedLevel (level : StorageLevel) =
@@ -548,7 +548,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         | None -> ()
 
     /// Installs InMemory cache for StoreCloudValue instance in the local context
-    member __.Install() =
+    member __.InstallCacheOnLocalAppDomain() =
         lock globalConfig (fun () ->
             match config with
             | Some _ -> ()
@@ -557,11 +557,13 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
                 config <- Some localConfig)
 
     /// Uninstalls InMemory cache for StoreCloudValue instance in the local context
-    member __.Uninstall () =
+    member __.UninstallCacheFromLocalAppDomain () =
         lock globalConfig (fun () ->
             match config with
             | None -> ()
-            | Some _ -> ignore <| StoreCloudValueRegistry.Uninstall globalConfig.Id)
+            | Some _ -> 
+                ignore <| StoreCloudValueRegistry.Uninstall globalConfig.Id
+                config <- None)
 
     interface ICloudValueProvider with
         member x.Id: string = 

@@ -11,7 +11,7 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
 
-/// Store implementation that uses a filesystem as backend.
+/// Cloud file store implementation targeting local file systems.
 [<Sealed; DataContract>]
 type FileSystemStore private (rootPath : string) =
 

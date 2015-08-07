@@ -23,7 +23,8 @@ module Worker =
 
         ignore Config.Serializer
         let currentWorker = WorkerId.LocalInstance :> IWorkerId
-        let manager = state.GetLocalRuntimeManager logger
+        let manager = state.GetLocalRuntimeManager()
+        let _ = manager.AttachSystemLogger logger
 
         let jobEvaluator =
             if useAppDomainIsolation then
@@ -33,11 +34,14 @@ module Worker =
                     Config.Initialize(populateDirs = false) 
                     logger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
 
-                let managerF = DomainLocal.Create(fun () -> state.GetLocalRuntimeManager logger, currentWorker)
+                let managerF () =
+                    let manager = state.GetLocalRuntimeManager()
+                    let _ = manager.AttachSystemLogger(logger)
+                    manager, currentWorker
 
                 AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
             else
-                new LocalJobEvaluator(manager, currentWorker) :> ICloudJobEvaluator
+                LocalJobEvaluator.Create(manager, currentWorker) :> ICloudJobEvaluator
 
         logger.LogInfo "Creating worker agent."
         let! agent = WorkerAgent.Create(manager, currentWorker, jobEvaluator, maxConcurrentJobs, submitPerformanceMetrics = true)

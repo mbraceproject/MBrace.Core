@@ -214,7 +214,8 @@ with
             PrefixDataDependenciesByAssemblyId = defaultArg prefixDataDependenciesByAssemblyId true
         }
 
-/// Assembly manager instance
+/// AssemblyManager implementation that uses cloud store to share Vagabond assemblies.
+/// Type is *not* serializable, transfer using the StoreAssemblyManagerConfiguration object instead.
 [<Sealed; AutoSerializable(false)>]
 type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, localLogger : ISystemLogger) =
     let storeConfig = CloudFileStoreConfiguration.Create(config.Store, defaultDirectory = config.VagabondContainer)

@@ -73,7 +73,7 @@ type FileSystemLogger (path : string, ?showDate : bool, ?append : bool) =
     interface IDisposable with
         member __.Dispose () = writer.Flush () ; writer.Close () ; fs.Close()
 
-
+[<AutoSerializable(false)>]
 type AttacheableLogger() =
     let attached = new Dictionary<string, ISystemLogger>()
     member __.AttachLogger(logger : ISystemLogger) =

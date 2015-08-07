@@ -153,23 +153,24 @@ type private LargeObjectSifter(vagabond : VagabondManager, siftThreshold : int64
             | _ -> false
         
 
-/// Local instance used for sifting large object graphs.
+/// Management object used for optimizing large closures using CloudValue and Vagabond.
+/// Type is *not* serializable, transfer using the StoreAssemblyManagerConfiguration object instead.
 [<Sealed; AutoSerializable(false)>]
-type ClosureSiftManager private (cloudValueProvider : ICloudValueProvider, siftThreshold : int64) =
+type ClosureSiftManager private (cloudValueProvider : ICloudValueProvider, siftThreshold : int64, logger : ISystemLogger) =
 
     let vagabond = VagabondRegistry.Instance
     let localSifts = new ConcurrentDictionary<HashResult, unit>()
     let isSifted hash = localSifts.ContainsKey hash
     let append hash = ignore <| localSifts.TryAdd(hash, ())
-    let logger = new AttacheableLogger()
 
     /// <summary>
     ///     Creates a local ClosureSiftManager instance with provided configuration object.
     /// </summary>
     /// <param name="configuration">Configuration object used for sifting closures.</param>
     /// <param name="localLogger">Local system logger used by manager. Defaults to no logging.</param>
-    static member Create(configuration : ClosureSiftConfiguration) =
-        new ClosureSiftManager(configuration.CloudValueProvider, configuration.SiftThreshold)
+    static member Create(configuration : ClosureSiftConfiguration, ?localLogger : ISystemLogger) =
+        let localLogger = match localLogger with Some l -> l | None -> new NullLogger() :> _
+        new ClosureSiftManager(configuration.CloudValueProvider, configuration.SiftThreshold, localLogger)
     
     /// <summary>
     ///     Creates a sifted closure for given value if necessary.
@@ -248,9 +249,3 @@ type ClosureSiftManager private (cloudValueProvider : ICloudValueProvider, siftT
 
             return FsPickler.UnSift<'T>(siftedClosure, extractedSifts)
     }
-
-    /// <summary>
-    ///     Attaches a logger instance to the sift manager instance.
-    /// </summary>
-    /// <param name="newLogger">Logger to be attached.</param>
-    member __.AttachLogger(newLogger : ISystemLogger) = logger.AttachLogger newLogger

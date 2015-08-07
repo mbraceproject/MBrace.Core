@@ -8,13 +8,15 @@ open Nessos.FsPickler
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
+
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Vagabond
 open MBrace.Runtime.InMemoryRuntime
 
 #nowarn "444"
 
 /// Represents an object entity that is either persisted in cloud store
-/// or comes as an encapsulated pickled byte if small enough
+/// or comes as an encapsulated pickle if sufficiently small
 type IPickleOrFile =
     /// Gets the value size in bytes
     abstract Size : int64
@@ -25,7 +27,7 @@ type IPickleOrFile =
     abstract GetValueBoxedAsync : unit -> Async<obj>
 
 /// Represents an object entity that is either persisted in cloud store
-/// or comes as an encapsulated pickled byte if small enough
+/// or comes as an encapsulated pickle if sufficiently small
 [<NoEquality; NoComparison>]
 type PickleOrFile<'T> =
     | EncapsulatedPickle of byte [] * ISerializer
@@ -63,6 +65,7 @@ with
 
 
 /// Provides utility methods for persisting .NET objects to files in the cloud store.
+/// Can be safely serialized.
 [<Sealed; DataContract>]
 type PersistedValueManager private (resources : ResourceRegistry, persistThreshold : int64) =
 
@@ -72,12 +75,7 @@ type PersistedValueManager private (resources : ResourceRegistry, persistThresho
     [<DataMember(Name = "PersistThreshold")>]
     let _persistThreshold = persistThreshold
 
-
-    let toAsync (workflow : Local<'T>) = async {
-        let! ct = Async.CancellationToken
-        let cct = new InMemoryCancellationToken(ct)
-        return! Cloud.ToAsync(workflow, resources, cct)
-    }
+    let toAsync (workflow : Local<'T>) = Cloud.ToAsyncWithCurrentCancellationToken(workflow, resources)
 
     let getPath (fileName : string) = local {
         let! dir = CloudPath.DefaultDirectory
@@ -120,7 +118,7 @@ type PersistedValueManager private (resources : ResourceRegistry, persistThresho
     /// <param name="serializer">Serializer used for persisting. Defaults to the resource serializer.</param>
     member __.CreateFileOrPickleAsync(value : 'T, fileName : string, ?persistThreshold : int64, ?serializer : ISerializer) : Async<PickleOrFile<'T>> = async {
         let persistThreshold = defaultArg persistThreshold _persistThreshold
-        if FsPickler.ComputeSize value > persistThreshold then
+        if VagabondRegistry.Instance.Serializer.ComputeSize value > persistThreshold then
             let! pv = __.PersistValueAsync(value, fileName, ?serializer = serializer)
             return Persisted pv
         else

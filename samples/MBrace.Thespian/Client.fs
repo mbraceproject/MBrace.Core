@@ -21,7 +21,7 @@ type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 
 /// MBrace.Thespian client object used to manage cluster and submit jobs for computation.
 [<AutoSerializable(false)>]
-type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState, _logger : AttacheableLogger) =
+type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState) =
     inherit MBraceClient(manager)
     static let processName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name
     static do Config.Initialize(populateDirs = true)
@@ -35,12 +35,6 @@ type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState, _l
         psi.UseShellExecute <- true
         for i = 1 to count do
             ignore <| Process.Start psi
-
-    /// <summary>
-    ///     Attaches user-supplied logger to client instance.
-    /// </summary>
-    /// <param name="logger">Logger instance to be attached.</param>
-    member __.AttachLogger(logger : ISystemLogger) : IDisposable = _logger.AttachLogger logger
 
     /// Violently kills all worker nodes in the runtime
     member __.KillAllWorkers () =
@@ -75,10 +69,9 @@ type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState, _l
                 let fs = FileSystemStore.CreateSharedLocal()
                 CloudFileStoreConfiguration.Create fs
 
-        let logger = new AttacheableLogger()
-        let state = RuntimeState.Create(logger, storeConfig, ?miscResources = resources)
+        let state = RuntimeState.Create(storeConfig, ?miscResources = resources)
         let _ = initWorkers state workerCount
-        new MBraceThespian(state.GetLocalRuntimeManager logger, state, logger)
+        new MBraceThespian(state.GetLocalRuntimeManager(), state)
 
     /// Gets or sets the worker executable location.
     static member WorkerExecutable

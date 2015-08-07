@@ -177,9 +177,10 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
     ///     Creates a new worker manager instance running in the local process.
     /// </summary>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold demanded by monitor. Defaults to 10 seconds.</param>
-    static member Create(logger : ISystemLogger, ?heartbeatThreshold : TimeSpan, ?heartbeatInterval : TimeSpan) =
+    static member Create(localStateF : LocalStateFactory, ?heartbeatThreshold : TimeSpan, ?heartbeatInterval : TimeSpan) =
         let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 10.)
         let heartbeatInterval = defaultArg heartbeatInterval (TimeSpan.FromSeconds 0.5)
+        let logger = localStateF.Value.Logger
         let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<WorkerId, WorkerState * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
             match msg with
             | Subscribe(w, info, rc) ->
