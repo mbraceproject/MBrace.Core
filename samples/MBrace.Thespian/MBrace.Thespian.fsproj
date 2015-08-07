@@ -69,7 +69,7 @@
     <Compile Include="Primitives\CloudAtom.fs" />
     <Compile Include="Primitives\CloudQueue.fs" />
     <Compile Include="Primitives\CloudDictionary.fs" />
-    <Compile Include="LocalRuntimeState.fs" />
+    <Compile Include="LocalState.fs" />
     <Compile Include="WorkerManager.fs" />
     <Compile Include="TaskManager.fs" />
     <Compile Include="JobQueue.fs" />
