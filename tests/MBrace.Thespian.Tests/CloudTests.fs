@@ -12,8 +12,8 @@ open MBrace.Runtime
 open MBrace.Core.Tests
 open MBrace.Thespian
 
-type ``MBrace Thespian Parallelism Tests`` () as self =
-    inherit ``Distribution Tests`` (parallelismFactor = 20, delayFactor = 3000)
+type ``MBrace Thespian Cloud Tests`` () as self =
+    inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
     let session = new RuntimeSession(nodes = 4)
 
@@ -45,6 +45,7 @@ type ``MBrace Thespian Parallelism Tests`` () as self =
     override __.Logs = session.Logger :> _
     override __.FsCheckMaxTests = 10
     override __.UsesSerialization = true
+    override __.IsSiftedWorkflowSupported = true
 #if DEBUG
     override __.Repeats = 10
 #else

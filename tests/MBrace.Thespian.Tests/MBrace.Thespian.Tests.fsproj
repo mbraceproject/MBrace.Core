@@ -57,7 +57,7 @@
   -->
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="ParallelismTests.fs" />
+    <Compile Include="CloudTests.fs" />
     <Compile Include="StoreTests.fs" />
     <Compile Include="FlowTests.fs" />
     <Compile Include="VagabondTests.fs" />

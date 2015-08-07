@@ -37,7 +37,7 @@ type RuntimeState =
         /// Cloud task instance
         TaskManager : CloudTaskManager
         /// Cloud job queue instance
-        JobQueue : IJobQueue
+        JobQueue : JobQueue
         /// Cloud logging instance
         CloudLogger  : ActorCloudLogger
         /// Misc resources appended to runtime state
@@ -61,7 +61,6 @@ with
         let resourceFactory = ResourceFactory.Create()
         let workerManager = WorkerManager.Create(localLogger)
         let taskManager = CloudTaskManager.Create()
-        let jobQueue = JobQueue.Create(workerManager)
                 
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
@@ -71,6 +70,8 @@ with
         let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
         let serializer = FsPicklerBinaryStoreSerializer()
         let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = "vagabond")
+        let closureSiftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
+        let jobQueue = JobQueue.Create(workerManager, localLogger, closureSiftConfig)
 
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
@@ -129,6 +130,8 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
     let assemblyManager = StoreAssemblyManager.Create(state.VagabondStoreConfig, localLogger = logger)
     // Install cache in the local application domain
     do state.StoreCloudValueProvider.Install()
+    // Install local logger in the job queue object
+    let _ = state.JobQueue.AttachLocalLogger logger
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)
     let counterFactory = new ActorCounterFactory(state.ResourceFactory)
     let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory)
@@ -144,7 +147,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
         
         member x.WorkerManager = state.WorkerManager :> _
         
-        member x.JobQueue: IJobQueue = state.JobQueue
+        member x.JobQueue: IJobQueue = state.JobQueue :> _
         
         member x.GetCloudLogger (workerId : IWorkerId, job:CloudJob) : ICloudLogger = state.CloudLogger.GetCloudLogger(workerId, job)
 

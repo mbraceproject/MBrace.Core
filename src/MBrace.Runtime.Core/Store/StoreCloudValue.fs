@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Runtime.Store
 
 open System
+open System.Reflection
 open System.IO
 open System.Collections.Concurrent
 open System.Runtime.Serialization
@@ -30,7 +31,7 @@ module private StoreCloudValueImpl =
     [<AutoSerializable(true); NoEquality; NoComparison>]
     type CachedEntityId =
         | Encapsulated of value:obj * hash:HashResult
-        | VagabondValue of hash:HashResult
+        | VagabondValue of field:FieldInfo * hash:HashResult
         | Cached of level:StorageLevel * hash:HashResult
     with
         /// Gets the FsPickler hashcode of the cached value
@@ -38,7 +39,7 @@ module private StoreCloudValueImpl =
             match c with
             | Encapsulated (_,hash) -> hash
             | Cached (_, hash) -> hash
-            | VagabondValue hash -> hash
+            | VagabondValue (_, hash) -> hash
 
         member c.Level =
             match c with
@@ -57,7 +58,7 @@ module private StoreCloudValueImpl =
             if obj = null || hash.Length <= sizeThreshold then Encapsulated(obj, hash)
             else
                 match vgb.TryGetBindingByHash hash with
-                | Some _ -> VagabondValue hash
+                | Some f -> VagabondValue(f, hash)
                 | None -> Cached(level, hash)
 
     /// Cached value representation; can be stored as materialized object or pickled bytes
@@ -273,10 +274,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
     let getValue () = async {
         match id with
         | Encapsulated (value,_) -> return value :?> 'T
-        | VagabondValue hash ->
-            let f = VagabondRegistry.Instance.TryGetBindingByHash hash |> Option.get
-            return f.GetValue(null) :?> 'T
-
+        | VagabondValue (f, _) -> return f.GetValue(null) :?> 'T
         | Cached (level, hash) ->
             let config = getConfig()
             // look up InMemory cache first
@@ -332,7 +330,9 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                             let isSuccess = config.LocalCache.Add(hash.Id, CachedValue.Create(value, level))
                             // if already cached, return cached value rather than downloaded value
                             if isSuccess then value
-                            else config.LocalCache.Get hash.Id :?> 'T
+                            else 
+                                let cv = config.LocalCache.Get(hash.Id) :?> CachedValue
+                                cv.Value :?> 'T
                         else
                             value
     }
@@ -455,14 +455,23 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         | Some cfg -> cfg
         | None -> invalidOp <| sprintf "StoreCloudValue '%s' not installed in the local context." globalConfig.Id
 
-    let getPersistedCloudValueByPath(path : string) = async {
+    let tryGetPersistedCloudValueByPath(path : string) = async {
         let config = getConfig()
         let! header = config.Global.MainStore.TryGetHeader(config.Global.Serializer, path)
         match header with
-        | None -> return raise <| new ObjectDisposedException(path, "CloudValue could not be found in store.")
+        | None -> return None
         | Some hd -> 
             let ceid = Cached(hd.Level, hd.Hash)
-            return StoreCloudArray<_>.CreateReflected(ceid, hd.Count, hd.Type, hd.Type, config)
+            let cv = StoreCloudValue<_>.CreateReflected(ceid, hd.Count, hd.Type, hd.Type, config)
+            return Some cv
+    }
+
+    let getPersistedCloudValueByPath(path : string) = async {
+        let! result = tryGetPersistedCloudValueByPath path
+        return
+            match result with
+            | Some cv -> cv
+            | None -> raise <| new ObjectDisposedException(path, "CloudValue could not be located in store.")
     }
 
     /// persist value to disk
@@ -561,7 +570,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         member x.Name: string = "StoreCloudValue"
         member x.DefaultStorageLevel = StorageLevel.MemoryAndDisk
         member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
-
+        member x.GetCloudValueId(value : 'T) = let hash = VagabondRegistry.Instance.Serializer.ComputeHash value in hash.Id
         member x.CreateCloudArrayPartitioned(values : seq<'T>, partitionThreshold : int64, level : StorageLevel) = async {
             let _ = getConfig()
             if not <| isSupportedLevel level then invalidArg "level" <| sprintf "Not supported storage level '%O'." level
@@ -591,7 +600,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
                 |> Async.Ignore
         }
         
-        member x.GetAllValues(): Async<ICloudValue []> = async {
+        member x.GetAllCloudValues(): Async<ICloudValue []> = async {
             let config = getConfig()
             let! files = config.Global.MainStore.FileStore.EnumerateFiles config.Global.MainStore.DefaultDirectory
             let! cvalues =
@@ -603,7 +612,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
             return cvalues |> Array.choose (function Choice1Of2 v -> Some v | _ -> None)
         }
 
-        member x.GetValueById(id:string) : Async<ICloudValue> = async {
+        member x.TryGetCloudValueById(id:string) : Async<ICloudValue option> = async {
             let config = getConfig()
             let hash = HashResult.Parse id
             match config.LocalCache.TryFind hash.Id with
@@ -612,12 +621,12 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
                 let value = cv.Value
                 let count = match value with :? System.Array as a when a.Rank = 1 -> a.Length | _ -> 1
                 let reflectedType = getReflectedType value
-                return StoreCloudValue<_>.CreateReflected(Cached (cv.Level, hash), count, reflectedType, reflectedType, config)
+                let scv = StoreCloudValue<_>.CreateReflected(Cached (cv.Level, hash), count, reflectedType, reflectedType, config)
+                return Some scv
 
             // Step 2. attempt to look up from store
             | _ ->
                 let path = config.Global.MainStore.GetPathByHash hash
-                try return! getPersistedCloudValueByPath path
-                with :? System.IO.FileNotFoundException ->
-                    return raise <| new ObjectDisposedException(hash.Id, "CloudValue could not be found in store.")
+                try return! tryGetPersistedCloudValueByPath path
+                with :? System.IO.FileNotFoundException -> return None
         }

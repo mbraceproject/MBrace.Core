@@ -97,6 +97,13 @@ type ICloudValueProvider =
     abstract IsSupportedStorageLevel : level:StorageLevel -> bool
 
     /// <summary>
+    ///     Generates a structural CloudValue identifier for given value,
+    ///     without creating a new CloudValue instance.
+    /// </summary>
+    /// <param name="value">Value to used to structurally extract an identifier.</param>
+    abstract GetCloudValueId : value:'T -> string
+
+    /// <summary>
     ///     Initializes a CloudValue with supplied payload.
     /// </summary>
     /// <param name="payload">Payload to be cached.</param>
@@ -113,15 +120,15 @@ type ICloudValueProvider =
     abstract CreateCloudArrayPartitioned : sequence:seq<'T> * partitionThreshold:int64 * storageLevel:StorageLevel -> Async<CloudArray<'T> []>
 
     /// <summary>
-    ///     Gets CloudValue by cache id
+    ///     Try getting a created CloudValue by supplied id.
     /// </summary>
-    /// <param name="id">Object identifier.</param>
-    abstract GetValueById : id:string -> Async<ICloudValue>
+    /// <param name="id">Cloud value identifier.</param>
+    abstract TryGetCloudValueById : id:string -> Async<ICloudValue option>
 
     /// <summary>
-    ///     Gets all cloud value references contained in instance.
+    ///     Gets all cloud value references defined in instance.
     /// </summary>
-    abstract GetAllValues : unit -> Async<ICloudValue []>
+    abstract GetAllCloudValues : unit -> Async<ICloudValue []>
 
     /// <summary>
     ///     Asynchronously disposes value from caching context.
@@ -200,9 +207,9 @@ type CloudValue =
     ///     Retrieves a CloudValue instance by provided id.
     /// </summary>
     /// <param name="id">CloudValue identifier.</param>
-    static member GetValueById(id : string) : Local<ICloudValue> = local {
+    static member TryGetValueById(id : string) : Local<ICloudValue option> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
-        return! provider.GetValueById(id)
+        return! provider.TryGetCloudValueById(id)
     }
 
     /// <summary>
@@ -210,7 +217,7 @@ type CloudValue =
     /// </summary>
     static member GetAllValues() : Local<ICloudValue []> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
-        return! provider.GetAllValues()
+        return! provider.GetAllCloudValues()
     }
 
     /// <summary>

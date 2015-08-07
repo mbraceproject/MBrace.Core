@@ -2,6 +2,7 @@
 module MBrace.Runtime.Utils.Reflection
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.Reflection
 
@@ -69,6 +70,38 @@ let (|FsTuple|_|) (t : Type) =
     if FSharpType.IsTuple t then
         Some(FSharpType.GetTupleElements t)
     else None
+
+let private listTy = typedefof<Microsoft.FSharp.Collections.List<_>>
+let private icollectionTy = typedefof<System.Collections.Generic.ICollection<_>>
+let (|GenericCollectionWithCount|_|) (graph:obj) =
+    /// correctly resolves if type is assignable to generic interface
+    let rec tryFindGenericInterface (ty : Type) =
+        match ty.GetInterfaces() |> Array.tryFind(fun i -> i.IsGenericType && i.GetGenericTypeDefinition() = icollectionTy) with
+        | Some _ as r -> r
+        | None ->
+            match ty.BaseType with
+            | null -> None
+            | bt ->
+                if bt = typeof<obj> then None
+                else tryFindGenericInterface bt
+
+    match graph with
+    | :? IEnumerable as e ->
+        let t = e.GetType()
+        if t.IsGenericType && t.GetGenericTypeDefinition() = listTy then
+            let lp = t.GetProperty("Length")
+            let length = lp.GetValue(e) :?> int
+            Some(e, length)
+
+        else
+            match tryFindGenericInterface t with
+            | None -> None
+            | Some interf ->
+                let cp = interf.GetProperty("Count")
+                let count = cp.GetValue(e) :?> int
+                Some(e, count)
+
+    | _ -> None
 
 type Assembly with
     static member TryFind(name : string) =

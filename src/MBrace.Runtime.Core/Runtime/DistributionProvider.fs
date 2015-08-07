@@ -66,7 +66,7 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating using local semantics."
             else
-                let! task = Combinators.runStartAsCloudTask runtime currentJob.TaskEntry.Info.Dependencies taskName faultPolicy cancellationToken target workflow 
+                let! task = Combinators.runStartAsCloudTask runtime false currentJob.TaskEntry.Info.Dependencies taskName faultPolicy cancellationToken target workflow 
                 return task :> ICloudTask<'T>
         }
 

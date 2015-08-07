@@ -20,8 +20,8 @@ type InMemoryLogTester () =
         member __.Log msg = lock logs (fun () -> logs.Add msg)
 
 [<AbstractClass>]
-type ``ThreadPool Parallelism Tests`` (memoryEmulation : MemoryEmulation) =
-    inherit ``Distribution Tests``(parallelismFactor = 100, delayFactor = 1000)
+type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
+    inherit ``Cloud Tests``(parallelismFactor = 100, delayFactor = 1000)
 
     let logger = InMemoryLogTester()
     let imem = InMemoryRuntime.Create(logger = logger, memoryEmulation = memoryEmulation)
@@ -36,6 +36,7 @@ type ``ThreadPool Parallelism Tests`` (memoryEmulation : MemoryEmulation) =
 
     override __.RunOnCurrentMachine(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
+    override __.IsSiftedWorkflowSupported = false
     override __.Logs = logger :> _
     override __.FsCheckMaxTests = 100
     override __.UsesSerialization = memoryEmulation <> MemoryEmulation.Shared
@@ -46,8 +47,8 @@ type ``ThreadPool Parallelism Tests`` (memoryEmulation : MemoryEmulation) =
 #endif
 
 
-type ``ThreadPool Parallelism Tests (Shared)`` () =
-    inherit ``ThreadPool Parallelism Tests`` (MemoryEmulation.Shared)
+type ``ThreadPool Cloud Tests (Shared)`` () =
+    inherit ``ThreadPool Cloud Tests`` (MemoryEmulation.Shared)
 
     member __.``Memory Semantics`` () =
         cloud {
@@ -62,8 +63,8 @@ type ``ThreadPool Parallelism Tests (Shared)`` () =
         }|> base.Runtime.Run |> ignore
         
 
-type ``ThreadPool Parallelism Tests (EnsureSerializable)`` () =
-    inherit ``ThreadPool Parallelism Tests`` (MemoryEmulation.EnsureSerializable)
+type ``ThreadPool Cloud Tests (EnsureSerializable)`` () =
+    inherit ``ThreadPool Cloud Tests`` (MemoryEmulation.EnsureSerializable)
 
     member __.``Memory Semantics`` () =
         cloud {
@@ -72,8 +73,8 @@ type ``ThreadPool Parallelism Tests (EnsureSerializable)`` () =
             return !cell
         } |> base.Runtime.Run |> shouldEqual 10
 
-type ``ThreadPool Parallelism Tests (Copied)`` () =
-    inherit ``ThreadPool Parallelism Tests`` (MemoryEmulation.Copied)
+type ``ThreadPool Cloud Tests (Copied)`` () =
+    inherit ``ThreadPool Cloud Tests`` (MemoryEmulation.Copied)
 
     member __.``Memory Semantics`` () =
         cloud {

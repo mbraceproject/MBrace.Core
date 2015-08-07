@@ -24,7 +24,7 @@ type ILogTester =
 /// </param>
 [<TestFixture>]
 [<AbstractClass>]
-type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self =
+type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
     let nNested = parallelismFactor |> float |> sqrt |> ceil |> int
 
@@ -33,6 +33,8 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     let runOnCloud (workflow : Cloud<'T>) = self.RunOnCloud workflow
     let runInCloudCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.RunOnCloud workflow
     let runOnCurrentMachine (workflow : Cloud<'T>) = self.RunOnCurrentMachine workflow
+    
+    static let getRefHashCode (t : 'T when 'T : not struct) = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode t
     
     /// Run workflow in the runtime under test
     abstract RunOnCloud : workflow:Cloud<'T> -> Choice<'T, exn>
@@ -46,6 +48,8 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
     abstract Repeats : int
     /// Enables targeted worker tests
     abstract IsTargetWorkerSupported : bool
+    /// Enables object sifting tests
+    abstract IsSiftedWorkflowSupported : bool
     /// Declares that this runtime uses serialization/distribution
     abstract UsesSerialization : bool
     /// Log tester
@@ -892,3 +896,85 @@ type ``Distribution Tests`` (parallelismFactor : int, delayFactor : int) as self
             let! results' = Cloud.ParallelEverywhere domainLocal.Value
             return (set results') |> shouldEqual (set results)
         } |> runOnCloud |> Choice.shouldEqual ()
+
+
+    [<Test>]
+    member __.``5. Simple sifting of large value`` () =
+        if __.IsSiftedWorkflowSupported then
+            let large = [|1L .. 10000000L|]
+            cloud {
+                let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
+                do 
+                    hashCodes 
+                    |> Seq.distinct 
+                    |> Seq.length
+                    |> shouldBe (fun l -> l <= workerCount)
+
+            } |> runOnCloud |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``5. Simple sifting of nested large value`` () =
+        if __.IsSiftedWorkflowSupported then
+            let large = [|1L .. 10000001L|]
+            let smallContainer = [| large ; [||] ; large ; [||] ; large |]
+            cloud {
+                let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode smallContainer}) |> Cloud.Ignore
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode smallContainer, getRefHashCode smallContainer.[0] } ]
+                let containerHashCodes, largeHashCodes = Array.unzip hashCodes
+                do 
+                    containerHashCodes
+                    |> Seq.distinct 
+                    |> Seq.length
+                    |> shouldBe (fun l -> l > 4 * workerCount)
+
+                do 
+                    largeHashCodes 
+                    |> Seq.distinct 
+                    |> Seq.length
+                    |> shouldBe (fun l -> l <= workerCount)
+
+            } |> runOnCloud |> Choice.shouldEqual ()
+
+
+    [<Test>]
+    member __.``5. Sifting of variably sized large value`` () =
+        if __.IsSiftedWorkflowSupported then
+            let large = [for i in 1 .. 1000000 -> seq { for j in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
+            cloud {
+                let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
+
+                do 
+                    hashCodes 
+                    |> Seq.distinct 
+                    |> Seq.length
+                    |> shouldBe (fun l -> l <= workerCount)
+
+            } |> runOnCloud |> Choice.shouldEqual ()
+
+    [<Test>]
+    member __.``5. Sifting array of intermediately sized elements`` () =
+        if __.IsSiftedWorkflowSupported then
+            // assumes sift threshold between ~ 500K and 20MB
+            let mkSmall() = [|1 .. 100000|]
+            let large = [ for i in 1 .. 200 -> mkSmall() ]
+            cloud {
+                let! workerCount = Cloud.GetWorkerCount()
+                // warmup phase; ensure cloudvalue is replicated everywhere before running test
+                do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
+                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
+
+                do 
+                    hashCodes 
+                    |> Seq.distinct 
+                    |> Seq.length
+                    |> shouldBe (fun l -> l <= workerCount)
+
+            } |> runOnCloud |> Choice.shouldEqual ()
