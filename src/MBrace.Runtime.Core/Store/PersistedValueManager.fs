@@ -17,52 +17,16 @@ open MBrace.Runtime.InMemoryRuntime
 
 /// Represents an object entity that is either persisted in cloud store
 /// or comes as an encapsulated pickle if sufficiently small
-type IPickleOrFile =
-    /// Gets the value size in bytes
-    abstract Size : int64
-    abstract Type : Type
-    abstract IsEncapsulated : bool
-    abstract IsPersisted : bool
-    abstract GetValueBoxed : unit -> obj
-    abstract GetValueBoxedAsync : unit -> Async<obj>
-
-/// Represents an object entity that is either persisted in cloud store
-/// or comes as an encapsulated pickle if sufficiently small
 [<NoEquality; NoComparison>]
 type PickleOrFile<'T> =
-    | EncapsulatedPickle of byte [] * ISerializer
+    | EncapsulatedPickle of byte []
     | Persisted of PersistedValue<'T>
 with
     /// Gets the value size in bytes
     member fp.Size =
         match fp with
         | Persisted pv -> pv.Size
-        | EncapsulatedPickle (p,_) -> int64 p.Length
-
-    /// Dereferences the value
-    member fp.Value =
-        match fp with
-        | EncapsulatedPickle (p,s) -> s.UnPickle<'T> p
-        | Persisted pf -> pf.Value
-
-    /// Asynchronously dereferences the value
-    member fp.GetValueAsync() = async {
-        match fp with
-        | EncapsulatedPickle (p,s) -> return s.UnPickle<'T> p
-        | Persisted pf -> return! pf.GetValueAsync()
-    }
-
-    interface IPickleOrFile with
-        member __.Size = __.Size
-        member __.Type = typeof<'T>
-        member __.IsEncapsulated = match __ with EncapsulatedPickle _ -> true | _ -> false
-        member __.IsPersisted = match __ with Persisted _ -> true | _ -> false
-        member __.GetValueBoxed () = __.Value :> obj
-        member __.GetValueBoxedAsync () = async {
-            let! r = __.GetValueAsync()
-            return r :> obj
-        }
-
+        | EncapsulatedPickle p -> int64 p.Length
 
 /// Provides utility methods for persisting .NET objects to files in the cloud store.
 /// Can be safely serialized.
@@ -102,11 +66,10 @@ type PersistedValueManager private (resources : ResourceRegistry, persistThresho
     /// </summary>
     /// <param name="value">Value to be persisted.</param>
     /// <param name="fileName">Filename to persist to. Must be relative path.</param>
-    /// <param name="serializer">Serializer used for persisting. Defaults to the resource serializer.</param>
-    member __.PersistValueAsync(value : 'T, fileName : string, ?serializer : ISerializer) : Async<PersistedValue<'T>> =
+    member __.PersistValueAsync(value : 'T, fileName : string) : Async<PersistedValue<'T>> =
         local {
             let! path = getPath fileName
-            return! PersistedValue.New(value, path = path, ?serializer = serializer) 
+            return! PersistedValue.New(value, path = path) 
         } |> toAsync
 
     /// <summary>
@@ -115,16 +78,24 @@ type PersistedValueManager private (resources : ResourceRegistry, persistThresho
     /// <param name="value">Value to be persisted.</param>
     /// <param name="fileName">Filename to persist to. Must be relative path.</param>
     /// <param name="persistThreshold">File persist threshold in bytes. Objects whose size is greater than the treshold are persisted, otherwise encapsulated.</param>
-    /// <param name="serializer">Serializer used for persisting. Defaults to the resource serializer.</param>
-    member __.CreateFileOrPickleAsync(value : 'T, fileName : string, ?persistThreshold : int64, ?serializer : ISerializer) : Async<PickleOrFile<'T>> = async {
+    member __.CreatePickleOrFileAsync(value : 'T, fileName : string, ?persistThreshold : int64) : Async<PickleOrFile<'T>> = async {
         let persistThreshold = defaultArg persistThreshold _persistThreshold
         if VagabondRegistry.Instance.Serializer.ComputeSize value > persistThreshold then
-            let! pv = __.PersistValueAsync(value, fileName, ?serializer = serializer)
+            let! pv = __.PersistValueAsync(value, fileName)
             return Persisted pv
         else
-            let serializer = match serializer with Some s -> s | None -> resources.Resolve()
-            let pickle = serializer.Pickle value
-            return EncapsulatedPickle (pickle, serializer)
+            let pickle = VagabondRegistry.Instance.Serializer.Pickle value
+            return EncapsulatedPickle pickle
+    }
+
+    /// <summary>
+    ///     Asynchronously reads the contents of provided PickleOrFile.
+    /// </summary>
+    /// <param name="pof">PickleOrFile instance to be read..</param>
+    member __.ReadPickleOrFileAsync(pof : PickleOrFile<'T>) : Async<'T> = async {
+        match pof with
+        | Persisted pv -> return! pv.GetValueAsync()
+        | EncapsulatedPickle p -> return VagabondRegistry.Instance.Serializer.UnPickle<'T> p
     }
 
     /// <summary>

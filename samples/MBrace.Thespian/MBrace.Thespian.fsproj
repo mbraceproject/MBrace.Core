@@ -60,6 +60,7 @@
   <ItemGroup>
     <Compile Include="Config.fs" />
     <Compile Include="Utils.fs" />
+    <Compile Include="LocalState.fs" />
     <Compile Include="Primitives\Logger.fs" />
     <Compile Include="Primitives\ResourceFactory.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
@@ -69,7 +70,6 @@
     <Compile Include="Primitives\CloudAtom.fs" />
     <Compile Include="Primitives\CloudQueue.fs" />
     <Compile Include="Primitives\CloudDictionary.fs" />
-    <Compile Include="LocalState.fs" />
     <Compile Include="WorkerManager.fs" />
     <Compile Include="TaskManager.fs" />
     <Compile Include="JobQueue.fs" />

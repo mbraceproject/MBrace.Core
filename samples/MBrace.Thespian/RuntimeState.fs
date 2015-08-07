@@ -149,7 +149,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =
     do state.StoreCloudValueProvider.InstallCacheOnLocalAppDomain()
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)
     let counterFactory = new ActorCounterFactory(state.ResourceFactory)
-    let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory, localState.PersistedValueManager)
+    let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory, state.LocalStateFactory)
 
     interface IRuntimeManager with
         member x.Id = state.Id :> _

@@ -16,17 +16,17 @@ open MBrace.Runtime.Store
 module private ActorResultAggregator =
 
     type ResultAggregatorMsg =
-        | SetResult of index:int * pvalue:PickleOrFile<obj> * overwrite:bool * completed:IReplyChannel<bool>
+        | SetResult of index:int * pvalue:ResultMessage<obj> * overwrite:bool * completed:IReplyChannel<bool>
         | GetCompleted of IReplyChannel<int>
         | IsCompleted of IReplyChannel<bool>
-        | ToArray of IReplyChannel<PickleOrFile<obj> []>
+        | ToArray of IReplyChannel<ResultMessage<obj> []>
 
     /// <summary>
     ///     Creates a result aggregator actor in the local process.
     /// </summary>
     /// <param name="capacity"></param>
     let create (capacity : int) : ActorRef<ResultAggregatorMsg> =
-        let behaviour (results : Map<int, PickleOrFile<obj>>) msg = async {
+        let behaviour (results : Map<int, ResultMessage<obj>>) msg = async {
             match msg with
             | SetResult(i, value, _, rc) when i < 0 || i >= capacity ->
                 let e = new IndexOutOfRangeException()
@@ -69,22 +69,24 @@ module private ActorResultAggregator =
 
     /// A distributed resource that aggregates an array of results.
     [<AutoSerializable(true)>]
-    type ActorResultAggregator<'T> internal (capacity : int, source : ActorRef<ResultAggregatorMsg>, pvm : PersistedValueManager) =
+    type ActorResultAggregator<'T> internal (stateF : LocalStateFactory, capacity : int, source : ActorRef<ResultAggregatorMsg>) =
 
         interface ICloudResultAggregator<'T> with
             member __.Capacity = capacity
             member __.CurrentSize = source <!- GetCompleted
             member __.IsCompleted = source <!- IsCompleted
             member __.SetResult(index : int, value : 'T, overwrite : bool) = async {
+                let state = stateF.Value
                 let id = sprintf "parResult-%s" <| mkUUID()
-                let! fop = pvm.CreateFileOrPickleAsync<obj>(value, id)
-                return! source <!- fun ch -> SetResult(index, fop, overwrite, ch)
+                let! rm = state.CreateResult<obj>(value, allowNewSifts = false, fileName = id)
+                return! source <!- fun ch -> SetResult(index, rm, overwrite, ch)
             }
 
             member __.ToArray () = async {
+                let state = stateF.Value
                 let! pickles = source <!- ToArray
-                let getResult (fop : PickleOrFile<obj>) = async {
-                    let! result = fop.GetValueAsync()
+                let getResult (rm : ResultMessage<obj>) = async {
+                    let! result = state.ReadResult rm
                     return result :?> 'T
                 }
 
@@ -94,9 +96,9 @@ module private ActorResultAggregator =
             member __.Dispose () = async.Zero()
 
 /// Defines a distributed result aggregator factory
-type ActorResultAggregatorFactory(factory : ResourceFactory, pvm : PersistedValueManager) =
+type ActorResultAggregatorFactory(factory : ResourceFactory, stateF : LocalStateFactory) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(capacity: int): Async<ICloudResultAggregator<'T>> = async {
             let! ref = factory.RequestResource(fun () -> ActorResultAggregator.create capacity)
-            return new ActorResultAggregator<'T>(capacity, ref, pvm) :> ICloudResultAggregator<'T>
+            return new ActorResultAggregator<'T>(stateF, capacity, ref) :> ICloudResultAggregator<'T>
         }

@@ -57,7 +57,7 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
             match msg with
             | CreateTaskEntry(info, ch) ->
                 let id = mkUUID()
-                let te = ActorTaskCompletionSource.Create(id, info, localState.PersistedValueManager)
+                let te = ActorTaskCompletionSource.Create(localStateF, id, info)
                 do! ch.Reply te
                 return state.Add(te.Id, te)
 

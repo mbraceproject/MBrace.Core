@@ -20,8 +20,8 @@ open MBrace.Runtime.Store
 
 type private TaskCompletionSourceMsg =
     | GetState of IReplyChannel<CloudTaskState>
-    | TrySetResult of PickleOrFile<TaskResult> * IReplyChannel<bool>
-    | TryGetResult of IReplyChannel<PickleOrFile<TaskResult> option>
+    | TrySetResult of ResultMessage<TaskResult> * IReplyChannel<bool>
+    | TryGetResult of IReplyChannel<ResultMessage<TaskResult> option>
     | DeclareStatus of status:CloudTaskStatus
     | IncrementJobCount
     | DeclareCompletedJob
@@ -31,7 +31,7 @@ type private TaskCompletionSourceMsg =
 type private TaskCompletionSourceState = 
     {
         /// Persisted result of task, if available
-        Result : PickleOrFile<TaskResult> option
+        Result : ResultMessage<TaskResult> option
         /// Cloud task metadata
         Info : CloudTaskInfo
         /// Task execution status
@@ -85,17 +85,18 @@ with
 
 /// Actor TaskEntry implementation
 [<AutoSerializable(true)>]
-type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMsg>, id : string, info : CloudTaskInfo, pvm : PersistedValueManager)  =
+type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source : ActorRef<TaskCompletionSourceMsg>, id : string, info : CloudTaskInfo)  =
     member __.Id = id
     member __.Info = info
 
     interface ICloudTaskCompletionSource with
         member x.Id = id
         member x.AwaitResult(): Async<TaskResult> = async {
+            let localState = localStateF.Value
             let rec awaiter () = async {
                 let! result = source <!- TryGetResult
                 match result with
-                | Some r -> return! r.GetValueAsync()
+                | Some rm -> return! localState.ReadResult rm
                 | None ->
                     do! Async.Sleep 200
                     return! awaiter ()
@@ -127,18 +128,20 @@ type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMs
         member x.Info: CloudTaskInfo = info
         
         member x.TryGetResult(): Async<TaskResult option> = async {
+            let localState = localStateF.Value
             let! rp = source <!- TryGetResult
             match rp with
             | None -> return None
-            | Some pv ->
-                let! r = pv.GetValueAsync()
+            | Some rm ->
+                let! r = localState.ReadResult(rm)
                 return Some r
         }
         
         member x.TrySetResult(result: TaskResult): Async<bool> = async {
+            let localState = localStateF.Value
             let id = sprintf "taskResult-%s" <| mkUUID()
-            let! pv = pvm.CreateFileOrPickleAsync(result, id)
-            return! source <!- fun ch -> TrySetResult(pv, ch)
+            let! rm = localState.CreateResult(result, allowNewSifts = false, fileName = id)
+            return! source <!- fun ch -> TrySetResult(rm, ch)
         }
 
     /// <summary>
@@ -146,7 +149,8 @@ type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMs
     /// </summary>
     /// <param name="id">Task unique identifier.</param>
     /// <param name="info">Task metadata.</param>
-    static member Create(id : string, info : CloudTaskInfo, pvm : PersistedValueManager) =
+    /// <param name="stateF">Local state factory.</param>
+    static member Create(stateF : LocalStateFactory, id : string, info : CloudTaskInfo) =
         let behaviour (state : TaskCompletionSourceState) (msg : TaskCompletionSourceMsg) = async {
             match msg with
             | GetState rc ->
@@ -195,4 +199,4 @@ type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMs
             |> Actor.Publish
             |> Actor.ref
 
-        new ActorTaskCompletionSource(ref, id, info, pvm)
+        new ActorTaskCompletionSource(stateF, ref, id, info)

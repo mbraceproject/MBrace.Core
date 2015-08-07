@@ -19,10 +19,10 @@ open MBrace.Runtime.Store
 /// Can be used without any need for assembly dependencies being loaded.
 type internal Pickle =
     /// Single cloud job
-    | Single of job:PickleOrFile<SiftedClosure<CloudJob>>
+    | Single of job:ResultMessage<CloudJob>
     /// Cloud job is part of a batch enqueue.
     /// Pickled together for size optimization reasons.
-    | Batch of index:int * jobs:PickleOrFile<SiftedClosure<CloudJob []>>
+    | Batch of index:int * jobs:ResultMessage<CloudJob []>
 with
     /// Size of pickle in bytes
     member p.Size =
@@ -139,15 +139,11 @@ type JobLeaseToken internal (pjob : PickledJob, stateF : LocalStateFactory, faul
         member x.FaultInfo = faultInfo
         
         member x.GetJob(): Async<CloudJob> = async {
-            let siftManager = stateF.Value.SiftManager
+            let state = stateF.Value
             match pjob.Pickle with
-            | Single pj -> 
-                let! siftClosure = pj.GetValueAsync()
-                return! siftManager.UnSiftClosure siftClosure
-
+            | Single pj -> return! state.ReadResult pj
             | Batch(i,pjs) -> 
-                let! siftClosure = pjs.GetValueAsync()
-                let! jobs = siftManager.UnSiftClosure siftClosure
+                let! jobs = state.ReadResult pjs
                 return jobs.[i]
         }
         
@@ -173,9 +169,9 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
         member x.BatchEnqueue(jobs: CloudJob []) = async {
             let localState = localStateF.Value
             if jobs.Length = 0 then return () else
-            let! sifted = localState.SiftManager.SiftClosure(jobs, allowNewSifts = false)
             let id = sprintf "jobs-%s" <| jobs.[0].Id
-            let! pickleOrFile = localState.PersistedValueManager.CreateFileOrPickleAsync(sifted, id)
+            // never create new sifts on parallel workflows (batch enqueues)
+            let! pickle = localState.CreateResult(jobs, allowNewSifts = false, fileName = id)
             let mkPickle (index:int) (job : CloudJob) =
                 {
                     TaskEntry = job.TaskEntry
@@ -183,7 +179,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
                     JobType = job.JobType
-                    Pickle = Batch(index, pickleOrFile)
+                    Pickle = Batch(index, pickle)
                 }
 
             let items = jobs |> Array.mapi mkPickle
@@ -194,8 +190,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
             let localState = localStateF.Value
             let id = sprintf "job-%s" job.Id
             // only sift new large objects on client side enqueues
-            let! sifted = localState.SiftManager.SiftClosure(job, allowNewSifts = isClientEnqueue)
-            let! pickleOrFile = localState.PersistedValueManager.CreateFileOrPickleAsync(sifted, id)
+            let! pickle = localState.CreateResult(job, allowNewSifts = isClientEnqueue, fileName = id)
             let item =
                 {
                     TaskEntry = job.TaskEntry
@@ -203,7 +198,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
                     JobType = job.JobType
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
-                    Pickle = Single pickleOrFile
+                    Pickle = Single pickle
                 }
 
             do! source.AsyncPost (Enqueue (item, NoFault))
