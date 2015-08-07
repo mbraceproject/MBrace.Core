@@ -8,9 +8,12 @@ open Nessos.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Library
+
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Utils.PrettyPrinters      
+open MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Runtime.Store
 
 type private TaskManagerMsg =
     | CreateTaskEntry of info:CloudTaskInfo * IReplyChannel<ActorTaskCompletionSource>
@@ -49,12 +52,12 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
     /// <summary>
     ///     Creates a new Task Manager instance running in the local process.
     /// </summary>
-    static member Create() =
+    static member Create(pvm : PersistedValueManager) =
         let behaviour (state : Map<string, ActorTaskCompletionSource>) (msg : TaskManagerMsg) = async {
             match msg with
             | CreateTaskEntry(info, ch) ->
                 let id = mkUUID()
-                let te = ActorTaskCompletionSource.Create(id, info)
+                let te = ActorTaskCompletionSource.Create(id, info, pvm)
                 do! ch.Reply te
                 return state.Add(te.Id, te)
 

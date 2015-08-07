@@ -12,14 +12,16 @@ open Nessos.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Library
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Runtime.Store
 
 type private TaskCompletionSourceMsg =
     | GetState of IReplyChannel<CloudTaskState>
-    | TrySetResult of Pickle<TaskResult> * IReplyChannel<bool>
-    | TryGetResult of IReplyChannel<Pickle<TaskResult> option>
+    | TrySetResult of PickleOrFile<TaskResult> * IReplyChannel<bool>
+    | TryGetResult of IReplyChannel<PickleOrFile<TaskResult> option>
     | DeclareStatus of status:CloudTaskStatus
     | IncrementJobCount
     | DeclareCompletedJob
@@ -28,8 +30,8 @@ type private TaskCompletionSourceMsg =
 /// Task completion source execution state
 type private TaskCompletionSourceState = 
     {
-        /// Pickled result of task, if available
-        Result : Pickle<TaskResult> option
+        /// Persisted result of task, if available
+        Result : PickleOrFile<TaskResult> option
         /// Cloud task metadata
         Info : CloudTaskInfo
         /// Task execution status
@@ -83,7 +85,7 @@ with
 
 /// Actor TaskEntry implementation
 [<AutoSerializable(true)>]
-type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMsg>, id : string, info : CloudTaskInfo)  =
+type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMsg>, id : string, info : CloudTaskInfo, pvm : PersistedValueManager)  =
     member __.Id = id
     member __.Info = info
 
@@ -93,7 +95,7 @@ type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMs
             let rec awaiter () = async {
                 let! result = source <!- TryGetResult
                 match result with
-                | Some r -> return Config.Serializer.UnPickleTyped r
+                | Some r -> return! r.GetValueAsync()
                 | None ->
                     do! Async.Sleep 200
                     return! awaiter ()
@@ -126,12 +128,17 @@ type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMs
         
         member x.TryGetResult(): Async<TaskResult option> = async {
             let! rp = source <!- TryGetResult
-            return rp |> Option.map Config.Serializer.UnPickleTyped
+            match rp with
+            | None -> return None
+            | Some pv ->
+                let! r = pv.GetValueAsync()
+                return Some r
         }
         
         member x.TrySetResult(result: TaskResult): Async<bool> = async {
-            let rp = Config.Serializer.PickleTyped result
-            return! source <!- fun ch -> TrySetResult(rp, ch)
+            let id = sprintf "taskResult-%s" <| mkUUID()
+            let! pv = pvm.CreateFileOrPickleAsync(result, id)
+            return! source <!- fun ch -> TrySetResult(pv, ch)
         }
 
     /// <summary>
@@ -139,7 +146,7 @@ type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMs
     /// </summary>
     /// <param name="id">Task unique identifier.</param>
     /// <param name="info">Task metadata.</param>
-    static member Create(id : string, info : CloudTaskInfo) =
+    static member Create(id : string, info : CloudTaskInfo, pvm : PersistedValueManager) =
         let behaviour (state : TaskCompletionSourceState) (msg : TaskCompletionSourceMsg) = async {
             match msg with
             | GetState rc ->
@@ -188,4 +195,4 @@ type ActorTaskCompletionSource private (source : ActorRef<TaskCompletionSourceMs
             |> Actor.Publish
             |> Actor.ref
 
-        new ActorTaskCompletionSource(ref, id, info)
+        new ActorTaskCompletionSource(ref, id, info, pvm)

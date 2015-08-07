@@ -22,6 +22,7 @@ cluster.AttachLogger(new ConsoleLogger())
 let workers = cluster.Workers
 
 cloud { return 42 } |> cluster.RunOnCloud
+cloud { return 42 } |> cluster.RunOnCurrentProcess
 
 cluster.ShowCloudTaskInfo()
 cluster.ShowWorkerInfo()

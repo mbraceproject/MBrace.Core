@@ -44,6 +44,8 @@ type RuntimeState =
         Resources : ResourceRegistry
         /// Vagabond store assembly configuration
         VagabondStoreConfig : StoreAssemblyManagerConfiguration
+        /// Persisted value manager instance
+        PersistedValueManager : PersistedValueManager
     }
 with
     /// <summary>
@@ -60,7 +62,9 @@ with
         let id = RuntimeId.Create()
         let resourceFactory = ResourceFactory.Create()
         let workerManager = WorkerManager.Create(localLogger)
-        let taskManager = CloudTaskManager.Create()
+        let serializer = FsPicklerBinaryStoreSerializer()
+        let pvm = PersistedValueManager.Create(fileStoreConfig.FileStore, container = "mbrace-data", serializer = serializer, persistThreshold = 512L * 1024L)
+        let taskManager = CloudTaskManager.Create(pvm)
                 
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
@@ -68,10 +72,9 @@ with
         let mkCacheInstance () = Config.ObjectCache
         let mkLocalCachingFileStore () = CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")
         let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
-        let serializer = FsPicklerBinaryStoreSerializer()
         let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = "vagabond")
         let closureSiftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
-        let jobQueue = JobQueue.Create(workerManager, localLogger, closureSiftConfig)
+        let jobQueue = JobQueue.Create(workerManager, localLogger, closureSiftConfig, pvm)
 
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
@@ -95,6 +98,7 @@ with
             JobQueue = jobQueue
             Resources = resources
             VagabondStoreConfig = vagabondStoreConfig
+            PersistedValueManager = pvm
         }
 
     /// <summary>
@@ -134,7 +138,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState, lo
     let _ = state.JobQueue.AttachLocalLogger logger
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)
     let counterFactory = new ActorCounterFactory(state.ResourceFactory)
-    let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory)
+    let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory, state.PersistedValueManager)
 
     interface IRuntimeManager with
         member x.Id = state.Id :> _

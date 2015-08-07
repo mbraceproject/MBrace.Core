@@ -20,16 +20,16 @@ open MBrace.Runtime.Store
 /// Can be used without any need for assembly dependencies being loaded.
 type internal Pickle =
     /// Single cloud job
-    | Single of job:Pickle<SiftedClosure<CloudJob>>
+    | Single of job:PickleOrFile<SiftedClosure<CloudJob>>
     /// Cloud job is part of a batch enqueue.
     /// Pickled together for size optimization reasons.
-    | Batch of index:int * jobs:Pickle<SiftedClosure<CloudJob []>>
+    | Batch of index:int * jobs:PickleOrFile<SiftedClosure<CloudJob []>>
 with
     /// Size of pickle in bytes
     member p.Size =
         match p with
-        | Single sp -> sp.Bytes.LongLength
-        | Batch(_,sp) -> sp.Bytes.LongLength
+        | Single sp -> sp.Size
+        | Batch(_,sp) -> sp.Size
 
 /// Pickled MBrace job entry.
 /// Can be used without need for assembly dependencies being loaded.
@@ -116,7 +116,7 @@ module private JobLeaseMonitor =
 
 /// Job lease token implementation, received when dequeuing a job from the queue.
 [<AutoSerializable(true)>]
-type JobLeaseToken internal (pjob : PickledJob, localSiftManager : DomainLocal<ClosureSiftManager> , faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
+type JobLeaseToken internal (pjob : PickledJob, localSiftManager : DomainLocal<ClosureSiftManager>, faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
 
     interface ICloudJobLeaseToken with
         member x.DeclareCompleted() = async {
@@ -143,11 +143,11 @@ type JobLeaseToken internal (pjob : PickledJob, localSiftManager : DomainLocal<C
             let siftManager = localSiftManager.Value
             match pjob.Pickle with
             | Single pj -> 
-                let siftClosure = Config.Serializer.UnPickleTyped pj
+                let! siftClosure = pj.GetValueAsync()
                 return! siftManager.UnSiftClosure siftClosure
 
             | Batch(i,pjs) -> 
-                let siftClosure = Config.Serializer.UnPickleTyped pjs
+                let! siftClosure = pjs.GetValueAsync()
                 let! jobs = siftManager.UnSiftClosure siftClosure
                 return jobs.[i]
         }
@@ -168,7 +168,7 @@ and private JobQueueTopic = TopicQueue<IWorkerId, PickledJob * JobFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
-type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftConfiguration) =
+type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftConfiguration, pvm : PersistedValueManager) =
 
     let siftManager = DomainLocal.Create(fun () -> ClosureSiftManager.Create(siftConfig))
 
@@ -178,7 +178,8 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
         member x.BatchEnqueue(jobs: CloudJob []) = async {
             if jobs.Length = 0 then return () else
             let! sifted = siftManager.Value.SiftClosure(jobs, allowNewSifts = false)
-            let pickle = Config.Serializer.PickleTyped sifted
+            let id = sprintf "jobs-%s" <| jobs.[0].Id
+            let! pickleOrFile = pvm.CreateFileOrPickleAsync(sifted, id)
             let mkPickle (index:int) (job : CloudJob) =
                 {
                     TaskEntry = job.TaskEntry
@@ -186,7 +187,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
                     JobType = job.JobType
-                    Pickle = Batch(index, pickle)
+                    Pickle = Batch(index, pickleOrFile)
                 }
 
             let items = jobs |> Array.mapi mkPickle
@@ -194,8 +195,9 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
         }
         
         member x.Enqueue (job: CloudJob, isClientEnqueue:bool) = async {
+            let id = sprintf "job-%s" job.Id
             let! sifted = siftManager.Value.SiftClosure(job, allowNewSifts = isClientEnqueue)
-            let pickle = Config.Serializer.PickleTyped sifted
+            let! pickleOrFile = pvm.CreateFileOrPickleAsync(sifted, id)
             let item =
                 {
                     TaskEntry = job.TaskEntry
@@ -203,7 +205,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
                     JobType = job.JobType
                     Type = Type.prettyPrint job.Type
                     Target = job.TargetWorker
-                    Pickle = Single pickle
+                    Pickle = Single pickleOrFile
                 }
 
             do! source.AsyncPost (Enqueue (item, NoFault))
@@ -223,7 +225,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
     /// </summary>
     /// <param name="workerMonitor">Worker monitor instance.</param>
     /// <param name="cleanupInterval">Topic queue cleanup interval. Defaults to 10 seconds.</param>
-    static member Create(workerMonitor : WorkerManager, logger : ISystemLogger, siftConfig : ClosureSiftConfiguration, ?cleanupInterval : TimeSpan) =
+    static member Create(workerMonitor : WorkerManager, logger : ISystemLogger, siftConfig : ClosureSiftConfiguration, pvm : PersistedValueManager, ?cleanupInterval : TimeSpan) =
         let cleanupThreshold = defaultArg cleanupInterval (TimeSpan.FromSeconds 10.)
 
         let behaviour (self : Actor<JobQueueMsg>) (state : QueueState) (msg : JobQueueMsg) = async {
@@ -276,4 +278,4 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, siftConfig : ClosureSiftC
             |> Actor.Publish
             |> Actor.ref
 
-        new JobQueue(ref, siftConfig)
+        new JobQueue(ref, siftConfig, pvm)

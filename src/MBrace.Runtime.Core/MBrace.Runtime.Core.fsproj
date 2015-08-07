@@ -94,6 +94,7 @@
     <Compile Include="Runtime\JobEvaluator.fs" />
     <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Runtime\MBraceClient.fs" />
+    <Compile Include="Store\PersistedValueManager.fs" />
     <Compile Include="Store\StoreCloudValue.fs" />
     <Compile Include="Store\StoreAssemblyManager.fs" />
     <Compile Include="Store\ClosureSiftManager.fs" />

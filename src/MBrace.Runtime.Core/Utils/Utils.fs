@@ -387,3 +387,14 @@ module Utils =
         static member TryGetProcessById(id : int) : ProcessId option =
             try id |> Process.GetProcessById |> ProcessId.FromProcess |> Some
             with :? ArgumentException -> None
+
+
+    type ISerializer with
+        member s.Pickle<'T>(value : 'T) =
+            use m = new MemoryStream()
+            s.Serialize(m, value, leaveOpen = true)
+            m.ToArray()
+
+        member s.UnPickle<'T>(pickle : byte[]) =
+            use m = new MemoryStream(pickle)
+            s.Deserialize<'T>(m, leaveOpen = true)
