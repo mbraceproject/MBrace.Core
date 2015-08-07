@@ -13,6 +13,17 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.ExprShape
 
+
+
+/// correctly resolves if type is assignable to generic interface
+let rec tryFindGenericInterface (interfaceTy : Type) (ty : Type) =
+    match ty.GetInterfaces() |> Array.tryFind(fun i -> i.IsGenericType && i.GetGenericTypeDefinition() = interfaceTy) with
+    | Some _ as r -> r
+    | None ->
+        match ty.BaseType with
+        | null -> None
+        | bt -> tryFindGenericInterface interfaceTy bt
+
 /// System.Type active pattern recognizer
 let (|Named|Array|Ptr|Param|) (t : System.Type) =
     if t.IsGenericType
@@ -52,9 +63,9 @@ let (|FSharpFunc|_|) : Type -> _ =
             let l = args.Length
             Some(args.[0..l-2], args.[l-1])
         | t ->
-            if t.BaseType <> null then 
-                tryGetFSharpFunc t.BaseType
-            else None
+            match t.BaseType with
+            | null -> None
+            | bt -> tryGetFSharpFunc bt
 
     let rec collect (t : Type) =
         match tryGetFSharpFunc t with
@@ -66,49 +77,56 @@ let (|FSharpFunc|_|) : Type -> _ =
 
     collect
 
-let (|FsTuple|_|) (t : Type) =
+/// Matches type that is tuple, returning tuple element types
+let (|Tuple|_|) (t : Type) : Type [] option =
     if FSharpType.IsTuple t then
         Some(FSharpType.GetTupleElements t)
     else None
 
-let private listTy = typedefof<Microsoft.FSharp.Collections.List<_>>
-let private icollectionTy = typedefof<System.Collections.Generic.ICollection<_>>
-let (|GenericCollectionWithCount|_|) (graph:obj) =
-    /// correctly resolves if type is assignable to generic interface
-    let rec tryFindGenericInterface (ty : Type) =
-        match ty.GetInterfaces() |> Array.tryFind(fun i -> i.IsGenericType && i.GetGenericTypeDefinition() = icollectionTy) with
-        | Some _ as r -> r
-        | None ->
-            match ty.BaseType with
-            | null -> None
-            | bt ->
-                if bt = typeof<obj> then None
-                else tryFindGenericInterface bt
 
-    match graph with
-    | :? IEnumerable as e ->
-        let t = e.GetType()
+/// Active pattern identifying IEnumerable instances with fixed count
+let (|CollectionWithCount|_|) =
+    let listTy = typedefof<Microsoft.FSharp.Collections.List<_>>
+    let icollectionTy = typedefof<System.Collections.Generic.ICollection<_>>
+    let tryFindCountPropety (t : Type) =
         if t.IsGenericType && t.GetGenericTypeDefinition() = listTy then
             let lp = t.GetProperty("Length")
-            let length = lp.GetValue(e) :?> int
-            Some(e, length)
-
+            Some lp
         else
-            match tryFindGenericInterface t with
+            match tryFindGenericInterface icollectionTy t with
             | None -> None
             | Some interf ->
                 let cp = interf.GetProperty("Count")
+                Some cp
+
+    let tryFindCountPropertyMemoized = concurrentMemoize tryFindCountPropety
+
+    fun (graph : obj) ->
+        match graph with
+        | :? ICollection as c -> Some(c :> IEnumerable, c.Count)
+        | :? IEnumerable as e ->
+            let t = e.GetType()
+            match tryFindCountPropertyMemoized t with
+            | None -> None
+            | Some cp ->
                 let count = cp.GetValue(e) :?> int
                 Some(e, count)
 
-    | _ -> None
+        | _ -> None
 
 type Assembly with
+    /// <summary>
+    ///     Queries current AppDomain for loaded assembly of given name.
+    /// </summary>
+    /// <param name="name">Assembly name to searched.</param>
     static member TryFind(name : string) =
         AppDomain.CurrentDomain.GetAssemblies()
         |> Array.tryFind (fun a -> try a.FullName = name || a.GetName().Name = name with _ -> false)
 
 type MemberInfo with
+    /// <summary>
+    ///     Checks if MemberInfo instance contains the supplied attribute.
+    /// </summary>
     member m.ContainsCustomAttributeRecursive<'Attr when 'Attr :> Attribute> () =
         let rec traverse (m : MemberInfo) =
             if m.GetCustomAttributes(typeof<'Attr>, false).Length <> 0 then true
@@ -121,7 +139,7 @@ type MemberInfo with
 
 [<RequireQualifiedAccess>]
 module Type =
-        
+
     let rec traverse (t : Type) = seq {
 
         if t.IsArray || t.IsByRef || t.IsPointer then
@@ -179,7 +197,8 @@ module Expr =
 
         aux [expr]
 
-    let rec fold (foldF : 'State -> Expr -> 'State) state expr =
+    /// Runs folding function over nodes of a given quotation
+    let rec fold (foldF : 'State -> Expr -> 'State) (state : 'State) (expr : Expr) =
         let state' = foldF state expr
         let children =
             match expr with

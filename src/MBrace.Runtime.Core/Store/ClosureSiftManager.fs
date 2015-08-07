@@ -85,12 +85,6 @@ type private LargeObjectSifter(vagabond : VagabondManager, siftThreshold : int64
 
     let siftResult = new Dictionary<obj, HashResult * FieldInfo option> (refEq)
 
-    let (|Collection|_|) (obj : obj) =
-        match obj with
-        | :? ICollection as c -> Some(c :> IEnumerable, c.Count)
-        | GenericCollectionWithCount(e, c) -> Some(e, c)
-        | _ -> None
-
     member __.SiftData = siftResult
 
     interface IObjectSifter with
@@ -110,7 +104,7 @@ type private LargeObjectSifter(vagabond : VagabondManager, siftThreshold : int64
             // The following objects are to be sifted (append as appropriate)
             //   * large System.Collections.ICollection instances
             //   * large F# collections (which do not implement ICollection)
-            | Collection(enum, count) when count > 1 ->
+            | CollectionWithCount(enum, count) when count > 1 ->
                 let hash = serializer.ComputeHash node
                 let siftNode () = siftResult.Add(node, (hash, None)) ; true
 

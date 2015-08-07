@@ -99,7 +99,7 @@ module Type =
                 | Param(t,_) -> yield "'" ; yield t.Name
 
                 // Generic types
-                | FsTuple args ->
+                | Tuple args ->
                     let wrap = context >= Priority.Tuple
 
                     if wrap then yield "("

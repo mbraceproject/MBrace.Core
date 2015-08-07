@@ -68,6 +68,14 @@ module Utils =
     
     let hset (xs : 'T seq) = new System.Collections.Generic.HashSet<'T>(xs)
 
+    /// <summary>
+    ///     Thread-safe memoization combinator.
+    /// </summary>
+    /// <param name="f">Input function.</param>
+    let concurrentMemoize (f : 'T -> 'S) : ('T -> 'S) =
+        let d = new ConcurrentDictionary<'T,'S>()
+        fun t -> d.GetOrAdd(t, f)
+
     /// lexicographic comparison without tuple allocation
     let inline compare2 (t1 : 'T) (s1 : 'S) (t2 : 'T) (s2 : 'S) =
         match compare t1 t2 with
