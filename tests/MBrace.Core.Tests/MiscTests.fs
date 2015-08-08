@@ -23,3 +23,11 @@ module ``Misc MBrace Core Tests`` =
         [|1 .. 100|] |> Array.Parallel.map (fun _ -> Thread.Sleep 10 ; dl.Value) |> ignore
         !c |> shouldEqual 1
         dl.Value |> shouldEqual 1
+
+//    [<Test; Repeat(5)>]
+//    let ``DomainLocal factories should be atomic (Cloud)`` () =
+//        let c = ref 0
+//        let dl = DomainLocal.Create(local { return (incr c ; !c) })
+//        [|1 .. 100|] |> Array.Parallel.map (fun _ -> Thread.Sleep 10 ; run dl.Value) |> ignore
+//        !c |> shouldEqual 1
+//        run dl.Value |> shouldEqual 1

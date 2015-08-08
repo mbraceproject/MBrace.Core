@@ -2,6 +2,7 @@
 
 open System
 open System.Reflection
+open System.Threading
 open System.Threading.Tasks
 
 #nowarn "444"
@@ -142,9 +143,6 @@ module ExceptionDispatchInfoUtils =
             | Choice3Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
 
 
-
-    open System.Threading.Tasks
-
     type Task<'T> with
 
         /// Returns the inner exception of the faulted task.
@@ -166,8 +164,9 @@ module ExceptionDispatchInfoUtils =
 
         /// Returns the task result
         member t.GetResult () =
-            let awaiter = t.GetAwaiter()
-            while not awaiter.IsCompleted do ()
+            use handle = new ManualResetEvent(false)
+            let _ = t.ContinueWith(fun (t:Task<'T>) -> ignore <| handle.Set())
+            let _ = handle.WaitOne(Timeout.Infinite)
             match t.Status with
             | TaskStatus.RanToCompletion -> t.Result
             | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
