@@ -177,7 +177,7 @@ and private PersistedCloudFlowReporter<'T> () =
         [   
             Field.create "Partition Id" Left (fun (i,_,_) -> "Partition #" + string i)
             Field.create "Assigned Worker" Left (fun (_,w,_) -> w.Id)
-            Field.create "Element Count" Left (fun (_,_,a) -> a.Length.ToString("#,##0"))
+            Field.create "Element Count" Left (fun (_,_,a) -> let l = a.Length in l.ToString("#,##0"))
             Field.create "Partition Size" Left (fun (_,_,a) -> getHumanReadableByteSize a.Size)
             Field.create "Storage Level" Left (fun (_,_,a) -> a.StorageLevel)
             Field.create "Cache Id" Left (fun (_,_,a) -> a.Id)

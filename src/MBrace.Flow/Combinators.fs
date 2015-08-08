@@ -265,7 +265,7 @@ type CloudFlow =
 module CloudFlow =
     open System.IO
 
-    let private cloudFlowStaticId = Guid.NewGuid().ToString()
+    let private cloudFlowStaticId = mkUUID()
 
     let inline private run ctx a = Cloud.RunSynchronously(a, ctx.Resources,ctx.CancellationToken)
 
