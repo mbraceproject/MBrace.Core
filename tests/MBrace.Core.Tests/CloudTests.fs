@@ -13,7 +13,7 @@ open MBrace.Library.CloudCollectionUtils
 
 /// Logging tester abstraction
 type ILogTester =
-    abstract Clear : unit -> unit
+    abstract Init : unit -> System.IDisposable
     abstract GetLogs : unit -> string []
 
 /// Suite for testing MBrace parallelism & distribution
@@ -53,7 +53,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     /// Declares that this runtime uses serialization/distribution
     abstract UsesSerialization : bool
     /// Log tester
-    abstract Logs : ILogTester
+    abstract LogTester : ILogTester
 
     //
     //  1. Parallelism tests
@@ -770,7 +770,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     [<Test>]
     member t.``4. Logging`` () =
         let delayFactor = delayFactor
-        t.Logs.Clear()
+        use d = t.LogTester.Init()
+
         cloud {
             let logSeq _ = cloud {
                 for i in [1 .. 100] do
@@ -781,7 +782,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             do! Cloud.Sleep delayFactor
         } |> runOnCloud |> ignore
         
-        t.Logs.GetLogs() 
+        t.LogTester.GetLogs() 
         |> Seq.filter (fun m -> m.Contains "user cloud message") 
         |> Seq.length 
         |> shouldEqual 2000

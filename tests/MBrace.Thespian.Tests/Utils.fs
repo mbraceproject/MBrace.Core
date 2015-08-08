@@ -7,45 +7,29 @@ open MBrace.Core.Tests
 open MBrace.Runtime
 open MBrace.Thespian
 
-type LogTester() =
-    let logs = new ResizeArray<string>()
-
-    interface ISystemLogger with
-        member __.LogEntry(_,_,m) = logs.Add m
-
-    interface ILogTester with
-        member __.GetLogs() = logs.ToArray()
-        member __.Clear() = lock logs logs.Clear
-
 type RuntimeSession(nodes : int) =
     
     static do MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
     let lockObj = obj ()
-    let mutable state : (MBraceThespian * LogTester) option = None
+    let mutable state : MBraceThespian option = None
 
     member __.Start () =
         lock lockObj (fun () -> 
             let runtime = MBraceThespian.InitLocal(nodes)
-            let logger = new LogTester()
-            let _ = runtime.AttachLogger logger
+            let _ = runtime.AttachLogger(new ConsoleLogger())
             while runtime.Workers.Length <> nodes do Thread.Sleep 200
-            state <- Some(runtime, logger))
+            state <- Some runtime)
 
     member __.Stop () =
         lock lockObj (fun () ->
-            state |> Option.iter (fun (r,d) -> r.KillAllWorkers())
+            state |> Option.iter (fun r -> r.KillAllWorkers())
             state <- None)
 
     member __.Runtime =
         match state with
         | None -> invalidOp "MBrace runtime not initialized."
-        | Some (r,_) -> r
-
-    member __.Logger =
-        match state with
-        | None -> invalidOp "MBrace runtime not initialized."
-        | Some (_,l) -> l
+        | Some r -> r
 
     member __.Chaos() =
         lock lockObj (fun () ->
@@ -54,3 +38,15 @@ type RuntimeSession(nodes : int) =
             while runtime.Workers.Length <> 0 do Thread.Sleep 200
             runtime.AppendWorkers nodes
             while runtime.Workers.Length <> nodes do Thread.Sleep 200) 
+
+type LogTester(session : RuntimeSession) =
+    let logs = new ResizeArray<string>()
+
+    interface ISystemLogger with
+        member l.LogEntry(_,_,m) = logs.Add m
+
+    interface ILogTester with
+        member l.GetLogs() = logs.ToArray()
+        member l.Init() =
+            let d = session.Runtime.AttachLogger l
+            { new IDisposable with member __.Dispose() = d.Dispose() ; logs.Clear() }

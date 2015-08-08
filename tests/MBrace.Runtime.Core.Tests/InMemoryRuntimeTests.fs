@@ -14,7 +14,9 @@ type InMemoryLogTester () =
 
     interface ILogTester with
         member __.GetLogs () = logs.ToArray()
-        member __.Clear () = lock logs (fun () -> logs.Clear())
+        member __.Init () = 
+            lock logs (fun () -> logs.Clear())
+            { new System.IDisposable with member __.Dispose() = () }
 
     interface ICloudLogger with
         member __.Log msg = lock logs (fun () -> logs.Add msg)
@@ -37,7 +39,7 @@ type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
     override __.RunOnCurrentMachine(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
     override __.IsSiftedWorkflowSupported = false
-    override __.Logs = logger :> _
+    override __.LogTester = logger :> _
     override __.FsCheckMaxTests = 100
     override __.UsesSerialization = memoryEmulation <> MemoryEmulation.Shared
 #if DEBUG
