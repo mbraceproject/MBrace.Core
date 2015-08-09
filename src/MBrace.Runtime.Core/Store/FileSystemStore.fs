@@ -21,10 +21,11 @@ type FileSystemStore private (rootPath : string) =
     // IOException will be signifies attempt to perform concurrent writes of file.
     // An exception to this rule is FileNotFoundException, which is a subtype of IOException.
     static let ioConcurrencyPolicy = 
-        Policy(fun _ exn ->
+        Policy(fun retries exn ->
             match exn with
             | :? FileNotFoundException 
             | :? DirectoryNotFoundException -> None
+            | :? UnauthorizedAccessException when retries < 5 -> TimeSpan.FromMilliseconds 200. |> Some
             | :? IOException -> TimeSpan.FromMilliseconds 200. |> Some
             | _ -> None)
 

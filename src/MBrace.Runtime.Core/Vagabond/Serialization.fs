@@ -67,7 +67,7 @@ module FsPicklerExtensions =
         /// <param name="pickler">Custom pickler to use</param>
         static member CreateTypedObjectSizeCounter<'T> (?pickler : Pickler<'T>, ?serializer : FsPicklerSerializer) =
             let pickler = match pickler with None -> FsPickler.GeneratePickler<'T> () | Some p -> p
-            let counter = match serializer with Some s -> s.CreateObjectSizeCounter() | None -> FsPickler.CreateSizeCounter()
+            let counter = match serializer with Some s -> s.CreateObjectSizeCounter() | None -> FsPickler.CreateObjectSizeCounter()
             new FsPicklerObjectSizeCounter<'T>(pickler, counter)
 
         /// <summary>
@@ -83,7 +83,7 @@ module FsPicklerExtensions =
                                                 ?pickler : Pickler<'T>, ?serializer : FsPicklerSerializer, ?maxConcurrentContinuations : int) : Async<'R []> = async {
             if partitionThreshold <= 0L then invalidArg "partitionThreshold" "must be positive value."
             let pickler = match pickler with None -> FsPickler.GeneratePickler<'T> () | Some p -> p
-            let sizeCounter = match serializer with Some s -> s.CreateObjectSizeCounter() | None -> FsPickler.CreateSizeCounter()
+            let sizeCounter = match serializer with Some s -> s.CreateObjectSizeCounter() | None -> FsPickler.CreateObjectSizeCounter()
             use chunkEnumerator = new ChunkEnumerator<'T>(sequence, pickler, sizeCounter, partitionThreshold)
             let taskQueue = new Queue<Task<'R>> ()
             let results = new ResizeArray<'R> ()
