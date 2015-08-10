@@ -156,11 +156,11 @@ type FsPicklerXmlStoreSerializer (?indent : bool) =
     inherit FsPicklerStoreSerializer()
 
     override __.Id = "FsPickler xml serializer"
-    override __.CreateLocalSerializerInstance () = FsPickler.CreateXml(typeConverter = VagabondRegistry.Instance.TypeConverter, ?indent = indent) :> _
+    override __.CreateLocalSerializerInstance () = FsPickler.CreateXmlSerializer(typeConverter = VagabondRegistry.Instance.TypeConverter, ?indent = indent) :> _
 
 [<AutoSerializable(true)>]
 type FsPicklerJsonStoreSerializer (?omitHeader : bool, ?indent : bool) =
     inherit FsPicklerStoreSerializer()
 
     override __.Id = "FsPickler json serializer"
-    override __.CreateLocalSerializerInstance () = FsPickler.CreateJson(typeConverter = VagabondRegistry.Instance.TypeConverter, ?indent = indent, ?omitHeader = omitHeader) :> _
+    override __.CreateLocalSerializerInstance () = FsPickler.CreateJsonSerializer(typeConverter = VagabondRegistry.Instance.TypeConverter, ?indent = indent, ?omitHeader = omitHeader) :> _
