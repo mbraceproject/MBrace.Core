@@ -10,7 +10,7 @@ open System.Threading.Tasks
 module Utils =
 
     /// creates new string identifier
-    let mkUUID () : string = let g = Guid.NewGuid() in g.ToString("N")
+    let mkUUID () : string = let g = Guid.NewGuid() in g.ToString()
 
     type Async with
         /// <summary>
