@@ -239,7 +239,6 @@ type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, l
     /// <param name="ids">Assemblies to be uploaded.</param>
     /// <returns>List of data dependencies that failed to be serialized.</returns>
     member __.UploadAssemblies(assemblies : seq<VagabondAssembly>) : Async<DataDependencyInfo []> = async {
-        localLogger.Logf LogLevel.Info "Uploading dependencies"
         let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, assemblies)
         if errors.Length > 0 then
             let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
