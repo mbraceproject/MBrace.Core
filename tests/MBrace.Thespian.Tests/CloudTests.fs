@@ -38,7 +38,8 @@ type ``MBrace Thespian Cloud Tests`` () as self =
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
-            return! runtime.RunOnCloudAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            try return! runtime.RunOnCloudAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            finally cts.Cancel()
         } |> Async.RunSync
 
     override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)

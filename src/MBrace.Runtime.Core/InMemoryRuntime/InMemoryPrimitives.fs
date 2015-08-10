@@ -91,6 +91,7 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
     /// Local System.Threading.CancellationTokenSource instance
     member __.LocalCancellationTokenSource = cts
     interface ICloudCancellationTokenSource with
+        member __.Dispose() = async {cts.Cancel()}
         member __.Cancel() = cts.Cancel()
         member __.Token = token :> _
 

@@ -164,6 +164,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
         member x.LocalToken: CancellationToken = getLocalToken()
 
     interface ICloudCancellationTokenSource with
+        member x.Dispose() = async { x.Cancel() }
         member x.Cancel(): unit = x.Cancel()
         member x.Token: ICloudCancellationToken = (x :> ICloudCancellationToken)
 

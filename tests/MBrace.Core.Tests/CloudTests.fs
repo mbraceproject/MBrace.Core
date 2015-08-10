@@ -881,6 +881,19 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud |> Choice.shouldEqual ()
 
     [<Test>]
+    member __.``4. Cancellation token: disposal`` () =
+        let delayFactor = delayFactor
+        cloud {
+            let! ctss = cloud {
+                use! cts = Cloud.CreateCancellationTokenSource()
+                return! Cloud.Parallel [| cloud { return (cts.Token.IsCancellationRequested |> shouldEqual false ; cts) } |]
+            }
+
+            do! Cloud.Sleep delayFactor
+            ctss.[0].Token.IsCancellationRequested |> shouldEqual true
+        } |> runOnCloud |> Choice.shouldEqual ()
+
+    [<Test>]
     member __.``4. Fault Policy: update over parallelism`` () =
         // checks that non-serializable entities do not get accidentally captured in closures.
         cloud {

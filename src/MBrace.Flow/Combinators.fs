@@ -468,9 +468,9 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result array of CloudFiles.</returns>
     let toTextCloudFiles (dirPath : string) (flow : CloudFlow<string>) : Cloud<CloudFile []> = 
-        let collectorf (cloudCts : ICloudCancellationTokenSource) =
+        let collectorf (cloudCt : ICloudCancellationToken) =
             local {
-                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCt.LocalToken)
                 let results = new List<string * StreamWriter>()
                 let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
                 config.FileStore.CreateDirectory dirPath |> Async.RunSync
@@ -491,8 +491,8 @@ module CloudFlow =
             }
 
         cloud {
-            let! cts = Cloud.CreateCancellationTokenSource()
-            return! flow.WithEvaluators (collectorf cts) (fun cloudFiles -> local { return cloudFiles }) (fun result -> local { return Array.concat result })
+            use! cts = Cloud.CreateCancellationTokenSource()
+            return! flow.WithEvaluators (collectorf cts.Token) (fun cloudFiles -> local { return cloudFiles }) (fun result -> local { return Array.concat result })
         }
 
     /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>

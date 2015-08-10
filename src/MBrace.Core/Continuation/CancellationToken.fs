@@ -12,6 +12,7 @@ type ICloudCancellationToken =
 
 /// Distributed cancellation token source abstraction.
 type ICloudCancellationTokenSource =
+    inherit ICloudDisposable
     /// Cancel the cancellation token source.
     abstract Cancel : unit -> unit
     /// Gets a cancellation token instance.

@@ -151,9 +151,9 @@ and PersistedCloudFlow private () =
         match flow with
         | :? PersistedCloudFlow<'T> as pcf -> return pcf
         | _ ->
-            let collectorf (cloudCts : ICloudCancellationTokenSource) = local { 
+            let collectorf (cct : ICloudCancellationToken) = local { 
                 let results = new List<List<'T>>()
-                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCts.Token.LocalToken)
+                let cts = CancellationTokenSource.CreateLinkedTokenSource(cct.LocalToken)
                 return 
                   { new Collector<'T, seq<'T>> with
                     member self.DegreeOfParallelism = flow.DegreeOfParallelism 
@@ -166,9 +166,9 @@ and PersistedCloudFlow private () =
                     member self.Result = ResizeArray.concat results }
             }
 
-            let! cts = Cloud.CreateCancellationTokenSource()
+            use! cts = Cloud.CreateCancellationTokenSource()
             let createVector (ts : seq<'T>) = PersistedCloudFlow.New(ts, storageLevel = storageLevel, ?partitionThreshold = partitionThreshold)
-            return! flow.WithEvaluators (collectorf cts) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
+            return! flow.WithEvaluators (collectorf cts.Token) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
     }
 
 

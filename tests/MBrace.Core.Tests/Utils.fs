@@ -120,5 +120,6 @@ module Utils =
     type internal InMemoryCancellationTokenSource(source : CancellationTokenSource) =
         new () = new InMemoryCancellationTokenSource(new CancellationTokenSource())
         interface ICloudCancellationTokenSource with
+            member x.Dispose(): Async<unit> = async {source.Cancel()}
             member x.Cancel(): unit = source.Cancel()
             member x.Token: ICloudCancellationToken = new InMemoryCancellationToken(source.Token) :> _

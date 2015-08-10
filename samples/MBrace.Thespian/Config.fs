@@ -12,6 +12,7 @@ open Nessos.Thespian
 open Nessos.Thespian.Serialization
 open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
+open Nessos.Thespian.DebugUtils
 
 open MBrace.Core.Internals
 open MBrace.Runtime
@@ -55,7 +56,9 @@ type Config private () =
             localFileStore <- FileSystemStore.Create(fsStoreDirectory, create = true, cleanup = populateDirs)
 
             // thespian initialization
-            Nessos.Thespian.Serialization.defaultSerializer <- new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
+            let thespianSerializer = new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
+//            let thespianSerializer = new DebugSerializer(thespianSerializer) // use for debug information on serialized values
+            Nessos.Thespian.Serialization.defaultSerializer <- thespianSerializer
             Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
             TcpListenerPool.RegisterListener(IPEndPoint.any)
             localEndpoint <- TcpListenerPool.GetListener().LocalEndPoint

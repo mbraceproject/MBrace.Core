@@ -38,8 +38,3 @@ type Cloud<'T> =
 [<Sealed; DataContract>]
 type Local<'T> internal (body : Body<'T>) = 
     inherit Cloud<'T>(body)
-
-/// Denotes handle to a distributable resource that can be disposed of.
-type ICloudDisposable =
-    /// Releases any storage resources used by this object.
-    abstract Dispose : unit -> Async<unit>
