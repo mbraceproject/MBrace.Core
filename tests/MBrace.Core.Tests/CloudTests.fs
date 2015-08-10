@@ -884,13 +884,16 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member __.``4. Cancellation token: disposal`` () =
         let delayFactor = delayFactor
         cloud {
-            let! ctss = cloud {
+            let! cts = cloud {
                 use! cts = Cloud.CreateCancellationTokenSource()
-                return! Cloud.Parallel [| cloud { return (cts.Token.IsCancellationRequested |> shouldEqual false ; cts) } |]
+                let test () = cloud { cts.Token.IsCancellationRequested |> shouldEqual false }
+                do! Cloud.Parallel [| test() ; test() |] |> Cloud.Ignore
+                do cts.Token.IsCancellationRequested |> shouldEqual false
+                return cts
             }
 
             do! Cloud.Sleep delayFactor
-            ctss.[0].Token.IsCancellationRequested |> shouldEqual true
+            cts.Token.IsCancellationRequested |> shouldEqual true
         } |> runOnCloud |> Choice.shouldEqual ()
 
     [<Test>]
