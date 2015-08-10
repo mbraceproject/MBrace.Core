@@ -1,5 +1,7 @@
 ﻿namespace MBrace.Runtime
 
+open System
+
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime.InMemoryRuntime
@@ -8,7 +10,7 @@ open MBrace.Runtime.InMemoryRuntime
 
 /// Implements the IDistribution provider implementation to be passed to MBrace workflow execution
 [<Sealed; AutoSerializable(false)>]
-type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, logger : ICloudLogger, isForcedLocalParallelism : bool) =
+type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, logger : IJobLogger, isForcedLocalParallelism : bool) =
 
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
         let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
@@ -23,10 +25,14 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
     /// <param name="currentWorker">Worker ref instance identifying current worker.</param>
     /// <param name="runtime">Runtime resource manager.</param>
     /// <param name="job">Job to be executed.</param>
-    static member Create(currentWorker : IWorkerId, runtime : IRuntimeManager, job : CloudJob) =
+    static member Create(currentWorker : IWorkerId, runtime : IRuntimeManager, job : CloudJob) = async {
         let currentWorker = WorkerRef.Create(runtime, currentWorker)
-        let logger = runtime.GetCloudLogger (currentWorker.WorkerId, job)
-        new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, logger, false)
+        let! logger = runtime.CloudLogManager.GetCloudLogger (currentWorker.WorkerId, job)
+        return new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, logger, false)
+    }
+
+    interface IDisposable with
+        member __.Dispose () = logger.Dispose()
         
     interface IParallelismProvider with
         member __.ProcessId = currentJob.TaskEntry.Id
@@ -76,4 +82,4 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
         }
 
         member __.CurrentWorker = currentWorker :> _
-        member __.Logger = logger
+        member __.Logger = logger :> _

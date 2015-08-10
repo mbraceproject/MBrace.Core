@@ -104,7 +104,6 @@ module LogUtils =
 
     type ISystemLogger with
         member l.Log (lvl : LogLevel) (text : string) = Logger.log l lvl text
-        member l.LogWithException exn text lvl = Logger.logWithException l lvl exn text
         member l.Logf lvl fmt = Logger.logF l lvl fmt
         member l.LogInfo text = Logger.logInfo l text
         member l.LogError text = Logger.logError l text

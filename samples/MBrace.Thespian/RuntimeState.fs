@@ -41,8 +41,6 @@ type RuntimeState =
         TaskManager : CloudTaskManager
         /// Cloud job queue instance
         JobQueue : JobQueue
-        /// Cloud logging instance
-        CloudLogger  : ActorCloudLogger
         /// Misc resources appended to runtime state
         Resources : ResourceRegistry
         /// Local node state factory instance
@@ -76,11 +74,13 @@ with
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
             let siftManager = ClosureSiftManager.Create(siftConfig, logger)
+            let storeLogger = StoreCloudLogManager.Create(fileStoreConfig.FileStore, container = "logs", sysLogger = logger)
             {
                 Logger = logger
                 PersistedValueManager = persistedValueManager
                 AssemblyManager = assemblyManager
                 SiftManager = siftManager
+                CloudLogManager = storeLogger 
             })
 
         let id = RuntimeId.Create()
@@ -88,8 +88,6 @@ with
         let workerManager = WorkerManager.Create(localStateFactory)
         let taskManager = CloudTaskManager.Create(localStateFactory)
         let jobQueue = JobQueue.Create(workerManager, localStateFactory)
-        let actorLogger = ActorCloudLogger.Create(localStateFactory.Value.Logger)
-
 
         let resources = resource {
             yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
@@ -110,7 +108,6 @@ with
             StoreCloudValueProvider = cloudValueProvider
             WorkerManager = workerManager
             TaskManager = taskManager
-            CloudLogger = actorLogger
             JobQueue = jobQueue
             Resources = resources
             LocalStateFactory = localStateFactory
@@ -155,6 +152,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =
         member x.Id = state.Id :> _
         member x.Serializer = Config.Serializer :> _
         member x.AssemblyManager: IAssemblyManager = localState.AssemblyManager :> _
+        member x.CloudLogManager : ICloudLogManager = localState.CloudLogManager :> _
         
         member x.CancellationEntryFactory: ICancellationEntryFactory = cancellationEntryFactory :> _
         member x.CounterFactory: ICloudCounterFactory = counterFactory :> _
@@ -163,8 +161,6 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =
         member x.WorkerManager = state.WorkerManager :> _
         
         member x.JobQueue: IJobQueue = state.JobQueue :> _
-        
-        member x.GetCloudLogger (workerId : IWorkerId, job:CloudJob) : ICloudLogger = state.CloudLogger.GetCloudLogger(workerId, job)
 
         member x.SystemLogger : ISystemLogger = localState.Logger :> _
         

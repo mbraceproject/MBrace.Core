@@ -20,6 +20,8 @@ type LocalState =
         AssemblyManager : StoreAssemblyManager
         /// Local AssemblyManager instance
         PersistedValueManager : PersistedValueManager
+        /// Local cloud log manager instance
+        CloudLogManager : StoreCloudLogManager
     }
 with
     member ls.CreateResult(t : 'T, allowNewSifts : bool, fileName : string) : Async<ResultMessage<'T>> = async {

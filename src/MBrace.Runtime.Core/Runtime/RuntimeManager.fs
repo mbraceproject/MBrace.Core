@@ -25,19 +25,14 @@ type IRuntimeManager =
     abstract ResourceRegistry : ResourceRegistry
     /// Runtime worker manager object.
     abstract WorkerManager : IWorkerManager
+    /// Abstraction used for managing logging by cloud workflows.
+    abstract CloudLogManager : ICloudLogManager
 
-    /// <summary>
-    ///     Gets a CloudLogger instance specific to supplied CloudJob.
-    /// </summary>
-    /// <param name="worker">Current worker identifier.</param>
-    /// <param name="job">Current cloud job.</param>
-    abstract GetCloudLogger : worker:IWorkerId * job:CloudJob -> ICloudLogger
-
-    /// Logger abstraction used for local worker logging.
+    /// Logger abstraction used by the current process only.
     abstract SystemLogger : ISystemLogger
 
     /// <summary>
-    ///     Attaches a logger to the local runtime manager instance.
+    ///     Attaches a logger to the local process only.
     ///     Returns an uninstallation token.
     /// </summary>
     /// <param name="localLogger">Logger to be attached.</param>

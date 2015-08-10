@@ -258,15 +258,24 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
     }
 
     /// Gets a printed report of all currently executing processes
-    member pm.GetProcessInfo() : string =
+    member pm.GetTaskInfo() : string =
         let procs = pm.GetAllTasks() |> Async.RunSync
         CloudTaskReporter.Report(procs, "Processes", borders = false)
 
     /// Prints a report of all currently executing processes to stdout.
-    member pm.ShowProcessInfo() : unit =
+    member pm.ShowTaskInfo() : unit =
         /// TODO : add support for filtering processes
-        Console.WriteLine(pm.GetProcessInfo())
+        Console.WriteLine(pm.GetTaskInfo())
 
+    /// Asynchronously fetches all task entries for supplied task object.
+    member pm.GetTaskLogsAsync(task : CloudTask) : Async<seq<CloudLogEntry>> = async { 
+        return! runtime.CloudLogManager.GetAllCloudLogEntriesByTask task.Id 
+    }
+
+    /// Prints all task entries for given task to stdout.
+    member pm.ShowTaskLogs(task : CloudTask) : unit =
+        let entries = runtime.CloudLogManager.GetAllCloudLogEntriesByTask task.Id |> Async.RunSync
+        for e in entries do Console.WriteLine (e.ToString(showDate = true))
          
 and internal CloudTaskReporter() = 
     static let template : Field<CloudTask> list = 

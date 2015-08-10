@@ -112,9 +112,18 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.ClearAllCloudTasks() : unit = taskManagerClient.ClearAllTasks() |> Async.RunSync
 
     /// Gets a printed report of all current cloud tasks.
-    member __.GetCloudTaskInfo() : string = taskManagerClient.GetProcessInfo()
+    member __.GetCloudTaskInfo() : string = taskManagerClient.GetTaskInfo()
     /// Prints a report of all current cloud tasks to stdout.
-    member __.ShowCloudTaskInfo() : unit = taskManagerClient.ShowProcessInfo()
+    member __.ShowCloudTaskInfo() : unit = taskManagerClient.ShowTaskInfo()
+
+    /// Fetches all logs for supplied cloud task.
+    member __.GetCloudLogs(task : CloudTask) : CloudLogEntry [] =
+        let logs = taskManagerClient.GetTaskLogsAsync(task) |> Async.RunSync
+        Seq.toArray logs
+
+    /// Prints all logs for supplied cloud task to stdout.
+    member __.ShowCloudLogs(task : CloudTask) : unit =
+        taskManagerClient.ShowTaskLogs(task)
 
     /// Gets a client object that can be used for interoperating with the MBrace store.
     member __.Store : CloudStoreClient = storeClient
