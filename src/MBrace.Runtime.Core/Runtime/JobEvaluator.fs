@@ -33,7 +33,7 @@ module JobEvaluator =
     /// <param name="faultState">Job fault state.</param>
     /// <param name="job">Job instance to be executed.</param>
     let runJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerId) 
-                    (faultState : JobFaultInfo) (job : CloudJob) = async {
+                    (faultState : CloudJobFaultInfo) (job : CloudJob) = async {
 
         let logger = manager.SystemLogger
         let jem = new JobExecutionMonitor()
@@ -119,7 +119,7 @@ module JobEvaluator =
             do! joblt.DeclareCompleted()
 
         | Choice1Of2 job ->
-            if job.JobType = JobType.TaskRoot then
+            if job.JobType = CloudJobType.TaskRoot then
                 match job.TaskEntry.Info.Name with
                 | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskEntry.Id job.TaskEntry.Info.ReturnTypeName
                 | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskEntry.Info.ReturnTypeName

@@ -74,6 +74,24 @@ type ``MBrace Thespian Cloud Tests`` () as self =
         runOnCloud (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
+    member __.``Z4. Runtime : Task Log Observable`` () =
+        let workflow = cloud {
+            let job i = local {
+                for j in 1 .. 100 do
+                    do! Cloud.Logf "Job %d, iteration %d" i j
+            }
+
+            do! Cloud.Sleep 5000
+            do! Cloud.Parallel [for i in 1 .. 20 -> job i] |> Cloud.Ignore
+        }
+
+        let ra = new ResizeArray<CloudLogEntry>()
+        let task = session.Runtime.CreateCloudTask(workflow)
+        use d = task.Logs.Subscribe(fun e -> ra.Add(e))
+        do task.Result
+        ra |> Seq.filter (fun e -> e.Message.Contains "Job") |> Seq.length |> shouldEqual 2000
+
+    [<Test>]
     member __.``Z5. Fault Tolerance : map/reduce`` () =
         repeat(fun () ->
             let runtime = session.Runtime

@@ -13,7 +13,7 @@ open MBrace.Core.Internals
 type CloudJobId = Guid
 
 /// Cloud Job creation metadata
-type JobType =
+type CloudJobType =
     /// Job associated with a root task creation.
     | TaskRoot
     /// Job associated with the child computation of a Parallel workflow.
@@ -24,7 +24,7 @@ type JobType =
 
 /// Fault metadata of provided cloud job
 [<NoEquality; NoComparison>]
-type JobFaultInfo =
+type CloudJobFaultInfo =
     /// No faults associated with specified job
     | NoFault
     /// Faults have been declared by worker while processing job
@@ -55,7 +55,7 @@ type CloudJob =
         /// the initial computation that is being passed to its continuations.
         Type : Type
         /// Job creation metadata
-        JobType : JobType
+        JobType : CloudJobType
         /// Declared target worker for job
         TargetWorker : IWorkerId option
         /// Triggers job execution with worker-provided execution context
@@ -84,7 +84,7 @@ with
                             scont : ExecutionContext -> 'T -> unit, 
                             econt : ExecutionContext -> ExceptionDispatchInfo -> unit, 
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
-                            jobType : JobType, workflow : Cloud<'T>, ?target : IWorkerId) =
+                            jobType : CloudJobType, workflow : Cloud<'T>, ?target : IWorkerId) =
 
         let jobId = Guid.NewGuid()
         let runJob ctx =
@@ -114,11 +114,11 @@ type ICloudJobLeaseToken =
     /// String identifier of workflow return type.
     abstract Type : string
     /// Job creation metadata
-    abstract JobType : JobType
+    abstract JobType : CloudJobType
     /// Job payload size in bytes
     abstract Size : int64
     /// Gets fault metadata associated with this job instance.
-    abstract FaultInfo  : JobFaultInfo
+    abstract FaultInfo  : CloudJobFaultInfo
     /// Asynchronously fetches the actual job instance.
     abstract GetJob           : unit -> Async<CloudJob>
     /// Asynchronously declare job to be completed.
@@ -127,7 +127,7 @@ type ICloudJobLeaseToken =
     abstract DeclareFaulted   : ExceptionDispatchInfo -> Async<unit>
 
 /// Defines a distributed queue for jobs
-type IJobQueue =
+type ICloudJobQueue =
     /// <summary>
     ///     Asynchronously enqueue a singular job to queue.
     /// </summary>

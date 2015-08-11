@@ -122,8 +122,9 @@ type StoreJsonLogWriter<'LogEntry> internal (store : ICloudFileStore, nextLogFil
 [<Sealed; AutoSerializable(false)>]
 type StoreJsonLogPoller<'LogEntry> internal (store : ICloudFileStore, getLogFiles : unit -> Async<string []>, ?pollingInterval : int) =
 
+    let lockObj = new obj()
     let logsRead = new System.Collections.Generic.HashSet<string>()
-    let cts = new CancellationTokenSource()
+    let mutable cancellationTokenSource : CancellationTokenSource option = None
 
     let pollingInterval = defaultArg pollingInterval 500
 
@@ -145,14 +146,29 @@ type StoreJsonLogPoller<'LogEntry> internal (store : ICloudFileStore, getLogFile
         return! loop ()
     }
 
-    do Async.Start(loop (), cancellationToken = cts.Token)
+    member __.Start() =
+        lock lockObj (fun () ->
+            match cancellationTokenSource with
+            | Some _ -> ()
+            | None ->
+                let cts = new CancellationTokenSource()
+                Async.Start(loop(), cts.Token)
+                cancellationTokenSource <- Some cts)
+
+    member __.Stop () =
+        lock lockObj (fun () ->
+            match cancellationTokenSource with
+            | None -> ()
+            | Some cts ->
+                cts.Cancel()
+                cancellationTokenSource <- None)
 
     [<CLIEvent>]
     member this.Updated = updatedEvent.Publish
     member this.Update () = Async.StartAsTask(updateLogs()) |> ignore
 
     interface IDisposable with
-        member __.Dispose() = cts.Cancel()
+        member __.Dispose() = __.Stop()
 
 type StoreJsonLogger =
     /// <summary>
@@ -194,7 +210,7 @@ type StoreJsonLogger =
 
 [<Sealed; AutoSerializable(false)>]
 type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, job : CloudJob, workerId : string) =
-    interface IJobLogger with
+    interface ICloudJobLogger with
         member x.Dispose(): unit = (writer :> IDisposable).Dispose()
         member x.Log(message : string): unit = 
             // TODO : parameterize DateTime generation?
@@ -202,10 +218,29 @@ type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, job :
             writer.LogEntry(entry) 
 
 [<Sealed; AutoSerializable(false)>]
-type private StoreCloudObservable (poller : StoreJsonLogPoller<CloudLogEntry>) =
-    interface ILogObservable with
-        member x.Dispose(): unit = (poller :> IDisposable).Dispose()
-        member x.Subscribe(observer: IObserver<CloudLogEntry>): IDisposable = poller.Updated.Subscribe observer
+type private StoreCloudLogObservable (poller : StoreJsonLogPoller<CloudLogEntry>) =
+    let lockObj = new obj()
+    let mutable subscriptionCount = 0
+    let incr() = 
+        lock lockObj (fun () ->
+            if subscriptionCount = 0 then poller.Start()
+            subscriptionCount <- subscriptionCount + 1)
+
+    let decr() =
+        lock lockObj (fun () ->
+            if subscriptionCount = 1 then poller.Stop()
+            subscriptionCount <- subscriptionCount - 1)
+
+    interface IObservable<CloudLogEntry> with
+        member x.Subscribe(observer: IObserver<CloudLogEntry>): IDisposable =
+            let d = poller.Updated.Subscribe observer
+            incr ()
+            let isDisposed = ref 0
+            { new IDisposable with 
+                member __.Dispose() = 
+                    if Interlocked.Increment isDisposed = 1 then 
+                        d.Dispose() ; decr()
+            }
 
 /// Cloud log manager implementation that uses the underlying cloud store for persisting and reading log entries.
 [<Sealed; AutoSerializable(false)>]
@@ -221,7 +256,11 @@ type StoreCloudLogManager private (store : ICloudFileStore, ?getContainerByTaskI
 
     let enumerateTaskLogs (taskId : string) = async {
         let container = getContainerByTaskId taskId
-        let! files = store.EnumerateFiles container
+        let! files = async {
+            try return! store.EnumerateFiles container
+            with :? DirectoryNotFoundException -> return [||]
+        }
+
         return 
             files 
             |> Seq.filter (fun f -> f.EndsWith ".log")
@@ -239,7 +278,7 @@ type StoreCloudLogManager private (store : ICloudFileStore, ?getContainerByTaskI
         new StoreCloudLogManager(store, ?getContainerByTaskId = getContainerByTaskId, ?sysLogger = sysLogger)
 
     interface ICloudLogManager with
-        member x.GetCloudLogger(worker: IWorkerId, job: CloudJob): Async<IJobLogger> = async {
+        member x.CreateJobLogger(worker: IWorkerId, job: CloudJob): Async<ICloudJobLogger> = async {
             let logIdCounter = ref 0
             let nextLogFile() =
                 let id = Interlocked.Increment logIdCounter
@@ -249,12 +288,12 @@ type StoreCloudLogManager private (store : ICloudFileStore, ?getContainerByTaskI
             return new StoreCloudLogger(writer, job, worker.Id) :> _
         }
 
-        member x.GetAllCloudLogEntriesByTask(taskId: string): Async<seq<CloudLogEntry>> = async {
+        member x.GetAllCloudLogsByTask(taskId: string): Async<seq<CloudLogEntry>> = async {
             let! taskLogs = enumerateTaskLogs taskId
             return! StoreJsonLogger.ReadJsonLogEntries(store, taskLogs)
         }
         
-        member x.GetCloudLogEntriesObservableByTask(taskId: string): Async<ILogObservable> = async {
+        member x.GetCloudLogObservableByTask(taskId: string): Async<IObservable<CloudLogEntry>> = async {
             let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> enumerateTaskLogs taskId)
-            return new StoreCloudObservable(poller) :> _
+            return new StoreCloudLogObservable(poller) :> _
         }

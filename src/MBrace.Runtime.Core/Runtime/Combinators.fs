@@ -152,7 +152,7 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
             // Create jobs and enqueue
             do!
                 computations
-                |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, JobType.ParallelChild(i, computations.Length), c, ?target = w))
+                |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess i, onException, onCancellation, CloudJobType.ParallelChild(i, computations.Length), c, ?target = w))
                 |> runtime.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
@@ -248,7 +248,7 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSour
             // create child jobs
             do!
                 computations
-                |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, JobType.ChoiceChild(i, computations.Length), c, ?target = w))
+                |> Array.mapi (fun i (c,w) -> CloudJob.Create(parentTask, childCts, faultPolicy, onSuccess, onException, onCancellation, CloudJobType.ChoiceChild(i, computations.Length), c, ?target = w))
                 |> runtime.JobQueue.BatchEnqueue
                     
             JobExecutionMonitor.TriggerCompletion ctx })
@@ -321,7 +321,7 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (isClientSideEnqueue : bool)
         let econt ctx e = setResult ctx (Exception e) CloudTaskStatus.UserException
         let ccont ctx c = setResult ctx (Cancelled c) CloudTaskStatus.Canceled
 
-        let job = CloudJob.Create (tcs, cts, faultPolicy, scont, econt, ccont, JobType.TaskRoot, computation, ?target = target)
+        let job = CloudJob.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudJobType.TaskRoot, computation, ?target = target)
         do! runtime.JobQueue.Enqueue(job, isClientSideEnqueue)
         return new CloudTask<'T>(tcs, runtime, isClientProcess = isClientSideEnqueue)
 }

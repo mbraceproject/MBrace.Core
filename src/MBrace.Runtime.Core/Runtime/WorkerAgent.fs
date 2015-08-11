@@ -78,7 +78,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, jobEv
 
                     | Some jobToken ->
                         // Successfully dequeued job, run it.
-                        if jobToken.JobType = JobType.TaskRoot then
+                        if jobToken.JobType = CloudJobType.TaskRoot then
                             do! jobToken.TaskEntry.DeclareStatus Dequeued
 
                         let jc = Interlocked.Increment &currentJobCount

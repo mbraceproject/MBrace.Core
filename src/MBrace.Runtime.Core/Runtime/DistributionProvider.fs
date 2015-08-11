@@ -10,7 +10,7 @@ open MBrace.Runtime.InMemoryRuntime
 
 /// Implements the IDistribution provider implementation to be passed to MBrace workflow execution
 [<Sealed; AutoSerializable(false)>]
-type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, logger : IJobLogger, isForcedLocalParallelism : bool) =
+type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, logger : ICloudJobLogger, isForcedLocalParallelism : bool) =
 
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
         let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
@@ -27,7 +27,7 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
     /// <param name="job">Job to be executed.</param>
     static member Create(currentWorker : IWorkerId, runtime : IRuntimeManager, job : CloudJob) = async {
         let currentWorker = WorkerRef.Create(runtime, currentWorker)
-        let! logger = runtime.CloudLogManager.GetCloudLogger (currentWorker.WorkerId, job)
+        let! logger = runtime.CloudLogManager.CreateJobLogger (currentWorker.WorkerId, job)
         return new DistributionProvider(currentWorker, runtime, job, job.FaultPolicy, logger, false)
     }
 

@@ -160,7 +160,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =
         
         member x.WorkerManager = state.WorkerManager :> _
         
-        member x.JobQueue: IJobQueue = state.JobQueue :> _
+        member x.JobQueue: ICloudJobQueue = state.JobQueue :> _
 
         member x.SystemLogger : ISystemLogger = localState.Logger :> _
         

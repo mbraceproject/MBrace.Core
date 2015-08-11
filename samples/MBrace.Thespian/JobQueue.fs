@@ -39,7 +39,7 @@ type internal PickledJob =
         /// Unique job identifier
         JobId : CloudJobId
         /// Job type enumeration
-        JobType : JobType
+        JobType : CloudJobType
         /// Job pretty printed return type
         Type : string
         /// Declared target worker for job
@@ -58,9 +58,9 @@ type internal JobLeaseMonitorMsg =
     | WorkerDeath
 
 type private JobQueueMsg =
-    | Enqueue of PickledJob * JobFaultInfo
+    | Enqueue of PickledJob * CloudJobFaultInfo
     | BatchEnqueue of PickledJob []
-    | TryDequeue of IWorkerId * IReplyChannel<(PickledJob * JobFaultInfo * ActorRef<JobLeaseMonitorMsg>) option>
+    | TryDequeue of IWorkerId * IReplyChannel<(PickledJob * CloudJobFaultInfo * ActorRef<JobLeaseMonitorMsg>) option>
 
 module private JobLeaseMonitor =
     
@@ -75,7 +75,7 @@ module private JobLeaseMonitor =
     /// <param name="interval">Monitor interval.</param>
     /// <param name="worker">Executing worker id.</param>
     let create (workerMonitor : WorkerManager) (queue : ActorRef<JobQueueMsg>) 
-                (faultInfo : JobFaultInfo) (job : PickledJob) 
+                (faultInfo : CloudJobFaultInfo) (job : PickledJob) 
                 (interval : TimeSpan) (worker : IWorkerId) =
 
         let cts = new CancellationTokenSource()
@@ -115,7 +115,7 @@ module private JobLeaseMonitor =
 
 /// Job lease token implementation, received when dequeuing a job from the queue.
 [<AutoSerializable(true)>]
-type JobLeaseToken internal (pjob : PickledJob, stateF : LocalStateFactory, faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
+type JobLeaseToken internal (pjob : PickledJob, stateF : LocalStateFactory, faultInfo : CloudJobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
 
     interface ICloudJobLeaseToken with
         member x.Id: CloudJobId = pjob.JobId
@@ -160,13 +160,13 @@ type private QueueState =
 with
     static member Empty = { Queue = JobQueueTopic.Empty ; LastCleanup = DateTime.Now }
 
-and private JobQueueTopic = TopicQueue<IWorkerId, PickledJob * JobFaultInfo>
+and private JobQueueTopic = TopicQueue<IWorkerId, PickledJob * CloudJobFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
 type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateFactory) =
 
-    interface IJobQueue with
+    interface ICloudJobQueue with
         member x.BatchEnqueue(jobs: CloudJob []) = async {
             let localState = localStateF.Value
             if jobs.Length = 0 then return () else
@@ -241,7 +241,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
                     if DateTime.Now - state.LastCleanup > cleanupThreshold then
                         // remove jobs from worker topics if inactive.
                         let removed, state' = state.Queue.Cleanup (workerMonitor.IsAlive >> Async.RunSync >> not)
-                        let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : JobFaultInfo) =
+                        let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : CloudJobFaultInfo) =
                             let worker = Option.get j.Target
                             localState.Logger.Logf LogLevel.Warning "Redirecting job '%O' of type '%s' that has been targeted to dead worker '%s'." j.JobId j.Type worker.Id
                             let j = { j with Target = None }

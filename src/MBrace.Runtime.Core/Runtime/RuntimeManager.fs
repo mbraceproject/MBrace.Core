@@ -39,7 +39,7 @@ type IRuntimeManager =
     abstract AttachSystemLogger : localLogger:ISystemLogger -> IDisposable
 
     /// Gets the job queue instance for the runtime.
-    abstract JobQueue : IJobQueue
+    abstract JobQueue : ICloudJobQueue
     /// Gets the Vagabond assembly manager for this runtime.
     abstract AssemblyManager : IAssemblyManager
     /// Gets the CloudTask manager instance for this runtime.
