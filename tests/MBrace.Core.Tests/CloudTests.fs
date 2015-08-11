@@ -11,11 +11,6 @@ open MBrace.Core.Internals
 open MBrace.Library
 open MBrace.Library.CloudCollectionUtils
 
-/// Logging tester abstraction
-type ILogTester =
-    abstract Init : unit -> System.IDisposable
-    abstract GetLogs : unit -> string []
-
 /// Suite for testing MBrace parallelism & distribution
 /// <param name="parallelismFactor">Maximum permitted parallel jobs permitted in tests.</param>
 /// <param name="delayFactor">
@@ -31,8 +26,10 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     let repeat f = repeat self.Repeats f
 
     let runOnCloud (workflow : Cloud<'T>) = self.RunOnCloud workflow
-    let runInCloudCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.RunOnCloud workflow
-    let runOnCurrentMachine (workflow : Cloud<'T>) = self.RunOnCurrentMachine workflow
+    let runOnCloudCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.RunOnCloud workflow
+    let runOnCloudWithLogs (workflow : Cloud<unit>) = self.RunOnCloudWithLogs workflow
+    let runOnCurrentProcess (workflow : Cloud<'T>) = self.RunOnCurrentProcess workflow
+    
     
     static let getRefHashCode (t : 'T when 'T : not struct) = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode t
     
@@ -40,8 +37,10 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     abstract RunOnCloud : workflow:Cloud<'T> -> Choice<'T, exn>
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
     abstract RunOnCloud : workflow:(ICloudCancellationTokenSource -> #Cloud<'T>) -> Choice<'T, exn>
+    /// Run workflow in the runtime under test, returning logs created by the process.
+    abstract RunOnCloudWithLogs : workflow:Cloud<unit> -> string []
     /// Evaluate workflow in the local test process
-    abstract RunOnCurrentMachine : workflow:Cloud<'T> -> 'T
+    abstract RunOnCurrentProcess : workflow:Cloud<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck
     abstract FsCheckMaxTests : int
     /// Maximum number of repeats to run nondeterministic tests
@@ -52,8 +51,6 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     abstract IsSiftedWorkflowSupported : bool
     /// Declares that this runtime uses serialization/distribution
     abstract UsesSerialization : bool
-    /// Log tester
-    abstract LogTester : ILogTester
 
     //
     //  1. Parallelism tests
@@ -88,7 +85,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     [<Test>]
     member __.``1. Parallel : use binding`` () =
         let parallelismFactor = parallelismFactor
-        let c = CloudAtom.New 0 |> runOnCurrentMachine
+        let c = CloudAtom.New 0 |> runOnCurrentProcess
         cloud {
             use foo = { new ICloudDisposable with member __.Dispose () = c.Transact(fun i -> (), i + 1) }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Incr c) |> Cloud.Parallel
@@ -110,7 +107,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
     [<Test>]
     member  __.``1. Parallel : finally`` () =
-        let trigger = runOnCurrentMachine <| CloudAtom.New 0
+        let trigger = runOnCurrentProcess <| CloudAtom.New 0
         Cloud.TryFinally( cloud {
             let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
             return () }, CloudAtom.Incr trigger |> Local.Ignore)
@@ -206,8 +203,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member __.``1. Parallel : simple cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let counter = CloudAtom.New 0 |> runOnCurrentMachine
-            runInCloudCts(fun cts -> cloud {
+            let counter = CloudAtom.New 0 |> runOnCurrentProcess
+            runOnCloudCts(fun cts -> cloud {
                 let f i = cloud {
                     if i = 0 then cts.Cancel() 
                     do! Cloud.Sleep delayFactor
@@ -419,7 +416,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member __.``2. Choice : all inputs 'None'`` () =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let count = CloudAtom.New 0 |> runOnCurrentMachine
+            let count = CloudAtom.New 0 |> runOnCurrentProcess
             cloud {
                 let worker _ = cloud {
                     let! _ = CloudAtom.Incr count
@@ -436,7 +433,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let count = CloudAtom.New 0 |> runOnCurrentMachine
+            let count = CloudAtom.New 0 |> runOnCurrentProcess
             cloud {
                 let worker i = cloud {
                     if i = 0 then return Some i
@@ -455,7 +452,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     [<Test>]
     member __.``2. Choice : all inputs 'Some'`` () =
         repeat(fun () ->
-            let successcounter = CloudAtom.New 0 |> runOnCurrentMachine
+            let successcounter = CloudAtom.New 0 |> runOnCurrentProcess
             cloud {
                 let worker _ = cloud { return Some 42 }
                 let! result = Array.init 100 worker |> Cloud.Choice
@@ -472,7 +469,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             let nNested = nNested
-            let counter = CloudAtom.New 0 |> runOnCurrentMachine
+            let counter = CloudAtom.New 0 |> runOnCurrentProcess
             cloud {
                 let worker i j = cloud {
                     if i = 0 && j = 0 then
@@ -494,7 +491,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         repeat(fun () ->
             let nNested = nNested
-            let counter = CloudAtom.New 0 |> runOnCurrentMachine
+            let counter = CloudAtom.New 0 |> runOnCurrentProcess
             cloud {
                 let worker i j = cloud {
                     if i = 0 && j = 0 then
@@ -516,8 +513,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
-            let counter = CloudAtom.New 0 |> runOnCurrentMachine
-            runInCloudCts(fun cts ->
+            let counter = CloudAtom.New 0 |> runOnCurrentProcess
+            runOnCloudCts(fun cts ->
                 cloud {
                     let worker i = cloud {
                         if i = 0 then cts.Cancel()
@@ -676,7 +673,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member __.``3. Task: task with exception`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let count = CloudAtom.New 0 |> runOnCurrentMachine
+            let count = CloudAtom.New 0 |> runOnCurrentProcess
             cloud {
                 let tworkflow = cloud {
                     do! Cloud.Sleep delayFactor
@@ -700,7 +697,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member __.``3. Task: with cancellation token`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
-            let count = CloudAtom.New 0 |> runOnCurrentMachine
+            let count = CloudAtom.New 0 |> runOnCurrentProcess
             cloud {
                 let! cts = Cloud.CreateCancellationTokenSource()
                 let tworkflow = cloud {
@@ -770,7 +767,6 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     [<Test>]
     member t.``4. Logging`` () =
         let delayFactor = delayFactor
-        use d = t.LogTester.Init()
 
         cloud {
             let logSeq _ = cloud {
@@ -780,9 +776,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
             do! Seq.init 20 logSeq |> Cloud.Parallel |> Cloud.Ignore
             do! Cloud.Sleep delayFactor
-        } |> runOnCloud |> ignore
-        
-        t.LogTester.GetLogs() 
+        } 
+        |> runOnCloudWithLogs
         |> Seq.filter (fun m -> m.Contains "user cloud message") 
         |> Seq.length 
         |> shouldEqual 2000

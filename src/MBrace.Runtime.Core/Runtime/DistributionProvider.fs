@@ -36,7 +36,7 @@ type DistributionProvider private (currentWorker : WorkerRef, runtime : IRuntime
         
     interface IParallelismProvider with
         member __.ProcessId = currentJob.TaskEntry.Id
-        member __.JobId = currentJob.Id
+        member __.JobId = currentJob.Id.ToString()
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy (newPolicy : FaultPolicy) =

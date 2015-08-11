@@ -9,6 +9,9 @@ open MBrace.Core.Internals
 
 #nowarn "444"
 
+/// Unique Cloud job identifier
+type CloudJobId = Guid
+
 /// Cloud Job creation metadata
 type JobType =
     /// Job associated with a root task creation.
@@ -46,7 +49,7 @@ type CloudJob =
         /// Parent task entry for job
         TaskEntry : ICloudTaskCompletionSource
         /// Cloud Job unique identifier
-        Id : string
+        Id : CloudJobId
         /// Job workflow 'return type';
         /// Jobs have no return type per se but this indicates the return type of 
         /// the initial computation that is being passed to its continuations.
@@ -83,7 +86,7 @@ with
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
                             jobType : JobType, workflow : Cloud<'T>, ?target : IWorkerId) =
 
-        let jobId = mkUUID()
+        let jobId = Guid.NewGuid()
         let runJob ctx =
             let cont = { Success = scont ; Exception = econt ; Cancellation = ccont }
             Cloud.StartWithContinuations(workflow, cont, ctx)
@@ -105,7 +108,7 @@ type ICloudJobLeaseToken =
     /// Parent Cloud Task info
     abstract TaskEntry : ICloudTaskCompletionSource
     /// Cloud Job identifier
-    abstract Id : string
+    abstract Id : CloudJobId
     /// Declared target worker for job
     abstract TargetWorker : IWorkerId option
     /// String identifier of workflow return type.

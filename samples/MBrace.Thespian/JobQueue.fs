@@ -37,7 +37,7 @@ type internal PickledJob =
         /// Parent task entry as recorded in cluster.
         TaskEntry : ICloudTaskCompletionSource
         /// Unique job identifier
-        JobId : string
+        JobId : CloudJobId
         /// Job type enumeration
         JobType : JobType
         /// Job pretty printed return type
@@ -118,13 +118,7 @@ module private JobLeaseMonitor =
 type JobLeaseToken internal (pjob : PickledJob, stateF : LocalStateFactory, faultInfo : JobFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
 
     interface ICloudJobLeaseToken with
-        member x.DeclareCompleted() = async {
-            leaseMonitor <-- Completed
-        }
-        
-        member x.DeclareFaulted(edi: ExceptionDispatchInfo) = async {
-            leaseMonitor <-- WorkerDeclaredFault edi
-        }
+        member x.Id: CloudJobId = pjob.JobId
 
         member x.Type = pjob.Type
 
@@ -146,8 +140,15 @@ type JobLeaseToken internal (pjob : PickledJob, stateF : LocalStateFactory, faul
                 let! jobs = state.ReadResult pjs
                 return jobs.[i]
         }
+
+        member x.DeclareCompleted() = async {
+            leaseMonitor <-- Completed
+        }
         
-        member x.Id: string = pjob.JobId
+        member x.DeclareFaulted(edi: ExceptionDispatchInfo) = async {
+            leaseMonitor <-- WorkerDeclaredFault edi
+        }
+        
 
 
 /// Job Queue actor state
@@ -169,7 +170,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
         member x.BatchEnqueue(jobs: CloudJob []) = async {
             let localState = localStateF.Value
             if jobs.Length = 0 then return () else
-            let id = sprintf "jobs-%s" <| jobs.[0].Id
+            let id = sprintf "jobs-%O" <| jobs.[0].Id
             // never create new sifts on parallel workflows (batch enqueues)
             let! pickle = localState.CreateResult(jobs, allowNewSifts = false, fileName = id)
             let mkPickle (index:int) (job : CloudJob) =
@@ -188,7 +189,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
         
         member x.Enqueue (job: CloudJob, isClientEnqueue:bool) = async {
             let localState = localStateF.Value
-            let id = sprintf "job-%s" job.Id
+            let id = sprintf "job-%O" job.Id
             // only sift new large objects on client side enqueues
             let! pickle = localState.CreateResult(job, allowNewSifts = isClientEnqueue, fileName = id)
             let item =
@@ -242,7 +243,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
                         let removed, state' = state.Queue.Cleanup (workerMonitor.IsAlive >> Async.RunSync >> not)
                         let appendRemoved (s:JobQueueTopic) (j : PickledJob, faultState : JobFaultInfo) =
                             let worker = Option.get j.Target
-                            localState.Logger.Logf LogLevel.Warning "Redirecting job '%s' of type '%s' that has been targeted to dead worker '%s'." j.JobId j.Type worker.Id
+                            localState.Logger.Logf LogLevel.Warning "Redirecting job '%O' of type '%s' that has been targeted to dead worker '%s'." j.JobId j.Type worker.Id
                             let j = { j with Target = None }
                             let faultCount = faultState.FaultCount + 1
                             let faultState = IsTargetedJobOfDeadWorker(faultCount, worker)
@@ -256,7 +257,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
                 let! isDeclaredAlive = workerMonitor.IsAlive worker
                 match state.Queue.TryDequeue worker with
                 | Some((pj,fs), queue') when isDeclaredAlive ->
-                    localState.Logger.Logf LogLevel.Debug "Dequeueing job %s of type '%s'." pj.JobId pj.Type
+                    localState.Logger.Logf LogLevel.Debug "Dequeueing job %O of type '%s'." pj.JobId pj.Type
                     let jlm = JobLeaseMonitor.create workerMonitor self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
                     do! rc.Reply(Some(pj, fs, jlm))
                     return { state with Queue = queue' }

@@ -323,5 +323,5 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (isClientSideEnqueue : bool)
 
         let job = CloudJob.Create (tcs, cts, faultPolicy, scont, econt, ccont, JobType.TaskRoot, computation, ?target = target)
         do! runtime.JobQueue.Enqueue(job, isClientSideEnqueue)
-        return new CloudTask<'T>(tcs)
+        return new CloudTask<'T>(tcs, runtime.Id, ?runtime = (if isClientSideEnqueue then Some runtime else None))
 }

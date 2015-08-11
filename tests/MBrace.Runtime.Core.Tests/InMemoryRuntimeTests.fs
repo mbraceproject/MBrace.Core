@@ -1,6 +1,8 @@
 ﻿namespace MBrace.Runtime.Tests
 
+open System.Collections.Concurrent
 open System.Threading
+
 open NUnit.Framework
 
 open MBrace.Core
@@ -9,24 +11,18 @@ open MBrace.Core.Tests
 
 open MBrace.Runtime.InMemoryRuntime
 
+[<AutoSerializable(false)>]
 type InMemoryLogTester () =
-    let logs = new ResizeArray<string>()
-
-    interface ILogTester with
-        member __.GetLogs () = logs.ToArray()
-        member __.Init () = 
-            lock logs (fun () -> logs.Clear())
-            { new System.IDisposable with member __.Dispose() = () }
-
+    let logs = new ConcurrentQueue<string>()
+    member __.GetLogs() = logs.ToArray()
     interface ICloudLogger with
-        member __.Log msg = lock logs (fun () -> logs.Add msg)
+        member __.Log msg = logs.Enqueue msg
 
 [<AbstractClass>]
 type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
     inherit ``Cloud Tests``(parallelismFactor = 100, delayFactor = 1000)
 
-    let logger = InMemoryLogTester()
-    let imem = InMemoryRuntime.Create(logger = logger, memoryEmulation = memoryEmulation)
+    let imem = InMemoryRuntime.Create(memoryEmulation = memoryEmulation)
 
     member __.Runtime = imem
 
@@ -36,10 +32,15 @@ type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
         Choice.protect(fun () ->
             imem.Run(workflow cts, cancellationToken = cts.Token))
 
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = imem.Run(workflow)
+    override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
+        let logTester = new InMemoryLogTester()
+        let imem = InMemoryRuntime.Create(logger = logTester, memoryEmulation = memoryEmulation)
+        imem.Run workflow
+        logTester.GetLogs()
+
+    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = imem.Run(workflow)
     override __.IsTargetWorkerSupported = false
     override __.IsSiftedWorkflowSupported = false
-    override __.LogTester = logger :> _
     override __.FsCheckMaxTests = 100
     override __.UsesSerialization = memoryEmulation <> MemoryEmulation.Shared
 #if DEBUG

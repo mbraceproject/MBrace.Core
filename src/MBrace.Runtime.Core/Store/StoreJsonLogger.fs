@@ -10,7 +10,9 @@ open Nessos.FsPickler.Json
 
 open MBrace.Core
 open MBrace.Core.Internals
+
 open MBrace.Runtime
+open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Vagabond
 
 [<AutoOpen>]
@@ -205,18 +207,24 @@ type private StoreCloudObservable (poller : StoreJsonLogPoller<CloudLogEntry>) =
         member x.Dispose(): unit = (poller :> IDisposable).Dispose()
         member x.Subscribe(observer: IObserver<CloudLogEntry>): IDisposable = poller.Updated.Subscribe observer
 
-
 /// Cloud log manager implementation that uses the underlying cloud store for persisting and reading log entries.
 [<Sealed; AutoSerializable(false)>]
-type StoreCloudLogManager private (store : ICloudFileStore, container : string, ?sysLogger : ISystemLogger) =
-    static let isLogFile (path : string) = path.EndsWith ".log"
-    let getTaskPrefix (taskId:string) = store.Combine(container, taskId)
-    let enumerateTaskLogs (taskId:string) = async {
-        let taskPrefix = getTaskPrefix taskId
+type StoreCloudLogManager private (store : ICloudFileStore, ?getContainerByTaskId : string -> string, ?sysLogger : ISystemLogger) =
+    let getContainerByTaskId =
+        match getContainerByTaskId with
+        | Some gcbt -> gcbt
+        | None -> fun id -> sprintf "taskLogs-%s" id
+
+    let getLogFile (job : CloudJob) (i : int) =
+        let container = getContainerByTaskId job.TaskEntry.Id
+        store.Combine(container, sprintf "job%s-%d.log" (job.Id.ToBase32String()) i)
+
+    let enumerateTaskLogs (taskId : string) = async {
+        let container = getContainerByTaskId taskId
         let! files = store.EnumerateFiles container
         return 
             files 
-            |> Seq.filter (fun f -> isLogFile f && f.StartsWith taskPrefix)
+            |> Seq.filter (fun f -> f.EndsWith ".log")
             |> Seq.sort
             |> Seq.toArray
     }
@@ -225,18 +233,17 @@ type StoreCloudLogManager private (store : ICloudFileStore, container : string, 
     ///     Creates a new store log manager instance with supplied store and container parameters.
     /// </summary>
     /// <param name="store">Underlying store for cloud log manager.</param>
-    /// <param name="container">Container path for logs.</param>
+    /// <param name="getContainerByTaskId">User-supplied container generation function.</param>
     /// <param name="sysLogger">System logger. Defaults to no logging.</param>
-    static member Create(store : ICloudFileStore, container : string, ?sysLogger : ISystemLogger) =
-        new StoreCloudLogManager(store, container, ?sysLogger = sysLogger)
+    static member Create(store : ICloudFileStore, ?getContainerByTaskId : string -> string, ?sysLogger : ISystemLogger) =
+        new StoreCloudLogManager(store, ?getContainerByTaskId = getContainerByTaskId, ?sysLogger = sysLogger)
 
     interface ICloudLogManager with
         member x.GetCloudLogger(worker: IWorkerId, job: CloudJob): Async<IJobLogger> = async {
-            let taskPrefix = getTaskPrefix job.TaskEntry.Id
-            let logIdCounter = ref -1
+            let logIdCounter = ref 0
             let nextLogFile() =
-                incr logIdCounter
-                store.Combine(taskPrefix, sprintf "%s-%d.log" job.Id !logIdCounter)
+                let id = Interlocked.Increment logIdCounter
+                getLogFile job id
 
             let writer = StoreJsonLogger.CreateJsonLogWriter<CloudLogEntry>(store, nextLogFile, ?sysLogger = sysLogger)
             return new StoreCloudLogger(writer, job, worker.Id) :> _

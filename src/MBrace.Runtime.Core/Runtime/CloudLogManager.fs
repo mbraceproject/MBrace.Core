@@ -10,18 +10,18 @@ open MBrace.Core.Internals
 [<Struct; DataContract>]
 type CloudLogEntry =
 
-    [<DataMember(Name = "TaskId")>]
-    val mutable private taskId : string
-    [<DataMember(Name = "WorkerId")>]
-    val mutable private workerId : string
-    [<DataMember(Name = "JobId")>]
-    val mutable private jobId : string
-    [<DataMember(Name = "DateTime")>]
+    [<DataMember(Name = "DateTime", Order = 0)>]
     val mutable private dateTime : DateTime
-    [<DataMember(Name = "Message")>]
+    [<DataMember(Name = "Message", Order = 1)>]
     val mutable private message : string
+    [<DataMember(Name = "TaskId", Order = 2)>]
+    val mutable private taskId : string
+    [<DataMember(Name = "WorkerId", Order = 3)>]
+    val mutable private workerId : string
+    [<DataMember(Name = "JobId", Order = 4)>]
+    val mutable private jobId : CloudJobId
 
-    new (taskId : string, workerId : string, jobId : string, dateTime : DateTime, message : string) =
+    new (taskId : string, workerId : string, jobId : CloudJobId, dateTime : DateTime, message : string) =
         { taskId = taskId ; workerId = workerId ; jobId = jobId ; dateTime = dateTime ; message = message }
 
     /// Task identifier for log entry
@@ -35,12 +35,17 @@ type CloudLogEntry =
     /// Message of log entry
     member e.Message = e.message
 
-    member e.ToString(showDate:bool) =
-        if showDate then
-            let date = e.dateTime.ToString("yyyy-MM-dd H:mm:ss")
-            sprintf "[%s][Worker:%s][Job:%s] %s" date e.workerId e.jobId e.message
+    /// <summary>
+    ///     Prints log entry as a single line string.
+    /// </summary>
+    /// <param name="cle">Cloud log entry to be printed.</param>
+    /// <param name="showDate">Show date at the beginning. Defaults to false.</param>
+    static member Print(cle : CloudLogEntry, ?showDate : bool) =
+        if defaultArg showDate false then
+            let date = cle.dateTime.ToString("yyyy-MM-dd H:mm:ss")
+            sprintf "[%s][Worker:%s][Job:%O] %s" date cle.workerId cle.jobId cle.message
         else 
-            sprintf "[Worker:%s][Job:%s] %s" e.workerId e.jobId e.message
+            sprintf "[Worker:%s][Job:%O] %s" cle.workerId cle.jobId cle.message
 
 /// CloudLogger instance used for logging a specific job
 type IJobLogger =

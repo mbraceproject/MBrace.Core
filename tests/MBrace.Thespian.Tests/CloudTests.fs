@@ -16,7 +16,6 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
     let session = new RuntimeSession(nodes = 4)
-    let logTester = new LogTester(session)
 
     let runOnCloud (wf : Cloud<'T>) = self.RunOnCloud wf
     let repeat f = repeat self.Repeats f
@@ -42,9 +41,13 @@ type ``MBrace Thespian Cloud Tests`` () as self =
             finally cts.Cancel()
         } |> Async.RunSync
 
-    override __.RunOnCurrentMachine(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
+    override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
+        let task = session.Runtime.CreateCloudTask(workflow)
+        do task.Result
+        task.GetLogs () |> Array.map CloudLogEntry.Print
 
-    override __.LogTester = logTester :> _
+    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
+
     override __.FsCheckMaxTests = 10
     override __.UsesSerialization = true
     override __.IsSiftedWorkflowSupported = true

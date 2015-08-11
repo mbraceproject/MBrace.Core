@@ -149,3 +149,7 @@ type Convert private () =
         let encoding = match encoding with None -> Encoding.UTF8 | Some e -> e
         let bytes = Convert.Base32ToBytes encoded
         encoding.GetString bytes
+
+
+type Guid with
+    member g.ToBase32String() = g.ToByteArray() |> Convert.BytesToBase32

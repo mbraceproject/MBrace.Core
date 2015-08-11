@@ -84,7 +84,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, jobEv
                         let jc = Interlocked.Increment &currentJobCount
                         do! runtime.WorkerManager.IncrementJobCount workerId
 
-                        logger.Logf LogLevel.Info "Dequeued cloud job '%s'." jobToken.Id
+                        logger.Logf LogLevel.Info "Dequeued cloud job '%O'." jobToken.Id
                         logger.Logf LogLevel.Info "Concurrent job count increased to %d/%d." jc maxConcurrentJobs
 
                         let! _ = Async.StartChild <| async { 
@@ -94,7 +94,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, jobEv
                                     do! jobEvaluator.Evaluate (assemblies, jobToken)
                                 with e ->
                                     do! jobToken.TaskEntry.DeclareFaultedJob()
-                                    logger.Logf LogLevel.Error "Job '%s' faulted at initialization:\n%A" jobToken.Id e
+                                    logger.Logf LogLevel.Error "Job '%O' faulted at initialization:\n%A" jobToken.Id e
                                     return ()
                             finally
                                 let jc = Interlocked.Decrement &currentJobCount

@@ -39,14 +39,14 @@ type RuntimeSession(nodes : int) =
             runtime.AppendWorkers nodes
             while runtime.Workers.Length <> nodes do Thread.Sleep 200) 
 
-type LogTester(session : RuntimeSession) =
-    let logs = new ResizeArray<string>()
-
-    interface ISystemLogger with
-        member l.LogEntry(_,_,m) = logs.Add m
-
-    interface ILogTester with
-        member l.GetLogs() = logs.ToArray()
-        member l.Init() =
-            let d = session.Runtime.AttachLogger l
-            { new IDisposable with member __.Dispose() = d.Dispose() ; logs.Clear() }
+//type LogTester(session : RuntimeSession) =
+//    let logs = new ResizeArray<string>()
+//
+//    interface ISystemLogger with
+//        member l.LogEntry(_,_,m) = logs.Add m
+//
+//    interface ILogTester with
+//        member l.GetLogs() = logs.ToArray()
+//        member l.Init() =
+//            let d = session.Runtime.AttachLogger l
+//            { new IDisposable with member __.Dispose() = d.Dispose() ; logs.Clear() }
