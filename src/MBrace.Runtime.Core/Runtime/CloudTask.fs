@@ -111,19 +111,20 @@ type CloudTask internal () =
     member p.ShowInfo () : unit = Console.WriteLine(p.GetInfo())
 
 /// Represents a cloud computation that is being executed in the cluster.
-and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (source : ICloudTaskCompletionSource, id : IRuntimeId, ?runtime : IRuntimeManager) =
+and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (source : ICloudTaskCompletionSource, runtime : IRuntimeManager, isClientProcess : bool) =
     inherit CloudTask()
 
     let [<DataMember(Name = "TaskSource")>] entry = source
-    let [<DataMember(Name = "TaskSource")>] runtimeId = id
+    let [<DataMember(Name = "TaskSource")>] runtimeId = runtime.Id
 
     let mkCell () = CacheAtom.Create(async { return! entry.GetState() }, intervalMilliseconds = 500)
 
     [<IgnoreDataMember>]
     let mutable cell = mkCell()
 
+    // make logging-related facility available only to client processes
     [<IgnoreDataMember>]
-    let mutable runtime = runtime
+    let mutable runtime = if isClientProcess then Some runtime else None
     let getRuntime() =
         match runtime with
         | None -> invalidOp "Task log fetching not supported in this execution context."
@@ -250,7 +251,7 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
         let ex = Existential.FromType returnType
         let task = ex.Apply { 
             new IFunc<CloudTask> with 
-                member __.Invoke<'T> () = new CloudTask<'T>(entry, runtime.Id, runtime) :> CloudTask
+                member __.Invoke<'T> () = new CloudTask<'T>(entry, runtime, isClientProcess = true) :> CloudTask
         }
 
         return task

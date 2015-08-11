@@ -61,7 +61,6 @@
     <Compile Include="Config.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="LocalState.fs" />
-    <Compile Include="Primitives\Logger.fs" />
     <Compile Include="Primitives\ResourceFactory.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
     <Compile Include="Primitives\TaskCompletionSource.fs" />
