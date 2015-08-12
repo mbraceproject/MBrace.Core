@@ -29,6 +29,13 @@ type DomainLocal<'T> internal (factory : unit -> 'T) =
     [<DataMember(Name = "Factory")>]
     let factory = factory
 
+    /// Gets whether value has been initialized in the current process.
+    member __.IsValueCreated : bool = 
+        dict.ContainsKey id // note that the presense of the key in the local dictionary
+                            // is no indicator of the value having already been created.
+                            // However, it does indicate that the value is currently being
+                            // initialized by another thread which is good enough in this context.
+
     /// <summary>
     ///     Returns the value initialized in the local Application Domain.
     /// </summary>
@@ -57,6 +64,13 @@ type DomainLocalMBrace<'T> internal (factory : Local<'T>) =
         let lv = dict.GetOrAdd(id, mkLazy)
         return lv.Value
     }
+
+    /// Gets whether value has been initialized in the current process.
+    member __.IsValueCreated : bool = 
+        dict.ContainsKey id // note that the presense of the key in the local dictionary
+                            // is no indicator of the value having already been created.
+                            // However, it does indicate that the value is currently being
+                            // initialized by another thread which is good enough in this context.
 
 /// A serializable value factory that will be initialized
 /// exactly once in each AppDomain(Worker) that consumes it.
