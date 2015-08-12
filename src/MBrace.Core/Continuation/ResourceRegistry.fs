@@ -9,9 +9,7 @@ module private ResourceRegistryUtils =
     // ResourceRegistry indexes by Type.AssemblyQualifiedName which is expensive to obtain.
     // Memoize for better resolution performance.
     let dict = new System.Collections.Concurrent.ConcurrentDictionary<Type, string>()
-    let inline key<'T> : string = 
-        let t = typeof<'T>
-        dict.GetOrAdd(t, fun t -> t.AssemblyQualifiedName)
+    let inline key<'T> : string = dict.GetOrAdd(typeof<'T>, fun t -> t.AssemblyQualifiedName)
 
 /// Immutable dependency container used for pushing
 /// runtime resources to the continuation monad.
@@ -42,13 +40,13 @@ type ResourceRegistry private (index : Map<string, obj>) =
     member __.Remove<'TResource> () : ResourceRegistry =
         new ResourceRegistry(Map.remove key<'TResource> index)
 
-    /// Try Resolving resource of given type
+    /// Try Resolving resource of given type.
     member __.TryResolve<'TResource> () : 'TResource option = 
         match index.TryFind key<'TResource> with
         | Some boxedResource -> Some (unbox<'TResource> boxedResource)
         | None -> None
 
-    /// Resolves resource of given type
+    /// Resolves resource of given type.
     member __.Resolve<'TResource> () : 'TResource =
         match index.TryFind key<'TResource> with
         | Some boxedResource -> unbox<'TResource> boxedResource
@@ -56,10 +54,10 @@ type ResourceRegistry private (index : Map<string, obj>) =
             let msg = sprintf "Resource '%s' not installed in this context." typeof<'TResource>.Name
             raise <| ResourceNotFoundException msg
 
-    /// Returns true iff registry instance contains resource of given type
+    /// Returns true iff registry instance contains resource of given type.
     member __.Contains<'TResource> () = index.ContainsKey key<'TResource>
 
-    /// Creates an empty resource container
+    /// Gets the empty resource container.
     static member Empty = empty
 
     /// <summary>
