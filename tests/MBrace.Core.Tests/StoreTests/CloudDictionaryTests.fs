@@ -11,7 +11,7 @@ open NUnit.Framework
 type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.RunOnCloud wf 
-    let runOnCurrentMachine wf = self.RunOnCurrentMachine wf
+    let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
 
     let runProtected wf = 
         try self.RunOnCloud wf |> Choice1Of2
@@ -22,7 +22,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract RunOnCloud : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunOnCurrentMachine : Cloud<'T> -> 'T
+    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
 
     [<Test>]
     member __.``add/remove`` () =

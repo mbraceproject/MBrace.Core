@@ -16,7 +16,7 @@ open MBrace.Library
 type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.RunOnCloud wf 
-    let runOnCurrentMachine wf = self.RunOnCurrentMachine wf
+    let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
 
     let testDirectory = lazy(self.FileStore.GetRandomDirectoryName())
     let runSync wf = Async.RunSync wf
@@ -33,7 +33,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract RunOnCloud : Cloud<'T> -> 'T
     /// Evaluate workflow under local semantics in the test process
-    abstract RunOnCurrentMachine : Cloud<'T> -> 'T
+    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
 
     //
     //  Section 1: Local raw fileStore tests
@@ -395,7 +395,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 let! file = CloudFile.WriteAllLines(path, lines)
                 let! cseq = PersistedSequence.OfCloudFileByLine file.Path   
                 return cseq :> ICloudCollection<string> :?> IPartitionableCollection<string>
-            } |> runOnCurrentMachine
+            } |> runOnCurrentProcess
 
         let testPartitioning partitionCount =
             cloud {
@@ -416,7 +416,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudFile - simple`` () =
-        let path = CloudPath.GetRandomFileName() |> runOnCurrentMachine
+        let path = CloudPath.GetRandomFileName() |> runOnCurrentProcess
         let file = CloudFile.WriteAllBytes(path, [|1uy .. 100uy|]) |> runOnCloud
         file.Size |> shouldEqual 100L
         cloud {
@@ -535,5 +535,5 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 return dir, file
             } |> runOnCloud
 
-        CloudDirectory.Exists dir.Path |> runOnCurrentMachine |> shouldEqual false
-        CloudFile.Exists file.Path |> runOnCurrentMachine |> shouldEqual false
+        CloudDirectory.Exists dir.Path |> runOnCurrentProcess |> shouldEqual false
+        CloudFile.Exists file.Path |> runOnCurrentProcess |> shouldEqual false
