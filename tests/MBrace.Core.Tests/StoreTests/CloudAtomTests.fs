@@ -33,8 +33,8 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
         let parallelismFactor = parallelismFactor
         cloud {
             let! atom = CloudAtom.New 0
-            let updater _ = cloud {
-                for i in [1 .. nSequential] do
+            let updater _ = local {
+                for i in 1 .. nSequential do
                     do! CloudAtom.Update (atom, (+) 1)
             }
 
@@ -47,9 +47,9 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     member __.``CloudAtom - Sequential updates`` () =
         // avoid capturing test fixture class in closures
         let atom =
-            cloud {
+            local {
                 let! a = CloudAtom.New 0
-                for i in [1 .. nSequential] do
+                for i in 1 .. nSequential do
                     do! CloudAtom.Incr a |> Local.Ignore
 
                 return a
@@ -65,8 +65,8 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             let atom = 
                 cloud {
                     let! a = CloudAtom.New 0
-                    let worker _ = cloud {
-                        for _ in [1 .. nSequential] do
+                    let worker _ = local {
+                        for _ in 1 .. nSequential do
                             do! CloudAtom.Incr a |> Local.Ignore
                     }
                     do! Seq.init parallelismFactor worker |> Cloud.Parallel |> Cloud.Ignore
