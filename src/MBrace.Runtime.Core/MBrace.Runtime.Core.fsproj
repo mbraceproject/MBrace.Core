@@ -71,7 +71,6 @@
     <Compile Include="Utils\JobExecutionMonitor.fs" />
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
-    <Compile Include="Utils\Logging.fs" />
     <Compile Include="Vagabond\VagabondRegistry.fs" />
     <Compile Include="Vagabond\Serialization.fs" />
     <Compile Include="InMemoryRuntime\InMemoryPrimitives.fs" />
@@ -80,6 +79,7 @@
     <Compile Include="InMemoryRuntime\InMemoryParallelismProvider.fs" />
     <Compile Include="InMemoryRuntime\InMemoryRuntime.fs" />
     <Compile Include="InMemoryRuntime\StoreClient.fs" />
+    <Compile Include="Runtime\SystemLogs.fs" />
     <Compile Include="Runtime\Primitives.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\TaskManager.fs" />

@@ -11,15 +11,15 @@ open MBrace.Core.Internals
 type CloudLogEntry =
 
     [<DataMember(Name = "DateTime", Order = 0)>]
-    val mutable private dateTime : DateTime
+    val private dateTime : DateTime
     [<DataMember(Name = "Message", Order = 1)>]
-    val mutable private message : string
+    val private message : string
     [<DataMember(Name = "TaskId", Order = 2)>]
-    val mutable private taskId : string
+    val private taskId : string
     [<DataMember(Name = "WorkerId", Order = 3)>]
-    val mutable private workerId : string
+    val private workerId : string
     [<DataMember(Name = "JobId", Order = 4)>]
-    val mutable private jobId : CloudJobId
+    val private jobId : CloudJobId
 
     new (taskId : string, workerId : string, jobId : CloudJobId, dateTime : DateTime, message : string) =
         { taskId = taskId ; workerId = workerId ; jobId = jobId ; dateTime = dateTime ; message = message }
@@ -40,7 +40,7 @@ type CloudLogEntry =
     /// </summary>
     /// <param name="cle">Cloud log entry to be printed.</param>
     /// <param name="showDate">Show date at the beginning. Defaults to false.</param>
-    static member Print(cle : CloudLogEntry, ?showDate : bool) =
+    static member Format(cle : CloudLogEntry, ?showDate : bool) =
         if defaultArg showDate false then
             let date = cle.dateTime.ToString("yyyy-MM-dd H:mm:ss")
             sprintf "[%s][Worker:%s][Job:%O] %s" date cle.workerId cle.jobId cle.message

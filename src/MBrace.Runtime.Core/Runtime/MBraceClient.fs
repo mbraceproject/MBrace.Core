@@ -154,3 +154,8 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="logger">Logger instance to be attached.</param>
     member __.AttachLogger(logger : ISystemLogger) : System.IDisposable = runtime.AttachSystemLogger logger
+
+    /// Gets or sets the system log level used by the client process.
+    member __.LogLevel
+        with get () = runtime.LogLevel
+        and set l = runtime.LogLevel <- l

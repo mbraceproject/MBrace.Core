@@ -51,15 +51,19 @@ with
     ///     Creates a cluster state object that is hosted in the local process
     /// </summary>
     /// <param name="fileStoreConfig">File store configuration.</param>
+    /// <param name="jobsDirectory">Directory used for persisting jobs in store.</param>
     /// <param name="assemblyDirectory">Assembly directory used in store.</param>
     /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
+    /// <param name="logLevel">Default cluster-wide log level. Defaults to LogLevel.Info.</param>
     static member Create(fileStoreConfig : CloudFileStoreConfiguration, ?jobsDirectory : string, 
-                            ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
+                            ?assemblyDirectory : string, ?cacheDirectory : string, 
+                            ?miscResources : ResourceRegistry, ?logLevel : LogLevel) =
 
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let jobsDirectory = defaultArg jobsDirectory "mbrace-data"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
+        let logLevel = defaultArg logLevel LogLevel.Info
 
         let serializer = FsPicklerBinaryStoreSerializer()
         let storeCloudValueConfig = CloudFileStoreConfiguration.Create(fileStoreConfig.FileStore, defaultDirectory = cacheDirectory)
@@ -69,7 +73,7 @@ with
         let persistedValueManager = PersistedValueManager.Create(fileStoreConfig.FileStore, container = "mbrace-data", serializer = serializer, persistThreshold = 512L * 1024L)
 
         let localStateFactory = DomainLocal.Create(fun () ->
-            let logger = new AttacheableLogger()
+            let logger = AttacheableLogger.Create(logLevel = logLevel, makeAsynchronous = true)
             let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = assemblyDirectory)
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
@@ -165,6 +169,9 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =
         member x.SystemLogger : ISystemLogger = localState.Logger :> _
         
         member x.AttachSystemLogger (l : ISystemLogger) = localState.Logger.AttachLogger l
+        member x.LogLevel 
+            with get () = localState.Logger.LogLevel
+            and set l = localState.Logger.LogLevel <- l
         
         member x.TaskManager = state.TaskManager :> _
         

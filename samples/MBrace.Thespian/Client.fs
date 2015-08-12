@@ -18,6 +18,8 @@ open MBrace.Thespian.Runtime
 
 /// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
+/// Log level used by the MBrace runtime implementation
+type LogLevel = MBrace.Runtime.LogLevel
 
 /// MBrace.Thespian client object used to manage cluster and submit jobs for computation.
 [<AutoSerializable(false)>]
@@ -60,7 +62,8 @@ type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState) =
     /// <param name="workerCount">Number of workers to spawn for cluster.</param>
     /// <param name="fileStore">File store configuration to be used for cluster.</param>
     /// <param name="resources">Resource registry to be appended to MBrace code.</param>
-    static member InitLocal(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, ?resources : ResourceRegistry) =
+    /// <param name="logLevel">Set the cluster-wide system log level. Defaults to LogLevel.Info.</param>
+    static member InitLocal(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, ?resources : ResourceRegistry, ?logLevel : LogLevel) =
         if workerCount < 1 then invalidArg "workerCount" "must be positive."
         let storeConfig = 
             match storeConfig with 
@@ -69,7 +72,7 @@ type MBraceThespian private (manager : IRuntimeManager, state : RuntimeState) =
                 let fs = FileSystemStore.CreateSharedLocal()
                 CloudFileStoreConfiguration.Create fs
 
-        let state = RuntimeState.Create(storeConfig, ?miscResources = resources)
+        let state = RuntimeState.Create(storeConfig, ?miscResources = resources, ?logLevel = logLevel)
         let _ = initWorkers state workerCount
         new MBraceThespian(state.GetLocalRuntimeManager(), state)
 

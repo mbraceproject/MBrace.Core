@@ -31,6 +31,9 @@ type IRuntimeManager =
     /// Logger abstraction used by the current process only.
     abstract SystemLogger : ISystemLogger
 
+    /// Gets or sets the default log level for the local system logger.
+    abstract LogLevel : LogLevel with get,set
+
     /// <summary>
     ///     Attaches a logger to the local process only.
     ///     Returns an uninstallation token.

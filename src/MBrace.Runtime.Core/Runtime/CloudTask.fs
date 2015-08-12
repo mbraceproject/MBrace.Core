@@ -15,8 +15,6 @@ open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
-#nowarn "52"
-
 /// Represents a cloud computation that is being executed in the cluster.
 [<AbstractClass>]
 type CloudTask internal () =
@@ -230,7 +228,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (s
 
     override __.ShowLogs () =
         let entries = getRuntime().CloudLogManager.GetAllCloudLogsByTask __.Id |> Async.RunSync
-        for e in entries do Console.WriteLine(CloudLogEntry.Print(e, showDate = true))
+        for e in entries do Console.WriteLine(CloudLogEntry.Format(e, showDate = true))
 
     interface ICloudTask<'T> with
         member x.AwaitResult(timeoutMilliseconds: int option): Async<'T> =

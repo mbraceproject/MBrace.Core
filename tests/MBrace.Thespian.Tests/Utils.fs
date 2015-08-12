@@ -16,7 +16,7 @@ type RuntimeSession(nodes : int) =
 
     member __.Start () =
         lock lockObj (fun () -> 
-            let runtime = MBraceThespian.InitLocal(nodes)
+            let runtime = MBraceThespian.InitLocal(nodes, logLevel = LogLevel.Debug)
             let _ = runtime.AttachLogger(new ConsoleLogger())
             while runtime.Workers.Length <> nodes do Thread.Sleep 200
             state <- Some runtime)

@@ -44,7 +44,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
         let task = session.Runtime.CreateCloudTask(workflow)
         do task.Result
-        task.GetLogs () |> Array.map CloudLogEntry.Print
+        task.GetLogs () |> Array.map CloudLogEntry.Format
 
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
 

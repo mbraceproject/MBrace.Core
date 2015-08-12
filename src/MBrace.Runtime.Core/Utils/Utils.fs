@@ -65,6 +65,22 @@ module Utils =
             match x with
             | None -> new Nullable<'T>()
             | Some x -> new Nullable<'T>(x)
+
+    [<RequireQualifiedAccess>]
+    module Array =
+        
+        /// <summary>
+        ///     Filters array by predicate that takes the original element index as argument.
+        /// </summary>
+        /// <param name="f">Filter predicate.</param>
+        /// <param name="ts">Input array.</param>
+        let filteri (f : int -> 'T -> bool) (ts : 'T []) : 'T [] =
+            let ra = new ResizeArray<'T> ()
+            for i = 0 to ts.Length - 1 do
+                let t = ts.[i]
+                if f i t then ra.Add t
+
+            ra.ToArray()
     
     let hset (xs : 'T seq) = new System.Collections.Generic.HashSet<'T>(xs)
 

@@ -16,7 +16,7 @@ MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.The
 
 #time "on"
 
-let cluster = MBraceThespian.InitLocal 4
+let cluster = MBraceThespian.InitLocal(4, logLevel = LogLevel.Debug)
 cluster.AttachLogger(new ConsoleLogger())
 
 let workers = cluster.Workers
@@ -63,7 +63,3 @@ let pflow =
 
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.RunOnCloud
-
-let task = Cloud.Parallel [for i in 1 .. 10 -> local { for j in 1 .. 10 do do! Cloud.Logf "Message %d,%d" i j }] |> Cloud.Ignore |> cluster.CreateCloudTask
-
-cluster.ShowCloudLogs(task)
