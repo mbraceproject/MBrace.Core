@@ -8,16 +8,10 @@ module private ResourceRegistryUtils =
 
     // ResourceRegistry indexes by Type.AssemblyQualifiedName which is expensive to obtain.
     // Memoize for better resolution performance.
-    let dict = new System.Collections.Generic.Dictionary<Type, string>()
-    let inline key<'T> : string =
+    let dict = new System.Collections.Concurrent.ConcurrentDictionary<Type, string>()
+    let inline key<'T> : string = 
         let t = typeof<'T>
-        let mutable k = null
-        if dict.TryGetValue(typeof<'T>, &k) then k
-        else
-            lock dict (fun () ->
-                let k = t.AssemblyQualifiedName
-                dict.[t] <- k
-                k)
+        dict.GetOrAdd(t, fun t -> t.AssemblyQualifiedName)
 
 /// Immutable dependency container used for pushing
 /// runtime resources to the continuation monad.
