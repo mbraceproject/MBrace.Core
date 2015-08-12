@@ -20,18 +20,12 @@ open MBrace.Runtime.Vagabond
 module FsPicklerExtensions =
 
     [<AutoSerializable(false)>]
-    type FsPicklerObjectSizeCounter<'T> internal (pickler : Pickler<'T>, counter : ObjectSizeCounter) =
+    type TypedObjectSizeCounter<'T> internal (pickler : Pickler<'T>, counter : ObjectSizeCounter) =
         let pickler = Some pickler // avoid optional allocation on every append by preallocating here
 
         member x.Append(graph: 'T): unit = counter.Append(graph, ?pickler = pickler)
         member x.TotalBytes: int64 = counter.Count
         member x.TotalObjects: int64 = counter.ObjectCount
-
-        interface IObjectSizeCounter<'T> with
-            member x.Append(graph: 'T): unit = counter.Append(graph, ?pickler = pickler)
-            member x.TotalBytes: int64 = counter.Count
-            member x.TotalObjects: int64 = counter.ObjectCount
-            member x.Dispose () = ()
 
     [<AutoSerializable(false)>]
     type private ChunkEnumerator<'T> (sequence : seq<'T>, pickler : Pickler<'T>, counter : ObjectSizeCounter, threshold : int64) =
@@ -68,7 +62,7 @@ module FsPicklerExtensions =
         static member CreateTypedObjectSizeCounter<'T> (?pickler : Pickler<'T>, ?serializer : FsPicklerSerializer) =
             let pickler = match pickler with None -> FsPickler.GeneratePickler<'T> () | Some p -> p
             let counter = match serializer with Some s -> s.CreateObjectSizeCounter() | None -> FsPickler.CreateObjectSizeCounter()
-            new FsPicklerObjectSizeCounter<'T>(pickler, counter)
+            new TypedObjectSizeCounter<'T>(pickler, counter)
 
         /// <summary>
         ///     Asynchronously partitions a sequence into chunks, separated by a chunk threshold size in bytes.
@@ -136,12 +130,13 @@ type FsPicklerStoreSerializer () as self =
 
     interface ISerializer with
         member __.Id = __.Id
+        member __.IsSerializable(value : 'T) = try FsPickler.EnsureSerializable value ; true with _ -> false
         member __.Serialize (target : Stream, value : 'T, leaveOpen : bool) = getLocalInstance().Serialize(target, value, leaveOpen = leaveOpen)
         member __.Deserialize<'T>(stream, leaveOpen) = getLocalInstance().Deserialize<'T>(stream, leaveOpen = leaveOpen)
         member __.SeqSerialize(stream, values : 'T seq, leaveOpen) = getLocalInstance().SerializeSequence(stream, values, leaveOpen = leaveOpen)
         member __.SeqDeserialize<'T>(stream, leaveOpen) = getLocalInstance().DeserializeSequence<'T>(stream, leaveOpen = leaveOpen)
         member __.ComputeObjectSize<'T>(graph:'T) = getLocalInstance().ComputeSize graph
-        member __.CreateObjectSizeCounter<'T> () = FsPickler.CreateTypedObjectSizeCounter<'T> (serializer = getLocalInstance()) :> _
+        member __.Clone(graph:'T) = FsPickler.Clone graph
 
 [<AutoSerializable(true)>]
 type FsPicklerBinaryStoreSerializer () =

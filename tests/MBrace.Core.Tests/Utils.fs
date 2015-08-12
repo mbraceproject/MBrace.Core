@@ -41,13 +41,6 @@ module Utils =
         else
             raise <| new AssertionException(sprintf "value '%A' does not match predicate." input)
 
-    type ISerializer with
-        member s.Clone<'T>(t : 'T) =
-            use m = new MemoryStream()
-            s.Serialize(m, t, leaveOpen = true)
-            m.Position <- 0L
-            s.Deserialize<'T>(m, leaveOpen = true)
-
     [<RequireQualifiedAccess>]
     module Choice =
 
