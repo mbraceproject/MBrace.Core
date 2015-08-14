@@ -258,9 +258,10 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     /// <param name="workerCount">Number of workers to spawn for cluster.</param>
     /// <param name="storeConfig">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="resources">Additional resources to be appended to the MBrace execution context.</param>
+    /// <param name="logger">Logger implementation to attach on client by default. Defaults to no logging.</param>
     /// <param name="logLevel">Sets the log level for the cluster. Defaults to LogLevel.Info.</param>
     static member InitOnCurrentMachine(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, 
-                                        ?resources : ResourceRegistry, ?logLevel : LogLevel) : MBraceCluster =
+                                        ?resources : ResourceRegistry, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
 
         if workerCount < 0 then invalidArg "workerCount" "must be non-negative."
         let storeConfig = 
@@ -272,7 +273,9 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
 
         let state = ClusterState.Create(storeConfig, isWorkerHosted = false, ?miscResources = resources)
         let _ = initWorkers logLevel workerCount state |> Async.RunSync
-        new MBraceCluster(state, logLevel)
+        let cluster = new MBraceCluster(state, logLevel)
+        logger |> Option.iter (fun l -> cluster.AttachLogger l |> ignore)
+        cluster
 
     /// <summary>
     ///     Initializes a new cluster state that is hosted on provided worker instance.
