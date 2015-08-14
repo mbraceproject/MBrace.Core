@@ -55,15 +55,19 @@ type Config private () =
             let fsStoreDirectory = Path.Combine(_workingDirectory, "store")
             _localFileStore <- FileSystemStore.Create(fsStoreDirectory, create = true, cleanup = populateDirs)
 
-            // thespian initialization
+            // Thespian initialization
             let thespianSerializer = new FsPicklerMessageSerializer(VagabondRegistry.Instance.Serializer)
-
 //            let thespianSerializer = new DebugSerializer(thespianSerializer) // use for debug information on serialized values
             Nessos.Thespian.Serialization.defaultSerializer <- thespianSerializer
             Nessos.Thespian.Default.ReplyReceiveTimeout <- Timeout.Infinite
+
             hostname |> Option.iter (fun h -> TcpListenerPool.DefaultHostname <- h ; ignore TcpListenerPool.IPAddresses)
             TcpListenerPool.RegisterListener(defaultArg port 0)
-            _localTcpPort <- TcpListenerPool.GetListener().LocalEndPoint.Port
+            let listeners = TcpListenerPool.GetListeners(IPEndPoint.any) |> Seq.toArray
+            if listeners.Length <> 1 then
+                raise <| new InvalidOperationException("FATAL: unexpected number of registered Thespian TCP listeners.")
+
+            _localTcpPort <- listeners.[0].LocalEndPoint.Port
             _isInitialized := true)
 
     /// FsPickler serializer instance used by MBrace.Thespian
@@ -78,3 +82,5 @@ type Config private () =
     static member LocalTcpPort = checkInitialized() ; _localTcpPort
     /// Local TCP address used by the local Thespian instance
     static member LocalAddress = checkInitialized() ; sprintf "%s:%d" TcpListenerPool.DefaultHostname _localTcpPort
+    /// Hostname that the thespian instance is listening to
+    static member HostName = checkInitialized() ; TcpListenerPool.DefaultHostname

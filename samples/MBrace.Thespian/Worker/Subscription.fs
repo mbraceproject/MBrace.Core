@@ -3,6 +3,7 @@
 open System
 
 open Nessos.Thespian
+open Nessos.FsPickler
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -26,6 +27,20 @@ module internal WorkerSubscription =
             Disposable.dispose s.Agent
             Disposable.dispose s.JobEvaluator
             Disposable.dispose s.LoggerSubscription
+
+    /// AppDomain configuration object that can be safely
+    /// passed to AppDomain before it has been initialized
+    /// State containing ActorRef's have been pickled in order to
+    /// work around a Thespian issue where random listeners
+    /// are being allocated in the event where ActorRef's are being
+    /// deserialized before initialization.
+    type private AppDomainConfig =
+        {
+            Logger : Pickle<ActorLogger>
+            RuntimeState : Pickle<RuntimeState>
+            WorkingDirectory : string
+            Hostname : string
+        }
     
     /// <summary>
     ///     Initializes a worker agent and subscription to provided runtime state.
@@ -45,17 +60,29 @@ module internal WorkerSubscription =
         let jobEvaluator =
             if useAppDomainIsolation then
                 logger.LogInfo "Initializing AppDomain pool evaluator."
-                // use serializable logger for AppDomains
-                let actorLogger = ActorLogger.Create(logger)
-                let workingDirectory = Config.WorkingDirectory 
+                let domainConfig =
+                    {
+                        Logger = logger |> ActorLogger.Create |> Config.Serializer.PickleTyped
+                        RuntimeState = Config.Serializer.PickleTyped state
+                        WorkingDirectory = Config.WorkingDirectory
+                        Hostname = Config.HostName
+                    }
+
                 let initializer () =
-                    Config.Initialize(populateDirs = false)
-                    Actor.Logger <- actorLogger
-                    actorLogger.Logf LogLevel.Info "Initializing Application Domain '%s'." System.AppDomain.CurrentDomain.FriendlyName
+                    Config.Initialize(populateDirs = false, hostname = domainConfig.Hostname, workingDirectory = domainConfig.WorkingDirectory)
+                    // Thespian initialized, safe to unpickle actor refs
+                    let logger = Config.Serializer.UnPickleTyped domainConfig.Logger
+                    Actor.Logger <- logger
+                    let domainName = System.AppDomain.CurrentDomain.FriendlyName
+                    logger.Logf LogLevel.Info "Initializing Application Domain '%s'." domainName
+                    logger.Logf LogLevel.Info "Thespian listening to %s on AppDomain '%s'." Config.LocalAddress domainName
 
                 let managerF () =
+                    // initializer has been run, safe to unpickle overall
+                    let state = Config.Serializer.UnPickleTyped domainConfig.RuntimeState
+                    let logger = Config.Serializer.UnPickleTyped domainConfig.Logger
                     let manager = state.GetLocalRuntimeManager()
-                    let _ = manager.AttachSystemLogger(actorLogger)
+                    let _ = manager.AttachSystemLogger(logger)
                     manager, currentWorker
 
                 AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
