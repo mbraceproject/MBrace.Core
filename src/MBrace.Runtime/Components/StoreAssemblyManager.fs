@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime
+﻿namespace MBrace.Runtime.Components
 
 open System
 open System.IO

@@ -59,7 +59,7 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="VagabondRegistry.fs" />
+    <Compile Include="Vagabond.fs" />
     <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\Task.fs" />
@@ -73,6 +73,8 @@
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
     <Compile Include="Utils\Serialization.fs" />
+    <Compile Include="Store\FileSystemStore.fs" />
+    <Compile Include="Store\FileStoreCache.fs" />
     <Compile Include="ThreadPool\ThreadPoolPrimitives.fs" />
     <Compile Include="ThreadPool\ThreadPoolStore.fs" />
     <Compile Include="ThreadPool\ThreadPoolCombinators.fs" />
@@ -95,15 +97,13 @@
     <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Runtime\StoreClient.fs" />
     <Compile Include="Runtime\MBraceClient.fs" />
-    <Compile Include="Store\PersistedValueManager.fs" />
-    <Compile Include="Store\StoreCloudValue.fs" />
-    <Compile Include="Store\StoreAssemblyManager.fs" />
-    <Compile Include="Store\ClosureSiftManager.fs" />
-    <Compile Include="Store\FileSystemStore.fs" />
-    <Compile Include="Store\FileStoreCache.fs" />
-    <Compile Include="Store\StoreJsonLogger.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
+    <Compile Include="Components\PersistedValueManager.fs" />
+    <Compile Include="Components\StoreCloudValue.fs" />
+    <Compile Include="Components\StoreAssemblyManager.fs" />
+    <Compile Include="Components\ClosureSiftManager.fs" />
+    <Compile Include="Components\StoreJsonLogger.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />

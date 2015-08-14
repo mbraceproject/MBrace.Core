@@ -3,7 +3,7 @@
 open MBrace.Library
 
 open MBrace.Runtime
-open MBrace.Runtime.Store
+open MBrace.Runtime.Components
 
 /// Result produced by mbrace cluster to be serialized
 type ResultMessage<'T> = PickleOrFile<SiftedClosure<'T>>

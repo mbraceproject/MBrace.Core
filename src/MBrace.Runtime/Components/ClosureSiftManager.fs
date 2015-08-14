@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime.Store
+﻿namespace MBrace.Runtime.Components
 
 open System
 open System.Collections

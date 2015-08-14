@@ -7,7 +7,7 @@ open MBrace.Core.Internals
 open MBrace.Core.Tests
 
 open MBrace.Runtime
-open MBrace.Runtime.Store
+open MBrace.Runtime.Components
 open MBrace.ThreadPool
 
 [<TestFixture>]

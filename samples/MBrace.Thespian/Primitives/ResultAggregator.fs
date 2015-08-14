@@ -10,7 +10,7 @@ open MBrace.Core.Internals
 open MBrace.Library
 
 open MBrace.Runtime
-open MBrace.Runtime.Store
+open MBrace.Runtime.Components
 
 [<AutoOpen>]
 module private ActorResultAggregator =

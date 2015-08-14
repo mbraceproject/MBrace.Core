@@ -13,7 +13,7 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
-open MBrace.Runtime.Store
+open MBrace.Runtime.Components
 
 /// Describes a pickled MBrace job.
 /// Can be used without any need for assembly dependencies being loaded.

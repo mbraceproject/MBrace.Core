@@ -4,7 +4,11 @@ open System.Threading
 
 open MBrace.Core
 open MBrace.Core.Internals
+
 open MBrace.ThreadPool.Internals
+
+/// Local file system CloudFilestore implementation
+type FileSystemStore = MBrace.Runtime.Store.FileSystemStore
 
 #nowarn "444"
 
