@@ -14,6 +14,8 @@ type RuntimeSession(workerCount : int) =
     let lockObj = obj ()
     let mutable state : MBraceCluster option = None
 
+    static member Init() = ()
+
     member __.Start () =
         lock lockObj (fun () -> 
             let runtime = MBraceCluster.InitOnCurrentMachine(workerCount, logLevel = LogLevel.Debug)

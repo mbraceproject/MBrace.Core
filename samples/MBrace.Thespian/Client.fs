@@ -109,6 +109,13 @@ type MBraceWorker private (uri : string) =
         return! protectAsync (aref <!- fun ch -> Subscribe(state, ch))
     }
 
+    override __.Equals(other : obj) =
+        match other with
+        | :? MBraceWorker as w -> uri = w.Uri
+        | _ -> false
+
+    override __.GetHashCode() = uri.GetHashCode()
+
     /// <summary>
     ///     Connects to an MBrace worker process with supplied MBrace uri.
     /// </summary>
@@ -163,7 +170,7 @@ type MBraceWorker private (uri : string) =
     static member Spawn (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentJobs : int,
                                 ?logLevel : LogLevel, ?logFiles : seq<string>, ?useAppDomainIsolation : bool, ?runAsBackground : bool) =
 
-        MBraceWorker.SpawnAsync(?port = port, ?maxConcurrentJobs = maxConcurrentJobs, ?logLevel = logLevel, 
+        MBraceWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentJobs = maxConcurrentJobs, ?logLevel = logLevel, 
                                 ?logFiles = logFiles, ?runAsBackground = runAsBackground, ?useAppDomainIsolation = useAppDomainIsolation)
         |> Async.RunSync
 
@@ -255,11 +262,11 @@ type MBraceCluster private (state : RuntimeState, manager : IRuntimeManager) =
     /// <summary>
     ///     Initializes a new cluster state that is hosted on provided worker instance.
     /// </summary>
-    /// <param name="worker">MBrace worker to host the cluster state.</param>
+    /// <param name="target">Target MBrace worker to host the cluster state. Defaults to a new spawned node.</param>
     /// <param name="storeConfig">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="miscResources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
-    static member InitOnWorker(worker : MBraceWorker, ?storeConfig : CloudFileStoreConfiguration, 
+    static member InitOnWorker(?target : MBraceWorker, ?storeConfig : CloudFileStoreConfiguration, 
                                     ?miscResources : ResourceRegistry, ?logLevel : LogLevel) : MBraceCluster =
 
         let storeConfig = 
@@ -269,7 +276,12 @@ type MBraceCluster private (state : RuntimeState, manager : IRuntimeManager) =
                 let fs = FileSystemStore.CreateSharedLocal()
                 CloudFileStoreConfiguration.Create fs
 
-        let state = worker.InitAsClusterMasterNode(storeConfig, ?miscResources = miscResources) |> Async.RunSync
+        let target = 
+            match target with
+            | None -> MBraceWorker.Spawn()
+            | Some t -> t
+
+        let state = target.InitAsClusterMasterNode(storeConfig, ?miscResources = miscResources) |> Async.RunSync
         new MBraceCluster(state, logLevel)
 
     /// <summary>

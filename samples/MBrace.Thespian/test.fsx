@@ -63,16 +63,3 @@ let pflow =
 
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.RunOnCloud
-
-let node1 = MBraceWorker.Spawn()
-let node2 = MBraceWorker.Spawn()
-let node3 = MBraceWorker.Spawn()
-
-let cluster = MBraceCluster.InitOnWorker(node1)
-
-cluster.AttachWorker node2
-cluster.AttachWorker node3
-
-cluster.Workers
-
-cluster.RunOnCloud(Cloud.Parallel [for i in 1 .. 10 -> cloud { return 42 }])

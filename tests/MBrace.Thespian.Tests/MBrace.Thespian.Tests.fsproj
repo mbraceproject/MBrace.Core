@@ -61,6 +61,7 @@
     <Compile Include="StoreTests.fs" />
     <Compile Include="FlowTests.fs" />
     <Compile Include="VagabondTests.fs" />
+    <Compile Include="MiscTests.fs" />
     <Compile Include="CSharpTests.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />

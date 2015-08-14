@@ -99,6 +99,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
             do! Cloud.Sleep 5000
             do! Cloud.Parallel [for i in 1 .. 20 -> job i] |> Cloud.Ignore
+            do! Cloud.Sleep 2000
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
@@ -108,7 +109,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         ra |> Seq.filter (fun e -> e.Message.Contains "Job") |> Seq.length |> shouldEqual 2000
 
     [<Test>]
-    member __.``1. Fault Tolerance : map/reduce`` () =
+    member __.``2. Fault Tolerance : map/reduce`` () =
         repeat (fun () ->
             let runtime = session.Runtime
             let t = runtime.CreateCloudTask(WordCount.run 20 WordCount.mapReduceRec)
@@ -117,7 +118,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             t.Result |> shouldEqual 100)
 
     [<Test>]
-    member __.``1. Fault Tolerance : Custom fault policy 1`` () =
+    member __.``2. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let t = runtime.CreateCloudTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
@@ -126,7 +127,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    member __.``1. Fault Tolerance : Custom fault policy 2`` () =
+    member __.``3. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let t = runtime.CreateCloudTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
@@ -135,7 +136,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    member __.``1. Fault Tolerance : targeted workers`` () =
+    member __.``2. Fault Tolerance : targeted workers`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let wf () = cloud {
