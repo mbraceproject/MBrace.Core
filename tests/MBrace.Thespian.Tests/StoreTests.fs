@@ -12,7 +12,7 @@ open NUnit.Framework
 type ``MBrace Thespian FileStore Tests`` () =
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
 
-    let session = new RuntimeSession(nodes = 4)
+    let session = new RuntimeSession(workerCount = 4)
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -30,7 +30,7 @@ type ``MBrace Thespian FileStore Tests`` () =
 type ``MBrace Thespian CloudValue Tests`` () =
     inherit ``CloudValue Tests``(parallelismFactor = 10)
 
-    let session = new RuntimeSession(nodes = 4)
+    let session = new RuntimeSession(workerCount = 4)
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -46,7 +46,7 @@ type ``MBrace Thespian CloudValue Tests`` () =
 type ``MBrace Thespian Atom Tests`` () =
     inherit ``CloudAtom Tests``(parallelismFactor = 10)
 
-    let session = new RuntimeSession(nodes = 4)
+    let session = new RuntimeSession(workerCount = 4)
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -66,7 +66,7 @@ type ``MBrace Thespian Atom Tests`` () =
 type ``MBrace Thespian Queue Tests`` () =
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
 
-    let session = new RuntimeSession(nodes = 4)
+    let session = new RuntimeSession(workerCount = 4)
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -80,7 +80,7 @@ type ``MBrace Thespian Queue Tests`` () =
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)
 
-    let session = new RuntimeSession(nodes = 4)
+    let session = new RuntimeSession(workerCount = 4)
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()

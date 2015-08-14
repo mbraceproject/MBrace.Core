@@ -15,7 +15,7 @@ open MBrace.Thespian
 type ``MBrace Thespian Cloud Tests`` () as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
-    let session = new RuntimeSession(nodes = 4)
+    let session = new RuntimeSession(workerCount = 4)
 
     let runOnCloud (wf : Cloud<'T>) = self.RunOnCloud wf
     let repeat f = repeat self.Repeats f
@@ -57,24 +57,40 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     override __.Repeats = 3
 #endif
 
-    [<Test>]
-    member __.``Z4. Runtime : Get worker count`` () =
-        runOnCloud (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers.Length)
+
+[<TestFixture>]
+type ``MBrace Thespian Specialized Cloud Tests`` () =
+
+    let session = new RuntimeSession(workerCount = 4)
+
+    let repeat f = repeat 10 f
+
+    let runOnCloud (wf : Cloud<'T>) = session.Runtime.RunOnCloud wf
+
+    [<TestFixtureSetUp>]
+    member __.Init () = session.Start()
+
+    [<TestFixtureTearDown>]
+    member __.Fini () = session.Stop ()
 
     [<Test>]
-    member __.``Z4. Runtime : Get current worker`` () =
-        runOnCloud Cloud.CurrentWorker |> Choice.shouldBe (fun _ -> true)
+    member __.``1. Runtime : Get worker count`` () =
+        runOnCloud (Cloud.GetWorkerCount()) |> shouldEqual (session.Runtime.Workers.Length)
 
     [<Test>]
-    member __.``Z4. Runtime : Get process id`` () =
-        runOnCloud (Cloud.GetProcessId()) |> Choice.shouldBe (fun _ -> true)
+    member __.``1. Runtime : Get current worker`` () =
+        runOnCloud Cloud.CurrentWorker |> shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``Z4. Runtime : Get task id`` () =
-        runOnCloud (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
+    member __.``1. Runtime : Get process id`` () =
+        runOnCloud (Cloud.GetProcessId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``Z4. Runtime : Task Log Observable`` () =
+    member __.``1. Runtime : Get task id`` () =
+        runOnCloud (Cloud.GetJobId()) |> shouldBe (fun _ -> true)
+
+    [<Test>]
+    member __.``1. Runtime : Task Log Observable`` () =
         let workflow = cloud {
             let job i = local {
                 for j in 1 .. 100 do
@@ -92,8 +108,8 @@ type ``MBrace Thespian Cloud Tests`` () as self =
         ra |> Seq.filter (fun e -> e.Message.Contains "Job") |> Seq.length |> shouldEqual 2000
 
     [<Test>]
-    member __.``Z5. Fault Tolerance : map/reduce`` () =
-        repeat(fun () ->
+    member __.``1. Fault Tolerance : map/reduce`` () =
+        repeat (fun () ->
             let runtime = session.Runtime
             let t = runtime.CreateCloudTask(WordCount.run 20 WordCount.mapReduceRec)
             do Thread.Sleep 4000
@@ -101,7 +117,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
             t.Result |> shouldEqual 100)
 
     [<Test>]
-    member __.``Z5. Fault Tolerance : Custom fault policy 1`` () =
+    member __.``1. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let t = runtime.CreateCloudTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
@@ -110,7 +126,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    member __.``Z5. Fault Tolerance : Custom fault policy 2`` () =
+    member __.``1. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let t = runtime.CreateCloudTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
@@ -119,7 +135,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    member __.``Z5. Fault Tolerance : targeted workers`` () =
+    member __.``1. Fault Tolerance : targeted workers`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let wf () = cloud {

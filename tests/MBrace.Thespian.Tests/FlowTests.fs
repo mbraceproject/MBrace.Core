@@ -13,7 +13,7 @@ open MBrace.Thespian
 type ``MBrace Thespian Flow Tests`` () =
     inherit ``CloudFlow tests`` ()
 
-    let session = new RuntimeSession(nodes = 4)
+    let session = new RuntimeSession(workerCount = 4)
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()

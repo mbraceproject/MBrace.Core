@@ -12,11 +12,11 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
 #time "on"
 
-let cluster = MBraceThespian.InitLocal(4, logLevel = LogLevel.Debug)
+let cluster = MBraceCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug)
 cluster.AttachLogger(new ConsoleLogger())
 
 let workers = cluster.Workers
@@ -63,3 +63,16 @@ let pflow =
 
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.RunOnCloud
+
+let node1 = MBraceWorker.Spawn()
+let node2 = MBraceWorker.Spawn()
+let node3 = MBraceWorker.Spawn()
+
+let cluster = MBraceCluster.InitOnWorker(node1)
+
+cluster.AttachWorker node2
+cluster.AttachWorker node3
+
+cluster.Workers
+
+cluster.RunOnCloud(Cloud.Parallel [for i in 1 .. 10 -> cloud { return 42 }])

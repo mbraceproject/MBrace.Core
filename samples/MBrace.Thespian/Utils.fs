@@ -1,21 +1,38 @@
 ﻿namespace MBrace.Thespian.Runtime
 
 open System
+open System.Threading
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote
 open Nessos.Thespian.Remote.TcpProtocol
 
+open MBrace.Runtime
+
 /// Actor publication utilities
-type Actor =
+type Actor private () =
+
+    static let (|ActorException|) (e : Exception) =
+        match e with
+        | :? AggregateException as e when e.InnerExceptions.Count = 1 -> e.InnerExceptions.[0]
+        | e -> e
+
+    static let mutable logger = NullLogger() :> ISystemLogger
+    static member Logger
+        with get () = logger
+        and set l = logger <- l
 
     /// Publishes an actor instance to the default TCP protocol
-    static member Publish(actor : Actor<'T>) =
+    static member Publish(actor : Actor<'T>, ?name : string) =
         ignore Config.Serializer
-        let name = Guid.NewGuid().ToString()
+        let name = 
+            match name with
+            | None -> Guid.NewGuid().ToString()
+            | Some name -> name
+
         actor
         |> Actor.rename name
-        |> Actor.publish [ Protocols.utcp() ]
+        |> Actor.publish [| Protocols.utcp() |]
         |> Actor.start
 
     /// <summary>
@@ -29,7 +46,9 @@ type Actor =
             let! msg = self.Receive()
             let! state' = async { 
                 try return! behaviour self state msg 
-                with e -> printfn "Actor fault (%O): %O" typeof<'T> e ; return state
+                with ActorException e -> 
+                    logger.Logf LogLevel.Error "Actor fault when processing message '%A':\nException='%O'" msg e
+                    return state
             }
 
             return! aux state' self
@@ -48,7 +67,9 @@ type Actor =
             let! msg = self.Receive()
             let! state' = async { 
                 try return! behaviour state msg 
-                with e -> printfn "Actor fault (%O): %O" typeof<'T> e ; return state
+                with ActorException e -> 
+                    logger.Logf LogLevel.Error "Actor fault when processing message '%A':\nException='%O'" msg e
+                    return state
             }
 
             return! aux state' self
@@ -66,7 +87,7 @@ type Actor =
         let rec aux (self : Actor<'T>) = async {
             let! msg = self.Receive()
             try do! behaviour msg
-            with e -> printfn "Actor fault (%O): %O" typeof<'T> e 
+            with ActorException e -> logger.Logf LogLevel.Error "Actor fault when processing message '%A':\nException='%O'" msg e
             return! aux self
         }
 

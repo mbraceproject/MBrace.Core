@@ -55,15 +55,12 @@ with
     /// <param name="assemblyDirectory">Assembly directory used in store.</param>
     /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
-    /// <param name="logLevel">Default cluster-wide log level. Defaults to LogLevel.Info.</param>
     static member Create(fileStoreConfig : CloudFileStoreConfiguration, ?jobsDirectory : string, 
-                            ?assemblyDirectory : string, ?cacheDirectory : string, 
-                            ?miscResources : ResourceRegistry, ?logLevel : LogLevel) =
+                            ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
 
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let jobsDirectory = defaultArg jobsDirectory "mbrace-data"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
-        let logLevel = defaultArg logLevel LogLevel.Info
 
         let serializer = FsPicklerBinaryStoreSerializer()
         let storeCloudValueConfig = CloudFileStoreConfiguration.Create(fileStoreConfig.FileStore, defaultDirectory = cacheDirectory)
@@ -73,7 +70,7 @@ with
         let persistedValueManager = PersistedValueManager.Create(fileStoreConfig.FileStore, container = "mbrace-data", serializer = serializer, persistThreshold = 512L * 1024L)
 
         let localStateFactory = DomainLocal.Create(fun () ->
-            let logger = AttacheableLogger.Create(logLevel = logLevel, makeAsynchronous = true)
+            let logger = AttacheableLogger.Create(makeAsynchronous = false)
             let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = assemblyDirectory)
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
@@ -124,23 +121,6 @@ with
     /// <param name="localLogger">Logger instance bound to local process.</param>
     member state.GetLocalRuntimeManager() =
         new RuntimeManager(state) :> IRuntimeManager
-
-    /// <summary>
-    ///     Serializes runtime state object to BASE64 string.
-    ///     Used for quick-and-dirty CLI argument passing.
-    /// </summary>
-    member state.ToBase64 () =
-        let pickle = Config.Serializer.Pickle(state)
-        System.Convert.ToBase64String pickle
-
-    /// <summary>
-    ///     Deserializes runtime state object from BASE64 serialization.
-    ///     Used for quick-and-dirty CLI argument passing.
-    /// </summary>
-    /// <param name="base64Text">Serialized state object in BASE64 format.</param>
-    static member FromBase64(base64Text:string) =
-        let bytes = System.Convert.FromBase64String(base64Text)
-        Config.Serializer.UnPickle<RuntimeState> bytes
 
 /// Local IRuntimeManager implementation
 and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =

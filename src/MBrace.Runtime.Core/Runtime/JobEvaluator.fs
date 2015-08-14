@@ -14,6 +14,7 @@ open MBrace.Runtime.Utils
 
 /// Job evaluator abstraction
 type ICloudJobEvaluator =
+    inherit IDisposable
 
     /// <summary>
     ///     Asynchronously evaluates a job in the local worker.  
@@ -159,6 +160,9 @@ type LocalJobEvaluator private (manager : IRuntimeManager, currentWorker : IWork
         member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
             return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken
         }
+
+    interface IDisposable with
+        member __.Dispose() = ()
 
 /// Defines a Cloud job evaluator that runs in a managed pool of application domains.
 /// Loading of assembly dependencies is performed by Vagabond, in a way where conflicting

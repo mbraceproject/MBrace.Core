@@ -7,18 +7,18 @@ open MBrace.Core.Tests
 open MBrace.Runtime
 open MBrace.Thespian
 
-type RuntimeSession(nodes : int) =
+type RuntimeSession(workerCount : int) =
     
-    static do MBraceThespian.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+    static do MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
 
     let lockObj = obj ()
-    let mutable state : MBraceThespian option = None
+    let mutable state : MBraceCluster option = None
 
     member __.Start () =
         lock lockObj (fun () -> 
-            let runtime = MBraceThespian.InitLocal(nodes, logLevel = LogLevel.Debug)
+            let runtime = MBraceCluster.InitOnCurrentMachine(workerCount, logLevel = LogLevel.Debug)
             let _ = runtime.AttachLogger(new ConsoleLogger())
-            while runtime.Workers.Length <> nodes do Thread.Sleep 200
+            while runtime.Workers.Length <> workerCount do Thread.Sleep 200
             state <- Some runtime)
 
     member __.Stop () =
@@ -36,17 +36,5 @@ type RuntimeSession(nodes : int) =
             let runtime = __.Runtime
             runtime.KillAllWorkers()
             while runtime.Workers.Length <> 0 do Thread.Sleep 200
-            runtime.AppendWorkers nodes
-            while runtime.Workers.Length <> nodes do Thread.Sleep 200) 
-
-//type LogTester(session : RuntimeSession) =
-//    let logs = new ResizeArray<string>()
-//
-//    interface ISystemLogger with
-//        member l.LogEntry(_,_,m) = logs.Add m
-//
-//    interface ILogTester with
-//        member l.GetLogs() = logs.ToArray()
-//        member l.Init() =
-//            let d = session.Runtime.AttachLogger l
-//            { new IDisposable with member __.Dispose() = d.Dispose() ; logs.Clear() }
+            runtime.AttachNewLocalWorkers workerCount
+            while runtime.Workers.Length <> workerCount do Thread.Sleep 200) 

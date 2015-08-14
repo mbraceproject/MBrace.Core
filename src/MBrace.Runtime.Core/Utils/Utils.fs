@@ -67,6 +67,15 @@ module Utils =
             | Some x -> new Nullable<'T>(x)
 
     [<RequireQualifiedAccess>]
+    module Disposable =
+        let inline dispose (d : IDisposable) = d.Dispose()
+        let combine (ds : seq<#IDisposable>) =
+            let ds = Seq.toArray ds
+            { new IDisposable with
+                member __.Dispose() = for d in ds do d.Dispose()
+            }
+
+    [<RequireQualifiedAccess>]
     module Array =
         
         /// <summary>
