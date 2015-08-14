@@ -73,11 +73,11 @@
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
     <Compile Include="Utils\Serialization.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryPrimitives.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryStore.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryCombinators.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryParallelismProvider.fs" />
-    <Compile Include="InMemoryRuntime\InMemoryRuntime.fs" />
+    <Compile Include="ThreadPool\ThreadPoolPrimitives.fs" />
+    <Compile Include="ThreadPool\ThreadPoolStore.fs" />
+    <Compile Include="ThreadPool\ThreadPoolCombinators.fs" />
+    <Compile Include="ThreadPool\ThreadPoolParallelismProvider.fs" />
+    <Compile Include="ThreadPool\ThreadPool.fs" />
     <Compile Include="Runtime\SystemLogs.fs" />
     <Compile Include="Runtime\Primitives.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
@@ -104,7 +104,6 @@
     <Compile Include="Store\StoreJsonLogger.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
-    <Compile Include="ThreadPool.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />
