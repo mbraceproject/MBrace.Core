@@ -3,7 +3,7 @@ source https://nuget.org/api/v2
 nuget FsPickler ~> 1.3.2
 nuget FsPickler.Json ~> 1.3.2
 nuget UnionArgParser
-nuget Vagabond ~> 0.8.4
+nuget Vagabond ~> 0.8.5
 nuget FsUnit >= 1.3.0.1
 nuget NUnit >= 2.6.3
 nuget NUnit.Runners
