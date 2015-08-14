@@ -13,9 +13,8 @@ open Nessos.FsPickler.Hashing
 open MBrace.Core
 open MBrace.Core.Internals
 
+open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Vagabond
-open MBrace.Runtime.Vagabond.FsPicklerExtensions
 
 [<AutoSerializable(false); CloneableOnly>]
 type private InMemoryValue<'T> (hash : HashResult, provider : InMemoryValueProvider) =

@@ -6,7 +6,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core.Tests
 
-open MBrace.Runtime.Vagabond
+open MBrace.Runtime
 open MBrace.Runtime.Store
 open MBrace.Runtime.InMemoryRuntime
 

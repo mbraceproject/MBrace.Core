@@ -18,7 +18,6 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String
 open MBrace.Runtime.InMemoryRuntime
-open MBrace.Runtime.Vagabond
 
 #nowarn "1571"
 

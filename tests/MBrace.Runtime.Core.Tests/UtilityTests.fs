@@ -14,7 +14,6 @@ open MBrace.Core.Internals
 open MBrace.Core.Tests
 
 open MBrace.Runtime
-open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Reflection
 

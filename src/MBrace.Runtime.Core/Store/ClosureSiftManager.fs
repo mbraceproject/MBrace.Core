@@ -21,7 +21,6 @@ open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Utils.Reflection
 open MBrace.Runtime.InMemoryRuntime
-open MBrace.Runtime.Vagabond
 
 [<AutoSerializable(true); NoEquality; NoComparison>]
 type private SiftMethod =

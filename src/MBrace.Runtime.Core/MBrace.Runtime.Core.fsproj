@@ -59,6 +59,7 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="VagabondRegistry.fs" />
     <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\Task.fs" />
@@ -71,8 +72,7 @@
     <Compile Include="Utils\JobExecutionMonitor.fs" />
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
-    <Compile Include="Vagabond\VagabondRegistry.fs" />
-    <Compile Include="Vagabond\Serialization.fs" />
+    <Compile Include="Utils\Serialization.fs" />
     <Compile Include="InMemoryRuntime\InMemoryPrimitives.fs" />
     <Compile Include="InMemoryRuntime\InMemoryStore.fs" />
     <Compile Include="InMemoryRuntime\InMemoryCombinators.fs" />

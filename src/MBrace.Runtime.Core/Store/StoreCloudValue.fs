@@ -13,10 +13,10 @@ open Nessos.Vagabond
 open MBrace.Core
 open MBrace.Core.Internals
 
+open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.PrettyPrinters
-open MBrace.Runtime.Vagabond
 
 [<AutoOpen>]
 module private StoreCloudValueImpl =

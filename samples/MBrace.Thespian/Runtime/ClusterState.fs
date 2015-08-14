@@ -5,7 +5,6 @@ open MBrace.Core.Internals
 open MBrace.Library
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
 
 /// Runtime instance identifier

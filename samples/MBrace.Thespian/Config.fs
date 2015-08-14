@@ -18,7 +18,6 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Store
-open MBrace.Runtime.Vagabond
 
 /// MBrace.Thespian configuration object
 type Config private () =

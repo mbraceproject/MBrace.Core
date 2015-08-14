@@ -13,7 +13,6 @@ open MBrace.Core.Internals
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils.String
-open MBrace.Runtime.Vagabond
 
 [<AutoOpen>]
 module private StoreLoggerUtils =

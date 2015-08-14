@@ -2,7 +2,7 @@
 
 open MBrace.Core.Internals
 
-open MBrace.Runtime.Vagabond
+open MBrace.Runtime
 open MBrace.Runtime.Store
 
 [<AutoOpen>]
