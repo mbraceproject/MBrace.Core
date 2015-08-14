@@ -1,8 +1,10 @@
 ﻿type project
-id MBrace.Runtime.Core
+id MBrace.Runtime
 description
     MBrace runtime core library containing the foundations
     for implementing distributed runtimes that support cloud workflows.
+	The runtime core uses FsPickler and Vagabond as a foundation for communication
+	and upload of code.
 authors
     Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis
 copyright

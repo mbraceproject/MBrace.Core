@@ -2,7 +2,7 @@
 #I "../../bin/"
 
 #r "MBrace.Core.dll"
-#r "MBrace.Runtime.Core.dll"
+#r "MBrace.Runtime.dll"
 #r "MBrace.Thespian.exe"
 #r "MBrace.Flow.dll"
 #r "Streams.Core.dll"

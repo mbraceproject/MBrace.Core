@@ -54,7 +54,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="CloudFlow.fs" />
     <Compile Include="Utils.fs" />
-    <Compile Include="..\MBrace.Runtime.Core\Utils\RecordPrinter.fs">
+    <Compile Include="..\MBrace.Runtime\Utils\RecordPrinter.fs">
       <Link>RecordPrinter.fs</Link>
     </Compile>
     <Compile Include="Producers\Array.fs" />

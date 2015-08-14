@@ -85,8 +85,8 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.Runtime.Core\MBrace.Runtime.Core.fsproj">
-      <Name>MBrace.Runtime.Core</Name>
+    <ProjectReference Include="..\..\src\MBrace.Runtime\MBrace.Runtime.fsproj">
+      <Name>MBrace.Runtime</Name>
       <Project>{bb4a3241-4d46-4888-861d-a34440ecfe8b}</Project>
       <Private>True</Private>
     </ProjectReference>

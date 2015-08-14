@@ -6,6 +6,6 @@ test:
   assemblies:
     - MBrace.Core.Tests.dll
     - MBrace.CSharp.Tests.dll
-    - MBrace.Runtime.Core.Tests.dll
+    - MBrace.Runtime.Tests.dll
     - MBrace.Flow.Tests.dll
     - MBrace.Flow.CSharp.Tests.dll

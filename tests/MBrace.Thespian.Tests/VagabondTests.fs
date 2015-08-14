@@ -98,7 +98,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
             [
                 "MBrace.Core.dll"
                 "MBrace.Flow.dll"
-                "MBrace.Runtime.Core.dll"
+                "MBrace.Runtime.dll"
                 "FsPickler.dll"
                 "Mono.Cecil.dll"
                 "Vagabond.dll"

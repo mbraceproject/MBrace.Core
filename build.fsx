@@ -76,7 +76,7 @@ let testAssemblies =
     [
         yield "bin/MBrace.Core.Tests.dll"
 //        yield "bin/MBrace.CSharp.Tests.dll"
-        yield "bin/MBrace.Runtime.Core.Tests.dll"
+        yield "bin/MBrace.Runtime.Tests.dll"
 //        yield "bin/MBrace.Flow.CSharp.Tests.dll"
         if not ignoreClusterTests then yield "bin/MBrace.Thespian.Tests.dll"
     ]
