@@ -18,7 +18,7 @@ module internal WorkerController =
     type private WorkerState =
         | Idle
         /// Denotes a worker that hosts the cluster state state
-        | MasterNode of RuntimeState
+        | MasterNode of ClusterState
         /// Denotes a worker that is subscribed to a remote cluster
         | SubscribedWorker of WorkerSubscription.Subscription
 
@@ -26,11 +26,11 @@ module internal WorkerController =
     [<NoEquality; NoComparison>]
     type WorkerControllerMsg =
         /// Queries for the current worker state
-        | GetState of IReplyChannel<(bool * RuntimeState) option>
+        | GetState of IReplyChannel<(bool * ClusterState) option>
         /// Subscribe worker to provided state object
-        | Subscribe of RuntimeState * IReplyChannel<unit>
+        | Subscribe of ClusterState * IReplyChannel<unit>
         /// Initializes worker as host of a new cluster state
-        | InitMasterNode of CloudFileStoreConfiguration * ResourceRegistry option * IReplyChannel<RuntimeState>
+        | InitMasterNode of CloudFileStoreConfiguration * ResourceRegistry option * IReplyChannel<ClusterState>
         /// Resets state of worker instance
         | Reset of IReplyChannel<unit>
         /// Kill worker process with supplied error code
@@ -84,7 +84,7 @@ module internal WorkerController =
                     do! rc.ReplyWithException e
                     return state
                 | Idle ->
-                    logger.Logf LogLevel.Info "Subscribing worker to runtime hosted at '%s'." rs.Address
+                    logger.Logf LogLevel.Info "Subscribing worker to runtime hosted at '%s'." rs.Uri
                     let! result = WorkerSubscription.initSubscription useAppDomain logger maxConcurrentJobs rs |> Async.Catch
                     match result with
                     | Choice1Of2 subscr -> 
@@ -116,7 +116,7 @@ module internal WorkerController =
                 | Idle ->
                     logger.LogInfo "Initializing a new MBrace cluster hosted by this worker instance."
                     let result = 
-                        try RuntimeState.Create(store, ?miscResources = resources) |> Choice1Of2
+                        try ClusterState.Create(store, isWorkerHosted = true, ?miscResources = resources) |> Choice1Of2
                         with e -> Choice2Of2 e
 
                     match result with

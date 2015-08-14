@@ -72,3 +72,4 @@ module ``MBrace Thespian Misc Tests`` =
             cluster.Workers |> Array.map (fun w -> w.WorkerManager) |> Array.length |> shouldEqual 3
         finally
            cluster.KillAllWorkers()
+           cluster.MasterNode |> Option.iter (fun n -> n.Kill())

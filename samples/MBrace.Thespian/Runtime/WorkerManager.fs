@@ -13,9 +13,9 @@ open MBrace.Runtime.Utils.PerformanceMonitor
 
 /// Defines a unique idenfier for an MBrace.Thespian worker
 [<AutoSerializable(true)>]
-type WorkerId private (processId : ProcessId, address : string) =
+type WorkerId private (processId : ProcessId, uri : string) =
     member __.ProcessId = processId
-    member __.Id = sprintf "mbrace://%s" address
+    member __.Id = uri
 
     interface IWorkerId with
         member x.CompareTo(obj: obj): int =
@@ -34,7 +34,7 @@ type WorkerId private (processId : ProcessId, address : string) =
     override x.GetHashCode() = hash processId
 
     /// Gets the worker id instance corresponding to the local worker
-    static member LocalInstance = new WorkerId(ProcessId.LocalInstance, Config.LocalAddress)
+    static member LocalInstance = new WorkerId(ProcessId.LocalInstance, Config.LocalMBraceUri)
   
 /// Messages sent for actor tasked to monitoring worker heart beats       
 type private HeartbeatMonitorMsg = 

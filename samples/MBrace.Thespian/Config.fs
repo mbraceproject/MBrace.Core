@@ -82,5 +82,7 @@ type Config private () =
     static member LocalTcpPort = checkInitialized() ; _localTcpPort
     /// Local TCP address used by the local Thespian instance
     static member LocalAddress = checkInitialized() ; sprintf "%s:%d" TcpListenerPool.DefaultHostname _localTcpPort
+    /// Local MBrace uri identifying the current worker instance
+    static member LocalMBraceUri = checkInitialized() ; sprintf "mbrace://%s:%d" TcpListenerPool.DefaultHostname _localTcpPort
     /// Hostname that the thespian instance is listening to
     static member HostName = checkInitialized() ; TcpListenerPool.DefaultHostname

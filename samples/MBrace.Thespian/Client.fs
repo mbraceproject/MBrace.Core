@@ -94,7 +94,7 @@ type MBraceWorker private (uri : string) =
         | Some(isMaster,_) -> not isMaster
 
     /// Gets the runtime state that the worker is participating, if applicable.
-    member internal __.RuntimeState : RuntimeState option =
+    member internal __.RuntimeState : ClusterState option =
         match state.Value with
         | None -> None
         | Some(_,state) -> Some state
@@ -105,7 +105,7 @@ type MBraceWorker private (uri : string) =
     }
 
     /// Initializes worker instance as slave node in supplied cluster state.
-    member internal __.SubscribeToCluster(state : RuntimeState) = async {
+    member internal __.SubscribeToCluster(state : ClusterState) = async {
         return! protectAsync (aref <!- fun ch -> Subscribe(state, ch))
     }
 
@@ -177,10 +177,16 @@ type MBraceWorker private (uri : string) =
 
 /// MBrace.Thespian client object used to manage cluster and submit jobs for computation.
 [<AutoSerializable(false)>]
-type MBraceCluster private (state : RuntimeState, manager : IRuntimeManager) =
+type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     inherit MBraceClient(manager)
+
+    let masterNode =
+        if state.IsWorkerHosted then Some <| MBraceWorker.Connect state.Uri
+        else
+            None
+
     static do Config.Initialize(populateDirs = true)
-    static let initWorkers logLevel (count : int) (target : RuntimeState) = async {
+    static let initWorkers logLevel (count : int) (target : ClusterState) = async {
         if count < 0 then invalidArg "workerCount" "must be non-negative."
         let exe = MBraceWorker.LocalExecutable
         let attachNewWorker _ = async {
@@ -191,14 +197,23 @@ type MBraceCluster private (state : RuntimeState, manager : IRuntimeManager) =
         do! Array.init count attachNewWorker |> Async.Parallel |> Async.Ignore
     }
 
-    private new (state : RuntimeState, logLevel : LogLevel option) = 
+    private new (state : ClusterState, logLevel : LogLevel option) = 
         let manager = state.GetLocalRuntimeManager()
         Actor.Logger <- manager.SystemLogger
         manager.LogLevel <- defaultArg logLevel LogLevel.Info
         new MBraceCluster(state, manager)
 
     /// Gets the the uri identifier of the process hosting the cluster.
-    member __.Uri = manager.Id.Id
+    member __.Uri = state.Uri
+
+    /// Cluster instance unique identifier
+    member __.UUID = manager.Id
+
+    /// Gets the MBrace worker object that host the cluster state, if available.
+    member __.MasterNode : MBraceWorker option = masterNode
+
+    /// Gets whether the given cluster is hosted by an MBrace worker object.
+    member __.IsWorkerHosted = state.IsWorkerHosted
 
     /// <summary>
     ///     Spawns provided count of new local worker processes and subscibes them to the cluster.
@@ -255,7 +270,7 @@ type MBraceCluster private (state : RuntimeState, manager : IRuntimeManager) =
                 let fs = FileSystemStore.CreateSharedLocal()
                 CloudFileStoreConfiguration.Create fs
 
-        let state = RuntimeState.Create(storeConfig, ?miscResources = resources)
+        let state = ClusterState.Create(storeConfig, isWorkerHosted = false, ?miscResources = resources)
         let _ = initWorkers logLevel workerCount state |> Async.RunSync
         new MBraceCluster(state, logLevel)
 

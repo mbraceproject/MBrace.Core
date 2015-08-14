@@ -19,15 +19,17 @@ with
     /// Creates a new runtime instance
     static member Create() = { Id = mkUUID() }
 
-/// Serializable MBrace.Thespian cluster state object.
+/// Serializable MBrace.Thespian cluster state client object.
 /// Used for all interactions with the cluster
 [<NoEquality; NoComparison; AutoSerializable(true)>]
-type RuntimeState =
+type ClusterState =
     {
-        /// Unique runtime identifier object
+        /// Unique cluster identifier object
         Id : RuntimeId
         /// Thespian address of the runtime state hosting process
-        Address : string
+        Uri : string
+        /// Indicates that the runtime is hosted by an MBrace worker instance.
+        IsWorkerHosted : bool
         /// Default serializer instance
         Serializer : ISerializer
         /// Resource factory instace used for instantiating resources
@@ -51,11 +53,12 @@ with
     ///     Creates a cluster state object that is hosted in the local process
     /// </summary>
     /// <param name="fileStoreConfig">File store configuration.</param>
+    /// <param name="isWorkerHosted">Indicates that instance is hosted by worker instance.</param>
     /// <param name="jobsDirectory">Directory used for persisting jobs in store.</param>
     /// <param name="assemblyDirectory">Assembly directory used in store.</param>
     /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
-    static member Create(fileStoreConfig : CloudFileStoreConfiguration, ?jobsDirectory : string, 
+    static member Create(fileStoreConfig : CloudFileStoreConfiguration, isWorkerHosted : bool, ?jobsDirectory : string, 
                             ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
 
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
@@ -102,7 +105,8 @@ with
 
         {
             Id = RuntimeId.Create()
-            Address = Config.LocalAddress
+            IsWorkerHosted = isWorkerHosted
+            Uri = Config.LocalMBraceUri
             Serializer = serializer :> ISerializer
 
             ResourceFactory = resourceFactory
@@ -123,7 +127,7 @@ with
         new RuntimeManager(state) :> IRuntimeManager
 
 /// Local IRuntimeManager implementation
-and [<AutoSerializable(false)>] private RuntimeManager (state : RuntimeState) =
+and [<AutoSerializable(false)>] private RuntimeManager (state : ClusterState) =
     // force initialization of local configuration in the current AppDomain
     let localState = state.LocalStateFactory.Value
     // Install cache in the local application domain

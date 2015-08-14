@@ -73,7 +73,7 @@
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\TaskManager.fs" />
     <Compile Include="Runtime\JobQueue.fs" />
-    <Compile Include="Runtime\RuntimeState.fs" />
+    <Compile Include="Runtime\ClusterState.fs" />
     <Compile Include="Worker\Subscription.fs" />
     <Compile Include="Worker\Controller.fs" />
     <Compile Include="Worker\Configuration.fs" />

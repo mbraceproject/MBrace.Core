@@ -17,7 +17,7 @@ module internal WorkerSubscription =
     [<NoEquality; NoComparison; AutoSerializable(false)>]
     type Subscription =
         {
-            RuntimeState : RuntimeState
+            RuntimeState : ClusterState
             Agent : WorkerAgent
             LoggerSubscription : IDisposable
             JobEvaluator : ICloudJobEvaluator
@@ -37,7 +37,7 @@ module internal WorkerSubscription =
     type private AppDomainConfig =
         {
             Logger : Pickle<ActorLogger>
-            RuntimeState : Pickle<RuntimeState>
+            RuntimeState : Pickle<ClusterState>
             WorkingDirectory : string
             Hostname : string
         }
@@ -50,9 +50,11 @@ module internal WorkerSubscription =
     /// <param name="maxConcurrentJobs">Maximum number of permitted concurrent jobs.</param>
     /// <param name="state">MBrace.Thespian state object.</param>
     let initSubscription (useAppDomainIsolation : bool) (logger : ISystemLogger) 
-                            (maxConcurrentJobs : int) (state : RuntimeState) = async {
+                            (maxConcurrentJobs : int) (state : ClusterState) = async {
 
         ignore Config.Serializer
+        // it is important that the current worker id is initialized in the master AppDomain
+        // and not in the worker domains. This ensures that all workers identify with the master uri.
         let currentWorker = WorkerId.LocalInstance :> IWorkerId
         let manager = state.GetLocalRuntimeManager()
         let loggerSubscription = manager.AttachSystemLogger logger
