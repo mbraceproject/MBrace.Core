@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime.InMemoryRuntime
+﻿namespace MBrace.ThreadPool.Internals
 
 #nowarn "444"
 
@@ -33,13 +33,11 @@ type private ResultAggregator<'T> (size : int) =
 
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool
-type ThreadPool private () =
-
-    static let scheduleTask res ct sc ec cc wf =
-        Trampoline.QueueWorkItem(fun () ->
-            let ctx = { Resources = res ; CancellationToken = ct }
-            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartWithContinuations(wf, cont, ctx))
+type Combinators private () =
+    
+    static let queueWorkItem (f : unit -> unit) =
+        if not <| ThreadPool.QueueUserWorkItem(new WaitCallback(fun _ -> f ())) then
+            invalidOp "internal error: could not queue work item to thread pool."
 
     static let cloneProtected (memoryEmulation : MemoryEmulation) (value : 'T) =
         try EmulatedValue.clone memoryEmulation value |> Choice1Of2
@@ -134,7 +132,10 @@ type ThreadPool private () =
                     for i = 0 to computations.Length - 1 do
                         // clone different continuation for each child
                         let computations,cont = clonedComputations.Value
-                        scheduleTask ctx.Resources innerCts.Token (onSuccess i cont) (onException cont) (onCancellation cont) computations.[i])
+                        let computation = computations.[i]
+                        let ctx = { Resources = ctx.Resources ; CancellationToken = innerCts.Token }
+                        let cont = { Success = onSuccess i cont ; Exception = onException cont ; Cancellation = onCancellation cont }
+                        queueWorkItem (fun _ -> Cloud.StartWithContinuations(computation, cont, ctx)))
 
     /// <summary>
     ///     A Cloud.Choice implementation executed using the thread pool.
@@ -198,7 +199,10 @@ type ThreadPool private () =
                     for i = 0 to computations.Length - 1 do
                         // clone different continuation for each child
                         let computations,cont = clonedComputations.Value
-                        scheduleTask ctx.Resources innerCts.Token (onSuccess cont) (onException cont) (onCancellation cont) computations.[i])
+                        let computation = computations.[i]
+                        let ctx = { Resources = ctx.Resources ; CancellationToken = innerCts.Token }
+                        let cont = { Success = onSuccess cont ; Exception = onException cont ; Cancellation = onCancellation cont }
+                        queueWorkItem (fun _ -> Cloud.StartWithContinuations(computation, cont, ctx)))
 
     /// <summary>
     ///     A Cloud.StartAsTask implementation executed using the thread pool.
@@ -220,7 +224,7 @@ type ThreadPool private () =
 
         | Choice1Of2 workflow ->
             let clonedWorkflow = EmulatedValue.clone memoryEmulation workflow
-            let tcs = new InMemoryTaskCompletionSource<'T>(?cancellationToken = cancellationToken)
+            let tcs = new ThreadPoolTaskCompletionSource<'T>(?cancellationToken = cancellationToken)
             let setResult cont result =
                 match cloneProtected memoryEmulation result with
                 | Choice1Of2 result -> cont result |> ignore
@@ -236,7 +240,8 @@ type ThreadPool private () =
                     Cancellation = fun _ _ -> tcs.LocalTaskCompletionSource.TrySetCanceled() |> ignore
                 }
 
-            Trampoline.QueueWorkItem(fun () -> Cloud.StartWithContinuations(clonedWorkflow, cont, resources, tcs.CancellationTokenSource.Token))
+
+            queueWorkItem (fun _ -> Cloud.StartWithContinuations(clonedWorkflow, cont, resources, tcs.CancellationTokenSource.Token))
             tcs.Task
 
 
@@ -248,8 +253,8 @@ type ThreadPool private () =
     /// <param name="resources">Resource registry used for cloud workflow.</param>
     static member ToAsync(workflow : Cloud<'T>, memoryEmulation : MemoryEmulation, resources : ResourceRegistry) : Async<'T> = async {
         let! ct = Async.CancellationToken
-        let imct = new InMemoryCancellationToken(ct)
-        let task = ThreadPool.StartAsTask(workflow, memoryEmulation, resources, cancellationToken = imct)
+        let imct = new ThreadPoolCancellationToken(ct)
+        let task = Combinators.StartAsTask(workflow, memoryEmulation, resources, cancellationToken = imct)
         return! Async.AwaitTaskCorrect task.LocalTask
     }
 
@@ -260,5 +265,5 @@ type ThreadPool private () =
     /// <param name="memoryEmulation">Memory semantics used for parallelism.</param>
     /// <param name="resources">Resource registry used for cloud workflow.</param>
     static member RunSynchronously(workflow : Cloud<'T>, memoryEmulation : MemoryEmulation, resources : ResourceRegistry, ?cancellationToken) : 'T =
-        let task = ThreadPool.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
+        let task = Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
         task.LocalTask.GetResult()

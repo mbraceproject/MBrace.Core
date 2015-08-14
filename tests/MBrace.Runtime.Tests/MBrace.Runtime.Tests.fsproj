@@ -8,7 +8,7 @@
     <ProjectGuid>b04b2ab2-eb56-4236-aa8e-8a4f9a3ab488</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>MBrace.Runtime.Core.Tests</RootNamespace>
-    <AssemblyName>MBrace.Runtime.Core.Tests</AssemblyName>
+    <AssemblyName>MBrace.Runtime.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <Name>MBrace.Runtime.Tests</Name>
@@ -52,7 +52,7 @@
     <Compile Include="Config.fs" />
     <Compile Include="UtilityTests.fs" />
     <Compile Include="FileSystemStore.fs" />
-    <Compile Include="InMemoryRuntimeTests.fs" />
+    <Compile Include="ThreadPoolTests.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>

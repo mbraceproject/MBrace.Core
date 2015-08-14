@@ -8,7 +8,7 @@ open MBrace.Core.Tests
 
 open MBrace.Runtime
 open MBrace.Runtime.Store
-open MBrace.Runtime.InMemoryRuntime
+open MBrace.ThreadPool
 
 [<TestFixture>]
 type ``Local FileSystemStore Tests`` () =
@@ -16,12 +16,12 @@ type ``Local FileSystemStore Tests`` () =
 
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let serializer = Config.serializer
-    let imem = InMemoryRuntime.Create(serializer = serializer, fileConfig = fsConfig, memoryEmulation = MemoryEmulation.Copied)
+    let imem = ThreadPoolClient.Create(serializer = serializer, fileConfig = fsConfig, memoryEmulation = MemoryEmulation.Copied)
 
     override __.FileStore = fsConfig.FileStore
     override __.Serializer = serializer :> _
-    override __.RunOnCloud(wf : Cloud<'T>) = imem.Run wf
-    override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.Run wf
+    override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
 
 
 [<TestFixture>]
@@ -31,10 +31,10 @@ type ``Local FileSystemStore CloudValue Tests`` () =
     let fsStore = Config.fsStore :> ICloudFileStore
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsConfig, serializer = Config.serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
-    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
+    let imem = ThreadPoolClient.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
-    override __.RunOnCloud(wf : Cloud<'T>) = imem.Run wf
-    override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.Run wf
+    override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.IsSupportedLevel lvl = cloudValueProvider.IsSupportedStorageLevel lvl
 
 
@@ -46,10 +46,10 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
     let fsConfig = CloudFileStoreConfiguration.Create(Config.fsStore)
     let container = fsStore.GetRandomDirectoryName()
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsConfig, serializer = Config.serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
-    let imem = InMemoryRuntime.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
+    let imem = ThreadPoolClient.Create(serializer = Config.serializer, fileConfig = fsConfig, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
-    override __.RunOnCloud(wf : Cloud<'T>) = imem.Run wf
-    override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.Run wf
+    override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.IsSupportedStorageLevel level = cloudValueProvider.IsSupportedStorageLevel level
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

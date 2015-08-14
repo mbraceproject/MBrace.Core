@@ -1,7 +1,6 @@
-﻿namespace MBrace.Runtime.InMemoryRuntime
+﻿namespace MBrace.ThreadPool.Internals
 
 open System
-open System.Management
 open System.Threading
 open System.Threading.Tasks
 
@@ -11,6 +10,8 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
+
+#nowarn "444"
 
 [<NoEquality; NoComparison; AutoSerializable(false)>]
 type internal EmulatedValue<'T> =
@@ -69,8 +70,8 @@ module private EmulatedValue =
 
 /// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
 [<AutoSerializable(false); CloneableOnly>]
-type InMemoryCancellationToken(token : CancellationToken) =
-    new () = new InMemoryCancellationToken(new CancellationToken())
+type ThreadPoolCancellationToken(token : CancellationToken) =
+    new () = new ThreadPoolCancellationToken(new CancellationToken())
     /// Returns true if cancellation token has been canceled
     member __.IsCancellationRequested = token.IsCancellationRequested
     /// Local System.Threading.CancellationToken instance
@@ -81,9 +82,9 @@ type InMemoryCancellationToken(token : CancellationToken) =
 
 /// Cloud cancellation token source implementation that wraps around System.Threading.CancellationTokenSource
 [<AutoSerializable(false); CloneableOnly>]
-type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
-    let token = new InMemoryCancellationToken (cts.Token)
-    new () = new InMemoryCancellationTokenSource(new CancellationTokenSource())
+type ThreadPoolCancellationTokenSource (cts : CancellationTokenSource) =
+    let token = new ThreadPoolCancellationToken (cts.Token)
+    new () = new ThreadPoolCancellationTokenSource(new CancellationTokenSource())
     /// InMemoryCancellationToken instance
     member __.Token = token
     /// Trigger cancelation for the cts
@@ -106,26 +107,15 @@ type InMemoryCancellationTokenSource (cts : CancellationTokenSource) =
             else
                 CancellationTokenSource.CreateLinkedTokenSource ltokens
 
-        new InMemoryCancellationTokenSource(lcts)
+        new ThreadPoolCancellationTokenSource(lcts)
 
 /// In-Memory WorkerRef implementation
 [<AutoSerializable(false); CloneableOnly>]
-type InMemoryWorker private () =
-    static let singleton = new InMemoryWorker()
+type ThreadPoolWorker private () =
+    static let singleton = new ThreadPoolWorker()
     let name = System.Net.Dns.GetHostName()
     let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-    // TODO : move to perfmon and make mono compatible
-    let cpuClockSpeed =
-        if not runsOnMono then
-            use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
-            use qObj = searcher.Get() 
-                        |> Seq.cast<ManagementBaseObject> 
-                        |> Seq.exactlyOne
-
-            let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
-            Some <| float cpuFreq
-        else
-            None
+    let cpuClockSpeed = PerformanceMonitor.PerformanceMonitor.TryGetCpuClockSpeed()
 
     interface IWorkerRef with
         member __.Hostname = name
@@ -140,16 +130,16 @@ type InMemoryWorker private () =
         member __.ProcessId = pid
         member __.CompareTo(other : obj) =
             match other with
-            | :? InMemoryWorker -> 0
+            | :? ThreadPoolWorker -> 0
             | :? IWorkerRef as wr -> compare name wr.Id
             | _ -> invalidArg "other" "invalid comparand."
 
     /// Gets a WorkerRef instance that corresponds to the instance
-    static member LocalInstance : InMemoryWorker = singleton
+    static member LocalInstance : ThreadPoolWorker = singleton
 
 /// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
-type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
+type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
     member __.LocalTask = task
     interface ICloudTask<'T> with
         member __.Id = sprintf ".NET task %d" task.Id
@@ -180,14 +170,14 @@ type InMemoryTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
 
 /// Cloud task implementation that wraps around System.Threading.TaskCompletionSource for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
-type private InMemoryTaskCompletionSource<'T> (?cancellationToken : ICloudCancellationToken) =
+type private ThreadPoolTaskCompletionSource<'T> (?cancellationToken : ICloudCancellationToken) =
     let tcs = new TaskCompletionSource<'T>()
     let cts =
         match cancellationToken with
-        | None -> InMemoryCancellationTokenSource()
-        | Some ct -> InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
+        | None -> ThreadPoolCancellationTokenSource()
+        | Some ct -> ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
 
-    let task = new InMemoryTask<'T>(tcs.Task, cts.Token)
+    let task = new ThreadPoolTask<'T>(tcs.Task, cts.Token)
 
     member __.CancellationTokenSource = cts
     member __.LocalTaskCompletionSource = tcs

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime.InMemoryRuntime
+﻿namespace MBrace.ThreadPool.Internals
 
 open System
 open System.Threading
@@ -10,19 +10,17 @@ open MBrace.Runtime.Utils
 
 #nowarn "444"
 
-/// .NET ThreadPool distribution provider
+/// ThreadPool parallelism provider
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolParallelismProvider private (memoryEmulation : MemoryEmulation, logger : ICloudLogger, faultPolicy : FaultPolicy) =
 
+    static let nullLogger = { new ICloudLogger with member __.Log _ = () }
+
     static let mkNestedCts (ct : ICloudCancellationToken) = 
-        InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
+        ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
 
     /// Gets the current memory emulation mode of the provider instance.
     member __.MemoryEmulation = memoryEmulation
-    /// Creates a provider copy with updated memory emulation semantics.
-    member __.WithMemoryEmulation (me : MemoryEmulation) =
-        if me <> memoryEmulation then new ThreadPoolParallelismProvider(me, logger, faultPolicy)
-        else __
 
     /// Gets the current logger instance used by the provider instance.
     member __.Logger = logger
@@ -33,17 +31,13 @@ type ThreadPoolParallelismProvider private (memoryEmulation : MemoryEmulation, l
     /// <param name="logger">Logger for runtime. Defaults to no logging.</param>
     /// <param name="memoryEmulation">Memory semantics used for parallelism. Defaults to shared memory.</param>
     static member Create (?logger : ICloudLogger, ?memoryEmulation : MemoryEmulation) = 
-        let logger = 
-            match logger with 
-            | Some l -> l 
-            | None -> { new ICloudLogger with member __.Log _ = () }
-
+        let logger = defaultArg logger nullLogger
         let memoryEmulation = defaultArg memoryEmulation MemoryEmulation.Shared
         new ThreadPoolParallelismProvider(memoryEmulation, logger, FaultPolicy.NoRetry)
         
     interface IParallelismProvider with
         member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
-            return InMemoryCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
+            return ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
         }
 
         member __.ProcessId = sprintf "In-Memory cloud process (pid:%d)" <| System.Diagnostics.Process.GetCurrentProcess().Id
@@ -51,10 +45,10 @@ type ThreadPoolParallelismProvider private (memoryEmulation : MemoryEmulation, l
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false
         member __.GetAvailableWorkers () = async {
-            return [| InMemoryWorker.LocalInstance :> IWorkerRef |]
+            return [| ThreadPoolWorker.LocalInstance :> IWorkerRef |]
         }
 
-        member __.CurrentWorker = InMemoryWorker.LocalInstance :> IWorkerRef
+        member __.CurrentWorker = ThreadPoolWorker.LocalInstance :> IWorkerRef
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newFp = new ThreadPoolParallelismProvider(memoryEmulation, logger, newFp) :> IParallelismProvider
@@ -67,19 +61,19 @@ type ThreadPoolParallelismProvider private (memoryEmulation : MemoryEmulation, l
                 __ :> IParallelismProvider
 
         member __.ScheduleParallel computations = cloud {
-            return! ThreadPool.Parallel(mkNestedCts, memoryEmulation, Seq.map fst computations)
+            return! Combinators.Parallel(mkNestedCts, memoryEmulation, Seq.map fst computations)
         }
 
         member __.ScheduleChoice computations = cloud {
-            return! ThreadPool.Choice(mkNestedCts, memoryEmulation, Seq.map fst computations)
+            return! Combinators.Choice(mkNestedCts, memoryEmulation, Seq.map fst computations)
         }
 
-        member __.ScheduleLocalParallel computations = ThreadPool.Parallel(mkNestedCts, MemoryEmulation.Shared, computations)
-        member __.ScheduleLocalChoice computations = ThreadPool.Choice(mkNestedCts, MemoryEmulation.Shared, computations)
+        member __.ScheduleLocalParallel computations = Combinators.Parallel(mkNestedCts, MemoryEmulation.Shared, computations)
+        member __.ScheduleLocalChoice computations = Combinators.Choice(mkNestedCts, MemoryEmulation.Shared, computations)
 
         member __.ScheduleStartAsTask (workflow:Cloud<'T>, _ :FaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             ignore taskName
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
             let! resources = Cloud.GetResourceRegistry()
-            return ThreadPool.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken) :> ICloudTask<'T>
+            return Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken) :> ICloudTask<'T>
         }

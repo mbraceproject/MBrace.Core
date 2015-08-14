@@ -50,8 +50,8 @@ type VagabondRegistry private () =
 /// the underlying Vagabond registry
 [<AbstractClass; AutoSerializable(true)>]
 type FsPicklerStoreSerializer () as self =
-    // force exception in case of Vagrant instance not initialized
-    static do VagabondRegistry.Instance |> ignore
+    // force exception in case of Vagabond instance not initialized
+    do VagabondRegistry.Instance |> ignore
 
     // serializer instance registry for local AppDomain
     static let localInstances = new ConcurrentDictionary<string, FsPicklerSerializer> ()

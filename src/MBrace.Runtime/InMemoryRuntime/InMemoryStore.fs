@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime.InMemoryRuntime
+﻿namespace MBrace.ThreadPool.Internals
 
 open System
 open System.Collections.Generic
@@ -17,7 +17,7 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 
 [<AutoSerializable(false); CloneableOnly>]
-type private InMemoryValue<'T> (hash : HashResult, provider : InMemoryValueProvider) =
+type private ThreadPoolValue<'T> (hash : HashResult, provider : ThreadPoolValueProvider) =
 
     let getPayload() =
         match provider.TryGetPayload hash with
@@ -25,25 +25,25 @@ type private InMemoryValue<'T> (hash : HashResult, provider : InMemoryValueProvi
         | None -> raise <| new ObjectDisposedException(hash.Id, "CloudValue has been disposed.")
 
     /// Constructor that ensures arrays are initialized as ICloudArray instances
-    static member internal Create(hash : HashResult, payload : EmulatedValue<obj>, provider : InMemoryValueProvider) : InMemoryValue<'T> =
+    static member internal Create(hash : HashResult, payload : EmulatedValue<obj>, provider : ThreadPoolValueProvider) : ThreadPoolValue<'T> =
         let _ = payload.RawValue :?> 'T
         let t = typeof<'T>
         if t.IsArray && t.GetArrayRank() = 1 then
             let et = t.GetElementType()
             let eet = Existential.FromType et
             eet.Apply 
-                { new IFunc<InMemoryValue<'T>> with 
+                { new IFunc<ThreadPoolValue<'T>> with 
                     member __.Invoke<'et> () =
-                        let imv = new InMemoryArray<'et>(hash, provider) 
-                        imv :> ICloudValue :?> InMemoryValue<'T> }
+                        let imv = new ThreadPoolArray<'et>(hash, provider) 
+                        imv :> ICloudValue :?> ThreadPoolValue<'T> }
         else
-            new InMemoryValue<'T>(hash, provider)
+            new ThreadPoolValue<'T>(hash, provider)
 
     /// Constructor that ensures arrays are initialized as ICloudArray instances
-    static member internal CreateUntyped(hash : HashResult, payload : EmulatedValue<obj>, provider : InMemoryValueProvider) : ICloudValue =
+    static member internal CreateUntyped(hash : HashResult, payload : EmulatedValue<obj>, provider : ThreadPoolValueProvider) : ICloudValue =
         let t = getReflectedType payload.RawValue
         let et = Existential.FromType t
-        et.Apply { new IFunc<ICloudValue> with member __.Invoke<'T> () = InMemoryValue<'T>.Create(hash, payload, provider) :> ICloudValue }
+        et.Apply { new IFunc<ICloudValue> with member __.Invoke<'T> () = ThreadPoolValue<'T>.Create(hash, payload, provider) :> ICloudValue }
 
     interface CloudValue<'T> with
         member x.Id: string = hash.Id
@@ -60,12 +60,12 @@ type private InMemoryValue<'T> (hash : HashResult, provider : InMemoryValueProvi
         member x.IsCachedLocally: bool = not <| provider.IsDisposed hash
         member x.Value: 'T = getPayload().Value :?> 'T
         member x.GetBoxedValue () : obj = getPayload().Value
-        member x.Cast<'S> () = InMemoryValue<'S>.Create(hash, getPayload(), provider) :> CloudValue<'S>
+        member x.Cast<'S> () = ThreadPoolValue<'S>.Create(hash, getPayload(), provider) :> CloudValue<'S>
         member x.Dispose() = async { provider.Dispose hash }
 
 and [<AutoSerializable(false); Sealed; CloneableOnly>]
-  private InMemoryArray<'T> (hash : HashResult, provider : InMemoryValueProvider) =
-    inherit InMemoryValue<'T[]> (hash, provider)
+  private ThreadPoolArray<'T> (hash : HashResult, provider : ThreadPoolValueProvider) =
+    inherit ThreadPoolValue<'T[]> (hash, provider)
 
     let getPayload() =
         match provider.TryGetPayload hash with
@@ -92,7 +92,7 @@ and [<AutoSerializable(false); Sealed; CloneableOnly>]
 
 /// Provides an In-Memory CloudValue implementation
 and [<Sealed; AutoSerializable(false)>] 
-  InMemoryValueProvider () as self =
+  ThreadPoolValueProvider () as self =
     let id = mkUUID()
     let cache = new ConcurrentDictionary<HashResult, EmulatedValue<obj>>()
 
@@ -110,7 +110,7 @@ and [<Sealed; AutoSerializable(false)>]
         let hash = HashResult.Parse id
         match cache.TryFind hash with
         | None -> None
-        | Some payload -> InMemoryValue<_>.CreateUntyped(hash, payload, self) |> Some
+        | Some payload -> ThreadPoolValue<_>.CreateUntyped(hash, payload, self) |> Some
 
     let createNewValue (level : StorageLevel) (value : 'T) =
         let hash = computeHash value
@@ -122,7 +122,7 @@ and [<Sealed; AutoSerializable(false)>]
             EmulatedValue.create memoryEmulation false (box value)
 
         let payload = cache.GetOrAdd(hash, createPayload)
-        InMemoryValue<'T>.Create(hash, payload, self) :> CloudValue<'T>
+        ThreadPoolValue<'T>.Create(hash, payload, self) :> CloudValue<'T>
 
     member internal __.TryGetPayload(hash : HashResult) : EmulatedValue<obj> option = cache.TryFind hash
     member internal __.IsDisposed(hash : HashResult) = not <| cache.ContainsKey hash
@@ -151,11 +151,11 @@ and [<Sealed; AutoSerializable(false)>]
         member x.Dispose(cv: ICloudValue): Async<unit> = async { return! cv.Dispose() }
         member x.DisposeAllValues(): Async<unit> = async { return cache.Clear() }
         member x.TryGetCloudValueById(id : string) : Async<ICloudValue option> = async { return getValueById id }
-        member x.GetAllCloudValues(): Async<ICloudValue []> = async { return cache |> Seq.map (fun kv -> InMemoryValue<_>.CreateUntyped(kv.Key, kv.Value, x)) |> Seq.toArray }
+        member x.GetAllCloudValues(): Async<ICloudValue []> = async { return cache |> Seq.map (fun kv -> ThreadPoolValue<_>.CreateUntyped(kv.Key, kv.Value, x)) |> Seq.toArray }
 
 
 [<AutoSerializable(false); Sealed; CloneableOnly>]
-type private InMemoryAtom<'T> internal (id : string, initial : 'T, memoryEmulation : MemoryEmulation) =
+type private ThreadPoolAtom<'T> internal (id : string, initial : 'T, memoryEmulation : MemoryEmulation) =
     // false: always clone value when reading payload
     let clone (t:'T) = EmulatedValue.create memoryEmulation false t
 
@@ -185,7 +185,7 @@ type private InMemoryAtom<'T> internal (id : string, initial : 'T, memoryEmulati
         member x.Dispose () = async { return atom <- None }
 
 [<Sealed; AutoSerializable(false)>]
-type InMemoryAtomProvider (memoryEmulation : MemoryEmulation) =
+type ThreadPoolAtomProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
     /// <summary>
@@ -193,7 +193,7 @@ type InMemoryAtomProvider (memoryEmulation : MemoryEmulation) =
     /// </summary>
     /// <param name="memoryEmulation">Memory emulation memoryEmulation.</param>
     static member CreateConfiguration(memoryEmulation : MemoryEmulation) =
-        let imap = new InMemoryAtomProvider(memoryEmulation)
+        let imap = new ThreadPoolAtomProvider(memoryEmulation)
         CloudAtomConfiguration.Create(imap)
 
     interface ICloudAtomProvider with
@@ -202,7 +202,7 @@ type InMemoryAtomProvider (memoryEmulation : MemoryEmulation) =
         member __.IsSupportedValue _ = true
         member __.CreateAtom<'T>(_, init : 'T) = async { 
             let id = mkUUID()
-            return new InMemoryAtom<'T>(id, init, memoryEmulation) :> _ 
+            return new ThreadPoolAtom<'T>(id, init, memoryEmulation) :> _ 
         }
 
         member __.CreateUniqueContainerName () = mkUUID()
@@ -210,7 +210,7 @@ type InMemoryAtomProvider (memoryEmulation : MemoryEmulation) =
 
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
-type private InMemoryQueue<'T> internal (id : string, memoryEmulation : MemoryEmulation) =
+type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : MemoryEmulation) =
     // true: value will be dequeued only once so clone on eqnueue only
     let clone (t : 'T) = EmulatedValue.create memoryEmulation true t
     let mutable isDisposed = false
@@ -256,7 +256,7 @@ type private InMemoryQueue<'T> internal (id : string, memoryEmulation : MemoryEm
 
 /// Defines an in-memory queue factory using mailbox processor
 [<Sealed; AutoSerializable(false)>]
-type InMemoryQueueProvider (memoryEmulation : MemoryEmulation) =
+type ThreadPoolQueueProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
     /// <summary>
@@ -264,7 +264,7 @@ type InMemoryQueueProvider (memoryEmulation : MemoryEmulation) =
     /// </summary>
     /// <param name="memoryEmulation">Memory emulation memoryEmulation.</param>
     static member CreateConfiguration(memoryEmulation : MemoryEmulation) =
-        let imqp = new InMemoryQueueProvider(memoryEmulation)
+        let imqp = new ThreadPoolQueueProvider(memoryEmulation)
         CloudQueueConfiguration.Create(imqp)
 
     interface ICloudQueueProvider with
@@ -278,7 +278,7 @@ type InMemoryQueueProvider (memoryEmulation : MemoryEmulation) =
                 raise <| new SerializationException(msg)
 
             let id = sprintf "%s/%s" container <| mkUUID()
-            return new InMemoryQueue<'T>(id, memoryEmulation) :> CloudQueue<'T>
+            return new ThreadPoolQueue<'T>(id, memoryEmulation) :> CloudQueue<'T>
         }
 
         member __.DisposeContainer _ = async.Zero()
@@ -345,7 +345,7 @@ type private InMemoryDictionary<'T> internal (memoryEmulation : MemoryEmulation)
 
 /// Defines an in-memory dictionary factory using ConcurrentDictionary
 [<Sealed; AutoSerializable(false)>]
-type InMemoryDictionaryProvider (memoryEmulation : MemoryEmulation) =
+type ThreadPoolDictionaryProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
     interface ICloudDictionaryProvider with

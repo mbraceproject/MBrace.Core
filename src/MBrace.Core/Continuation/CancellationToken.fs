@@ -17,3 +17,9 @@ type ICloudCancellationTokenSource =
     abstract Cancel : unit -> unit
     /// Gets a cancellation token instance.
     abstract Token : ICloudCancellationToken
+
+/// Simple proxy to System.Threading.CancellationToken
+type internal InMemoryCancellationToken(ct : CancellationToken) =
+    interface ICloudCancellationToken with
+        member __.IsCancellationRequested = ct.IsCancellationRequested
+        member __.LocalToken = ct

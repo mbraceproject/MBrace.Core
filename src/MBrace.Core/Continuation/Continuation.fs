@@ -214,9 +214,18 @@ type Cloud =
     /// </summary>
     /// <param name="workflow">Cloud workflow to be executed.</param>
     /// <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
+    /// <param name="cancellationToken">Specifies a cancellation token for the cloud workflow. Defaults to Async cancellation token.</param>
     [<CompilerMessage("'ToAsync' only intended for runtime implementers.", 444)>]
-    static member ToAsync(workflow : Cloud<'T>, resources : ResourceRegistry, cancellationToken : ICloudCancellationToken) : Async<'T> =
-        Async.FromContinuations(fun (sc,ec,cc) ->
+    static member ToAsync(workflow : Cloud<'T>, resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : Async<'T> = async {
+        let! cancellationToken = async {
+            match cancellationToken with
+            | Some ct -> return ct
+            | None ->
+                let! ct = Async.CancellationToken
+                return new InMemoryCancellationToken(ct) :> ICloudCancellationToken
+        }
+        
+        return! Async.FromContinuations(fun (sc,ec,cc) ->
             let cont =
                 {
                     Success = fun _ t -> sc t
@@ -226,6 +235,7 @@ type Cloud =
 
             do Trampoline.Reset()
             Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken))
+    }
 
     /// <summary>
     ///     Starts a cloud workflow with given execution context in the current thread.

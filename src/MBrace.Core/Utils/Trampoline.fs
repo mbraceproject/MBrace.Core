@@ -4,7 +4,7 @@ open System
 open System.Threading
 
 /// Mechanism for offloading execution stack in the thread pool
-type Trampoline private () =
+type internal Trampoline private () =
 
     static let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
     static let isCLR40OrLater = System.Environment.Version.Major >= 4
@@ -40,8 +40,7 @@ type Trampoline private () =
             threadInstance.Value.Reset()
 
     /// Queue a new work item to the .NET thread pool.
-    [<CompilerMessage("'Trampoline.QueueWorkItem' only intended for runtime implementers.", 444)>]
-    static member QueueWorkItem (f : unit -> unit) : unit =
+    static member internal QueueWorkItem (f : unit -> unit) : unit =
         let cb = new WaitCallback(fun _ -> Trampoline.Reset() ; f ())
         if not <| ThreadPool.QueueUserWorkItem cb then
             invalidOp "internal error: could not queue work item to thread pool."

@@ -78,7 +78,6 @@
     <Compile Include="InMemoryRuntime\InMemoryCombinators.fs" />
     <Compile Include="InMemoryRuntime\InMemoryParallelismProvider.fs" />
     <Compile Include="InMemoryRuntime\InMemoryRuntime.fs" />
-    <Compile Include="InMemoryRuntime\StoreClient.fs" />
     <Compile Include="Runtime\SystemLogs.fs" />
     <Compile Include="Runtime\Primitives.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
@@ -91,9 +90,10 @@
     <Compile Include="Runtime\WorkerRef.fs" />
     <Compile Include="Runtime\CloudTask.fs" />
     <Compile Include="Runtime\Combinators.fs" />
-    <Compile Include="Runtime\DistributionProvider.fs" />
+    <Compile Include="Runtime\ParallelismProvider.fs" />
     <Compile Include="Runtime\JobEvaluator.fs" />
     <Compile Include="Runtime\WorkerAgent.fs" />
+    <Compile Include="Runtime\StoreClient.fs" />
     <Compile Include="Runtime\MBraceClient.fs" />
     <Compile Include="Store\PersistedValueManager.fs" />
     <Compile Include="Store\StoreCloudValue.fs" />
@@ -104,6 +104,7 @@
     <Compile Include="Store\StoreJsonLogger.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
+    <Compile Include="ThreadPool.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />

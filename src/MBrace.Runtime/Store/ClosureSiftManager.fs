@@ -20,7 +20,6 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Utils.Reflection
-open MBrace.Runtime.InMemoryRuntime
 
 [<AutoSerializable(true); NoEquality; NoComparison>]
 type private SiftMethod =

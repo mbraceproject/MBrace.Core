@@ -38,7 +38,7 @@ module JobEvaluator =
 
         let logger = manager.SystemLogger
         let jem = new JobExecutionMonitor()
-        use! distributionProvider = DistributionProvider.Create(currentWorker, manager, job)
+        use! distributionProvider = ParallelismProvider.Create(currentWorker, manager, job)
         let resources = resource {
             yield! manager.ResourceRegistry
             yield jem

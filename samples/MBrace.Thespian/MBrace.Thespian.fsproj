@@ -79,8 +79,8 @@
     <Compile Include="Worker\Configuration.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="main.fs" />
-    <None Include="wordcount.fsx" />
     <None Include="test.fsx" />
+    <None Include="wordcount.fsx" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>

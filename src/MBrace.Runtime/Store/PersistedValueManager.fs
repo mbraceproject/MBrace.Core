@@ -11,7 +11,6 @@ open MBrace.Library
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.InMemoryRuntime
 
 #nowarn "444"
 
@@ -39,7 +38,7 @@ type PersistedValueManager private (resources : ResourceRegistry, persistThresho
     [<DataMember(Name = "PersistThreshold")>]
     let _persistThreshold = persistThreshold
 
-    let toAsync (workflow : Local<'T>) = Cloud.ToAsyncWithCurrentCancellationToken(workflow, resources)
+    let toAsync (workflow : Local<'T>) = Cloud.ToAsync(workflow, resources)
 
     let getPath (fileName : string) = local {
         let! dir = CloudPath.DefaultDirectory

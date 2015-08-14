@@ -14,10 +14,10 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
 
+open MBrace.ThreadPool
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String
-open MBrace.Runtime.InMemoryRuntime
 
 #nowarn "1571"
 
@@ -46,7 +46,7 @@ module private Common =
 
 /// Assembly to file store uploader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : ThreadPoolClient, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
     let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
     let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
 
@@ -145,16 +145,16 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
     interface IRemoteAssemblyReceiver with
         member x.GetLoadedAssemblyInfo(dependencies: AssemblyId []): Async<AssemblyLoadInfo []> = async {
-            return! dependencies |> Seq.map getAssemblyLoadInfo |> Local.Parallel |> imem.RunAsync
+            return! dependencies |> Seq.map getAssemblyLoadInfo |> Local.Parallel |> imem.ToAsync
         }
         
         member x.PushAssemblies(assemblies: VagabondAssembly []): Async<AssemblyLoadInfo []> =  async {
-            return! assemblies |> Seq.map uploadAssembly |> Local.Parallel |> imem.RunAsync
+            return! assemblies |> Seq.map uploadAssembly |> Local.Parallel |> imem.ToAsync
         }
 
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : InMemoryRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : ThreadPoolClient, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
     let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
 
     interface IAssemblyDownloader with
@@ -177,7 +177,7 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
             local {
                 let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
                 return! c.GetValueAsync()
-            } |> imem.RunAsync
+            } |> imem.ToAsync
 
         member x.GetPersistedDataDependencyReader(id : AssemblyId, dd : DataDependencyInfo, hash : HashResult): Async<Stream> = async {
             logger.Logf LogLevel.Info "Downloading data dependency '%s'." dd.Name
@@ -218,7 +218,7 @@ with
 [<Sealed; AutoSerializable(false)>]
 type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, localLogger : ISystemLogger) =
     let storeConfig = CloudFileStoreConfiguration.Create(config.Store, defaultDirectory = config.VagabondContainer)
-    let imem = InMemoryRuntime.Create(fileConfig = storeConfig, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
+    let imem = ThreadPoolClient.Create(fileConfig = storeConfig, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
     let uploader = new StoreAssemblyUploader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
     let downloader = new StoreAssemblyDownloader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
 

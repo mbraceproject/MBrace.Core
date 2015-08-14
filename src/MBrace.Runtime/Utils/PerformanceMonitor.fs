@@ -6,6 +6,8 @@ open System.Management
 open System.Diagnostics
 open System.Collections.Generic
 
+open MBrace.Runtime.Utils
+
 type private PerfCounter = System.Diagnostics.PerformanceCounter
 
 /// Some node metrics, such as CPU, memory usage, etc
@@ -176,6 +178,18 @@ type PerformanceMonitor (?updateInterval : int, ?maxSamplesCount : int) =
         this.GetCounters() |> ignore // first value always 0
 
     member this.MonitoredCategories : string seq = monitored :> _
+
+    static member TryGetCpuClockSpeed () =
+        if not runsOnMono then
+            use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
+            use qObj = searcher.Get() 
+                        |> Seq.cast<ManagementBaseObject> 
+                        |> Seq.exactlyOne
+
+            let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
+            Some <| float cpuFreq
+        else
+            None
 
     interface System.IDisposable with
         member this.Dispose () = 

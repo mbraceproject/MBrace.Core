@@ -2,8 +2,7 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Runtime.InMemoryRuntime
-
+open MBrace.ThreadPool
 open MBrace.Runtime.Utils
 
 /// MBrace runtime client handle abstract class.
@@ -11,7 +10,7 @@ open MBrace.Runtime.Utils
 type MBraceClient (runtime : IRuntimeManager) =
 
     let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
-    let imem = InMemoryRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
+    let imem = ThreadPoolClient.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
     let storeClient = CloudStoreClient.Create(imem)
 
     let taskManagerClient = new CloudTaskManagerClient(runtime)
@@ -136,7 +135,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="workflow">Cloud workflow to execute.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
     member __.RunOnCurrentProcessAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
-        imem.RunAsync(workflow, ?memoryEmulation = memoryEmulation)
+        imem.ToAsync(workflow, ?memoryEmulation = memoryEmulation)
 
     /// <summary>
     ///     Asynchronously executes supplied cloud workflow within the current, client process.
@@ -146,7 +145,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
     member __.RunOnCurrentProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
-        imem.Run(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)
+        imem.RunSynchronously(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)
 
     /// <summary>
     ///     Attaches user-supplied logger to client instance.
