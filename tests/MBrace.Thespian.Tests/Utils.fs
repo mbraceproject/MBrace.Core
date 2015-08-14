@@ -10,11 +10,12 @@ open MBrace.Thespian
 type RuntimeSession(workerCount : int) =
     
     static do MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+    static let e = MBraceWorker.LocalExecutable
 
     let lockObj = obj ()
     let mutable state : MBraceCluster option = None
 
-    static member Init() = ()
+    static member Init() = ignore e
 
     member __.Start () =
         lock lockObj (fun () -> 
