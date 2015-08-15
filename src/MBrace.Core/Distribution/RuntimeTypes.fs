@@ -33,6 +33,7 @@ type IWorkerRef =
     /// Worker Process Id
     abstract ProcessId : int
 
+/// Denotes a task that is being executed in the cluster.
 type ICloudTask =
     /// Unique task identifier
     abstract Id : string
