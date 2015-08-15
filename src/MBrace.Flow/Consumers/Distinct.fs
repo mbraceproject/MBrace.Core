@@ -44,7 +44,7 @@ module Distinct =
             cloud {
                 let combiner' (result : _ []) = local { return Array.concat result }
                 let! totalWorkers = match source.DegreeOfParallelism with Some n -> local.Return n | None -> Cloud.GetWorkerCount()
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! kvs = source.WithEvaluators (collectorF cts.Token totalWorkers)
                                                  (fun kvs ->
                                                       local {
@@ -80,7 +80,7 @@ module Distinct =
         let reducer (flow : CloudFlow<int * PersistedCloudFlow<'Key * 'T>>) : Cloud<PersistedCloudFlow<'T>> =
             cloud {
                 let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! pkvs = flow.WithEvaluators (reducerF cts.Token) (fun kvs -> PersistedCloudFlow.New(kvs, storageLevel = StorageLevel.Disk)) combiner'
                 return pkvs
             }

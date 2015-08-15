@@ -47,7 +47,7 @@ module Fold =
                     acc }
         }
         cloud {
-            use! cts = Cloud.CreateCancellationTokenSource()
+            use! cts = Cloud.CreateLinkedCancellationTokenSource()
             return!
                 flow.WithEvaluators
                    (collectorf cts.Token)
@@ -109,7 +109,7 @@ module Fold =
             cloud {
                 let combiner' (result : _ []) = local { return Array.concat result }
                 let! totalWorkers = match flow.DegreeOfParallelism with Some n -> local { return n } | None -> Cloud.GetWorkerCount()
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! keyValueArray = flow.WithEvaluators (collectorf cts.Token totalWorkers)
                                                   (fun keyValues -> local {
                                                         let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'State>>()
@@ -159,7 +159,7 @@ module Fold =
         let reducer (flow : CloudFlow<int * PersistedCloudFlow<'Key * 'State>>) : Cloud<PersistedCloudFlow<'Key * 'State>> =
             cloud {
                 let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! keyValueArray = flow.WithEvaluators (reducerf cts.Token) (fun keyValues -> PersistedCloudFlow.New(keyValues, storageLevel = StorageLevel.Disk)) combiner'
                 return keyValueArray
             }
@@ -224,7 +224,7 @@ module Fold =
             cloud {
                 let combiner' (result : _ []) = local { return Array.concat result }
                 let! totalWorkers = match flow.DegreeOfParallelism with Some n -> local { return n } | None -> Cloud.GetWorkerCount()
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! keyValueArray = flow.WithEvaluators (collectorf projection folder cts.Token totalWorkers)
                                                     (fun keyValues -> local {
                                                         let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'State>>()
@@ -281,7 +281,7 @@ module Fold =
         let reducer (flow : CloudFlow<int * PersistedCloudFlow<'Key * 'State>>) : Cloud<PersistedCloudFlow<'Key * 'State>> =
             cloud {
                 let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! keyValueArray = flow.WithEvaluators (reducerf cts.Token) (fun keyValues -> PersistedCloudFlow.New(keyValues, storageLevel = StorageLevel.Disk)) combiner'
                 return keyValueArray
             }

@@ -40,7 +40,7 @@ module Take =
             }
         let gather =
             cloud {
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! flow = flow.WithEvaluators (collectorF cts) (fun value -> PersistedCloudFlow.New(value, storageLevel = StorageLevel.Disk) ) 
                                                                  (fun results -> local { return PersistedCloudFlow.Concat results } )
 

@@ -64,7 +64,7 @@ module Sort =
 
         let sortByComp =
             cloud {
-                use! cts = Cloud.CreateCancellationTokenSource()
+                use! cts = Cloud.CreateLinkedCancellationTokenSource()
                 let! results = flow.WithEvaluators (collectorf cts.Token) (fun x -> local { return x }) (fun result -> local { match result with [||] -> return List() | _ -> return Array.reduce (fun left right -> left.AddRange(right); left) result })
                 let result =
                     let count = results |> Seq.sumBy (fun (keys, _) -> keys.Length)

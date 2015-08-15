@@ -491,7 +491,7 @@ module CloudFlow =
             }
 
         cloud {
-            use! cts = Cloud.CreateCancellationTokenSource()
+            use! cts = Cloud.CreateLinkedCancellationTokenSource()
             return! flow.WithEvaluators (collectorf cts.Token) (fun cloudFiles -> local { return cloudFiles }) (fun result -> local { return Array.concat result })
         }
 
