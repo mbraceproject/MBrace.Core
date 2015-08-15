@@ -73,8 +73,8 @@
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
     <Compile Include="Utils\Serialization.fs" />
-    <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
+    <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="ThreadPool\ThreadPoolPrimitives.fs" />
     <Compile Include="ThreadPool\ThreadPoolStore.fs" />
     <Compile Include="ThreadPool\ThreadPoolCombinators.fs" />
@@ -97,13 +97,13 @@
     <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Runtime\StoreClient.fs" />
     <Compile Include="Runtime\MBraceClient.fs" />
-    <None Include="paket.references" />
-    <None Include="paket.template" />
     <Compile Include="Components\PersistedValueManager.fs" />
     <Compile Include="Components\StoreCloudValue.fs" />
     <Compile Include="Components\StoreAssemblyManager.fs" />
     <Compile Include="Components\ClosureSiftManager.fs" />
     <Compile Include="Components\StoreJsonLogger.fs" />
+    <None Include="paket.references" />
+    <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />
