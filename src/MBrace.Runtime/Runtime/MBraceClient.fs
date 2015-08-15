@@ -10,7 +10,7 @@ open MBrace.Runtime.Utils
 type MBraceClient (runtime : IRuntimeManager) =
 
     let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
-    let imem = ThreadPoolClient.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
+    let imem = ThreadPoolRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
     let storeClient = CloudStoreClient.Create(imem)
 
     let taskManagerClient = new CloudTaskManagerClient(runtime)

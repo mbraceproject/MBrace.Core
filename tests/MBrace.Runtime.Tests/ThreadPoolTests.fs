@@ -23,19 +23,19 @@ type InMemoryLogTester () =
 type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
     inherit ``Cloud Tests``(parallelismFactor = 100, delayFactor = 1000)
 
-    let imem = ThreadPoolClient.Create(memoryEmulation = memoryEmulation)
+    let imem = ThreadPoolRuntime.Create(memoryEmulation = memoryEmulation)
 
     member __.Runtime = imem
 
     override __.RunOnCloud(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.RunSynchronously(workflow))
     override __.RunOnCloud(workflow : ICloudCancellationTokenSource -> #Cloud<'T>) =
-        let cts = ThreadPool.CreateCancellationTokenSource()
+        let cts = ThreadPoolRuntime.CreateCancellationTokenSource()
         Choice.protect(fun () ->
             imem.RunSynchronously(workflow cts, cancellationToken = cts.Token))
 
     override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
         let logTester = new InMemoryLogTester()
-        let imem = ThreadPoolClient.Create(logger = logTester, memoryEmulation = memoryEmulation)
+        let imem = ThreadPoolRuntime.Create(logger = logTester, memoryEmulation = memoryEmulation)
         imem.RunSynchronously workflow
         logTester.GetLogs()
 
@@ -91,7 +91,7 @@ type ``InMemory CloudValue Tests`` () =
     inherit ``CloudValue Tests`` (parallelismFactor = 100)
 
     let valueProvider = new ThreadPoolValueProvider() :> ICloudValueProvider
-    let imem = ThreadPoolClient.Create(memoryEmulation = MemoryEmulation.Shared, valueProvider = valueProvider)
+    let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.Shared, valueProvider = valueProvider)
 
     override __.IsSupportedLevel lvl = lvl = StorageLevel.Memory || lvl = StorageLevel.MemorySerialized
 
@@ -101,7 +101,7 @@ type ``InMemory CloudValue Tests`` () =
 type ``InMemory CloudAtom Tests`` () =
     inherit ``CloudAtom Tests`` (parallelismFactor = 100)
 
-    let imem = ThreadPoolClient.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
+    let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.RunOnCloud(workflow) = imem.RunSynchronously workflow
     override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
@@ -114,7 +114,7 @@ type ``InMemory CloudAtom Tests`` () =
 type ``InMemory CloudQueue Tests`` () =
     inherit ``CloudQueue Tests`` (parallelismFactor = 100)
 
-    let imem = ThreadPoolClient.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
+    let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.RunOnCloud(workflow) = imem.RunSynchronously workflow
     override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
@@ -122,7 +122,7 @@ type ``InMemory CloudQueue Tests`` () =
 type ``InMemory CloudDictionary Tests`` () =
     inherit ``CloudDictionary Tests`` (parallelismFactor = 100)
 
-    let imem = ThreadPoolClient.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
+    let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.IsInMemoryFixture = true
     override __.RunOnCloud(workflow) = imem.RunSynchronously workflow
@@ -131,7 +131,7 @@ type ``InMemory CloudDictionary Tests`` () =
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
 
-    let imem = ThreadPoolClient.Create(fileConfig = Config.fsConfig, serializer = Config.serializer, memoryEmulation = MemoryEmulation.Copied)
+    let imem = ThreadPoolRuntime.Create(fileConfig = Config.fsConfig, serializer = Config.serializer, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunOnCloud(workflow : Cloud<'T>) = imem.RunSynchronously workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = imem.RunSynchronously workflow

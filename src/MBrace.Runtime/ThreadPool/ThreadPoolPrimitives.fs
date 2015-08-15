@@ -1,4 +1,4 @@
-﻿namespace MBrace.ThreadPool.Internals
+﻿namespace MBrace.ThreadPool
 
 open System
 open System.Threading
@@ -10,63 +10,6 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 open MBrace.Runtime.Utils
-
-#nowarn "444"
-
-[<NoEquality; NoComparison; AutoSerializable(false)>]
-type internal EmulatedValue<'T> =
-    | Shared of 'T
-    | Cloned of 'T
-with
-    member inline ev.Value =
-        match ev with
-        | Shared t -> t
-        | Cloned t -> FsPickler.Clone t
-
-    member inline ev.RawValue =
-        match ev with
-        | Shared t -> t
-        | Cloned t -> t
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module private MemoryEmulation =
-
-    let isShared (mode : MemoryEmulation) =
-        match mode with
-        | MemoryEmulation.EnsureSerializable
-        | MemoryEmulation.Copied -> false
-        | _ -> true
-
-module private EmulatedValue =
-
-    /// Performs cloning of value based on emulation semantics
-    let clone (mode : MemoryEmulation) (value : 'T) : 'T =
-        match mode with
-        | MemoryEmulation.Copied -> 
-            FsPickler.Clone value
-
-        | MemoryEmulation.EnsureSerializable ->
-            FsPickler.EnsureSerializable(value, failOnCloneableOnlyTypes = false)
-            value
-
-        | MemoryEmulation.Shared 
-        | _ -> value
-    
-    /// Creates a copy of provided value given emulation semantics
-    let create (mode : MemoryEmulation) shareCloned (value : 'T) =
-        match mode with
-        | MemoryEmulation.Copied -> 
-            let clonedVal = FsPickler.Clone value
-            if shareCloned then Shared clonedVal
-            else Cloned clonedVal
-
-        | MemoryEmulation.EnsureSerializable ->
-            FsPickler.EnsureSerializable(value, failOnCloneableOnlyTypes = false)
-            Shared value
-
-        | MemoryEmulation.Shared 
-        | _ -> Shared value
-
 
 /// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
 [<AutoSerializable(false); CloneableOnly>]
@@ -109,40 +52,18 @@ type ThreadPoolCancellationTokenSource (cts : CancellationTokenSource) =
 
         new ThreadPoolCancellationTokenSource(lcts)
 
-/// In-Memory WorkerRef implementation
+/// CloudLogger implementation that writes output to stdout
 [<AutoSerializable(false); CloneableOnly>]
-type ThreadPoolWorker private () =
-    static let singleton = new ThreadPoolWorker()
-    let name = System.Net.Dns.GetHostName()
-    let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-    let cpuClockSpeed = PerformanceMonitor.PerformanceMonitor.TryGetCpuClockSpeed()
-
-    interface IWorkerRef with
-        member __.Hostname = name
-        member __.Type = "InMemory worker"
-        member __.Id = name
-        member __.ProcessorCount = Environment.ProcessorCount
-        member __.MaxCpuClock = 
-            match cpuClockSpeed with
-            | Some cpu -> cpu
-            | None -> raise <| NotImplementedException("Mono not supporting CPU clock speed.")
-
-        member __.ProcessId = pid
-        member __.CompareTo(other : obj) =
-            match other with
-            | :? ThreadPoolWorker -> 0
-            | :? IWorkerRef as wr -> compare name wr.Id
-            | _ -> invalidArg "other" "invalid comparand."
-
-    /// Gets a WorkerRef instance that corresponds to the instance
-    static member LocalInstance : ThreadPoolWorker = singleton
+type ConsoleCloudLogger() =
+    interface ICloudLogger with
+        member __.Log msg = System.Console.WriteLine msg
 
 /// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
 type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
     member __.LocalTask = task
     interface ICloudTask<'T> with
-        member __.Id = sprintf ".NET task %d" task.Id
+        member __.Id = sprintf "System.Threading.Task %d" task.Id
         member __.AwaitResult(?timeoutMilliseconds:int) = async {
             try return! Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
             with :? AggregateException as e -> return! Async.Raise (e.InnerExceptions.[0])
@@ -166,19 +87,3 @@ type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken)
         member __.CancellationToken = ct
         member __.Result = task.GetResult()
         member __.ResultBoxed = task.GetResult() :> obj
-
-
-/// Cloud task implementation that wraps around System.Threading.TaskCompletionSource for inmemory runtimes
-[<AutoSerializable(false); CloneableOnly>]
-type private ThreadPoolTaskCompletionSource<'T> (?cancellationToken : ICloudCancellationToken) =
-    let tcs = new TaskCompletionSource<'T>()
-    let cts =
-        match cancellationToken with
-        | None -> ThreadPoolCancellationTokenSource()
-        | Some ct -> ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
-
-    let task = new ThreadPoolTask<'T>(tcs.Task, cts.Token)
-
-    member __.CancellationTokenSource = cts
-    member __.LocalTaskCompletionSource = tcs
-    member __.Task = task

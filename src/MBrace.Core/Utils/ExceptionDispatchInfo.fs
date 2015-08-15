@@ -128,8 +128,8 @@ module ExceptionDispatchInfoUtils =
         ///     Preserves original stacktrace for any exception raised.
         /// </summary>
         /// <param name="workflow">Workflow to be run.</param>
-        /// <param name="cancellationToken">Optioncal cancellation token.</param>
-        static member RunSync(workflow : Async<'T>, ?cancellationToken) =
+        /// <param name="cancellationToken">Optional cancellation token.</param>
+        static member RunSync(workflow : Async<'T>, ?cancellationToken : CancellationToken) =
             let tcs = new TaskCompletionSource<Choice<'T,exn,OperationCanceledException>>()
             let inline commit f r = tcs.SetResult(f r)
             Trampoline.QueueWorkItem(fun () ->

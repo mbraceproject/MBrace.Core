@@ -79,7 +79,7 @@
     <Compile Include="ThreadPool\ThreadPoolStore.fs" />
     <Compile Include="ThreadPool\ThreadPoolCombinators.fs" />
     <Compile Include="ThreadPool\ThreadPoolParallelismProvider.fs" />
-    <Compile Include="ThreadPool\ThreadPool.fs" />
+    <Compile Include="ThreadPool\ThreadPoolClient.fs" />
     <Compile Include="Runtime\SystemLogs.fs" />
     <Compile Include="Runtime\Primitives.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />

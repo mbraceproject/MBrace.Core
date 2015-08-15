@@ -46,7 +46,7 @@ module private Common =
 
 /// Assembly to file store uploader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : ThreadPoolClient, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
     let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
     let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
 
@@ -154,7 +154,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : ThreadPoolClient, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
     let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
 
     interface IAssemblyDownloader with
@@ -218,7 +218,7 @@ with
 [<Sealed; AutoSerializable(false)>]
 type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, localLogger : ISystemLogger) =
     let storeConfig = CloudFileStoreConfiguration.Create(config.Store, defaultDirectory = config.VagabondContainer)
-    let imem = ThreadPoolClient.Create(fileConfig = storeConfig, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
+    let imem = ThreadPoolRuntime.Create(fileConfig = storeConfig, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
     let uploader = new StoreAssemblyUploader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
     let downloader = new StoreAssemblyDownloader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
 

@@ -11,7 +11,7 @@ open MBrace.ThreadPool
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
-type CloudValueClient internal (runtime : ThreadPoolClient) =
+type CloudValueClient internal (runtime : ThreadPoolRuntime) =
     let _ = runtime.Resources.Resolve<CloudFileStoreConfiguration>()
 
     /// <summary>
@@ -62,7 +62,7 @@ type CloudValueClient internal (runtime : ThreadPoolClient) =
 
 /// Collection of client methods for CloudAtom API
 [<Sealed; AutoSerializable(false)>]
-type CloudAtomClient internal (runtime : ThreadPoolClient) =
+type CloudAtomClient internal (runtime : ThreadPoolRuntime) =
 
     // force exception in event of missing resource
     let config = runtime.Resources.Resolve<CloudAtomConfiguration>()
@@ -185,7 +185,7 @@ type CloudAtomClient internal (runtime : ThreadPoolClient) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of client methods for CloudAtom API
-type CloudQueueClient internal (runtime : ThreadPoolClient) =
+type CloudQueueClient internal (runtime : ThreadPoolRuntime) =
     // force exception in event of missing resource
     let _ = runtime.Resources.Resolve<CloudQueueConfiguration>()
 
@@ -298,7 +298,7 @@ type CloudQueueClient internal (runtime : ThreadPoolClient) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of client methods for CloudDictionary API
-type CloudDictionaryClient internal (runtime : ThreadPoolClient) =
+type CloudDictionaryClient internal (runtime : ThreadPoolRuntime) =
 
     // force exception in event of missing resource
     let _ = runtime.Resources.Resolve<ICloudDictionaryProvider>()
@@ -434,7 +434,7 @@ type CloudDictionaryClient internal (runtime : ThreadPoolClient) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of path-related file store methods.
-type CloudPathClient internal (runtime : ThreadPoolClient) =
+type CloudPathClient internal (runtime : ThreadPoolRuntime) =
     let config = runtime.Resources.Resolve<CloudFileStoreConfiguration>()
 
     /// <summary>
@@ -494,7 +494,7 @@ type CloudPathClient internal (runtime : ThreadPoolClient) =
 
 /// Collection of file store operations
 [<Sealed; AutoSerializable(false)>]
-type CloudDirectoryClient internal (runtime : ThreadPoolClient) =
+type CloudDirectoryClient internal (runtime : ThreadPoolRuntime) =
 
     let _ = runtime.Resources.Resolve<CloudFileStoreConfiguration>()
     
@@ -558,7 +558,7 @@ type CloudDirectoryClient internal (runtime : ThreadPoolClient) =
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of file store operations
-type CloudFileClient internal (runtime : ThreadPoolClient) =
+type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     let _ = runtime.Resources.Resolve<CloudFileStoreConfiguration> ()
 
     /// <summary>
@@ -845,7 +845,7 @@ type CloudFileClient internal (runtime : ThreadPoolClient) =
 
 /// Client-side API for cloud store operations
 [<Sealed; AutoSerializable(false)>]
-type CloudStoreClient internal (runtime : ThreadPoolClient) =
+type CloudStoreClient internal (runtime : ThreadPoolRuntime) =
     let atomClient       = lazy CloudAtomClient(runtime)
     let queueClient    = lazy CloudQueueClient(runtime)
     let dictClient       = lazy CloudDictionaryClient(runtime)
@@ -875,5 +875,5 @@ type CloudStoreClient internal (runtime : ThreadPoolClient) =
     ///     Create a new StoreClient instance that targets provided in-memory runtime.
     /// </summary>
     /// <param name="runtime">In-Memory runtime driver.</param>
-    static member Create(runtime : ThreadPoolClient) =
+    static member Create(runtime : ThreadPoolRuntime) =
         new CloudStoreClient(runtime)

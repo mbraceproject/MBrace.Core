@@ -6,13 +6,15 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.Serialization
 
+open Nessos.FsPickler
+
 open MBrace.Core
 open MBrace.Core.Internals
-
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
-open Nessos.FsPickler
+open MBrace.ThreadPool
+
 
 /// Concurrent counter implementation
 [<AutoSerializable(false); CloneableOnly>]
@@ -30,6 +32,21 @@ type private ResultAggregator<'T> (size : int) =
     member __.Length = size
     member __.Values = array
     member __.Item with set i x = array.[i] <- x
+
+/// Cloud task implementation that wraps around System.Threading.TaskCompletionSource for inmemory runtimes
+[<AutoSerializable(false); CloneableOnly>]
+type private ThreadPoolTaskCompletionSource<'T> (?cancellationToken : ICloudCancellationToken) =
+    let tcs = new TaskCompletionSource<'T>()
+    let cts =
+        match cancellationToken with
+        | None -> ThreadPoolCancellationTokenSource()
+        | Some ct -> ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
+
+    let task = new ThreadPoolTask<'T>(tcs.Task, cts.Token)
+
+    member __.CancellationTokenSource = cts
+    member __.LocalTaskCompletionSource = tcs
+    member __.Task = task
 
 /// Collection of workflows that provide parallelism
 /// using the .NET thread pool

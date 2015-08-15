@@ -19,7 +19,9 @@ type ICloudCancellationTokenSource =
     abstract Token : ICloudCancellationToken
 
 /// Simple proxy to System.Threading.CancellationToken
+[<Sealed; AutoSerializable(false); NoEquality; NoComparison>]
 type internal InMemoryCancellationToken(ct : CancellationToken) =
+    new () = new InMemoryCancellationToken(new CancellationToken())
     interface ICloudCancellationToken with
         member __.IsCancellationRequested = ct.IsCancellationRequested
         member __.LocalToken = ct

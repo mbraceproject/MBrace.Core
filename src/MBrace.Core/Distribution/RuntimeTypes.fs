@@ -13,7 +13,7 @@ type MemoryEmulation =
     /// emulate serialization errors by checking that they are serializable.
     | EnsureSerializable    = 1
 
-    /// Values copied when passed across worfklows; full distributed semantics.
+    /// Values copied when passed across worfklows; full distribution semantics.
     | Copied                = 2
 
 

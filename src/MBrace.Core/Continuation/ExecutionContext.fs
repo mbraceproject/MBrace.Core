@@ -20,10 +20,13 @@ with
     ///     Initializes an empty execution context.  
     /// </summary>
     /// <param name="cancellationToken">Optional cancellation token.</param>
-    static member Empty(cancellationToken : ICloudCancellationToken) =
+    static member Empty(?cancellationToken : ICloudCancellationToken) =
         {
             Resources = ResourceRegistry.Empty
-            CancellationToken = cancellationToken
+            CancellationToken =
+                match cancellationToken with
+                | Some ct -> ct
+                | None -> new InMemoryCancellationToken() :> _
         }
 
 /// Distributable continuation context.

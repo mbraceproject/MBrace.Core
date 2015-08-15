@@ -16,6 +16,60 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 
+[<NoEquality; NoComparison; AutoSerializable(false)>]
+type internal EmulatedValue<'T> =
+    | Shared of 'T
+    | Cloned of 'T
+with
+    member inline ev.Value =
+        match ev with
+        | Shared t -> t
+        | Cloned t -> FsPickler.Clone t
+
+    member inline ev.RawValue =
+        match ev with
+        | Shared t -> t
+        | Cloned t -> t
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module private MemoryEmulation =
+
+    let isShared (mode : MemoryEmulation) =
+        match mode with
+        | MemoryEmulation.EnsureSerializable
+        | MemoryEmulation.Copied -> false
+        | _ -> true
+
+module private EmulatedValue =
+
+    /// Performs cloning of value based on emulation semantics
+    let clone (mode : MemoryEmulation) (value : 'T) : 'T =
+        match mode with
+        | MemoryEmulation.Copied -> 
+            FsPickler.Clone value
+
+        | MemoryEmulation.EnsureSerializable ->
+            FsPickler.EnsureSerializable(value, failOnCloneableOnlyTypes = false)
+            value
+
+        | MemoryEmulation.Shared 
+        | _ -> value
+    
+    /// Creates a copy of provided value given emulation semantics
+    let create (mode : MemoryEmulation) shareCloned (value : 'T) =
+        match mode with
+        | MemoryEmulation.Copied -> 
+            let clonedVal = FsPickler.Clone value
+            if shareCloned then Shared clonedVal
+            else Cloned clonedVal
+
+        | MemoryEmulation.EnsureSerializable ->
+            FsPickler.EnsureSerializable(value, failOnCloneableOnlyTypes = false)
+            Shared value
+
+        | MemoryEmulation.Shared 
+        | _ -> Shared value
+
 [<AutoSerializable(false); CloneableOnly>]
 type private ThreadPoolValue<'T> (hash : HashResult, provider : ThreadPoolValueProvider) =
 
