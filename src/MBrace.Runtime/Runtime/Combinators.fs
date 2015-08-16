@@ -265,7 +265,7 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSour
 /// <param name="computation">Computation to be executed.</param>
 let runStartAsCloudTask (runtime : IRuntimeManager) (isClientSideEnqueue : bool) 
                         (dependencies : AssemblyId[]) (taskName : string option)
-                        (faultPolicy:FaultPolicy) (token : ICloudCancellationToken option) 
+                        (faultPolicy : FaultPolicy) (token : ICloudCancellationToken option) 
                         (target : IWorkerRef option) (computation : Cloud<'T>) = async {
 
     if not <| FsPickler.IsSerializableType<'T> () then

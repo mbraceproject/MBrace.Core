@@ -48,7 +48,9 @@ type MBraceClient (runtime : IRuntimeManager) =
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
-        return! Combinators.runStartAsCloudTask runtime true assemblyIds taskName faultPolicy cancellationToken target workflow
+        let! task = Combinators.runStartAsCloudTask runtime true assemblyIds taskName faultPolicy cancellationToken target workflow
+        runtime.SystemLogger.Logf LogLevel.Info "CloudTask '%s' posted successfully." task.Id
+        return task
     }
 
     /// <summary>
