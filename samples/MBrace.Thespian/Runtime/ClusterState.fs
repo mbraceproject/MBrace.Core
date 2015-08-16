@@ -10,12 +10,9 @@ open MBrace.Runtime.Components
 /// Runtime instance identifier
 type RuntimeId = private { Id : string }
 with
-    interface IRuntimeId with
-        member x.Id: string = x.Id
-
+    interface IRuntimeId with member x.Id = x.Id
     override x.ToString() = x.Id
-
-    /// Creates a new runtime instance
+    /// Creates a new unique runtime id instance
     static member Create() = { Id = mkUUID() }
 
 /// Serializable MBrace.Thespian cluster state client object.
@@ -96,8 +93,8 @@ with
         let jobQueue = JobQueue.Create(workerManager, localStateFactory)
 
         let resources = resource {
-            yield CloudAtomConfiguration.Create(new ActorAtomProvider(resourceFactory))
-            yield CloudQueueConfiguration.Create(new ActorQueueProvider(resourceFactory))
+            yield new ActorAtomProvider(resourceFactory)
+            yield new ActorQueueProvider(resourceFactory)
             yield new ActorDictionaryProvider(id.Id, resourceFactory) :> ICloudDictionaryProvider
             yield serializer :> ISerializer
             yield cloudValueProvider :> ICloudValueProvider

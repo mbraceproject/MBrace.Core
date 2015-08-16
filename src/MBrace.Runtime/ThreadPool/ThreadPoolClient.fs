@@ -136,8 +136,8 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="fileStore">Cloud file store to be used. Defaults to no store.</param>
     /// <param name="serializer">Default serializer implementations. Defaults to FsPickler binary serializer.</param>
     /// <param name="valueProvider">CloudValue provider instance. Defaults to in-memory implementation.</param>
-    /// <param name="atomConfig">Cloud atom configuration. Defaults to in-memory atoms.</param>
-    /// <param name="queueConfig">Cloud queue configuration. Defaults to in-memory queues.</param>
+    /// <param name="atomProvider">Cloud atom provider instance. Defaults to in-memory atoms.</param>
+    /// <param name="queueProvider">Cloud queue provider instance. Defaults to in-memory queues.</param>
     /// <param name="dictionaryProvider">Cloud dictionary configuration. Defaults to in-memory dictionary.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
     /// <param name="vagabondChecker">User-supplied workflow dependency checker function.</param>
@@ -146,8 +146,8 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
                             ?fileStore : ICloudFileStore,
                             ?serializer : ISerializer,
                             ?valueProvider : ICloudValueProvider,
-                            ?atomConfig : CloudAtomConfiguration,
-                            ?queueConfig : CloudQueueConfiguration,
+                            ?atomProvider : ICloudAtomProvider,
+                            ?queueProvider : ICloudQueueProvider,
                             ?dictionaryProvider : ICloudDictionaryProvider,
                             ?resources : ResourceRegistry,
                             ?vagabondChecker : obj -> unit) : ThreadPoolRuntime =
@@ -155,17 +155,17 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
         let memoryEmulation = match memoryEmulation with Some m -> m | None -> MemoryEmulation.Shared
         let serializer = match serializer with Some s -> s | None -> ThreadPoolFsPicklerSerializer.CreateBinarySerializer() :> _
         let valueProvider = match valueProvider with Some vp -> vp | None -> new ThreadPoolValueProvider() :> _
-        let atomConfig = match atomConfig with Some ac -> ac | None -> ThreadPoolAtomProvider.CreateConfiguration(memoryEmulation)
+        let atomProvider = match atomProvider with Some ap -> ap | None -> new ThreadPoolAtomProvider(memoryEmulation) :> _
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new ThreadPoolDictionaryProvider(memoryEmulation) :> _
-        let queueConfig = match queueConfig with Some cc -> cc | None -> ThreadPoolQueueProvider.CreateConfiguration(memoryEmulation)
+        let queueProvider = match queueProvider with Some qp -> qp | None -> new ThreadPoolQueueProvider(memoryEmulation) :> _
         let logger = match logger with Some l -> l | None -> { new ICloudLogger with member __.Log _ = () }
 
         let resources = resource {
             yield serializer
             yield valueProvider
-            yield atomConfig
+            yield atomProvider
             yield dictionaryProvider
-            yield queueConfig
+            yield queueProvider
             match fileStore with Some fc -> yield fc | None -> ()
             match resources with Some r -> yield! r | None -> ()
         }

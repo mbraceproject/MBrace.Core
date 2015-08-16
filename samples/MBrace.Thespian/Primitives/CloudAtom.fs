@@ -108,19 +108,18 @@ module private ActorAtom =
 /// Defines a distributed cloud atom factory
 type ActorAtomProvider (factory : ResourceFactory) =
     let id = mkUUID()
+
     interface ICloudAtomProvider with
+        member x.Name: string = "ActorAtom"
+        member x.Id = id
+        member x.IsSupportedValue(value: 'T): bool = true
+        member x.DefaultContainer = ""
+        member x.WithDefaultContainer _ = x :> _
+        member x.CreateUniqueContainerName () = ""
+        member x.DisposeContainer (_ : string) = async.Zero()
         member x.CreateAtom(container: string, initValue: 'T): Async<CloudAtom<'T>> = async {
             let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
             let initPickle = Config.Serializer.Pickle initValue
             let! actor = factory.RequestResource(fun () -> ActorAtom.init id initPickle)
             return new ActorAtom<'T>(id, actor) :> CloudAtom<'T>
         }
-
-        member x.CreateUniqueContainerName () = System.Guid.NewGuid().ToString()
-
-        member x.DisposeContainer (_ : string) = async.Zero()
-        
-        member x.IsSupportedValue(value: 'T): bool = true
-        
-        member x.Name: string = "ActorAtom"
-        member x.Id = id

@@ -65,7 +65,7 @@ type CloudValueClient internal (runtime : ThreadPoolRuntime) =
 type CloudAtomClient internal (runtime : ThreadPoolRuntime) =
 
     // force exception in event of missing resource
-    let config = runtime.Resources.Resolve<CloudAtomConfiguration>()
+    let provider = runtime.Resources.Resolve<ICloudAtomProvider>()
 
     /// <summary>
     ///     Creates a new cloud atom instance with given value.
@@ -180,14 +180,14 @@ type CloudAtomClient internal (runtime : ThreadPoolRuntime) =
     /// </summary>
     /// <param name="value">Value to be checked.</param>
     member __.IsSupportedValue(value : 'T) : bool = 
-        config.AtomProvider.IsSupportedValue value
+        provider.IsSupportedValue value
 
 
 [<Sealed; AutoSerializable(false)>]
 /// Collection of client methods for CloudAtom API
 type CloudQueueClient internal (runtime : ThreadPoolRuntime) =
     // force exception in event of missing resource
-    let _ = runtime.Resources.Resolve<CloudQueueConfiguration>()
+    let _ = runtime.Resources.Resolve<ICloudQueueProvider>()
 
     /// <summary>
     ///     Creates a new queue instance.

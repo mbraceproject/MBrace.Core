@@ -98,11 +98,11 @@ type ActorQueueProvider (factory : ResourceFactory) =
         member __.Name = "ActorQueue"
         member __.Id = id
         member __.CreateUniqueContainerName () = ""
-
+        member __.DefaultContainer = ""
+        member __.WithDefaultContainer _ = __ :> _
+        member __.DisposeContainer _ = async.Zero()
         member __.CreateQueue<'T> (container : string) = async {
             let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
             let! actor = factory.RequestResource(fun () -> ActorQueue.init())
             return new ActorQueue<'T>(id, actor) :> CloudQueue<'T>
         }
-
-        member __.DisposeContainer _ = async.Zero()

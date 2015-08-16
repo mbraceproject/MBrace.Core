@@ -42,6 +42,15 @@ type ICloudAtomProvider =
     /// Create a uniquely specified container name.
     abstract CreateUniqueContainerName : unit -> string
 
+    /// Gets the default container used by the atom provider
+    abstract DefaultContainer : string
+
+    /// <summary>
+    ///     Creates a copy of the atom provider with updated default container.
+    /// </summary>
+    /// <param name="container">Container to be updated.</param>
+    abstract WithDefaultContainer : container:string -> ICloudAtomProvider
+
     /// <summary>
     ///     Checks if provided value is supported in atom instances.
     /// </summary>
@@ -61,27 +70,6 @@ type ICloudAtomProvider =
     /// <param name="container">Atom container.</param>
     abstract DisposeContainer : container:string -> Async<unit>
 
-/// Atom configuration passed to the continuation execution context
-[<NoEquality; NoComparison>]
-type CloudAtomConfiguration =
-    {
-        /// Atom provider instance
-        AtomProvider : ICloudAtomProvider
-        /// Default container for instance in current execution context.
-        DefaultContainer : string
-    }
-with
-    /// <summary>
-    ///     Creates an atom configuration instance using provided components.
-    /// </summary>
-    /// <param name="atomProvider">Atom provider instance.</param>
-    /// <param name="defaultContainer">Default container for current process. Defaults to auto generated.</param>
-    static member Create(atomProvider : ICloudAtomProvider, ?defaultContainer : string) =
-        {
-            AtomProvider = atomProvider
-            DefaultContainer = match defaultContainer with Some c -> c | None -> atomProvider.CreateUniqueContainerName()
-        }
-
 
 namespace MBrace.Core
 
@@ -96,9 +84,9 @@ type CloudAtom =
     /// </summary>
     /// <param name="initial">Initial value.</param>
     static member New<'T>(initial : 'T, ?container : string) : Local<CloudAtom<'T>> = local {
-        let! config = Cloud.GetResource<CloudAtomConfiguration> ()
-        let container = defaultArg container config.DefaultContainer
-        return! config.AtomProvider.CreateAtom(container, initial)
+        let! provider = Cloud.GetResource<ICloudAtomProvider> ()
+        let container = defaultArg container provider.DefaultContainer
+        return! provider.CreateAtom(container, initial)
     }
 
     /// <summary>
@@ -151,14 +139,14 @@ type CloudAtom =
     /// </summary>
     /// <param name="container"></param>
     static member DeleteContainer (container : string) : Local<unit> = local {
-        let! config = Cloud.GetResource<CloudAtomConfiguration> ()
-        return! config.AtomProvider.DisposeContainer container
+        let! provider = Cloud.GetResource<ICloudAtomProvider> ()
+        return! provider.DisposeContainer container
     }
 
     /// Generates a unique container name.
     static member CreateContainerName() = local {
-        let! config = Cloud.GetResource<CloudAtomConfiguration> ()
-        return config.AtomProvider.CreateUniqueContainerName()
+        let! provider = Cloud.GetResource<ICloudAtomProvider> ()
+        return provider.CreateUniqueContainerName()
     }
 
     /// <summary>
@@ -166,11 +154,11 @@ type CloudAtom =
     /// </summary>
     /// <param name="value">Value to be checked.</param>
     static member IsSupportedValue(value : 'T) = local {
-        let! config = Cloud.TryGetResource<CloudAtomConfiguration> ()
+        let! provider = Cloud.TryGetResource<ICloudAtomProvider> ()
         return
-            match config with
+            match provider with
             | None -> false
-            | Some ap -> ap.AtomProvider.IsSupportedValue value
+            | Some ap -> ap.IsSupportedValue value
     }
 
     /// <summary>

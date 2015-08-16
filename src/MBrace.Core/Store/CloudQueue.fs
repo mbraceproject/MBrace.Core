@@ -49,6 +49,15 @@ type ICloudQueueProvider =
     /// unique cloud queue source identifier
     abstract Id : string
 
+    /// Gets the default container used by the queue provider
+    abstract DefaultContainer : string
+
+    /// <summary>
+    ///     Creates a copy of the queue provider with updated default container.
+    /// </summary>
+    /// <param name="container">Container to be updated.</param>
+    abstract WithDefaultContainer : container:string -> ICloudQueueProvider
+
     /// Create a uniquely specified container name.
     abstract CreateUniqueContainerName : unit -> string
 
@@ -63,27 +72,6 @@ type ICloudQueueProvider =
     /// </summary>
     /// <param name="container">Queue container.</param>
     abstract DisposeContainer : container:string -> Async<unit>
-
-/// Queue configuration passed to the continuation execution context
-[<NoEquality; NoComparison>]
-type CloudQueueConfiguration =
-    {
-        /// Atom provider instance
-        QueueProvider : ICloudQueueProvider
-        /// Default container for instance in current execution context.
-        DefaultContainer : string
-    }
-with  
-    /// <summary>
-    ///     Creates a queue configuration instance using provided components.
-    /// </summary>
-    /// <param name="queueProvider">Queue provider instance.</param>
-    /// <param name="defaultContainer">Default container for current process. Defaults to auto generated.</param>
-    static member Create(queueProvider : ICloudQueueProvider, ?defaultContainer : string) =
-        {
-            QueueProvider = queueProvider
-            DefaultContainer = match defaultContainer with Some c -> c | None -> queueProvider.CreateUniqueContainerName()
-        }
 
 namespace MBrace.Core
 
@@ -100,9 +88,9 @@ type CloudQueue =
     /// </summary>
     /// <param name="container">Container to queue. Defaults to process default.</param>
     static member New<'T>(?container : string) = local {
-        let! config = Cloud.GetResource<CloudQueueConfiguration> ()
-        let container = defaultArg container config.DefaultContainer
-        return! config.QueueProvider.CreateQueue<'T> (container)
+        let! provider = Cloud.GetResource<ICloudQueueProvider> ()
+        let container = defaultArg container provider.DefaultContainer
+        return! provider.CreateQueue<'T> (container)
     }
 
     /// <summary>
@@ -153,12 +141,12 @@ type CloudQueue =
     /// </summary>
     /// <param name="container"></param>
     static member DeleteContainer (container : string) = local {
-        let! config = Cloud.GetResource<CloudQueueConfiguration> ()
-        return! config.QueueProvider.DisposeContainer container
+        let! provider = Cloud.GetResource<ICloudQueueProvider> ()
+        return! provider.DisposeContainer container
     }
 
     /// Generates a unique container name.
     static member CreateContainerName() = local {
-        let! config = Cloud.GetResource<CloudQueueConfiguration> ()
-        return config.QueueProvider.CreateUniqueContainerName()
+        let! provider = Cloud.GetResource<ICloudQueueProvider> ()
+        return provider.CreateUniqueContainerName()
     }

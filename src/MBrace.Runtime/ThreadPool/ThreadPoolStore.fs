@@ -242,25 +242,19 @@ type private ThreadPoolAtom<'T> internal (id : string, initial : 'T, memoryEmula
 type ThreadPoolAtomProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
-    /// <summary>
-    ///     Creates an In-Memory Atom configuration object.
-    /// </summary>
-    /// <param name="memoryEmulation">Memory emulation memoryEmulation.</param>
-    static member CreateConfiguration(memoryEmulation : MemoryEmulation) =
-        let imap = new ThreadPoolAtomProvider(memoryEmulation)
-        CloudAtomConfiguration.Create(imap)
-
     interface ICloudAtomProvider with
         member __.Name = "InMemoryAtomProvider"
         member __.Id = id
+        member __.DefaultContainer = ""
+        member __.WithDefaultContainer _ = __ :> _
         member __.IsSupportedValue _ = true
         member __.CreateAtom<'T>(_, init : 'T) = async { 
             let id = mkUUID()
             return new ThreadPoolAtom<'T>(id, init, memoryEmulation) :> _ 
         }
 
-        member __.CreateUniqueContainerName () = mkUUID()
-        member __.DisposeContainer _ = raise <| new NotSupportedException()
+        member __.CreateUniqueContainerName () = ""
+        member __.DisposeContainer _ = async.Zero()
 
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
@@ -313,18 +307,13 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
 type ThreadPoolQueueProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
-    /// <summary>
-    ///     Creates an In-Memory Queue configuration object.
-    /// </summary>
-    /// <param name="memoryEmulation">Memory emulation memoryEmulation.</param>
-    static member CreateConfiguration(memoryEmulation : MemoryEmulation) =
-        let imqp = new ThreadPoolQueueProvider(memoryEmulation)
-        CloudQueueConfiguration.Create(imqp)
-
     interface ICloudQueueProvider with
         member __.Name = "InMemoryQueueProvider"
         member __.Id = id
-        member __.CreateUniqueContainerName () = mkUUID()
+        member __.DefaultContainer = ""
+        member __.WithDefaultContainer _ = __ :> _
+        member __.CreateUniqueContainerName () = ""
+        member __.DisposeContainer _ = async.Zero()
 
         member __.CreateQueue<'T> (container : string) = async {
             if not <| MemoryEmulation.isShared memoryEmulation && not <| FsPickler.IsSerializableType<'T>() then
@@ -335,7 +324,6 @@ type ThreadPoolQueueProvider (memoryEmulation : MemoryEmulation) =
             return new ThreadPoolQueue<'T>(id, memoryEmulation) :> CloudQueue<'T>
         }
 
-        member __.DisposeContainer _ = async.Zero()
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
 type private InMemoryDictionary<'T> internal (memoryEmulation : MemoryEmulation) =
