@@ -24,6 +24,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D
 		build.fsx = build.fsx
 		build.sh = build.sh
 		License.md = License.md
+		nuget\MBrace.Thespian.fsx = nuget\MBrace.Thespian.fsx
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection

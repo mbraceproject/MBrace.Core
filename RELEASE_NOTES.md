@@ -1,3 +1,11 @@
+#### 0.10.0-alpha
+* Implement CloudValue as interface that supports StorageLevels.
+* Refactor PersistedCloudFlow to use CloudValue as underlying storage.
+* Implement Closure serialization optimizations.
+* Implement CloudFlow.OfHttpFileByLine producers.
+* Improve MBrace.Thespian implementation.
+* Multiple bugfixes and overall improvements.
+
 #### 0.9.14-alpha
 * Fix packaging issue.
 

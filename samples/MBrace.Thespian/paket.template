@@ -1,0 +1,44 @@
+﻿type project
+id MBrace.Thespian
+description
+    Provides a simple MBrace cluster implementation over Nessos.Thespian.
+authors
+    Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis
+copyright
+    Copyright 2015
+summary
+    Provides a simple MBrace cluster implementation over Thespian (https://github.com/nessos/Thespian).
+	Release intended for educational purposes, should NOT be used in production.
+licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
+projecturl http://www.m-brace.net/
+iconurl https://avatars2.githubusercontent.com/u/9674757
+tags
+    F#, cloud, mapreduce, distributed
+references
+	MBrace.Thespian.exe
+dependencies
+	MBrace.Core CURRENTVERSION
+	MBrace.Runtime CURRENTVERSION
+files
+	../../nuget/MBrace.Thespian.fsx ==>
+    ../../bin/MBrace.Thespian.exe ==> lib/net45
+	../../bin/MBrace.Thespian.pdb ==> lib/net45
+	../../bin/MBrace.Thespian.xml ==> lib/net45
+	../../bin/Newtonsoft.Json.dll ==> tools
+    ../../bin/FsPickler.dll ==> tools
+    ../../bin/FsPickler.Json.dll ==> tools
+	../../bin/Mono.Cecil.dll ==> tools
+	../../bin/Vagabond.AssemblyParser.dll ==> tools
+	../../bin/Vagabond.dll ==> tools
+	../../bin/UnionArgParser.dll ==> tools
+	../../bin/Thespian.dll ==> tools
+    ../../bin/MBrace.Core.dll ==> tools
+	../../bin/MBrace.Core.pdb ==> tools
+	../../bin/MBrace.Core.xml ==> tools
+    ../../bin/MBrace.Runtime.dll ==> tools
+	../../bin/MBrace.Runtime.pdb ==> tools
+	../../bin/MBrace.Runtime.xml ==> tools
+    ../../bin/MBrace.Thespian.exe ==> tools
+	../../bin/MBrace.Thespian.exe.config ==> tools
+	../../bin/MBrace.Thespian.pdb ==> tools
+	../../bin/MBrace.Thespian.xml ==> tools

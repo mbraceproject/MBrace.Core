@@ -84,6 +84,7 @@
     <None Include="wordcount.fsx" />
     <Content Include="App.config" />
     <None Include="paket.references" />
+    <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\MBrace.Runtime\MBrace.Runtime.fsproj">
