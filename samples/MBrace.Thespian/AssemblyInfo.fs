@@ -1,8 +1,8 @@
 ﻿namespace System
 open System.Reflection
 
-[<assembly: AssemblyTitleAttribute("MBrace.Thespian")>]
-[<assembly: AssemblyProductAttribute("MBrace.Thespian")>]
+[<assembly: AssemblyTitleAttribute("MBrace.Core")>]
+[<assembly: AssemblyProductAttribute("MBrace.Core")>]
 [<assembly: AssemblyCompanyAttribute("Nessos Information Technologies")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace")>]
