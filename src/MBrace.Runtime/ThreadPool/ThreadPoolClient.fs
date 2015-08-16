@@ -153,7 +153,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
                             ?vagabondChecker : obj -> unit) : ThreadPoolRuntime =
 
         let memoryEmulation = match memoryEmulation with Some m -> m | None -> MemoryEmulation.Shared
-        let serializer = match serializer with Some s -> s | None -> ThreadPoolFsPicklerSerializer.CreateBinarySerializer() :> _
+        let serializer = match serializer with Some s -> s | None -> new ThreadPoolFsPicklerBinarySerializer() :> _
         let valueProvider = match valueProvider with Some vp -> vp | None -> new ThreadPoolValueProvider() :> _
         let atomProvider = match atomProvider with Some ap -> ap | None -> new ThreadPoolAtomProvider(memoryEmulation) :> _
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new ThreadPoolDictionaryProvider(memoryEmulation) :> _

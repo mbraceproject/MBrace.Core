@@ -60,6 +60,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Vagabond.fs" />
+    <Compile Include="Serializers.fs" />
     <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\Task.fs" />

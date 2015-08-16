@@ -6,10 +6,12 @@ open System.Threading
 open System.Threading.Tasks
 
 open Nessos.FsPickler
+open Nessos.FsPickler.Json
 
 open MBrace.Core
 open MBrace.Core.Internals
 
+open MBrace.Runtime
 open MBrace.Runtime.Utils
 
 /// Cloud cancellation token implementation that wraps around System.Threading.CancellationToken
@@ -90,18 +92,20 @@ type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken)
         member __.ResultBoxed = task.GetResult() :> obj
 
 
-[<AutoSerializable(false); CloneableOnly>]
-type ThreadPoolFsPicklerSerializer(serializer : FsPicklerSerializer) =
-    interface ISerializer with
-        member __.Id = serializer.PickleFormat
-        member __.IsSerializable(value : 'T) = try FsPickler.EnsureSerializable value ; true with _ -> false
-        member __.Serialize (target : Stream, value : 'T, leaveOpen : bool) = serializer.Serialize(target, value, leaveOpen = leaveOpen)
-        member __.Deserialize<'T>(stream, leaveOpen) = serializer.Deserialize<'T>(stream, leaveOpen = leaveOpen)
-        member __.SeqSerialize(stream, values : 'T seq, leaveOpen) = serializer.SerializeSequence(stream, values, leaveOpen = leaveOpen)
-        member __.SeqDeserialize<'T>(stream, leaveOpen) = serializer.DeserializeSequence<'T>(stream, leaveOpen = leaveOpen)
-        member __.ComputeObjectSize<'T>(graph:'T) = serializer.ComputeSize graph
-        member __.Clone(graph:'T) = FsPickler.Clone graph
+/// FsPickler Binary serializer for use by thread pool runtimes
+type ThreadPoolFsPicklerBinarySerializer() =
+    inherit FsPicklerStoreSerializer ()
+    override __.Id = "In-Memory FsPickler Binary Serializer"
+    override __.CreateSerializer () = FsPickler.CreateBinarySerializer() :> _
 
-    static member CreateBinarySerializer() = new ThreadPoolFsPicklerSerializer(FsPickler.CreateBinarySerializer())
-    static member CreateJsonSerializer() = new ThreadPoolFsPicklerSerializer(FsPickler.CreateBinarySerializer())
-    static member CreateXmlSerializer() = new ThreadPoolFsPicklerSerializer(FsPickler.CreateBinarySerializer())
+/// FsPickler Xml serializer for use by thread pool runtimes
+type ThreadPoolFsPicklerXmlSerializer() =
+    inherit FsPicklerStoreSerializer ()
+    override __.Id = "In-Memory FsPickler Xml Serializer"
+    override __.CreateSerializer () = FsPickler.CreateXmlSerializer() :> _
+
+/// FsPickler Json serializer for use by thread pool runtimes
+type ThreadPoolFsPicklerJsonSerializer() =
+    inherit FsPicklerStoreSerializer ()
+    override __.Id = "In-Memory FsPickler Json Serializer"
+    override __.CreateSerializer () = FsPickler.CreateJsonSerializer() :> _

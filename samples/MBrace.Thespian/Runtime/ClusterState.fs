@@ -64,7 +64,7 @@ with
         let jobsDirectory = defaultArg jobsDirectory "mbrace-data"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
 
-        let serializer = FsPicklerBinaryStoreSerializer()
+        let serializer = new VagabondFsPicklerBinarySerializer()
         let cloudValueStore = fileStore.WithDefaultDirectory cacheDirectory
         let mkCacheInstance () = Config.ObjectCache
         let mkLocalCachingFileStore () = (Config.FileSystemStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"

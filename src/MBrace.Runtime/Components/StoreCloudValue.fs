@@ -523,8 +523,9 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
                                             ?localFileStore:(unit -> ICloudFileStore), ?serializer:ISerializer, 
                                             ?encapsulationThreshold:int64, ?shadowPersistObjects:bool) =
 
+        ignore VagabondRegistry.Instance
         let id = sprintf "%s:%s/%s" mainStore.Name mainStore.Id mainStore.DefaultDirectory
-        let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> ISerializer
+        let serializer = match serializer with Some s -> s | None -> new VagabondFsPicklerBinarySerializer() :> ISerializer
         let encapsulationThreshold = defaultArg encapsulationThreshold (64L * 1024L)
         FsPickler.EnsureSerializable ((cacheFactory, localFileStore))
         let config = 

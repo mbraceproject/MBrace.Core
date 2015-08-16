@@ -14,11 +14,12 @@ open MBrace.ThreadPool
 type ``Local FileSystemStore Tests`` () =
     inherit ``CloudFileStore Tests``(parallelismFactor = 100)
 
-    let fsStore = Config.fsStore()
-    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = Config.serializer, memoryEmulation = MemoryEmulation.Copied)
+    let fsStore = FileSystemStore.CreateUniqueLocal()
+    let serializer = new ThreadPoolFsPicklerBinarySerializer()
+    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, memoryEmulation = MemoryEmulation.Copied)
 
     override __.FileStore = fsStore :> _
-    override __.Serializer = Config.serializer :> _
+    override __.Serializer = serializer :> _
     override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
 
@@ -27,9 +28,12 @@ type ``Local FileSystemStore Tests`` () =
 type ``Local FileSystemStore CloudValue Tests`` () =
     inherit ``CloudValue Tests``(parallelismFactor = 100)
 
-    let fsStore = Config.fsStore()
-    let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsStore, serializer = Config.serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
-    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = Config.serializer, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
+    // StoreCloudValueProvider depends on Vagabond, ensure enabled
+    do VagabondRegistry.Initialize(throwOnError = false)
+    let fsStore = FileSystemStore.CreateUniqueLocal()
+    let serializer = new ThreadPoolFsPicklerBinarySerializer()
+    let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsStore, serializer = serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
+    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
@@ -39,10 +43,13 @@ type ``Local FileSystemStore CloudValue Tests`` () =
 [<TestFixture>]
 type ``Local FileSystemStore CloudFlow Tests`` () =
     inherit ``CloudFlow tests``()
-
-    let fsStore = Config.fsStore()
-    let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(mainStore = fsStore, serializer = Config.serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
-    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = Config.serializer, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
+    
+    // StoreCloudValueProvider depends on Vagabond, ensure enabled
+    do VagabondRegistry.Initialize(throwOnError = false)
+    let fsStore = FileSystemStore.CreateUniqueLocal()
+    let serializer = new ThreadPoolFsPicklerBinarySerializer()
+    let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(mainStore = fsStore, serializer = serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
+    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf

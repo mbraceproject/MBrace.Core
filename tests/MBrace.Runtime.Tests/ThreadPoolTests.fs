@@ -131,8 +131,9 @@ type ``InMemory CloudDictionary Tests`` () =
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
 
-    let fsStore = Config.fsStore()
-    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = Config.serializer, memoryEmulation = MemoryEmulation.Copied)
+    let fsStore = FileSystemStore.CreateUniqueLocal()
+    let serializer = new ThreadPoolFsPicklerBinarySerializer()
+    let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, memoryEmulation = MemoryEmulation.Copied)
 
     override __.RunOnCloud(workflow : Cloud<'T>) = imem.RunSynchronously workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = imem.RunSynchronously workflow
