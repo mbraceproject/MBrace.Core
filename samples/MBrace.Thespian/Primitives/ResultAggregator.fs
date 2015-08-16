@@ -36,12 +36,12 @@ module private ActorResultAggregator =
                 return results
 
             | SetResult(i, _, workerId, rc) when results.ContainsKey i ->
-                logger.Logf LogLevel.Warning "Cloud.Parallel[%s] workflow %s received duplicate result #%d by '%s'." typeName aggregatorId i workerId.Id
+                logger.Logf LogLevel.Warning "Cloud.Parallel<%s> workflow %s received duplicate result #%d by '%s'." typeName aggregatorId i workerId.Id
                 do! rc.Reply (results.Count = capacity)
                 return results
 
             | SetResult(i, value, workerId, rc) ->
-                logger.Logf LogLevel.Debug "Cloud.Parallel[%s] workflow %s received result #%d by '%s'." typeName aggregatorId i workerId.Id
+                logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s received result #%d by '%s'." typeName aggregatorId i workerId.Id
                 let results = results.Add(i, value)
                 do! rc.Reply (results.Count = capacity)
                 return results
@@ -65,7 +65,7 @@ module private ActorResultAggregator =
                 return results
         }
 
-        logger.Logf LogLevel.Debug "Created Cloud.Parallel[%s] workflow %s of %d children." typeName aggregatorId capacity
+        logger.Logf LogLevel.Debug "Created Cloud.Parallel<%s> workflow %s of %d children." typeName aggregatorId capacity
         Actor.Stateful Map.empty behaviour
         |> Actor.Publish
         |> Actor.ref
