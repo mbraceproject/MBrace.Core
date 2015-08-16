@@ -49,12 +49,11 @@ type PersistedValueManager private (resources : ResourceRegistry, persistThresho
     ///     Creates a new persisted value manager with supplied configuration.
     /// </summary>
     /// <param name="fileStore">FileStore instance used for persisting.</param>
-    /// <param name="container">Container directory for placing persisted values.</param>
     /// <param name="serializer">Default serializer used for persisting values.</param>
     /// <param name="persistThreshold">Threshold in bytes after which values are persisted as files.</param>
-    static member Create(fileStore : ICloudFileStore, container : string, serializer : ISerializer, persistThreshold : int64) =
+    static member Create(fileStore : ICloudFileStore, serializer : ISerializer, persistThreshold : int64) =
         let resources = resource {
-            yield CloudFileStoreConfiguration.Create(fileStore, defaultDirectory = container)
+            yield fileStore
             yield serializer
         }
 

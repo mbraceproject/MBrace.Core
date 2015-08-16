@@ -30,7 +30,7 @@ module internal WorkerController =
         /// Subscribe worker to provided state object
         | Subscribe of ClusterState * IReplyChannel<unit>
         /// Initializes worker as host of a new cluster state
-        | InitMasterNode of CloudFileStoreConfiguration * ResourceRegistry option * IReplyChannel<ClusterState>
+        | InitMasterNode of ICloudFileStore * ResourceRegistry option * IReplyChannel<ClusterState>
         /// Resets state of worker instance
         | Reset of IReplyChannel<unit>
         /// Kill worker process with supplied error code

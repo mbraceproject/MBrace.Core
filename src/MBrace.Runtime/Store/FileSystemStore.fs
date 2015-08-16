@@ -13,10 +13,23 @@ open MBrace.Runtime.Utils.Retry
 
 /// Cloud file store implementation targeting local file systems.
 [<Sealed; DataContract>]
-type FileSystemStore private (rootPath : string) =
+type FileSystemStore private (rootPath : string, defaultDirectory : string) =
 
     [<DataMember(Name = "RootPath")>]
     let rootPath = rootPath
+
+    let normalize (path : string) =
+        if Path.IsPathRooted path then
+            let nf = Path.GetFullPath path
+            if nf.StartsWith rootPath then nf
+            else
+                let msg = sprintf "invalid path '%O'." path
+                raise <| new FormatException(msg)
+        else
+            Path.Combine(rootPath, path) |> Path.GetFullPath
+
+    [<DataMember(Name = "DefaultDirectory")>]
+    let defaultDirectory = normalize defaultDirectory
 
     // IOException will be signifies attempt to perform concurrent writes of file.
     // An exception to this rule is FileNotFoundException, which is a subtype of IOException.
@@ -44,16 +57,6 @@ type FileSystemStore private (rootPath : string) =
                     if not <| Directory.Exists dir then
                         Directory.CreateDirectory dir |> ignore)
 
-    let normalize (path : string) =
-        if Path.IsPathRooted path then
-            let nf = Path.GetFullPath path
-            if nf.StartsWith rootPath then nf
-            else
-                let msg = sprintf "invalid path '%O'." path
-                raise <| new FormatException(msg)
-        else
-            Path.Combine(rootPath, path) |> Path.GetFullPath
-
     static let getETag (path : string) : ETag = 
         let fI = new FileInfo(path)
         let lwt = fI.LastWriteTimeUtc
@@ -62,34 +65,36 @@ type FileSystemStore private (rootPath : string) =
         Array.append lwtB size |> Convert.ToBase64String
 
     /// <summary>
-    ///     Creates a new FileSystemStore instance on given path.
+    ///     Creates a new FileSystemStore client instance.
     /// </summary>
-    /// <param name="path">Local or UNC path.</param>
-    /// <param name="create">Create directory if missing. Defaults to false.</param>
-    /// <param name="cleanup">Cleanup directory if it exists. Defaults to false.</param>
-    static member Create(path : string, ?create : bool, ?cleanup : bool) =
+    /// <param name="rootPath">Local or UNC path to root directory of store instance.</param>
+    /// <param name="defaultDirectory">Default directory used for resolving relative paths in store. Defaults to the root path.</param>
+    /// <param name="create">Create root directory if missing. Defaults to false.</param>
+    /// <param name="cleanup">Cleanup root directory if it exists. Defaults to false.</param>
+    static member Create(rootPath : string, ?defaultDirectory : string, ?create : bool, ?cleanup : bool) =
         let create = defaultArg create false
-        let rootPath = Path.GetFullPath path
+        if not <| Path.IsPathRooted rootPath then invalidArg "rootPath" "Must be absolute path."
         if create then
             ignore <| WorkingDirectory.CreateWorkingDirectory(rootPath, ?cleanup = cleanup)
         elif not <| Directory.Exists rootPath then
             raise <| new DirectoryNotFoundException(rootPath)
 
-        new FileSystemStore(rootPath)
+        let defaultDirectory = defaultArg defaultDirectory rootPath
+        new FileSystemStore(rootPath, defaultDirectory)
 
     /// <summary>
     ///     Creates a cloud file system store that can be shared between local processes.
     /// </summary>
-    static member CreateSharedLocal() =
+    static member CreateSharedLocal(?defaultDirectory : string) =
         let path = Path.Combine(Path.GetTempPath(), "mbrace-shared", "fileStore")
-        FileSystemStore.Create(path, create = true, cleanup = false)
+        FileSystemStore.Create(path, ?defaultDirectory = defaultDirectory, create = true, cleanup = false)
 
     /// <summary>
     ///     Creates a cloud file system store that is unique to the current process.
     /// </summary>
-    static member CreateUniqueLocal() =
+    static member CreateUniqueLocal(?defaultDirectory : string) =
         let path = Path.Combine(WorkingDirectory.GetDefaultWorkingDirectoryForProcess(), "localStore")
-        FileSystemStore.Create(path, create = true, cleanup = true)
+        FileSystemStore.Create(path, ?defaultDirectory = defaultDirectory, create = true, cleanup = true)
 
     /// FileSystemStore root path
     member __.RootPath = rootPath
@@ -97,11 +102,13 @@ type FileSystemStore private (rootPath : string) =
     interface ICloudFileStore with
         member __.Name = "FileSystemStore"
         member __.Id = rootPath
+        member __.DefaultDirectory = defaultDirectory
+        member __.WithDefaultDirectory newDirectory = new FileSystemStore(rootPath, newDirectory) :> _
+        member __.IsPathRooted(path : string) = Path.IsPathRooted path
         member __.GetDirectoryName(path : string) = Path.GetDirectoryName path
         member __.GetFileName(path : string) = Path.GetFileName path
         member __.Combine(paths : string []) = Path.Combine paths
         member __.GetRootDirectory () = rootPath
-        member __.TryGetFullPath (path : string) = try normalize path |> Some with _ -> None
         member __.GetRandomDirectoryName () = Path.Combine(rootPath, mkUUID())
 
         member __.GetFileSize(path : string) = async {

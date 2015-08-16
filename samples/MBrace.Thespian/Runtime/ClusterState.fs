@@ -51,33 +51,36 @@ with
     /// <summary>
     ///     Creates a cluster state object that is hosted in the local process
     /// </summary>
-    /// <param name="fileStoreConfig">File store configuration.</param>
+    /// <param name="fileStore">File store instance used by cluster.</param>
     /// <param name="isWorkerHosted">Indicates that instance is hosted by worker instance.</param>
+    /// <param name="userDataDirectory">Directory used for storing user data.</param>
     /// <param name="jobsDirectory">Directory used for persisting jobs in store.</param>
     /// <param name="assemblyDirectory">Assembly directory used in store.</param>
     /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
-    static member Create(fileStoreConfig : CloudFileStoreConfiguration, isWorkerHosted : bool, ?jobsDirectory : string, 
+    static member Create(fileStore : ICloudFileStore, isWorkerHosted : bool, 
+                            ?userDataDirectory : string, ?jobsDirectory : string, 
                             ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
 
+        let userDataDirectory = defaultArg userDataDirectory "userData"
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
         let jobsDirectory = defaultArg jobsDirectory "mbrace-data"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
 
         let serializer = FsPicklerBinaryStoreSerializer()
-        let storeCloudValueConfig = CloudFileStoreConfiguration.Create(fileStoreConfig.FileStore, defaultDirectory = cacheDirectory)
+        let cloudValueStore = fileStore.WithDefaultDirectory cacheDirectory
         let mkCacheInstance () = Config.ObjectCache
-        let mkLocalCachingFileStore () = CloudFileStoreConfiguration.Create(Config.FileSystemStore, "cloudValueCache")
-        let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(storeCloudValueConfig, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
-        let persistedValueManager = PersistedValueManager.Create(fileStoreConfig.FileStore, container = "mbrace-data", serializer = serializer, persistThreshold = 512L * 1024L)
+        let mkLocalCachingFileStore () = (Config.FileSystemStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
+        let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
+        let persistedValueManager = PersistedValueManager.Create(fileStore.WithDefaultDirectory jobsDirectory, serializer = serializer, persistThreshold = 512L * 1024L)
 
         let localStateFactory = DomainLocal.Create(fun () ->
             let logger = AttacheableLogger.Create(makeAsynchronous = false)
-            let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStoreConfig.FileStore, serializer, container = assemblyDirectory)
+            let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStore.WithDefaultDirectory assemblyDirectory, serializer, container = assemblyDirectory)
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
             let siftManager = ClosureSiftManager.Create(siftConfig, logger)
-            let storeLogger = StoreCloudLogManager.Create(fileStoreConfig.FileStore, sysLogger = logger)
+            let storeLogger = StoreCloudLogManager.Create(fileStore, sysLogger = logger)
             {
                 Logger = logger
                 PersistedValueManager = persistedValueManager
@@ -99,7 +102,7 @@ with
             yield serializer :> ISerializer
             yield cloudValueProvider :> ICloudValueProvider
             match miscResources with Some r -> yield! r | None -> ()
-            yield fileStoreConfig
+            yield fileStore.WithDefaultDirectory userDataDirectory
         }
 
         {

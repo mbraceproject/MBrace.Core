@@ -46,9 +46,9 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member self.``1. FileStore : Store instance should be serializable`` () =
-        let fileStore' = self.Serializer.Clone self.FileStore
-        fileStore'.Id |> shouldEqual self.FileStore.Id
-        fileStore'.Name |> shouldEqual self.FileStore.Name
+        let fileStore2 = self.Serializer.Clone self.FileStore
+        fileStore2.Id |> shouldEqual self.FileStore.Id
+        fileStore2.Name |> shouldEqual self.FileStore.Name
 
         // check that the cloned instance accesses the same store
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
@@ -56,8 +56,8 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             use stream = self.FileStore.BeginWrite file |> runSync
             for i = 1 to 100 do stream.WriteByte(byte i)
 
-        fileStore'.FileExists file |> runSync |> shouldEqual true
-        fileStore'.DeleteFile file |> runSync
+        fileStore2.FileExists file |> runSync |> shouldEqual true
+        fileStore2.DeleteFile file |> runSync
 
         self.FileStore.FileExists file |> runSync |> shouldEqual false
 

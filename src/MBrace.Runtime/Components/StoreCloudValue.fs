@@ -115,9 +115,9 @@ module private StoreCloudValueImpl =
             /// Encapsulation threshold for objects in bytes
             EncapsulationTreshold : int64
             /// Global cloud file store location used for persisting values
-            MainStore : CloudFileStoreConfiguration
+            MainStore : ICloudFileStore
             /// File store instance used by local instance
-            LocalStore : (unit -> CloudFileStoreConfiguration) option
+            LocalStore : (unit -> ICloudFileStore) option
             /// Serializer instance used by store
             Serializer : ISerializer
             /// Cache factory method
@@ -133,7 +133,7 @@ module private StoreCloudValueImpl =
             /// Global, serializable, configuration object
             Global : StoreCloudValueConfiguration
             /// Local CloudFileStore implementation
-            LocalStore : CloudFileStoreConfiguration option
+            LocalStore : ICloudFileStore option
             /// Local in-memory cache
             LocalCache : InMemoryCache
         }
@@ -148,32 +148,32 @@ module private StoreCloudValueImpl =
                     | Some cf -> cf ()
             }
 
-    type CloudFileStoreConfiguration with
+    type ICloudFileStore with
 
         /// <summary>
         ///     Creates a filename based on given hashcode.
         /// </summary>
         /// <param name="hash">Input hash.</param>
-        member c.GetPathByHash (hash : HashResult) =
+        member s.GetPathByHash (hash : HashResult) =
             let fileName = Vagabond.GetUniqueFileName hash
-            c.FileStore.Combine(c.DefaultDirectory, fileName + persistFileSuffix)
+            s.GetFullPath (fileName + persistFileSuffix)
 
         /// <summary>
         ///     Checks if object by given hash is persisted in store.
         /// </summary>
         /// <param name="hash">Hash to be checked.</param>
-        member c.ContainsHash(hash : HashResult) = async {
-            let filePath = c.GetPathByHash hash
-            return! c.FileStore.FileExists filePath
+        member s.ContainsHash(hash : HashResult) = async {
+            let filePath = s.GetPathByHash hash
+            return! s.FileExists filePath
         }
 
         /// <summary>
         ///     Deletes persisted object of given hash from underlying store.
         /// </summary>
         /// <param name="hash">Hash to be deleted.</param>
-        member c.DeleteByHash(hash : HashResult) = async {
-            let filePath = c.GetPathByHash hash
-            do! c.FileStore.DeleteFile filePath
+        member s.DeleteByHash(hash : HashResult) = async {
+            let filePath = s.GetPathByHash hash
+            do! s.DeleteFile filePath
         }
 
         /// <summary>
@@ -183,11 +183,11 @@ module private StoreCloudValueImpl =
         /// <param name="header">CloudValue header object.</param>
         /// <param name="value">Value to be persisted.</param>
         /// <param name="overwrite">Overwrite persisted file if it already exists.</param>
-        member c.Serialize<'T>(serializer : ISerializer, header : CloudValueHeader, value : 'T, overwrite : bool) = async {
-            let filePath = c.GetPathByHash header.Hash
-            let! exists = c.FileStore.FileExists filePath
+        member s.Serialize<'T>(serializer : ISerializer, header : CloudValueHeader, value : 'T, overwrite : bool) = async {
+            let filePath = s.GetPathByHash header.Hash
+            let! exists = s.FileExists filePath
             if not exists || overwrite then
-                use! stream = c.FileStore.BeginWrite filePath
+                use! stream = s.BeginWrite filePath
                 serializer.Serialize<CloudValueHeader>(stream, header, leaveOpen = true)
                 serializer.Serialize<obj>(stream, value, leaveOpen = true)
         }
@@ -197,9 +197,9 @@ module private StoreCloudValueImpl =
         /// </summary>
         /// <param name="serializer">Serializer to be used.</param>
         /// <param name="path">Path to file to be read.</param>
-        member c.TryGetHeader(serializer : ISerializer, path : string) = async {
+        member s.TryGetHeader(serializer : ISerializer, path : string) = async {
             try
-                use! stream = c.FileStore.BeginRead path
+                use! stream = s.BeginRead path
                 let header = serializer.Deserialize<CloudValueHeader>(stream, leaveOpen = true)
                 return Some header
             with 
@@ -212,10 +212,10 @@ module private StoreCloudValueImpl =
         /// </summary>
         /// <param name="serializer">Serializer to be used.</param>
         /// <param name="hash">Hash identifier for object.</param>
-        member c.TryDeserialize<'T>(serializer : ISerializer, hash : HashResult) = async {
-            let filePath = c.GetPathByHash hash
+        member s.TryDeserialize<'T>(serializer : ISerializer, hash : HashResult) = async {
+            let filePath = s.GetPathByHash hash
             try
-                use! stream = c.FileStore.BeginRead filePath
+                use! stream = s.BeginRead filePath
                 let _ = serializer.Deserialize<CloudValueHeader>(stream, leaveOpen = true)
                 let value = serializer.Deserialize<obj>(stream, leaveOpen = true) :?> 'T
                 return Some value
@@ -513,17 +513,17 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
     /// <summary>
     ///     Initializes a CloudValueProvider instance that is based on a cloud storage service.
     /// </summary>
-    /// <param name="storeConfig">Main CloudFileStore configuration used for persisting values.</param>
+    /// <param name="mainStore">Main CloudFileStore configuration used for persisting values.</param>
     /// <param name="cacheFactory">User-supplied InMemory cache factory. Must be serializable.</param>
     /// <param name="localFileStore">Optional local file store factory used for caching persisted values. Defaults to none.</param>
     /// <param name="serializer">Serializer instance used for persisting values. Defaults to FsPickler.</param>
     /// <param name="encapsulationThreshold">Values less than this size will be encapsulated in CloudValue instance. Defaults to 64KiB.</param>
     /// <param name="shadowPersistObjects">Asynchronously persist values to store, even if StorageLevel is declared memory only.</param>
-    static member InitCloudValueProvider(mainStore:CloudFileStoreConfiguration, ?cacheFactory : unit -> InMemoryCache, 
-                                            ?localFileStore:(unit -> CloudFileStoreConfiguration), ?serializer:ISerializer, 
+    static member InitCloudValueProvider(mainStore:ICloudFileStore, ?cacheFactory : unit -> InMemoryCache, 
+                                            ?localFileStore:(unit -> ICloudFileStore), ?serializer:ISerializer, 
                                             ?encapsulationThreshold:int64, ?shadowPersistObjects:bool) =
 
-        let id = sprintf "%s:%s/%s" mainStore.FileStore.Name mainStore.FileStore.Id mainStore.DefaultDirectory
+        let id = sprintf "%s:%s/%s" mainStore.Name mainStore.Id mainStore.DefaultDirectory
         let serializer = match serializer with Some s -> s | None -> new FsPicklerBinaryStoreSerializer() :> ISerializer
         let encapsulationThreshold = defaultArg encapsulationThreshold (64L * 1024L)
         FsPickler.EnsureSerializable ((cacheFactory, localFileStore))
@@ -567,7 +567,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
 
     interface ICloudValueProvider with
         member x.Id: string = 
-            sprintf "StoreCloudValue provider [%s] at %s." globalConfig.MainStore.FileStore.Id globalConfig.MainStore.DefaultDirectory
+            sprintf "StoreCloudValue provider [%s] at %s." globalConfig.MainStore.Id globalConfig.MainStore.DefaultDirectory
 
         member x.Name: string = "StoreCloudValue"
         member x.DefaultStorageLevel = StorageLevel.MemoryAndDisk
@@ -593,18 +593,18 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         
         member x.DisposeAllValues(): Async<unit> = async {
             let config = getConfig()
-            let! files = config.Global.MainStore.FileStore.EnumerateFiles config.Global.MainStore.DefaultDirectory
+            let! files = config.Global.MainStore.EnumerateFiles config.Global.MainStore.DefaultDirectory
             return!
                 files
                 |> Seq.filter (fun f -> f.EndsWith persistFileSuffix)
-                |> Seq.map config.Global.MainStore.FileStore.DeleteFile
+                |> Seq.map config.Global.MainStore.DeleteFile
                 |> Async.Parallel
                 |> Async.Ignore
         }
         
         member x.GetAllCloudValues(): Async<ICloudValue []> = async {
             let config = getConfig()
-            let! files = config.Global.MainStore.FileStore.EnumerateFiles config.Global.MainStore.DefaultDirectory
+            let! files = config.Global.MainStore.EnumerateFiles config.Global.MainStore.DefaultDirectory
             let! cvalues =
                 files
                 |> Seq.filter (fun f -> f.EndsWith persistFileSuffix)

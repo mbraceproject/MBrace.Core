@@ -70,11 +70,11 @@ type PersistedValue =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime serializer.</param>
     static member New(value : 'T, ?path : string, ?serializer : ISerializer) : Local<PersistedValue<'T>> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        let! store = Cloud.GetResource<ICloudFileStore>()
         let path = 
             match path with
             | Some p -> p
-            | None -> config.FileStore.GetRandomFilePath config.DefaultDirectory
+            | None -> store.GetRandomFilePath store.DefaultDirectory
 
         let! _serializer = local {
             match serializer with 
@@ -88,8 +88,8 @@ type PersistedValue =
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
 
-        let! etag,_ = config.FileStore.WriteETag(path, writer)
-        return new PersistedValue<'T>(config.FileStore, path, etag, deserializer)
+        let! etag,_ = store.WriteETag(path, writer)
+        return new PersistedValue<'T>(store, path, etag, deserializer)
     }
 
     /// <summary>
@@ -100,7 +100,7 @@ type PersistedValue =
     /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool) : Local<PersistedValue<'T>> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        let! store = Cloud.GetResource<ICloudFileStore>()
         let! deserializer = local {
             match deserializer with 
             | Some d -> return d
@@ -109,11 +109,11 @@ type PersistedValue =
                 return fun s -> serializer.Deserialize<'T>(s, leaveOpen = false)
         }
 
-        let! etag = config.FileStore.TryGetETag path
+        let! etag = store.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
-            let fpv = new PersistedValue<'T>(config.FileStore, path, et, deserializer)
+            let fpv = new PersistedValue<'T>(store, path, et, deserializer)
             if defaultArg force false then
                 let! _ = fpv.GetValueAsync() in ()
             return fpv

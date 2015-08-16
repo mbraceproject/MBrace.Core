@@ -58,6 +58,7 @@
   </Target>
   -->
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="LocalState.fs" />

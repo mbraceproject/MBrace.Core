@@ -46,13 +46,13 @@ module private Common =
 
 /// Assembly to file store uploader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
-    let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
-    let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
+type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+    let sizeOfLocalFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
+    let getFullPath (fileName : string) = store.GetFullPath fileName
 
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
-            let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+            let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath getFullPath id)
             let! md = c.GetValueAsync()
             return Some md
 
@@ -60,7 +60,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
     }
 
     let getAssemblyLoadInfo (id : AssemblyId) = local {
-        let! assemblyExists = CloudFile.Exists (getStoreAssemblyPath append id)
+        let! assemblyExists = CloudFile.Exists (getStoreAssemblyPath getFullPath id)
         if not assemblyExists then return NotLoaded id
         else
             let! metadata = tryGetCurrentMetadata id
@@ -72,7 +72,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
     /// upload assembly to blob store
     let uploadAssembly (va : VagabondAssembly) = local {
-        let assemblyStorePath = getStoreAssemblyPath append va.Id
+        let assemblyStorePath = getStoreAssemblyPath getFullPath va.Id
         let! assemblyExists = CloudFile.Exists assemblyStorePath
 
         // 1. Upload assembly image.
@@ -80,9 +80,9 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
             /// print upload sizes for given assembly
             let uploadSizes = 
                 seq {
-                    yield sprintf "IMG %s" (sizeOfFile va.Image)
+                    yield sprintf "IMG %s" (sizeOfLocalFile va.Image)
                     match va.Symbols with
-                    | Some s -> yield sprintf "PDB %s" (sizeOfFile s)
+                    | Some s -> yield sprintf "PDB %s" (sizeOfLocalFile s)
                     | None -> ()
                 } |> String.concat ", "
 
@@ -94,7 +94,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
             match va.Symbols with
             | None -> ()
             | Some symbolsPath ->
-                let symbolsStorePath = getStoreSymbolsPath append va.Id
+                let symbolsStorePath = getStoreSymbolsPath getFullPath va.Id
                 let! symbolsExist = CloudFile.Exists symbolsStorePath
                 if not symbolsExist then
                     let! _ = CloudFile.Upload(symbolsPath, symbolsStorePath, overwrite = true)
@@ -125,10 +125,10 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
             |> Seq.toArray
 
         let uploadDataFile (dd : DataDependencyInfo, hash : HashResult, localPath : string) = local {
-            let blobPath = getStoreDataPath prefixDataByAssemblyId append va.Id hash
+            let blobPath = getStoreDataPath prefixDataByAssemblyId getFullPath va.Id hash
             let! dataExists = CloudFile.Exists blobPath
             if not dataExists then
-                logger.Logf LogLevel.Info "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
+                logger.Logf LogLevel.Info "Uploading data dependency '%s' [%s]" dd.Name (sizeOfLocalFile localPath)
                 let! _ = CloudFile.Upload(localPath, blobPath, overwrite = true)
                 ()
         }
@@ -139,7 +139,7 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
         do! dataFiles |> Seq.map uploadDataFile |> Local.Parallel |> Local.Ignore
 
         // upload metadata record; TODO: use CloudAtom for synchronization?
-        let! _ = PersistedValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath append va.Id)
+        let! _ = PersistedValue.New<VagabondMetadata>(va.Metadata, path = getStoreMetadataPath getFullPath va.Id)
         return Loaded(va.Id, false, va.Metadata)
     }
 
@@ -154,20 +154,20 @@ type private StoreAssemblyUploader(config : CloudFileStoreConfiguration, imem : 
 
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
-    let append (fileName : string) = config.FileStore.Combine(config.DefaultDirectory, fileName)
+type private StoreAssemblyDownloader(store : ICloudFileStore, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+    let getFullPath (fileName : string) = store.GetFullPath fileName
 
     interface IAssemblyDownloader with
         member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
             logger.Logf LogLevel.Info "Downloading '%s'" id.FullName
-            return! config.FileStore.BeginRead (getStoreAssemblyPath append id)
+            return! store.BeginRead (getStoreAssemblyPath getFullPath id)
         }
         
         member x.TryGetSymbolReader(id: AssemblyId): Async<Stream option> = async {
-            let symbolsStorePath = getStoreSymbolsPath append id
-            let! exists = config.FileStore.FileExists symbolsStorePath
+            let symbolsStorePath = getStoreSymbolsPath getFullPath id
+            let! exists = store.FileExists symbolsStorePath
             if exists then
-                let! stream = config.FileStore.BeginRead symbolsStorePath
+                let! stream = store.BeginRead symbolsStorePath
                 return Some stream
             else
                 return None
@@ -175,13 +175,13 @@ type private StoreAssemblyDownloader(config : CloudFileStoreConfiguration, imem 
         
         member x.ReadMetadata(id: AssemblyId): Async<VagabondMetadata> = 
             local {
-                let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath append id)
+                let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath getFullPath id)
                 return! c.GetValueAsync()
             } |> imem.ToAsync
 
         member x.GetPersistedDataDependencyReader(id : AssemblyId, dd : DataDependencyInfo, hash : HashResult): Async<Stream> = async {
             logger.Logf LogLevel.Info "Downloading data dependency '%s'." dd.Name
-            return! config.FileStore.BeginRead(getStoreDataPath prefixDataByAssemblyId append id hash)
+            return! store.BeginRead(getStoreDataPath prefixDataByAssemblyId getFullPath id hash)
         }
 
 /// Distributable StoreAssemblyManagement configuration object
@@ -217,10 +217,10 @@ with
 /// Type is *not* serializable, transfer using the StoreAssemblyManagerConfiguration object instead.
 [<Sealed; AutoSerializable(false)>]
 type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, localLogger : ISystemLogger) =
-    let storeConfig = CloudFileStoreConfiguration.Create(config.Store, defaultDirectory = config.VagabondContainer)
-    let imem = ThreadPoolRuntime.Create(fileConfig = storeConfig, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
-    let uploader = new StoreAssemblyUploader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
-    let downloader = new StoreAssemblyDownloader(storeConfig, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
+    let fileStore = config.Store.WithDefaultDirectory config.VagabondContainer
+    let imem = ThreadPoolRuntime.Create(fileStore = fileStore, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
+    let uploader = new StoreAssemblyUploader(fileStore, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
+    let downloader = new StoreAssemblyDownloader(fileStore, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
 
     /// <summary>
     ///     Creates a local StoreAssemblyManager instance with provided configuration. 

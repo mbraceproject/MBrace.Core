@@ -11,6 +11,5 @@ module private Config =
 
     let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
-    let fsStore = FileSystemStore.CreateSharedLocal()
+    let fsStore () = FileSystemStore.CreateUniqueLocal()
     let serializer = new FsPicklerBinaryStoreSerializer()
-    let fsConfig = CloudFileStoreConfiguration.Create(fsStore)

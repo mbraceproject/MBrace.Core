@@ -26,11 +26,11 @@ type ICloudFileStore =
     /// Generates a random, uniquely specified path to directory
     abstract GetRandomDirectoryName : unit -> string
 
-    /// <summary>
-    ///     Returns a normal form for path. Returns None if invalid format.
-    /// </summary>
-    /// <param name="path">Input filepath.</param>
-    abstract TryGetFullPath : path:string -> string option
+    /// Gets the default directory used by the current cluster.
+    abstract DefaultDirectory : string
+
+    /// Creates a copy of the file store implementation with updated default directory.
+    abstract WithDefaultDirectory : directory:string -> ICloudFileStore
 
     /// <summary>
     ///     Returns the directory name for given path.
@@ -49,6 +49,12 @@ type ICloudFileStore =
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
     abstract Combine : paths:string [] -> string
+
+    /// <summary>
+    ///     Returns true iff path is absolute under the store uri format.
+    /// </summary>
+    /// <param name="path">Path to be checked.</param>
+    abstract IsPathRooted : path:string -> bool
 
     //
     //  Region : File/Directory operations
@@ -160,28 +166,6 @@ type ICloudFileStore =
     /// <returns>Some reader stream if etag matches, or None if it doesn't.</returns>
     abstract ReadETag : path:string * etag:ETag -> Async<Stream option>
 
-/// Store configuration passed to the continuation execution context
-[<NoEquality; NoComparison>]
-type CloudFileStoreConfiguration = 
-    {
-        /// File store.
-        FileStore : ICloudFileStore
-        /// Default directory used by current execution context.
-        DefaultDirectory : string
-    }
-with
-    /// <summary>
-    ///     Creates a store configuration instance using provided components.
-    /// </summary>
-    /// <param name="fileStore">File store instance.</param>
-    /// <param name="serializer">Serializer instance.</param>
-    /// <param name="defaultDirectory">Default directory for current process. Defaults to auto generated.</param>
-    static member Create(fileStore : ICloudFileStore, ?defaultDirectory : string) =
-        {
-            FileStore = fileStore
-            DefaultDirectory = match defaultDirectory with Some d -> d | None -> fileStore.GetRandomDirectoryName()
-        }
-
 [<AutoOpen>]
 module CloudFileStoreUtils =
     
@@ -192,8 +176,8 @@ module CloudFileStoreUtils =
         /// </summary>
         /// <param name="deserializer">Deserializer function.</param>
         /// <param name="path">Path to file.</param>
-        member cfs.Read<'T>(deserializer : Stream -> Async<'T>, path : string) = async {
-            use! stream = cfs.BeginRead path
+        member store.Read<'T>(deserializer : Stream -> Async<'T>, path : string) = async {
+            use! stream = store.BeginRead path
             return! deserializer stream
         }
 
@@ -201,28 +185,42 @@ module CloudFileStoreUtils =
         ///     Generates a random path in provided directory.
         /// </summary>
         /// <param name="directory">Container directory.</param>
-        member cfs.GetRandomFilePath (directory : string) =
+        member store.GetRandomFilePath (directory : string) =
             let fileName = Path.GetRandomFileName()
-            cfs.Combine [| directory ; fileName |]
+            store.Combine [| directory ; fileName |]
 
         /// Enumerate all directories inside root folder.
-        member cfs.EnumerateRootDirectories () = async {
-            let dir = cfs.GetRootDirectory()
-            return! cfs.EnumerateDirectories(dir)
+        member store.EnumerateRootDirectories () = async {
+            let dir = store.GetRootDirectory()
+            return! store.EnumerateDirectories(dir)
         }
 
+        /// Creates a copy of the store instance with a unique default directory
+        member store.WithUniqueDefaultDirectory () =
+            let directory = store.GetRandomDirectoryName()
+            store.WithDefaultDirectory directory
+
+        /// <summary>
+        ///     Gets the absoluted path of provided path string.
+        /// </summary>
+        /// <param name="path">Input path string</param>
+        member store.GetFullPath(path : string) =
+            if store.IsPathRooted path then path
+            else
+                store.Combine [|store.DefaultDirectory ; path |]
+
         /// Combines two strings into a single path.
-        member cfs.Combine(path1 : string, path2 : string) = cfs.Combine [| path1 ; path2 |]
+        member store.Combine(path1 : string, path2 : string) = store.Combine [| path1 ; path2 |]
         /// Combines two strings into a single path.
-        member cfs.Combine(path1 : string, path2 : string, path3 : string) = cfs.Combine [| path1 ; path2 ; path3 |]
+        member store.Combine(path1 : string, path2 : string, path3 : string) = store.Combine [| path1 ; path2 ; path3 |]
 
         /// <summary>
         ///     Combines a collection of file names with a given path prefix.
         /// </summary>
         /// <param name="container">Path prefix.</param>
         /// <param name="fileNames">File name collections.</param>
-        member cfs.Combine(container : string, fileNames : seq<string>) =
-            fileNames |> Seq.map (fun f -> cfs.Combine [|container ; f |]) |> Seq.toArray
+        member store.Combine(container : string, fileNames : seq<string>) =
+            fileNames |> Seq.map (fun f -> store.Combine [|container ; f |]) |> Seq.toArray
 
 
 namespace MBrace.Core
@@ -243,11 +241,11 @@ open MBrace.Core.Internals
 type CloudPath =
 
     /// <summary>
-    ///     Gets the default directory used by the runtime.
+    ///     Gets the default directory in use by the runtime.
     /// </summary>
     static member DefaultDirectory : Local<string> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.DefaultDirectory
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.DefaultDirectory
     }
 
     /// <summary>
@@ -255,8 +253,8 @@ type CloudPath =
     /// </summary>
     /// <param name="path">Input file path.</param>
     static member GetDirectoryName(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore.GetDirectoryName path
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.GetDirectoryName path
     }
 
     /// <summary>
@@ -264,8 +262,8 @@ type CloudPath =
     /// </summary>
     /// <param name="path">Input file path.</param>
     static member GetFileName(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore.GetFileName path
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.GetFileName path
     }
 
     /// <summary>
@@ -274,8 +272,8 @@ type CloudPath =
     /// <param name="path1">First path.</param>
     /// <param name="path2">Second path.</param>
     static member Combine(path1 : string, path2 : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore.Combine [| path1 ; path2 |]
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.Combine [| path1 ; path2 |]
     }
 
     /// <summary>
@@ -285,8 +283,8 @@ type CloudPath =
     /// <param name="path2">Second path.</param>
     /// <param name="path3">Third path.</param>
     static member Combine(path1 : string, path2 : string, path3 : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore.Combine [| path1 ; path2 ; path3 |]
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.Combine [| path1 ; path2 ; path3 |]
     }
 
     /// <summary>
@@ -294,8 +292,8 @@ type CloudPath =
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
     static member Combine(paths : string []) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore.Combine paths
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.Combine paths
     }
 
     /// <summary>
@@ -304,14 +302,23 @@ type CloudPath =
     /// <param name="directory">Directory prefix path.</param>
     /// <param name="fileNames">File names to be combined.</param>
     static member Combine(directory : string, fileNames : seq<string>) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore.Combine(directory, fileNames)
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.Combine(directory, fileNames)
+    }
+
+    /// <summary>
+    ///     Gets the absolute path for supplied path string.
+    /// </summary>
+    /// <param name="path">Input path string.</param>
+    static member GetFullPath(path : string) = local {
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.GetFullPath path
     }
 
     /// Generates a random, uniquely specified path to directory
     static member GetRandomDirectoryName() = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return config.FileStore.GetRandomDirectoryName()
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.GetRandomDirectoryName()
     }
 
     /// <summary>
@@ -319,9 +326,9 @@ type CloudPath =
     /// </summary>
     /// <param name="container">Path to containing directory. Defaults to process directory.</param>
     static member GetRandomFileName(?container : string) : Local<string> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let container = match container with Some c -> c | None -> config.DefaultDirectory
-        return config.FileStore.GetRandomFilePath(container)
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        let container = match container with Some c -> c | None -> store.DefaultDirectory
+        return store.GetRandomFilePath(container)
     }
 
 /// Represents a directory found in the cloud store
@@ -374,8 +381,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
     static member Exists(dirPath : string) : Local<bool> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! config.FileStore.DirectoryExists dirPath
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.DirectoryExists dirPath
     }
 
     /// <summary>
@@ -383,9 +390,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="dirPath">Path to newly created directory.</param>
     static member Create(dirPath : string) : Local<CloudDirectory> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        do! config.FileStore.CreateDirectory(dirPath)
-        return new CloudDirectory(config.FileStore, dirPath)
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        do! store.CreateDirectory(dirPath)
+        return new CloudDirectory(store, dirPath)
     }
 
     /// <summary>
@@ -394,12 +401,12 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="dirPath">Path to cloud directory.</param>
     /// <param name="verify">Verify that file exists before return. Defaults to true.</param>
     static member FromPath(dirPath : string, ?verify:bool) : Local<CloudDirectory> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! store = Cloud.GetResource<ICloudFileStore> ()
         if defaultArg verify true then
-            let! exists = config.FileStore.DirectoryExists dirPath
+            let! exists = store.DirectoryExists dirPath
             if not exists then return raise <| new DirectoryNotFoundException(dirPath)
 
-        return new CloudDirectory(config.FileStore, dirPath)
+        return new CloudDirectory(store, dirPath)
     }
 
     /// <summary>
@@ -409,8 +416,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
     static member Delete(dirPath : string, ?recursiveDelete : bool) : Local<unit> = local {
         let recursiveDelete = defaultArg recursiveDelete false
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! config.FileStore.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
     }
 
     /// <summary>
@@ -418,9 +425,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="directory">Directory to be enumerated.</param>
     static member Enumerate(dirPath : string) : Local<CloudDirectory []> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! dirs = config.FileStore.EnumerateDirectories(dirPath)
-        return dirs |> Array.map (fun d -> new CloudDirectory(config.FileStore, d))
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        let! dirs = store.EnumerateDirectories(dirPath)
+        return dirs |> Array.map (fun d -> new CloudDirectory(store, d))
     }
 
 /// Represents a file found in the local store
@@ -469,8 +476,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="path">Input file.</param>
     static member GetSize(path : string) : Local<int64> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! config.FileStore.GetFileSize path
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.GetFileSize path
     }
 
     /// <summary>
@@ -478,8 +485,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="path">Input file.</param>
     static member Exists(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! config.FileStore.FileExists path
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.FileExists path
     }
 
     /// <summary>
@@ -487,8 +494,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="path">Input file.</param>
     static member Delete(path : string) = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! config.FileStore.DeleteFile path
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.DeleteFile path
     }
 
     /// <summary>
@@ -497,12 +504,12 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to cloud file.</param>
     /// <param name="verify">Verify that file exists before return. Defaults to true.</param>
     static member FromPath(path : string, ?verify:bool) : Local<CloudFile> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! store = Cloud.GetResource<ICloudFileStore> ()
         if defaultArg verify true then
-            let! exists = config.FileStore.FileExists path
+            let! exists = store.FileExists path
             if not exists then return raise <| new FileNotFoundException(path)
 
-        return new CloudFile(config.FileStore, path)
+        return new CloudFile(store, path)
     }
 
     /// <summary>
@@ -511,10 +518,10 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to new cloud file.</param>
     /// <param name="serializer">Serializer function.</param>
     static member Create(path : string, serializer : Stream -> Async<unit>) : Local<CloudFile> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        use! stream = config.FileStore.BeginWrite path
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        use! stream = store.BeginWrite path
         do! serializer stream
-        return new CloudFile(config.FileStore, path)
+        return new CloudFile(store, path)
     }
 
     /// <summary>
@@ -523,8 +530,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to input file.</param>
     /// <param name="deserializer">Deserializer function.</param>
     static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Local<'T> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        return! config.FileStore.Read(deserializer, path)
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.Read(deserializer, path)
     }
 
     /// <summary>
@@ -532,9 +539,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
     static member Enumerate(dirPath : string) : Local<CloudFile []> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let! paths = config.FileStore.EnumerateFiles(dirPath)
-        return paths |> Array.map (fun path -> new CloudFile(config.FileStore, path))
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        let! paths = store.EnumerateFiles(dirPath)
+        return paths |> Array.map (fun path -> new CloudFile(store, path))
     }
 
     //
@@ -566,8 +573,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadLines(path : string, ?encoding : Encoding) : Local<seq<string>> = local {
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
-        let store = config.FileStore
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        let store = store
         let mkEnumerator () =
             let stream = store.BeginRead path |> Async.RunSync
             let seq = TextReaders.ReadLines(stream, ?encoding = encoding)
@@ -656,14 +663,14 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     static member Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<CloudFile> = local {
         let overwrite = defaultArg overwrite false
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
+        let! store = Cloud.GetResource<ICloudFileStore>()
         if not overwrite then
-            let! exists = config.FileStore.FileExists targetPath
+            let! exists = store.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
         use fs = File.OpenRead (Path.GetFullPath sourcePath)
-        do! config.FileStore.CopyOfStream(fs, targetPath)
-        return new CloudFile(config.FileStore, targetPath)
+        do! store.CopyOfStream(fs, targetPath)
+        return new CloudFile(store, targetPath)
     }
 
     /// <summary>
@@ -699,12 +706,12 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     static member Download(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<unit> = local {
         let overwrite = defaultArg overwrite false
         let targetPath = Path.GetFullPath targetPath
-        let! config = Cloud.GetResource<CloudFileStoreConfiguration> ()
+        let! store = Cloud.GetResource<ICloudFileStore> ()
         if not overwrite && File.Exists targetPath then
             raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
         use fs = File.OpenWrite targetPath
-        do! config.FileStore.CopyToStream(sourcePath, fs)
+        do! store.CopyToStream(sourcePath, fs)
     }
 
     /// <summary>

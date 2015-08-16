@@ -472,14 +472,14 @@ module CloudFlow =
             local {
                 let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCt.LocalToken)
                 let results = new List<string * StreamWriter>()
-                let! config = Cloud.GetResource<CloudFileStoreConfiguration>()
-                config.FileStore.CreateDirectory dirPath |> Async.RunSync
+                let! store = Cloud.GetResource<ICloudFileStore>()
+                store.CreateDirectory dirPath |> Async.RunSync
                 return
                     { new Collector<string, CloudFile []> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
-                            let path = config.FileStore.Combine(dirPath, sprintf "Part-%s-%d.txt" cloudFlowStaticId results.Count)
-                            let stream = config.FileStore.BeginWrite(path) |> Async.RunSync
+                            let path = store.Combine(dirPath, sprintf "Part-%s-%d.txt" cloudFlowStaticId results.Count)
+                            let stream = store.BeginWrite(path) |> Async.RunSync
                             let writer = new StreamWriter(stream)
                             results.Add((path, writer))
                             {   Index = ref -1;
@@ -487,7 +487,7 @@ module CloudFlow =
                                 Cts = cts }
                         member self.Result =
                             results |> Seq.iter (fun (_, writer) -> writer.Dispose())
-                            results |> Seq.map (fun (path, _) -> new CloudFile(config.FileStore, path)) |> Seq.toArray }
+                            results |> Seq.map (fun (path, _) -> new CloudFile(store, path)) |> Seq.toArray }
             }
 
         cloud {

@@ -20,7 +20,7 @@ type ``MBrace Thespian FileStore Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop()
 
-    override __.FileStore = session.Runtime.GetResource<CloudFileStoreConfiguration>().FileStore
+    override __.FileStore = session.Runtime.GetResource<ICloudFileStore>()
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
 
     override __.RunOnCloud (workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow

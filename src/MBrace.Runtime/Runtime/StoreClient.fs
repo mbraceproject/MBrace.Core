@@ -12,7 +12,7 @@ open MBrace.ThreadPool
 [<Sealed; AutoSerializable(false)>]
 /// Collection of CloudValue operations.
 type CloudValueClient internal (runtime : ThreadPoolRuntime) =
-    let _ = runtime.Resources.Resolve<CloudFileStoreConfiguration>()
+    let _ = runtime.Resources.Resolve<ICloudValueProvider>()
 
     /// <summary>
     ///     Creates a new cloud value to the underlying cache with provided payload.
@@ -435,31 +435,31 @@ type CloudDictionaryClient internal (runtime : ThreadPoolRuntime) =
 [<Sealed; AutoSerializable(false)>]
 /// Collection of path-related file store methods.
 type CloudPathClient internal (runtime : ThreadPoolRuntime) =
-    let config = runtime.Resources.Resolve<CloudFileStoreConfiguration>()
+    let store = runtime.Resources.Resolve<ICloudFileStore>()
 
     /// <summary>
     ///     Default store directory used by store configuration.
     /// </summary>
-    member __.DefaultDirectory = config.DefaultDirectory
+    member __.DefaultDirectory = store.DefaultDirectory
 
     /// <summary>
     ///     Returns the directory name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
-    member __.GetDirectoryName(path : string) = config.FileStore.GetDirectoryName path
+    member __.GetDirectoryName(path : string) = store.GetDirectoryName path
 
     /// <summary>
     ///     Returns the file name for given path.
     /// </summary>
     /// <param name="path">Input file path.</param>
-    member __.GetFileName(path : string) = config.FileStore.GetFileName path
+    member __.GetFileName(path : string) = store.GetFileName path
 
     /// <summary>
     ///     Combines two strings into one path.
     /// </summary>
     /// <param name="path1">First path.</param>
     /// <param name="path2">Second path.</param>
-    member __.Combine(path1 : string, path2 : string) = config.FileStore.Combine [| path1 ; path2 |]
+    member __.Combine(path1 : string, path2 : string) = store.Combine [| path1 ; path2 |]
 
     /// <summary>
     ///     Combines three strings into one path.
@@ -467,23 +467,23 @@ type CloudPathClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="path1">First path.</param>
     /// <param name="path2">Second path.</param>
     /// <param name="path3">Third path.</param>
-    member __.Combine(path1 : string, path2 : string, path3 : string) = config.FileStore.Combine [| path1 ; path2 ; path3 |]
+    member __.Combine(path1 : string, path2 : string, path3 : string) = store.Combine [| path1 ; path2 ; path3 |]
 
     /// <summary>
     ///     Combines an array of paths into a path.
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
-    member __.Combine(paths : string []) = config.FileStore.Combine paths
+    member __.Combine(paths : string []) = store.Combine paths
 
     /// <summary>
     ///     Combines a collection of file names with provided directory prefix.
     /// </summary>
     /// <param name="directory">Directory prefix path.</param>
     /// <param name="fileNames">File names to be combined.</param>
-    member __.Combine(directory : string, fileNames : seq<string>) = config.FileStore.Combine(directory, fileNames)
+    member __.Combine(directory : string, fileNames : seq<string>) = store.Combine(directory, fileNames)
                    
     /// Generates a random, uniquely specified path to directory
-    member __.GetRandomDirectoryName() = config.FileStore.GetRandomDirectoryName()
+    member __.GetRandomDirectoryName() = store.GetRandomDirectoryName()
 
     /// <summary>
     ///     Creates a uniquely defined file path for given container.
@@ -496,7 +496,7 @@ type CloudPathClient internal (runtime : ThreadPoolRuntime) =
 [<Sealed; AutoSerializable(false)>]
 type CloudDirectoryClient internal (runtime : ThreadPoolRuntime) =
 
-    let _ = runtime.Resources.Resolve<CloudFileStoreConfiguration>()
+    let _ = runtime.Resources.Resolve<ICloudFileStore>()
     
     /// <summary>
     ///     Checks if directory path exists in given path.
@@ -559,7 +559,7 @@ type CloudDirectoryClient internal (runtime : ThreadPoolRuntime) =
 [<Sealed; AutoSerializable(false)>]
 /// Collection of file store operations
 type CloudFileClient internal (runtime : ThreadPoolRuntime) =
-    let _ = runtime.Resources.Resolve<CloudFileStoreConfiguration> ()
+    let _ = runtime.Resources.Resolve<ICloudFileStore> ()
 
     /// <summary>
     ///     Gets the size of provided file, in bytes.

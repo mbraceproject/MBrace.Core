@@ -100,7 +100,7 @@ type MBraceWorker private (uri : string) =
         | Some(_,state) -> Some state
 
     /// Initializes worker instance as master node in new cluster state.
-    member internal __.InitAsClusterMasterNode(storeConfig : CloudFileStoreConfiguration, ?miscResources : ResourceRegistry) = async {
+    member internal __.InitAsClusterMasterNode(storeConfig : ICloudFileStore, ?miscResources : ResourceRegistry) = async {
         return! protectAsync (aref <!- fun ch -> InitMasterNode(storeConfig, miscResources, ch))
     }
 
@@ -180,11 +180,6 @@ type MBraceWorker private (uri : string) =
 type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     inherit MBraceClient(manager)
 
-    let masterNode =
-        if state.IsWorkerHosted then Some <| MBraceWorker.Connect state.Uri
-        else
-            None
-
     static do Config.Initialize(populateDirs = true)
     static let initWorkers logLevel (count : int) (target : ClusterState) = async {
         if count < 0 then invalidArg "workerCount" "must be non-negative."
@@ -196,6 +191,13 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
 
         do! Array.init count attachNewWorker |> Async.Parallel |> Async.Ignore
     }
+
+    static let getDefaultStore() = FileSystemStore.CreateSharedLocal() :> ICloudFileStore
+
+    let masterNode =
+        if state.IsWorkerHosted then Some <| MBraceWorker.Connect state.Uri
+        else
+            None
 
     private new (state : ClusterState, logLevel : LogLevel option) = 
         let manager = state.GetLocalRuntimeManager()
@@ -256,22 +258,16 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     ///     are processes that will be spawned for this purpose.
     /// </summary>
     /// <param name="workerCount">Number of workers to spawn for cluster.</param>
-    /// <param name="storeConfig">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
+    /// <param name="fileStore">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="resources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logger">Logger implementation to attach on client by default. Defaults to no logging.</param>
     /// <param name="logLevel">Sets the log level for the cluster. Defaults to LogLevel.Info.</param>
-    static member InitOnCurrentMachine(workerCount : int, ?storeConfig : CloudFileStoreConfiguration, 
+    static member InitOnCurrentMachine(workerCount : int, ?fileStore : ICloudFileStore, 
                                         ?resources : ResourceRegistry, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
 
         if workerCount < 0 then invalidArg "workerCount" "must be non-negative."
-        let storeConfig = 
-            match storeConfig with 
-            | Some c -> c
-            | None -> 
-                let fs = FileSystemStore.CreateSharedLocal()
-                CloudFileStoreConfiguration.Create fs
-
-        let state = ClusterState.Create(storeConfig, isWorkerHosted = false, ?miscResources = resources)
+        let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
+        let state = ClusterState.Create(fileStore, isWorkerHosted = false, ?miscResources = resources)
         let _ = initWorkers logLevel workerCount state |> Async.RunSync
         let cluster = new MBraceCluster(state, logLevel)
         logger |> Option.iter (fun l -> cluster.AttachLogger l |> ignore)
@@ -281,25 +277,15 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     ///     Initializes a new cluster state that is hosted on provided worker instance.
     /// </summary>
     /// <param name="target">Target MBrace worker to host the cluster state. Defaults to a new spawned node.</param>
-    /// <param name="storeConfig">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
+    /// <param name="fileStore">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="miscResources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
-    static member InitOnWorker(?target : MBraceWorker, ?storeConfig : CloudFileStoreConfiguration, 
+    static member InitOnWorker(?target : MBraceWorker, ?fileStore : ICloudFileStore, 
                                     ?miscResources : ResourceRegistry, ?logLevel : LogLevel) : MBraceCluster =
 
-        let storeConfig = 
-            match storeConfig with 
-            | Some c -> c
-            | None -> 
-                let fs = FileSystemStore.CreateSharedLocal()
-                CloudFileStoreConfiguration.Create fs
-
-        let target = 
-            match target with
-            | None -> MBraceWorker.Spawn()
-            | Some t -> t
-
-        let state = target.InitAsClusterMasterNode(storeConfig, ?miscResources = miscResources) |> Async.RunSync
+        let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
+        let target = match target with Some t -> t | None -> MBraceWorker.Spawn()
+        let state = target.InitAsClusterMasterNode(fileStore, ?miscResources = miscResources) |> Async.RunSync
         new MBraceCluster(state, logLevel)
 
     /// <summary>

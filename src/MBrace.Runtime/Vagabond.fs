@@ -23,6 +23,9 @@ type VagabondRegistry private () =
         | None -> invalidOp "No instance of vagabond has been registered."
         | Some instance -> instance
 
+    /// Gets whether a Vagabond instance has been registered.
+    static member IsRegistered = Option.isSome instance
+
     /// Gets the current configuration of the Vagabond registry.
     static member Configuration = VagabondRegistry.Instance.Configuration
 
