@@ -58,8 +58,8 @@ type ICloudResultAggregator<'T> =
     /// </summary>
     /// <param name="index">Index to set value at.</param>
     /// <param name="value">Value to be set.</param>
-    /// <param name="overwrite">Overwrite if value already exists at index.</param>
-    abstract SetResult : index:int * value:'T * overwrite:bool -> Async<bool>
+    /// <param name="workerId">Worker identifier of setter process.</param>
+    abstract SetResult : index:int * value:'T * workerId:IWorkerId -> Async<bool>
 
     /// Asynchronously returns aggregated results, provided aggregation is completed.
     abstract ToArray : unit -> Async<'T []>
@@ -70,5 +70,6 @@ type ICloudResultAggregatorFactory =
     /// <summary>
     ///     Allocates a new cloud result aggregator factory.
     /// </summary>
+    /// <param name="aggregatorId">Unique result aggregator identifier.</param>
     /// <param name="capacity">Declared capacity of result aggregator.</param>
-    abstract CreateResultAggregator<'T> : capacity:int -> Async<ICloudResultAggregator<'T>>
+    abstract CreateResultAggregator<'T> : aggregatorId:string * capacity:int -> Async<ICloudResultAggregator<'T>>

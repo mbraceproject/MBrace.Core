@@ -52,12 +52,13 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
     ///     Creates a new Task Manager instance running in the local process.
     /// </summary>
     static member Create(localStateF : LocalStateFactory) =
-        let localState = localStateF.Value
+        let logger = localStateF.Value.Logger
         let behaviour (state : Map<string, ActorTaskCompletionSource>) (msg : TaskManagerMsg) = async {
             match msg with
             | CreateTaskEntry(info, ch) ->
                 let id = mkUUID()
                 let te = ActorTaskCompletionSource.Create(localStateF, id, info)
+                logger.Logf LogLevel.Debug "TaskManager has created a new task completion source '%s' of type '%s'." te.Id te.Info.ReturnTypeName
                 do! ch.Reply te
                 return state.Add(te.Id, te)
 
@@ -76,6 +77,7 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
 
                 do! rc.Reply()
 
+                logger.Logf LogLevel.Debug "Clearing all TaskManager state."
                 return Map.empty
 
             | ClearTask (taskId, rc) ->

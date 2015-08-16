@@ -42,6 +42,7 @@ module JobEvaluator =
         let resources = resource {
             yield! manager.ResourceRegistry
             yield jem
+            yield currentWorker
             yield manager
             yield distributionProvider :> IParallelismProvider
         }
@@ -116,7 +117,7 @@ module JobEvaluator =
             let e = new FaultException(sprintf "Failed to deserialize job '%O'." joblt.Id, e)
             let edi = ExceptionDispatchInfo.Capture e
             do! joblt.TaskEntry.DeclareStatus Faulted
-            let! _ = joblt.TaskEntry.TrySetResult(TaskResult.Exception edi)
+            let! _ = joblt.TaskEntry.TrySetResult(TaskResult.Exception edi, currentWorker)
             do! joblt.DeclareCompleted()
 
         | Choice1Of2 job ->
@@ -134,14 +135,14 @@ module JobEvaluator =
             match result with
             | Choice1Of2 () -> 
                 logger.Logf LogLevel.Info "Completed job '%O' after %O" job.Id sw.Elapsed
-                do! job.TaskEntry.DeclareCompletedJob()
+                do! job.TaskEntry.IncrementCompletedJobCount()
                 do! joblt.DeclareCompleted ()
 
             | Choice2Of2 e ->
                 logger.Logf LogLevel.Error "Faulted job '%O' after %O\n%O" job.Id sw.Elapsed e
                 do! joblt.DeclareFaulted (ExceptionDispatchInfo.Capture e)
                 // declare job faulted to task manager
-                do! joblt.TaskEntry.DeclareFaultedJob ()
+                do! joblt.TaskEntry.IncrementFaultedJobCount ()
     }
        
 

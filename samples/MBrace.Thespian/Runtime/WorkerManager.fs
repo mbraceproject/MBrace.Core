@@ -64,7 +64,7 @@ module private HeartbeatMonitor =
     /// <param name="threshold">Threshold after which worker is to be declared dead.</param>
     /// <param name="workerMonitor">Parent worker monitor that has spawned the heartbeat process.</param>
     /// <param name="worker">Worker to monitor.</param>
-    let create (threshold : TimeSpan) (logger : ISystemLogger) (workerMonitor : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
+    let create (threshold : TimeSpan) (workerMonitor : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
         let cts = new CancellationTokenSource()
         let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTime) (msg : HeartbeatMonitorMsg) = async {
             match msg with
@@ -73,7 +73,6 @@ module private HeartbeatMonitor =
                 return DateTime.Now
             | CheckHeartbeat ->
                 if DateTime.Now - lastRenew > threshold then
-                    logger.LogError <| sprintf "Worker '%s' has stopped sending heartbeats, declaring dead." worker.Id
                     // send message to parent worker monitor declaring worker dead
                     workerMonitor <-- DeclareDead worker
 
@@ -196,15 +195,17 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
                         PerformanceMetrics = PerformanceInfo.Empty
                     }
 
-                let hmon = HeartbeatMonitor.create heartbeatThreshold logger self.Ref w
+                let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
                 do! rc.Reply(hmon, heartbeatThreshold)
+                logger.Logf LogLevel.Info "Subscribed new worker '%s' to cluster." w.Id
                 return state.Add(w, (workerState, hmon))
 
             | UnSubscribe w ->
                 match state.TryFind w with
                 | None -> return state
-                | Some (_,hmon) -> 
+                | Some (_,hmon) ->
                     do! hmon <!- Stop
+                    logger.Logf LogLevel.Info "Unsubscribed worker '%s' from cluster." w.Id
                     return state.Remove w
             
             | DeclareDead w ->
@@ -212,12 +213,18 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
                 | None -> return state
                 | Some (_,hmon) ->
                     do! hmon <!- Stop
+                    logger.Logf LogLevel.Error "Worker '%s' has stopped sending heartbeats, declaring dead." w.Id
                     return state.Remove w
 
             | DeclareStatus (w,s) ->
                 match state.TryFind w with
                 | None -> return state
                 | Some(info,hm) ->
+                    match s : WorkerJobExecutionStatus with
+                    | Stopped -> logger.Logf LogLevel.Info "Worker '%s' has declared itself stopped." w.Id
+                    | QueueFault _ -> logger.Logf LogLevel.Warning "Worker '%s' has declared itself in errored state." w.Id
+                    | _ -> ()
+
                     return state.Add(w, ({ info with ExecutionStatus = s}, hm))
 
             | IncrementJobCountBy (w,i) ->

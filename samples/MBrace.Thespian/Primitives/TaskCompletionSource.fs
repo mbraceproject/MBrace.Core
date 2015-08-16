@@ -20,12 +20,12 @@ open MBrace.Runtime.Store
 
 type private TaskCompletionSourceMsg =
     | GetState of IReplyChannel<CloudTaskState>
-    | TrySetResult of ResultMessage<TaskResult> * IReplyChannel<bool>
+    | TrySetResult of ResultMessage<TaskResult> * IWorkerId * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<ResultMessage<TaskResult> option>
     | DeclareStatus of status:CloudTaskStatus
     | IncrementJobCount
-    | DeclareCompletedJob
-    | DeclareFaultedJob
+    | IncrementCompletedJobCount
+    | IncrementFaultedJobCount
 
 /// Task completion source execution state
 type private TaskCompletionSourceState = 
@@ -105,12 +105,12 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
             return! awaiter()
         }
         
-        member x.DeclareCompletedJob(): Async<unit> = async {
-            return! source.AsyncPost DeclareCompletedJob
+        member x.IncrementCompletedJobCount(): Async<unit> = async {
+            return! source.AsyncPost IncrementCompletedJobCount
         }
         
-        member x.DeclareFaultedJob(): Async<unit> = async {
-            return! source.AsyncPost DeclareFaultedJob
+        member x.IncrementFaultedJobCount(): Async<unit> = async {
+            return! source.AsyncPost IncrementFaultedJobCount
         }
         
         member x.DeclareStatus(status: CloudTaskStatus): Async<unit> = async {
@@ -137,31 +137,34 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
                 return Some r
         }
         
-        member x.TrySetResult(result: TaskResult): Async<bool> = async {
+        member x.TrySetResult(result: TaskResult, workerId : IWorkerId): Async<bool> = async {
             let localState = localStateF.Value
             let id = sprintf "taskResult-%s" <| mkUUID()
             let! rm = localState.CreateResult(result, allowNewSifts = false, fileName = id)
-            return! source <!- fun ch -> TrySetResult(rm, ch)
+            return! source <!- fun ch -> TrySetResult(rm, workerId, ch)
         }
 
     /// <summary>
     ///     Creates a task entry instance in local process.
     /// </summary>
+    /// <param name="stateF">Local state factory.</param>
     /// <param name="id">Task unique identifier.</param>
     /// <param name="info">Task metadata.</param>
-    /// <param name="stateF">Local state factory.</param>
     static member Create(stateF : LocalStateFactory, id : string, info : CloudTaskInfo) =
+        let logger = stateF.Value.Logger
         let behaviour (state : TaskCompletionSourceState) (msg : TaskCompletionSourceMsg) = async {
             match msg with
             | GetState rc ->
                 do! rc.Reply (TaskCompletionSourceState.ExportState state)
                 return state
 
-            | TrySetResult(r, rc) when Option.isSome state.Result ->
+            | TrySetResult(_, workerId, rc) when Option.isSome state.Result ->
+                do logger.Logf LogLevel.Warning "CloudTask[%s] '%s' received duplicate result from worker '%s'." info.ReturnTypeName id workerId.Id
                 do! rc.Reply false
                 return state
 
-            | TrySetResult(r, rc) ->
+            | TrySetResult(r, workerId, rc) ->
+                do logger.Logf LogLevel.Debug "CloudTask[%s] '%s' received result from worker '%s'." info.ReturnTypeName id workerId.Id
                 do! rc.Reply true
                 return { state with Result = Some r }
 
@@ -186,10 +189,10 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
                                 ActiveJobCount = state.ActiveJobCount + 1 ;
                                 MaxActiveJobCount = max state.MaxActiveJobCount (1 + state.ActiveJobCount) }
 
-            | DeclareCompletedJob ->
+            | IncrementCompletedJobCount ->
                 return { state with ActiveJobCount = state.ActiveJobCount - 1 ; CompletedJobCount = state.CompletedJobCount + 1 }
 
-            | DeclareFaultedJob ->
+            | IncrementFaultedJobCount ->
                 return { state with ActiveJobCount = state.ActiveJobCount - 1 ; FaultedJobCount = state.FaultedJobCount + 1 }
         }
 

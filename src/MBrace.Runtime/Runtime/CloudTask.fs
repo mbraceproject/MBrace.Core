@@ -325,7 +325,7 @@ and internal CloudTaskReporter() =
           Field.create "Status" Right (fun p -> sprintf "%A" p.Status)
           Field.create "Execution Time" Left (fun p -> Option.toNullable p.ExecutionTime)
           Field.create "Jobs" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveJobs p.FaultedJobs p.CompletedJobs p.TotalJobs)
-          Field.create "Result Type" Left (fun p -> Type.prettyPrint p.Type) 
+          Field.create "Result Type" Left (fun p -> Type.prettyPrintUntyped p.Type) 
           Field.create "Start Time" Left (fun p -> Option.toNullable p.StartTime)
           Field.create "Completion Time" Left (fun p -> Option.toNullable p.CompletionTime)
         ]

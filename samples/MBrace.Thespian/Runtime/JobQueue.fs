@@ -177,7 +177,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
                 {
                     TaskEntry = job.TaskEntry
                     JobId = job.Id
-                    Type = Type.prettyPrint job.Type
+                    Type = Type.prettyPrintUntyped job.Type
                     Target = job.TargetWorker
                     JobType = job.JobType
                     Pickle = Batch(index, pickle)
@@ -197,7 +197,7 @@ type JobQueue private (source : ActorRef<JobQueueMsg>, localStateF : LocalStateF
                     TaskEntry = job.TaskEntry
                     JobId = job.Id
                     JobType = job.JobType
-                    Type = Type.prettyPrint job.Type
+                    Type = Type.prettyPrintUntyped job.Type
                     Target = job.TargetWorker
                     Pickle = Single pickle
                 }

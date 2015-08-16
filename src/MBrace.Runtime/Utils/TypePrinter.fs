@@ -4,10 +4,11 @@ open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Reflection
 
 [<AutoOpen>]
-module private Utils =
+module private PrettyPrintImpl =
 
     type Priority =
         | Generic = 5
@@ -70,13 +71,7 @@ module private Utils =
                 
         name.Split('`').[0]
 
-[<RequireQualifiedAccess>]
-module Type =
 
-    /// <summary>
-    ///   Pretty print a type name.  
-    /// </summary>
-    /// <param name="t">Type to be printed.</param>
     let prettyPrint (t : Type) =
        
         let rec traverse context (t : Type) =
@@ -140,3 +135,19 @@ module Type =
             }
 
         traverse Priority.Bottom t |> String.concat ""
+
+    let prettyPrintMemo : Type -> string = concurrentMemoize prettyPrint
+
+[<RequireQualifiedAccess>]
+module Type =
+
+    /// <summary>
+    ///   Pretty print a type name.
+    /// </summary>
+    let prettyPrint<'T> = prettyPrintMemo typeof<'T>
+    
+    /// <summary>
+    ///   Pretty print a type name.  
+    /// </summary>
+    /// <param name="t">Type to be printed.</param>
+    let prettyPrintUntyped (t : Type) = prettyPrintMemo t

@@ -128,7 +128,8 @@ type ICloudTaskCompletionSource =
     ///     Returns true if setting was successful.
     /// </summary>
     /// <param name="result">Result value to be set.</param>
-    abstract TrySetResult : result:TaskResult -> Async<bool>
+    /// <param name="workerId">Worker identifier for result setter.</param>
+    abstract TrySetResult : result:TaskResult * workerId:IWorkerId -> Async<bool>
 
     /// <summary>
     ///     Declares task execution status.
@@ -144,12 +145,12 @@ type ICloudTaskCompletionSource =
     /// <summary>
     ///     Asynchronously increments the faulted job count for task.
     /// </summary>
-    abstract DeclareFaultedJob : unit -> Async<unit>
+    abstract IncrementFaultedJobCount : unit -> Async<unit>
 
     /// <summary>
     ///     Decrements job count for provided task.
     /// </summary>
-    abstract DeclareCompletedJob : unit -> Async<unit>
+    abstract IncrementCompletedJobCount : unit -> Async<unit>
 
 /// Cloud task manager object
 type ICloudTaskManager =

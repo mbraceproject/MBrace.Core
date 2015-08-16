@@ -93,8 +93,8 @@ with
         let jobQueue = JobQueue.Create(workerManager, localStateFactory)
 
         let resources = resource {
-            yield new ActorAtomProvider(resourceFactory)
-            yield new ActorQueueProvider(resourceFactory)
+            yield new ActorAtomProvider(resourceFactory) :> ICloudAtomProvider
+            yield new ActorQueueProvider(resourceFactory) :> ICloudQueueProvider
             yield new ActorDictionaryProvider(id.Id, resourceFactory) :> ICloudDictionaryProvider
             yield serializer :> ISerializer
             yield cloudValueProvider :> ICloudValueProvider

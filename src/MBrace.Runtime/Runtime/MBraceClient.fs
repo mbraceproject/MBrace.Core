@@ -6,7 +6,7 @@ open MBrace.ThreadPool
 open MBrace.Runtime.Utils
 
 /// MBrace runtime client handle abstract class.
-[<AbstractClass>]
+[<AbstractClass; NoEquality; NoComparison>]
 type MBraceClient (runtime : IRuntimeManager) =
 
     let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
@@ -48,9 +48,7 @@ type MBraceClient (runtime : IRuntimeManager) =
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
-        let! task = Combinators.runStartAsCloudTask runtime true assemblyIds taskName faultPolicy cancellationToken target workflow
-        runtime.SystemLogger.Logf LogLevel.Info "CloudTask '%s' posted successfully." task.Id
-        return task
+        return! Combinators.runStartAsCloudTask runtime None assemblyIds taskName faultPolicy cancellationToken target workflow
     }
 
     /// <summary>

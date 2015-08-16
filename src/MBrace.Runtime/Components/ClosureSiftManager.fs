@@ -193,7 +193,7 @@ type ClosureSiftManager private (cloudValueProvider : ICloudValueProvider, siftT
                 |> Seq.toArray
 
             let mkSiftedNode (value : obj, indices : int64[], hash : HashResult, vagabondField : FieldInfo option) = async {
-                let typeName = Type.prettyPrint <| value.GetType()
+                let typeName = Type.prettyPrintUntyped <| value.GetType()
                 let! siftMethod = async {
                     match vagabondField with
                     | Some f ->

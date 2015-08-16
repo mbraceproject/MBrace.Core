@@ -77,7 +77,7 @@ type Combinators private () =
             | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
             // early detect if return type is not serializable.
             | Choice1Of2 _ when not <| MemoryEmulation.isShared memoryEmulation && not <| FsPickler.IsSerializableType<'T>() ->     
-                let msg = sprintf "Cloud.Parallel workflow uses non-serializable type '%s'." (Type.prettyPrint typeof<'T>)
+                let msg = sprintf "Cloud.Parallel workflow uses non-serializable type '%s'." Type.prettyPrint<'T>
                 let e = new SerializationException(msg)
                 cont.Exception ctx (ExceptionDispatchInfo.Capture e)
 
@@ -92,14 +92,14 @@ type Combinators private () =
                     Cloud.StartWithContinuations(comp, cont', ctx)
 
                 | Choice2Of2 e ->
-                    let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                    let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
                     cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
             | Choice1Of2 computations ->
                 match emulateProtected memoryEmulation (computations, cont) with
                 | Choice2Of2 e ->
-                    let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                    let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
                     cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
@@ -123,7 +123,7 @@ type Combinators private () =
                         | Choice2Of2 e ->
                             if exceptionLatch.Increment() = 1 then
                                 innerCts.Cancel()
-                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." (Type.prettyPrint typeof<'T>) 
+                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
                                 let se = new SerializationException(msg, e)
                                 cont.Exception (revertCtx ctx) (ExceptionDispatchInfo.Capture se)
 
@@ -137,7 +137,7 @@ type Combinators private () =
                         | Choice2Of2 e ->
                             if exceptionLatch.Increment() = 1 then
                                 innerCts.Cancel()
-                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." (Type.prettyPrint typeof<'T>) 
+                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
                                 let se = new SerializationException(msg, e)
                                 cont.Exception (revertCtx ctx) (ExceptionDispatchInfo.Capture se)
 
@@ -172,7 +172,7 @@ type Combinators private () =
                 match cloneProtected memoryEmulation (comp, cont) with
                 | Choice1Of2 (comp, cont) -> Cloud.StartWithContinuations(comp, cont, ctx)
                 | Choice2Of2 e ->
-                    let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                    let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
                     cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
@@ -180,7 +180,7 @@ type Combinators private () =
                 // distributed computation, ensure that closures are serializable
                 match emulateProtected memoryEmulation (computations, cont) with
                 | Choice2Of2 e ->
-                    let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." (Type.prettyPrint typeof<'T>)
+                    let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
                     cont.Exception ctx (ExceptionDispatchInfo.Capture se)
 
@@ -230,13 +230,13 @@ type Combinators private () =
     /// <param name="cancellationToken">Cancellation token for task. Defaults to new cancellation token.</param>
     static member StartAsTask (workflow : Cloud<'T>, memoryEmulation : MemoryEmulation, resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) =
         if memoryEmulation <> MemoryEmulation.Shared && not <| FsPickler.IsSerializableType<'T> () then
-            let msg = sprintf "Cloud task returns non-serializable type '%s'." (Type.prettyPrint typeof<'T>)
+            let msg = sprintf "Cloud task returns non-serializable type '%s'." Type.prettyPrint<'T>
             raise <| new SerializationException(msg)
 
 
         match cloneProtected memoryEmulation workflow with
         | Choice2Of2 e ->
-            let msg = sprintf "Cloud task of type '%s' uses non-serializable closure." (Type.prettyPrint typeof<'T>)
+            let msg = sprintf "Cloud task of type '%s' uses non-serializable closure." Type.prettyPrint<'T>
             raise <| new SerializationException(msg, e)
 
         | Choice1Of2 workflow ->
@@ -246,7 +246,7 @@ type Combinators private () =
                 match cloneProtected memoryEmulation result with
                 | Choice1Of2 result -> cont result |> ignore
                 | Choice2Of2 e ->
-                    let msg = sprintf "Could not serialize result for task of type '%s'." (Type.prettyPrint typeof<'T>)
+                    let msg = sprintf "Could not serialize result for task of type '%s'." Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
                     ignore <| tcs.LocalTaskCompletionSource.TrySetException se
 
