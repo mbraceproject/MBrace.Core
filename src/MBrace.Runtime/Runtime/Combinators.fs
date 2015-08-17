@@ -282,12 +282,17 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSour
 /// <param name="taskId">Task id for computation.</param>
 /// <param name="faultPolicy">Fault policy for computation.</param>
 /// <param name="token">Optional cancellation token for computation.</param>
+/// <param name="additionalResources">Additional runtime resources supplied by the user.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
 let runStartAsCloudTask (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSource option)
                         (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy : FaultPolicy) (token : ICloudCancellationToken option) 
-                        (target : IWorkerRef option) (computation : Cloud<'T>) = async {
+                        (additionalResources : ResourceRegistry option) (target : IWorkerRef option) 
+                        (computation : Cloud<'T>) = async {
+
+    // TODO : some arguments seem to be duplicated when passed either through the parentTask parameter or on their own
+    //        this should be resolved when implementing proper task hierarchies
 
     if not <| FsPickler.IsSerializableType<'T> () then
         let msg = sprintf "Cloud task returns non-serializable type '%s'." Type.prettyPrint<'T>
@@ -315,6 +320,7 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (parentTask : ICloudTaskComp
                 Name = taskName
                 CancellationTokenSource = cts
                 Dependencies = dependencies
+                AdditionalResources = additionalResources
                 ReturnTypeName = Type.prettyPrint<'T>
                 ReturnType = runtime.Serializer.PickleTyped typeof<'T>
             }

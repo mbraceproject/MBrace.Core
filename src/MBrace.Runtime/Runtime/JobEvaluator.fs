@@ -41,6 +41,7 @@ module JobEvaluator =
         use! distributionProvider = ParallelismProvider.Create(currentWorker, manager, job)
         let resources = resource {
             yield! manager.ResourceRegistry
+            match job.TaskEntry.Info.AdditionalResources with Some r -> yield! r | None -> ()
             yield jem
             yield currentWorker
             yield manager

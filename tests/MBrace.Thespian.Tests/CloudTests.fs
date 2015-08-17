@@ -12,6 +12,8 @@ open MBrace.Runtime
 open MBrace.Core.Tests
 open MBrace.Thespian
 
+#nowarn "444"
+
 type ``MBrace Thespian Cloud Tests`` () as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
@@ -107,6 +109,11 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         use d = task.Logs.Subscribe(fun e -> ra.Add(e))
         do task.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Job") |> Seq.length |> shouldEqual 2000
+
+    [<Test>]
+    member __.``1. Runtime : Additional Resources`` () =
+        let workflow = cloud { return! Cloud.GetResource<int> () }
+        session.Runtime.RunOnCloud(workflow, additionalResources = resource { yield 42 }) |> shouldEqual 42
 
     [<Test>]
     member __.``2. Fault Tolerance : map/reduce`` () =

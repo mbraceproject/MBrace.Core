@@ -65,6 +65,8 @@ type CloudTaskInfo =
         CancellationTokenSource : ICloudCancellationTokenSource
         /// Vagabond dependencies for computation
         Dependencies : AssemblyId []
+        /// Additional user-supplied resources for cloud task.
+        AdditionalResources : ResourceRegistry option
         /// Task return type in pretty printed form
         ReturnTypeName : string
         /// Task return type in pickled form
