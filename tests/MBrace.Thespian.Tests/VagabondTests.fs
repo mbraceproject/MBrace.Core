@@ -104,6 +104,9 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                 "Vagabond.dll"
                 "Thespian.dll"
                 "MBrace.Thespian.exe"
+
+                "../packages/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
+                "../packages/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
             ]
 
         fsi.EvalInteraction "open MBrace.Core"
@@ -271,3 +274,40 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         """
 
         fsi.EvalExpression "test large" |> shouldEqual true
+
+    [<Test>]
+    let ``12. Native Dependencies`` () =
+        if is64BitProcess && not runsOnMono.Value then
+            let fsi = FsiSession.Value
+
+            let code = """
+                open MathNet.Numerics
+                open MathNet.Numerics.LinearAlgebra
+
+                let getRandomDeterminant () =
+                    let m = Matrix<double>.Build.Random(200,200) 
+                    m.LU().Determinant
+
+                cluster.RunOnCloud <| cloud { return getRandomDeterminant() }
+            """
+
+            fsi.EvalInteraction code
+
+            // register native dll's
+
+            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../packages/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
+            let libiomp5md = nativeDir + "libiomp5md.dll"
+            let mkl = nativeDir + "MathNet.Numerics.MKL.dll"
+
+            fsi.EvalInteraction <| "cluster.RegisterNativeDependency " + getPathLiteral libiomp5md
+            fsi.EvalInteraction <| "cluster.RegisterNativeDependency " + getPathLiteral mkl
+
+            let code' = """
+                let useNativeMKL () = Control.UseNativeMKL()
+                cloud { 
+                    useNativeMKL ()
+                    return getRandomDeterminant ()
+                } |> cluster.RunOnCloud
+            """
+
+            fsi.EvalInteraction code'

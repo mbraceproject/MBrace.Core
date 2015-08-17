@@ -158,3 +158,15 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.LogLevel
         with get () = runtime.LogLevel
         and set l = runtime.LogLevel <- l
+
+    /// <summary>
+    ///     Registers a native assembly dependency to client state.
+    /// </summary>
+    /// <param name="assemblyPath">Path to native assembly.</param>
+    [<CompilerMessage("Native dependency support is an experimental MBrace feature.", 1571)>]
+    member __.RegisterNativeDependency(assemblyPath : string) =
+        runtime.AssemblyManager.RegisterNativeDependency assemblyPath
+
+    /// Gets native assembly dependencies registered to client state.
+    member __.NativeDependencies : string [] =
+        runtime.AssemblyManager.NativeDependencies |> Array.map (fun v -> v.Image)
