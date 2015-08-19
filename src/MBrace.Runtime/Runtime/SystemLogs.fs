@@ -152,20 +152,36 @@ module LogUtils =
         member l.LogCritical message = Logger.logCritical l message
         /// Logs a new entry with provided level and exception using the current date time
         member l.LogWithException level exn txt = Logger.logWithException l level exn txt
-        
 
-/// A logger that writes to the system console
-type ConsoleLogger (?showDate : bool) =
-    let showDate = defaultArg showDate false
-    interface ISystemLogger with
-        member __.LogEntry(e) =
-            let text = SystemLogEntry.Format(e, showDate)
-            Console.WriteLine(text)
 
 /// A logger that performs no action
 type NullLogger () =
     interface ISystemLogger with
         member __.LogEntry _ = ()
+
+/// A logger that writes to the system console
+type ConsoleLogger (?showDate : bool, ?useColors : bool) =
+    let showDate = defaultArg showDate false
+    let useColors = defaultArg useColors false
+    interface ISystemLogger with
+        member __.LogEntry(e) =
+            let text = SystemLogEntry.Format(e, showDate)
+            if useColors then
+                let currentColor = Console.ForegroundColor
+                Console.ForegroundColor <-
+                    match e.LogLevel with
+                    | LogLevel.Critical     -> ConsoleColor.Red
+                    | LogLevel.Error        -> ConsoleColor.Red
+                    | LogLevel.Warning      -> ConsoleColor.Yellow
+                    | LogLevel.Info         -> ConsoleColor.Cyan
+                    | LogLevel.Debug        -> ConsoleColor.White
+                    | LogLevel.Undefined    -> ConsoleColor.Gray
+                    | _                     -> currentColor
+
+                Console.WriteLine text
+                Console.ForegroundColor <- currentColor
+            else
+                Console.WriteLine text
 
 /// Logger that writes log entries to a local file
 [<AutoSerializable(false)>]
@@ -270,3 +286,22 @@ type AttacheableLogger private (logLevel : LogLevel, useAsync : bool) =
 
     interface IDisposable with
         member __.Dispose() = if useAsync then cts.Cancel()
+
+type private LoggerProxy(logger : ISystemLogger) =
+    inherit MarshalByRefObject()
+    override __.InitializeLifetimeService() = null
+    member __.LogEntry(entry : SystemLogEntry) = logger.LogEntry entry
+
+/// Serializable Logger proxy implementation that can be marshaled across AppDomains
+[<Sealed; DataContract>]
+type MarshaledLogger(logger : ISystemLogger) =
+    [<IgnoreDataMember>]
+    let mutable proxy = new LoggerProxy(logger)
+    [<DataMember(Name = "ObjRef")>]
+    let objRef = System.Runtime.Remoting.RemotingServices.Marshal(proxy)
+    [<OnDeserialized>]
+    let _onDeserialized (_ : StreamingContext) =
+        proxy <- System.Runtime.Remoting.RemotingServices.Unmarshal objRef :?> LoggerProxy
+
+    interface ISystemLogger with
+        member __.LogEntry(entry : SystemLogEntry) = proxy.LogEntry entry

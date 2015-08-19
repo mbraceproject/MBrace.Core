@@ -36,7 +36,7 @@ module internal WorkerSubscription =
     /// deserialized before initialization.
     type private AppDomainConfig =
         {
-            Logger : Pickle<ActorLogger>
+            Logger : MarshaledLogger
             RuntimeState : Pickle<ClusterState>
             WorkingDirectory : string
             Hostname : string
@@ -64,7 +64,7 @@ module internal WorkerSubscription =
                 logger.LogInfo "Initializing AppDomain pool evaluator."
                 let domainConfig =
                     {
-                        Logger = logger |> ActorLogger.Create |> Config.Serializer.PickleTyped
+                        Logger = new MarshaledLogger(logger)
                         RuntimeState = Config.Serializer.PickleTyped state
                         WorkingDirectory = Config.WorkingDirectory
                         Hostname = Config.HostName
@@ -72,17 +72,15 @@ module internal WorkerSubscription =
 
                 let initializer () =
                     Config.Initialize(populateDirs = false, hostname = domainConfig.Hostname, workingDirectory = domainConfig.WorkingDirectory)
-                    // Thespian initialized, safe to unpickle actor refs
-                    let logger = Config.Serializer.UnPickleTyped domainConfig.Logger
-                    Actor.Logger <- logger
+                    Actor.Logger <- domainConfig.Logger
                     let domainName = System.AppDomain.CurrentDomain.FriendlyName
-                    logger.Logf LogLevel.Info "Initializing Application Domain '%s'." domainName
-                    logger.Logf LogLevel.Info "Thespian listening to %s on AppDomain '%s'." Config.LocalAddress domainName
+                    domainConfig.Logger.Logf LogLevel.Info "Initializing Application Domain '%s'." domainName
+                    domainConfig.Logger.Logf LogLevel.Info "Thespian listening to %s on AppDomain '%s'." Config.LocalAddress domainName
 
                 let managerF () =
                     // initializer has been run, safe to unpickle overall
                     let state = Config.Serializer.UnPickleTyped domainConfig.RuntimeState
-                    let logger = Config.Serializer.UnPickleTyped domainConfig.Logger
+                    let logger = domainConfig.Logger
                     let manager = state.GetLocalRuntimeManager()
                     let _ = manager.AttachSystemLogger(logger)
                     manager, currentWorker
