@@ -1,3 +1,8 @@
+#### 0.10.1-alpha
+* Add methods for native dependency registration in client.
+* Add support for specifying runtime resources per cloudtask.
+* Add new logging tools.
+
 #### 0.10.0-alpha
 * Implement CloudValue as interface that supports StorageLevels.
 * Refactor PersistedCloudFlow to use CloudValue as underlying storage.
