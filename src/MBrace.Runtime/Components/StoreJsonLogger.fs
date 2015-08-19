@@ -241,31 +241,48 @@ type private StoreCloudLogObservable (poller : StoreJsonLogPoller<CloudLogEntry>
                         d.Dispose() ; decr()
             }
 
+/// Creates a schema for writing and fetching log files for specific Cloud tasks
+/// in StoreCloudLogManager instances
+type IStoreLogSchema =
+    /// <summary>
+    ///     Creates a path to a log file for supplied CloudJob and incremental index.
+    /// </summary>
+    /// <param name="job">Job that will be logged.</param>
+    /// <param name="index>Incremental index of logfile to be created.</param>
+    abstract GetLogFilePath : job:CloudJob * index:int -> string
+
+    /// <summary>
+    ///     Gets all log files that have been persisted to store by given task identifier.
+    /// </summary>
+    /// <param name="taskId">Cloud task identifier.</param>
+    abstract GetLogFilesByTask : taskId:string -> Async<string []>
+
+/// As simple store log schema where each cloud task creates its own root directory
+/// for storing logfiles; possibly not suitable for Azure where root directories are containers.
+type DefaultStoreLogSchema(store : ICloudFileStore) =
+    let getTaskDir (taskId:string) = sprintf "taskLogs-%s" taskId
+    interface IStoreLogSchema with
+        member x.GetLogFilePath(job: CloudJob, index: int): string = 
+            store.Combine(getTaskDir job.TaskEntry.Id, sprintf "job%s-%d.log" (job.Id.ToBase32String()) index)
+        
+        member x.GetLogFilesByTask(taskId: string): Async<string []> = async {
+            let container = getTaskDir taskId
+            let! logFiles = async {
+                try return! store.EnumerateFiles container
+                with :? DirectoryNotFoundException -> return [||]
+            }
+
+            return
+                logFiles
+                |> Seq.filter (fun f -> f.EndsWith ".log")
+                |> Seq.sort
+                |> Seq.toArray
+        }
+        
+
 /// Cloud log manager implementation that uses the underlying cloud store for persisting and reading log entries.
 [<Sealed; AutoSerializable(false)>]
-type StoreCloudLogManager private (store : ICloudFileStore, ?getContainerByTaskId : string -> string, ?sysLogger : ISystemLogger) =
-    let getContainerByTaskId =
-        match getContainerByTaskId with
-        | Some gcbt -> gcbt
-        | None -> fun id -> sprintf "taskLogs-%s" id
-
-    let getLogFile (job : CloudJob) (i : int) =
-        let container = getContainerByTaskId job.TaskEntry.Id
-        store.Combine(container, sprintf "job%s-%d.log" (job.Id.ToBase32String()) i)
-
-    let enumerateTaskLogs (taskId : string) = async {
-        let container = getContainerByTaskId taskId
-        let! files = async {
-            try return! store.EnumerateFiles container
-            with :? DirectoryNotFoundException -> return [||]
-        }
-
-        return 
-            files 
-            |> Seq.filter (fun f -> f.EndsWith ".log")
-            |> Seq.sort
-            |> Seq.toArray
-    }
+type StoreCloudLogManager private (store : ICloudFileStore, schema : IStoreLogSchema, ?sysLogger : ISystemLogger) =
 
     /// <summary>
     ///     Creates a new store log manager instance with supplied store and container parameters.
@@ -273,26 +290,26 @@ type StoreCloudLogManager private (store : ICloudFileStore, ?getContainerByTaskI
     /// <param name="store">Underlying store for cloud log manager.</param>
     /// <param name="getContainerByTaskId">User-supplied container generation function.</param>
     /// <param name="sysLogger">System logger. Defaults to no logging.</param>
-    static member Create(store : ICloudFileStore, ?getContainerByTaskId : string -> string, ?sysLogger : ISystemLogger) =
-        new StoreCloudLogManager(store, ?getContainerByTaskId = getContainerByTaskId, ?sysLogger = sysLogger)
+    static member Create(store : ICloudFileStore, schema : IStoreLogSchema, ?sysLogger : ISystemLogger) =
+        new StoreCloudLogManager(store, schema, ?sysLogger = sysLogger)
 
     interface ICloudLogManager with
         member x.CreateJobLogger(worker: IWorkerId, job: CloudJob): Async<ICloudJobLogger> = async {
             let logIdCounter = ref 0
             let nextLogFile() =
                 let id = Interlocked.Increment logIdCounter
-                getLogFile job id
+                schema.GetLogFilePath(job, index = id)
 
             let writer = StoreJsonLogger.CreateJsonLogWriter<CloudLogEntry>(store, nextLogFile, ?sysLogger = sysLogger)
             return new StoreCloudLogger(writer, job, worker.Id) :> _
         }
 
         member x.GetAllCloudLogsByTask(taskId: string): Async<seq<CloudLogEntry>> = async {
-            let! taskLogs = enumerateTaskLogs taskId
+            let! taskLogs = schema.GetLogFilesByTask taskId
             return! StoreJsonLogger.ReadJsonLogEntries(store, taskLogs)
         }
         
         member x.GetCloudLogObservableByTask(taskId: string): Async<IObservable<CloudLogEntry>> = async {
-            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> enumerateTaskLogs taskId)
+            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByTask taskId)
             return new StoreCloudLogObservable(poller) :> _
         }

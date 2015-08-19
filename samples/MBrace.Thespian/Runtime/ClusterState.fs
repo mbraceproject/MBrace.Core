@@ -77,7 +77,8 @@ with
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
             let siftManager = ClosureSiftManager.Create(siftConfig, logger)
-            let storeLogger = StoreCloudLogManager.Create(fileStore, sysLogger = logger)
+            let logSchema = new DefaultStoreLogSchema(fileStore)
+            let storeLogger = StoreCloudLogManager.Create(fileStore, logSchema, sysLogger = logger)
             {
                 Logger = logger
                 PersistedValueManager = persistedValueManager
