@@ -2,7 +2,7 @@
 
 #r "MBrace.Core.dll"
 #r "MBrace.Runtime.dll"
-#r "MBrace.Thespian.exe"
+#r "MBrace.Thespian.dll"
 #r "MBrace.Flow.dll"
 #r "Streams.Core.dll"
 
@@ -13,7 +13,7 @@ open MBrace.Thespian
 open MBrace.Flow
 open MBrace.Flow.Fluent
 
-MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thepsian.worker.exe"
 let cluster = MBraceCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug, logger = new ConsoleLogger())
 
 let source = [| 1; 3; 1; 4; 2; 5; 2; 42; 42; 7; 8; 10; 8;|]

@@ -15,13 +15,13 @@ iconurl https://avatars2.githubusercontent.com/u/9674757
 tags
     F#, cloud, mapreduce, distributed
 references
-	MBrace.Thespian.exe
+	MBrace.Thespian.dll
 dependencies
 	MBrace.Core CURRENTVERSION
 	MBrace.Runtime CURRENTVERSION
 files
 	../../nuget/MBrace.Thespian.fsx ==>
-    ../../bin/MBrace.Thespian.exe ==> lib/net45
+    ../../bin/MBrace.Thespian.dll ==> lib/net45
 	../../bin/MBrace.Thespian.pdb ==> lib/net45
 	../../bin/MBrace.Thespian.xml ==> lib/net45
 	../../bin/Newtonsoft.Json.dll ==> tools
@@ -38,8 +38,8 @@ files
     ../../bin/MBrace.Runtime.dll ==> tools
 	../../bin/MBrace.Runtime.pdb ==> tools
 	../../bin/MBrace.Runtime.xml ==> tools
-    ../../bin/MBrace.Thespian.exe ==> tools
-	../../bin/MBrace.Thespian.exe.config ==> tools
+    ../../bin/MBrace.Thespian.dll ==> tools
 	../../bin/MBrace.Thespian.pdb ==> tools
 	../../bin/MBrace.Thespian.xml ==> tools
 	../../bin/mbrace.thespian.worker.exe ==> tools
+	../../bin/mBrace.thespian.worker.exe.config ==> tools

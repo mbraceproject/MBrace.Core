@@ -7,7 +7,7 @@
 #r @"tools\Vagabond.dll"
 #r @"tools\MBrace.Core.dll"
 #r @"tools\MBrace.Runtime.dll"
-#r @"tools\MBrace.Thespian.exe"
+#r @"tools\MBrace.Thespian.dll"
 
 open System.IO
 open MBrace.Thespian

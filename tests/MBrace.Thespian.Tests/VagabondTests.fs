@@ -90,7 +90,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
     let initFsiSession () =
 
         let fsi = FsiSession.Start()
-        let thespianExe = __SOURCE_DIRECTORY__ + "../../../bin/MBrace.Thespian.exe"
+        let thespianExe = __SOURCE_DIRECTORY__ + "../../../bin/mbrace.thespian.worker.exe"
 
         // add dependencies
 
@@ -103,7 +103,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                 "Mono.Cecil.dll"
                 "Vagabond.dll"
                 "Thespian.dll"
-                "MBrace.Thespian.exe"
+                "MBrace.Thespian.dll"
 
                 "../packages/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
                 "../packages/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"

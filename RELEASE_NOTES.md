@@ -1,3 +1,7 @@
+#### 0.10.2-alpha
+* MBrace.Runtime WorkerRef and CloudTask fixes.
+* Make MBrace.Thespian class library and keep worker exe in separate project.
+
 #### 0.10.1-alpha
 * Add methods for native dependency registration in client.
 * Add support for specifying runtime resources per cloudtask.

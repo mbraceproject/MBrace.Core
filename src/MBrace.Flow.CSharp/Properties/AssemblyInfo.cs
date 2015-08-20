@@ -6,10 +6,10 @@ using System.Reflection;
 [assembly: AssemblyCompanyAttribute("Nessos Information Technologies")]
 [assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")]
 [assembly: AssemblyTrademarkAttribute("MBrace")]
-[assembly: AssemblyVersionAttribute("0.10.1")]
-[assembly: AssemblyFileVersionAttribute("0.10.1")]
+[assembly: AssemblyVersionAttribute("0.10.2")]
+[assembly: AssemblyFileVersionAttribute("0.10.2")]
 namespace System {
     internal static class AssemblyVersionInformation {
-        internal const string Version = "0.10.1";
+        internal const string Version = "0.10.2";
     }
 }
