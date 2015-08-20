@@ -113,23 +113,18 @@ type CloudTask internal () =
     member p.ShowInfo () : unit = Console.WriteLine(p.GetInfo())
 
 /// Represents a cloud computation that is being executed in the cluster.
-and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (source : ICloudTaskCompletionSource, runtime : IRuntimeManager, isClientProcess : bool) =
+and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (source : ICloudTaskCompletionSource, runtime : IRuntimeManager) =
     inherit CloudTask()
 
-    let [<DataMember(Name = "TaskSource")>] entry = source
-    let [<DataMember(Name = "TaskSource")>] runtimeId = runtime.Id
+    let [<DataMember(Name = "TaskCompletionSource")>] entry = source
+    let [<DataMember(Name = "RuntimeId")>] runtimeId = runtime.Id
 
     let mkCell () = CacheAtom.Create(async { return! entry.GetState() }, intervalMilliseconds = 500)
 
     let [<IgnoreDataMember>] mutable lockObj = new obj()
     let [<IgnoreDataMember>] mutable cell = mkCell()
+    let [<IgnoreDataMember>] mutable runtime = runtime
     let [<IgnoreDataMember>] mutable observable : IObservable<CloudLogEntry> option = None
-    let [<IgnoreDataMember>] mutable runtime = if isClientProcess then Some runtime else None
-
-    let getRuntime() =
-        match runtime with
-        | None -> invalidOp "Task log fetching not supported in this execution context."
-        | Some r -> r
 
     let getObservable() =
         match observable with
@@ -138,17 +133,17 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (s
             lock lockObj (fun () ->
                 match observable with
                 | None ->
-                    let o = getRuntime().CloudLogManager.GetCloudLogObservableByTask(source.Id) |> Async.RunSync
+                    let o = runtime.CloudLogManager.GetCloudLogObservableByTask(source.Id) |> Async.RunSync
                     observable <- Some o
                     o
                 | Some o -> o)
 
     /// Triggers elevation in event of serialization
-    [<OnSerializing>]
-    member private c.OnDeserializing (_ : StreamingContext) = 
+    [<OnSerialized>]
+    let _onDeserialized (_ : StreamingContext) = 
         lockObj <- new obj()
         cell <- mkCell()
-        runtime <- CloudTaskManagerClient.TryGetById runtimeId
+        runtime <- RuntimeManagerRegistry.Resolve runtimeId
 
     /// <summary>
     ///     Asynchronously awaits task result
@@ -216,18 +211,18 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (s
     override __.Logs = getObservable()
 
     override __.GetLogsAsync() = async { 
-        let! entries = getRuntime().CloudLogManager.GetAllCloudLogsByTask __.Id
+        let! entries = runtime.CloudLogManager.GetAllCloudLogsByTask __.Id
         return entries |> Seq.sortBy (fun e -> e.DateTime) |> Seq.toArray
     }
 
     override __.GetLogs() = 
-        getRuntime().CloudLogManager.GetAllCloudLogsByTask __.Id
+        runtime.CloudLogManager.GetAllCloudLogsByTask __.Id
         |> Async.RunSync
         |> Seq.sortBy(fun e -> e.DateTime)
         |> Seq.toArray
 
     override __.ShowLogs () =
-        let entries = getRuntime().CloudLogManager.GetAllCloudLogsByTask __.Id |> Async.RunSync
+        let entries = runtime.CloudLogManager.GetAllCloudLogsByTask __.Id |> Async.RunSync
         for e in entries do Console.WriteLine(CloudLogEntry.Format(e, showDate = true))
 
     interface ICloudTask<'T> with
@@ -267,7 +262,7 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
         let ex = Existential.FromType returnType
         let task = ex.Apply { 
             new IFunc<CloudTask> with 
-                member __.Invoke<'T> () = new CloudTask<'T>(entry, runtime, isClientProcess = true) :> CloudTask
+                member __.Invoke<'T> () = new CloudTask<'T>(entry, runtime) :> CloudTask
         }
 
         return task

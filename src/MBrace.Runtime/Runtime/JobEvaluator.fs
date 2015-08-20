@@ -100,6 +100,7 @@ module JobEvaluator =
     let loadAndRunJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerId) 
                             (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
 
+        ignore <| RuntimeManagerRegistry.TryRegister manager
         let logger = manager.SystemLogger
         logger.Logf LogLevel.Debug "Loading assembly dependencies for job '%O'." joblt.Id
         for li in manager.AssemblyManager.LoadAssemblies assemblies do

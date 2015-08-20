@@ -14,36 +14,28 @@ open MBrace.Runtime.Utils.PrettyPrinters
 /// A Serializable object used to identify a specific worker in a cluster
 /// Can be used to point computations for execution at specific machines
 [<Sealed; DataContract>]
-type WorkerRef private (runtimeId : IRuntimeId, workerManager : IWorkerManager, workerId : IWorkerId) =
+type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     
     [<DataMember(Name = "RuntimeId")>]
-    let runtimeId = runtimeId
-    [<DataMember(Name = "WorkerManager")>]
-    let workerManager = workerManager
+    let runtimeId = runtime.Id
     [<DataMember(Name = "WorkerId")>]
     let workerId = workerId
 
-    let mutable cvalue = Unchecked.defaultof<CacheAtom<WorkerState option>>
+    let initWorkerStateReader () =
+        let rm = RuntimeManagerRegistry.Resolve runtimeId
+        let getId = async { return! rm.WorkerManager.TryGetWorkerState workerId }
+        CacheAtom.Create(getId, intervalMilliseconds = 100, keepLastResultOnError = true)
 
-    static let containers = new ConcurrentDictionary<Type * IRuntimeId * IWorkerId, CacheAtom<WorkerState option>> ()
-    let init () =
-        let k = runtimeId.GetType(), runtimeId, workerId
-        let ok, v = containers.TryGetValue k
-        if ok then cvalue <- v
-        else
-            let getId = async { return! workerManager.TryGetWorkerState workerId }
-            let ca = containers.GetOrAdd(k, fun _ -> CacheAtom.Create(getId,  intervalMilliseconds = 100, keepLastResultOnError = true))
-            cvalue <- ca
-
+    [<IgnoreDataMember>]
+    let mutable cvalue = initWorkerStateReader()
     let getState () =
         match cvalue.Value with
         | None -> invalidOp <| sprintf "Worker '%s' is no longer part of runtime '%s'." workerId.Id runtimeId.Id
         | Some cv -> cv
 
-    do init ()
-
     [<OnDeserialized>]
-    member private __.OnDeserialized (_ : StreamingContext) = init ()
+    member private __.OnDeserialized (_ : StreamingContext) =
+        cvalue <- initWorkerStateReader()
 
     /// Runtime identifier
     member __.RuntimeId = runtimeId
@@ -128,7 +120,7 @@ type WorkerRef private (runtimeId : IRuntimeId, workerManager : IWorkerManager, 
     /// <param name="runtime">Runtime management object.</param>
     /// <param name="workerId">Worker identifier.</param>
     static member Create(runtime : IRuntimeManager, workerId : IWorkerId) =
-        new WorkerRef(runtime.Id, runtime.WorkerManager, workerId)
+        new WorkerRef(runtime, workerId)
 
 
 /// WorkerRef information reporting

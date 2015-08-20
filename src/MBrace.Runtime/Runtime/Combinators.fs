@@ -351,5 +351,5 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (parentTask : ICloudTaskComp
         let job = CloudJob.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudJobType.TaskRoot, computation, ?target = target)
         do! runtime.JobQueue.Enqueue(job, isClientSideEnqueue = Option.isNone parentTask)
         runtime.SystemLogger.Logf LogLevel.Info "Posted CloudTask<%s> '%s'." tcs.Info.ReturnTypeName tcs.Id
-        return new CloudTask<'T>(tcs, runtime, isClientProcess = Option.isNone parentTask)
+        return new CloudTask<'T>(tcs, runtime)
 }

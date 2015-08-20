@@ -1,12 +1,14 @@
 ﻿namespace MBrace.Runtime
 
 open System
+open System.Collections.Concurrent
 
 open Nessos.FsPickler
 open Nessos.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Runtime.Utils
 
 /// Runtime provided runtime identifier
 type IRuntimeId =
@@ -58,3 +60,34 @@ type IRuntimeManager =
     ///     Resets *all* cluster state.
     /// </summary>
     abstract ResetClusterState : unit -> Async<unit>
+
+/// Global Registry for loading IRuntimeManager instances on primitive deserialization
+type RuntimeManagerRegistry private () =
+    static let container = new ConcurrentDictionary<Type * IRuntimeId, IRuntimeManager> ()
+
+    static let getKey(runtimeId : IRuntimeId) = runtimeId.GetType(), runtimeId
+
+    /// <summary>
+    ///     Attempt to register a runtime manager instance.
+    /// </summary>
+    /// <param name="runtime">Runtime manager instance to be registered.</param>
+    static member TryRegister(runtime : IRuntimeManager) : bool =
+        if obj.ReferenceEquals(runtime, null) then raise <| new ArgumentNullException("runtime")
+        container.TryAdd(getKey runtime.Id, runtime)
+
+    /// <summary>
+    ///     Resolve locally registered runtime manager instance by runtime id.
+    /// </summary>
+    /// <param name="id">Runtime identifier.</param>
+    static member Resolve(id : IRuntimeId) : IRuntimeManager =
+        let mutable runtime = Unchecked.defaultof<_>
+        if container.TryGetValue(getKey id, &runtime) then runtime
+        else
+            invalidOp <| sprintf "RuntimeManagerRegistry: could not locate registered instance for runtime '%O'." id
+
+    /// <summary>
+    ///     Attempt to unregister a runtime manager instance by id.
+    /// </summary>
+    /// <param name="id">Runtime identifier.</param>
+    static member TryRemove(id : IRuntimeId) : bool = 
+        let ok,_ = container.TryRemove (getKey id) in ok

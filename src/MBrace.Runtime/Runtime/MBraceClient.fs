@@ -8,6 +8,7 @@ open MBrace.Runtime.Utils
 /// MBrace runtime client handle abstract class.
 [<AbstractClass; NoEquality; NoComparison>]
 type MBraceClient (runtime : IRuntimeManager) =
+    do ignore <| RuntimeManagerRegistry.TryRegister runtime
 
     let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
     let imem = ThreadPoolRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
