@@ -1,4 +1,4 @@
-﻿module internal MBrace.Thespian.Runtime.Main
+﻿module MBrace.Thespian.Runtime.Worker
 
 open System
 open System.IO
@@ -11,7 +11,6 @@ open MBrace.Runtime
 let maxConcurrentJobs = 20
 let useAppDomainIsolation = true
 
-[<EntryPoint>]
 let main (args : string []) =
     try
         let hostname = System.Net.Dns.GetHostName()

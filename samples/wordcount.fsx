@@ -1,9 +1,9 @@
 ﻿(* FSI Initialization Code *)
-#I "../../bin/"
+#I @"..\bin\"
 
 #r "MBrace.Core.dll"
 #r "MBrace.Runtime.dll"
-#r "MBrace.Thespian.exe"
+#r "MBrace.Thespian.dll"
 #r "MBrace.Flow.dll"
 #r "Streams.Core.dll"
 
@@ -12,7 +12,7 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../bin/mbrace.thespian.worker.exe"
 
 (* WordCount Example using CloudFlow *)
 

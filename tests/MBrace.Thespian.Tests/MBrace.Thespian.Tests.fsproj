@@ -67,11 +67,6 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\samples\MBrace.Thespian\MBrace.Thespian.fsproj">
-      <Name>MBrace.Thespian</Name>
-      <Project>{f95ea755-fbe4-44fc-8945-313b46bf6920}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Flow\MBrace.Flow.fsproj">
       <Name>MBrace.Flow</Name>
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
@@ -95,6 +90,11 @@
     <ProjectReference Include="..\..\src\MBrace.Runtime\MBrace.Runtime.fsproj">
       <Name>MBrace.Runtime</Name>
       <Project>{bb4a3241-4d46-4888-861d-a34440ecfe8b}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Thespian\MBrace.Thespian.fsproj">
+      <Name>MBrace.Thespian</Name>
+      <Project>{f95ea755-fbe4-44fc-8945-313b46bf6920}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\MBrace.Core.Tests\MBrace.Core.Tests.fsproj">

@@ -42,3 +42,4 @@ files
 	../../bin/MBrace.Thespian.exe.config ==> tools
 	../../bin/MBrace.Thespian.pdb ==> tools
 	../../bin/MBrace.Thespian.xml ==> tools
+	../../bin/mbrace.thespian.worker.exe ==> tools

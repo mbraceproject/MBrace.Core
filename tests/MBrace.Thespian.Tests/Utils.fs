@@ -9,7 +9,7 @@ open MBrace.Thespian
 
 type RuntimeSession(workerCount : int) =
     
-    static do MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Thespian.exe"
+    static do MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
     static let e = MBraceWorker.LocalExecutable
 
     let lockObj = obj ()
