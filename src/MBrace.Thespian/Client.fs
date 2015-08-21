@@ -180,7 +180,7 @@ type MBraceWorker private (uri : string) =
 type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     inherit MBraceClient(manager)
 
-    static do Config.Initialize(populateDirs = true)
+    static do Config.Initialize(isClient = true, populateDirs = true)
     static let initWorkers logLevel (count : int) (target : ClusterState) = async {
         if count < 0 then invalidArg "workerCount" "must be non-negative."
         let exe = MBraceWorker.LocalExecutable

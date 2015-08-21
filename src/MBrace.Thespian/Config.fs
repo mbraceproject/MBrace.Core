@@ -28,9 +28,17 @@ type Config private () =
     static let mutable _workingDirectory = Unchecked.defaultof<string>
     static let mutable _localTcpPort = Unchecked.defaultof<int>
 
-    static let initVagabond populateDirs (path:string) =
+    static let initVagabond isClient populateDirs (path:string) =
         if populateDirs then ignore <| Directory.CreateDirectory path
-        let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
+        let policy = 
+            if isClient then 
+                AssemblyLookupPolicy.ResolveRuntime ||| 
+                AssemblyLookupPolicy.ResolveVagabondCache ||| 
+                AssemblyLookupPolicy.RequireLocalDependenciesLoadedInAppDomain
+            else
+                AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| 
+                AssemblyLookupPolicy.ResolveVagabondCache
+
         Vagabond.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], cacheDirectory = path, lookupPolicy = policy)
 
     static let checkInitialized () =
@@ -40,13 +48,12 @@ type Config private () =
     /// <summary>
     ///     Initializes the global configuration object.
     /// </summary>
-    /// <param name="populateDirs">Create or clear working directory.</param>
-    static member Initialize(populateDirs : bool, ?hostname : string, ?workingDirectory : string, ?port : int) =
+    static member Initialize(populateDirs : bool, isClient : bool, ?hostname : string, ?workingDirectory : string, ?port : int) =
         lock _isInitialized (fun () ->
             if _isInitialized.Value then invalidOp "Runtime configuration has already been initialized."
             _workingDirectory <- WorkingDirectory.CreateWorkingDirectory(?path = workingDirectory ,cleanup = populateDirs)
             let vagabondDir = Path.Combine(_workingDirectory, "vagabond")
-            VagabondRegistry.Initialize(fun () -> initVagabond populateDirs vagabondDir)
+            VagabondRegistry.Initialize(fun () -> initVagabond isClient populateDirs vagabondDir)
 
             let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
             _objectCache <- InMemoryCache.Create()

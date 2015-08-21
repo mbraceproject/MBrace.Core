@@ -71,7 +71,7 @@ module internal WorkerSubscription =
                     }
 
                 let initializer () =
-                    Config.Initialize(populateDirs = false, hostname = domainConfig.Hostname, workingDirectory = domainConfig.WorkingDirectory)
+                    Config.Initialize(populateDirs = false, isClient = false, hostname = domainConfig.Hostname, workingDirectory = domainConfig.WorkingDirectory)
                     Actor.Logger <- domainConfig.Logger
                     let domainName = System.AppDomain.CurrentDomain.FriendlyName
                     domainConfig.Logger.Logf LogLevel.Info "Initializing Application Domain '%s'." domainName
