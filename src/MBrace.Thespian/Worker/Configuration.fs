@@ -5,7 +5,7 @@ open System.IO
 open System.Diagnostics
 
 open Nessos.FsPickler
-open Nessos.UnionArgParser
+open Nessos.Argu
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote
@@ -41,7 +41,7 @@ module internal WorkerConfiguration =
                 | Log_File _ -> "Specify a log file for node logging purposes."
 
     /// Argument parser instance object
-    let argParser = UnionArgParser.Create<Arguments>()
+    let argParser = ArgumentParser.Create<Arguments>()
 
     /// Worker startup result; submitted to process that is spawning a child worker process.
     type WorkerStartupResult =
