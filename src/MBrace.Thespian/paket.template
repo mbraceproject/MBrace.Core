@@ -30,7 +30,7 @@ files
 	../../bin/Mono.Cecil.dll ==> tools
 	../../bin/Vagabond.AssemblyParser.dll ==> tools
 	../../bin/Vagabond.dll ==> tools
-	../../bin/UnionArgParser.dll ==> tools
+	../../bin/Argu.dll ==> tools
 	../../bin/Thespian.dll ==> tools
     ../../bin/MBrace.Core.dll ==> tools
 	../../bin/MBrace.Core.pdb ==> tools

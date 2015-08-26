@@ -1,3 +1,6 @@
+#### 0.10.3-alpha
+* Sifting bugfixes.
+
 #### 0.10.2-alpha
 * MBrace.Runtime WorkerRef and CloudTask fixes.
 * Make MBrace.Thespian class library and keep worker exe in separate project.
