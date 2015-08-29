@@ -77,7 +77,7 @@ type PersistedSequence<'T> =
     }
 
     /// Gets Cloud sequence element count
-    member c.Count = c.GetCountAsync() |> Async.RunSynchronously
+    member c.Count = c.GetCountAsync() |> Async.RunSync
 
     /// Asynchronously gets underlying sequence size in bytes
     member c.GetSizeAsync() = async {
@@ -85,7 +85,7 @@ type PersistedSequence<'T> =
     }
 
     /// Gets underlying sequence size in bytes
-    member c.Size = c.GetSizeAsync() |> Async.RunSynchronously
+    member c.Size = c.GetSizeAsync() |> Async.RunSync
 
     interface ICloudDisposable with
         member c.Dispose () = async {

@@ -164,14 +164,9 @@ module ExceptionDispatchInfoUtils =
 
         /// Returns the task result
         member t.GetResult () =
-            use handle = new ManualResetEvent(false)
-            let _ = t.ContinueWith(fun (t:Task<'T>) -> ignore <| handle.Set())
-            let _ = handle.WaitOne(Timeout.Infinite)
-            match t.Status with
-            | TaskStatus.RanToCompletion -> t.Result
-            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
-            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
-            | _ -> invalidOp "internal error"
+            try t.Result
+            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 ->
+                raise ae.InnerExceptions.[0]
 
         /// Asynchronously awaits task completion
         member t.AwaitResultAsync() = async {

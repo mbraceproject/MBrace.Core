@@ -50,7 +50,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
             | None -> localCacheStore.GetRandomDirectoryName()
             | Some c -> c
 
-        do localCacheStore.CreateDirectory(localCacheContainer) |> Async.RunSynchronously
+        do localCacheStore.CreateDirectory(localCacheContainer) |> Async.RunSync
 
         new FileStoreCache(target, localCacheStore, localCacheContainer)
 
