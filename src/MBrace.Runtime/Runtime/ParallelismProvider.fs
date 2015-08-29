@@ -35,7 +35,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
         member __.Dispose () = logger.Dispose()
         
     interface IParallelismProvider with
-        member __.ProcessId = currentJob.TaskEntry.Id
+        member __.TaskId = currentJob.TaskEntry.Id
         member __.JobId = currentJob.Id.ToString()
 
         member __.FaultPolicy = faultPolicy
