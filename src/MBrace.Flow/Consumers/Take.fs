@@ -49,7 +49,7 @@ module Take =
                 let totalCount = ref 0
                 for (workerRef, cloudArray) in flow.GetPartitions() do
                     if !totalCount < n then
-                        let count = cloudArray.GetCount() |> Async.RunSynchronously
+                        let count = cloudArray.GetCount() |> Async.RunSync
                         if !totalCount + int count <= n then
                             partitions.Add(workerRef, cloudArray)
                         else 
