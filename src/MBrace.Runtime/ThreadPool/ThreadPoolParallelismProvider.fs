@@ -63,7 +63,7 @@ type ThreadPoolParallelismProvider private (processId : string, memoryEmulation 
             return ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
         }
 
-        member __.ProcessId = sprintf "In-Memory MBrace computation %s" processId
+        member __.TaskId = sprintf "In-Memory MBrace computation %s" processId
         member __.JobId = sprintf "TheadId %d" <| System.Threading.Thread.CurrentThread.ManagedThreadId
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false

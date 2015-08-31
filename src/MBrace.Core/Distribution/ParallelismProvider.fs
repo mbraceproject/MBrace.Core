@@ -11,7 +11,7 @@ open MBrace.Core
 type IParallelismProvider =
 
     /// Get cloud process identifier
-    abstract ProcessId : string
+    abstract TaskId : string
     /// Get cloud job identifier
     abstract JobId : string
     /// Get all available workers in cluster

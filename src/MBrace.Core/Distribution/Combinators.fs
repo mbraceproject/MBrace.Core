@@ -290,11 +290,11 @@ type Cloud =
     }
 
     /// <summary>
-    ///     Gets the assigned id of the currently running cloud process.
+    ///     Gets the assigned id of the currently running CloudTask.
     /// </summary>
-    static member GetProcessId () : Local<string> = local {
+    static member GetCloudTaskId () : Local<string> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
-        return runtime.ProcessId
+        return runtime.TaskId
     }
 
     /// <summary>
