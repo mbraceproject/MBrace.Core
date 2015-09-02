@@ -56,6 +56,12 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian.Worker", "s
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MBrace.Thespian", "MBrace.Thespian", "{4CB16151-8953-44BD-84DF-9E080C930F38}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{4297EDC2-747E-42BB-8552-D8155AE3E8E5}"
+	ProjectSection(SolutionItems) = preProject
+		resource\Mblue.res = resource\Mblue.res
+		resource\Mgrey.res = resource\Mgrey.res
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -117,5 +123,6 @@ Global
 		{0D500B73-4CEE-409A-AEFA-3A6C11368F10} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 		{B46F7B4C-6317-46A5-BD74-331E0790BD72} = {4CB16151-8953-44BD-84DF-9E080C930F38}
 		{4CB16151-8953-44BD-84DF-9E080C930F38} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
+		{4297EDC2-747E-42BB-8552-D8155AE3E8E5} = {9E6D05F7-4934-49C3-99E7-B935D40F7245}
 	EndGlobalSection
 EndGlobal
