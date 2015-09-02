@@ -1,3 +1,7 @@
+#### 0.10.4-alpha
+* Core improvements and cleanups.
+* Add icon to Thespian worker executable.
+
 #### 0.10.3-alpha
 * Sifting bugfixes.
 
