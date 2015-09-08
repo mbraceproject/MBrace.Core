@@ -73,7 +73,7 @@ with
 
         let localStateFactory = DomainLocal.Create(fun () ->
             let logger = AttacheableLogger.Create(makeAsynchronous = false)
-            let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStore.WithDefaultDirectory assemblyDirectory, serializer, container = assemblyDirectory)
+            let vagabondStoreConfig = StoreAssemblyManagerConfiguration.Create(fileStore.WithDefaultDirectory assemblyDirectory, serializer, container = assemblyDirectory, ignoredAssemblies = [|System.Reflection.Assembly.GetExecutingAssembly()|])
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
             let siftManager = ClosureSiftManager.Create(siftConfig, logger)

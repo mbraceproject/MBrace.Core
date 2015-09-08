@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 open System.Runtime.Serialization
+open System.Reflection
 
 open Nessos.FsPickler.Hashing
 
@@ -196,6 +197,8 @@ type StoreAssemblyManagerConfiguration =
         Serializer : ISerializer
         /// Specifies if data dependencies are to be prefixed by their assembly session identifiers.
         PrefixDataDependenciesByAssemblyId : bool
+        /// Assemblies ignored by Vagabond
+        IgnoredAssemblies : Set<AssemblyId>
     }
 with
     /// <summary>
@@ -203,14 +206,22 @@ with
     /// </summary>
     /// <param name="store">Store instance used for persisted vagabond data.</param>
     /// <param name="serializer">Serializer instance used for vagabond metadata.</param>
+    /// <param name="ignoredAssemblies">Store directory used for storing vagabond data. Defaults to "vagabond".</param>
     /// <param name="container">Store directory used for storing vagabond data. Defaults to "vagabond".</param>
     /// <param name="prefixDataDependenciesByAssemblyId">Prefix upload data dependency files by their assembly session identifiers. Defaults to true.</param>
-    static member Create(store : ICloudFileStore, serializer : ISerializer, ?container : string, ?prefixDataDependenciesByAssemblyId : bool) =
+    static member Create(store : ICloudFileStore, serializer : ISerializer, ?ignoredAssemblies : Assembly [], ?container : string, ?prefixDataDependenciesByAssemblyId : bool) =
+        let ignoredAssemblies = 
+            defaultArg ignoredAssemblies [||]
+            |> fun ia -> Vagabond.ComputeAssemblyDependencies(ia, policy = AssemblyLookupPolicy.None)
+            |> Seq.map Vagabond.ComputeAssemblyId 
+            |> Set.ofSeq
+
         {
             Store = store
             Serializer = serializer
             VagabondContainer = defaultArg container "vagabond"
             PrefixDataDependenciesByAssemblyId = defaultArg prefixDataDependenciesByAssemblyId true
+            IgnoredAssemblies = ignoredAssemblies
         }
 
 /// AssemblyManager implementation that uses cloud store to share Vagabond assemblies.
@@ -238,6 +249,7 @@ type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, l
     /// <param name="ids">Assemblies to be uploaded.</param>
     /// <returns>List of data dependencies that failed to be serialized.</returns>
     member __.UploadAssemblies(assemblies : seq<VagabondAssembly>) : Async<DataDependencyInfo []> = async {
+        let assemblies = assemblies |> Seq.filter (fun a -> not <| config.IgnoredAssemblies.Contains a.Id)
         let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, assemblies)
         if errors.Length > 0 then
             let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
@@ -252,16 +264,19 @@ type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, l
     /// <param name="ids">Assembly id's requested for download.</param>
     /// <returns>Vagabond assemblies downloaded to local disk.</returns>
     member __.DownloadAssemblies(ids : seq<AssemblyId>) : Async<VagabondAssembly []> = async {
+        let ids = ids |> Seq.filter (not << config.IgnoredAssemblies.Contains)
         return! VagabondRegistry.Instance.DownloadAssemblies(downloader, ids)
     }
 
     /// Load local assemblies to current AppDomain
     member __.LoadAssemblies(assemblies : seq<VagabondAssembly>) =
+        let assemblies = assemblies |> Seq.filter (fun a -> not <| config.IgnoredAssemblies.Contains a.Id)
         VagabondRegistry.Instance.LoadVagabondAssemblies(assemblies)
 
     /// Compute dependencies for provided object graph
     member __.ComputeDependencies(graph : 'T) : VagabondAssembly [] =
         VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true, includeNativeDependencies = true) 
+        |> Array.filter (fun a -> not <| config.IgnoredAssemblies.Contains a.Id)
 
     /// <summary>
     ///     Registers a native assembly dependency to client state.

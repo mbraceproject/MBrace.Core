@@ -29,7 +29,7 @@ type ``Local FileSystemStore CloudValue Tests`` () =
     inherit ``CloudValue Tests``(parallelismFactor = 100)
 
     // StoreCloudValueProvider depends on Vagabond, ensure enabled
-    do VagabondRegistry.Initialize(throwOnError = false)
+    do VagabondRegistry.Initialize(isClientSession = true)
     let fsStore = FileSystemStore.CreateUniqueLocal()
     let serializer = new ThreadPoolFsPicklerBinarySerializer()
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsStore, serializer = serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
@@ -45,7 +45,7 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
     inherit ``CloudFlow tests``()
     
     // StoreCloudValueProvider depends on Vagabond, ensure enabled
-    do VagabondRegistry.Initialize(throwOnError = false)
+    do VagabondRegistry.Initialize(isClientSession = true)
     let fsStore = FileSystemStore.CreateUniqueLocal()
     let serializer = new ThreadPoolFsPicklerBinarySerializer()
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(mainStore = fsStore, serializer = serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider

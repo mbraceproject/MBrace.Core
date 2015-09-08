@@ -8,12 +8,20 @@ open System.IO
 open Nessos.Vagabond
 
 open MBrace.Core.Internals
+open MBrace.Runtime.Utils
 
 /// Vagabond state container
 type VagabondRegistry private () =
 
     static let lockObj = obj()
     static let mutable instance : VagabondManager option = None
+
+    static let registerVagabond (throwOnError : bool) (factory : unit -> VagabondManager) =
+        lock lockObj (fun () ->
+            match instance with
+            | None -> instance <- Some <| factory ()
+            | Some _ when throwOnError -> invalidOp "An instance of Vagabond has already been registered."
+            | Some _ -> ())
 
     /// Gets the registered vagabond instance.
     static member Instance =
@@ -28,21 +36,19 @@ type VagabondRegistry private () =
     static member Configuration = VagabondRegistry.Instance.Configuration
 
     /// <summary>
-    ///     Initializes the registry using provided factory.
+    ///     Initializes the Vagabond registry with provided parameters.
     /// </summary>
-    /// <param name="factory">Vagabond instance factory. Defaults to default factory.</param>
-    /// <param name="throwOnError">Throw exception on error.</param>
-    static member Initialize(?factory : unit -> VagabondManager, ?throwOnError : bool) =
-        let factory = defaultArg factory (fun () -> Vagabond.Initialize())
-        lock lockObj (fun () ->
-            match instance with
-            | None -> instance <- Some <| factory ()
-            | Some _ when defaultArg throwOnError true -> invalidOp "An instance of Vagabond has already been registered."
-            | Some _ -> ())
+    /// <param name="workingDirectory">Working directory used by Vagabond. Defaults to self-assigned directory.</param>
+    /// <param name="isClientSession">Indicates that Vagabond instance is for usage by MBrace client. Defaults to false.</param>
+    static member Initialize(?workingDirectory : string, ?isClientSession : bool) =
+        let isClientSession = defaultArg isClientSession false
+        let policy = 
+            if isClientSession then
+                AssemblyLookupPolicy.ResolveRuntime ||| 
+                AssemblyLookupPolicy.ResolveVagabondCache ||| 
+                AssemblyLookupPolicy.RequireLocalDependenciesLoadedInAppDomain
+            else
+                AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| 
+                AssemblyLookupPolicy.ResolveVagabondCache
 
-    /// <summary>
-    ///     Initializes the registry using provided configuration object.
-    /// </summary>
-    /// <param name="config">Vagabond configuration object.</param>
-    static member Initialize(config : VagabondConfiguration, ?throwOnError : bool) =
-        VagabondRegistry.Initialize((fun () -> Vagabond.Initialize(config)), ?throwOnError = throwOnError)
+        registerVagabond (not isClientSession) (fun () -> Vagabond.Initialize(ignoredAssemblies = [|Assembly.GetExecutingAssembly()|], ?cacheDirectory = workingDirectory, lookupPolicy = policy))

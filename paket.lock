@@ -2,7 +2,7 @@ NUGET
   remote: https://nuget.org/api/v2
   specs:
     Argu (1.0.0)
-    FAKE (4.3.0)
+    FAKE (4.3.7)
     FsCheck (2.0.7)
       FSharp.Core (>= 3.1.2.5)
     FSharp.Compiler.Service (1.3.1.2)
@@ -29,7 +29,7 @@ NUGET
     Streams.CSharp (0.3.0)
       Streams (0.3.0)
     TaskParallelLibrary (1.0.2856) - framework: >= net35 < net40
-    Thespian.Core (0.1.5-alpha)
+    Thespian.Core (0.1.6-alpha)
       FsPickler (>= 1.2.1)
     Unquote (3.0.0)
     Vagabond (0.8.5)
