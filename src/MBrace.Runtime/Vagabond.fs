@@ -10,7 +10,7 @@ open Nessos.Vagabond
 open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 
-/// Vagabond state container
+/// Global Vagabond instance container
 type VagabondRegistry private () =
 
     static let lockObj = obj()
@@ -31,9 +31,6 @@ type VagabondRegistry private () =
 
     /// Gets whether a Vagabond instance has been registered.
     static member IsRegistered = Option.isSome instance
-
-    /// Gets the current configuration of the Vagabond registry.
-    static member Configuration = VagabondRegistry.Instance.Configuration
 
     /// <summary>
     ///     Initializes the Vagabond registry with provided parameters.
