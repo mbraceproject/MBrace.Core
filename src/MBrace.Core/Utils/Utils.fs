@@ -26,6 +26,8 @@ module Utils =
                 Async.StartWithContinuations(body, sc', ec', cc, ct))
         }
 
+        static member AwaitTask(task : Task) = Async.AwaitTask(task.ContinueWith ignore)
+
     /// Resource that can be disposed of asynchronouslys
     type IAsyncDisposable =
         /// Asynchronously disposes of resource.

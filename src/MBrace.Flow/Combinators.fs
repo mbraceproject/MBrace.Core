@@ -467,7 +467,7 @@ module CloudFlow =
     /// <param name="dirPath">The directory where the cloudfiles are going to be saved.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result array of CloudFiles.</returns>
-    let toTextCloudFiles (dirPath : string) (flow : CloudFlow<string>) : Cloud<CloudFile []> = 
+    let toTextCloudFiles (dirPath : string) (flow : CloudFlow<string>) : Cloud<CloudFileInfo []> = 
         let collectorf (cloudCt : ICloudCancellationToken) =
             local {
                 let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCt.LocalToken)
@@ -475,7 +475,7 @@ module CloudFlow =
                 let! store = Cloud.GetResource<ICloudFileStore>()
                 store.CreateDirectory dirPath |> Async.RunSync
                 return
-                    { new Collector<string, CloudFile []> with
+                    { new Collector<string, CloudFileInfo []> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
                             let path = store.Combine(dirPath, sprintf "Part-%s-%d.txt" cloudFlowStaticId results.Count)
@@ -487,7 +487,7 @@ module CloudFlow =
                                 Cts = cts }
                         member self.Result =
                             results |> Seq.iter (fun (_, writer) -> writer.Dispose())
-                            results |> Seq.map (fun (path, _) -> new CloudFile(store, path)) |> Seq.toArray }
+                            results |> Seq.map (fun (path, _) -> new CloudFileInfo(store, path)) |> Seq.toArray }
             }
 
         cloud {

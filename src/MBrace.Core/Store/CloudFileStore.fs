@@ -70,6 +70,7 @@ type ICloudFileStore =
     ///     Asynchronously gets the last modification time for given path.
     /// </summary>
     /// <param name="path">Path to file or directory.</param>
+    /// <param name="isDirectory">Indicates whether path is intended as directory. Otherwise it will be looked up as file.</param>
     abstract GetLastModifiedTime : path:string * isDirectory:bool -> Async<DateTimeOffset>
 
     /// <summary>
@@ -243,7 +244,106 @@ open MBrace.Core.Internals
 
 #nowarn "444"
 
-/// Generic FileStore path utilities
+/// Serializable reference to a directory in the cloud store
+/// that can be used for accessing contained subdirectories and files.
+[<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
+type CloudDirectoryInfo =
+
+    [<DataMember(Name = "Store")>]
+    val mutable private store : ICloudFileStore
+
+    [<DataMember(Name = "Path")>]
+    val mutable private path : string
+
+    /// <summary>
+    ///     Defines a reference to a cloud directory. This will not create a directory in the local store.
+    /// </summary>
+    /// <param name="store">Serializable CloudFileStore implementation.</param>
+    /// <param name="path">Path to directory.</param>
+    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
+
+    /// Gets a unique store identifier
+    member d.StoreId = d.store.Id
+    
+    /// Gets path to directory
+    member d.Path = d.path
+
+    /// Gets the last modified time of directory
+    member d.LastModifiedTime =
+        d.store.GetLastModifiedTime(d.path, isDirectory = true) |> Async.RunSync
+
+    /// Asynchronously checks if directory exists in underlying store.
+    member d.ExistsAsync() = async {
+        return! d.store.DirectoryExists d.path
+    }
+
+    /// Asynchronously enumerates all files in given directory.
+    member d.EnumerateAsync() = async {
+        return! d.store.EnumerateFiles d.path
+    }
+
+    /// Asynchronously enumerates all subdirectories in given directory.
+    member d.EnumerateDirectoriesAsync() = async {
+        return! d.store.EnumerateDirectories d.path
+    }
+
+    interface ICloudDisposable with
+        member d.Dispose () = async {
+            return! d.store.DeleteDirectory(d.path, recursiveDelete = true)
+        }
+
+    override __.ToString() = __.path
+    member private r.StructuredFormatDisplay = r.ToString()
+
+/// Serializable reference to a file in the cloud store
+/// that can be used for accessing contained subdirectories and files.
+[<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
+type CloudFileInfo =
+
+    [<DataMember(Name = "Store")>]
+    val mutable private store : ICloudFileStore
+
+    [<DataMember(Name = "Path")>]
+    val mutable private path : string
+
+    /// <summary>
+    ///     Defines a reference to a cloud file. This will not create a file in the local store.
+    /// </summary>
+    /// <param name="store">Serializable CloudFileStore implementation.</param>
+    /// <param name="path">Path to file.</param>
+    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
+    
+    /// Path to cloud file
+    member f.Path = f.path
+
+    /// Gets the size (in bytes) of current file if it exists.
+    member f.Size : int64 =
+        f.store.GetFileSize f.path |> Async.RunSync
+
+    /// Gets the last modified time of current file if it exists.
+    member f.LastModifed : DateTimeOffset =
+        f.store.GetLastModifiedTime (f.path, isDirectory = false) |> Async.RunSync
+
+    /// Asynchronously checks if file exists.
+    member f.ExistsAsync() : Async<bool> = async {
+        return! f.store.FileExists f.path
+    }
+
+    /// Asynchronously get a reader stream for local file.
+    member f.BeginRead() : Async<Stream> = async {
+        return! f.store.BeginRead f.path
+    }
+
+    interface ICloudDisposable with
+        member f.Dispose () = async {
+            return! f.store.DeleteFile f.path
+        }
+
+    override __.ToString() = __.path
+    member private r.StructuredFormatDisplay = r.ToString()
+
+/// Contains static methods used for performing path
+/// operations in the cloud store.
 type CloudPath =
 
     /// <summary>
@@ -337,54 +437,9 @@ type CloudPath =
         return store.GetRandomFilePath(container)
     }
 
-/// Represents a directory found in the cloud store
-and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] CloudDirectory =
-
-    [<DataMember(Name = "Store")>]
-    val mutable private store : ICloudFileStore
-
-    [<DataMember(Name = "Path")>]
-    val mutable private path : string
-
-    /// <summary>
-    ///     Defines a reference to a cloud directory. This will not create a directory in the local store.
-    /// </summary>
-    /// <param name="store">Serializable CloudFileStore implementation.</param>
-    /// <param name="path">Path to directory.</param>
-    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
-
-    /// Gets a unique store identifier
-    member d.StoreId = d.store.Id
-    
-    /// Gets path to directory
-    member d.Path = d.path
-
-    /// Gets the last modified time of directory
-    member d.LastModifiedTime =
-        d.store.GetLastModifiedTime(d.path, isDirectory = true) |> Async.RunSync
-
-    /// Asynchronously checks if directory exists in underlying store.
-    member d.ExistsAsync() = async {
-        return! d.store.DirectoryExists d.path
-    }
-
-    /// Asynchronously enumerates all files in given directory.
-    member d.EnumerateAsync() = async {
-        return! d.store.EnumerateFiles d.path
-    }
-
-    /// Asynchronously enumerates all subdirectories in given directory.
-    member d.EnumerateDirectoriesAsync() = async {
-        return! d.store.EnumerateDirectories d.path
-    }
-
-    interface ICloudDisposable with
-        member d.Dispose () = async {
-            return! d.store.DeleteDirectory(d.path, recursiveDelete = true)
-        }
-
-    override __.ToString() = __.path
-    member private r.StructuredFormatDisplay = r.ToString()
+/// Contains static methods used for performing
+/// directory operations in the cloud store.
+type CloudDirectory =
 
     /// <summary>
     ///     Checks if directory exists in given path.
@@ -399,24 +454,24 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Creates a new directory in store.
     /// </summary>
     /// <param name="dirPath">Path to newly created directory.</param>
-    static member Create(dirPath : string) : Local<CloudDirectory> = local {
+    static member Create(dirPath : string) : Local<CloudDirectoryInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         do! store.CreateDirectory(dirPath)
-        return new CloudDirectory(store, dirPath)
+        return new CloudDirectoryInfo(store, dirPath)
     }
 
     /// <summary>
-    ///     Creates a CloudDirectory instance from given path.
+    ///     Creates a CloudDirectoryInfo instance using given path.
     /// </summary>
     /// <param name="dirPath">Path to cloud directory.</param>
-    /// <param name="verify">Verify that file exists before return. Defaults to true.</param>
-    static member FromPath(dirPath : string, ?verify:bool) : Local<CloudDirectory> = local {
+    /// <param name="verify">Verify that file exists before returning. Defaults to true.</param>
+    static member GetInfo(dirPath : string, ?verify:bool) : Local<CloudDirectoryInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         if defaultArg verify true then
             let! exists = store.DirectoryExists dirPath
             if not exists then return raise <| new DirectoryNotFoundException(dirPath)
 
-        return new CloudDirectory(store, dirPath)
+        return new CloudDirectoryInfo(store, dirPath)
     }
 
     /// <summary>
@@ -430,7 +485,11 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
         return! store.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
     }
 
-    static member GetLastModifiedTime(dirPath : string) = local {
+    /// <summary>
+    ///     Gets the latest modified time for given directory.
+    /// </summary>
+    /// <param name="dirPath">Directory path to be modified.</param>
+    static member GetLastModifiedTime(dirPath : string) : Local<DateTimeOffset> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         return! store.GetLastModifiedTime(dirPath, isDirectory = true)
     }
@@ -439,56 +498,15 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     ///     Enumerates all directories contained in path.
     /// </summary>
     /// <param name="directory">Directory to be enumerated.</param>
-    static member Enumerate(dirPath : string) : Local<CloudDirectory []> = local {
+    static member Enumerate(dirPath : string) : Local<CloudDirectoryInfo []> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let! dirs = store.EnumerateDirectories(dirPath)
-        return dirs |> Array.map (fun d -> new CloudDirectory(store, d))
+        return dirs |> Array.map (fun d -> new CloudDirectoryInfo(store, d))
     }
 
-/// Represents a file found in the local store
-and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>] CloudFile =
-
-    [<DataMember(Name = "Store")>]
-    val mutable private store : ICloudFileStore
-
-    [<DataMember(Name = "Path")>]
-    val mutable private path : string
-
-    /// <summary>
-    ///     Defines a reference to a cloud file. This will not create a file in the local store.
-    /// </summary>
-    /// <param name="store">Serializable CloudFileStore implementation.</param>
-    /// <param name="path">Path to file.</param>
-    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
-    
-    /// Path to cloud file
-    member f.Path = f.path
-
-    /// Gets the size (in bytes) of current file if it exists.
-    member f.Size : int64 =
-        f.store.GetFileSize f.path |> Async.RunSync
-
-    /// Gets the last modified time of current file if it exists.
-    member f.LastModifed : DateTimeOffset =
-        f.store.GetLastModifiedTime (f.path, isDirectory = false) |> Async.RunSync
-
-    /// Asynchronously checks if file exists.
-    member f.ExistsAsync() : Async<bool> = async {
-        return! f.store.FileExists f.path
-    }
-
-    /// Asynchronously get a reader stream for local file.
-    member f.BeginRead() : Async<Stream> = async {
-        return! f.store.BeginRead f.path
-    }
-
-    interface ICloudDisposable with
-        member f.Dispose () = async {
-            return! f.store.DeleteFile f.path
-        }
-
-    override __.ToString() = __.path
-    member private r.StructuredFormatDisplay = r.ToString()
+/// Contains static methods used for performing
+/// directory operations in the cloud store.
+type CloudFile =
 
     /// <summary>
     ///     Gets the size of provided file, in bytes.
@@ -527,49 +545,45 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     }
 
     /// <summary>
-    ///     Creates a CloudFile instance from given path in FileStore.
+    ///     Creates a CloudFileInfo instance using given path.
     /// </summary>
     /// <param name="path">Path to cloud file.</param>
-    /// <param name="verify">Verify that file exists before return. Defaults to true.</param>
-    static member FromPath(path : string, ?verify:bool) : Local<CloudFile> = local {
+    /// <param name="verify">Verify that file exists before returning. Defaults to true.</param>
+    static member GetInfo(path : string, ?verify:bool) : Local<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         if defaultArg verify true then
             let! exists = store.FileExists path
             if not exists then return raise <| new FileNotFoundException(path)
 
-        return new CloudFile(store, path)
+        return new CloudFileInfo(store, path)
     }
 
     /// <summary>
-    ///     Creates a new file in store with provided serializer function.
+    ///     Creates a new file in store and returns a local writer stream.
     /// </summary>
     /// <param name="path">Path to new cloud file.</param>
-    /// <param name="serializer">Serializer function.</param>
-    static member Create(path : string, serializer : Stream -> Async<unit>) : Local<CloudFile> = local {
+    static member BeginWrite(path : string) : Local<System.IO.Stream> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        use! stream = store.BeginWrite path
-        do! serializer stream
-        return new CloudFile(store, path)
+        return! store.BeginWrite path
     }
 
     /// <summary>
-    ///     Reads file in store with provided deserializer function.
+    ///     Asynchronously returns a reader function for given path in cloud store, if it exists.
     /// </summary>
-    /// <param name="path">Path to Path to cloud file.</param>
-    /// <param name="deserializer">Deserializer function.</param>
-    static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Local<'T> = local {
+    /// <param name="path">Path to cloud file.</param>
+    static member BeginRead<'T>(path : string) : Local<System.IO.Stream> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.Read(deserializer, path)
+        return! store.BeginRead path
     }
 
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
-    static member Enumerate(dirPath : string) : Local<CloudFile []> = local {
+    static member Enumerate(dirPath : string) : Local<CloudFileInfo []> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let! paths = store.EnumerateFiles(dirPath)
-        return paths |> Array.map (fun path -> new CloudFile(store, path))
+        return paths |> Array.map (fun path -> new CloudFileInfo(store, path))
     }
 
     //
@@ -582,17 +596,16 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to new cloud file.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : Local<CloudFile> = local {
-        let writer (stream : Stream) = async {
-            use sw = 
-                match encoding with
-                | None -> new StreamWriter(stream)
-                | Some e -> new StreamWriter(stream, e)
+    static member WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : Local<CloudFileInfo> = local {
+        let! store = Cloud.GetResource<ICloudFileStore>()
+        use! stream = store.BeginWrite path
+        use sw = 
+            match encoding with
+            | None -> new StreamWriter(stream)
+            | Some e -> new StreamWriter(stream, e)
 
-            do for line in lines do sw.WriteLine(line)
-        }
-
-        return! CloudFile.Create(path, writer)
+        do for line in lines do sw.WriteLine(line)
+        return new CloudFileInfo(store, path)
     }
 
     /// <summary>
@@ -617,12 +630,9 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadAllLines(path : string, ?encoding : Encoding) : Local<string []> = local {
-        let reader (stream : Stream) = async {
-            let lines = TextReaders.ReadLines(stream, ?encoding = encoding)
-            return Seq.toArray lines
-        }
-
-        return! CloudFile.Read(path, reader)
+        use! stream = CloudFile.BeginRead path
+        let lines = TextReaders.ReadLines(stream, ?encoding = encoding)
+        return Seq.toArray lines
     }
 
     /// <summary>
@@ -631,16 +641,16 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    static member WriteAllText(path : string, text : string, ?encoding : Encoding) : Local<CloudFile> = local {
-        let writer (stream : Stream) = async {
-            use sw = 
-                match encoding with
-                | None -> new StreamWriter(stream)
-                | Some e -> new StreamWriter(stream, e)
-            do! sw.WriteAsync text
-        }
+    static member WriteAllText(path : string, text : string, ?encoding : Encoding) : Local<CloudFileInfo> = local {
+        let! store = Cloud.GetResource<ICloudFileStore>()
+        use! stream = store.BeginWrite path
+        use sw = 
+            match encoding with
+            | None -> new StreamWriter(stream)
+            | Some e -> new StreamWriter(stream, e)
 
-        return! CloudFile.Create(path, writer)
+        do! Async.AwaitTask(sw.WriteAsync(text))
+        return new CloudFileInfo(store, path)
     }
 
     /// <summary>
@@ -649,14 +659,13 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadAllText(path : string, ?encoding : Encoding) = local {
-        let reader (stream : Stream) = async {
-            use sr = 
-                match encoding with
-                | None -> new StreamReader(stream)
-                | Some e -> new StreamReader(stream, e)
-            return sr.ReadToEnd()
-        }
-        return! CloudFile.Read(path, reader)
+        use! stream = CloudFile.BeginRead path
+        use sr = 
+            match encoding with
+            | None -> new StreamReader(stream)
+            | Some e -> new StreamReader(stream, e)
+
+        return sr.ReadToEnd()
     }
 
     /// <summary>
@@ -664,9 +673,11 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="buffer">Source buffer.</param>
-    static member WriteAllBytes(path : string, buffer : byte []) : Local<CloudFile> = local {
-        let writer (stream : Stream) = stream.AsyncWrite(buffer, 0, buffer.Length)
-        return! CloudFile.Create(path, writer)
+    static member WriteAllBytes(path : string, buffer : byte []) : Local<CloudFileInfo> = local {
+        let! store = Cloud.GetResource<ICloudFileStore>()
+        use! stream = store.BeginWrite path
+        do! stream.AsyncWrite(buffer, 0, buffer.Length)
+        return new CloudFileInfo(store, path)
     }
         
     /// <summary>
@@ -674,13 +685,10 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// </summary>
     /// <param name="path">Path to Path to cloud file.</param>
     static member ReadAllBytes(path : string) : Local<byte []> = local {
-        let reader (stream : Stream) = async {
-            use ms = new MemoryStream()
-            do! stream.CopyToAsync ms
-            return ms.ToArray()
-        }
-
-        return! CloudFile.Read(path, reader)
+        use! stream = CloudFile.BeginRead path
+        use ms = new MemoryStream()
+        do! Async.AwaitTask(stream.CopyToAsync ms)
+        return ms.ToArray()
     }
 
     /// <summary>
@@ -689,7 +697,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="sourcePath">Path to file in local disk.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<CloudFile> = local {
+    static member Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<CloudFileInfo> = local {
         let overwrite = defaultArg overwrite false
         let! store = Cloud.GetResource<ICloudFileStore>()
         if not overwrite then
@@ -698,7 +706,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
 
         use fs = File.OpenRead (Path.GetFullPath sourcePath)
         do! store.CopyOfStream(fs, targetPath)
-        return new CloudFile(store, targetPath)
+        return new CloudFileInfo(store, targetPath)
     }
 
     /// <summary>
@@ -707,7 +715,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="sourcePaths">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Local<CloudFile []> = local {
+    static member Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Local<CloudFileInfo []> = local {
         let sourcePaths = Seq.toArray sourcePaths
         match sourcePaths |> Array.tryFind (not << File.Exists) with
         | Some notFound -> raise <| new FileNotFoundException(notFound)

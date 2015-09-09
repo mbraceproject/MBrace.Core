@@ -298,7 +298,10 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 // overwrite persist file with payload of compatible type
                 // cloudvalue should use etag implementation to infer that content has changed
                 let! serializer = Cloud.GetResource<ISerializer> ()
-                let! _ = CloudFile.Create(c.Path, fun s -> async { return serializer.Serialize(s, [1..100], false)})
+                do! local {
+                    use! stream = CloudFile.BeginWrite c.Path
+                    do serializer.Serialize(stream, [1..100], false)
+                }
                 return c.Value
             } |> runOnCloud
 
@@ -334,7 +337,11 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
                 let! serializer = Cloud.GetResource<ISerializer> ()
                 // overwrite persist file with payload of compatible type
                 // cloudsequence should use etag implementation to infer that content has changed
-                let! _ = CloudFile.Create(c.Path, fun s -> async { return ignore <| serializer.SeqSerialize(s, [1..100], false)})
+                do! local {
+                    use! stream = CloudFile.BeginWrite c.Path
+                    ignore <| serializer.SeqSerialize(stream, [1..100], false)
+                }
+   
                 return c.ToArray()
             } |> runOnCloud
 
@@ -453,14 +460,15 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         let n = 512
         cloud {
             let! path = CloudPath.GetRandomFileName()
-            use! f = 
-                CloudFile.Create(path, fun stream -> async {
-                    let b = mk n
-                    stream.Write(b, 0, b.Length)
-                    stream.Flush()
-                    stream.Dispose() })
+            do! local {
+                use! stream = CloudFile.BeginWrite path
+                let b = mk n
+                stream.Write(b, 0, b.Length)
+                stream.Flush()
+                stream.Dispose() 
+            }
 
-            return! CloudFile.ReadAllBytes f.Path
+            return! CloudFile.ReadAllBytes path
         } |> runOnCloud |> shouldEqual (mk n)
 
     [<Test>]
@@ -498,17 +506,24 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
-        cloud {
+        local {
             let! path = CloudPath.GetRandomFileName()
-            use! cf = CloudFile.Create(path, fun stream -> async { stream.WriteByte(10uy) })
-            return! CloudFile.Read(cf.Path, fun stream -> async { stream.WriteByte(20uy) })
+            do! local {
+                use! stream = CloudFile.BeginWrite path
+                stream.WriteByte(10uy) 
+            }
+
+            use! stream = CloudFile.BeginRead path
+            stream.WriteByte(20uy)
+
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]
     member __.``2. MBrace : CloudFile - attempt to read nonexistent file`` () =
-        cloud {
-            let! cf = CloudFile.FromPath (Guid.NewGuid().ToString())
-            return! CloudFile.Read(cf.Path, fun s -> async { return s.ReadByte() })
+        local {
+            let! cf = CloudFile.GetInfo (Guid.NewGuid().ToString())
+            use! stream = CloudFile.BeginRead cf.Path
+            return stream.ReadByte()
         } |> runProtected |> Choice.shouldFailwith<_,exn>
 
     [<Test>]

@@ -516,14 +516,14 @@ type CloudDirectoryClient internal (runtime : ThreadPoolRuntime) =
     ///     Creates a new directory in store.
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
-    member c.CreateAsync(dirPath : string) : Async<CloudDirectory> =
+    member c.CreateAsync(dirPath : string) : Async<CloudDirectoryInfo> =
         CloudDirectory.Create(dirPath = dirPath) |> runtime.ToAsync
 
     /// <summary>
     ///     Creates a new directory in store.
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
-    member c.Create(dirPath : string) : CloudDirectory =
+    member c.Create(dirPath : string) : CloudDirectoryInfo =
         CloudDirectory.Create(dirPath = dirPath) |> runtime.RunSynchronously
 
     /// <summary>
@@ -546,14 +546,14 @@ type CloudDirectoryClient internal (runtime : ThreadPoolRuntime) =
     ///     Enumerates all directories contained in path.
     /// </summary>
     /// <param name="dirPath">Path to directory to be enumerated.</param>
-    member c.EnumerateAsync(dirPath : string) : Async<CloudDirectory []> = 
+    member c.EnumerateAsync(dirPath : string) : Async<CloudDirectoryInfo []> = 
         CloudDirectory.Enumerate(dirPath = dirPath) |> runtime.ToAsync
 
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
     /// <param name="dirPath">Path to directory to be enumerated.</param>
-    member c.Enumerate(dirPath : string) : CloudDirectory [] = 
+    member c.Enumerate(dirPath : string) : CloudDirectoryInfo [] = 
         CloudDirectory.Enumerate(dirPath = dirPath) |> runtime.RunSynchronously
 
 [<Sealed; AutoSerializable(false)>]
@@ -604,49 +604,45 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
         CloudFile.Delete(path) |> runtime.RunSynchronously
 
     /// <summary>
-    ///     Creates a new file in store with provided serializer function.
+    ///     Asynchronously creates a new file in store and returns a local writer stream.
     /// </summary>
     /// <param name="path">Path to file.</param>
-    /// <param name="serializer">Serializer function.</param>
-    member c.CreateAsync(path : string, serializer : Stream -> Async<unit>) : Async<CloudFile> = 
-        CloudFile.Create(path, serializer) |> runtime.ToAsync
+    member c.BeginWriteAsync(path : string) : Async<System.IO.Stream> = 
+        CloudFile.BeginWrite path |> runtime.ToAsync
 
     /// <summary>
-    ///     Creates a new file in store with provided serializer function.
+    ///     Creates a new file in store and returns a local writer stream.
     /// </summary>
     /// <param name="path">Path to file.</param>
-    /// <param name="serializer">Serializer function.</param>
-    member c.Create(path : string, serializer : Stream -> Async<unit>) : CloudFile = 
-        CloudFile.Create(path, serializer) |> runtime.RunSynchronously
+    member c.BeginWrite(path : string) : System.IO.Stream = 
+        CloudFile.BeginWrite path |> runtime.RunSynchronously
 
     /// <summary>
-    ///     Reads file in store with provided deserializer function.
+    ///     Asynchronously returns a reader function for given path in cloud store, if it exists.
     /// </summary>
     /// <param name="path">Path to input file.</param>
-    /// <param name="deserializer">Deserializer function.</param>
-    member c.ReadAsync<'T>(path : string, deserializer : Stream -> Async<'T>) : Async<'T> = 
-        CloudFile.Read<'T>(path, deserializer) |> runtime.ToAsync
+    member c.BeginReadAsync(path : string) : Async<System.IO.Stream> = 
+        CloudFile.BeginRead(path) |> runtime.ToAsync
 
     /// <summary>
-    ///     Reads file in store with provided deserializer function.
+    ///     Returns a reader function for given path in cloud store, if it exists.
     /// </summary>
     /// <param name="path">Path to input file.</param>
-    /// <param name="deserializer">Deserializer function.</param>
-    member c.Read<'T>(path : string, deserializer : Stream -> Async<'T>) : 'T = 
-        CloudFile.Read<'T>(path, deserializer) |> runtime.RunSynchronously
+    member c.BeginRead(path : string) : System.IO.Stream = 
+        CloudFile.BeginRead(path) |> runtime.RunSynchronously
 
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
-    member c.EnumerateAsync(dirPath : string) : Async<CloudFile []> = 
+    member c.EnumerateAsync(dirPath : string) : Async<CloudFileInfo []> = 
         CloudFile.Enumerate(dirPath = dirPath) |> runtime.ToAsync
 
     /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
-    member c.Enumerate(dirPath : string) : CloudFile [] = 
+    member c.Enumerate(dirPath : string) : CloudFileInfo [] = 
         CloudFile.Enumerate(dirPath = dirPath) |> runtime.RunSynchronously
 
     //
@@ -659,7 +655,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="path">Path to file.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.WriteAllLinesAsync(path : string, lines : seq<string>, ?encoding : Encoding) : Async<CloudFile> = 
+    member c.WriteAllLinesAsync(path : string, lines : seq<string>, ?encoding : Encoding) : Async<CloudFileInfo> = 
         CloudFile.WriteAllLines(path, lines, ?encoding = encoding) |> runtime.ToAsync
 
     /// <summary>
@@ -668,7 +664,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="path">Path to CloudFile.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : CloudFile = 
+    member c.WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : CloudFileInfo = 
         CloudFile.WriteAllLines(path, lines, ?encoding = encoding) |> runtime.RunSynchronously
 
 
@@ -711,7 +707,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    member __.WriteAllTextAsync(path : string, text : string, ?encoding : Encoding) : Async<CloudFile> = 
+    member __.WriteAllTextAsync(path : string, text : string, ?encoding : Encoding) : Async<CloudFileInfo> = 
         CloudFile.WriteAllText(path, text, ?encoding = encoding) |> runtime.ToAsync
 
     /// <summary>
@@ -720,7 +716,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    member __.WriteAllText(path : string, text : string, ?encoding : Encoding) : CloudFile = 
+    member __.WriteAllText(path : string, text : string, ?encoding : Encoding) : CloudFileInfo = 
         CloudFile.WriteAllText(path, text, ?encoding = encoding) |> runtime.RunSynchronously
 
 
@@ -745,7 +741,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// </summary>
     /// <param name="path">Path to file.</param>
     /// <param name="buffer">Source buffer.</param>
-    member __.WriteAllBytesAsync(path : string, buffer : byte []) : Async<CloudFile> =
+    member __.WriteAllBytesAsync(path : string, buffer : byte []) : Async<CloudFileInfo> =
        CloudFile.WriteAllBytes(path, buffer) |> runtime.ToAsync
 
     /// <summary>
@@ -753,7 +749,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// </summary>
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="buffer">Source buffer.</param>
-    member __.WriteAllBytes(path : string, buffer : byte []) : CloudFile =
+    member __.WriteAllBytes(path : string, buffer : byte []) : CloudFileInfo =
        CloudFile.WriteAllBytes(path, buffer) |> runtime.RunSynchronously
         
         
@@ -777,7 +773,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePath">Local file system path to file.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.UploadAsync(sourcePath : string, targetPath : string, ?overwrite : bool) : Async<CloudFile> =
+    member __.UploadAsync(sourcePath : string, targetPath : string, ?overwrite : bool) : Async<CloudFileInfo> =
         CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> runtime.ToAsync
 
     /// <summary>
@@ -786,7 +782,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePath">Local file system path to file.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : CloudFile =
+    member __.Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : CloudFileInfo =
         CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> runtime.RunSynchronously
 
     /// <summary>
@@ -795,7 +791,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePaths">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.UploadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Async<CloudFile []> =
+    member __.UploadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Async<CloudFileInfo []> =
         CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> runtime.ToAsync
 
     /// <summary>
@@ -804,7 +800,7 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePaths">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : CloudFile [] = 
+    member __.Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : CloudFileInfo [] = 
         CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> runtime.RunSynchronously
 
     /// <summary>
