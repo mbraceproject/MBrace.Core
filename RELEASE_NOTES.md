@@ -1,3 +1,8 @@
+#### 0.10.5-alpha
+* Improve VagabondRegistry support for multiple clients in single process.
+* Rename CloudFile instances to CloudFileInfo.
+* Rename CloudDirectory instances to CloudDirectoryInfo.
+
 #### 0.10.4-alpha
 * Core improvements and cleanups.
 * Add icon to Thespian worker executable.
