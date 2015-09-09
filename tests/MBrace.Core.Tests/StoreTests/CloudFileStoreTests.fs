@@ -250,6 +250,9 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         fun () -> self.FileStore.GetFileSize file |> Async.RunSync
         |> shouldFailwith<_, FileNotFoundException>
 
+        fun () -> self.FileStore.GetLastModifiedTime (file, isDirectory = false) |> Async.RunSync
+        |> shouldFailwith<_, FileNotFoundException>
+
         // test paths in non-existent directories
 
         let dir = self.FileStore.GetRandomDirectoryName()
@@ -261,6 +264,9 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         fun () -> self.FileStore.GetFileSize file' |> Async.RunSync
         |> shouldFailwith<_, FileNotFoundException>
 
+        fun () -> self.FileStore.GetLastModifiedTime (file', isDirectory = false) |> Async.RunSync
+        |> shouldFailwith<_, FileNotFoundException>
+
 
     [<Test>]
     member self.``1. FileStore : Reading non-existent directory should raise DirectoryNotFoundException.`` () =
@@ -269,6 +275,9 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         |> shouldFailwith<_, DirectoryNotFoundException>
 
         fun () -> self.FileStore.EnumerateFiles dir |> Async.RunSync
+        |> shouldFailwith<_, DirectoryNotFoundException>
+
+        fun () -> self.FileStore.GetLastModifiedTime(dir, isDirectory = true) |> Async.RunSync
         |> shouldFailwith<_, DirectoryNotFoundException>
 
     //

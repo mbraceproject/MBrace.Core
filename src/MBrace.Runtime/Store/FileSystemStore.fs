@@ -115,6 +115,19 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
             return let fI = new FileInfo(normalize path) in fI.Length
         }
 
+        member __.GetLastModifiedTime(path : string, isDirectory : bool) = async {
+            return
+                let path = normalize path in
+                if isDirectory then
+                    let dI = new DirectoryInfo(path)
+                    if dI.Exists then new DateTimeOffset(dI.LastWriteTime)
+                    else raise <| new DirectoryNotFoundException(path)
+                else
+                    let fI = new FileInfo(path)
+                    if fI.Exists then new DateTimeOffset(fI.LastWriteTime)
+                    else raise <| new FileNotFoundException(path)
+        }
+
         member __.FileExists(file : string) = async {
             return File.Exists(normalize file)
         }

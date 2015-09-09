@@ -61,10 +61,16 @@ type ICloudFileStore =
     //
 
     /// <summary>
-    ///     Returns the file size in bytes.
+    ///     Asynchronously gets the file size in bytes.
     /// </summary>
     /// <param name="path">Path to file.</param>
     abstract GetFileSize : path:string -> Async<int64>
+
+    /// <summary>
+    ///     Asynchronously gets the last modification time for given path.
+    /// </summary>
+    /// <param name="path">Path to file or directory.</param>
+    abstract GetLastModifiedTime : path:string * isDirectory:bool -> Async<DateTimeOffset>
 
     /// <summary>
     ///     Checks if file exists in store.
@@ -347,11 +353,15 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <param name="path">Path to directory.</param>
     new (store : ICloudFileStore, path : string) = { store = store ; path = path }
 
-    /// Store identifier
+    /// Gets a unique store identifier
     member d.StoreId = d.store.Id
     
-    /// Path to directory
+    /// Gets path to directory
     member d.Path = d.path
+
+    /// Gets the last modified time of directory
+    member d.LastModifiedTime =
+        d.store.GetLastModifiedTime(d.path, isDirectory = true) |> Async.RunSync
 
     /// Asynchronously checks if directory exists in underlying store.
     member d.ExistsAsync() = async {
@@ -377,7 +387,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     member private r.StructuredFormatDisplay = r.ToString()
 
     /// <summary>
-    ///     Checks if directory exists in given path
+    ///     Checks if directory exists in given path.
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
     static member Exists(dirPath : string) : Local<bool> = local {
@@ -420,6 +430,11 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
         return! store.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
     }
 
+    static member GetLastModifiedTime(dirPath : string) = local {
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.GetLastModifiedTime(dirPath, isDirectory = true)
+    }
+
     /// <summary>
     ///     Enumerates all directories contained in path.
     /// </summary>
@@ -453,6 +468,10 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     member f.Size : int64 =
         f.store.GetFileSize f.path |> Async.RunSync
 
+    /// Gets the last modified time of current file if it exists.
+    member f.LastModifed : DateTimeOffset =
+        f.store.GetLastModifiedTime (f.path, isDirectory = false) |> Async.RunSync
+
     /// Asynchronously checks if file exists.
     member f.ExistsAsync() : Async<bool> = async {
         return! f.store.FileExists f.path
@@ -474,17 +493,26 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Gets the size of provided file, in bytes.
     /// </summary>
-    /// <param name="path">Input file.</param>
+    /// <param name="path">Path to cloud file.</param>
     static member GetSize(path : string) : Local<int64> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         return! store.GetFileSize path
     }
 
     /// <summary>
+    ///     Gets the last modification time for given file.
+    /// </summary>
+    /// <param name="path">Path to cloud file.</param>
+    static member GetLastModifiedTime(path : string) : Local<DateTimeOffset> = local {
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return! store.GetLastModifiedTime(path, isDirectory = false)
+    }
+
+    /// <summary>
     ///     Checks if file exists in store.
     /// </summary>
-    /// <param name="path">Input file.</param>
-    static member Exists(path : string) = local {
+    /// <param name="path">Path to cloud file.</param>
+    static member Exists(path : string) : Local<bool> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         return! store.FileExists path
     }
@@ -492,8 +520,8 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Deletes file in given path.
     /// </summary>
-    /// <param name="path">Input file.</param>
-    static member Delete(path : string) = local {
+    /// <param name="path">Path to cloud file.</param>
+    static member Delete(path : string) : Local<unit> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         return! store.DeleteFile path
     }
@@ -527,7 +555,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Reads file in store with provided deserializer function.
     /// </summary>
-    /// <param name="path">Path to input file.</param>
+    /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="deserializer">Deserializer function.</param>
     static member Read<'T>(path : string, deserializer : Stream -> Async<'T>) : Local<'T> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
@@ -570,7 +598,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Reads a file as a sequence of lines.
     /// </summary>
-    /// <param name="path">Path to input file.</param>
+    /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadLines(path : string, ?encoding : Encoding) : Local<seq<string>> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
@@ -586,7 +614,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Reads a file as an array of lines.
     /// </summary>
-    /// <param name="path">Path to input file.</param>
+    /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadAllLines(path : string, ?encoding : Encoding) : Local<string []> = local {
         let reader (stream : Stream) = async {
@@ -618,7 +646,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Dump all file contents to a single string.
     /// </summary>
-    /// <param name="path">Path to input file.</param>
+    /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
     static member ReadAllText(path : string, ?encoding : Encoding) = local {
         let reader (stream : Stream) = async {
@@ -644,7 +672,7 @@ and [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")
     /// <summary>
     ///     Store all contents of given file to a new byte array.
     /// </summary>
-    /// <param name="path">Path to input file.</param>
+    /// <param name="path">Path to Path to cloud file.</param>
     static member ReadAllBytes(path : string) : Local<byte []> = local {
         let reader (stream : Stream) = async {
             use ms = new MemoryStream()
