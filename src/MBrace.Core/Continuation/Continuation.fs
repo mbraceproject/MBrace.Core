@@ -275,7 +275,7 @@ type Cloud private () =
     ///     Starts provided cloud workflow immediately in the current thread.
     /// </summary>
     /// <param name="workflow">Cloud workflow to be executed.</param>
-    /// <param name="resources">Resource registry passed to execution context.< Defaults to the empty resource registry./param>
+    /// <param name="resources">Resource registry passed to execution context. Defaults to the empty resource registry.</param>
     /// <param name="cancellationToken">Cancellation token used for computation. Defaults to no cancellation token.</param>
     [<CompilerMessage("'StartImmediate' only intended for runtime implementers.", 444)>]
     static member StartImmediate(workflow : Cloud<unit>, ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
