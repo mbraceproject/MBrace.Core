@@ -24,8 +24,8 @@ let workers = cluster.Workers
 cloud { return 42 } |> cluster.RunOnCloud
 cloud { return 42 } |> cluster.RunOnCurrentProcess
 
-cluster.ShowCloudTaskInfo()
-cluster.ShowWorkerInfo()
+cluster.ShowCloudTasks()
+cluster.ShowWorkers()
 
 let proc = 
     CloudFlow.OfHttpFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"

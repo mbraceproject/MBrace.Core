@@ -119,9 +119,10 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.ClearAllCloudTasks() : unit = taskManagerClient.ClearAllTasks() |> Async.RunSync
 
     /// Gets a printed report of all current cloud tasks.
-    member __.GetCloudTaskInfo() : string = taskManagerClient.GetTaskInfo()
+    member __.FormatCloudTasks() : string = taskManagerClient.GetTaskInfo()
+
     /// Prints a report of all current cloud tasks to stdout.
-    member __.ShowCloudTaskInfo() : unit = taskManagerClient.ShowTaskInfo()
+    member __.ShowCloudTasks() : unit = taskManagerClient.ShowTaskInfo()
 
     /// Gets a client object that can be used for interoperating with the MBrace store.
     member __.Store : CloudStoreClient = storeClient
@@ -130,9 +131,11 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.Workers : WorkerRef [] = workers.Value
 
     /// Gets a printed report on all workers on the runtime
-    member __.GetWorkerInfo () = WorkerReporter.Report(__.Workers, title = "Workers", borders = false)
+    member __.FormatWorkers() = WorkerReporter.Report(__.Workers, title = "Workers", borders = false)
+
     /// Prints a report on all workers on the runtime to stdout
-    member __.ShowWorkerInfo () = System.Console.WriteLine(__.GetWorkerInfo())
+    member __.ShowWorkers() = System.Console.WriteLine(__.FormatWorkers())
+
     /// Resolves runtime resource of given type
     member __.GetResource<'TResource> () : 'TResource = runtime.ResourceRegistry.Resolve<'TResource> ()
 
