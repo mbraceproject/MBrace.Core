@@ -178,3 +178,6 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// Gets native assembly dependencies registered to client state.
     member __.NativeDependencies : string [] =
         runtime.AssemblyManager.NativeDependencies |> Array.map (fun v -> v.Image)
+
+    /// Resets cluster state. This will cancel and delete all task data.
+    member __.Reset() = runtime.ResetClusterState()
