@@ -174,7 +174,6 @@ type MBraceClient (runtime : IRuntimeManager) =
     ///     Registers a native assembly dependency to client state.
     /// </summary>
     /// <param name="assemblyPath">Path to native assembly.</param>
-    [<CompilerMessage("Native dependency support is an experimental MBrace feature.", 1571)>]
     member __.RegisterNativeDependency(assemblyPath : string) : unit =
         ignore <| runtime.AssemblyManager.RegisterNativeDependency assemblyPath
 
