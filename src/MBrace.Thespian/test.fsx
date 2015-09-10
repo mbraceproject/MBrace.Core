@@ -32,7 +32,7 @@ let proc =
     |> CloudFlow.length
     |> cluster.CreateCloudTask
 
-proc.AwaitResult() |> Async.RunSynchronously
+proc.Result
 
 
 let test = cloud {
