@@ -22,7 +22,6 @@ module internal WorkerSubscription =
             LoggerSubscription : IDisposable
             JobEvaluator : ICloudJobEvaluator
         }
-    with
         member s.Dispose() =
             Disposable.dispose s.Agent
             Disposable.dispose s.JobEvaluator

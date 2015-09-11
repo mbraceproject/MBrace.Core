@@ -21,18 +21,18 @@ let source = [| 1; 3; 1; 4; 2; 5; 2; 42; 42; 7; 8; 10; 8;|]
 CloudFlow.OfArray source
 |> CloudFlow.distinctBy id
 |> CloudFlow.toArray
-|> cluster.RunOnCloud
+|> cluster.Run
 
 
 for i in 1..100 do
     let source = [| 1..10 |]
     let q = source |> CloudFlow.OfArray |> CloudFlow.sortBy id 10 |> CloudFlow.toArray
-    printfn "%A" <| cluster.RunOnCloud q
+    printfn "%A" <| cluster.Run q
 
 let persisted = 
     CloudFlow.OfArray([|1 .. 1000|])
              .collect(fun i -> [|1..10000|] |> Seq.map (fun j -> string i, j))
              .persist StorageLevel.Disk
-    |> cluster.RunOnCloud
+    |> cluster.Run
 
-persisted |> CloudFlow.length |> cluster.RunOnCloud
+persisted |> CloudFlow.length |> cluster.Run

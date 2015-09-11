@@ -7,11 +7,11 @@ open MBrace.Core
 [<TestFixture; AbstractClass>]
 type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
-    let runOnCloud wf = self.RunOnCloud wf 
+    let runOnCloud wf = self.Run wf 
     let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
 
     let runProtected wf = 
-        try self.RunOnCloud wf |> Choice1Of2
+        try self.Run wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     let mutable counter = 0
@@ -24,7 +24,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         
 
     /// Run workflow in the runtime under test
-    abstract RunOnCloud : Cloud<'T> -> 'T
+    abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
     /// Checks if storage level is supported

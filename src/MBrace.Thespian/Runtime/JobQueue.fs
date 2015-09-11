@@ -23,7 +23,7 @@ type internal Pickle =
     /// Cloud job is part of a batch enqueue.
     /// Pickled together for size optimization reasons.
     | Batch of index:int * jobs:ResultMessage<CloudJob []>
-with
+
     /// Size of pickle in bytes
     member p.Size =
         match p with
@@ -157,7 +157,7 @@ type private QueueState =
         Queue : JobQueueTopic
         LastCleanup : DateTime
     }
-with
+
     static member Empty = { Queue = JobQueueTopic.Empty ; LastCleanup = DateTime.Now }
 
 and private JobQueueTopic = TopicQueue<IWorkerId, PickledJob * CloudJobFaultInfo>

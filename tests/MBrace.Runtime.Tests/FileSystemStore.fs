@@ -20,7 +20,7 @@ type ``Local FileSystemStore Tests`` () =
 
     override __.FileStore = fsStore :> _
     override __.Serializer = serializer :> _
-    override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
+    override __.Run(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
 
 
@@ -35,7 +35,7 @@ type ``Local FileSystemStore CloudValue Tests`` () =
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(fsStore, serializer = serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
     let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
-    override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
+    override __.Run(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.IsSupportedLevel lvl = cloudValueProvider.IsSupportedStorageLevel lvl
 
@@ -51,7 +51,7 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
     let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(mainStore = fsStore, serializer = serializer, encapsulationThreshold = 1024L) :> ICloudValueProvider
     let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, valueProvider = cloudValueProvider, memoryEmulation = MemoryEmulation.Copied)
 
-    override __.RunOnCloud(wf : Cloud<'T>) = imem.RunSynchronously wf
+    override __.Run(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.IsSupportedStorageLevel level = cloudValueProvider.IsSupportedStorageLevel level
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100

@@ -49,7 +49,7 @@ module ``CloudFlow Core property tests`` =
 
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
-    let runOnCloud (workflow : Cloud<'T>) = self.RunOnCloud(workflow)
+    let runOnCloud (workflow : Cloud<'T>) = self.Run(workflow)
     let runOnCurrentProcess (workflow : Cloud<'T>) = self.RunOnCurrentProcess(workflow)
 
     /// Urls for running HTTP tests
@@ -74,7 +74,7 @@ type ``CloudFlow tests`` () as self =
 
         lineCount
 
-    abstract RunOnCloud : Cloud<'T> -> 'T
+    abstract Run : Cloud<'T> -> 'T
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
     abstract IsSupportedStorageLevel : StorageLevel -> bool
     abstract FsCheckMaxNumberOfTests : int

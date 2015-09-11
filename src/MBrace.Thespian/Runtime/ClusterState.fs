@@ -44,7 +44,7 @@ type ClusterState =
         /// Local node state factory instance
         LocalStateFactory : LocalStateFactory
     }
-with
+
     /// <summary>
     ///     Creates a cluster state object that is hosted in the local process
     /// </summary>
