@@ -137,15 +137,15 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
     let ``01. Simple cloud workflow`` () =
         let fsi = FsiSession.Value
 
-        "cloud { return 42 } |> cluster.RunOnCloud" |> fsi.TryEvalExpression |> shouldEqual 42
+        "cloud { return 42 } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 42
 
     [<Test>]
     let ``02. Simple data dependency`` () =
         let fsi = FsiSession.Value
 
-        "let x = cloud { return 17 + 25 } |> cluster.RunOnCloud" |> fsi.EvalInteraction
+        "let x = cloud { return 17 + 25 } |> cluster.Run" |> fsi.EvalInteraction
 
-        "cloud { return x } |> cluster.RunOnCloud" |> fsi.TryEvalExpression |> shouldEqual 42
+        "cloud { return x } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 42
 
     [<Test>]
     let ``03. Updating data dependency in single interaction`` () =
@@ -154,7 +154,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalInteraction """
             let x = ref 0
             for i in 1 .. 10 do
-                x := cluster.RunOnCloud(cloud { return !x + 1 })
+                x := cluster.Run(cloud { return !x + 1 })
         """
 
         fsi.EvalExpression "!x" |> shouldEqual 10
@@ -167,7 +167,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
         for i in 1 .. 10 do
             fsi.EvalInteraction "x <- x + 1"
-            "cloud { return x } |> cluster.RunOnCloud" |> fsi.EvalExpression |> shouldEqual i
+            "cloud { return x } |> cluster.Run" |> fsi.EvalExpression |> shouldEqual i
 
 
     [<Test>]
@@ -176,18 +176,18 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
         defineQuotationEvaluator fsi
 
-        "cloud { return eval <@ if true then 1 else 0 @> } |> cluster.RunOnCloud" |> fsi.EvalExpression |> shouldEqual 1
+        "cloud { return eval <@ if true then 1 else 0 @> } |> cluster.Run" |> fsi.EvalExpression |> shouldEqual 1
 
     [<Test>]
     let ``06. Cross-slice Quotation literal`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction "let x = 41"
-        fsi.EvalInteraction "let _ = cluster.RunOnCloud(cloud { return x })"
+        fsi.EvalInteraction "let _ = cluster.Run(cloud { return x })"
 
         defineQuotationEvaluator fsi
         
-        try "cloud { return eval <@ x + 1 @> } |> cluster.RunOnCloud" |> fsi.EvalExpression |> shouldEqual 42
+        try "cloud { return eval <@ x + 1 @> } |> cluster.Run" |> fsi.EvalExpression |> shouldEqual 42
         with e -> Assert.Inconclusive("This is an expected failure due to restrictions in quotation literal representation in MSIL.")
 
 
@@ -215,7 +215,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
         """
             let t = mkBalanced 5 in
-            count t |> cluster.RunOnCloud
+            count t |> cluster.Run
         """ |> fsi.EvalExpression |> shouldEqual 63
 
     [<Test>]
@@ -238,7 +238,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
         fsi.EvalInteraction "let large = [|1L .. 1000000L|]"
 
-        fsi.EvalExpression "cloud { return large.Length } |> cluster.RunOnCloud" |> shouldEqual 1000000
+        fsi.EvalExpression "cloud { return large.Length } |> cluster.Run" |> shouldEqual 1000000
 
     [<Test>]
     let ``10. Large static data dependency updated value`` () =
@@ -249,7 +249,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
         for i in 1L .. 10L do
             fsi.EvalInteraction <| sprintf "large.[499999] <- %dL" i
-            fsi.EvalExpression "cloud { return large.[499999] } |> cluster.RunOnCloud" |> shouldEqual i
+            fsi.EvalExpression "cloud { return large.[499999] } |> cluster.Run" |> shouldEqual i
 
     [<Test>]
     let ``11. Sifting large static binding`` () =
@@ -270,7 +270,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                         |> Seq.length
 
                     return workerCount = uniqueHashes
-                } |> cluster.RunOnCloud
+                } |> cluster.Run
         """
 
         fsi.EvalExpression "test large" |> shouldEqual true
@@ -288,7 +288,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                     let m = Matrix<double>.Build.Random(200,200) 
                     m.LU().Determinant
 
-                cluster.RunOnCloud <| cloud { return getRandomDeterminant() }
+                cluster.Run <| cloud { return getRandomDeterminant() }
             """
 
             fsi.EvalInteraction code
@@ -307,7 +307,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                 cloud { 
                     useNativeMKL ()
                     return getRandomDeterminant ()
-                } |> cluster.RunOnCloud
+                } |> cluster.Run
             """
 
             fsi.EvalInteraction code'

@@ -25,8 +25,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
     let repeat f = repeat self.Repeats f
 
-    let runOnCloud (workflow : Cloud<'T>) = self.RunOnCloud workflow
-    let runOnCloudCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.RunOnCloud workflow
+    let runOnCloud (workflow : Cloud<'T>) = self.Run workflow
+    let runOnCloudCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.Run workflow
     let runOnCloudWithLogs (workflow : Cloud<unit>) = self.RunOnCloudWithLogs workflow
     let runOnCurrentProcess (workflow : Cloud<'T>) = self.RunOnCurrentProcess workflow
     
@@ -34,9 +34,9 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     static let getRefHashCode (t : 'T when 'T : not struct) = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode t
     
     /// Run workflow in the runtime under test
-    abstract RunOnCloud : workflow:Cloud<'T> -> Choice<'T, exn>
+    abstract Run : workflow:Cloud<'T> -> Choice<'T, exn>
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
-    abstract RunOnCloud : workflow:(ICloudCancellationTokenSource -> #Cloud<'T>) -> Choice<'T, exn>
+    abstract Run : workflow:(ICloudCancellationTokenSource -> #Cloud<'T>) -> Choice<'T, exn>
     /// Run workflow in the runtime under test, returning logs created by the process.
     abstract RunOnCloudWithLogs : workflow:Cloud<unit> -> string []
     /// Evaluate workflow in the local test process

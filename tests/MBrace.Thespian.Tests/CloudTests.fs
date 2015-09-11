@@ -19,7 +19,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    let runOnCloud (wf : Cloud<'T>) = self.RunOnCloud wf
+    let runOnCloud (wf : Cloud<'T>) = self.Run wf
     let repeat f = repeat self.Repeats f
 
     [<TestFixtureSetUp>]
@@ -30,12 +30,12 @@ type ``MBrace Thespian Cloud Tests`` () as self =
 
     override __.IsTargetWorkerSupported = true
 
-    override __.RunOnCloud (workflow : Cloud<'T>) = 
+    override __.Run (workflow : Cloud<'T>) = 
         session.Runtime.RunOnCloudAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
-    override __.RunOnCloud (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
+    override __.Run (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
@@ -67,7 +67,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     let repeat f = repeat 10 f
 
-    let runOnCloud (wf : Cloud<'T>) = session.Runtime.RunOnCloud wf
+    let runOnCloud (wf : Cloud<'T>) = session.Runtime.Run wf
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -113,7 +113,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     [<Test>]
     member __.``1. Runtime : Additional Resources`` () =
         let workflow = cloud { return! Cloud.GetResource<int> () }
-        session.Runtime.RunOnCloud(workflow, additionalResources = resource { yield 42 }) |> shouldEqual 42
+        session.Runtime.Run(workflow, additionalResources = resource { yield 42 }) |> shouldEqual 42
 
     [<Test>]
     member __.``2. Fault Tolerance : map/reduce`` () =
@@ -153,6 +153,6 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             }
 
             do Thread.Sleep 1000
-            let t = runtime.RunOnCloud (wf ())
+            let t = runtime.Run (wf ())
             session.Chaos()
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

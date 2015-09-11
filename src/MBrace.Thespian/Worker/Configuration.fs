@@ -27,7 +27,7 @@ module internal WorkerConfiguration =
         | [<AltCommandLine("-j")>] Max_Concurrent_Jobs of int
         | [<AltCommandLine("-i")>] Use_AppDomain_Isolation of bool
         | [<AltCommandLine("-L")>] Log_File of string
-    with
+
         interface IArgParserTemplate with
             member a.Usage =
                 match a with
@@ -64,7 +64,7 @@ module internal WorkerConfiguration =
             /// ActorRef to parent process that has spawned this process, if applicable.
             Parent : Pickle<ActorRef<WorkerStartupResult>> option
         }
-    with
+
         /// Parse configuration object from command line
         static member Parse(?argv : string[]) =
             let results = argParser.Parse(?inputs = argv, errorHandler = new ProcessExiter())

@@ -12,17 +12,17 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
 
     static let nSequential = 100
 
-    let runOnCloud wf = self.RunOnCloud wf 
+    let runOnCloud wf = self.Run wf 
     let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
 
     let repeat f = repeat self.Repeats f
 
     let runProtected wf = 
-        try self.RunOnCloud wf |> Choice1Of2
+        try self.Run wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
-    abstract RunOnCloud : Cloud<'T> -> 'T
+    abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
     /// Maximum number of repeats to run nondeterministic tests

@@ -15,14 +15,14 @@ open MBrace.Library
 [<TestFixture; AbstractClass>]
 type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
-    let runOnCloud wf = self.RunOnCloud wf 
+    let runOnCloud wf = self.Run wf 
     let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
 
     let testDirectory = lazy(self.FileStore.GetRandomDirectoryName())
     let runSync wf = Async.RunSync wf
 
     let runProtected wf = 
-        try self.RunOnCloud wf |> Choice1Of2
+        try self.Run wf |> Choice1Of2
         with e -> Choice2Of2 e
 
     /// FileStore implementation under test
@@ -31,7 +31,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     abstract Serializer : ISerializer
 
     /// Run workflow in the runtime under test
-    abstract RunOnCloud : Cloud<'T> -> 'T
+    abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow under local semantics in the test process
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
 

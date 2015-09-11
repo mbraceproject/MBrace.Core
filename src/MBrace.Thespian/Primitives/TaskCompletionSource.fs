@@ -49,7 +49,7 @@ type private TaskCompletionSourceState =
         /// Task execution time representation
         ExecutionTime: ExecutionTime
     }
-with 
+
     /// <summary>
     ///     Initializes task state using provided task metadata.
     /// </summary>

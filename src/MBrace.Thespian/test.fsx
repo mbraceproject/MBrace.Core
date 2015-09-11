@@ -21,7 +21,7 @@ cluster.AttachLogger(new ConsoleLogger())
 
 let workers = cluster.Workers
 
-cloud { return 42 } |> cluster.RunOnCloud
+cloud { return 42 } |> cluster.Run
 cloud { return 42 } |> cluster.RunOnCurrentProcess
 
 cluster.ShowCloudTasks()
@@ -43,7 +43,7 @@ let test = cloud {
 
 cluster.RunOnCurrentProcess(test, memoryEmulation = MemoryEmulation.Shared)
 cluster.RunOnCurrentProcess(test, memoryEmulation = MemoryEmulation.Copied)
-cluster.RunOnCloud test
+cluster.Run test
 
 let test' = cloud {
     return box(new System.IO.MemoryStream())
@@ -51,7 +51,7 @@ let test' = cloud {
 
 cluster.RunOnCurrentProcess(test', memoryEmulation = MemoryEmulation.Shared)
 cluster.RunOnCurrentProcess(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
-cluster.RunOnCloud test'
+cluster.Run test'
 
 let pflow =
     CloudFlow.OfArray [|1 .. 100|]
@@ -59,7 +59,7 @@ let pflow =
     |> CloudFlow.filter (fun i -> i % 3L <> 0L)
     |> CloudFlow.map (fun i -> sprintf "Lorem ipsum dolor sit amet #%d" i)
     |> CloudFlow.cache
-    |> cluster.RunOnCloud
+    |> cluster.Run
 
 pflow |> Seq.length
-pflow |> CloudFlow.length |> cluster.RunOnCloud
+pflow |> CloudFlow.length |> cluster.Run

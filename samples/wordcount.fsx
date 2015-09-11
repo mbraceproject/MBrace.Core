@@ -78,6 +78,6 @@ let testUrls =
         "http://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt" 
     |]
              
-let words = getWords testUrls |> cluster.RunOnCloud
+let words = getWords testUrls |> cluster.Run
 
-let wordCount = getWordCount 10 words |> cluster.RunOnCloud
+let wordCount = getWordCount 10 words |> cluster.Run

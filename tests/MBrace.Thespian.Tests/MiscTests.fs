@@ -53,7 +53,7 @@ module ``MBrace Thespian Misc Tests`` =
             cluster.AttachWorker worker1
             cluster.AttachWorker worker2
 
-            cluster.RunOnCloud(Cloud.Parallel [for i in 1 .. 10 -> cloud { return i }])
+            cluster.Run(Cloud.Parallel [for i in 1 .. 10 -> cloud { return i }])
             |> shouldEqual [|1 .. 10|]
 
             cluster.Workers.Length |> shouldEqual 2
