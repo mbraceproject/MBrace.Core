@@ -170,7 +170,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
         member x.BatchEnqueue(workItems: CloudWorkItem []) = async {
             let localState = localStateF.Value
             if workItems.Length = 0 then return () else
-            let id = sprintf "workItems-%O" <| workItems.[0].Id
+            let id = sprintf "workitems-%O" <| workItems.[0].Id
             // never create new sifts on parallel workflows (batch enqueues)
             let! pickle = localState.CreateResult(workItems, allowNewSifts = false, fileName = id)
             let mkPickle (index:int) (workItem: CloudWorkItem) =
