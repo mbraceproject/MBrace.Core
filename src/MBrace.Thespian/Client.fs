@@ -136,19 +136,19 @@ type MBraceWorker private (uri : string) =
     /// <param name="hostname">Hostname or IP address on which the worker will be listening to.</param>
     /// <param name="port">Master TCP port used by the worker. Defaults to self-assigned.</param>
     /// <param name="workingDirectory">Working directory used by the worker. Defaults to system temp folder.</param>
-    /// <param name="maxConcurrentJobs">Maximum number of concurrent jobs executed if running as slave node. Defaults to 20.</param>
+    /// <param name="maxConcurrentWorkItems">Maximum number of concurrent work items executed if running as slave node. Defaults to 20.</param>
     /// <param name="logLevel">Loglevel used by the worker process. Defaults to no log level.</param>
     /// <param name="logFiles">Paths to text logfiles written to by worker process.</param>
-    /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud jobs. Defaults to true.</param>
+    /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud work items. Defaults to true.</param>
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
-    static member SpawnAsync (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentJobs : int,
+    static member SpawnAsync (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentWorkItems : int,
                                     ?logLevel : LogLevel, ?logFiles : seq<string>, ?useAppDomainIsolation : bool, ?runAsBackground : bool) =
         async {
             let exe = MBraceWorker.LocalExecutable
             let logFiles = match logFiles with None -> [] | Some ls -> Seq.toList ls
             let runAsBackground = defaultArg runAsBackground false
             let config = 
-                { MaxConcurrentJobs = maxConcurrentJobs ; UseAppDomainIsolation = useAppDomainIsolation ;
+                { MaxConcurrentWorkItems = maxConcurrentWorkItems ; UseAppDomainIsolation = useAppDomainIsolation ;
                     Hostname = hostname ; Port = port ; WorkingDirectory = workingDirectory ;
                     LogLevel = logLevel ; LogFiles = logFiles ; Parent = None }
 
@@ -162,15 +162,15 @@ type MBraceWorker private (uri : string) =
     /// <param name="hostname">Hostname or IP address on which the worker will be listening to.</param>
     /// <param name="port">Master TCP port used by the worker. Defaults to self-assigned.</param>
     /// <param name="workingDirectory">Working directory used by the worker. Defaults to system temp folder.</param>
-    /// <param name="maxConcurrentJobs">Maximum number of concurrent jobs executed if running as slave node. Defaults to 20.</param>
+    /// <param name="maxConcurrentWorkItems">Maximum number of concurrent work items executed if running as slave node. Defaults to 20.</param>
     /// <param name="logLevel">Loglevel used by the worker process. Defaults to no log level.</param>
     /// <param name="logFiles">Paths to text logfiles written to by worker process.</param>
-    /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud jobs. Defaults to true.</param>
+    /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud work items. Defaults to true.</param>
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
-    static member Spawn (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentJobs : int,
+    static member Spawn (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentWorkItems : int,
                                 ?logLevel : LogLevel, ?logFiles : seq<string>, ?useAppDomainIsolation : bool, ?runAsBackground : bool) =
 
-        MBraceWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentJobs = maxConcurrentJobs, ?logLevel = logLevel, 
+        MBraceWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentWorkItems = maxConcurrentWorkItems, ?logLevel = logLevel, 
                                 ?logFiles = logFiles, ?runAsBackground = runAsBackground, ?useAppDomainIsolation = useAppDomainIsolation)
         |> Async.RunSync
 

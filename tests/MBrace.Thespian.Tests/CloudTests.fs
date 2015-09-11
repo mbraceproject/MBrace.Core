@@ -31,7 +31,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     override __.IsTargetWorkerSupported = true
 
     override __.Run (workflow : Cloud<'T>) = 
-        session.Runtime.RunOnCloudAsync (workflow)
+        session.Runtime.RunAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
@@ -39,12 +39,12 @@ type ``MBrace Thespian Cloud Tests`` () as self =
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
-            try return! runtime.RunOnCloudAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            try return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
             finally cts.Cancel()
         } |> Async.RunSync
 
-    override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
-        let task = session.Runtime.CreateCloudTask(workflow)
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let task = session.Runtime.CreateTask(workflow)
         do task.Result
         task.GetLogs () |> Array.map CloudLogEntry.Format
 
@@ -85,27 +85,27 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     [<Test>]
     member __.``1. Runtime : Get process id`` () =
-        runOnCloud (Cloud.GetCloudTaskId()) |> shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetTaskId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``1. Runtime : Get task id`` () =
-        runOnCloud (Cloud.GetJobId()) |> shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetWorkItemId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``1. Runtime : Task Log Observable`` () =
         let workflow = cloud {
-            let job i = local {
+            let workItem i = local {
                 for j in 1 .. 100 do
                     do! Cloud.Logf "Job %d, iteration %d" i j
             }
 
             do! Cloud.Sleep 5000
-            do! Cloud.Parallel [for i in 1 .. 20 -> job i] |> Cloud.Ignore
+            do! Cloud.Parallel [for i in 1 .. 20 -> work item i] |> Cloud.Ignore
             do! Cloud.Sleep 2000
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
-        let task = session.Runtime.CreateCloudTask(workflow)
+        let task = session.Runtime.CreateTask(workflow)
         use d = task.Logs.Subscribe(fun e -> ra.Add(e))
         do task.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Job") |> Seq.length |> shouldEqual 2000
@@ -119,7 +119,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : map/reduce`` () =
         repeat (fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateCloudTask(WordCount.run 20 WordCount.mapReduceRec)
+            let t = runtime.CreateTask(WordCount.run 20 WordCount.mapReduceRec)
             do Thread.Sleep 4000
             session.Chaos()
             t.Result |> shouldEqual 100)
@@ -128,7 +128,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateCloudTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
+            let t = runtime.CreateTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
             do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
@@ -137,7 +137,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``3. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateCloudTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+            let t = runtime.CreateTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
             do Thread.Sleep 5000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

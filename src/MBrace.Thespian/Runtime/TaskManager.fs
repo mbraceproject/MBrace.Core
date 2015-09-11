@@ -43,7 +43,7 @@ type CloudTaskManager private (ref : ActorRef<TaskManagerMsg>) =
             return entries |> Array.map unbox
         }
         
-        member x.TryGetTaskById (taskId: string): Async<ICloudTaskCompletionSource option> = async {
+        member x.TryGetTask (taskId: string): Async<ICloudTaskCompletionSource option> = async {
             let! result = ref <!- fun ch -> TryGetTaskCompletionSourceById(taskId, ch)
             return result |> Option.map unbox
         }

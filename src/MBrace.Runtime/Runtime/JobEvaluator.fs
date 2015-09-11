@@ -12,162 +12,162 @@ open Nessos.Vagabond.AppDomainPool
 
 open MBrace.Runtime.Utils
 
-/// Job evaluator abstraction
-type ICloudJobEvaluator =
+/// Work item evaluator abstraction
+type ICloudWorkItemEvaluator =
     inherit IDisposable
 
     /// <summary>
-    ///     Asynchronously evaluates a job in the local worker.  
+    ///     Asynchronously evaluates a work item in the local worker.  
     /// </summary>
-    /// <param name="dependencies">Local assemblies that the job depends on.</param>
-    /// <param name="jobtoken">Cloud job token.</param>
-    abstract Evaluate : dependencies:VagabondAssembly [] * jobtoken:ICloudJobLeaseToken -> Async<unit>
+    /// <param name="dependencies">Local assemblies that the work item depends on.</param>
+    /// <param name="workItemToken">Cloud work item token.</param>
+    abstract Evaluate : dependencies:VagabondAssembly [] * workItemToken:ICloudWorkItemLeaseToken -> Async<unit>
 
 [<RequireQualifiedAccess>]
 module JobEvaluator =
 
     /// <summary>
-    ///     Asynchronously evaluates job in the local application domain.
+    ///     Asynchronously evaluates work item in the local application domain.
     /// </summary>
     /// <param name="manager">Runtime resource manager.</param>
-    /// <param name="currentWorker">Current worker executing job.</param>
-    /// <param name="faultState">Job fault state.</param>
-    /// <param name="job">Job instance to be executed.</param>
-    let runJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerId) 
-                    (faultState : CloudJobFaultInfo) (job : CloudJob) = async {
+    /// <param name="currentWorker">Current worker executing  work item.</param>
+    /// <param name="faultState">Work item fault state.</param>
+    /// <param name="workItem">Work item instance to be executed.</param>
+    let runWorkItemAsync (manager : IRuntimeManager) (currentWorker : IWorkerId) 
+                    (faultState : CloudWorkItemFaultInfo) (workItem : CloudWorkItem) = async {
 
         let logger = manager.SystemLogger
-        let jem = new JobExecutionMonitor()
-        use! distributionProvider = ParallelismProvider.Create(currentWorker, manager, job)
+        let jem = new WorkItemExecutionMonitor()
+        use! distributionProvider = ParallelismProvider.Create(currentWorker, manager, workItem)
         let resources = resource {
             yield! manager.ResourceRegistry
-            match job.TaskEntry.Info.AdditionalResources with Some r -> yield! r | None -> ()
+            match workItem.TaskEntry.Info.AdditionalResources with Some r -> yield! r | None -> ()
             yield jem
             yield currentWorker
             yield manager
             yield distributionProvider :> IParallelismProvider
         }
 
-        let ctx = { Resources = resources ; CancellationToken = job.CancellationToken }
+        let ctx = { Resources = resources ; CancellationToken = workItem.CancellationToken }
 
         match faultState with
-        | IsTargetedJobOfDeadWorker (_,w) ->
+        | IsTargetedWorkItemOfDeadWorker (_,w) ->
             // always throw a fault exception if dead worker
-            logger.Logf LogLevel.Info "Job '%O' originally assigned to dead worker '%s'." job.Id w.Id
-            let worker = Option.get job.TargetWorker // this is assumed to be 'Some' here
+            logger.Logf LogLevel.Info "Job '%O' originally assigned to dead worker '%s'." workItem.Id w.Id
+            let worker = Option.get workItem.TargetWorker // this is assumed to be 'Some' here
             let e = new FaultException(sprintf "Could not communicate with target worker '%O'." worker)
-            job.Econt ctx (ExceptionDispatchInfo.Capture e)
+            workItem.Econt ctx (ExceptionDispatchInfo.Capture e)
 
         | FaultDeclaredByWorker(faultCount, latestError, w) ->
-            logger.Logf LogLevel.Info "Job '%O' faulted %d times while executed in worker '%O'." job.Id faultCount w
+            logger.Logf LogLevel.Info "Job '%O' faulted %d times while executed in worker '%O'." workItem.Id faultCount w
             // consult user-supplied fault policy to decide on further action
             let e = latestError.Reify(prepareForRaise = false)
-            match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
+            match (try workItem.FaultPolicy.Policy faultCount e with _ -> None) with
             | None ->
-                let msg = sprintf "Job '%O' given up after it faulted %d times." job.Id faultCount
+                let msg = sprintf "Job '%O' given up after it faulted %d times." workItem.Id faultCount
                 let faultException = new FaultException(msg, e)
-                job.Econt ctx (ExceptionDispatchInfo.Capture faultException)
+                workItem.Econt ctx (ExceptionDispatchInfo.Capture faultException)
 
             | Some retryTimeout ->
                 do! Async.Sleep (int retryTimeout.TotalMilliseconds)
-                do job.StartJob ctx
+                do workItem.StartWorkItem ctx
 
-        | WorkerDeathWhileProcessingJob (faultCount, latestWorker) ->
-            logger.Logf LogLevel.Info "Job '%O' faulted %d times while being processed by nonresponsive worker '%O'." job.Id faultCount latestWorker
+        | WorkerDeathWhileProcessingWorkItem (faultCount, latestWorker) ->
+            logger.Logf LogLevel.Info "Job '%O' faulted %d times while being processed by nonresponsive worker '%O'." workItem.Id faultCount latestWorker
             // consult user-supplied fault policy to decide on further action
-            let msg = sprintf "Job '%O' was being processed by worker '%O' which has died." job.Id latestWorker
+            let msg = sprintf "Job '%O' was being processed by worker '%O' which has died." workItem.Id latestWorker
             let e = new FaultException(msg) :> exn
-            match (try job.FaultPolicy.Policy faultCount e with _ -> None) with
-            | None -> job.Econt ctx (ExceptionDispatchInfo.Capture e)
+            match (try workItem.FaultPolicy.Policy faultCount e with _ -> None) with
+            | None -> workItem.Econt ctx (ExceptionDispatchInfo.Capture e)
             | Some retryTimeout ->
                 do! Async.Sleep (int retryTimeout.TotalMilliseconds)
-                do job.StartJob ctx
+                do workItem.StartWorkItem ctx
 
         | NoFault ->  
             // no faults, proceed normally  
-            do job.StartJob ctx
+            do workItem.StartWorkItem ctx
 
-        return! JobExecutionMonitor.AwaitCompletion jem
+        return! WorkItemExecutionMonitor.AwaitCompletion jem
     }
     
     /// <summary>
-    ///     loads job to local application domain and evaluates it locally.
+    ///     loads work item to local application domain and evaluates it locally.
     /// </summary>
     /// <param name="manager">Runtime resource manager.</param>
-    /// <param name="currentWorker">Current worker executing job.</param>
+    /// <param name="currentWorker">Current worker executing  work item.</param>
     /// <param name="assemblies">Vagabond assemblies to be used for computation.</param>
-    /// <param name="joblt">Job lease token.</param>
+    /// <param name="workItemLease">Work item lease token.</param>
     let loadAndRunJobAsync (manager : IRuntimeManager) (currentWorker : IWorkerId) 
-                            (assemblies : VagabondAssembly []) (joblt : ICloudJobLeaseToken) = async {
+                            (assemblies : VagabondAssembly []) (workItemLease : ICloudWorkItemLeaseToken) = async {
 
         ignore <| RuntimeManagerRegistry.TryRegister manager
         let logger = manager.SystemLogger
-        logger.Logf LogLevel.Debug "Loading assembly dependencies for job '%O'." joblt.Id
+        logger.Logf LogLevel.Debug "Loading assembly dependencies for work item '%O'." workItemLease.Id
         for li in manager.AssemblyManager.LoadAssemblies assemblies do
             match li with
             | NotLoaded id -> logger.Logf LogLevel.Error "could not load assembly '%s'" id.FullName 
             | LoadFault(id, e) -> logger.Logf LogLevel.Error "error loading assembly '%s':\n%O" id.FullName e
             | Loaded _ -> ()
 
-        logger.Logf LogLevel.Debug "Deserializing job '%O'." joblt.Id
-        let! jobResult = joblt.GetJob() |> Async.Catch
-        match jobResult with
+        logger.Logf LogLevel.Debug "Deserializing work item '%O'." workItemLease.Id
+        let! workItemResult = workItemLease.GetWorkItem() |> Async.Catch
+        match workItemResult with
         | Choice2Of2 e ->
-            // failure to deserialize job triggers special error handling;
+            // failure to deserialize work item triggers special error handling;
             // trigger root task as faulted without consulting fault policy.
-            logger.Logf LogLevel.Error "Failed to deserialize job '%O':\n%O" joblt.Id e
-            let e = new FaultException(sprintf "Failed to deserialize job '%O'." joblt.Id, e)
+            logger.Logf LogLevel.Error "Failed to deserialize work item '%O':\n%O" workItemLease.Id e
+            let e = new FaultException(sprintf "Failed to deserialize work item '%O'." workItemLease.Id, e)
             let edi = ExceptionDispatchInfo.Capture e
-            do! joblt.TaskEntry.DeclareStatus Faulted
-            let! _ = joblt.TaskEntry.TrySetResult(TaskResult.Exception edi, currentWorker)
-            do! joblt.DeclareCompleted()
+            do! workItemLease.TaskEntry.DeclareStatus Faulted
+            let! _ = workItemLease.TaskEntry.TrySetResult(TaskResult.Exception edi, currentWorker)
+            do! workItemLease.DeclareCompleted()
 
-        | Choice1Of2 job ->
-            if job.JobType = CloudJobType.TaskRoot then
-                match job.TaskEntry.Info.Name with
-                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." job.TaskEntry.Id job.TaskEntry.Info.ReturnTypeName
-                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name job.TaskEntry.Info.ReturnTypeName
-                do! job.TaskEntry.DeclareStatus Running
+        | Choice1Of2 workItem ->
+            if workItem.WorkItemType = CloudWorkItemType.TaskRoot then
+                match workItem.TaskEntry.Info.Name with
+                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." workItem.TaskEntry.Id workItem.TaskEntry.Info.ReturnTypeName
+                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name workItem.TaskEntry.Info.ReturnTypeName
+                do! workItem.TaskEntry.DeclareStatus Running
 
-            do! job.TaskEntry.IncrementJobCount()
+            do! workItem.TaskEntry.IncrementJobCount()
             let sw = Stopwatch.StartNew()
-            let! result = runJobAsync manager currentWorker joblt.FaultInfo job |> Async.Catch
+            let! result = runWorkItemAsync manager currentWorker workItemLease.FaultInfo workItem |> Async.Catch
             sw.Stop()
 
             match result with
             | Choice1Of2 () -> 
-                logger.Logf LogLevel.Info "Completed job '%O' after %O" job.Id sw.Elapsed
-                do! job.TaskEntry.IncrementCompletedJobCount()
-                do! joblt.DeclareCompleted ()
+                logger.Logf LogLevel.Info "Completed work item '%O' after %O" workItem.Id sw.Elapsed
+                do! workItem.TaskEntry.IncrementCompletedWorkItemCount()
+                do! workItemLease.DeclareCompleted ()
 
             | Choice2Of2 e ->
-                logger.Logf LogLevel.Error "Faulted job '%O' after %O\n%O" job.Id sw.Elapsed e
-                do! joblt.DeclareFaulted (ExceptionDispatchInfo.Capture e)
-                // declare job faulted to task manager
-                do! joblt.TaskEntry.IncrementFaultedJobCount ()
+                logger.Logf LogLevel.Error "Faulted work item '%O' after %O\n%O" workItem.Id sw.Elapsed e
+                do! workItemLease.DeclareFaulted (ExceptionDispatchInfo.Capture e)
+                // declare work item faulted to task manager
+                do! workItemLease.TaskEntry.IncrementFaultedWorkItemCount ()
     }
        
 
-/// Defines a Cloud job evaluator that runs code within the current application domain
+/// Defines a Cloud work item evaluator that runs code within the current application domain
 [<AutoSerializable(false)>]
 type LocalJobEvaluator private (manager : IRuntimeManager, currentWorker : IWorkerId) =
     /// <summary>
-    ///     Creates a new local job evaluator instance with provided runtime configuration.
+    ///     Creates a new local work item evaluator instance with provided runtime configuration.
     /// </summary>
     /// <param name="manager">Runtime manager object.</param>
     /// <param name="currentWorker">Current worker identifier.</param>
     static member Create(manager : IRuntimeManager, currentWorker : IWorkerId) =
         new LocalJobEvaluator(manager, currentWorker)
 
-    interface ICloudJobEvaluator with
-        member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
-            return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken
+    interface ICloudWorkItemEvaluator with
+        member __.Evaluate (assemblies : VagabondAssembly[], workItemToken:ICloudWorkItemLeaseToken) = async {
+            return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies workItemToken
         }
 
     interface IDisposable with
         member __.Dispose() = ()
 
-/// Defines a Cloud job evaluator that runs in a managed pool of application domains.
+/// Defines a Cloud work item evaluator that runs in a managed pool of application domains.
 /// Loading of assembly dependencies is performed by Vagabond, in a way where conflicting
 /// dependencies will never be collocated in the same AppDomain.
 [<AutoSerializable(false)>]
@@ -192,16 +192,16 @@ type AppDomainJobEvaluator private (configInitializer : DomainLocal<IRuntimeMana
 
         new AppDomainJobEvaluator(DomainLocal.Create initRuntimeConfig, pool)
 
-    interface ICloudJobEvaluator with
-        member __.Evaluate (assemblies : VagabondAssembly[], jobtoken:ICloudJobLeaseToken) = async {
+    interface ICloudWorkItemEvaluator with
+        member __.Evaluate (assemblies : VagabondAssembly[], workItemToken:ICloudWorkItemLeaseToken) = async {
             // avoid capturing evaluator in closure
             let configInitializer = configInitializer
             let eval () = async { 
                 let manager, currentWorker = configInitializer.Value
-                return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies jobtoken 
+                return! JobEvaluator.loadAndRunJobAsync manager currentWorker assemblies workItemToken 
             }
 
-            return! pool.EvaluateAsync(jobtoken.TaskEntry.Info.Dependencies, eval ())
+            return! pool.EvaluateAsync(workItemToken.TaskEntry.Info.Dependencies, eval ())
         }
 
     interface IDisposable with

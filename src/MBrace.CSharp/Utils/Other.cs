@@ -83,9 +83,9 @@ namespace MBrace.CSharp
         /// <summary>
         /// Gets the assigned id of the currently running cloud task.
         /// </summary>
-        public static Cloud<string> GetJobId()
+        public static Cloud<string> GetWorkItemId()
         {
-            return MCloud.GetJobId(); 
+            return MCloud.GetWorkItemId(); 
         }
 
         /// <summary>

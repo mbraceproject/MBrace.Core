@@ -37,8 +37,8 @@ type ClusterState =
         WorkerManager : WorkerManager
         /// Cloud task instance
         TaskManager : CloudTaskManager
-        /// Cloud job queue instance
-        JobQueue : JobQueue
+        /// Cloud work item queue instance
+        WorkItemQueue : WorkItemQueue
         /// Misc resources appended to runtime state
         Resources : ResourceRegistry
         /// Local node state factory instance
@@ -91,7 +91,7 @@ type ClusterState =
         let resourceFactory = ResourceFactory.Create()
         let workerManager = WorkerManager.Create(localStateFactory)
         let taskManager = CloudTaskManager.Create(localStateFactory)
-        let jobQueue = JobQueue.Create(workerManager, localStateFactory)
+        let jobQueue = WorkItemQueue.Create(workerManager, localStateFactory)
 
         let resources = resource {
             yield new ActorAtomProvider(resourceFactory) :> ICloudAtomProvider
@@ -113,7 +113,7 @@ type ClusterState =
             StoreCloudValueProvider = cloudValueProvider
             WorkerManager = workerManager
             TaskManager = taskManager
-            JobQueue = jobQueue
+            WorkItemQueue = jobQueue
             Resources = resources
             LocalStateFactory = localStateFactory
         }
@@ -148,7 +148,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : ClusterState) =
         
         member x.WorkerManager = state.WorkerManager :> _
         
-        member x.JobQueue: ICloudJobQueue = state.JobQueue :> _
+        member x.WorkItemQueue: ICloudWorkItemQueue = state.WorkItemQueue :> _
 
         member x.SystemLogger : ISystemLogger = localState.Logger :> _
         

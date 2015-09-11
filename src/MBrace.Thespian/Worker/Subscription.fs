@@ -20,7 +20,7 @@ module internal WorkerSubscription =
             RuntimeState : ClusterState
             Agent : WorkerAgent
             LoggerSubscription : IDisposable
-            JobEvaluator : ICloudJobEvaluator
+            JobEvaluator : ICloudWorkItemEvaluator
         }
         member s.Dispose() =
             Disposable.dispose s.Agent
@@ -44,12 +44,12 @@ module internal WorkerSubscription =
     /// <summary>
     ///     Initializes a worker agent and subscription to provided runtime state.
     /// </summary>
-    /// <param name="useAppDomainIsolation">Enable AppDomain isolation for cloud job execution.</param>
+    /// <param name="useAppDomainIsolation">Enable AppDomain isolation for cloud work item execution.</param>
     /// <param name="logger">Logger bound to local worker process.s</param>
-    /// <param name="maxConcurrentJobs">Maximum number of permitted concurrent jobs.</param>
+    /// <param name="maxConcurrentWorkItems">Maximum number of permitted concurrent work items.</param>
     /// <param name="state">MBrace.Thespian state object.</param>
     let initSubscription (useAppDomainIsolation : bool) (logger : ISystemLogger) 
-                            (maxConcurrentJobs : int) (state : ClusterState) = async {
+                            (maxConcurrentWorkItems : int) (state : ClusterState) = async {
 
         ignore Config.Serializer
         // it is important that the current worker id is initialized in the master AppDomain
@@ -58,7 +58,7 @@ module internal WorkerSubscription =
         let manager = state.GetLocalRuntimeManager()
         let loggerSubscription = manager.AttachSystemLogger logger
 
-        let jobEvaluator =
+        let workItemEvaluator =
             if useAppDomainIsolation then
                 logger.LogInfo "Initializing AppDomain pool evaluator."
                 let domainConfig =
@@ -84,17 +84,17 @@ module internal WorkerSubscription =
                     let _ = manager.AttachSystemLogger(logger)
                     manager, currentWorker
 
-                AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudJobEvaluator
+                AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudWorkItemEvaluator
             else
-                LocalJobEvaluator.Create(manager, currentWorker) :> ICloudJobEvaluator
+                LocalJobEvaluator.Create(manager, currentWorker) :> ICloudWorkItemEvaluator
 
         logger.LogInfo "Creating worker agent."
-        let! agent = WorkerAgent.Create(manager, currentWorker, jobEvaluator, maxConcurrentJobs, submitPerformanceMetrics = true)
+        let! agent = WorkerAgent.Create(manager, currentWorker, workItemEvaluator, maxConcurrentWorkItems, submitPerformanceMetrics = true)
         do! agent.Start()
         return {
             Agent = agent
             LoggerSubscription = loggerSubscription
-            JobEvaluator = jobEvaluator
+            JobEvaluator = workItemEvaluator
             RuntimeState = state
         }
     }

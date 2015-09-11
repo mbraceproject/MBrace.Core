@@ -24,8 +24,8 @@ type private TaskCompletionSourceMsg =
     | TryGetResult of IReplyChannel<ResultMessage<TaskResult> option>
     | DeclareStatus of status:CloudTaskStatus
     | IncrementJobCount
-    | IncrementCompletedJobCount
-    | IncrementFaultedJobCount
+    | IncrementCompletedWorkItemCount
+    | IncrementFaultedWorkItemCount
 
 /// Task completion source execution state
 type private TaskCompletionSourceState = 
@@ -37,15 +37,15 @@ type private TaskCompletionSourceState =
         /// Task execution status
         Status : CloudTaskStatus
         /// Number of currently executing MBrace jobs for task
-        ActiveJobCount : int
+        ActiveWorkItemCount : int
         /// Maximum number of concurrently executing MBrace jobs for task
-        MaxActiveJobCount : int
+        MaxActiveWorkItemCount : int
         /// Total number of MBrace jobs for task
-        TotalJobCount : int
+        TotalWorkItemCount : int
         /// Total number of completed jobs for task
-        CompletedJobCount : int
+        CompletedWorkItemCount : int
         /// Total number of faulted jobs for task
-        FaultedJobCount : int
+        FaultedWorkItemCount : int
         /// Task execution time representation
         ExecutionTime: ExecutionTime
     }
@@ -57,8 +57,8 @@ type private TaskCompletionSourceState =
     static member Init(info : CloudTaskInfo) = 
         { 
             Info = info ; Result = None
-            TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; 
-            CompletedJobCount = 0 ; FaultedJobCount = 0
+            TotalWorkItemCount = 0 ; ActiveWorkItemCount = 0 ; MaxActiveWorkItemCount = 0 ; 
+            CompletedWorkItemCount = 0 ; FaultedWorkItemCount = 0
             ExecutionTime = NotStarted ; Status = Posted 
         }
 
@@ -71,11 +71,11 @@ type private TaskCompletionSourceState =
         {
             Status = ts.Status
             Info = ts.Info
-            ActiveJobCount = ts.ActiveJobCount
-            TotalJobCount = ts.TotalJobCount
-            MaxActiveJobCount = ts.MaxActiveJobCount
-            CompletedJobCount = ts.CompletedJobCount
-            FaultedJobCount = ts.FaultedJobCount
+            ActiveWorkItemCount = ts.ActiveWorkItemCount
+            TotalWorkItemCount = ts.TotalWorkItemCount
+            MaxActiveWorkItemCount = ts.MaxActiveWorkItemCount
+            CompletedWorkItemCount = ts.CompletedWorkItemCount
+            FaultedWorkItemCount = ts.FaultedWorkItemCount
 
             ExecutionTime = 
                 match ts.ExecutionTime with 
@@ -105,12 +105,12 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
             return! awaiter()
         }
         
-        member x.IncrementCompletedJobCount(): Async<unit> = async {
-            return! source.AsyncPost IncrementCompletedJobCount
+        member x.IncrementCompletedWorkItemCount(): Async<unit> = async {
+            return! source.AsyncPost IncrementCompletedWorkItemCount
         }
         
-        member x.IncrementFaultedJobCount(): Async<unit> = async {
-            return! source.AsyncPost IncrementFaultedJobCount
+        member x.IncrementFaultedWorkItemCount(): Async<unit> = async {
+            return! source.AsyncPost IncrementFaultedWorkItemCount
         }
         
         member x.DeclareStatus(status: CloudTaskStatus): Async<unit> = async {
@@ -185,15 +185,15 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
 
             | IncrementJobCount ->
                 return { state with 
-                                TotalJobCount = state.TotalJobCount + 1 ; 
-                                ActiveJobCount = state.ActiveJobCount + 1 ;
-                                MaxActiveJobCount = max state.MaxActiveJobCount (1 + state.ActiveJobCount) }
+                                TotalWorkItemCount = state.TotalWorkItemCount + 1 ; 
+                                ActiveWorkItemCount = state.ActiveWorkItemCount + 1 ;
+                                MaxActiveWorkItemCount = max state.MaxActiveWorkItemCount (1 + state.ActiveWorkItemCount) }
 
-            | IncrementCompletedJobCount ->
-                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; CompletedJobCount = state.CompletedJobCount + 1 }
+            | IncrementCompletedWorkItemCount ->
+                return { state with ActiveWorkItemCount = state.ActiveWorkItemCount - 1 ; CompletedWorkItemCount = state.CompletedWorkItemCount + 1 }
 
-            | IncrementFaultedJobCount ->
-                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; FaultedJobCount = state.FaultedJobCount + 1 }
+            | IncrementFaultedWorkItemCount ->
+                return { state with ActiveWorkItemCount = state.ActiveWorkItemCount - 1 ; FaultedWorkItemCount = state.FaultedWorkItemCount + 1 }
         }
 
         let ref =

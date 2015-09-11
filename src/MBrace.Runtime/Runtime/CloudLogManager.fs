@@ -18,18 +18,18 @@ type CloudLogEntry =
     val private taskId : string
     [<DataMember(Name = "WorkerId", Order = 3)>]
     val private workerId : string
-    [<DataMember(Name = "JobId", Order = 4)>]
-    val private jobId : CloudJobId
+    [<DataMember(Name = "WorkItemId", Order = 4)>]
+    val private workItem : CloudWorkItemId
 
-    new (taskId : string, workerId : string, jobId : CloudJobId, dateTime : DateTime, message : string) =
-        { taskId = taskId ; workerId = workerId ; jobId = jobId ; dateTime = dateTime ; message = message }
+    new (taskId : string, workerId : string, workItem : CloudWorkItemId, dateTime : DateTime, message : string) =
+        { taskId = taskId ; workerId = workerId ; workItem = workItem ; dateTime = dateTime ; message = message }
 
     /// Task identifier for log entry
     member e.TaskId = e.taskId
     /// Worker identifier for log entry
     member e.WorkerId = e.workerId
-    /// Job identifier for log entry
-    member e.JobId = e.jobId
+    /// Work item identifier for log entry
+    member e.WorkItemId = e.workItem
     /// Date of log entry creation
     member e.DateTime = e.dateTime
     /// Message of log entry
@@ -43,23 +43,23 @@ type CloudLogEntry =
     static member Format(cle : CloudLogEntry, ?showDate : bool) =
         if defaultArg showDate false then
             let date = cle.dateTime.ToString("yyyy-MM-dd H:mm:ss")
-            sprintf "[%s][Worker:%s][Job:%O] %s" date cle.workerId cle.jobId cle.message
+            sprintf "[%s][Worker:%s][Job:%O] %s" date cle.workerId cle.workItem cle.message
         else 
-            sprintf "[Worker:%s][Job:%O] %s" cle.workerId cle.jobId cle.message
+            sprintf "[Worker:%s][Job:%O] %s" cle.workerId cle.workItem cle.message
 
-/// CloudLogger instance used for logging a specific job
-type ICloudJobLogger =
+/// CloudLogger instance used for logging a specific work item
+type ICloudWorkItemLogger =
     inherit ICloudLogger
     inherit IDisposable
 
 /// Abstraction used for managing cloud log entries
 type ICloudLogManager =
     /// <summary>
-    ///     Gets a CloudLogger instance specific to supplied CloudJob.
+    ///     Gets a CloudLogger instance specific to supplied CloudWorkItem.
     /// </summary>
     /// <param name="worker">Current worker identifier.</param>
-    /// <param name="job">Current cloud job.</param>
-    abstract CreateJobLogger : worker:IWorkerId * job:CloudJob -> Async<ICloudJobLogger>
+    /// <param name="workItem">Current cloud work item.</param>
+    abstract CreateWorkItemLogger : worker:IWorkerId * workItem:CloudWorkItem -> Async<ICloudWorkItemLogger>
 
     /// <summary>
     ///     Asynchronoulsy fetches all log entries related to task of provided id.

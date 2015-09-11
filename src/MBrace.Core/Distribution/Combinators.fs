@@ -292,17 +292,17 @@ type Cloud =
     /// <summary>
     ///     Gets the assigned id of the currently running CloudTask.
     /// </summary>
-    static member GetCloudTaskId () : Local<string> = local {
+    static member GetTaskId () : Local<string> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.TaskId
     }
 
     /// <summary>
-    ///     Gets the assigned id of the currently running cloud job.
+    ///     Gets the assigned id of the currently running cloud work item.
     /// </summary>
-    static member GetJobId () : Local<string> = local {
+    static member GetWorkItemId () : Local<string> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
-        return runtime.JobId
+        return runtime.WorkItemId
     }
 
     /// <summary>

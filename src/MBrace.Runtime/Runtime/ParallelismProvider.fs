@@ -10,7 +10,7 @@ open MBrace.ThreadPool.Internals
 
 /// Implements the IDistribution provider implementation to be passed to MBrace workflow execution
 [<Sealed; AutoSerializable(false)>]
-type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentJob : CloudJob, faultPolicy : FaultPolicy, logger : ICloudJobLogger, isForcedLocalParallelism : bool) =
+type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentWorkItem : CloudWorkItem, faultPolicy : FaultPolicy, logger : ICloudWorkItemLogger, isForcedLocalParallelism : bool) =
 
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
         let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
@@ -20,34 +20,34 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
     let mkNestedCts elevate parent = mkCts elevate [|parent|] |> Async.RunSync
 
     /// <summary>
-    ///     Creates a distribution provider instance for given cloud job.
+    ///     Creates a distribution provider instance for given cloud work item.
     /// </summary>
     /// <param name="currentWorker">Worker ref instance identifying current worker.</param>
     /// <param name="runtime">Runtime resource manager.</param>
-    /// <param name="job">Job to be executed.</param>
-    static member Create(currentWorker : IWorkerId, runtime : IRuntimeManager, job : CloudJob) = async {
+    /// <param name="workItem">Work item to be executed.</param>
+    static member Create(currentWorker: IWorkerId, runtime: IRuntimeManager, workItem: CloudWorkItem) = async {
         let currentWorker = WorkerRef.Create(runtime, currentWorker)
-        let! logger = runtime.CloudLogManager.CreateJobLogger (currentWorker.WorkerId, job)
-        return new ParallelismProvider(currentWorker, runtime, job, job.FaultPolicy, logger, false)
+        let! logger = runtime.CloudLogManager.CreateWorkItemLogger (currentWorker.WorkerId, workItem)
+        return new ParallelismProvider(currentWorker, runtime, workItem, workItem.FaultPolicy, logger, false)
     }
 
     interface IDisposable with
         member __.Dispose () = logger.Dispose()
         
     interface IParallelismProvider with
-        member __.TaskId = currentJob.TaskEntry.Id
-        member __.JobId = currentJob.Id.ToString()
+        member __.TaskId = currentWorkItem.TaskEntry.Id
+        member __.WorkItemId = currentWorkItem.Id.ToString()
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy (newPolicy : FaultPolicy) =
-            new ParallelismProvider(currentWorker, runtime, currentJob, newPolicy, logger, isForcedLocalParallelism) :> IParallelismProvider
+            new ParallelismProvider(currentWorker, runtime, currentWorkItem, newPolicy, logger, isForcedLocalParallelism) :> IParallelismProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = mkCts false parents
 
         member __.IsTargetedWorkerSupported = true
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting (setting : bool) = 
-            new ParallelismProvider(currentWorker, runtime, currentJob, faultPolicy, logger, setting) :> IParallelismProvider
+            new ParallelismProvider(currentWorker, runtime, currentWorkItem, faultPolicy, logger, setting) :> IParallelismProvider
 
         member __.ScheduleLocalParallel (computations : seq<Local<'T>>) = Combinators.Parallel(mkNestedCts false, MemoryEmulation.Shared, computations)
         member __.ScheduleLocalChoice (computations : seq<Local<'T option>>) = Combinators.Choice(mkNestedCts false, MemoryEmulation.Shared, computations)
@@ -57,7 +57,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
                 // force threadpool parallelism semantics
                 return! Combinators.Parallel(mkNestedCts false, MemoryEmulation.Shared, Seq.map fst computations)
             else
-                return! Combinators.runParallel runtime currentJob.TaskEntry faultPolicy computations
+                return! Combinators.runParallel runtime currentWorkItem.TaskEntry faultPolicy computations
         }
 
         member __.ScheduleChoice (computations : seq<#Cloud<'T option> * IWorkerRef option>) = cloud {
@@ -65,14 +65,14 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
                 // force threadpool parallelism semantics
                 return! Combinators.Choice(mkNestedCts false, MemoryEmulation.Shared, Seq.map fst computations)
             else
-                return! Combinators.runChoice runtime currentJob.TaskEntry faultPolicy computations
+                return! Combinators.runChoice runtime currentWorkItem.TaskEntry faultPolicy computations
         }
 
         member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : FaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating using local semantics."
             else
-                let! task = Combinators.runStartAsCloudTask runtime (Some currentJob.TaskEntry) currentJob.TaskEntry.Info.Dependencies taskName faultPolicy cancellationToken currentJob.TaskEntry.Info.AdditionalResources target workflow 
+                let! task = Combinators.runStartAsCloudTask runtime (Some currentWorkItem.TaskEntry) currentWorkItem.TaskEntry.Info.Dependencies taskName faultPolicy cancellationToken currentWorkItem.TaskEntry.Info.AdditionalResources target workflow 
                 return task :> ICloudTask<'T>
         }
 

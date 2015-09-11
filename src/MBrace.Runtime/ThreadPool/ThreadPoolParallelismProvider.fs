@@ -64,7 +64,7 @@ type ThreadPoolParallelismProvider private (processId : string, memoryEmulation 
         }
 
         member __.TaskId = sprintf "In-Memory MBrace computation %s" processId
-        member __.JobId = sprintf "TheadId %d" <| System.Threading.Thread.CurrentThread.ManagedThreadId
+        member __.WorkItemId = sprintf "TheadId %d" <| System.Threading.Thread.CurrentThread.ManagedThreadId
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false
         member __.GetAvailableWorkers () = async {

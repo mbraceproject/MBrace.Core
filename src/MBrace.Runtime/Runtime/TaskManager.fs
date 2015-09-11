@@ -13,7 +13,7 @@ open MBrace.Core.Internals
 type CloudTaskStatus =
     /// Task posted to cluster for execution
     | Posted
-    /// Root job for task dequeued
+    /// Root work item for task dequeued
     | Dequeued 
     /// Task being executed by the cluster
     | Running
@@ -93,16 +93,16 @@ type CloudTaskState =
         Status : CloudTaskStatus
         /// Task execution time
         ExecutionTime : ExecutionTime
-        /// Max number of concurrently executing jobs for task.
-        MaxActiveJobCount : int
-        /// Number of jobs currently executing for task.
-        ActiveJobCount : int
-        /// Number of jobs completed for task.
-        CompletedJobCount : int
+        /// Max number of concurrently executing work items for task.
+        MaxActiveWorkItemCount : int
+        /// Number of work items currently executing for task.
+        ActiveWorkItemCount : int
+        /// Number of work items completed for task.
+        CompletedWorkItemCount : int
         /// Number of times jobs have been faulted.
-        FaultedJobCount : int
-        /// Total number of jobs spawned by task.
-        TotalJobCount : int
+        FaultedWorkItemCount : int
+        /// Total number of work items spawned by task.
+        TotalWorkItemCount : int
     }
 
 /// Cloud task completion source abstraction
@@ -140,19 +140,19 @@ type ICloudTaskCompletionSource =
     abstract DeclareStatus : status:CloudTaskStatus -> Async<unit>
 
     /// <summary>
-    ///     Increments job count for provided task.
+    ///     Increments work item count for provided task.
     /// </summary>
     abstract IncrementJobCount : unit -> Async<unit>
 
     /// <summary>
-    ///     Asynchronously increments the faulted job count for task.
+    ///     Asynchronously increments the faulted work item count for task.
     /// </summary>
-    abstract IncrementFaultedJobCount : unit -> Async<unit>
+    abstract IncrementFaultedWorkItemCount : unit -> Async<unit>
 
     /// <summary>
-    ///     Decrements job count for provided task.
+    ///     Decrements work item count for provided task.
     /// </summary>
-    abstract IncrementCompletedJobCount : unit -> Async<unit>
+    abstract IncrementCompletedWorkItemCount : unit -> Async<unit>
 
 /// Cloud task manager object
 type ICloudTaskManager =
@@ -167,7 +167,7 @@ type ICloudTaskManager =
     ///     Gets a cloud task entry for provided task id.
     /// </summary>
     /// <param name="taskId">Task id to be looked up.</param>
-    abstract TryGetTaskById : taskId:string -> Async<ICloudTaskCompletionSource option>
+    abstract TryGetTask : taskId:string -> Async<ICloudTaskCompletionSource option>
 
     /// <summary>
     ///     Asynchronously fetches task execution state for all tasks currently in task.

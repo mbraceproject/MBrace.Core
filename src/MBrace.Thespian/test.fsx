@@ -24,13 +24,13 @@ let workers = cluster.Workers
 cloud { return 42 } |> cluster.Run
 cloud { return 42 } |> cluster.RunOnCurrentProcess
 
-cluster.ShowCloudTasks()
+cluster.ShowTasks()
 cluster.ShowWorkers()
 
 let proc = 
     CloudFlow.OfHttpFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
     |> CloudFlow.length
-    |> cluster.CreateCloudTask
+    |> cluster.CreateTask
 
 proc.Result
 
