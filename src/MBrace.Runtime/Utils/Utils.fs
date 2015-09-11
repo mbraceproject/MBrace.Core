@@ -354,7 +354,7 @@ module Utils =
 
     /// Unique process identifier object
     [<Sealed; DataContract>]
-    type ProcessId private (machineId : MachineId, processId : int, processName : string, startTime : DateTime) =
+    type ProcessId private (machineId : MachineId, processId : int, processName : string, startTime : DateTimeOffset) =
         static let singleton = lazy(ProcessId.FromProcess <| Process.GetCurrentProcess())
 
         [<DataMember(Name = "MachineId")>]
@@ -381,7 +381,7 @@ module Utils =
             if machineId = MachineId.LocalInstance then
                 try 
                     let proc = Process.GetProcessById(processId)
-                    if processName = proc.ProcessName && startTime = proc.StartTime then
+                    if processName = proc.ProcessName && startTime = new DateTimeOffset(proc.StartTime) then
                         Some proc
                     else
                         None
@@ -408,7 +408,7 @@ module Utils =
         /// <param name="proc">Process instance.</param>
         static member FromProcess(proc : System.Diagnostics.Process) : ProcessId =
             let mid = MachineId.LocalInstance
-            new ProcessId(mid, proc.Id, proc.ProcessName, proc.StartTime)
+            new ProcessId(mid, proc.Id, proc.ProcessName, new DateTimeOffset(proc.StartTime))
 
         /// Gets the process identifier for the current process
         static member LocalInstance : ProcessId = singleton.Value
@@ -421,6 +421,48 @@ module Utils =
             try id |> Process.GetProcessById |> ProcessId.FromProcess |> Some
             with :? ArgumentException -> None
 
+    /// Serializable AppDomain identifier object
+    [<Sealed; DataContract>]
+    type AppDomainId private (processId : ProcessId, domainId : int, friendlyName : string) =
+        static let localInstance = lazy(AppDomainId.FromAppDomain(AppDomain.CurrentDomain))
+
+        [<DataMember(Name = "ProcessId")>]
+        let processId = processId
+        [<DataMember(Name = "DomainId")>]
+        let domainId = domainId
+        [<DataMember(Name = "FriendlyName")>]
+        let friendlyName = friendlyName
+
+        /// Machine identifier
+        member __.ProcessId = processId
+        /// AppDomain identifier
+        member __.DomainId = domainId
+        /// AppDomain friendly name
+        member __.FriendlyName = friendlyName
+
+        override __.Equals(other:obj) =
+            match other with
+            | :? AppDomainId as did -> processId = did.ProcessId && domainId = did.DomainId
+            | _ -> false
+
+        override __.GetHashCode() = hash2 processId domainId
+
+        interface IComparable with
+            member __.CompareTo(other:obj) =
+                match other with
+                | :? AppDomainId as did -> compare2 processId domainId did.ProcessId did.DomainId
+                | _ -> invalidArg "other" "invalid comparand."
+
+        /// Gets the identifier to current AppDomain
+        static member LocalInstance = localInstance.Value
+
+        /// <summary>
+        ///     Gets a process identifier from given System.Diagnostics.process instance
+        /// </summary>
+        /// <param name="proc">Process instance.</param>
+        static member FromAppDomain(domain : System.AppDomain) : AppDomainId =
+            let pid = ProcessId.LocalInstance
+            new AppDomainId(pid, domain.Id, domain.FriendlyName)
 
     type ISerializer with
         member s.Pickle<'T>(value : 'T) =

@@ -77,14 +77,23 @@ type ClusterState =
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
             let siftManager = ClosureSiftManager.Create(siftConfig, logger)
-            let logSchema = new DefaultStoreLogSchema(fileStore)
-            let storeLogger = StoreCloudLogManager.Create(fileStore, logSchema, sysLogger = logger)
+            let sysLogSchema = 
+                { new DefaultStoreSystemLogSchema(fileStore) with
+                    override __.GetWorkerDirectory(id : IWorkerId) = 
+                        let uri = System.Uri(id.Id)
+                        sprintf "workerLogs-%s-%d" uri.Host uri.Port
+                }
+
+            let cloudLogSchema = new DefaultStoreCloudLogSchema(fileStore)
+            let storeSystemLogger = new StoreSystemLogManager(sysLogSchema, fileStore)
+            let storeCloudLogger = StoreCloudLogManager.Create(fileStore, cloudLogSchema, sysLogger = logger)
             {
                 Logger = logger
                 PersistedValueManager = persistedValueManager
                 AssemblyManager = assemblyManager
                 SiftManager = siftManager
-                CloudLogManager = storeLogger 
+                SystemLogManager = storeSystemLogger
+                CloudLogManager = storeCloudLogger 
             })
 
         let id = RuntimeId.Create()

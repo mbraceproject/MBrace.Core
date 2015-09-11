@@ -21,11 +21,13 @@ module internal WorkerSubscription =
             Agent : WorkerAgent
             LoggerSubscription : IDisposable
             WorkItemEvaluator : ICloudWorkItemEvaluator
+            StoreLoggerSubscription : IDisposable
         }
         member s.Dispose() =
             Disposable.dispose s.Agent
             Disposable.dispose s.WorkItemEvaluator
             Disposable.dispose s.LoggerSubscription
+            Disposable.dispose s.StoreLoggerSubscription
 
     /// AppDomain configuration object that can be safely
     /// passed to AppDomain before it has been initialized
@@ -48,7 +50,7 @@ module internal WorkerSubscription =
     /// <param name="logger">Logger bound to local worker process.s</param>
     /// <param name="maxConcurrentWorkItems">Maximum number of permitted concurrent work items.</param>
     /// <param name="state">MBrace.Thespian state object.</param>
-    let initSubscription (useAppDomainIsolation : bool) (logger : ISystemLogger) 
+    let initSubscription (useAppDomainIsolation : bool) (logger : AttacheableLogger) 
                             (maxConcurrentWorkItems : int) (state : ClusterState) = async {
 
         ignore Config.Serializer
@@ -57,6 +59,9 @@ module internal WorkerSubscription =
         let currentWorker = WorkerId.LocalInstance :> IWorkerId
         let manager = state.GetLocalRuntimeManager()
         let loggerSubscription = manager.AttachSystemLogger logger
+        logger.LogInfo "Initializing worker store logger."
+        let storeLogger = state.LocalStateFactory.Value.SystemLogManager.CreateStoreLogger(currentWorker)
+        let storeLoggerSubscription = logger.AttachLogger(storeLogger)
 
         let workItemEvaluator =
             if useAppDomainIsolation then
@@ -96,5 +101,6 @@ module internal WorkerSubscription =
             LoggerSubscription = loggerSubscription
             WorkItemEvaluator = workItemEvaluator
             RuntimeState = state
+            StoreLoggerSubscription = storeLoggerSubscription
         }
     }

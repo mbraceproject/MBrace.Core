@@ -13,6 +13,9 @@ type IWorkerId =
     inherit IComparable
     /// Worker identifier
     abstract Id : string
+    /// Worker session uuid, identifying the current process instance.
+    /// Should not be taken into account when implementing equality-comparison semantics.
+    abstract SessionId : Guid
 
 /// Worker operation status
 [<NoEquality; NoComparison>]
@@ -74,7 +77,7 @@ type IWorkerManager =
     ///     Asynchronously returns current worker information
     ///     for provided worker reference.
     /// </summary>
-    /// <param name="target">Worker ref to be examined.</param>
+    /// <param name="target">Worker identifier to be fetched.</param>
     abstract TryGetWorkerState : id:IWorkerId -> Async<WorkerState option>
 
     /// <summary>
@@ -113,3 +116,15 @@ type IWorkerManager =
 
     /// Asynchronously requests node performance metrics for all nodes.
     abstract GetAvailableWorkers : unit -> Async<WorkerState []>
+
+    /// <summary>
+    ///     Asynchronoulsy fetches all system logs produced by worker of given id.
+    /// </summary>
+    /// <param name="id">Worker identifier.</param>
+    abstract GetWorkerLogs : id:IWorkerId -> Async<SystemLogEntry []>
+
+    /// <summary>
+    ///     Asynchronously fetches an observable to system logs produces by worker of given id.
+    /// </summary>
+    /// <param name="id">Worker identifier.</param>
+    abstract GetWorkerLogObservable : id:IWorkerId -> Async<IObservable<SystemLogEntry>>

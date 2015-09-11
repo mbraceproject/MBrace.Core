@@ -20,6 +20,8 @@ type LocalState =
         AssemblyManager : StoreAssemblyManager
         /// Local AssemblyManager instance
         PersistedValueManager : PersistedValueManager
+        /// Local system log manager instance
+        SystemLogManager : StoreSystemLogManager
         /// Local cloud log manager instance
         CloudLogManager : StoreCloudLogManager
     }

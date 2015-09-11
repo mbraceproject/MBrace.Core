@@ -20,6 +20,8 @@ open MBrace.Thespian.Runtime.WorkerConfiguration
 
 /// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
+/// Struct that specifies a single log entry
+type SystemLogEntry = MBrace.Runtime.SystemLogEntry
 /// Log level used by the MBrace runtime implementation
 type LogLevel = MBrace.Runtime.LogLevel
 

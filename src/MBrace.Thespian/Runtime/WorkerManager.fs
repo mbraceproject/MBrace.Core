@@ -13,7 +13,8 @@ open MBrace.Runtime.Utils.PerformanceMonitor
 
 /// Defines a unique idenfier for an MBrace.Thespian worker
 [<AutoSerializable(true)>]
-type WorkerId private (processId : ProcessId, uri : string) =
+type WorkerId private (processId : ProcessId, sessionId : Guid, uri : string) =
+    static let _sessionId = Guid.NewGuid()
     member __.ProcessId = processId
     member __.Id = uri
 
@@ -24,6 +25,7 @@ type WorkerId private (processId : ProcessId, uri : string) =
             | _ -> invalidArg "obj" "invalid comparand."
         
         member x.Id: string = x.Id
+        member x.SessionId = sessionId
 
     override x.ToString() = x.Id
     override x.Equals(other:obj) =
@@ -34,7 +36,7 @@ type WorkerId private (processId : ProcessId, uri : string) =
     override x.GetHashCode() = hash processId
 
     /// Gets the worker id instance corresponding to the local worker
-    static member LocalInstance = new WorkerId(ProcessId.LocalInstance, Config.LocalMBraceUri)
+    static member LocalInstance = new WorkerId(ProcessId.LocalInstance, _sessionId, Config.LocalMBraceUri)
   
 /// Messages sent for actor tasked to monitoring worker heart beats       
 type private HeartbeatMonitorMsg = 
@@ -123,7 +125,7 @@ module private HeartbeatMonitor =
 
 /// WorkerManager actor reference used for handling MBrace.Thespian worker instances
 [<AutoSerializable(true)>]
-type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<WorkerMonitorMsg>) =
+type WorkerManager private (heartbeatInterval : TimeSpan, localState : LocalStateFactory, source : ActorRef<WorkerMonitorMsg>) =
 
     /// <summary>
     ///     Revokes worker subscription for given id.
@@ -170,6 +172,15 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
         
         member x.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = async {
             return! source <!- fun ch -> TryGetWorkerState(unbox id, ch)
+        }
+
+        member x.GetWorkerLogObservable(id : IWorkerId) : Async<IObservable<SystemLogEntry>> = async {
+            return localState.Value.SystemLogManager.CreateObservable(id)
+        }
+
+        member x.GetWorkerLogs(id : IWorkerId) : Async<SystemLogEntry []> = async {
+            let! logs = localState.Value.SystemLogManager.GetAllLogsByWorker id
+            return Seq.toArray logs
         }
 
     /// <summary>
@@ -266,7 +277,7 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
             |> Actor.Publish
             |> Actor.ref
 
-        new WorkerManager(heartbeatInterval, aref)
+        new WorkerManager(heartbeatInterval, localStateF, aref)
 
 
 /// Subscribption disposer object
