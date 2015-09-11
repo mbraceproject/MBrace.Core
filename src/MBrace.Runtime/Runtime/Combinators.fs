@@ -160,7 +160,7 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
                         WorkItemExecutionMonitor.TriggerCompletion ctx
                 } |> WorkItemExecutionMonitor.ProtectAsync ctx
 
-            // Create jobs and enqueue
+            // Create wok items and enqueue
             do!
                 computations
                 |> Array.mapi (fun i (c,w) -> CloudWorkItem.Create(parentTask, childCts, faultPolicy, onSuccess i, onException i, onCancellation, CloudWorkItemType.ParallelChild(i, computations.Length), c, ?target = w))
@@ -239,7 +239,7 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSour
                             childCts.Cancel()
                             cont.Success (withCancellationToken currentCts ctx) None
                         else
-                            // other jobs pending, declare work item completion
+                            // other work items pending, declare work item completion
                             WorkItemExecutionMonitor.TriggerCompletion ctx
                 } |> WorkItemExecutionMonitor.ProtectAsync ctx
 
@@ -265,7 +265,7 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSour
                         WorkItemExecutionMonitor.TriggerCompletion ctx
                 } |> WorkItemExecutionMonitor.ProtectAsync ctx
 
-            // create child jobs
+            // create child work items
             do!
                 computations
                 |> Array.mapi (fun i (c,w) -> CloudWorkItem.Create(parentTask, childCts, faultPolicy, onSuccess i, onException i, onCancellation, CloudWorkItemType.ChoiceChild(i, computations.Length), c, ?target = w))

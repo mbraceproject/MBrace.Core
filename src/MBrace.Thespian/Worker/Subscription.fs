@@ -20,11 +20,11 @@ module internal WorkerSubscription =
             RuntimeState : ClusterState
             Agent : WorkerAgent
             LoggerSubscription : IDisposable
-            JobEvaluator : ICloudWorkItemEvaluator
+            WorkItemEvaluator : ICloudWorkItemEvaluator
         }
         member s.Dispose() =
             Disposable.dispose s.Agent
-            Disposable.dispose s.JobEvaluator
+            Disposable.dispose s.WorkItemEvaluator
             Disposable.dispose s.LoggerSubscription
 
     /// AppDomain configuration object that can be safely
@@ -84,9 +84,9 @@ module internal WorkerSubscription =
                     let _ = manager.AttachSystemLogger(logger)
                     manager, currentWorker
 
-                AppDomainJobEvaluator.Create(managerF, initializer) :> ICloudWorkItemEvaluator
+                AppDomainWorkItemEvaluator.Create(managerF, initializer) :> ICloudWorkItemEvaluator
             else
-                LocalJobEvaluator.Create(manager, currentWorker) :> ICloudWorkItemEvaluator
+                LocalWorkItemEvaluator.Create(manager, currentWorker) :> ICloudWorkItemEvaluator
 
         logger.LogInfo "Creating worker agent."
         let! agent = WorkerAgent.Create(manager, currentWorker, workItemEvaluator, maxConcurrentWorkItems, submitPerformanceMetrics = true)
@@ -94,7 +94,7 @@ module internal WorkerSubscription =
         return {
             Agent = agent
             LoggerSubscription = loggerSubscription
-            JobEvaluator = workItemEvaluator
+            WorkItemEvaluator = workItemEvaluator
             RuntimeState = state
         }
     }

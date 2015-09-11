@@ -43,9 +43,9 @@ type CloudLogEntry =
     static member Format(cle : CloudLogEntry, ?showDate : bool) =
         if defaultArg showDate false then
             let date = cle.dateTime.ToString("yyyy-MM-dd H:mm:ss")
-            sprintf "[%s][Worker:%s][Job:%O] %s" date cle.workerId cle.workItem cle.message
+            sprintf "[%s][Worker:%s][WorkItem:%O] %s" date cle.workerId cle.workItem cle.message
         else 
-            sprintf "[Worker:%s][Job:%O] %s" cle.workerId cle.workItem cle.message
+            sprintf "[Worker:%s][WorkItem:%O] %s" cle.workerId cle.workItem cle.message
 
 /// CloudLogger instance used for logging a specific work item
 type ICloudWorkItemLogger =

@@ -63,7 +63,7 @@ type CloudWorkItem =
         FaultPolicy : FaultPolicy
         /// Work item Exception continuation
         Econt : ExecutionContext -> ExceptionDispatchInfo -> unit
-        /// Distributed cancellation token source bound to job
+        /// Distributed cancellation token source bound to work item
         CancellationToken : ICloudCancellationToken
     }
     /// <summary>

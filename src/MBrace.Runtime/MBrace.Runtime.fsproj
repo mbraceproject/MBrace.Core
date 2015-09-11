@@ -94,7 +94,7 @@
     <Compile Include="Runtime\CloudTask.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\ParallelismProvider.fs" />
-    <Compile Include="Runtime\JobEvaluator.fs" />
+    <Compile Include="Runtime\WorkItemEvaluator.fs" />
     <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Runtime\StoreClient.fs" />
     <Compile Include="Runtime\MBraceClient.fs" />

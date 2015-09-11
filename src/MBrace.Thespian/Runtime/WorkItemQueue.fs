@@ -32,7 +32,7 @@ type internal Pickle =
 
 /// Pickled MBrace work item entry.
 /// Can be used without need for assembly dependencies being loaded.
-type internal PickledJob =
+type internal PickledWorkItems =
     {
         /// Parent task entry as recorded in cluster.
         TaskEntry : ICloudTaskCompletionSource
@@ -49,7 +49,7 @@ type internal PickledJob =
     }
 
 /// Messages accepted by a work item monitoring actor
-type internal JobLeaseMonitorMsg =
+type internal WorkItemLeaseMonitorMsg =
     /// Declare work item completed
     | Completed
     /// Declare work item execution resulted in fault
@@ -58,11 +58,11 @@ type internal JobLeaseMonitorMsg =
     | WorkerDeath
 
 type private WorkItemQueueMsg =
-    | Enqueue of PickledJob * CloudWorkItemFaultInfo
-    | BatchEnqueue of PickledJob []
-    | TryDequeue of IWorkerId * IReplyChannel<(PickledJob * CloudWorkItemFaultInfo * ActorRef<JobLeaseMonitorMsg>) option>
+    | Enqueue of PickledWorkItems * CloudWorkItemFaultInfo
+    | BatchEnqueue of PickledWorkItems []
+    | TryDequeue of IWorkerId * IReplyChannel<(PickledWorkItems * CloudWorkItemFaultInfo * ActorRef<WorkItemLeaseMonitorMsg>) option>
 
-module private JobLeaseMonitor =
+module private WorkItemLeaseMonitor =
     
     /// <summary>
     ///     Creates an local actor that monitors work item execution progress.
@@ -75,25 +75,25 @@ module private JobLeaseMonitor =
     /// <param name="interval">Monitor interval.</param>
     /// <param name="worker">Executing worker id.</param>
     let create (workerMonitor : WorkerManager) (queue : ActorRef<WorkItemQueueMsg>) 
-                (faultInfo : CloudWorkItemFaultInfo) (job : PickledJob) 
+                (faultInfo : CloudWorkItemFaultInfo) (workItem : PickledWorkItems) 
                 (interval : TimeSpan) (worker : IWorkerId) =
 
         let cts = new CancellationTokenSource()
 
         // no tail recursive loop, expected to receive single message
-        let behaviour (self : Actor<JobLeaseMonitorMsg>) = async {
+        let behaviour (self : Actor<WorkItemLeaseMonitorMsg>) = async {
             let! msg = self.Receive()
             match msg with
             | Completed -> return ()
             | WorkerDeclaredFault edi ->
                 let faultCount = faultInfo.FaultCount + 1
                 let faultInfo = FaultDeclaredByWorker(faultCount, edi, worker)
-                do! queue.AsyncPost(Enqueue (job, faultInfo))
+                do! queue.AsyncPost(Enqueue (workItem, faultInfo))
 
             | WorkerDeath ->
                 let faultCount = faultInfo.FaultCount + 1
                 let faultInfo = WorkerDeathWhileProcessingWorkItem(faultCount, worker)
-                do! queue.AsyncPost(Enqueue (job, faultInfo))
+                do! queue.AsyncPost(Enqueue (workItem, faultInfo))
 
             cts.Cancel()
         }
@@ -115,30 +115,30 @@ module private JobLeaseMonitor =
 
 /// Work item lease token implementation, received when dequeuing a work item from the queue.
 [<AutoSerializable(true)>]
-type JobLeaseToken internal (pjob : PickledJob, stateF : LocalStateFactory, faultInfo : CloudWorkItemFaultInfo, leaseMonitor : ActorRef<JobLeaseMonitorMsg>) =
+type WorkItemLeaseToken internal (pWorkItem : PickledWorkItems, stateF : LocalStateFactory, faultInfo : CloudWorkItemFaultInfo, leaseMonitor : ActorRef<WorkItemLeaseMonitorMsg>) =
 
     interface ICloudWorkItemLeaseToken with
-        member x.Id: CloudWorkItemId = pjob.WorkItemId
+        member x.Id: CloudWorkItemId = pWorkItem.WorkItemId
 
-        member x.Type = pjob.Type
+        member x.Type = pWorkItem.Type
 
-        member x.WorkItemType = pjob.WorkItemType
+        member x.WorkItemType = pWorkItem.WorkItemType
 
-        member x.TargetWorker = pjob.Target
+        member x.TargetWorker = pWorkItem.Target
 
-        member x.Size = pjob.Pickle.Size
+        member x.Size = pWorkItem.Pickle.Size
 
-        member x.TaskEntry = pjob.TaskEntry
+        member x.TaskEntry = pWorkItem.TaskEntry
         
         member x.FaultInfo = faultInfo
         
         member x.GetWorkItem(): Async<CloudWorkItem> = async {
             let state = stateF.Value
-            match pjob.Pickle with
+            match pWorkItem.Pickle with
             | Single pj -> return! state.ReadResult pj
             | Batch(i,pjs) -> 
-                let! jobs = state.ReadResult pjs
-                return jobs.[i]
+                let! workItems = state.ReadResult pjs
+                return workItems.[i]
         }
 
         member x.DeclareCompleted() = async {
@@ -160,7 +160,7 @@ type private QueueState =
 
     static member Empty = { Queue = WorkItemQueueTopic.Empty ; LastCleanup = DateTime.Now }
 
-and private WorkItemQueueTopic = TopicQueue<IWorkerId, PickledJob * CloudWorkItemFaultInfo>
+and private WorkItemQueueTopic = TopicQueue<IWorkerId, PickledWorkItems * CloudWorkItemFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
@@ -169,36 +169,36 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
     interface ICloudWorkItemQueue with
         member x.BatchEnqueue(workItems: CloudWorkItem []) = async {
             let localState = localStateF.Value
-            if jobs.Length = 0 then return () else
-            let id = sprintf "jobs-%O" <| jobs.[0].Id
+            if workItems.Length = 0 then return () else
+            let id = sprintf "workItems-%O" <| workItems.[0].Id
             // never create new sifts on parallel workflows (batch enqueues)
-            let! pickle = localState.CreateResult(jobs, allowNewSifts = false, fileName = id)
-            let mkPickle (index:int) (job : CloudWorkItem) =
+            let! pickle = localState.CreateResult(workItems, allowNewSifts = false, fileName = id)
+            let mkPickle (index:int) (workItem: CloudWorkItem) =
                 {
-                    TaskEntry = work item.TaskEntry
-                    WorkItemId = work item.Id
-                    Type = Type.prettyPrintUntyped work item.Type
-                    Target = work item.TargetWorker
-                    WorkItemType = work item.WorkItemType
+                    TaskEntry = workItem.TaskEntry
+                    WorkItemId = workItem.Id
+                    Type = Type.prettyPrintUntyped workItem.Type
+                    Target = workItem.TargetWorker
+                    WorkItemType = workItem.WorkItemType
                     Pickle = Batch(index, pickle)
                 }
 
-            let items = jobs |> Array.mapi mkPickle
+            let items = workItems |> Array.mapi mkPickle
             do! source.AsyncPost (BatchEnqueue items)
         }
         
         member x.Enqueue (workItem: CloudWorkItem, isClientEnqueue:bool) = async {
             let localState = localStateF.Value
-            let id = sprintf "job-%O" work item.Id
+            let id = sprintf "workitem-%O" workItem.Id
             // only sift new large objects on client side enqueues
-            let! pickle = localState.CreateResult(job, allowNewSifts = isClientEnqueue, fileName = id)
+            let! pickle = localState.CreateResult(workItem, allowNewSifts = isClientEnqueue, fileName = id)
             let item =
                 {
-                    TaskEntry = work item.TaskEntry
-                    WorkItemId = work item.Id
-                    WorkItemType = work item.WorkItemType
-                    Type = Type.prettyPrintUntyped work item.Type
-                    Target = work item.TargetWorker
+                    TaskEntry = workItem.TaskEntry
+                    WorkItemId = workItem.Id
+                    WorkItemType = workItem.WorkItemType
+                    Type = Type.prettyPrintUntyped workItem.Type
+                    Target = workItem.TargetWorker
                     Pickle = Single pickle
                 }
 
@@ -209,7 +209,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
             let! result = source <!- fun ch -> TryDequeue(worker, ch)
             match result with
             | Some(msg, faultState, leaseMonitor) ->
-                let leaseToken = new JobLeaseToken(msg, localStateF, faultState, leaseMonitor)
+                let leaseToken = new WorkItemLeaseToken(msg, localStateF, faultState, leaseMonitor)
                 return Some(leaseToken :> ICloudWorkItemLeaseToken)
             | None -> return None
         }
@@ -225,23 +225,23 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
         let localState = localStateF.Value
         let behaviour (self : Actor<WorkItemQueueMsg>) (state : QueueState) (msg : WorkItemQueueMsg) = async {
             match msg with
-            | Enqueue (pJob, faultState) -> 
-                localState.Logger.Logf LogLevel.Debug "Enqueued work item of type '%s' and size %s." pJob.Type <| getHumanReadableByteSize pJob.Pickle.Size
-                let queue' = state.Queue.Enqueue((pJob, faultState), ?topic = pJob.Target)
+            | Enqueue (pWorkItem, faultState) -> 
+                localState.Logger.Logf LogLevel.Debug "Enqueued work item of type '%s' and size %s." pWorkItem.Type <| getHumanReadableByteSize pWorkItem.Pickle.Size
+                let queue' = state.Queue.Enqueue((pWorkItem, faultState), ?topic = pWorkItem.Target)
                 return { state with Queue = queue' }
 
-            | BatchEnqueue(pJobs) ->
-                let first = pJobs.[0]
-                localState.Logger.Logf LogLevel.Debug "Enqueued %d jobs of type '%s' and size %s." pJobs.Length first.Type <| getHumanReadableByteSize first.Pickle.Size
-                let queue' = (state.Queue, pJobs) ||> Array.fold (fun q j -> q.Enqueue((j, NoFault), ?topic = j.Target))
+            | BatchEnqueue(pWorkItems) ->
+                let first = pWorkItems.[0]
+                localState.Logger.Logf LogLevel.Debug "Enqueued %d work items of type '%s' and size %s." pWorkItems.Length first.Type <| getHumanReadableByteSize first.Pickle.Size
+                let queue' = (state.Queue, pWorkItems) ||> Array.fold (fun q j -> q.Enqueue((j, NoFault), ?topic = j.Target))
                 return { state with Queue = queue' }
 
             | TryDequeue(worker, rc) ->
                 let state =
                     if DateTime.Now - state.LastCleanup > cleanupThreshold then
-                        // remove jobs from worker topics if inactive.
+                        // remove work items from worker topics if inactive.
                         let removed, state' = state.Queue.Cleanup (workerMonitor.IsAlive >> Async.RunSync >> not)
-                        let appendRemoved (s:WorkItemQueueTopic) (j : PickledJob, faultState : CloudWorkItemFaultInfo) =
+                        let appendRemoved (s:WorkItemQueueTopic) (j : PickledWorkItems, faultState : CloudWorkItemFaultInfo) =
                             let worker = Option.get j.Target
                             localState.Logger.Logf LogLevel.Warning "Redirecting work item '%O' of type '%s' that has been targeted to dead worker '%s'." j.WorkItemId j.Type worker.Id
                             let j = { j with Target = None }
@@ -258,7 +258,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
                 match state.Queue.TryDequeue worker with
                 | Some((pj,fs), queue') when isDeclaredAlive ->
                     localState.Logger.Logf LogLevel.Debug "Dequeueing work item %O of type '%s'." pj.WorkItemId pj.Type
-                    let jlm = JobLeaseMonitor.create workerMonitor self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
+                    let jlm = WorkItemLeaseMonitor.create workerMonitor self.Ref fs pj (TimeSpan.FromSeconds 1.) worker
                     do! rc.Reply(Some(pj, fs, jlm))
                     return { state with Queue = queue' }
 

@@ -25,8 +25,8 @@ type internal CloudCollection private () =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                // Performs flow reduction on given input partition in a single MBrace job
-                let reducePartitionsInSingleJob (partitions : ICloudCollection<'T> []) = local {
+                // Performs flow reduction on given input partition in a single MBrace work item
+                let reducePartitionsInSingleWorkItem (partitions : ICloudCollection<'T> []) = local {
                     // further partition according to collection size threshold, if so specified.
                     let! partitionSlices = local {
                         match sizeThresholdPerWorker with
@@ -58,7 +58,7 @@ type internal CloudCollection private () =
                     if Array.isEmpty assignedPartitions then return! combiner [||] else
                     let! results =
                         assignedPartitions
-                        |> Seq.map (fun (w,ps) -> reducePartitionsInSingleJob ps, w)
+                        |> Seq.map (fun (w,ps) -> reducePartitionsInSingleWorkItem ps, w)
                         |> Cloud.Parallel
 
                     return! combiner results
@@ -83,12 +83,12 @@ type internal CloudCollection private () =
                     if isTargetedWorkerSupported then
                         partitionss
                         |> Seq.filter (not << Array.isEmpty << snd)
-                        |> Seq.map (fun (w,partitions) -> reducePartitionsInSingleJob partitions, w)
+                        |> Seq.map (fun (w,partitions) -> reducePartitionsInSingleWorkItem partitions, w)
                         |> Cloud.Parallel
                     else
                         partitionss
                         |> Seq.filter (not << Array.isEmpty << snd)
-                        |> Seq.map (reducePartitionsInSingleJob << snd)
+                        |> Seq.map (reducePartitionsInSingleWorkItem << snd)
                         |> Cloud.Parallel
 
                 return! combiner results

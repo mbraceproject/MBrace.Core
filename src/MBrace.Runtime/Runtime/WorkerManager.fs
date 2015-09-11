@@ -16,12 +16,12 @@ type IWorkerId =
 
 /// Worker operation status
 [<NoEquality; NoComparison>]
-type WorkerJobExecutionStatus =
-    /// Worker dequeueing jobs normally
+type WorkerItemExecutionStatus =
+    /// Worker dequeueing work items normally
     | Running
     /// Worker has been stopped manually
     | Stopped
-    /// Error dequeueing jobs
+    /// Error dequeueing work items
     | QueueFault of ExceptionDispatchInfo
 with
     override s.ToString() =
@@ -42,7 +42,7 @@ type WorkerInfo =
         /// Number of cores in worker
         ProcessorCount : int
         /// Maximum number of executing work items
-        MaxJobCount : int
+        MaxWorkItemCount : int
     }
 
 /// Worker state object
@@ -54,7 +54,7 @@ type WorkerState =
         /// Worker metadata as specified by the worker
         Info : WorkerInfo
         /// Current number of executing work items
-        CurrentJobCount : int
+        CurrentWorkItemCount : int
         /// Last Heartbeat submitted by worker
         LastHeartbeat : DateTime
         /// Heartbeat rate designated by worker manager
@@ -62,7 +62,7 @@ type WorkerState =
         /// Time of worker initialization/subscription
         InitializationTime : DateTime
         /// Worker work item execution status
-        ExecutionStatus : WorkerJobExecutionStatus
+        ExecutionStatus : WorkerItemExecutionStatus
         /// Latest worker performance metrics
         PerformanceMetrics : PerformanceInfo
     }
@@ -89,20 +89,20 @@ type IWorkerManager =
     ///     Asynchronously declares that the worker active work item count has increased by one.
     /// </summary>
     /// <param name="id">Worker identifier.</param>
-    abstract IncrementJobCount : id:IWorkerId -> Async<unit>
+    abstract IncrementWorkItemCount : id:IWorkerId -> Async<unit>
 
     /// <summary>
     ///     Asynchronously declares that the worker active work item count has decreased by one.
     /// </summary>
     /// <param name="id">Worker identifier.</param>
-    abstract DecrementJobCount : id:IWorkerId -> Async<unit>
+    abstract DecrementWorkItemCount : id:IWorkerId -> Async<unit>
 
     /// <summary>
     ///     Asynchronously declares the current worker work item execution status.
     /// </summary>
     /// <param name="id">Worker identifier.</param>
     /// <param name="status">work item execution status to be set.</param>
-    abstract DeclareWorkerStatus : id:IWorkerId * status:WorkerJobExecutionStatus -> Async<unit>
+    abstract DeclareWorkerStatus : id:IWorkerId * status:WorkerItemExecutionStatus -> Async<unit>
 
     /// <summary>
     ///     Asynchronously submits node performance metrics for provided worker.

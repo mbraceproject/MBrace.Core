@@ -23,7 +23,7 @@ type private TaskCompletionSourceMsg =
     | TrySetResult of ResultMessage<TaskResult> * IWorkerId * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<ResultMessage<TaskResult> option>
     | DeclareStatus of status:CloudTaskStatus
-    | IncrementJobCount
+    | IncrementWorkItemCount
     | IncrementCompletedWorkItemCount
     | IncrementFaultedWorkItemCount
 
@@ -36,15 +36,15 @@ type private TaskCompletionSourceState =
         Info : CloudTaskInfo
         /// Task execution status
         Status : CloudTaskStatus
-        /// Number of currently executing MBrace jobs for task
+        /// Number of currently executing MBrace work items for task
         ActiveWorkItemCount : int
-        /// Maximum number of concurrently executing MBrace jobs for task
+        /// Maximum number of concurrently executing MBrace work items for task
         MaxActiveWorkItemCount : int
-        /// Total number of MBrace jobs for task
+        /// Total number of MBrace work items for task
         TotalWorkItemCount : int
-        /// Total number of completed jobs for task
+        /// Total number of completed work items for task
         CompletedWorkItemCount : int
-        /// Total number of faulted jobs for task
+        /// Total number of faulted work items for task
         FaultedWorkItemCount : int
         /// Task execution time representation
         ExecutionTime: ExecutionTime
@@ -121,8 +121,8 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
             return! source <!- GetState
         }
         
-        member x.IncrementJobCount(): Async<unit> =  async {
-            return! source.AsyncPost IncrementJobCount
+        member x.IncrementWorkItemCount(): Async<unit> =  async {
+            return! source.AsyncPost IncrementWorkItemCount
         }
         
         member x.Info: CloudTaskInfo = info
@@ -183,7 +183,7 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
 
                 return { state with Status = status ; ExecutionTime = executionTime}
 
-            | IncrementJobCount ->
+            | IncrementWorkItemCount ->
                 return { state with 
                                 TotalWorkItemCount = state.TotalWorkItemCount + 1 ; 
                                 ActiveWorkItemCount = state.ActiveWorkItemCount + 1 ;

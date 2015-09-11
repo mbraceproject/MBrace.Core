@@ -99,7 +99,7 @@ type CloudTaskState =
         ActiveWorkItemCount : int
         /// Number of work items completed for task.
         CompletedWorkItemCount : int
-        /// Number of times jobs have been faulted.
+        /// Number of times work items have been faulted.
         FaultedWorkItemCount : int
         /// Total number of work items spawned by task.
         TotalWorkItemCount : int
@@ -142,7 +142,7 @@ type ICloudTaskCompletionSource =
     /// <summary>
     ///     Increments work item count for provided task.
     /// </summary>
-    abstract IncrementJobCount : unit -> Async<unit>
+    abstract IncrementWorkItemCount : unit -> Async<unit>
 
     /// <summary>
     ///     Asynchronously increments the faulted work item count for task.

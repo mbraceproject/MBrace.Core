@@ -96,11 +96,11 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         let workflow = cloud {
             let workItem i = local {
                 for j in 1 .. 100 do
-                    do! Cloud.Logf "Job %d, iteration %d" i j
+                    do! Cloud.Logf "Work item %d, iteration %d" i j
             }
 
             do! Cloud.Sleep 5000
-            do! Cloud.Parallel [for i in 1 .. 20 -> work item i] |> Cloud.Ignore
+            do! Cloud.Parallel [for i in 1 .. 20 -> workItem i] |> Cloud.Ignore
             do! Cloud.Sleep 2000
         }
 
@@ -108,7 +108,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         let task = session.Runtime.CreateTask(workflow)
         use d = task.Logs.Subscribe(fun e -> ra.Add(e))
         do task.Result
-        ra |> Seq.filter (fun e -> e.Message.Contains "Job") |> Seq.length |> shouldEqual 2000
+        ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
 
     [<Test>]
     member __.``1. Runtime : Additional Resources`` () =
@@ -148,7 +148,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let runtime = session.Runtime
             let wf () = cloud {
                 let! current = Cloud.CurrentWorker
-                // targeted jobs should fail regardless of fault policy
+                // targeted work items should fail regardless of fault policy
                 return! Cloud.StartAsTask(Cloud.Sleep 20000, target = current, faultPolicy = FaultPolicy.InfiniteRetry())
             }
 

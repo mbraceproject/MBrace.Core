@@ -58,7 +58,7 @@ module internal WorkerController =
     ///     Initializes a controller actor with supplied initial parameters.
     /// </summary>
     /// <param name="useAppDomain">Use application domain isolation for MBrace work item execution.</param>
-    /// <param name="maxConcurrentWorkItems">Maximum number of concurrent MBrace jobs running in worker.</param>
+    /// <param name="maxConcurrentWorkItems">Maximum number of concurrent MBrace work items running in worker.</param>
     /// <param name="logger">Underlying system logger used by actor.</param>
     let initController (useAppDomain : bool) (maxConcurrentWorkItems : int) (logger : ISystemLogger) : ActorRef<WorkerControllerMsg> =
         let behaviour (state : WorkerState) (message : WorkerControllerMsg) = async {

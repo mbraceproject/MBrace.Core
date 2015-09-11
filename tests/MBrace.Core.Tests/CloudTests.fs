@@ -12,7 +12,7 @@ open MBrace.Library
 open MBrace.Library.CloudCollectionUtils
 
 /// Suite for testing MBrace parallelism & distribution
-/// <param name="parallelismFactor">Maximum permitted parallel jobs permitted in tests.</param>
+/// <param name="parallelismFactor">Maximum permitted parallel work items permitted in tests.</param>
 /// <param name="delayFactor">
 ///     Delay factor in milliseconds used by unit tests. 
 ///     Use a value that ensures propagation of updates across the cluster.

@@ -175,7 +175,7 @@ type MBraceWorker private (uri : string) =
         |> Async.RunSync
 
 
-/// MBrace.Thespian client object used to manage cluster and submit jobs for computation.
+/// MBrace.Thespian client object used to manage cluster and submit work items for computation.
 [<AutoSerializable(false)>]
 type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     inherit MBraceClient(manager)

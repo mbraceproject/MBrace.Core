@@ -15,7 +15,7 @@ open MBrace.Runtime.Utils.PerformanceMonitor
 
 [<NoEquality; NoComparison>]
 type private WorkerAgentMessage = 
-    | GetStatus of ReplyChannel<WorkerJobExecutionStatus>
+    | GetStatus of ReplyChannel<WorkerItemExecutionStatus>
     | Stop of waitTimeout:int * ReplyChannel<unit>
     | Start of ReplyChannel<unit>
 
@@ -29,7 +29,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
     let waitInterval = 100
     let errorInterval = 1000
 
-    let rec workerLoop (status : WorkerJobExecutionStatus) (inbox : MailboxProcessor<WorkerAgentMessage>) = async {
+    let rec workerLoop (status : WorkerItemExecutionStatus) (inbox : MailboxProcessor<WorkerAgentMessage>) = async {
         let! controlMessage = async {
             if inbox.CurrentQueueLength > 0 then
                 let! m = inbox.Receive()
@@ -63,7 +63,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                     let! status = async {
                         match status with
                         | QueueFault _ ->
-                            let status = WorkerJobExecutionStatus.Running
+                            let status = WorkerItemExecutionStatus.Running
                             logger.Log LogLevel.Info "Worker Work item Queue restored."
                             do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
                             return status
@@ -76,29 +76,29 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                         do! Async.Sleep waitInterval
                         return! workerLoop status inbox
 
-                    | Some jobToken ->
-                        // Successfully dequeued job, run it.
-                        if jobToken.WorkItemType = CloudWorkItemType.TaskRoot then
-                            do! jobToken.TaskEntry.DeclareStatus Dequeued
+                    | Some workItemToken ->
+                        // Successfully dequeued work item, run it.
+                        if workItemToken.WorkItemType = CloudWorkItemType.TaskRoot then
+                            do! workItemToken.TaskEntry.DeclareStatus Dequeued
 
                         let jc = Interlocked.Increment &currentWorkItemCount
-                        do! runtime.WorkerManager.IncrementJobCount workerId
+                        do! runtime.WorkerManager.IncrementWorkItemCount workerId
 
-                        logger.Logf LogLevel.Info "Dequeued cloud work item '%O'." jobToken.Id
+                        logger.Logf LogLevel.Info "Dequeued cloud work item '%O'." workItemToken.Id
                         logger.Logf LogLevel.Info "Concurrent work item count increased to %d/%d." jc maxConcurrentWorkItems
 
                         let! _ = Async.StartChild <| async { 
                             try
                                 try
-                                    let! assemblies = runtime.AssemblyManager.DownloadAssemblies jobToken.TaskEntry.Info.Dependencies
-                                    do! workItemEvaluator.Evaluate (assemblies, jobToken)
+                                    let! assemblies = runtime.AssemblyManager.DownloadAssemblies workItemToken.TaskEntry.Info.Dependencies
+                                    do! workItemEvaluator.Evaluate (assemblies, workItemToken)
                                 with e ->
-                                    do! jobToken.TaskEntry.IncrementFaultedWorkItemCount()
-                                    logger.Logf LogLevel.Error "Job '%O' faulted at initialization:\n%A" jobToken.Id e
+                                    do! workItemToken.TaskEntry.IncrementFaultedWorkItemCount()
+                                    logger.Logf LogLevel.Error "Work item '%O' faulted at initialization:\n%A" workItemToken.Id e
                                     return ()
                             finally
                                 let jc = Interlocked.Decrement &currentWorkItemCount
-                                runtime.WorkerManager.DecrementJobCount workerId |> Async.Catch |> Async.Ignore |> Async.Start
+                                runtime.WorkerManager.DecrementWorkItemCount workerId |> Async.Catch |> Async.Ignore |> Async.Start
                                 logger.Logf LogLevel.Info "Concurrent work item count decreased to %d/%d." jc maxConcurrentWorkItems
 
                         }
@@ -108,20 +108,20 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
 
         | Some(Stop (waitTimeout, rc)) ->
             match status with
-            | WorkerJobExecutionStatus.Running | QueueFault _ ->
-                logger.Log LogLevel.Info "Stop requested. Waiting for pending jobs."
+            | WorkerItemExecutionStatus.Running | QueueFault _ ->
+                logger.Log LogLevel.Info "Stop requested. Waiting for pending work items."
                 let rec wait () = async {
                     let jc = currentWorkItemCount
                     if jc > 0 then
-                        logger.Logf LogLevel.Info "Waiting for (%d) active jobs to complete." jc
+                        logger.Logf LogLevel.Info "Waiting for (%d) active work items to complete." jc
                         do! Async.Sleep 1000
                         return! wait ()
                 }
 
                 let! result = Async.WithTimeout(wait (), waitTimeout) |> Async.Catch
                 match result with
-                | Choice1Of2 () -> logger.Log LogLevel.Info "No active jobs."
-                | Choice2Of2 _ -> logger.Logf LogLevel.Error "Timeout while waiting for active jobs to complete."
+                | Choice1Of2 () -> logger.Log LogLevel.Info "No active work items."
+                | Choice2Of2 _ -> logger.Logf LogLevel.Error "Timeout while waiting for active work items to complete."
 
                 let status = Stopped
                 do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
@@ -138,7 +138,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
             match status with
             | Stopped ->
                 logger.Log LogLevel.Info "Starting Worker."
-                let status = WorkerJobExecutionStatus.Running
+                let status = WorkerItemExecutionStatus.Running
                 do! runtime.WorkerManager.DeclareWorkerStatus (workerId, status)
                 do rc.Reply (())
                 return! workerLoop status inbox
@@ -190,7 +190,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                 Hostname = System.Net.Dns.GetHostName()
                 ProcessorCount = Environment.ProcessorCount
                 ProcessId = System.Diagnostics.Process.GetCurrentProcess().Id
-                MaxJobCount = maxConcurrentWorkItems
+                MaxWorkItemCount = maxConcurrentWorkItems
             }
 
         let! unsubscriber = runtimeManager.WorkerManager.SubscribeWorker(workerId, workerInfo)
@@ -212,16 +212,16 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
     }
 
     /// Gets the current number of work items run by the worker
-    member __.CurrentJobCount = currentWorkItemCount
+    member __.CurrentWorkItemCount = currentWorkItemCount
     /// Gets the maximum number of work items allowed by the worker
-    member __.MaxJobCount = maxConcurrentWorkItems
+    member __.MaxWorkItemCount = maxConcurrentWorkItems
 
     /// Gets Current worker state configuration
     member w.CurrentStatus = agent.PostAndReply GetStatus
 
     /// Gets whether worker agent is currently running
     member w.IsRunning = 
-        match w.CurrentStatus with WorkerJobExecutionStatus.Running | QueueFault _ -> true | _ -> false
+        match w.CurrentStatus with WorkerItemExecutionStatus.Running | QueueFault _ -> true | _ -> false
 
     interface IDisposable with
         member w.Dispose () =
