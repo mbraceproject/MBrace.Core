@@ -23,9 +23,9 @@ type private TaskCompletionSourceMsg =
     | TrySetResult of ResultMessage<TaskResult> * IWorkerId * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<ResultMessage<TaskResult> option>
     | DeclareStatus of status:CloudTaskStatus
-    | IncrementJobCount
-    | IncrementCompletedJobCount
-    | IncrementFaultedJobCount
+    | IncrementWorkItemCount
+    | IncrementCompletedWorkItemCount
+    | IncrementFaultedWorkItemCount
 
 /// Task completion source execution state
 type private TaskCompletionSourceState = 
@@ -36,16 +36,16 @@ type private TaskCompletionSourceState =
         Info : CloudTaskInfo
         /// Task execution status
         Status : CloudTaskStatus
-        /// Number of currently executing MBrace jobs for task
-        ActiveJobCount : int
-        /// Maximum number of concurrently executing MBrace jobs for task
-        MaxActiveJobCount : int
-        /// Total number of MBrace jobs for task
-        TotalJobCount : int
-        /// Total number of completed jobs for task
-        CompletedJobCount : int
-        /// Total number of faulted jobs for task
-        FaultedJobCount : int
+        /// Number of currently executing MBrace work items for task
+        ActiveWorkItemCount : int
+        /// Maximum number of concurrently executing MBrace work items for task
+        MaxActiveWorkItemCount : int
+        /// Total number of MBrace work items for task
+        TotalWorkItemCount : int
+        /// Total number of completed work items for task
+        CompletedWorkItemCount : int
+        /// Total number of faulted work items for task
+        FaultedWorkItemCount : int
         /// Task execution time representation
         ExecutionTime: ExecutionTime
     }
@@ -57,8 +57,8 @@ type private TaskCompletionSourceState =
     static member Init(info : CloudTaskInfo) = 
         { 
             Info = info ; Result = None
-            TotalJobCount = 0 ; ActiveJobCount = 0 ; MaxActiveJobCount = 0 ; 
-            CompletedJobCount = 0 ; FaultedJobCount = 0
+            TotalWorkItemCount = 0 ; ActiveWorkItemCount = 0 ; MaxActiveWorkItemCount = 0 ; 
+            CompletedWorkItemCount = 0 ; FaultedWorkItemCount = 0
             ExecutionTime = NotStarted ; Status = Posted 
         }
 
@@ -71,11 +71,11 @@ type private TaskCompletionSourceState =
         {
             Status = ts.Status
             Info = ts.Info
-            ActiveJobCount = ts.ActiveJobCount
-            TotalJobCount = ts.TotalJobCount
-            MaxActiveJobCount = ts.MaxActiveJobCount
-            CompletedJobCount = ts.CompletedJobCount
-            FaultedJobCount = ts.FaultedJobCount
+            ActiveWorkItemCount = ts.ActiveWorkItemCount
+            TotalWorkItemCount = ts.TotalWorkItemCount
+            MaxActiveWorkItemCount = ts.MaxActiveWorkItemCount
+            CompletedWorkItemCount = ts.CompletedWorkItemCount
+            FaultedWorkItemCount = ts.FaultedWorkItemCount
 
             ExecutionTime = 
                 match ts.ExecutionTime with 
@@ -105,12 +105,12 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
             return! awaiter()
         }
         
-        member x.IncrementCompletedJobCount(): Async<unit> = async {
-            return! source.AsyncPost IncrementCompletedJobCount
+        member x.IncrementCompletedWorkItemCount(): Async<unit> = async {
+            return! source.AsyncPost IncrementCompletedWorkItemCount
         }
         
-        member x.IncrementFaultedJobCount(): Async<unit> = async {
-            return! source.AsyncPost IncrementFaultedJobCount
+        member x.IncrementFaultedWorkItemCount(): Async<unit> = async {
+            return! source.AsyncPost IncrementFaultedWorkItemCount
         }
         
         member x.DeclareStatus(status: CloudTaskStatus): Async<unit> = async {
@@ -121,8 +121,8 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
             return! source <!- GetState
         }
         
-        member x.IncrementJobCount(): Async<unit> =  async {
-            return! source.AsyncPost IncrementJobCount
+        member x.IncrementWorkItemCount(): Async<unit> =  async {
+            return! source.AsyncPost IncrementWorkItemCount
         }
         
         member x.Info: CloudTaskInfo = info
@@ -183,17 +183,17 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
 
                 return { state with Status = status ; ExecutionTime = executionTime}
 
-            | IncrementJobCount ->
+            | IncrementWorkItemCount ->
                 return { state with 
-                                TotalJobCount = state.TotalJobCount + 1 ; 
-                                ActiveJobCount = state.ActiveJobCount + 1 ;
-                                MaxActiveJobCount = max state.MaxActiveJobCount (1 + state.ActiveJobCount) }
+                                TotalWorkItemCount = state.TotalWorkItemCount + 1 ; 
+                                ActiveWorkItemCount = state.ActiveWorkItemCount + 1 ;
+                                MaxActiveWorkItemCount = max state.MaxActiveWorkItemCount (1 + state.ActiveWorkItemCount) }
 
-            | IncrementCompletedJobCount ->
-                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; CompletedJobCount = state.CompletedJobCount + 1 }
+            | IncrementCompletedWorkItemCount ->
+                return { state with ActiveWorkItemCount = state.ActiveWorkItemCount - 1 ; CompletedWorkItemCount = state.CompletedWorkItemCount + 1 }
 
-            | IncrementFaultedJobCount ->
-                return { state with ActiveJobCount = state.ActiveJobCount - 1 ; FaultedJobCount = state.FaultedJobCount + 1 }
+            | IncrementFaultedWorkItemCount ->
+                return { state with ActiveWorkItemCount = state.ActiveWorkItemCount - 1 ; FaultedWorkItemCount = state.FaultedWorkItemCount + 1 }
         }
 
         let ref =

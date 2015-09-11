@@ -33,7 +33,7 @@ type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
         Choice.protect(fun () ->
             imem.RunSynchronously(workflow cts, cancellationToken = cts.Token))
 
-    override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
+    override __.RunWithLogs(workflow : Cloud<unit>) =
         let logTester = new InMemoryLogTester()
         let imem = ThreadPoolRuntime.Create(logger = logTester, memoryEmulation = memoryEmulation)
         imem.RunSynchronously workflow

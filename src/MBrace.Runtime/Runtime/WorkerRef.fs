@@ -58,10 +58,10 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     member __.MemoryUsage = getState().PerformanceMetrics.MemoryUsage
     /// Gets the total memory capacity of the worker host in MB
     member __.TotalMemory = getState().PerformanceMetrics.TotalMemory
-    /// Gets the number of cloud jobs that are active in the current worker
-    member __.ActiveJobs = getState().CurrentJobCount
-    /// Gets the maximum job count permitted as set by worker configuration
-    member __.MaxJobCount = getState().Info.MaxJobCount
+    /// Gets the number of cloud work items that are active in the current worker
+    member __.ActiveWorkItems = getState().CurrentWorkItemCount
+    /// Gets the maximum work item count permitted as set by worker configuration
+    member __.MaxWorkItemCount = getState().Info.MaxWorkItemCount
     /// Gets the network upload usage in KB/s
     member __.NetworkUsageUp = getState().PerformanceMetrics.NetworkUsageUp
     /// Gets the network download usage in KB/s
@@ -148,7 +148,7 @@ and internal WorkerReporter private () =
                 sprintf "%s / %s" memPerc <| double_printer p.TotalMemory
             )
           Field.create "Network(ul/dl : KB/s)" Center (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUsageUp <| double_printer n.NetworkUsageDown)
-          Field.create "Jobs" Center (fun p -> sprintf "%d / %d" p.ActiveJobs p.MaxJobCount)
+          Field.create "Work items" Center (fun p -> sprintf "%d / %d" p.ActiveWorkItems p.MaxWorkItemCount)
           Field.create "Hostname" Left (fun p -> p.Hostname)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Heartbeat" Left (fun p -> p.LastHeartbeat)

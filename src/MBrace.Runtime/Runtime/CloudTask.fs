@@ -44,16 +44,16 @@ type CloudTask internal () =
     /// DateTime of task completion
     abstract CompletionTime : DateTime option
 
-    /// Active number of jobs related to the process.
-    abstract ActiveJobs : int
-    /// Max number of concurrently executing jobs for process.
-    abstract MaxActiveJobs : int
-    /// Number of jobs that have been completed for process.
-    abstract CompletedJobs : int
-    /// Number of faults encountered while executing jobs for process.
-    abstract FaultedJobs : int
-    /// Total number of jobs related to the process.
-    abstract TotalJobs : int
+    /// Active number of work items related to the process.
+    abstract ActiveWorkItems : int
+    /// Max number of concurrently executing work items for process.
+    abstract MaxActiveWorkItems : int
+    /// Number of work items that have been completed for process.
+    abstract CompletedWorkItems : int
+    /// Number of faults encountered while executing work items for process.
+    abstract FaultedWorkItems : int
+    /// Total number of work items related to the process.
+    abstract TotalWorkItems : int
     /// Process execution status.
     abstract Status : CloudTaskStatus
 
@@ -196,12 +196,12 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudTask<'T> internal (s
         | _ -> None
 
     override __.CancellationToken = entry.Info.CancellationTokenSource.Token
-    /// Active number of jobs related to the process.
-    override __.ActiveJobs = cell.Value.ActiveJobCount
-    override __.MaxActiveJobs = cell.Value.MaxActiveJobCount
-    override __.CompletedJobs = cell.Value.CompletedJobCount
-    override __.FaultedJobs = cell.Value.FaultedJobCount
-    override __.TotalJobs = cell.Value.TotalJobCount
+    /// Active number of work items related to the process.
+    override __.ActiveWorkItems = cell.Value.ActiveWorkItemCount
+    override __.MaxActiveWorkItems = cell.Value.MaxActiveWorkItemCount
+    override __.CompletedWorkItems = cell.Value.CompletedWorkItemCount
+    override __.FaultedWorkItems = cell.Value.FaultedWorkItemCount
+    override __.TotalWorkItems = cell.Value.TotalWorkItemCount
     override __.Status = cell.Value.Status
     override __.Id = entry.Id
     override __.Name = entry.Info.Name
@@ -268,8 +268,8 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
         return task
     }
 
-    member self.TryGetTaskById(id : string) = async {
-        let! source = runtime.TaskManager.TryGetTaskById id
+    member self.TryGetTask(id : string) = async {
+        let! source = runtime.TaskManager.TryGetTask id
         match source with
         | None -> return None
         | Some e ->
@@ -319,7 +319,7 @@ and internal CloudTaskReporter() =
           Field.create "Process Id" Right (fun p -> p.Id)
           Field.create "Status" Right (fun p -> sprintf "%A" p.Status)
           Field.create "Execution Time" Left (fun p -> Option.toNullable p.ExecutionTime)
-          Field.create "Jobs" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveJobs p.FaultedJobs p.CompletedJobs p.TotalJobs)
+          Field.create "Work items" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveWorkItems p.FaultedWorkItems p.CompletedWorkItems p.TotalWorkItems)
           Field.create "Result Type" Left (fun p -> Type.prettyPrintUntyped p.Type) 
           Field.create "Start Time" Left (fun p -> Option.toNullable p.StartTime)
           Field.create "Completion Time" Left (fun p -> Option.toNullable p.CompletionTime)
@@ -330,4 +330,4 @@ and internal CloudTaskReporter() =
                  |> Seq.sortBy (fun p -> p.StartTime)
                  |> Seq.toList
 
-        sprintf "%s\nJobs : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
+        sprintf "%s\nWork items : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)

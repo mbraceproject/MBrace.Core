@@ -37,8 +37,8 @@ type ClusterState =
         WorkerManager : WorkerManager
         /// Cloud task instance
         TaskManager : CloudTaskManager
-        /// Cloud job queue instance
-        JobQueue : JobQueue
+        /// Cloud work item queue instance
+        WorkItemQueue : WorkItemQueue
         /// Misc resources appended to runtime state
         Resources : ResourceRegistry
         /// Local node state factory instance
@@ -51,17 +51,17 @@ type ClusterState =
     /// <param name="fileStore">File store instance used by cluster.</param>
     /// <param name="isWorkerHosted">Indicates that instance is hosted by worker instance.</param>
     /// <param name="userDataDirectory">Directory used for storing user data.</param>
-    /// <param name="jobsDirectory">Directory used for persisting jobs in store.</param>
+    /// <param name="workItemsDirectory">Directory used for persisting work items in store.</param>
     /// <param name="assemblyDirectory">Assembly directory used in store.</param>
     /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
     static member Create(fileStore : ICloudFileStore, isWorkerHosted : bool, 
-                            ?userDataDirectory : string, ?jobsDirectory : string, 
+                            ?userDataDirectory : string, ?workItemsDirectory : string, 
                             ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
 
         let userDataDirectory = defaultArg userDataDirectory "userData"
         let assemblyDirectory = defaultArg assemblyDirectory "vagabond"
-        let jobsDirectory = defaultArg jobsDirectory "mbrace-data"
+        let workItemsDirectory = defaultArg workItemsDirectory "mbrace-data"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
 
         let serializer = new VagabondFsPicklerBinarySerializer()
@@ -69,7 +69,7 @@ type ClusterState =
         let mkCacheInstance () = Config.ObjectCache
         let mkLocalCachingFileStore () = (Config.FileSystemStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
         let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
-        let persistedValueManager = PersistedValueManager.Create(fileStore.WithDefaultDirectory jobsDirectory, serializer = serializer, persistThreshold = 512L * 1024L)
+        let persistedValueManager = PersistedValueManager.Create(fileStore.WithDefaultDirectory workItemsDirectory, serializer = serializer, persistThreshold = 512L * 1024L)
 
         let localStateFactory = DomainLocal.Create(fun () ->
             let logger = AttacheableLogger.Create(makeAsynchronous = false)
@@ -91,7 +91,7 @@ type ClusterState =
         let resourceFactory = ResourceFactory.Create()
         let workerManager = WorkerManager.Create(localStateFactory)
         let taskManager = CloudTaskManager.Create(localStateFactory)
-        let jobQueue = JobQueue.Create(workerManager, localStateFactory)
+        let workItemQueue = WorkItemQueue.Create(workerManager, localStateFactory)
 
         let resources = resource {
             yield new ActorAtomProvider(resourceFactory) :> ICloudAtomProvider
@@ -113,7 +113,7 @@ type ClusterState =
             StoreCloudValueProvider = cloudValueProvider
             WorkerManager = workerManager
             TaskManager = taskManager
-            JobQueue = jobQueue
+            WorkItemQueue = workItemQueue
             Resources = resources
             LocalStateFactory = localStateFactory
         }
@@ -148,7 +148,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : ClusterState) =
         
         member x.WorkerManager = state.WorkerManager :> _
         
-        member x.JobQueue: ICloudJobQueue = state.JobQueue :> _
+        member x.WorkItemQueue: ICloudWorkItemQueue = state.WorkItemQueue :> _
 
         member x.SystemLogger : ISystemLogger = localState.Logger :> _
         

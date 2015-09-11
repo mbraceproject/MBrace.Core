@@ -24,7 +24,7 @@ module internal WorkerConfiguration =
         | [<AltCommandLine("-H")>] Hostname of string
         | [<AltCommandLine("-p")>] Port of int
         | [<AltCommandLine("-l")>] Log_Level of int
-        | [<AltCommandLine("-j")>] Max_Concurrent_Jobs of int
+        | [<AltCommandLine("-j")>] Max_Concurrent_Work_Items of int
         | [<AltCommandLine("-i")>] Use_AppDomain_Isolation of bool
         | [<AltCommandLine("-L")>] Log_File of string
 
@@ -36,7 +36,7 @@ module internal WorkerConfiguration =
                 | Port _ -> "Port for thespian to listen to. Defaults to self-assigned."
                 | Hostname _ -> "Hostname or IP address to listen to. Defaults to domain name."
                 | Log_Level _ -> "Specify the log level: 0 none, 1 critical, 2 error, 3 warning, 4 info, 5 debug."
-                | Max_Concurrent_Jobs _ -> "Maximum number of concurrent MBrace jobs. Defaults to 20."
+                | Max_Concurrent_Work_Items _ -> "Maximum number of concurrent MBrace work items. Defaults to 20."
                 | Use_AppDomain_Isolation _ -> "Enables or disables AppDomain isolation in worker node. Defaults to true."
                 | Log_File _ -> "Specify a log file for node logging purposes."
 
@@ -57,7 +57,7 @@ module internal WorkerConfiguration =
             Port : int option
             LogLevel : LogLevel option
             LogFiles : string list
-            MaxConcurrentJobs : int option
+            MaxConcurrentWorkItems : int option
             UseAppDomainIsolation : bool option
             // Deserializing ActorRefs in uninitialized thespian states has strange side-effects; 
             // use pickle wrapping for delayed deserialization
@@ -74,7 +74,7 @@ module internal WorkerConfiguration =
                 Port = results.TryPostProcessResult(<@ Port @>, fun p -> if p <= 0 || p >= int UInt16.MaxValue then failwithf "port number out of range" else p)
                 LogFiles = results.GetResults <@ Log_File @>
                 LogLevel = results.TryPostProcessResult(<@ Log_Level @>, fun l -> if l < 0 || l > 5 then failwith "invalid log level" else enum l)
-                MaxConcurrentJobs = results.TryPostProcessResult(<@ Max_Concurrent_Jobs @>, fun j -> if j <= 0 || j > 1000 then failwith "max concurrent jobs out of range" else j)
+                MaxConcurrentWorkItems = results.TryPostProcessResult(<@ Max_Concurrent_Work_Items @>, fun j -> if j <= 0 || j > 1000 then failwith "max concurrent work items out of range" else j)
                 UseAppDomainIsolation = results.TryGetResult(<@ Use_AppDomain_Isolation @>)
                 Parent = results.TryPostProcessResult(<@ Parent_Actor @>, fun bytes -> new Pickle<_>(bytes))
             }
@@ -87,7 +87,7 @@ module internal WorkerConfiguration =
                 match config.Port with Some p -> yield Port p | None -> ()
                 for l in config.LogFiles -> Log_File l
                 match config.LogLevel with Some l -> yield Log_Level(int l) | None -> ()
-                match config.MaxConcurrentJobs with Some j -> yield Max_Concurrent_Jobs j | None -> ()
+                match config.MaxConcurrentWorkItems with Some j -> yield Max_Concurrent_Work_Items j | None -> ()
                 match config.UseAppDomainIsolation with Some i -> yield Use_AppDomain_Isolation i | None -> ()
                 match config.Parent with Some p -> yield Parent_Actor p.Bytes | None -> ()
             ] |> argParser.PrintCommandLineFlat

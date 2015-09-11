@@ -43,8 +43,8 @@ type IRuntimeManager =
     /// <param name="localLogger">Logger to be attached.</param>
     abstract AttachSystemLogger : localLogger:ISystemLogger -> IDisposable
 
-    /// Gets the job queue instance for the runtime.
-    abstract JobQueue : ICloudJobQueue
+    /// Gets the work item queue instance for the runtime.
+    abstract WorkItemQueue : ICloudWorkItemQueue
     /// Gets the Vagabond assembly manager for this runtime.
     abstract AssemblyManager : IAssemblyManager
     /// Gets the CloudTask manager instance for this runtime.

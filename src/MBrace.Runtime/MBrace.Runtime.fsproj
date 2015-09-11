@@ -68,7 +68,7 @@
     <Compile Include="Utils\Reflection.fs" />
     <Compile Include="Utils\TypePrinter.fs" />
     <Compile Include="Utils\RecordPrinter.fs" />
-    <Compile Include="Utils\JobExecutionMonitor.fs" />
+    <Compile Include="Utils\WorkItemExecutionMonitor.fs" />
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
     <Compile Include="Utils\Serialization.fs" />
@@ -85,7 +85,7 @@
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\Primitives.fs" />
     <Compile Include="Runtime\TaskManager.fs" />
-    <Compile Include="Runtime\CloudJob.fs" />
+    <Compile Include="Runtime\CloudWorkItem.fs" />
     <Compile Include="Runtime\AssemblyManager.fs" />
     <Compile Include="Runtime\CloudLogManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
@@ -94,7 +94,7 @@
     <Compile Include="Runtime\CloudTask.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\ParallelismProvider.fs" />
-    <Compile Include="Runtime\JobEvaluator.fs" />
+    <Compile Include="Runtime\WorkItemEvaluator.fs" />
     <Compile Include="Runtime\WorkerAgent.fs" />
     <Compile Include="Runtime\StoreClient.fs" />
     <Compile Include="Runtime\MBraceClient.fs" />

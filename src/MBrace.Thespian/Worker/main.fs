@@ -8,7 +8,7 @@ open Nessos.Thespian.Remote.Protocols
 open MBrace.Core.Internals
 open MBrace.Runtime
 
-let maxConcurrentJobs = 20
+let maxConcurrentWorkItems = 20
 let useAppDomainIsolation = true
 
 let main (args : string []) =
@@ -39,7 +39,7 @@ let main (args : string []) =
             let controller = 
                 WorkerController.initController 
                     (defaultArg config.UseAppDomainIsolation useAppDomainIsolation) 
-                    (defaultArg config.MaxConcurrentJobs maxConcurrentJobs)
+                    (defaultArg config.MaxConcurrentWorkItems maxConcurrentWorkItems)
                     logger
 
             replyToParent logger config (Success controller)

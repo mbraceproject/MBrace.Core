@@ -146,7 +146,7 @@ module Sequential =
 
 /// Set of parallel collection combinators that balance 
 /// input data across the cluster according to worker processing capacities. 
-/// Designed to minimize runtime overhead by bundling inputs in single jobs per worker,
+/// Designed to minimize runtime overhead by bundling inputs in single work items per worker,
 /// they also utilize the multicore capacity of every worker machine.
 /// It is assumed here that all inputs are homogeneous in terms of computation workloads.
 [<RequireQualifiedAccess>]

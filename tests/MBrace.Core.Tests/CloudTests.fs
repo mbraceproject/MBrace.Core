@@ -12,7 +12,7 @@ open MBrace.Library
 open MBrace.Library.CloudCollectionUtils
 
 /// Suite for testing MBrace parallelism & distribution
-/// <param name="parallelismFactor">Maximum permitted parallel jobs permitted in tests.</param>
+/// <param name="parallelismFactor">Maximum permitted parallel work items permitted in tests.</param>
 /// <param name="delayFactor">
 ///     Delay factor in milliseconds used by unit tests. 
 ///     Use a value that ensures propagation of updates across the cluster.
@@ -27,7 +27,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
     let runOnCloud (workflow : Cloud<'T>) = self.Run workflow
     let runOnCloudCts (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = self.Run workflow
-    let runOnCloudWithLogs (workflow : Cloud<unit>) = self.RunOnCloudWithLogs workflow
+    let runOnCloudWithLogs (workflow : Cloud<unit>) = self.RunWithLogs workflow
     let runOnCurrentProcess (workflow : Cloud<'T>) = self.RunOnCurrentProcess workflow
     
     
@@ -38,7 +38,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     /// Run workflow in the runtime under test, with cancellation token source passed to the worker
     abstract Run : workflow:(ICloudCancellationTokenSource -> #Cloud<'T>) -> Choice<'T, exn>
     /// Run workflow in the runtime under test, returning logs created by the process.
-    abstract RunOnCloudWithLogs : workflow:Cloud<unit> -> string []
+    abstract RunWithLogs : workflow:Cloud<unit> -> string []
     /// Evaluate workflow in the local test process
     abstract RunOnCurrentProcess : workflow:Cloud<'T> -> 'T
     /// Maximum number of tests to be run by FsCheck

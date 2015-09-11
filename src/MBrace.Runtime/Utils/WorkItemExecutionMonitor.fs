@@ -7,17 +7,17 @@ open MBrace.Core.Internals
 
 #nowarn "444"
 
-// Jobs are cloud workflows that have been attached to continuations.
+// Work items are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
 // are difficult to reason about from a worker node's point of view.
-// JobExecutionMonitor provides a way to cooperatively track execution
+// WorkItemExecutionMonitor provides a way to cooperatively track execution
 // of such 'closed' computations.
 
 /// Provides a mechanism for cooperative task execution monitoring.
 [<AutoSerializable(false)>]
-type JobExecutionMonitor () =
+type WorkItemExecutionMonitor () =
     let tcs = TaskCompletionSource<unit> ()
-    static let fromContext (ctx : ExecutionContext) = ctx.Resources.Resolve<JobExecutionMonitor> ()
+    static let fromContext (ctx : ExecutionContext) = ctx.Resources.Resolve<WorkItemExecutionMonitor> ()
 
     member __.Task = tcs.Task
     member __.TriggerFault (e : exn) = tcs.TrySetException e |> ignore
@@ -44,7 +44,7 @@ type JobExecutionMonitor () =
         let tem = fromContext ctx in tem.TriggerFault e |> ignore
 
     /// Asynchronously await completion of provided TaskExecutionMonitor
-    static member AwaitCompletion (tem : JobExecutionMonitor) = async {
+    static member AwaitCompletion (tem : WorkItemExecutionMonitor) = async {
         try return! Async.AwaitTask tem.Task
         with :? System.AggregateException as e when e.InnerException <> null ->
             return! Async.Raise e.InnerException

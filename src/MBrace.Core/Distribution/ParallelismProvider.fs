@@ -12,8 +12,8 @@ type IParallelismProvider =
 
     /// Get cloud process identifier
     abstract TaskId : string
-    /// Get cloud job identifier
-    abstract JobId : string
+    /// Get cloud work item identifier
+    abstract WorkItemId : string
     /// Get all available workers in cluster
     abstract GetAvailableWorkers : unit -> Async<IWorkerRef []>
     /// Gets currently running worker

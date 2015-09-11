@@ -47,8 +47,8 @@ type private HeartbeatMonitorMsg =
 and private WorkerMonitorMsg =
     | Subscribe of WorkerId * WorkerInfo * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
     | UnSubscribe of WorkerId
-    | IncrementJobCountBy of WorkerId * int
-    | DeclareStatus of WorkerId * WorkerJobExecutionStatus
+    | IncrementWorkItemCountBy of WorkerId * int
+    | DeclareStatus of WorkerId * WorkerItemExecutionStatus
     | DeclarePerformanceMetrics of WorkerId * PerformanceInfo
     | DeclareDead of WorkerId
     | IsAlive of WorkerId * IReplyChannel<bool>
@@ -142,16 +142,16 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
     }
 
     interface IWorkerManager with
-        member x.DeclareWorkerStatus(id: IWorkerId, status: WorkerJobExecutionStatus): Async<unit> = async {
+        member x.DeclareWorkerStatus(id: IWorkerId, status: WorkerItemExecutionStatus): Async<unit> = async {
             return! source.AsyncPost <| DeclareStatus(unbox id, status)
         }
 
-        member x.IncrementJobCount(id: IWorkerId): Async<unit> = async {
-            return! source.AsyncPost <| IncrementJobCountBy(unbox id, 1)
+        member x.IncrementWorkItemCount(id: IWorkerId): Async<unit> = async {
+            return! source.AsyncPost <| IncrementWorkItemCountBy(unbox id, 1)
         }
         
-        member x.DecrementJobCount(id: IWorkerId): Async<unit> = async {
-            return! source.AsyncPost <| IncrementJobCountBy(unbox id, -1)
+        member x.DecrementWorkItemCount(id: IWorkerId): Async<unit> = async {
+            return! source.AsyncPost <| IncrementWorkItemCountBy(unbox id, -1)
         }
         
         member x.GetAvailableWorkers(): Async<WorkerState []> = async {
@@ -187,7 +187,7 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
                     { 
                         Id = unbox w
                         Info = info
-                        CurrentJobCount = 0
+                        CurrentWorkItemCount = 0
                         LastHeartbeat = DateTime.Now
                         HeartbeatRate = heartbeatThreshold
                         InitializationTime = DateTime.Now
@@ -220,18 +220,18 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
                 match state.TryFind w with
                 | None -> return state
                 | Some(info,hm) ->
-                    match s : WorkerJobExecutionStatus with
+                    match s : WorkerItemExecutionStatus with
                     | Stopped -> logger.Logf LogLevel.Info "Worker '%s' has declared itself stopped." w.Id
                     | QueueFault _ -> logger.Logf LogLevel.Warning "Worker '%s' has declared itself in errored state." w.Id
                     | _ -> ()
 
                     return state.Add(w, ({ info with ExecutionStatus = s}, hm))
 
-            | IncrementJobCountBy (w,i) ->
+            | IncrementWorkItemCountBy (w,i) ->
                 match state.TryFind w with
                 | None -> return state
                 | Some(info,hm) ->
-                    return state.Add(w, ({info with CurrentJobCount = info.CurrentJobCount + i}, hm))
+                    return state.Add(w, ({info with CurrentWorkItemCount = info.CurrentWorkItemCount + i}, hm))
 
             | DeclarePerformanceMetrics(w, perf) ->
                 match state.TryFind w with
