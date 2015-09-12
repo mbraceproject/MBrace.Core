@@ -1,3 +1,8 @@
+#### 0.10.6-alpha
+* StoreAssemblyManager tweaks.
+* Implement fetching of worker logs on the client side.
+* Minor API revisions and fixes.
+
 #### 0.10.5-alpha
 * Improve VagabondRegistry support for multiple clients in single process.
 * Rename CloudFile instances to CloudFileInfo.
