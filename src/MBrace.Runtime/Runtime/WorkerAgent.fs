@@ -15,7 +15,7 @@ open MBrace.Runtime.Utils.PerformanceMonitor
 
 [<NoEquality; NoComparison>]
 type private WorkerAgentMessage = 
-    | GetStatus of ReplyChannel<WorkerItemExecutionStatus>
+    | GetStatus of ReplyChannel<CloudWorkItemExecutionStatus>
     | Stop of waitTimeout:int * ReplyChannel<unit>
     | Start of ReplyChannel<unit>
 
@@ -29,7 +29,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
     let waitInterval = 100
     let errorInterval = 1000
 
-    let rec workerLoop (status : WorkerItemExecutionStatus) (inbox : MailboxProcessor<WorkerAgentMessage>) = async {
+    let rec workerLoop (status : CloudWorkItemExecutionStatus) (inbox : MailboxProcessor<WorkerAgentMessage>) = async {
         let! controlMessage = async {
             if inbox.CurrentQueueLength > 0 then
                 let! m = inbox.Receive()
@@ -63,7 +63,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                     let! status = async {
                         match status with
                         | QueueFault _ ->
-                            let status = WorkerItemExecutionStatus.Running
+                            let status = CloudWorkItemExecutionStatus.Running
                             logger.Log LogLevel.Info "Worker Work item Queue restored."
                             do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
                             return status
@@ -109,7 +109,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
 
         | Some(Stop (waitTimeout, rc)) ->
             match status with
-            | WorkerItemExecutionStatus.Running | QueueFault _ ->
+            | CloudWorkItemExecutionStatus.Running | QueueFault _ ->
                 logger.Log LogLevel.Info "Stop requested. Waiting for pending work items."
                 let rec wait () = async {
                     let jc = currentWorkItemCount
@@ -139,7 +139,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
             match status with
             | Stopped ->
                 logger.Log LogLevel.Info "Starting Worker."
-                let status = WorkerItemExecutionStatus.Running
+                let status = CloudWorkItemExecutionStatus.Running
                 do! runtime.WorkerManager.DeclareWorkerStatus (workerId, status)
                 do rc.Reply (())
                 return! workerLoop status inbox
@@ -222,7 +222,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
 
     /// Gets whether worker agent is currently running
     member w.IsRunning = 
-        match w.CurrentStatus with WorkerItemExecutionStatus.Running | QueueFault _ -> true | _ -> false
+        match w.CurrentStatus with CloudWorkItemExecutionStatus.Running | QueueFault _ -> true | _ -> false
 
     interface IDisposable with
         member w.Dispose () =
