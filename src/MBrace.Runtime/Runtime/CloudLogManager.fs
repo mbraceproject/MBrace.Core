@@ -11,7 +11,7 @@ open MBrace.Core.Internals
 type CloudLogEntry =
 
     [<DataMember(Name = "DateTime", Order = 0)>]
-    val private dateTime : DateTime
+    val private dateTime : DateTimeOffset
     [<DataMember(Name = "Message", Order = 1)>]
     val private message : string
     [<DataMember(Name = "TaskId", Order = 2)>]
@@ -21,7 +21,7 @@ type CloudLogEntry =
     [<DataMember(Name = "WorkItemId", Order = 4)>]
     val private workItem : CloudWorkItemId
 
-    new (taskId : string, workerId : string, workItem : CloudWorkItemId, dateTime : DateTime, message : string) =
+    new (taskId : string, workerId : string, workItem : CloudWorkItemId, dateTime : DateTimeOffset, message : string) =
         { taskId = taskId ; workerId = workerId ; workItem = workItem ; dateTime = dateTime ; message = message }
 
     /// Task identifier for log entry
@@ -42,15 +42,16 @@ type CloudLogEntry =
     /// <param name="showDate">Show date at the beginning. Defaults to false.</param>
     static member Format(cle : CloudLogEntry, ?showDate : bool) =
         if defaultArg showDate false then
-            let date = cle.dateTime.ToString("yyyy-MM-dd H:mm:ss")
+            let local = cle.dateTime.LocalDateTime
+            let date = local.ToString("yyyy-MM-dd H:mm:ss")
             sprintf "[%s][Worker:%s][WorkItem:%O] %s" date cle.workerId cle.workItem cle.message
         else 
             sprintf "[Worker:%s][WorkItem:%O] %s" cle.workerId cle.workItem cle.message
 
 /// CloudLogger instance used for logging a specific work item
 type ICloudWorkItemLogger =
-    inherit ICloudLogger
     inherit IDisposable
+    inherit ICloudLogger
 
 /// Abstraction used for managing cloud log entries
 type ICloudLogManager =

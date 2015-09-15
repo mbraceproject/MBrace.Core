@@ -47,17 +47,17 @@ type SystemLogEntry =
     [<DataMember(Name = "LogLevel", Order = 0)>]
     val private logLevel : LogLevel
     [<DataMember(Name = "DateTime", Order = 1)>]
-    val private dateTime : DateTime
+    val private dateTime : DateTimeOffset
     [<DataMember(Name = "Message", Order = 2)>]
     val private message : string
 
     /// Creates a new log entry with supplied parameters.
-    new (logLevel : LogLevel, message : string, dateTime : DateTime) =
+    new (logLevel : LogLevel, message : string, dateTime : DateTimeOffset) =
         { dateTime = dateTime ; logLevel = logLevel ; message = message }
 
     /// Creates a new log entry with datetime set to current machine date.
     new (logLevel : LogLevel, message : string) =
-        { dateTime = DateTime.Now ; logLevel = logLevel ; message = message }
+        { dateTime = DateTimeOffset.Now ; logLevel = logLevel ; message = message }
 
     /// Date of log entry
     member __.DateTime = __.dateTime
@@ -73,7 +73,8 @@ type SystemLogEntry =
     /// <param name="showDate">Display date at the beggining of the log entry. Defaults to true.</param>
     static member Format (entry : SystemLogEntry, ?showDate : bool) =
         if defaultArg showDate true then
-            let fmt = entry.dateTime.ToString("yyyy-MM-dd H:mm:ss")
+            let local = entry.dateTime.LocalDateTime
+            let fmt = local.ToString("yyyy-MM-dd H:mm:ss")
             sprintf "[%s] %O : %s" fmt (LogLevel.print entry.logLevel) entry.message
         else 
             sprintf "%O : %s" (LogLevel.print entry.logLevel) entry.message

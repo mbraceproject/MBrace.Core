@@ -321,7 +321,7 @@ type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, workI
         member x.Dispose(): unit = (writer :> IDisposable).Dispose()
         member x.Log(message : string): unit = 
             // TODO : parameterize DateTime generation?
-            let entry = new CloudLogEntry(workItem.TaskEntry.Id, workerId, workItem.Id, DateTime.Now, message)
+            let entry = new CloudLogEntry(workItem.TaskEntry.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
             writer.LogEntry(entry) 
 
 [<Sealed; AutoSerializable(false)>]

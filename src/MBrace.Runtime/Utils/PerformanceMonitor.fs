@@ -69,7 +69,7 @@ type PerformanceMonitor (?updateInterval : int, ?maxSamplesCount : int) =
                 use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
                 use qObj = searcher.Get() 
                             |> Seq.cast<ManagementBaseObject> 
-                            |> Seq.exactlyOne
+                            |> Seq.head
 
                 let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
                 single cpuFreq
@@ -83,7 +83,7 @@ type PerformanceMonitor (?updateInterval : int, ?maxSamplesCount : int) =
             use searcher = new ManagementObjectSearcher("root\\CIMV2", "SELECT TotalPhysicalMemory FROM Win32_ComputerSystem")
             use qObj = searcher.Get() 
                         |> Seq.cast<ManagementBaseObject> 
-                        |> Seq.exactlyOne
+                        |> Seq.head
             let totalBytes = qObj.["TotalPhysicalMemory"] :?> uint64
             let mb = totalBytes / uint64 (1 <<< 20) |> single // size in MB
             Some(fun () -> mb)
@@ -184,7 +184,7 @@ type PerformanceMonitor (?updateInterval : int, ?maxSamplesCount : int) =
             use searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor")
             use qObj = searcher.Get() 
                         |> Seq.cast<ManagementBaseObject> 
-                        |> Seq.exactlyOne
+                        |> Seq.head
 
             let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
             Some <| float cpuFreq
