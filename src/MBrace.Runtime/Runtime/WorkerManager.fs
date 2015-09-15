@@ -113,15 +113,3 @@ type IWorkerManager =
 
     /// Asynchronously requests node performance metrics for all nodes.
     abstract GetAvailableWorkers : unit -> Async<WorkerState []>
-
-    /// <summary>
-    ///     Asynchronoulsy fetches all system logs produced by worker of given id.
-    /// </summary>
-    /// <param name="id">Worker identifier.</param>
-    abstract GetWorkerLogs : id:IWorkerId -> Async<SystemLogEntry []>
-
-    /// <summary>
-    ///     Asynchronously fetches an observable to system logs produces by worker of given id.
-    /// </summary>
-    /// <param name="id">Worker identifier.</param>
-    abstract GetWorkerLogObservable : id:IWorkerId -> Async<IObservable<SystemLogEntry>>

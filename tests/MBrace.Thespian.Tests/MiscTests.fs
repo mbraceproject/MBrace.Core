@@ -19,9 +19,9 @@ module ``MBrace Thespian Misc Tests`` =
 
     [<Test>]
     let ``Management : spawn and connect to worker node`` () =
-        let worker = MBraceWorker.Spawn(hostname = "127.0.0.1", port = 36767)
+        let worker = ThespianWorker.Spawn(hostname = "127.0.0.1", port = 36767)
         try
-            let worker' = MBraceWorker.Connect "mbrace://127.0.0.1:36767"
+            let worker' = ThespianWorker.Connect "mbrace://127.0.0.1:36767"
             worker'.IsIdle |> shouldEqual true
             worker' |> shouldEqual worker
         finally
@@ -30,25 +30,25 @@ module ``MBrace Thespian Misc Tests`` =
     [<Test>]
     let ``Management : connect to invalid URI.`` () =
         fun () -> 
-            MBraceWorker.Connect "mbrace://127.0.0.1:80"
+            ThespianWorker.Connect "mbrace://127.0.0.1:80"
         |> shouldFailwith<_, Exception>
 
         fun () ->
-            MBraceWorker.Connect "http://127.0.0.1:80"
+            ThespianWorker.Connect "http://127.0.0.1:80"
         |> shouldFailwith<_, Exception>
 
         fun () ->
-            MBraceWorker.Connect "garbage123"
+            ThespianWorker.Connect "garbage123"
         |> shouldFailwith<_, Exception>
 
     [<Test>]
     let ``Management : run cluster hosted on worker node`` () =
-        let master = MBraceWorker.Spawn()
-        let worker1 = MBraceWorker.Spawn()
-        let worker2 = MBraceWorker.Spawn()
+        let master = ThespianWorker.Spawn()
+        let worker1 = ThespianWorker.Spawn()
+        let worker2 = ThespianWorker.Spawn()
 
         try
-            let cluster = MBraceCluster.InitOnWorker(master)
+            let cluster = ThespianCluster.InitOnWorker(master)
 
             cluster.AttachWorker worker1
             cluster.AttachWorker worker2
@@ -58,7 +58,7 @@ module ``MBrace Thespian Misc Tests`` =
 
             cluster.Workers.Length |> shouldEqual 2
 
-            let cluster' = MBraceCluster.Connect(worker1.Uri)
+            let cluster' = ThespianCluster.Connect(worker1.Uri)
             cluster'.Workers.Length |> shouldEqual 2
 
         finally
@@ -66,7 +66,7 @@ module ``MBrace Thespian Misc Tests`` =
 
     [<Test>]
     let ``Management : Attach new nodes to a cluster`` () =
-        let cluster = MBraceCluster.InitOnWorker()
+        let cluster = ThespianCluster.InitOnWorker()
         try
             cluster.AttachNewLocalWorkers(3)
             cluster.Workers |> Array.map (fun w -> w.WorkerManager) |> Array.length |> shouldEqual 3

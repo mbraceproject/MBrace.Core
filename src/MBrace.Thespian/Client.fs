@@ -27,7 +27,7 @@ type LogLevel = MBrace.Runtime.LogLevel
 
 /// Defines a client object used for administering MBrace worker processes.
 [<AutoSerializable(false)>]
-type MBraceWorker private (uri : string) =
+type ThespianWorker private (uri : string) =
     let protectAsync (w:Async<'T>) = async {
         try return! w
         with 
@@ -113,7 +113,7 @@ type MBraceWorker private (uri : string) =
 
     override __.Equals(other : obj) =
         match other with
-        | :? MBraceWorker as w -> uri = w.Uri
+        | :? ThespianWorker as w -> uri = w.Uri
         | _ -> false
 
     override __.GetHashCode() = uri.GetHashCode()
@@ -122,15 +122,15 @@ type MBraceWorker private (uri : string) =
     ///     Connects to an MBrace worker process with supplied MBrace uri.
     /// </summary>
     /// <param name="uri">MBrace uri to worker.</param>
-    static member Connect(uri : string) : MBraceWorker =
-        new MBraceWorker(uri)
+    static member Connect(uri : string) : ThespianWorker =
+        new ThespianWorker(uri)
 
     /// <summary>
     ///     Gets an MBrace worker client instance from supplied WorkerRef object.
     /// </summary>
     /// <param name="worker">Input worker ref.</param>
-    static member Connect(worker : IWorkerRef) : MBraceWorker =
-        new MBraceWorker(worker.Id)
+    static member Connect(worker : IWorkerRef) : ThespianWorker =
+        new ThespianWorker(worker.Id)
 
     /// <summary>
     ///     Asynchronously spawns a new worker process in the current machine with supplied configuration parameters.
@@ -146,7 +146,7 @@ type MBraceWorker private (uri : string) =
     static member SpawnAsync (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentWorkItems : int,
                                     ?logLevel : LogLevel, ?logFiles : seq<string>, ?useAppDomainIsolation : bool, ?runAsBackground : bool) =
         async {
-            let exe = MBraceWorker.LocalExecutable
+            let exe = ThespianWorker.LocalExecutable
             let logFiles = match logFiles with None -> [] | Some ls -> Seq.toList ls
             let runAsBackground = defaultArg runAsBackground false
             let config = 
@@ -155,7 +155,7 @@ type MBraceWorker private (uri : string) =
                     LogLevel = logLevel ; LogFiles = logFiles ; Parent = None }
 
             let! ref = spawnAsync exe runAsBackground config
-            return new MBraceWorker(mkUri ref)
+            return new ThespianWorker(mkUri ref)
         }
 
     /// <summary>
@@ -172,22 +172,22 @@ type MBraceWorker private (uri : string) =
     static member Spawn (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentWorkItems : int,
                                 ?logLevel : LogLevel, ?logFiles : seq<string>, ?useAppDomainIsolation : bool, ?runAsBackground : bool) =
 
-        MBraceWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentWorkItems = maxConcurrentWorkItems, ?logLevel = logLevel, 
+        ThespianWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentWorkItems = maxConcurrentWorkItems, ?logLevel = logLevel, 
                                 ?logFiles = logFiles, ?runAsBackground = runAsBackground, ?useAppDomainIsolation = useAppDomainIsolation)
         |> Async.RunSync
 
 
 /// MBrace.Thespian client object used to manage cluster and submit work items for computation.
 [<AutoSerializable(false)>]
-type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
+type ThespianCluster private (state : ClusterState, manager : IRuntimeManager) =
     inherit MBraceClient(manager)
 
     static do Config.Initialize(isClient = true, populateDirs = true)
     static let initWorkers logLevel (count : int) (target : ClusterState) = async {
         if count < 0 then invalidArg "workerCount" "must be non-negative."
-        let exe = MBraceWorker.LocalExecutable
+        let exe = ThespianWorker.LocalExecutable
         let attachNewWorker _ = async {
-            let! (node : MBraceWorker) = MBraceWorker.SpawnAsync(?logLevel = logLevel)
+            let! (node : ThespianWorker) = ThespianWorker.SpawnAsync(?logLevel = logLevel)
             do! node.SubscribeToCluster(target)
         }
 
@@ -197,15 +197,15 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     static let getDefaultStore() = FileSystemStore.CreateSharedLocal() :> ICloudFileStore
 
     let masterNode =
-        if state.IsWorkerHosted then Some <| MBraceWorker.Connect state.Uri
+        if state.IsWorkerHosted then Some <| ThespianWorker.Connect state.Uri
         else
             None
 
     private new (state : ClusterState, logLevel : LogLevel option) = 
         let manager = state.GetLocalRuntimeManager()
         Actor.Logger <- manager.SystemLogger
-        manager.LogLevel <- defaultArg logLevel LogLevel.Info
-        new MBraceCluster(state, manager)
+        manager.LocalSystemLogManager.LogLevel <- defaultArg logLevel LogLevel.Info
+        new ThespianCluster(state, manager)
 
     /// Gets the the uri identifier of the process hosting the cluster.
     member __.Uri = state.Uri
@@ -214,7 +214,7 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     member __.UUID = manager.Id
 
     /// Gets the MBrace worker object that host the cluster state, if available.
-    member __.MasterNode : MBraceWorker option = masterNode
+    member __.MasterNode : ThespianWorker option = masterNode
 
     /// Gets whether the given cluster is hosted by an MBrace worker object.
     member __.IsWorkerHosted = state.IsWorkerHosted
@@ -231,7 +231,7 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     ///     Subscribe a given worker instance as slave to current cluster.
     /// </summary>
     /// <param name="worker">Worker to be attached.</param>
-    member __.AttachWorker (worker : MBraceWorker) =
+    member __.AttachWorker (worker : ThespianWorker) =
         worker.SubscribeToCluster(state) |> Async.RunSync
 
     /// <summary>
@@ -239,7 +239,7 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     /// </summary>
     /// <param name="worker">Worker to be detached.</param>
     member __.DetachWorker (worker : IWorkerRef) =
-        let node = MBraceWorker.Connect worker
+        let node = ThespianWorker.Connect worker
         node.Reset()
 
     /// <summary>
@@ -247,7 +247,7 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     /// </summary>
     /// <param name="worker">Worker to be killed.</param>
     member __.KillWorker (worker : IWorkerRef) =
-        let node = MBraceWorker.Connect worker
+        let node = ThespianWorker.Connect worker
         node.Kill()
 
     /// Sends a kill signal to all worker processes currently subscribed to cluster.
@@ -265,13 +265,13 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     /// <param name="logger">Logger implementation to attach on client by default. Defaults to no logging.</param>
     /// <param name="logLevel">Sets the log level for the cluster. Defaults to LogLevel.Info.</param>
     static member InitOnCurrentMachine(workerCount : int, ?fileStore : ICloudFileStore, 
-                                        ?resources : ResourceRegistry, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
+                                        ?resources : ResourceRegistry, ?logger : ISystemLogger, ?logLevel : LogLevel) : ThespianCluster =
 
         if workerCount < 0 then invalidArg "workerCount" "must be non-negative."
         let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
         let state = ClusterState.Create(fileStore, isWorkerHosted = false, ?miscResources = resources)
         let _ = initWorkers logLevel workerCount state |> Async.RunSync
-        let cluster = new MBraceCluster(state, logLevel)
+        let cluster = new ThespianCluster(state, logLevel)
         logger |> Option.iter (fun l -> cluster.AttachLogger l |> ignore)
         cluster
 
@@ -282,35 +282,35 @@ type MBraceCluster private (state : ClusterState, manager : IRuntimeManager) =
     /// <param name="fileStore">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="miscResources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
-    static member InitOnWorker(?target : MBraceWorker, ?fileStore : ICloudFileStore, 
-                                    ?miscResources : ResourceRegistry, ?logLevel : LogLevel) : MBraceCluster =
+    static member InitOnWorker(?target : ThespianWorker, ?fileStore : ICloudFileStore, 
+                                    ?miscResources : ResourceRegistry, ?logLevel : LogLevel) : ThespianCluster =
 
         let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
-        let target = match target with Some t -> t | None -> MBraceWorker.Spawn()
+        let target = match target with Some t -> t | None -> ThespianWorker.Spawn()
         let state = target.InitAsClusterMasterNode(fileStore, ?miscResources = miscResources) |> Async.RunSync
-        new MBraceCluster(state, logLevel)
+        new ThespianCluster(state, logLevel)
 
     /// <summary>
     ///     Connects to the cluster instance that is active in supplied MBrace worker instance.
     /// </summary>
     /// <param name="worker">Worker instance to extract runtime state from.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
-    static member Connect(worker : MBraceWorker, ?logLevel : LogLevel) : MBraceCluster =
+    static member Connect(worker : ThespianWorker, ?logLevel : LogLevel) : ThespianCluster =
         match worker.RuntimeState with
         | None -> invalidOp "Worker '%s' is not part of an active cluster." worker.Uri
-        | Some state -> new MBraceCluster(state, logLevel)
+        | Some state -> new ThespianCluster(state, logLevel)
 
     /// <summary>
     ///     Connects to the cluster instance that is identified by supplied MBrace uri.
     /// </summary>
     /// <param name="uri">MBrace uri to connect to.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
-    static member Connect(uri : string, ?logLevel : LogLevel) : MBraceCluster = 
-        MBraceCluster.Connect(MBraceWorker.Connect uri, ?logLevel = logLevel)
+    static member Connect(uri : string, ?logLevel : LogLevel) : ThespianCluster = 
+        ThespianCluster.Connect(ThespianWorker.Connect uri, ?logLevel = logLevel)
 
 [<AutoOpen>]
 module ClientExtensions =
 
     type IWorkerRef with
         /// Gets a worker management object from supplied worker ref.
-        member w.WorkerManager = MBraceWorker.Connect(w)
+        member w.WorkerManager = ThespianWorker.Connect(w)

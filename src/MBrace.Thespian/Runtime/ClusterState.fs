@@ -77,13 +77,7 @@ type ClusterState =
             let assemblyManager = StoreAssemblyManager.Create(vagabondStoreConfig, logger)
             let siftConfig = ClosureSiftConfiguration.Create(cloudValueProvider)
             let siftManager = ClosureSiftManager.Create(siftConfig, logger)
-            let sysLogSchema = 
-                { new DefaultStoreSystemLogSchema(fileStore) with
-                    override __.GetWorkerDirectory(id : IWorkerId) = 
-                        let uri = System.Uri(id.Id)
-                        sprintf "workerLogs-%s-%d" uri.Host uri.Port
-                }
-
+            let sysLogSchema = new DefaultStoreSystemLogSchema(fileStore)
             let cloudLogSchema = new DefaultStoreCloudLogSchema(fileStore)
             let storeSystemLogger = new StoreSystemLogManager(sysLogSchema, fileStore)
             let storeCloudLogger = StoreCloudLogManager.Create(fileStore, cloudLogSchema, sysLogger = logger)
@@ -141,6 +135,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : ClusterState) =
     let localState = state.LocalStateFactory.Value
     // Install cache in the local application domain
     do state.StoreCloudValueProvider.InstallCacheOnLocalAppDomain()
+    let localLogManager = new AttacheableLoggerManager(localState.Logger)
     let cancellationEntryFactory = new ActorCancellationEntryFactory(state.ResourceFactory)
     let counterFactory = new ActorCounterFactory(state.ResourceFactory)
     let resultAggregatorFactory = new ActorResultAggregatorFactory(state.ResourceFactory, state.LocalStateFactory)
@@ -148,26 +143,18 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : ClusterState) =
     interface IRuntimeManager with
         member x.Id = state.Id :> _
         member x.Serializer = Config.Serializer :> _
-        member x.AssemblyManager: IAssemblyManager = localState.AssemblyManager :> _
+        member x.ResourceRegistry: ResourceRegistry = state.Resources
+
+        member x.LocalSystemLogManager : ILocalSystemLogManager = localLogManager :> _
+        member x.RuntimeSystemLogManager : IRuntimeSystemLogManager = localState.SystemLogManager :> _
         member x.CloudLogManager : ICloudLogManager = localState.CloudLogManager :> _
         
+        member x.AssemblyManager: IAssemblyManager = localState.AssemblyManager :> _
         member x.CancellationEntryFactory: ICancellationEntryFactory = cancellationEntryFactory :> _
         member x.CounterFactory: ICloudCounterFactory = counterFactory :> _
         member x.ResultAggregatorFactory: ICloudResultAggregatorFactory = resultAggregatorFactory :> _
-        
         member x.WorkerManager = state.WorkerManager :> _
-        
+        member x.TaskManager = state.TaskManager :> _
         member x.WorkItemQueue: ICloudWorkItemQueue = state.WorkItemQueue :> _
 
-        member x.SystemLogger : ISystemLogger = localState.Logger :> _
-        
-        member x.AttachSystemLogger (l : ISystemLogger) = localState.Logger.AttachLogger l
-        member x.LogLevel 
-            with get () = localState.Logger.LogLevel
-            and set l = localState.Logger.LogLevel <- l
-        
-        member x.TaskManager = state.TaskManager :> _
-        
-        member x.ResourceRegistry: ResourceRegistry = state.Resources
-
-        member x.ResetClusterState () = async { return raise <| new System.NotImplementedException("cluster reset") }
+        member x.ResetClusterState () = async { return raise <| new System.NotSupportedException("MBrace.Thespian: cluster reset not supported.") }

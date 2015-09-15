@@ -9,17 +9,17 @@ open MBrace.Thespian
 
 type RuntimeSession(workerCount : int) =
     
-    static do MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
-    static let e = MBraceWorker.LocalExecutable
+    static do ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
+    static let e = ThespianWorker.LocalExecutable
 
     let lockObj = obj ()
-    let mutable state : MBraceCluster option = None
+    let mutable state : ThespianCluster option = None
 
     static member Init() = ignore e
 
     member __.Start () =
         lock lockObj (fun () -> 
-            let runtime = MBraceCluster.InitOnCurrentMachine(workerCount, logLevel = LogLevel.Debug)
+            let runtime = ThespianCluster.InitOnCurrentMachine(workerCount, logLevel = LogLevel.Debug)
             let _ = runtime.AttachLogger(new ConsoleLogger())
             while runtime.Workers.Length <> workerCount do Thread.Sleep 200
             state <- Some runtime)

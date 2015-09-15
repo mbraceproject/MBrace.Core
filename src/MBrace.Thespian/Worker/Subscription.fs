@@ -58,9 +58,9 @@ module internal WorkerSubscription =
         // and not in the worker domains. This ensures that all workers identify with the master uri.
         let currentWorker = WorkerId.LocalInstance :> IWorkerId
         let manager = state.GetLocalRuntimeManager()
-        let loggerSubscription = manager.AttachSystemLogger logger
+        let loggerSubscription = manager.LocalSystemLogManager.AttachLogger logger
         logger.LogInfo "Initializing worker store logger."
-        let! storeLogger = state.LocalStateFactory.Value.SystemLogManager.CreateStoreLogger(currentWorker)
+        let! storeLogger = state.LocalStateFactory.Value.SystemLogManager.CreateLogWriter(currentWorker)
         let storeLoggerSubscription = logger.AttachLogger(storeLogger)
 
         let workItemEvaluator =
@@ -86,7 +86,7 @@ module internal WorkerSubscription =
                     let state = Config.Serializer.UnPickleTyped domainConfig.RuntimeState
                     let logger = domainConfig.Logger
                     let manager = state.GetLocalRuntimeManager()
-                    let _ = manager.AttachSystemLogger(logger)
+                    let _ = manager.LocalSystemLogManager.AttachLogger(logger)
                     manager, currentWorker
 
                 AppDomainWorkItemEvaluator.Create(managerF, initializer) :> ICloudWorkItemEvaluator

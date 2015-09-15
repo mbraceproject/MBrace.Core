@@ -87,7 +87,7 @@
     <Compile Include="Runtime\TaskManager.fs" />
     <Compile Include="Runtime\CloudWorkItem.fs" />
     <Compile Include="Runtime\AssemblyManager.fs" />
-    <Compile Include="Runtime\CloudLogManager.fs" />
+    <Compile Include="Runtime\LogManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
     <Compile Include="Runtime\WorkerRef.fs" />

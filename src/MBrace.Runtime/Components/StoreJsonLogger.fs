@@ -162,12 +162,23 @@ type StoreJsonLogPoller<'LogEntry> internal (store : ICloudFileStore, getLogFile
                 cts.Cancel()
                 cancellationTokenSource <- None)
 
-    [<CLIEvent>]
-    member this.Updated = updatedEvent.Publish
     member this.Update () = Async.StartAsTask(updateLogs()) |> ignore
+
+    interface ILogPoller<'LogEntry>
 
     interface IDisposable with
         member __.Dispose() = __.Stop()
+
+    interface IEvent<'LogEntry> with
+        member x.AddHandler(handler: Handler<'LogEntry>): unit =
+            updatedEvent.Publish.AddHandler handler
+        
+        member x.RemoveHandler(handler: Handler<'LogEntry>): unit = 
+            updatedEvent.Publish.RemoveHandler handler
+        
+        member x.Subscribe(observer: IObserver<'LogEntry>): IDisposable = 
+            updatedEvent.Publish.Subscribe observer
+        
 
 type StoreJsonLogger =
     /// <summary>
@@ -209,34 +220,9 @@ type StoreJsonLogger =
 ////////////////////////////////////////////////////////////
 
 [<Sealed; AutoSerializable(false)>]
-type StoreSystemLogWriter (writer : StoreJsonLogWriter<SystemLogEntry>) =
+type private StoreSystemLogWriter (writer : StoreJsonLogWriter<SystemLogEntry>) =
     interface ISystemLogger with
         member x.LogEntry(entry: SystemLogEntry): unit = writer.LogEntry entry
-
-[<Sealed; AutoSerializable(false)>]
-type private StoreSystemLogObservable (poller : StoreJsonLogPoller<SystemLogEntry>) =
-    let lockObj = new obj()
-    let mutable subscriptionCount = 0
-    let incr() = 
-        lock lockObj (fun () ->
-            if subscriptionCount = 0 then poller.Start()
-            subscriptionCount <- subscriptionCount + 1)
-
-    let decr() =
-        lock lockObj (fun () ->
-            if subscriptionCount = 1 then poller.Stop()
-            subscriptionCount <- subscriptionCount - 1)
-
-    interface IObservable<SystemLogEntry> with
-        member x.Subscribe(observer: IObserver<SystemLogEntry>): IDisposable =
-            let d = poller.Updated.Subscribe observer
-            incr ()
-            let isDisposed = ref 0
-            { new IDisposable with 
-                member __.Dispose() = 
-                    if Interlocked.Increment isDisposed = 1 then 
-                        d.Dispose() ; decr()
-            }
 
 /// Creates a schema for writing and fetching system log files for specific workers
 type ISystemLogStoreSchema =
@@ -251,30 +237,26 @@ type ISystemLogStoreSchema =
     /// <summary>
     ///     Gets all log files that have been persisted to store by given task identifier.
     /// </summary>
-    /// <param name="taskId">Cloud task identifier.</param>
-    abstract GetLogFilesByWorker : workerId:IWorkerId -> Async<string []>
+    /// <param name="workerId">Worker id identifier.</param>
+    abstract GetWorkerLogFiles : workerId:IWorkerId -> Async<string []>
 
     /// <summary>
-    ///     Clear all logs for given worker id, if found
+    ///     Gets all log files that have been persisted to store.
     /// </summary>
-    /// <param name="worker"></param>
-    abstract ClearLogs : worker:IWorkerId -> Async<unit>
+    abstract GetLogFiles : unit -> Async<string []>
 
 /// As simple store log schema where each cloud task creates its own root directory
 /// for storing logfiles; possibly not suitable for Azure where root directories are containers.
-type DefaultStoreSystemLogSchema(store : ICloudFileStore) =
-
-    abstract GetWorkerDirectory : IWorkerId -> string
-    default __.GetWorkerDirectory (workerId : IWorkerId) = sprintf "workerLogs-%s" workerId.Id
+type DefaultStoreSystemLogSchema(store : ICloudFileStore, ?logDirectory : string) =
+    let logDirectory = defaultArg logDirectory "workerLogs"
 
     interface ISystemLogStoreSchema with
-        member x.GetLogFilePath(worker: IWorkerId, index: int): string = 
-            store.Combine(x.GetWorkerDirectory worker, sprintf "logs-%d.json" index)
-        
-        member x.GetLogFilesByWorker(worker: IWorkerId): Async<string []> = async {
-            let container = x.GetWorkerDirectory worker
+        member __.GetLogFilePath(worker, index) =
+            store.Combine(logDirectory, sprintf "logs-%s-%d.json" (worker.Id.ToLower()) index) 
+
+        member x.GetLogFiles() = async {
             let! logFiles = async {
-                try return! store.EnumerateFiles container
+                try return! store.EnumerateFiles logDirectory
                 with :? DirectoryNotFoundException -> return [||]
             }
 
@@ -285,21 +267,27 @@ type DefaultStoreSystemLogSchema(store : ICloudFileStore) =
                 |> Seq.toArray
         }
 
-        member x.ClearLogs(workerId : IWorkerId) = async {
-            let directory = x.GetWorkerDirectory(workerId)
-            return! store.DeleteDirectory(directory, recursiveDelete = true)
+        member x.GetWorkerLogFiles(workerId: IWorkerId) = async {
+            let! logFiles = (x :> ISystemLogStoreSchema).GetLogFiles()
+            let workerId = workerId.Id.ToLower()
+            return logFiles |> Array.filter (fun f -> f.Contains workerId)
         }
 
 /// Tools for writing worker system logs to store.
 [<Sealed; AutoSerializable(false)>]
 type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileStore) =
 
+    let clearWorkerLogs(workerId : IWorkerId) = async {
+        let! logFiles = schema.GetWorkerLogFiles workerId
+        do! logFiles |> Seq.map (fun f -> store.DeleteFile f) |> Async.Parallel |> Async.Ignore
+    }
+
     /// <summary>
-    ///     Create a system logger instance for writing logs to store.
+    ///     Creates a logger implementation that asynchronously writes entries to blob store
     /// </summary>
-    /// <param name="workerId">Current worker identifier.</param>
-    member __.CreateStoreLogger(workerId : IWorkerId) : Async<ISystemLogger> = async {
-        do! schema.ClearLogs(workerId)
+    /// <param name="workerId">Worker identifier.</param>
+    member x.CreateLogWriter(workerId : IWorkerId) = async {
+        do! clearWorkerLogs workerId
         let nextLogFile =
             let i = ref 0
             fun () -> incr i ; schema.GetLogFilePath(workerId, !i)
@@ -308,22 +296,43 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
         return new StoreSystemLogWriter(writer) :> ISystemLogger
     }
 
-    /// <summary>
-    ///     Creates an IObservable that reacts to log entries by worker instance.
-    /// </summary>
-    /// <param name="workerId">Worker identifier.</param>
-    member __.CreateObservable(workerId : IWorkerId) =
-        let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByWorker workerId)
-        new StoreSystemLogObservable(poller) :> IObservable<SystemLogEntry>
+    interface IRuntimeSystemLogManager with
+        member x.CreateLogWriter(workerId : IWorkerId) : Async<ISystemLogger> = x.CreateLogWriter workerId
+        
+        member x.GetRuntimeLogs(): Async<seq<SystemLogEntry>> = async {
+            let! logFiles = schema.GetLogFiles()
+            return! StoreJsonLogger.ReadJsonLogEntries(store, logFiles)
+        }
+        
+        member x.GetWorkerLogs(id: IWorkerId): Async<seq<SystemLogEntry>> = async {
+            let! logFiles = schema.GetWorkerLogFiles(id)
+            return! StoreJsonLogger.ReadJsonLogEntries(store, logFiles)
+        }
 
-    /// <summary>
-    ///     Gets all system log entries generated by worker of provided id.
-    /// </summary>
-    /// <param name="workerId">Worker identifier.</param>
-    member __.GetAllLogsByWorker(workerId : IWorkerId) = async {
-        let! workerLogs = schema.GetLogFilesByWorker workerId
-        return! StoreJsonLogger.ReadJsonLogEntries<SystemLogEntry>(store, workerLogs)
-    }   
+        member x.CreateLogPoller(): Async<ILogPoller<SystemLogEntry>> = async {
+            let poller = StoreJsonLogger.CreateJsonLogPoller(store, schema.GetLogFiles)
+            return poller :> _
+        }
+        
+        member x.CreateWorkerLogPoller(id: IWorkerId): Async<ILogPoller<SystemLogEntry>> = async {
+            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetWorkerLogFiles id)
+            return poller :> _
+        }
+
+        member x.ClearLogs(id: IWorkerId): Async<unit> = async {
+            let! logFiles = schema.GetWorkerLogFiles id
+            do! logFiles |> Seq.map (fun f -> store.DeleteFile f) |> Async.Parallel |> Async.Ignore
+        }
+        
+        member x.ClearLogs(): Async<unit> = async {
+            let! logFiles = schema.GetLogFiles()
+            do! logFiles |> Seq.map (fun f -> store.DeleteFile f) |> Async.Parallel |> Async.Ignore
+        }
+
+
+
+
+
 
 ////////////////////////////////////////////////////////////
 //  Store Cloud Log Implementations
@@ -336,32 +345,7 @@ type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, workI
         member x.Log(message : string) : unit = 
             // TODO : parameterize DateTime generation?
             let entry = new CloudLogEntry(workItem.TaskEntry.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
-            writer.LogEntry(entry) 
-
-[<Sealed; AutoSerializable(false)>]
-type private StoreCloudLogObservable (poller : StoreJsonLogPoller<CloudLogEntry>) =
-    let lockObj = new obj()
-    let mutable subscriptionCount = 0
-    let incr() = 
-        lock lockObj (fun () ->
-            if subscriptionCount = 0 then poller.Start()
-            subscriptionCount <- subscriptionCount + 1)
-
-    let decr() =
-        lock lockObj (fun () ->
-            if subscriptionCount = 1 then poller.Stop()
-            subscriptionCount <- subscriptionCount - 1)
-
-    interface IObservable<CloudLogEntry> with
-        member x.Subscribe(observer: IObserver<CloudLogEntry>): IDisposable =
-            let d = poller.Updated.Subscribe observer
-            incr ()
-            let isDisposed = ref 0
-            { new IDisposable with 
-                member __.Dispose() = 
-                    if Interlocked.Increment isDisposed = 1 then 
-                        d.Dispose() ; decr()
-            }
+            writer.LogEntry(entry)
 
 /// Creates a schema for writing and fetching log files for specific Cloud tasks
 /// in StoreCloudLogManager instances
@@ -431,7 +415,6 @@ type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogSt
             return! StoreJsonLogger.ReadJsonLogEntries(store, taskLogs)
         }
         
-        member x.GetCloudLogObservableByTask(taskId: string): Async<IObservable<CloudLogEntry>> = async {
-            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByTask taskId)
-            return new StoreCloudLogObservable(poller) :> _
+        member x.GetCloudLogPollerByTask(taskId: string): Async<ILogPoller<CloudLogEntry>> = async {
+            return StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByTask taskId) :> _
         }

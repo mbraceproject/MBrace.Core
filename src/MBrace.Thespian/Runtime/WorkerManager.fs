@@ -123,7 +123,7 @@ module private HeartbeatMonitor =
 
 /// WorkerManager actor reference used for handling MBrace.Thespian worker instances
 [<AutoSerializable(true)>]
-type WorkerManager private (heartbeatInterval : TimeSpan, localState : LocalStateFactory, source : ActorRef<WorkerMonitorMsg>) =
+type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<WorkerMonitorMsg>) =
 
     /// <summary>
     ///     Revokes worker subscription for given id.
@@ -170,15 +170,6 @@ type WorkerManager private (heartbeatInterval : TimeSpan, localState : LocalStat
         
         member x.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = async {
             return! source <!- fun ch -> TryGetWorkerState(unbox id, ch)
-        }
-
-        member x.GetWorkerLogObservable(id : IWorkerId) : Async<IObservable<SystemLogEntry>> = async {
-            return localState.Value.SystemLogManager.CreateObservable(id)
-        }
-
-        member x.GetWorkerLogs(id : IWorkerId) : Async<SystemLogEntry []> = async {
-            let! logs = localState.Value.SystemLogManager.GetAllLogsByWorker id
-            return Seq.toArray logs
         }
 
     /// <summary>
@@ -275,7 +266,7 @@ type WorkerManager private (heartbeatInterval : TimeSpan, localState : LocalStat
             |> Actor.Publish
             |> Actor.ref
 
-        new WorkerManager(heartbeatInterval, localStateF, aref)
+        new WorkerManager(heartbeatInterval, aref)
 
 
 /// Subscribption disposer object

@@ -113,8 +113,8 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalInteraction "open MBrace.Library"
         fsi.EvalInteraction "open MBrace.Flow"
         fsi.EvalInteraction "open MBrace.Thespian"
-        fsi.EvalInteraction <| "MBraceWorker.LocalExecutable <- @\"" + thespianExe + "\""
-        fsi.EvalInteraction <| sprintf "let cluster = MBraceCluster.InitOnCurrentMachine %d" clusterSize
+        fsi.EvalInteraction <| "ThespianWorker.LocalExecutable <- @\"" + thespianExe + "\""
+        fsi.EvalInteraction <| sprintf "let cluster = ThespianCluster.InitOnCurrentMachine %d" clusterSize
         fsi.EvalInteraction "cluster.AttachLogger(new ConsoleLogger())"
 
 

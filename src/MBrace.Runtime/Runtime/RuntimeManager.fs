@@ -25,24 +25,16 @@ type IRuntimeManager =
     abstract Serializer : FsPicklerSerializer
     /// Local MBrace resources to be supplied to workflow.
     abstract ResourceRegistry : ResourceRegistry
-    /// Runtime worker manager object.
-    abstract WorkerManager : IWorkerManager
+
+    /// Abstraction used for managing system logs in the local process.
+    abstract LocalSystemLogManager : ILocalSystemLogManager
+    /// Abstraction used for managing runtime-wide system logs.
+    abstract RuntimeSystemLogManager : IRuntimeSystemLogManager
     /// Abstraction used for managing logging by cloud workflows.
     abstract CloudLogManager : ICloudLogManager
 
-    /// Logger abstraction used by the current process only.
-    abstract SystemLogger : ISystemLogger
-
-    /// Gets or sets the default log level for the local system logger.
-    abstract LogLevel : LogLevel with get,set
-
-    /// <summary>
-    ///     Attaches a logger to the local process only.
-    ///     Returns an uninstallation token.
-    /// </summary>
-    /// <param name="localLogger">Logger to be attached.</param>
-    abstract AttachSystemLogger : localLogger:ISystemLogger -> IDisposable
-
+    /// Runtime worker manager object.
+    abstract WorkerManager : IWorkerManager
     /// Gets the work item queue instance for the runtime.
     abstract WorkItemQueue : ICloudWorkItemQueue
     /// Gets the Vagabond assembly manager for this runtime.
@@ -56,10 +48,14 @@ type IRuntimeManager =
     /// Serializable distributed cancellation entry manager.
     abstract CancellationEntryFactory : ICancellationEntryFactory
 
-    /// <summary>
-    ///     Resets *all* cluster state.
-    /// </summary>
+    /// Resets the entire cluster state
     abstract ResetClusterState : unit -> Async<unit>
+
+[<AutoOpen>]
+module RuntimeManagerExtensions =
+    
+    type IRuntimeManager with
+        member inline r.SystemLogger = r.LocalSystemLogManager.Logger
 
 /// Global Registry for loading IRuntimeManager instances on primitive deserialization
 type RuntimeManagerRegistry private () =

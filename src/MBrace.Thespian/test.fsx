@@ -19,6 +19,8 @@ MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespi
 let cluster = MBraceCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug)
 cluster.AttachLogger(new ConsoleLogger())
 
+
+
 let workers = cluster.Workers
 
 cloud { return 42 } |> cluster.Run
@@ -68,3 +70,6 @@ cluster.Run(Cloud.ParallelEverywhere(cloud { return 42 }))
 let worker = cluster.Workers.[0]
 worker.GetSystemLogs()
 worker.ShowSystemLogs()
+
+
+cluster.GetSystemLogs() |> Seq.toArray
