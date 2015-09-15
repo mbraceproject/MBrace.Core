@@ -240,6 +240,7 @@ type private StoreSystemLogObservable (poller : StoreJsonLogPoller<SystemLogEntr
 
 /// Creates a schema for writing and fetching system log files for specific workers
 type ISystemLogStoreSchema =
+
     /// <summary>
     ///     Creates a path to a log file for supplied WorkerId and incremental index.
     /// </summary>
@@ -253,6 +254,12 @@ type ISystemLogStoreSchema =
     /// <param name="taskId">Cloud task identifier.</param>
     abstract GetLogFilesByWorker : workerId:IWorkerId -> Async<string []>
 
+    /// <summary>
+    ///     Clear all logs for given worker id, if found
+    /// </summary>
+    /// <param name="worker"></param>
+    abstract ClearLogs : worker:IWorkerId -> Async<unit>
+
 /// As simple store log schema where each cloud task creates its own root directory
 /// for storing logfiles; possibly not suitable for Azure where root directories are containers.
 type DefaultStoreSystemLogSchema(store : ICloudFileStore) =
@@ -262,7 +269,7 @@ type DefaultStoreSystemLogSchema(store : ICloudFileStore) =
 
     interface ISystemLogStoreSchema with
         member x.GetLogFilePath(worker: IWorkerId, index: int): string = 
-            store.Combine(x.GetWorkerDirectory worker, sprintf "logs-%O-%d.json" worker.SessionId index)
+            store.Combine(x.GetWorkerDirectory worker, sprintf "logs-%d.json" index)
         
         member x.GetLogFilesByWorker(worker: IWorkerId): Async<string []> = async {
             let container = x.GetWorkerDirectory worker
@@ -271,28 +278,35 @@ type DefaultStoreSystemLogSchema(store : ICloudFileStore) =
                 with :? DirectoryNotFoundException -> return [||]
             }
 
-            let sessionId = let s = worker.SessionId in s.ToString()
             return
                 logFiles
-                |> Seq.filter (fun f -> f.EndsWith ".json" && f.Contains sessionId)
+                |> Seq.filter (fun f -> f.EndsWith ".json")
                 |> Seq.sort
                 |> Seq.toArray
+        }
+
+        member x.ClearLogs(workerId : IWorkerId) = async {
+            let directory = x.GetWorkerDirectory(workerId)
+            return! store.DeleteDirectory(directory, recursiveDelete = true)
         }
 
 /// Tools for writing worker system logs to store.
 [<Sealed; AutoSerializable(false)>]
 type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileStore) =
+
     /// <summary>
     ///     Create a system logger instance for writing logs to store.
     /// </summary>
     /// <param name="workerId">Current worker identifier.</param>
-    member __.CreateStoreLogger(workerId : IWorkerId) : ISystemLogger =
+    member __.CreateStoreLogger(workerId : IWorkerId) : Async<ISystemLogger> = async {
+        do! schema.ClearLogs(workerId)
         let nextLogFile =
             let i = ref 0
             fun () -> incr i ; schema.GetLogFilePath(workerId, !i)
 
         let writer = StoreJsonLogger.CreateJsonLogWriter(store, nextLogFile)
-        new StoreSystemLogWriter(writer) :> ISystemLogger
+        return new StoreSystemLogWriter(writer) :> ISystemLogger
+    }
 
     /// <summary>
     ///     Creates an IObservable that reacts to log entries by worker instance.
@@ -318,8 +332,8 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
 [<Sealed; AutoSerializable(false)>]
 type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, workItem : CloudWorkItem, workerId : string) =
     interface ICloudWorkItemLogger with
-        member x.Dispose(): unit = (writer :> IDisposable).Dispose()
-        member x.Log(message : string): unit = 
+        member x.Dispose() : unit = (writer :> IDisposable).Dispose()
+        member x.Log(message : string) : unit = 
             // TODO : parameterize DateTime generation?
             let entry = new CloudLogEntry(workItem.TaskEntry.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
             writer.LogEntry(entry) 

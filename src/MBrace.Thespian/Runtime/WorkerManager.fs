@@ -13,8 +13,7 @@ open MBrace.Runtime.Utils.PerformanceMonitor
 
 /// Defines a unique idenfier for an MBrace.Thespian worker
 [<AutoSerializable(true)>]
-type WorkerId private (processId : ProcessId, sessionId : Guid, uri : string) =
-    static let _sessionId = Guid.NewGuid()
+type WorkerId private (processId : ProcessId, uri : string) =
     member __.ProcessId = processId
     member __.Id = uri
 
@@ -25,7 +24,6 @@ type WorkerId private (processId : ProcessId, sessionId : Guid, uri : string) =
             | _ -> invalidArg "obj" "invalid comparand."
         
         member x.Id: string = x.Id
-        member x.SessionId = sessionId
 
     override x.ToString() = x.Id
     override x.Equals(other:obj) =
@@ -36,7 +34,7 @@ type WorkerId private (processId : ProcessId, sessionId : Guid, uri : string) =
     override x.GetHashCode() = hash processId
 
     /// Gets the worker id instance corresponding to the local worker
-    static member LocalInstance = new WorkerId(ProcessId.LocalInstance, _sessionId, Config.LocalMBraceUri)
+    static member LocalInstance = new WorkerId(ProcessId.LocalInstance, Config.LocalMBraceUri)
   
 /// Messages sent for actor tasked to monitoring worker heart beats       
 type private HeartbeatMonitorMsg = 

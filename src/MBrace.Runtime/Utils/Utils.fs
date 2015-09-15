@@ -316,7 +316,7 @@ module Utils =
         static member Init(factory : unit -> 'T) = SerializableFactory<'T>.Init(factory)
 
 
-    /// Unique machine identifier object
+    /// Serializable machine identifier object
     [<Sealed; DataContract>]
     type MachineId private (hostname : string, interfaces : string []) =
         static let mkLocal() =
@@ -352,7 +352,7 @@ module Utils =
         static member LocalInstance = localSingleton.Value
 
 
-    /// Unique process identifier object
+    /// Serializable process identifier object
     [<Sealed; DataContract>]
     type ProcessId private (machineId : MachineId, processId : int, processName : string, startTime : DateTimeOffset) =
         static let singleton = lazy(ProcessId.FromProcess <| Process.GetCurrentProcess())
@@ -423,11 +423,13 @@ module Utils =
 
     /// Serializable AppDomain identifier object
     [<Sealed; DataContract>]
-    type AppDomainId private (processId : ProcessId, domainId : int, friendlyName : string) =
+    type AppDomainId private (processId : ProcessId, uuid : Guid, domainId : int, friendlyName : string) =
         static let localInstance = lazy(AppDomainId.FromAppDomain(AppDomain.CurrentDomain))
 
         [<DataMember(Name = "ProcessId")>]
         let processId = processId
+        [<DataMember(Name = "UUID")>]
+        let uuid = uuid
         [<DataMember(Name = "DomainId")>]
         let domainId = domainId
         [<DataMember(Name = "FriendlyName")>]
@@ -435,6 +437,8 @@ module Utils =
 
         /// Machine identifier
         member __.ProcessId = processId
+        /// Unique AppDomain identifier
+        member __.UUID = uuid
         /// AppDomain identifier
         member __.DomainId = domainId
         /// AppDomain friendly name
@@ -442,15 +446,15 @@ module Utils =
 
         override __.Equals(other:obj) =
             match other with
-            | :? AppDomainId as did -> processId = did.ProcessId && domainId = did.DomainId
+            | :? AppDomainId as did -> processId = did.ProcessId && uuid = did.UUID
             | _ -> false
 
-        override __.GetHashCode() = hash2 processId domainId
+        override __.GetHashCode() = hash2 processId uuid
 
         interface IComparable with
             member __.CompareTo(other:obj) =
                 match other with
-                | :? AppDomainId as did -> compare2 processId domainId did.ProcessId did.DomainId
+                | :? AppDomainId as did -> compare2 processId uuid did.ProcessId did.UUID
                 | _ -> invalidArg "other" "invalid comparand."
 
         /// Gets the identifier to current AppDomain
@@ -462,7 +466,24 @@ module Utils =
         /// <param name="proc">Process instance.</param>
         static member FromAppDomain(domain : System.AppDomain) : AppDomainId =
             let pid = ProcessId.LocalInstance
-            new AppDomainId(pid, domain.Id, domain.FriendlyName)
+            let uuid = AppDomainUUID.GetDomainId domain
+            new AppDomainId(pid, uuid, domain.Id, domain.FriendlyName)
+
+
+    and private AppDomainUUID private () =
+        inherit MarshalByRefObject()
+        static let uuid = Guid.NewGuid()
+        let uuid = uuid
+        member __.UUID = uuid
+        static member GetDomainId(domain : AppDomain) =
+            if domain = AppDomain.CurrentDomain then uuid
+            else
+                let t = typeof<AppDomainUUID>
+                let ctorFlags = BindingFlags.NonPublic ||| BindingFlags.Public ||| BindingFlags.Instance
+                let culture = System.Globalization.CultureInfo.CurrentCulture
+                let handle = domain.CreateInstance(t.Assembly.FullName, t.FullName, false, ctorFlags, null, [||], culture, [||])
+                let uuid = handle.Unwrap() :?> AppDomainUUID
+                uuid.UUID
 
     type ISerializer with
         member s.Pickle<'T>(value : 'T) =

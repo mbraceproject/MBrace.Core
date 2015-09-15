@@ -60,7 +60,7 @@ module internal WorkerSubscription =
         let manager = state.GetLocalRuntimeManager()
         let loggerSubscription = manager.AttachSystemLogger logger
         logger.LogInfo "Initializing worker store logger."
-        let storeLogger = state.LocalStateFactory.Value.SystemLogManager.CreateStoreLogger(currentWorker)
+        let! storeLogger = state.LocalStateFactory.Value.SystemLogManager.CreateStoreLogger(currentWorker)
         let storeLoggerSubscription = logger.AttachLogger(storeLogger)
 
         let workItemEvaluator =

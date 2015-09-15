@@ -13,9 +13,6 @@ type IWorkerId =
     inherit IComparable
     /// Worker identifier
     abstract Id : string
-    /// Worker session uuid, identifying the current process instance.
-    /// Should not be taken into account when implementing equality-comparison semantics.
-    abstract SessionId : Guid
 
 /// Worker execution status for specific item
 [<NoEquality; NoComparison>]
