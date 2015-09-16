@@ -92,6 +92,25 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         runOnCloud (Cloud.GetWorkItemId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
+    member __.``1. Runtime : Worker Log Observable`` () =
+        let cluster = session.Runtime
+        let worker = cluster.Workers.[0]
+        let ra = new ResizeArray<SystemLogEntry>()
+        use d = worker.SystemLogs.Subscribe ra.Add
+        cluster.Run(cloud { return () }, target = worker)
+        System.Threading.Thread.Sleep 2000
+        ra.Count |> shouldBe (fun i -> i > 0)
+
+    [<Test>]
+    member __.``1. Runtime : Cluster Log Observable`` () =
+        let cluster = session.Runtime
+        let ra = new ResizeArray<SystemLogEntry>()
+        use d = cluster.SystemLogs.Subscribe ra.Add
+        cluster.Run(Cloud.ParallelEverywhere(cloud { return 42 }) |> Cloud.Ignore)
+        System.Threading.Thread.Sleep 2000
+        ra.Count |> shouldBe (fun i -> i >= cluster.Workers.Length)
+
+    [<Test>]
     member __.``1. Runtime : Task Log Observable`` () =
         let workflow = cloud {
             let workItem i = local {

@@ -122,7 +122,7 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
         |> Seq.map (fun e -> SystemLogEntry.Format(e, showDate = true, showSourceId = false))
         |> Seq.iter Console.WriteLine
 
-    /// Event for subscribing to worker system logs
+    /// Event for subscribing to worker-specific system logs
     [<CLIEvent>]
     member __.SystemLogs = getLogPoller() :> IEvent<SystemLogEntry>
 

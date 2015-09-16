@@ -119,7 +119,7 @@ type StoreJsonLogWriter<'LogEntry> internal (store : ICloudFileStore, nextLogFil
 
 /// Object used for polling log entries from cloud file store
 [<Sealed; AutoSerializable(false)>]
-type StoreJsonLogPoller<'LogEntry> internal (store : ICloudFileStore, getLogFiles : unit -> Async<string []>, ?pollingInterval : int) =
+type StoreJsonLogPoller<'LogEntry> internal (store : ICloudFileStore, getLogFiles : unit -> Async<string []>, discardInitial:bool, ?pollingInterval : int) =
 
     let lockObj = new obj()
     let logsRead = new System.Collections.Generic.HashSet<string>()
@@ -144,6 +144,10 @@ type StoreJsonLogPoller<'LogEntry> internal (store : ICloudFileStore, getLogFile
         do! Async.Sleep pollingInterval
         return! loop ()
     }
+
+    do if discardInitial then
+        for l in getLogFiles() |> Async.RunSync do
+            ignore <| logsRead.Add l
 
     member __.Start() =
         lock lockObj (fun () ->
@@ -212,8 +216,9 @@ type StoreJsonLogger =
     /// <param name="store">Underlying store to read logs from.</param>
     /// <param name="getLogFiles">User-supplied log file query implemenetation.</param>
     /// <param name="pollingInterval">Polling interval. Defaults to 500ms.</param>
-    static member CreateJsonLogPoller<'LogEntry>(store : ICloudFileStore, getLogFiles : unit -> Async<string []>, ?pollingInterval : int) =
-        new StoreJsonLogPoller<'LogEntry>(store, getLogFiles, ?pollingInterval = pollingInterval)
+    /// <param name="discardInitial">Discard already existing logfiles on initialization. Defaults to false.</param>
+    static member CreateJsonLogPoller<'LogEntry>(store : ICloudFileStore, getLogFiles : unit -> Async<string []>, ?pollingInterval : int, ?discardInitial : bool) =
+        new StoreJsonLogPoller<'LogEntry>(store, getLogFiles, discardInitial = defaultArg discardInitial false, ?pollingInterval = pollingInterval)
 
 ////////////////////////////////////////////////////////////
 //  Store System Log Implementations
@@ -328,12 +333,14 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
         }
 
         member x.CreateLogPoller(): Async<ILogPoller<SystemLogEntry>> = async {
-            let poller = StoreJsonLogger.CreateJsonLogPoller(store, schema.GetLogFiles)
+            let poller = StoreJsonLogger.CreateJsonLogPoller(store, schema.GetLogFiles, discardInitial = true)
+            poller.Start()
             return poller :> _
         }
         
         member x.CreateWorkerLogPoller(id: IWorkerId): Async<ILogPoller<SystemLogEntry>> = async {
-            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetWorkerLogFiles id)
+            let poller = StoreJsonLogger.CreateJsonLogPoller(store, (fun () -> schema.GetWorkerLogFiles id), discardInitial = true)
+            poller.Start()
             return poller :> _
         }
 
@@ -399,7 +406,7 @@ type DefaultStoreCloudLogSchema(store : ICloudFileStore) =
 
             return
                 logFiles
-                |> Seq.filter (fun f -> f.EndsWith ".log")
+                |> Seq.filter (fun f -> f.EndsWith ".json")
                 |> Seq.sort
                 |> Seq.toArray
         }
@@ -429,5 +436,7 @@ type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogSt
         }
         
         member x.GetCloudLogPollerByTask(taskId: string): Async<ILogPoller<CloudLogEntry>> = async {
-            return StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByTask taskId) :> _
+            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByTask taskId) 
+            poller.Start()
+            return poller :> _
         }
