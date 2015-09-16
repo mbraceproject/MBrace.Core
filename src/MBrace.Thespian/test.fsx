@@ -66,10 +66,7 @@ let pflow =
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.Run
 
-cluster.Run(Cloud.ParallelEverywhere(cloud { return 42 }))
+cluster.Run(Cloud.ParallelEverywhere(cloud { return! Cloud.Logf "Hello!" }))
 let worker = cluster.Workers.[0]
 worker.GetSystemLogs()
 worker.ShowSystemLogs()
-
-
-cluster.ShowSystemLogs()

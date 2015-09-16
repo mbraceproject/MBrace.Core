@@ -24,6 +24,10 @@ type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 type SystemLogEntry = MBrace.Runtime.SystemLogEntry
 /// Log level used by the MBrace runtime implementation
 type LogLevel = MBrace.Runtime.LogLevel
+/// Represents a distributed computation that is being executed by an MBrace runtime
+type CloudTask = MBrace.Runtime.CloudTask
+/// Represents a distributed computation that is being executed by an MBrace runtime
+type CloudTask<'T> = MBrace.Runtime.CloudTask<'T>
 
 /// Defines a client object used for administering MBrace worker processes.
 [<AutoSerializable(false)>]

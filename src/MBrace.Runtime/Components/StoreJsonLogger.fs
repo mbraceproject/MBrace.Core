@@ -360,8 +360,7 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
 type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, workItem : CloudWorkItem, workerId : string) =
     interface ICloudWorkItemLogger with
         member x.Dispose() : unit = (writer :> IDisposable).Dispose()
-        member x.Log(message : string) : unit = 
-            // TODO : parameterize DateTime generation?
+        member x.Log(message : string) : unit =
             let entry = new CloudLogEntry(workItem.TaskEntry.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
             writer.LogEntry(entry)
 
@@ -372,8 +371,7 @@ type ICloudLogStoreSchema =
     ///     Creates a path to a log file for supplied CloudWorkItem and incremental index.
     /// </summary>
     /// <param name="workItem">Work item that will be logged.</param>
-    /// <param name="index>Incremental index of logfile to be created.</param>
-    abstract GetLogFilePath : workItem:CloudWorkItem * index:int -> string
+    abstract GetLogFilePath : workItem:CloudWorkItem -> string
 
     /// <summary>
     ///     Gets all log files that have been persisted to store by given task identifier.
@@ -387,8 +385,10 @@ type DefaultStoreCloudLogSchema(store : ICloudFileStore) =
     let getTaskDir (taskId:string) = sprintf "taskLogs-%s" taskId
 
     interface ICloudLogStoreSchema with
-        member x.GetLogFilePath(workItem: CloudWorkItem, index: int): string = 
-            store.Combine(getTaskDir workItem.TaskEntry.Id, sprintf "workitem%s-%d.log" (workItem.Id.ToBase32String()) index)
+        member x.GetLogFilePath(workItem: CloudWorkItem): string = 
+            let timeStamp = DateTime.UtcNow
+            let format = timeStamp.ToString("yyyyMMddTHHmmssfffZ")
+            store.Combine(getTaskDir workItem.TaskEntry.Id, sprintf "workItemLog-%s-%s.json" (workItem.Id.ToBase32String()) format)
         
         member x.GetLogFilesByTask(taskId: string): Async<string []> = async {
             let container = getTaskDir taskId
@@ -419,12 +419,7 @@ type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogSt
 
     interface ICloudLogManager with
         member x.CreateWorkItemLogger(worker: IWorkerId, workItem: CloudWorkItem): Async<ICloudWorkItemLogger> = async {
-            let logIdCounter = ref 0
-            let nextLogFile() =
-                let id = Interlocked.Increment logIdCounter
-                schema.GetLogFilePath(workItem, index = id)
-
-            let writer = StoreJsonLogger.CreateJsonLogWriter<CloudLogEntry>(store, nextLogFile, ?sysLogger = sysLogger)
+            let writer = StoreJsonLogger.CreateJsonLogWriter<CloudLogEntry>(store, (fun () -> schema.GetLogFilePath workItem), ?sysLogger = sysLogger)
             return new StoreCloudLogger(writer, workItem, worker.Id) :> _
         }
 

@@ -119,7 +119,16 @@ type MBraceClient (runtime : IRuntimeManager) =
     ///     Attempts to get a Cloud task instance using supplied identifier.
     /// </summary>
     /// <param name="id">Input task identifier.</param>
-    member __.TryGetTask(taskId:string) = taskManagerClient.TryGetTask(taskId) |> Async.RunSync
+    member __.TryGetTaskById(taskId:string) = taskManagerClient.TryGetTask(taskId) |> Async.RunSync
+
+    /// <summary>
+    ///     Looks up a CloudTask instance from cluster using supplied identifier.
+    /// </summary>
+    /// <param name="taskId">Input task identifier.</param>
+    member __.GetTaskById(taskId:string) = 
+        match __.TryGetTaskById taskId with
+        | None -> raise <| invalidArg "taskId" "No task with supplied id could be found in cluster."
+        | Some t -> t
 
     /// <summary>
     ///     Deletes cloud task and all related data from MBrace cluster.
