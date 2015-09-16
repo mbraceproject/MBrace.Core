@@ -12,11 +12,11 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
+ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
 
 #time "on"
 
-let cluster = MBraceCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug)
+let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug)
 cluster.AttachLogger(new ConsoleLogger())
 
 

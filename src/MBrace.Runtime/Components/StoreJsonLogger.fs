@@ -230,14 +230,13 @@ type ISystemLogStoreSchema =
     /// <summary>
     ///     Creates a path to a log file for supplied WorkerId and incremental index.
     /// </summary>
-    /// <param name="job">Job that will be logged.</param>
-    /// <param name="index>Incremental index of logfile to be created.</param>
-    abstract GetLogFilePath : worker:IWorkerId * index:int -> string
+    /// <param name="workerId">Worker identifier.</param>
+    abstract GetLogFilePath : worker:IWorkerId -> string
 
     /// <summary>
     ///     Gets all log files that have been persisted to store by given task identifier.
     /// </summary>
-    /// <param name="workerId">Worker id identifier.</param>
+    /// <param name="workerId">Worker identifier.</param>
     abstract GetWorkerLogFiles : workerId:IWorkerId -> Async<string []>
 
     /// <summary>
@@ -247,30 +246,51 @@ type ISystemLogStoreSchema =
 
 /// As simple store log schema where each cloud task creates its own root directory
 /// for storing logfiles; possibly not suitable for Azure where root directories are containers.
-type DefaultStoreSystemLogSchema(store : ICloudFileStore, ?logDirectory : string) =
-    let logDirectory = defaultArg logDirectory "workerLogs"
+type DefaultStoreSystemLogSchema(store : ICloudFileStore, ?logDirectoryPrefix : string, ?logExtension : string, ?getLogDirectorySuffix : IWorkerId -> string) =
+    let logDirectoryPrefix = defaultArg logDirectoryPrefix "systemLogs"
+    let logExtension = defaultArg logExtension ".json"
+    let getLogDirectorySuffix = defaultArg getLogDirectorySuffix (fun w -> w.Id.ToLower())
+
+    let getLogDirectory (workerId : IWorkerId) =
+        let suffix = getLogDirectorySuffix workerId
+        sprintf "%s-%s" logDirectoryPrefix suffix
+
+    let enumerateLogs(directory : string) = async {
+        try 
+            let! files = store.EnumerateFiles directory
+            let logFiles = files |> Array.filter (fun f -> f.EndsWith logExtension)
+            let! timeStamps = logFiles |> Seq.map (fun f -> store.GetLastModifiedTime(f, false)) |> Async.Parallel
+            return Array.zip logFiles timeStamps
+        with :? DirectoryNotFoundException -> return [||]
+    }
 
     interface ISystemLogStoreSchema with
-        member __.GetLogFilePath(worker, index) =
-            store.Combine(logDirectory, sprintf "logs-%s-%d.json" (worker.Id.ToLower()) index) 
+        member __.GetLogFilePath(workerId) =
+            let logDir = getLogDirectory workerId
+            let timeStamp = DateTime.UtcNow
+            let format = timeStamp.ToString("yyyyMMddTHHmmssfffZ")
+            store.Combine(logDir, sprintf "logs-%s%s" format logExtension) 
 
         member x.GetLogFiles() = async {
-            let! logFiles = async {
-                try return! store.EnumerateFiles logDirectory
-                with :? DirectoryNotFoundException -> return [||]
-            }
+            let! logDirectories = store.EnumerateDirectories (store.GetRootDirectory())
+            let! logFiles =
+                logDirectories 
+                |> Seq.filter (fun d -> let dn = store.GetFileName d in dn.StartsWith logDirectoryPrefix)
+                |> Seq.map enumerateLogs
+                |> Async.Parallel
 
             return
                 logFiles
-                |> Seq.filter (fun f -> f.EndsWith ".json")
-                |> Seq.sort
+                |> Seq.concat
+                |> Seq.sortBy snd
+                |> Seq.map fst
                 |> Seq.toArray
         }
 
         member x.GetWorkerLogFiles(workerId: IWorkerId) = async {
-            let! logFiles = (x :> ISystemLogStoreSchema).GetLogFiles()
-            let workerId = workerId.Id.ToLower()
-            return logFiles |> Array.filter (fun f -> f.Contains workerId)
+            let logDir = getLogDirectory workerId
+            let! logFiles = enumerateLogs logDir
+            return logFiles |> Seq.sortBy snd |> Seq.map fst |> Seq.toArray
         }
 
 /// Tools for writing worker system logs to store.
@@ -288,11 +308,7 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
     /// <param name="workerId">Worker identifier.</param>
     member x.CreateLogWriter(workerId : IWorkerId) = async {
         do! clearWorkerLogs workerId
-        let nextLogFile =
-            let i = ref 0
-            fun () -> incr i ; schema.GetLogFilePath(workerId, !i)
-
-        let writer = StoreJsonLogger.CreateJsonLogWriter(store, nextLogFile)
+        let writer = StoreJsonLogger.CreateJsonLogWriter(store, fun () -> schema.GetLogFilePath workerId)
         return new StoreSystemLogWriter(writer) :> ISystemLogger
     }
 
