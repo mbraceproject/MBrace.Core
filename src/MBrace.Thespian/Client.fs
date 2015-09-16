@@ -20,8 +20,10 @@ open MBrace.Thespian.Runtime.WorkerConfiguration
 
 /// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
-/// Struct that specifies a single log entry
+/// Struct that specifies a single system log entry
 type SystemLogEntry = MBrace.Runtime.SystemLogEntry
+/// Struct that specifies a single cloud log entry
+type CloudLogEntry = MBrace.Runtime.CloudLogEntry
 /// Log level used by the MBrace runtime implementation
 type LogLevel = MBrace.Runtime.LogLevel
 /// A Serializable object used to identify a specific worker in a cluster.
