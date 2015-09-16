@@ -201,6 +201,9 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager) =
         else
             None
 
+    let logger = manager.RuntimeSystemLogManager.CreateLogWriter(WorkerId.LocalInstance) |> Async.RunSync
+    let _ = manager.LocalSystemLogManager.AttachLogger logger
+
     private new (state : ClusterState, logLevel : LogLevel option) = 
         let manager = state.GetLocalRuntimeManager()
         Actor.Logger <- manager.SystemLogger

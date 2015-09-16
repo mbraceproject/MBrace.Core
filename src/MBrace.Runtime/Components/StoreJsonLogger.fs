@@ -220,9 +220,11 @@ type StoreJsonLogger =
 ////////////////////////////////////////////////////////////
 
 [<Sealed; AutoSerializable(false)>]
-type private StoreSystemLogWriter (writer : StoreJsonLogWriter<SystemLogEntry>) =
+type private StoreSystemLogWriter (workerId : string, writer : StoreJsonLogWriter<SystemLogEntry>) =
     interface ISystemLogger with
-        member x.LogEntry(entry: SystemLogEntry): unit = writer.LogEntry entry
+        member x.LogEntry(entry: SystemLogEntry): unit = 
+            let updated = SystemLogEntry.WithWorkerId(workerId, entry)
+            writer.LogEntry updated
 
 /// Creates a schema for writing and fetching system log files for specific workers
 type ISystemLogStoreSchema =
@@ -309,7 +311,7 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
     member x.CreateLogWriter(workerId : IWorkerId) = async {
         do! clearWorkerLogs workerId
         let writer = StoreJsonLogger.CreateJsonLogWriter(store, fun () -> schema.GetLogFilePath workerId)
-        return new StoreSystemLogWriter(writer) :> ISystemLogger
+        return new StoreSystemLogWriter(workerId.Id, writer) :> ISystemLogger
     }
 
     interface IRuntimeSystemLogManager with

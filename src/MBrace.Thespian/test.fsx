@@ -72,4 +72,4 @@ worker.GetSystemLogs()
 worker.ShowSystemLogs()
 
 
-cluster.GetSystemLogs() |> Seq.toArray
+cluster.ShowSystemLogs()

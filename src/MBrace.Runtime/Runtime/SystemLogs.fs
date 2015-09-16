@@ -44,40 +44,62 @@ module LogLevel =
 /// Struct that specifies a single system log entry
 [<Struct; DataContract>]
 type SystemLogEntry =
-    [<DataMember(Name = "LogLevel", Order = 0)>]
-    val private logLevel : LogLevel
-    [<DataMember(Name = "DateTime", Order = 1)>]
-    val private dateTime : DateTimeOffset
-    [<DataMember(Name = "Message", Order = 2)>]
-    val private message : string
+    /// Originating worker identifier
+    [<DataMember(Name = "Source", Order = 0)>]
+    val SourceId : string
+    /// LogLevel of log entry
+    [<DataMember(Name = "LogLevel", Order = 1)>]
+    val LogLevel : LogLevel
+    /// Date of log entry
+    [<DataMember(Name = "DateTime", Order = 2)>]
+    val DateTime : DateTimeOffset
+    /// Logged message of entry
+    [<DataMember(Name = "Message", Order = 3)>]
+    val Message : string
 
     /// Creates a new log entry with supplied parameters.
-    new (logLevel : LogLevel, message : string, dateTime : DateTimeOffset) =
-        { dateTime = dateTime ; logLevel = logLevel ; message = message }
+    new (logLevel : LogLevel, message : string, dateTime : DateTimeOffset, sourceId : string) =
+        { SourceId = sourceId ; DateTime = dateTime ; LogLevel = logLevel ; Message = message }
 
     /// Creates a new log entry with datetime set to current machine date.
     new (logLevel : LogLevel, message : string) =
-        { dateTime = DateTimeOffset.Now ; logLevel = logLevel ; message = message }
+        { SourceId = null ; DateTime = DateTimeOffset.Now ; LogLevel = logLevel ; Message = message }
 
-    /// Date of log entry
-    member __.DateTime = __.dateTime
-    /// LogLevel of log entry
-    member __.LogLevel = __.logLevel
-    /// Logged message of entry
-    member __.Message = __.message
+    /// Worker source identifier is specified in the entry.
+    member __.IsSourceSpecified = __.SourceId <> null
 
     /// <summary>
     ///     Displays log entry as string with supplied parameters.
     /// </summary>
     /// <param name="entry">Entry to be displayed.</param>
     /// <param name="showDate">Display date at the beggining of the log entry. Defaults to true.</param>
-    static member Format (entry : SystemLogEntry, ?showDate : bool) =
-        if defaultArg showDate true then
-            let local = entry.dateTime.LocalDateTime
-            let fmt = local.ToString("yyyy-MM-dd H:mm:ss")
-            sprintf "[%s] %O : %s" fmt (LogLevel.print entry.logLevel) entry.message
-        else 
-            sprintf "%O : %s" (LogLevel.print entry.logLevel) entry.message
+    /// <param name="showSourceId">Display source worker if specified in the record. Defaults to true.</param>
+    static member Format (entry : SystemLogEntry, ?showDate : bool, ?showSourceId : bool) =
+        let workerId =
+            if defaultArg showSourceId true && entry.SourceId <> null then sprintf "[%s]" entry.SourceId
+            else ""
+
+        let date =
+            if defaultArg showDate true then
+                let local = entry.DateTime.LocalDateTime
+                local.ToString "[yyyy-MM-dd H:mm:ss]"
+            else
+                ""
+
+        let padding = 
+            if workerId.Length = 0 && date.Length = 0 then "" 
+            else " "
+
+        sprintf "%s%s%s%s : %s" date workerId padding (LogLevel.print entry.LogLevel) entry.Message
+
+    /// <summary>
+    ///     Creates a new log entry with updated worker source identifier.  
+    /// </summary>
+    /// <param name="workerId">Worker identifier.</param>
+    /// <param name="entry">Log entry to be updated.</param>
+    static member WithWorkerId(workerId : string, entry : SystemLogEntry) =
+        if workerId = null then nullArg "workerId"
+        new SystemLogEntry(entry.LogLevel, entry.Message, entry.DateTime, workerId)
 
 /// Abstract logger type used by underlying MBrace runtime implementations.
 type ISystemLogger =
