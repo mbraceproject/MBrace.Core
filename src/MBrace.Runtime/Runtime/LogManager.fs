@@ -10,30 +10,24 @@ open MBrace.Core.Internals
 [<Struct; DataContract>]
 type CloudLogEntry =
 
+    /// Date of log entry creation
     [<DataMember(Name = "DateTime", Order = 0)>]
-    val private dateTime : DateTimeOffset
+    val DateTime : DateTimeOffset
+    /// Message of log entry
     [<DataMember(Name = "Message", Order = 1)>]
-    val private message : string
+    val Message : string
+    /// Task identifier for log entry
     [<DataMember(Name = "TaskId", Order = 2)>]
-    val private taskId : string
+    val TaskId : string
+    /// Worker identifier for log entry
     [<DataMember(Name = "WorkerId", Order = 3)>]
-    val private workerId : string
+    val WorkerId : string
+    /// Work item identifier for log entry
     [<DataMember(Name = "WorkItemId", Order = 4)>]
-    val private workItem : CloudWorkItemId
+    val WorkItem : CloudWorkItemId
 
     new (taskId : string, workerId : string, workItem : CloudWorkItemId, dateTime : DateTimeOffset, message : string) =
-        { taskId = taskId ; workerId = workerId ; workItem = workItem ; dateTime = dateTime ; message = message }
-
-    /// Task identifier for log entry
-    member e.TaskId = e.taskId
-    /// Worker identifier for log entry
-    member e.WorkerId = e.workerId
-    /// Work item identifier for log entry
-    member e.WorkItemId = e.workItem
-    /// Date of log entry creation
-    member e.DateTime = e.dateTime
-    /// Message of log entry
-    member e.Message = e.message
+        { TaskId = taskId ; WorkerId = workerId ; WorkItem = workItem ; DateTime = dateTime ; Message = message }
 
     /// <summary>
     ///     Prints log entry as a single line string.
@@ -42,11 +36,11 @@ type CloudLogEntry =
     /// <param name="showDate">Show date at the beginning. Defaults to false.</param>
     static member Format(cle : CloudLogEntry, ?showDate : bool) =
         if defaultArg showDate false then
-            let local = cle.dateTime.LocalDateTime
+            let local = cle.DateTime.LocalDateTime
             let date = local.ToString("yyyy-MM-dd H:mm:ss")
-            sprintf "[%s][Worker:%s][WorkItem:%O] %s" date cle.workerId cle.workItem cle.message
+            sprintf "[%s][Worker:%s][WorkItem:%O] %s" date cle.WorkerId cle.WorkItem cle.Message
         else 
-            sprintf "[Worker:%s][WorkItem:%O] %s" cle.workerId cle.workItem cle.message
+            sprintf "[Worker:%s][WorkItem:%O] %s" cle.WorkerId cle.WorkItem cle.Message
 
 /// CloudLogger instance used for logging a specific work item
 type ICloudWorkItemLogger =

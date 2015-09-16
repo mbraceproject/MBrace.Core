@@ -212,7 +212,7 @@ with
     static member Create(store : ICloudFileStore, serializer : ISerializer, ?ignoredAssemblies : Assembly [], ?container : string, ?prefixDataDependenciesByAssemblyId : bool) =
         let ignoredAssemblies = 
             defaultArg ignoredAssemblies [||]
-            |> fun ia -> Vagabond.ComputeAssemblyDependencies(ia, policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames)
+            |> fun ia -> Vagabond.ComputeAssemblyDependencies(ia, policy = AssemblyLookupPolicy.ResolveRuntime)
             |> Seq.map Vagabond.ComputeAssemblyId 
             |> Set.ofSeq
 
