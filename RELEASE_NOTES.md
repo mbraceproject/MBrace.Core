@@ -1,3 +1,7 @@
+#### 0.10.7-alpha
+* Use DateTimeOffset in place of DateTime in log entries.
+* Extend and improve logging abstractions for MBrace clients.
+
 #### 0.10.6-alpha
 * StoreAssemblyManager tweaks.
 * Implement fetching of worker logs on the client side.

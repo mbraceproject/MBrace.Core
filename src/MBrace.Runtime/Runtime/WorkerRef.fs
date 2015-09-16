@@ -11,7 +11,7 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
-/// A Serializable object used to identify a specific worker in a cluster
+/// A Serializable object used to identify a specific worker in a cluster.
 /// Can be used to point computations for execution at specific machines.
 [<Sealed; DataContract>]
 type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =

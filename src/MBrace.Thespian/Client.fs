@@ -24,6 +24,9 @@ type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 type SystemLogEntry = MBrace.Runtime.SystemLogEntry
 /// Log level used by the MBrace runtime implementation
 type LogLevel = MBrace.Runtime.LogLevel
+/// A Serializable object used to identify a specific worker in a cluster.
+/// Can be used to point computations for execution at specific machines.
+type WorkerRef = MBrace.Runtime.WorkerRef
 /// Represents a distributed computation that is being executed by an MBrace runtime
 type CloudTask = MBrace.Runtime.CloudTask
 /// Represents a distributed computation that is being executed by an MBrace runtime
