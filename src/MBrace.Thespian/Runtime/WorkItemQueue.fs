@@ -32,7 +32,7 @@ type internal Pickle =
 
 /// Pickled MBrace work item entry.
 /// Can be used without need for assembly dependencies being loaded.
-type internal PickledWorkItems =
+type internal PickledWorkItem =
     {
         /// Parent task entry as recorded in cluster.
         TaskEntry : ICloudTaskCompletionSource
@@ -58,9 +58,10 @@ type internal WorkItemLeaseMonitorMsg =
     | WorkerDeath
 
 type private WorkItemQueueMsg =
-    | Enqueue of PickledWorkItems * CloudWorkItemFaultInfo
-    | BatchEnqueue of PickledWorkItems []
-    | TryDequeue of IWorkerId * IReplyChannel<(PickledWorkItems * CloudWorkItemFaultInfo * ActorRef<WorkItemLeaseMonitorMsg>) option>
+    | Enqueue of PickledWorkItem
+    | PutBackFaulted of PickledWorkItem * CloudWorkItemFaultInfo
+    | BatchEnqueue of PickledWorkItem []
+    | TryDequeue of IWorkerId * IReplyChannel<(PickledWorkItem * CloudWorkItemFaultInfo * ActorRef<WorkItemLeaseMonitorMsg>) option>
 
 module private WorkItemLeaseMonitor =
     
@@ -75,7 +76,7 @@ module private WorkItemLeaseMonitor =
     /// <param name="interval">Monitor interval.</param>
     /// <param name="worker">Executing worker id.</param>
     let create (workerMonitor : WorkerManager) (queue : ActorRef<WorkItemQueueMsg>) 
-                (faultInfo : CloudWorkItemFaultInfo) (workItem : PickledWorkItems) 
+                (faultInfo : CloudWorkItemFaultInfo) (workItem : PickledWorkItem) 
                 (interval : TimeSpan) (worker : IWorkerId) =
 
         let cts = new CancellationTokenSource()
@@ -88,12 +89,12 @@ module private WorkItemLeaseMonitor =
             | WorkerDeclaredFault edi ->
                 let faultCount = faultInfo.FaultCount + 1
                 let faultInfo = FaultDeclaredByWorker(faultCount, edi, worker)
-                do! queue.AsyncPost(Enqueue (workItem, faultInfo))
+                do! queue.AsyncPost(PutBackFaulted (workItem, faultInfo))
 
             | WorkerDeath ->
                 let faultCount = faultInfo.FaultCount + 1
                 let faultInfo = WorkerDeathWhileProcessingWorkItem(faultCount, worker)
-                do! queue.AsyncPost(Enqueue (workItem, faultInfo))
+                do! queue.AsyncPost(PutBackFaulted (workItem, faultInfo))
 
             cts.Cancel()
         }
@@ -115,7 +116,7 @@ module private WorkItemLeaseMonitor =
 
 /// Work item lease token implementation, received when dequeuing a work item from the queue.
 [<AutoSerializable(true)>]
-type WorkItemLeaseToken internal (pWorkItem : PickledWorkItems, stateF : LocalStateFactory, faultInfo : CloudWorkItemFaultInfo, leaseMonitor : ActorRef<WorkItemLeaseMonitorMsg>) =
+type WorkItemLeaseToken internal (pWorkItem : PickledWorkItem, stateF : LocalStateFactory, faultInfo : CloudWorkItemFaultInfo, leaseMonitor : ActorRef<WorkItemLeaseMonitorMsg>) =
 
     interface ICloudWorkItemLeaseToken with
         member x.Id: CloudWorkItemId = pWorkItem.WorkItemId
@@ -160,7 +161,7 @@ type private QueueState =
 
     static member Empty = { Queue = WorkItemQueueTopic.Empty ; LastCleanup = DateTime.Now }
 
-and private WorkItemQueueTopic = TopicQueue<IWorkerId, PickledWorkItems * CloudWorkItemFaultInfo>
+and private WorkItemQueueTopic = TopicQueue<IWorkerId, PickledWorkItem * CloudWorkItemFaultInfo>
 
 /// Provides a distributed, fault-tolerant queue implementation
 [<AutoSerializable(true)>]
@@ -202,7 +203,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
                     Pickle = Single pickle
                 }
 
-            do! source.AsyncPost (Enqueue (item, NoFault))
+            do! source.AsyncPost (Enqueue item)
         }
         
         member x.TryDequeue(worker : IWorkerId) = async {
@@ -225,9 +226,9 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
         let localState = localStateF.Value
         let behaviour (self : Actor<WorkItemQueueMsg>) (state : QueueState) (msg : WorkItemQueueMsg) = async {
             match msg with
-            | Enqueue (pWorkItem, faultState) -> 
+            | Enqueue pWorkItem -> 
                 localState.Logger.Logf LogLevel.Debug "Enqueued work item of type '%s' and size %s." pWorkItem.Type <| getHumanReadableByteSize pWorkItem.Pickle.Size
-                let queue' = state.Queue.Enqueue((pWorkItem, faultState), ?topic = pWorkItem.Target)
+                let queue' = state.Queue.Enqueue((pWorkItem, NoFault), ?topic = pWorkItem.Target)
                 return { state with Queue = queue' }
 
             | BatchEnqueue(pWorkItems) ->
@@ -236,14 +237,23 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
                 let queue' = (state.Queue, pWorkItems) ||> Array.fold (fun q j -> q.Enqueue((j, NoFault), ?topic = j.Target))
                 return { state with Queue = queue' }
 
+            | PutBackFaulted(pWorkItem, faultState) ->
+                localState.Logger.Logf LogLevel.Debug "Re-enqueued faulted work item %O of type '%s'." pWorkItem.WorkItemId pWorkItem.Type
+                let queue' =
+                    match faultState with
+                    | WorkerDeathWhileProcessingWorkItem _ -> state.Queue.Enqueue((pWorkItem, faultState), ?topic = None)
+                    | _ -> state.Queue.Enqueue((pWorkItem, faultState), ?topic = pWorkItem.Target)
+
+                return { state with Queue = queue' }
+
             | TryDequeue(worker, rc) ->
                 let state =
                     if DateTime.Now - state.LastCleanup > cleanupThreshold then
                         // remove work items from worker topics if inactive.
                         let removed, state' = state.Queue.Cleanup (workerMonitor.IsAlive >> Async.RunSync >> not)
-                        let appendRemoved (s:WorkItemQueueTopic) (j : PickledWorkItems, faultState : CloudWorkItemFaultInfo) =
+                        let appendRemoved (s:WorkItemQueueTopic) (j : PickledWorkItem, faultState : CloudWorkItemFaultInfo) =
                             let worker = Option.get j.Target
-                            localState.Logger.Logf LogLevel.Warning "Redirecting work item '%O' of type '%s' that has been targeted to dead worker '%s'." j.WorkItemId j.Type worker.Id
+                            localState.Logger.Logf LogLevel.Warning "Redirecting work item %O of type '%s' that has been targeted to dead worker '%s'." j.WorkItemId j.Type worker.Id
                             let j = { j with Target = None }
                             let faultCount = faultState.FaultCount + 1
                             let faultState = IsTargetedWorkItemOfDeadWorker(faultCount, worker)

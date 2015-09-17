@@ -54,9 +54,8 @@ module WorkItemEvaluator =
         | IsTargetedWorkItemOfDeadWorker (_,w) ->
             // always throw a fault exception if dead worker
             logger.Logf LogLevel.Info "Work item '%O' originally assigned to dead worker '%s'." workItem.Id w.Id
-            let worker = Option.get workItem.TargetWorker // this is assumed to be 'Some' here
-            let e = new FaultException(sprintf "Could not communicate with target worker '%O'." worker)
-            workItem.Econt ctx (ExceptionDispatchInfo.Capture e)
+            let e = new FaultException(sprintf "Could not communicate with target worker '%O'." w)
+            workItem.FaultCont ctx (ExceptionDispatchInfo.Capture e)
 
         | FaultDeclaredByWorker(faultCount, latestError, w) ->
             logger.Logf LogLevel.Info "Work item '%O' faulted %d times while executed in worker '%O'." workItem.Id faultCount w
@@ -66,22 +65,30 @@ module WorkItemEvaluator =
             | None ->
                 let msg = sprintf "Work item '%O' given up after it faulted %d times." workItem.Id faultCount
                 let faultException = new FaultException(msg, e)
-                workItem.Econt ctx (ExceptionDispatchInfo.Capture faultException)
+                workItem.FaultCont ctx (ExceptionDispatchInfo.Capture faultException)
 
             | Some retryTimeout ->
                 do! Async.Sleep (int retryTimeout.TotalMilliseconds)
                 do workItem.StartWorkItem ctx
 
         | WorkerDeathWhileProcessingWorkItem (faultCount, latestWorker) ->
-            logger.Logf LogLevel.Info "Work item '%O' faulted %d times while being processed by nonresponsive worker '%O'." workItem.Id faultCount latestWorker
-            // consult user-supplied fault policy to decide on further action
-            let msg = sprintf "Work item '%O' was being processed by worker '%O' which has died." workItem.Id latestWorker
-            let e = new FaultException(msg) :> exn
-            match (try workItem.FaultPolicy.Policy faultCount e with _ -> None) with
-            | None -> workItem.Econt ctx (ExceptionDispatchInfo.Capture e)
-            | Some retryTimeout ->
-                do! Async.Sleep (int retryTimeout.TotalMilliseconds)
-                do workItem.StartWorkItem ctx
+            match workItem.TargetWorker with
+            | Some tw when tw <> currentWorker ->
+                // always throw a fault exception if targeted worker cannot be reached
+                logger.Logf LogLevel.Info "Work item %O originally assigned to dead worker '%s'." workItem.Id tw.Id
+                let e = new FaultException(sprintf "Could not communicate with target worker '%O'." tw)
+                workItem.FaultCont ctx (ExceptionDispatchInfo.Capture e)
+
+            | _ ->
+                logger.Logf LogLevel.Info "Work item '%O' faulted %d times while being processed by nonresponsive worker '%O'." workItem.Id faultCount latestWorker
+                // consult user-supplied fault policy to decide on further action
+                let msg = sprintf "Work item '%O' was being processed by worker '%O' which has died." workItem.Id latestWorker
+                let e = new FaultException(msg) :> exn
+                match (try workItem.FaultPolicy.Policy faultCount e with _ -> None) with
+                | None -> workItem.FaultCont ctx (ExceptionDispatchInfo.Capture e)
+                | Some retryTimeout ->
+                    do! Async.Sleep (int retryTimeout.TotalMilliseconds)
+                    do workItem.StartWorkItem ctx
 
         | NoFault ->  
             // no faults, proceed normally  
@@ -123,6 +130,14 @@ module WorkItemEvaluator =
             do! workItemLease.DeclareCompleted()
 
         | Choice1Of2 workItem ->
+            match workItemLease.FaultInfo with
+            | WorkerDeathWhileProcessingWorkItem _ ->
+                // Workers that died while processing work items almost certainly were not able to decrement
+                // the active worker counter; use this as an interim fix, however it is not entirely correct.
+                // need to think of a better design which should be incorporated in the task/workItem hierarchies refactoring.
+                do! workItem.TaskEntry.IncrementFaultedWorkItemCount()
+            | _ -> ()
+
             if workItem.WorkItemType = CloudWorkItemType.TaskRoot then
                 match workItem.TaskEntry.Info.Name with
                 | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." workItem.TaskEntry.Id workItem.TaskEntry.Info.ReturnTypeName

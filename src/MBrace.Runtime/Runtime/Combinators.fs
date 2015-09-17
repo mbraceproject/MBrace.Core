@@ -347,8 +347,9 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (parentTask : ICloudTaskComp
         let scont ctx t = setResult ctx (Completed t) CloudTaskStatus.Completed
         let econt ctx e = setResult ctx (Exception e) CloudTaskStatus.UserException
         let ccont ctx c = setResult ctx (Cancelled c) CloudTaskStatus.Canceled
+        let fcont ctx e = setResult ctx (Exception e) CloudTaskStatus.Faulted
 
-        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.TaskRoot, computation, ?target = target)
+        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.TaskRoot, computation, fcont = fcont, ?target = target)
         do! runtime.WorkItemQueue.Enqueue(workItem, isClientSideEnqueue = Option.isNone parentTask)
         runtime.SystemLogger.Logf LogLevel.Info "Posted CloudTask<%s> '%s'." tcs.Info.ReturnTypeName tcs.Id
         return new CloudTask<'T>(tcs, runtime)

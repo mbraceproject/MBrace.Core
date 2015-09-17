@@ -322,7 +322,7 @@ and [<AutoSerializable(false)>] internal CloudTaskManagerClient(runtime : IRunti
 and internal CloudTaskReporter() = 
     static let template : Field<CloudTask> list = 
         [ Field.create "Name" Left (fun p -> match p.Name with Some n -> n | None -> "")
-          Field.create "Process Id" Right (fun p -> p.Id)
+          Field.create "Task Id" Right (fun p -> p.Id)
           Field.create "Status" Right (fun p -> sprintf "%A" p.Status)
           Field.create "Execution Time" Left (fun p -> Option.toNullable p.ExecutionTime)
           Field.create "Work items" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveWorkItems p.FaultedWorkItems p.CompletedWorkItems p.TotalWorkItems)

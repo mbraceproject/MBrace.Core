@@ -84,11 +84,11 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         runOnCloud Cloud.CurrentWorker |> shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``1. Runtime : Get process id`` () =
+    member __.``1. Runtime : Get task id`` () =
         runOnCloud (Cloud.GetTaskId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``1. Runtime : Get task id`` () =
+    member __.``1. Runtime : Get work item id`` () =
         runOnCloud (Cloud.GetWorkItemId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
@@ -138,8 +138,13 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : map/reduce`` () =
         repeat (fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateTask(WordCount.run 20 WordCount.mapReduceRec)
-            do Thread.Sleep 4000
+            let f = runtime.Store.Atom.Create(false)
+            let t = runtime.CreateTask(cloud {
+                do! f.Force true
+                return! WordCount.run 20 WordCount.mapReduceRec
+            }, faultPolicy = FaultPolicy.InfiniteRetry())
+            while not f.Value do Thread.Sleep 1000
+            do Thread.Sleep 1000
             session.Chaos()
             t.Result |> shouldEqual 100)
 
@@ -147,8 +152,12 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateTask(Cloud.Sleep 20000, faultPolicy = FaultPolicy.NoRetry)
-            do Thread.Sleep 5000
+            let f = runtime.Store.Atom.Create(false)
+            let t = runtime.CreateTask(cloud {
+                do! f.Force true
+                do! Cloud.Sleep 20000
+            }, faultPolicy = FaultPolicy.NoRetry)
+            while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
@@ -156,8 +165,16 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``3. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let t = runtime.CreateTask(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
-            do Thread.Sleep 5000
+            let f = runtime.Store.Atom.Create(false)
+            let t = runtime.CreateTask(cloud {
+                return! 
+                    Cloud.WithFaultPolicy FaultPolicy.NoRetry
+                        (cloud { 
+                            do! f.Force(true) 
+                            return! Cloud.Sleep 20000 <||> Cloud.Sleep 20000
+                        })
+            })
+            while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
@@ -165,13 +182,17 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : targeted workers`` () =
         repeat(fun () ->
             let runtime = session.Runtime
+            let f = runtime.Store.Atom.Create(false)
             let wf () = cloud {
                 let! current = Cloud.CurrentWorker
                 // targeted work items should fail regardless of fault policy
-                return! Cloud.StartAsTask(Cloud.Sleep 20000, target = current, faultPolicy = FaultPolicy.InfiniteRetry())
+                return! 
+                    Cloud.StartAsTask(cloud { 
+                        do! f.Force true 
+                        do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetry())
             }
 
-            do Thread.Sleep 1000
             let t = runtime.Run (wf ())
+            while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)

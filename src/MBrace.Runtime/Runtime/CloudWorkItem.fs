@@ -61,8 +61,8 @@ type CloudWorkItem =
         StartWorkItem : ExecutionContext -> unit
         /// Work item fault policy
         FaultPolicy : FaultPolicy
-        /// Work item Exception continuation
-        Econt : ExecutionContext -> ExceptionDispatchInfo -> unit
+        /// Work item Fault continuation
+        FaultCont : ExecutionContext -> ExceptionDispatchInfo -> unit
         /// Distributed cancellation token source bound to work item
         CancellationToken : ICloudCancellationToken
     }
@@ -77,11 +77,14 @@ type CloudWorkItem =
     /// <param name="ccont">Cancellation continuation.</param>
     /// <param name="workflow">Workflow to be executed in work item.</param>
     /// <param name="target">Declared target worker reference for computation to be executed.</param>
+    /// <param name="fcont">Fault continuation. Defaults to exception continuation if not specified.</param>
     static member Create (taskEntry : ICloudTaskCompletionSource, token : ICloudCancellationToken, faultPolicy : FaultPolicy, 
                             scont : ExecutionContext -> 'T -> unit, 
-                            econt : ExecutionContext -> ExceptionDispatchInfo -> unit, 
+                            econt : ExecutionContext -> ExceptionDispatchInfo -> unit,
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
-                            workItemType : CloudWorkItemType, workflow : Cloud<'T>, ?target : IWorkerId) =
+                            workItemType : CloudWorkItemType, workflow : Cloud<'T>, 
+                            ?fcont : ExecutionContext -> ExceptionDispatchInfo -> unit,
+                            ?target : IWorkerId) =
 
         let workItem = Guid.NewGuid()
         let runWorkItem ctx =
@@ -95,7 +98,7 @@ type CloudWorkItem =
             WorkItemType = workItemType
             StartWorkItem = runWorkItem
             FaultPolicy = faultPolicy
-            Econt = econt
+            FaultCont = defaultArg fcont econt
             CancellationToken = token
             TargetWorker = target
         }
