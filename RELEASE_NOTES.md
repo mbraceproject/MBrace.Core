@@ -1,3 +1,7 @@
+#### 0.10.9-alpha
+* Refactor FaultPolicy using interfaces.
+* Implement Cloud.IsPreviouslyFaulted property.
+
 #### 0.10.8-alpha
 * Fix task counter issue in faulted work items.
 
