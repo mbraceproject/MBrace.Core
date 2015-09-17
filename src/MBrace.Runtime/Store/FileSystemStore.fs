@@ -96,6 +96,10 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
         let path = Path.Combine(WorkingDirectory.GetDefaultWorkingDirectoryForProcess(), "localStore")
         FileSystemStore.Create(path, ?defaultDirectory = defaultDirectory, create = true, cleanup = true)
 
+    /// Creates a file system store instance that is unique.
+    static member CreateRandomLocal() =
+        FileSystemStore.Create(WorkingDirectory.GetRandomWorkingDirectory(), create = true, cleanup = true)
+
     /// FileSystemStore root path
     member __.RootPath = rootPath
 

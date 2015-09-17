@@ -131,7 +131,7 @@ type ``InMemory CloudDictionary Tests`` () =
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
 
-    let fsStore = FileSystemStore.CreateUniqueLocal()
+    let fsStore = FileSystemStore.CreateRandomLocal()
     let serializer = new ThreadPoolFsPicklerBinarySerializer()
     let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, memoryEmulation = MemoryEmulation.Copied)
 

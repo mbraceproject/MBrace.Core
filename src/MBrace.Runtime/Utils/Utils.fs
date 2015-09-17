@@ -200,6 +200,11 @@ module Utils =
         static member GetDefaultWorkingDirectoryForProcess() : string =
             Path.Combine(Path.GetTempPath(), sprintf "mbrace-process-%d" <| Process.GetCurrentProcess().Id)
 
+        /// Generates a working directory path that is unique.
+        static member GetRandomWorkingDirectory() : string =
+            let g = Guid.NewGuid()
+            Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" g)
+
         /// <summary>
         ///     Creates a working directory suitable for the current process.
         /// </summary>
