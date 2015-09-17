@@ -17,6 +17,17 @@ type Cloud =
     static member CancellationToken : Local<ICloudCancellationToken> = 
         mkLocal(fun ctx cont -> cont.Success ctx ctx.CancellationToken)
 
+    /// Attempts to fetch a fault data record for the current computation.
+    /// Returns 'Some' if the current computation is a retry of a previously faulted
+    /// computation or 'None' if no fault has occurred.
+    static member TryGetFaultData() : Local<FaultData option> = Cloud.TryGetResource<FaultData> ()
+
+    /// Returns true if the current computation is a retry of a previously faulted computation.
+    static member IsPreviouslyFaulted : Local<bool> = local {
+        let! resources = Cloud.GetResourceRegistry()
+        return resources.Contains<FaultData>()
+    }
+
     /// <summary>
     ///     Raise an exception.
     /// </summary>
@@ -212,7 +223,7 @@ type Cloud =
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Specify cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="taskName">Optional user-specified name for task.</param>
-    static member StartAsTask(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?taskName:string) : Cloud<ICloudTask<'T>> = cloud {
+    static member StartAsTask(computation : Cloud<'T>, ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?taskName:string) : Cloud<ICloudTask<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
         return! runtime.ScheduleStartAsTask(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?taskName = taskName)
@@ -308,7 +319,7 @@ type Cloud =
     /// <summary>
     ///     Gets the current fault policy.
     /// </summary>
-    static member FaultPolicy : Local<FaultPolicy> = local {
+    static member FaultPolicy : Local<IFaultPolicy> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.FaultPolicy
     }
@@ -318,7 +329,7 @@ type Cloud =
     /// </summary>
     /// <param name="policy">Updated fault policy.</param>
     /// <param name="workflow">Workflow to be used.</param>
-    static member WithFaultPolicy (policy : FaultPolicy) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
+    static member WithFaultPolicy (policy : IFaultPolicy) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let currentPolicy = runtime.FaultPolicy
         let update (runtime : IParallelismProvider) = runtime.WithFaultPolicy policy

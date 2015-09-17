@@ -896,7 +896,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         // checks that non-serializable entities do not get accidentally captured in closures.
         cloud {
             let workflow = Cloud.Parallel[Cloud.FaultPolicy ; Cloud.FaultPolicy]
-            let! results = Cloud.WithFaultPolicy (FaultPolicy.ExponentialDelay(3)) workflow
+            let! results = Cloud.WithFaultPolicy (FaultPolicy.WithExponentialDelay(maxRetries = 3)) workflow
             return ()
         } |> runOnCloud |> Choice.shouldEqual ()
 

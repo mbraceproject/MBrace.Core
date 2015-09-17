@@ -13,58 +13,74 @@ type FaultException =
     new(message : string, innerException : exn) = { inherit Exception(message, innerException) }
     new (sI : SerializationInfo, sC : StreamingContext) = { inherit Exception(sI, sC) }
 
-/// Fault recovery policy used in runtime execution;
-/// takes number of attempts and fault exception returning
-/// the recovery action: either fail or retry after given delay.
-[<NoEquality; NoComparison>]
-type FaultPolicy = { Policy : int -> exn -> TimeSpan option }
-with
-    /// Makes no attempt at retrying, raising fault exception at the first occurrence.
-    static member NoRetry = { Policy = fun _ _ -> None }
+/// Specifies the recovery action that should happen
+/// in the event of an MBrace fault.
+type FaultRecoveryAction =
+    /// Give up on the computation raising a fault exception.
+    | ThrowException of exn
+    /// Retry the computation after specified delay.
+    | Retry of delay:TimeSpan
+
+/// Contains fault data for a given MBrace computation.
+type FaultData =
+    {
+        /// Number of times the current computation has faulted.
+        NumberOfFaults : int
+        /// Latest fault exception that was raised.
+        FaultException : exn
+    }
+
+/// Fault policy to be applied in a distributed MBrace computation.
+type IFaultPolicy =
+    /// <summary>
+    ///     Decides on the recovery action that should take place using supplied fault data.
+    /// </summary>
+    /// <param name="numberOfFaults">Number of time that the given computation has faulted.</param>
+    /// <param name="faultException">Latest fault exception that was raised.</param>
+    abstract GetFaultRecoveryAction : numberOfFaults:int * faultException:exn -> FaultRecoveryAction
+
+/// Collection of fault policy implementations.
+type FaultPolicy =
+
+    /// Makes no attempt at retrying a faulted computation, raising any exception at the first occurrence.
+    static member NoRetry =
+        { new IFaultPolicy with member __.GetFaultRecoveryAction(_,e) = ThrowException e }
 
     /// <summary>
     ///     Forever re-attempt faulted computations.
     /// </summary>
     /// <param name="delay">Delay before each retry. Defaults to zero.</param>
-    static member InfiniteRetry (?delay : TimeSpan) = 
+    static member InfiniteRetries (?delay : TimeSpan) = 
         let delay = defaultArg delay TimeSpan.Zero
-        { Policy = fun _ _ -> Some  delay }
+        { new IFaultPolicy with member __.GetFaultRecoveryAction(_,_) = Retry delay }
 
     /// <summary>
     ///     Retries at most a given number of times.
     /// </summary>
     /// <param name="maxRetries">Maximum number of retries.</param>
     /// <param name="delay">Delay before each retry. Defaults to zero.</param>
-    static member Retry(maxRetries : int, ?delay : TimeSpan) =
+    static member WithMaxRetries(maxRetries : int, ?delay : TimeSpan) =
         if maxRetries < 0 then invalidArg "maxRetries" "must be non-negative."
         let delay = defaultArg delay TimeSpan.Zero
-        { Policy = fun retries _ ->
-            if retries > maxRetries then None
-            else Some delay }
-        
-    /// <summary>
-    ///     Retries as long as exception of given type is raised.
-    /// </summary>
-    /// <param name="delay">Delay before each retry. Defaults to zero.</param>
-    static member Filter<'exn when 'exn :> Exception>(?delay : TimeSpan) =
-        let delay = defaultArg delay TimeSpan.Zero
-        { Policy = fun _ e -> 
-            match e with
-            | :? 'exn -> Some delay
-            | _ -> None }
+        { new IFaultPolicy with 
+            member __.GetFaultRecoveryAction(retries,e) =
+                if retries > maxRetries then ThrowException e
+                else Retry delay }
 
     /// <summary>
-    ///     Exponentially delays after each retry.
+    ///     Retries computation until a given number, 
+    ///     using exponentially increasing delay intervals after each fault.
     /// </summary>
     /// <param name="maxRetries">Maximum number of retries.</param>
     /// <param name="initialDelay">Initial delay. Defaults to 50ms</param>
-    static member ExponentialDelay(maxRetries : int, ?initialDelay : TimeSpan) =
+    static member WithExponentialDelay(maxRetries : int, ?initialDelay : TimeSpan) =
         let initialDelay = defaultArg initialDelay <| TimeSpan.FromMilliseconds 50.
-        { Policy = fun retries _ ->
-            if retries > maxRetries then None
-            else
-                let ms = initialDelay.TotalMilliseconds * (2. ** float (retries - 1))
-                Some <| TimeSpan.FromMilliseconds ms
+        { new IFaultPolicy with
+            member __.GetFaultRecoveryAction(retries,e) =
+                if retries > maxRetries then ThrowException e
+                else
+                    let ms = initialDelay.TotalMilliseconds * (2. ** float (retries - 1))
+                    Retry <| TimeSpan.FromMilliseconds ms
         }
 
     /// <summary>
@@ -72,9 +88,10 @@ with
     /// </summary>
     /// <param name="maxRetries">Maximum number of retries.</param>
     /// <param name="delayF">Delay mapping function.</param>
-    static member MapDelay(maxRetries : int, delayF : int -> TimeSpan) =
-        { Policy = fun retries _ ->
-            if retries > maxRetries then None
-            else
-                Some (delayF retries)
+    static member WithMappedDelay(maxRetries : int, delayF : int -> TimeSpan) =
+        { new IFaultPolicy with
+            member __.GetFaultRecoveryAction(retries,e) =
+                if retries > maxRetries then ThrowException e
+                else
+                    Retry (delayF retries)
         }

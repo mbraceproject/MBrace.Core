@@ -20,11 +20,8 @@ type IParallelismProvider =
     abstract CurrentWorker : IWorkerRef
     /// Gets the current logger instance.
     abstract Logger : ICloudLogger
-
-    /// <summary>
-    ///     Gets the current fault policy.
-    /// </summary>
-    abstract FaultPolicy : FaultPolicy
+    /// Gets the current fault policy.
+    abstract FaultPolicy : IFaultPolicy
 
     /// <summary>
     ///     Creates a linked cancellation token source given collection of cloud cancellation tokens.
@@ -36,7 +33,7 @@ type IParallelismProvider =
     ///     Creates a new scheduler instance with updated fault policy.
     /// </summary>
     /// <param name="newPolicy">new fault policy.</param>
-    abstract WithFaultPolicy : newPolicy:FaultPolicy -> IParallelismProvider
+    abstract WithFaultPolicy : newPolicy:IFaultPolicy -> IParallelismProvider
 
     /// Specifies whether runtime supports submission of tasks to specific worker nodes
     abstract IsTargetedWorkerSupported : bool
@@ -82,4 +79,4 @@ type IParallelismProvider =
     /// <param name="cancellationToken">Cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>
     /// <param name="taskName">Optional user-specified name for task.</param>
-    abstract ScheduleStartAsTask : workflow:Cloud<'T> * faultPolicy:FaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef * ?taskName:string -> Cloud<ICloudTask<'T>>
+    abstract ScheduleStartAsTask : workflow:Cloud<'T> * faultPolicy:IFaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef * ?taskName:string -> Cloud<ICloudTask<'T>>
