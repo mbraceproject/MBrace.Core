@@ -1,3 +1,6 @@
+#### 0.10.8-alpha
+* Fix task counter issue in faulted work items.
+
 #### 0.10.7-alpha
 * Use DateTimeOffset in place of DateTime in log entries.
 * Extend and improve logging abstractions for MBrace clients.
