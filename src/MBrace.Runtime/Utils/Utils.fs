@@ -422,7 +422,7 @@ module Utils =
         ///     Gets a process identifier by local process id
         /// </summary>
         /// <param name="id">Process identifier.</param>
-        static member TryGetProcessById(id : int) : ProcessId option =
+        static member TryGetJobById(id : int) : ProcessId option =
             try id |> Process.GetProcessById |> ProcessId.FromProcess |> Some
             with :? ArgumentException -> None
 

@@ -44,7 +44,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
         } |> Async.RunSync
 
     override __.RunWithLogs(workflow : Cloud<unit>) =
-        let job = session.Runtime.StartAsCloudProcess(workflow)
+        let job = session.Runtime.StartJob(workflow)
         do job.Result
         job.GetLogs () |> Array.map CloudLogEntry.Format
 
@@ -124,7 +124,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
-        let job = session.Runtime.StartAsCloudProcess(workflow)
+        let job = session.Runtime.StartJob(workflow)
         use d = job.Logs.Subscribe(fun e -> ra.Add(e))
         do job.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
@@ -139,7 +139,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         repeat (fun () ->
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
-            let t = runtime.StartAsCloudProcess(cloud {
+            let t = runtime.StartJob(cloud {
                 do! f.Force true
                 return! WordCount.run 20 WordCount.mapReduceRec
             }, faultPolicy = FaultPolicy.InfiniteRetries())
@@ -153,7 +153,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
-            let t = runtime.StartAsCloudProcess(cloud {
+            let t = runtime.StartJob(cloud {
                 do! f.Force true
                 do! Cloud.Sleep 20000
             }, faultPolicy = FaultPolicy.NoRetry)
@@ -166,7 +166,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
-            let t = runtime.StartAsCloudProcess(cloud {
+            let t = runtime.StartJob(cloud {
                 return! 
                     Cloud.WithFaultPolicy FaultPolicy.NoRetry
                         (cloud { 
@@ -187,7 +187,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                 let! current = Cloud.CurrentWorker
                 // targeted work items should fail regardless of fault policy
                 return! 
-                    Cloud.StartAsCloudProcess(cloud { 
+                    Cloud.StartJob(cloud { 
                         do! f.Force true 
                         do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetries())
             }
@@ -205,7 +205,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
             let t = 
-                runtime.StartAsCloudProcess(
+                runtime.StartJob(
                     cloud {
                         do! f.Force true
                         do! Cloud.Sleep 5000

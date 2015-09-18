@@ -255,7 +255,7 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
     ///     Fetches cloud process by provided cloud process id.
     /// </summary>
     /// <param name="procId">Cloud process identifier.</param>
-    member self.GetCloudProcessBySource (entry : ICloudProcessCompletionSource) = async {
+    member self.GetJobBySource (entry : ICloudProcessCompletionSource) = async {
         let! assemblies = runtime.AssemblyManager.DownloadAssemblies(entry.Info.Dependencies)
         let loadInfo = runtime.AssemblyManager.LoadAssemblies(assemblies)
         for li in loadInfo do
@@ -279,39 +279,39 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
         match source with
         | None -> return None
         | Some e ->
-            let! t = self.GetCloudProcessBySource e
+            let! t = self.GetJobBySource e
             return Some t
     }
 
 
-    member self.GetAllCloudProcesses() = async {
-        let! entries = runtime.ProcessManager.GetAllCloudProcesses()
+    member self.GetAllJobs() = async {
+        let! entries = runtime.ProcessManager.GetAllJobs()
         return!
             entries
-            |> Seq.map (fun e -> self.GetCloudProcessBySource e)
+            |> Seq.map (fun e -> self.GetJobBySource e)
             |> Async.Parallel
     }
 
-    member __.ClearCloudProcess(proc:CloudProcess) = async {
+    member __.ClearJob(proc:CloudProcess) = async {
         do! runtime.ProcessManager.Clear(proc.Id)
     }
 
     /// <summary>
     ///     Clears all processes from the runtime.
     /// </summary>
-    member pm.ClearAllCloudProcesses() = async {
-        do! runtime.ProcessManager.ClearAllCloudProcesses()
+    member pm.ClearAllJobs() = async {
+        do! runtime.ProcessManager.ClearAllJobs()
     }
 
     /// Gets a printed report of all currently executing processes
-    member pm.FormatCloudProcesses() : string =
-        let procs = pm.GetAllCloudProcesses() |> Async.RunSync
+    member pm.FormatJobs() : string =
+        let procs = pm.GetAllJobs() |> Async.RunSync
         CloudProcessReporter.Report(procs, "Processes", borders = false)
 
     /// Prints a report of all currently executing processes to stdout.
-    member pm.ShowCloudProcesses() : unit =
+    member pm.ShowJobs() : unit =
         /// TODO : add support for filtering processes
-        Console.WriteLine(pm.FormatCloudProcesses())
+        Console.WriteLine(pm.FormatJobs())
 
     static member TryGetById(id : IRuntimeId) = clients.TryFind id
 

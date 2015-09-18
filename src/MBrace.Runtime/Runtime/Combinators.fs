@@ -285,7 +285,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionS
 /// <param name="additionalResources">Additional runtime resources supplied by the user.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
-let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionSource option)
+let runStartJob (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionSource option)
                         (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy : IFaultPolicy) (token : ICloudCancellationToken option) 
                         (additionalResources : ResourceRegistry option) (target : IWorkerRef option) 
@@ -325,7 +325,7 @@ let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProce
                 ReturnType = runtime.Serializer.PickleTyped typeof<'T>
             }
 
-        let! tcs = runtime.ProcessManager.StartAsCloudProcess taskInfo
+        let! tcs = runtime.ProcessManager.StartJob taskInfo
 
         let setResult ctx (result : CloudProcessResult) status = 
             async {

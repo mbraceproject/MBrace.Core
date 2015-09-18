@@ -663,10 +663,10 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     return! CloudAtom.Read count
                 }
 
-                let! proc = Cloud.StartAsCloudProcess(tworkflow)
+                let! proc = Cloud.StartJob(tworkflow)
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 0
-                return! Cloud.AwaitCloudProcess proc
+                return! Cloud.AwaitJob proc
             } |> runOnCloud |> Choice.shouldEqual 1)
 
     [<Test>]
@@ -681,14 +681,14 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     return invalidOp "failure"
                 }
 
-                let! proc = Cloud.StartAsCloudProcess(tworkflow)
+                let! proc = Cloud.StartJob(tworkflow)
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 0
                 do! Cloud.Sleep (delayFactor / 10)
                 // ensure no exception is raised in parent workflow
                 // before the child workflow is properly evaluated
                 let! _ = CloudAtom.Incr count
-                return! Cloud.AwaitCloudProcess proc
+                return! Cloud.AwaitJob proc
             } |> runOnCloud |> Choice.shouldFailwith<_, InvalidOperationException>
 
             count.Value |> shouldEqual 2)
@@ -705,12 +705,12 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     do! Cloud.Sleep delayFactor
                     do! CloudAtom.Incr count |> Local.Ignore
                 }
-                let! job = Cloud.StartAsCloudProcess(tworkflow, cancellationToken = cts.Token)
+                let! job = Cloud.StartJob(tworkflow, cancellationToken = cts.Token)
                 do! Cloud.Sleep (delayFactor / 3)
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 1
                 cts.Cancel()
-                return! Cloud.AwaitCloudProcess job
+                return! Cloud.AwaitJob job
             } |> runOnCloud |> Choice.shouldFailwith<_, OperationCanceledException>
             
             // ensure final increment was cancelled.
@@ -723,8 +723,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             repeat(fun () ->
                 cloud {
                     let! currentWorker = Cloud.CurrentWorker
-                    let! job = Cloud.StartAsCloudProcess(Cloud.CurrentWorker, target = currentWorker)
-                    let! result = Cloud.AwaitCloudProcess job
+                    let! job = Cloud.StartJob(Cloud.CurrentWorker, target = currentWorker)
+                    let! result = Cloud.AwaitJob job
                     return result = currentWorker
                 } |> runOnCloud |> Choice.shouldEqual true)
 
@@ -733,8 +733,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         repeat(fun () ->
             cloud {
-                let! job = Cloud.StartAsCloudProcess(Cloud.Sleep (5 * delayFactor))
-                return! Cloud.AwaitCloudProcess(job, timeoutMilliseconds = 1)
+                let! job = Cloud.StartJob(Cloud.Sleep (5 * delayFactor))
+                return! Cloud.AwaitJob(job, timeoutMilliseconds = 1)
             } |> runOnCloud |> Choice.shouldFailwith<_, TimeoutException>)
 
     [<Test>]
@@ -754,7 +754,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         if __.UsesSerialization then
             cloud { 
                 let client = new System.Net.WebClient()
-                return! Cloud.StartAsCloudProcess(cloud { return box client })
+                return! Cloud.StartJob(cloud { return box client })
 
             } |> runOnCloud |> Choice.shouldFailwith<_, SerializationException>
 
@@ -801,7 +801,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            let! _ = Cloud.StartAsCloudProcess(cloud { cts.Cancel() })
+            let! _ = Cloud.StartJob(cloud { cts.Cancel() })
             do! Cloud.Sleep delayFactor
             cts.Token.IsCancellationRequested |> shouldEqual true
         } |> runOnCloud |> Choice.shouldEqual ()

@@ -17,29 +17,29 @@ open MBrace.Runtime.Store
 type private ProcessManagerMsg =
     | CreateCloudProcessEntry of info:CloudProcessInfo * IReplyChannel<ActorCompletionSource>
     | TryGetCloudProcessCompletionSourceById of procId:string * IReplyChannel<ActorCompletionSource option>
-    | GetAllCloudProcesses of IReplyChannel<ActorCompletionSource []>
-    | ClearAllCloudProcesses of IReplyChannel<unit>
-    | ClearCloudProcess of procId:string * IReplyChannel<bool>
+    | GetAllJobs of IReplyChannel<ActorCompletionSource []>
+    | ClearAllJobs of IReplyChannel<unit>
+    | ClearJob of procId:string * IReplyChannel<bool>
 
 ///  Task manager actor reference used for handling MBrace.Thespian task instances
 type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
     interface ICloudProcessManager with
-        member x.StartAsCloudProcess(info : CloudProcessInfo) = async {
+        member x.StartJob(info : CloudProcessInfo) = async {
             let! te = ref <!- fun ch -> CreateCloudProcessEntry(info, ch)
             return te :> ICloudProcessCompletionSource
         }
 
         member x.Clear(procId: string): Async<unit> = async {
-            let! found = ref <!- fun ch -> ClearCloudProcess(procId, ch)
+            let! found = ref <!- fun ch -> ClearJob(procId, ch)
             return ()
         }
         
-        member x.ClearAllCloudProcesses(): Async<unit> = async {
-            return! ref <!- ClearAllCloudProcesses
+        member x.ClearAllJobs(): Async<unit> = async {
+            return! ref <!- ClearAllJobs
         }
         
-        member x.GetAllCloudProcesses(): Async<ICloudProcessCompletionSource []> = async {
-            let! entries = ref <!- GetAllCloudProcesses
+        member x.GetAllJobs(): Async<ICloudProcessCompletionSource []> = async {
+            let! entries = ref <!- GetAllJobs
             return entries |> Array.map unbox
         }
         
@@ -67,11 +67,11 @@ type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
                 do! ch.Reply result
                 return state
 
-            | GetAllCloudProcesses rc ->
+            | GetAllJobs rc ->
                 do! rc.Reply (state |> Seq.map (fun kv -> kv.Value) |> Seq.toArray)
                 return state
 
-            | ClearAllCloudProcesses rc ->
+            | ClearAllJobs rc ->
                 do for KeyValue(_,ts) in state do
                     ts.Info.CancellationTokenSource.Cancel()
 
@@ -80,7 +80,7 @@ type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
                 logger.Logf LogLevel.Debug "Clearing all ProcessManager state."
                 return Map.empty
 
-            | ClearCloudProcess (procId, rc) ->
+            | ClearJob (procId, rc) ->
                 match state.TryFind procId with
                 | None ->
                     do! rc.Reply false

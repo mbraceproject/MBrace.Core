@@ -192,12 +192,12 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
-        public void AwaitCloudProcess()
+        public void AwaitJob()
         {
             var workflow = Cloud.New(() =>
                 {
                     var task = Task.FromResult(42);
-                    return Cloud.AwaitCloudProcess(task);
+                    return Cloud.AwaitJob(task);
                 });
 
             var result = this.Run(workflow);

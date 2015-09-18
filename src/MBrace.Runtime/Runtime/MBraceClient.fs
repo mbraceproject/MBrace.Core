@@ -57,7 +57,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member c.StartAsCloudProcessAsync
+    member c.StartJobAsync
                  (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
                   ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, 
                   ?additionalResources : ResourceRegistry, ?taskName : string) : Async<CloudProcess<'T>> = async {
@@ -66,7 +66,7 @@ type MBraceClient (runtime : IRuntimeManager) =
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
-        return! Combinators.runStartAsCloudProcess runtime None assemblyIds taskName faultPolicy cancellationToken additionalResources target workflow
+        return! Combinators.runStartJob runtime None assemblyIds taskName faultPolicy cancellationToken additionalResources target workflow
     }
 
     /// <summary>
@@ -79,10 +79,10 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.StartAsCloudProcess
+    member __.StartJob
                  (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, 
                   ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
-        __.StartAsCloudProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
+        __.StartJobAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
                                     ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
 
@@ -97,7 +97,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
-        let! proc = __.StartAsCloudProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
+        let! proc = __.StartJobAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
         return! proc.AwaitResult()
     }
 
@@ -115,20 +115,20 @@ type MBraceClient (runtime : IRuntimeManager) =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
     /// Gets a collection of all running or completed cloud processes that exist in the current MBrace runtime.
-    member __.GetAllCloudProcesses () : CloudProcess [] = taskManagerClient.GetAllCloudProcesses() |> Async.RunSync
+    member __.GetAllJobs () : CloudProcess [] = taskManagerClient.GetAllJobs() |> Async.RunSync
 
     /// <summary>
     ///     Attempts to get a cloud process instance using supplied identifier.
     /// </summary>
     /// <param name="id">Input cloud process identifier.</param>
-    member __.TryGetProcessById(procId:string) = taskManagerClient.TryGetCloudProcess(procId) |> Async.RunSync
+    member __.TryGetJobById(procId:string) = taskManagerClient.TryGetCloudProcess(procId) |> Async.RunSync
 
     /// <summary>
     ///     Looks up a CloudProcess instance from cluster using supplied identifier.
     /// </summary>
     /// <param name="procId">Input cloud process identifier.</param>
-    member __.GetTaskById(procId:string) = 
-        match __.TryGetProcessById procId with
+    member __.GetJobById(procId:string) = 
+        match __.TryGetJobById procId with
         | None -> raise <| invalidArg "procId" "No cloud process with supplied id could be found in cluster."
         | Some t -> t
 
@@ -136,18 +136,18 @@ type MBraceClient (runtime : IRuntimeManager) =
     ///     Deletes cloud process and all related data from MBrace cluster.
     /// </summary>
     /// <param name="cloud process">Cloud process to be cleared.</param>
-    member __.ClearCloudProcess(proc:CloudProcess<'T>) : unit = taskManagerClient.ClearCloudProcess(proc) |> Async.RunSync
+    member __.ClearJob(proc:CloudProcess<'T>) : unit = taskManagerClient.ClearJob(proc) |> Async.RunSync
 
     /// <summary>
     ///     Deletes *all* cloud processes and related data from MBrace cluster.
     /// </summary>
-    member __.ClearAllCloudProcesses() : unit = taskManagerClient.ClearAllCloudProcesses() |> Async.RunSync
+    member __.ClearAllJobs() : unit = taskManagerClient.ClearAllJobs() |> Async.RunSync
 
     /// Gets a printed report of all current cloud processes.
-    member __.FormatCloudProcesses() : string = taskManagerClient.FormatCloudProcesses()
+    member __.FormatJobs() : string = taskManagerClient.FormatJobs()
 
     /// Prints a report of all current cloud processes to stdout.
-    member __.ShowCloudProcesses() : unit = taskManagerClient.ShowCloudProcesses()
+    member __.ShowJobs() : unit = taskManagerClient.ShowJobs()
 
     /// Gets a client object that can be used for interoperating with the MBrace store.
     member __.Store : CloudStoreClient = storeClient
