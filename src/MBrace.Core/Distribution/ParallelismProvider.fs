@@ -79,4 +79,4 @@ type IParallelismProvider =
     /// <param name="cancellationToken">Cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>
     /// <param name="procName">Optional user-specified name for task.</param>
-    abstract ScheduleStartJob : workflow:Cloud<'T> * faultPolicy:IFaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef * ?procName:string -> Cloud<ICloudProcess<'T>>
+    abstract ScheduleStartCloudProcess : workflow:Cloud<'T> * faultPolicy:IFaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef * ?procName:string -> Cloud<ICloudProcess<'T>>

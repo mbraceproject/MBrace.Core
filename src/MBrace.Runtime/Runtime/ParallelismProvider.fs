@@ -68,7 +68,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
                 return! Combinators.runChoice runtime currentWorkItem.ProcEntry faultPolicy computations
         }
 
-        member __.ScheduleStartJob(workflow : Cloud<'T>, faultPolicy : IFaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
+        member __.ScheduleStartCloudProcess(workflow : Cloud<'T>, faultPolicy : IFaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud process when evaluating using local semantics."
             else

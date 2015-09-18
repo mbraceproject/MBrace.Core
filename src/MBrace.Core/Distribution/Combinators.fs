@@ -226,7 +226,7 @@ type Cloud =
     static member StartJob(computation : Cloud<'T>, ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
-        return! runtime.ScheduleStartJob(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = procName)
+        return! runtime.ScheduleStartCloudProcess(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = procName)
     }
 
     /// <summary>
@@ -246,7 +246,7 @@ type Cloud =
     static member StartChild(workflow : Cloud<'T>, ?target : IWorkerRef) : Cloud<Local<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let! cancellationToken = Cloud.CancellationToken
-        let! proc = runtime.ScheduleStartJob(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
+        let! proc = runtime.ScheduleStartCloudProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
         let stackTraceSig = sprintf "Cloud.StartChild(Cloud<%s> computation)" typeof<'T>.Name
         return Local.WithAppendedStackTrace stackTraceSig (local { return! proc.AwaitResult() })
     }
