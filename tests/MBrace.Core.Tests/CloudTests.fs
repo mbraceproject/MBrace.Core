@@ -666,7 +666,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 let! proc = Cloud.StartAsCloudProcess(tworkflow)
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 0
-                return! Cloud.AwaitProcess proc
+                return! Cloud.AwaitCloudProcess proc
             } |> runOnCloud |> Choice.shouldEqual 1)
 
     [<Test>]
@@ -688,7 +688,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 // ensure no exception is raised in parent workflow
                 // before the child workflow is properly evaluated
                 let! _ = CloudAtom.Incr count
-                return! Cloud.AwaitProcess proc
+                return! Cloud.AwaitCloudProcess proc
             } |> runOnCloud |> Choice.shouldFailwith<_, InvalidOperationException>
 
             count.Value |> shouldEqual 2)
@@ -710,7 +710,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 1
                 cts.Cancel()
-                return! Cloud.AwaitProcess job
+                return! Cloud.AwaitCloudProcess job
             } |> runOnCloud |> Choice.shouldFailwith<_, OperationCanceledException>
             
             // ensure final increment was cancelled.
@@ -724,7 +724,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 cloud {
                     let! currentWorker = Cloud.CurrentWorker
                     let! job = Cloud.StartAsCloudProcess(Cloud.CurrentWorker, target = currentWorker)
-                    let! result = Cloud.AwaitProcess job
+                    let! result = Cloud.AwaitCloudProcess job
                     return result = currentWorker
                 } |> runOnCloud |> Choice.shouldEqual true)
 
@@ -734,7 +734,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         repeat(fun () ->
             cloud {
                 let! job = Cloud.StartAsCloudProcess(Cloud.Sleep (5 * delayFactor))
-                return! Cloud.AwaitProcess(job, timeoutMilliseconds = 1)
+                return! Cloud.AwaitCloudProcess(job, timeoutMilliseconds = 1)
             } |> runOnCloud |> Choice.shouldFailwith<_, TimeoutException>)
 
     [<Test>]
