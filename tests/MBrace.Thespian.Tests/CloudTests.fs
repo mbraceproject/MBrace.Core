@@ -142,7 +142,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let t = runtime.CreateTask(cloud {
                 do! f.Force true
                 return! WordCount.run 20 WordCount.mapReduceRec
-            }, faultPolicy = FaultPolicy.InfiniteRetry())
+            }, faultPolicy = FaultPolicy.InfiniteRetries())
             while not f.Value do Thread.Sleep 1000
             do Thread.Sleep 1000
             session.Chaos()
@@ -189,10 +189,29 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                 return! 
                     Cloud.StartAsTask(cloud { 
                         do! f.Force true 
-                        do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetry())
+                        do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetries())
             }
 
             let t = runtime.Run (wf ())
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
+
+    [<Test>]
+    member __.``2. Fault Tolerance : fault data`` () =
+        session.Runtime.Run(Cloud.TryGetFaultData()) |> shouldBe Option.isNone
+
+        repeat(fun () ->
+            let runtime = session.Runtime
+            let f = runtime.Store.Atom.Create(false)
+            let t = 
+                runtime.CreateTask(
+                    cloud {
+                        do! f.Force true
+                        do! Cloud.Sleep 5000
+                        return! Cloud.TryGetFaultData()
+                    })
+
+            while not f.Value do Thread.Sleep 1000
+            session.Chaos()
+            t.Result |> shouldBe (function Some { NumberOfFaults = 1 } -> true | _ -> false))

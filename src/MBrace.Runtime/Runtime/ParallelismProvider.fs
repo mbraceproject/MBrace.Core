@@ -10,7 +10,7 @@ open MBrace.ThreadPool.Internals
 
 /// Implements the IDistribution provider implementation to be passed to MBrace workflow execution
 [<Sealed; AutoSerializable(false)>]
-type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentWorkItem : CloudWorkItem, faultPolicy : FaultPolicy, logger : ICloudWorkItemLogger, isForcedLocalParallelism : bool) =
+type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeManager, currentWorkItem : CloudWorkItem, faultPolicy : IFaultPolicy, logger : ICloudWorkItemLogger, isForcedLocalParallelism : bool) =
 
     let mkCts elevate (parents : ICloudCancellationToken[]) = async {
         let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents, elevate = elevate) 
@@ -39,7 +39,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
         member __.WorkItemId = currentWorkItem.Id.ToString()
 
         member __.FaultPolicy = faultPolicy
-        member __.WithFaultPolicy (newPolicy : FaultPolicy) =
+        member __.WithFaultPolicy (newPolicy : IFaultPolicy) =
             new ParallelismProvider(currentWorker, runtime, currentWorkItem, newPolicy, logger, isForcedLocalParallelism) :> IParallelismProvider
 
         member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = mkCts false parents
@@ -68,7 +68,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
                 return! Combinators.runChoice runtime currentWorkItem.TaskEntry faultPolicy computations
         }
 
-        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : FaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : IFaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud task when evaluating using local semantics."
             else

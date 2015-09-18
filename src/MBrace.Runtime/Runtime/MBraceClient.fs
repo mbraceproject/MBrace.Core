@@ -58,10 +58,10 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="additionalResources">Additional per-task MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member c.CreateTaskAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                                    ?faultPolicy : FaultPolicy, ?target : IWorkerRef, 
+                                    ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, 
                                     ?additionalResources : ResourceRegistry, ?taskName : string) : Async<CloudTask<'T>> = async {
 
-        let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.Retry(maxRetries = 1)
+        let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.WithMaxRetries(maxRetries = 1)
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
@@ -78,7 +78,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-task MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.CreateTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, 
+    member __.CreateTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, 
                                 ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudTask<'T> =
         __.CreateTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
                                     ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
@@ -94,7 +94,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-task MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
+    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
         let! task = __.CreateTaskAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
         return! task.AwaitResult()
     }
@@ -109,7 +109,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-task MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : 'T =
+    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : 'T =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
     /// Gets a collection of all running or completed cloud tasks that exist in the current MBrace runtime.
