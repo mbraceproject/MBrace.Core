@@ -255,7 +255,7 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
     ///     Fetches cloud process by provided cloud process id.
     /// </summary>
     /// <param name="procId">Cloud process identifier.</param>
-    member self.GetJobBySource (entry : ICloudProcessCompletionSource) = async {
+    member self.GetProcessBySource (entry : ICloudProcessCompletionSource) = async {
         let! assemblies = runtime.AssemblyManager.DownloadAssemblies(entry.Info.Dependencies)
         let loadInfo = runtime.AssemblyManager.LoadAssemblies(assemblies)
         for li in loadInfo do
@@ -279,7 +279,7 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
         match source with
         | None -> return None
         | Some e ->
-            let! t = self.GetJobBySource e
+            let! t = self.GetProcessBySource e
             return Some t
     }
 
@@ -288,7 +288,7 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
         let! entries = runtime.ProcessManager.GetAllProcesses()
         return!
             entries
-            |> Seq.map (fun e -> self.GetJobBySource e)
+            |> Seq.map (fun e -> self.GetProcessBySource e)
             |> Async.Parallel
     }
 
