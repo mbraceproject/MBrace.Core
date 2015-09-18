@@ -85,7 +85,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     [<Test>]
     member __.``1. Runtime : Get task id`` () =
-        runOnCloud (Cloud.GetProcessId()) |> shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetCloudProcessId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``1. Runtime : Get work item id`` () =

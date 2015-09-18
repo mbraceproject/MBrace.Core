@@ -40,7 +40,7 @@ namespace MBrace.CSharp
         /// <summary>
         /// Await for task completion.
         /// </summary>
-        /// <typeparam name="TResult">Return type of cloud process.</typeparam>
+        /// <typeparam name="TResult">Return type of task.</typeparam>
         /// <param name="task">Task to be awaited.</param>
         public static Cloud<TResult> AwaitTask<TResult>(Task<TResult> task)
         {
@@ -75,13 +75,13 @@ namespace MBrace.CSharp
         /// <summary>
         /// Gets the assigned id of the currently running cloud process.
         /// </summary>
-        public static Cloud<string> GetProcessId()
+        public static Cloud<string> GetCloudProcessId()
         {
-            return MCloud.GetProcessId(); 
+            return MCloud.GetCloudProcessId(); 
         }
 
         /// <summary>
-        /// Gets the assigned id of the currently running cloud process.
+        /// Gets the assigned id of the currently running work item.
         /// </summary>
         public static Cloud<string> GetWorkItemId()
         {

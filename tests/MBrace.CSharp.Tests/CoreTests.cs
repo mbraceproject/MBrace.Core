@@ -164,9 +164,9 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
-        public void GetProcessId()
+        public void GetCloudProcessId()
         {
-            var result = this.Run(Cloud.GetProcessId());
+            var result = this.Run(Cloud.GetCloudProcessId());
             Assert.True(!String.IsNullOrEmpty(result));
         }
 

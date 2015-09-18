@@ -303,7 +303,7 @@ type Cloud =
     /// <summary>
     ///     Gets the assigned id of the currently running CloudProcess.
     /// </summary>
-    static member GetProcessId () : Local<string> = local {
+    static member GetCloudProcessId () : Local<string> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.CloudProcessId
     }
