@@ -234,7 +234,7 @@ type Cloud =
     /// </summary>
     /// <param name="proc">Cloud process to be awaited.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
-    static member AwaitJob(proc : ICloudProcess<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
+    static member AwaitCloudProcess(proc : ICloudProcess<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
         return! proc.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
     }
 

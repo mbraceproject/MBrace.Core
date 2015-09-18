@@ -38,13 +38,13 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        /// Await for cloud process completion.
+        /// Await for task completion.
         /// </summary>
         /// <typeparam name="TResult">Return type of cloud process.</typeparam>
-        /// <param name="proc">Cloud process to be awaited.</param>
-        public static Cloud<TResult> AwaitTask<TResult>(Task<TResult> proc)
+        /// <param name="task">Task to be awaited.</param>
+        public static Cloud<TResult> AwaitTask<TResult>(Task<TResult> task)
         {
-            return MCloud.AwaitTask(proc, null); 
+            return MCloud.AwaitTask(task, null); 
         }
 
         /// <summary>
