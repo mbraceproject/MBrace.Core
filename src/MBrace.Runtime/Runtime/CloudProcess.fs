@@ -274,8 +274,8 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
         return task
     }
 
-    member self.TryGetCloudProcess(id : string) = async {
-        let! source = runtime.ProcessManager.TryGetCloudProcess id
+    member self.TryGetProcessById(id : string) = async {
+        let! source = runtime.ProcessManager.TryGetProcessById id
         match source with
         | None -> return None
         | Some e ->
@@ -284,34 +284,34 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
     }
 
 
-    member self.GetAllJobs() = async {
-        let! entries = runtime.ProcessManager.GetAllJobs()
+    member self.GetAllProcesses() = async {
+        let! entries = runtime.ProcessManager.GetAllProcesses()
         return!
             entries
             |> Seq.map (fun e -> self.GetJobBySource e)
             |> Async.Parallel
     }
 
-    member __.ClearJob(proc:CloudProcess) = async {
-        do! runtime.ProcessManager.Clear(proc.Id)
+    member __.ClearProcess(proc:CloudProcess) = async {
+        do! runtime.ProcessManager.ClearProcess(proc.Id)
     }
 
     /// <summary>
     ///     Clears all processes from the runtime.
     /// </summary>
-    member pm.ClearAllJobs() = async {
-        do! runtime.ProcessManager.ClearAllJobs()
+    member pm.ClearAllProcesses() = async {
+        do! runtime.ProcessManager.ClearAllProcesses()
     }
 
     /// Gets a printed report of all currently executing processes
-    member pm.FormatJobs() : string =
-        let procs = pm.GetAllJobs() |> Async.RunSync
+    member pm.FormatProcesses() : string =
+        let procs = pm.GetAllProcesses() |> Async.RunSync
         CloudProcessReporter.Report(procs, "Processes", borders = false)
 
     /// Prints a report of all currently executing processes to stdout.
-    member pm.ShowJobs() : unit =
+    member pm.ShowProcesses() : unit =
         /// TODO : add support for filtering processes
-        Console.WriteLine(pm.FormatJobs())
+        Console.WriteLine(pm.FormatProcesses())
 
     static member TryGetById(id : IRuntimeId) = clients.TryFind id
 

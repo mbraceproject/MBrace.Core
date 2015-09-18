@@ -325,7 +325,7 @@ let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProce
                 ReturnType = runtime.Serializer.PickleTyped typeof<'T>
             }
 
-        let! tcs = runtime.ProcessManager.StartJob taskInfo
+        let! tcs = runtime.ProcessManager.StartProcess taskInfo
 
         let setResult ctx (result : CloudProcessResult) status = 
             async {

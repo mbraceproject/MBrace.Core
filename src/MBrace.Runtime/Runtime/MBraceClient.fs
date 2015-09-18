@@ -79,7 +79,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.StartJob
+    member __.Submit
                  (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, 
                   ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
         __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
@@ -115,20 +115,20 @@ type MBraceClient (runtime : IRuntimeManager) =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
     /// Gets a collection of all running or completed cloud processes that exist in the current MBrace runtime.
-    member __.GetAllJobs () : CloudProcess [] = taskManagerClient.GetAllJobs() |> Async.RunSync
+    member __.GetAllProcesses () : CloudProcess [] = taskManagerClient.GetAllProcesses() |> Async.RunSync
 
     /// <summary>
     ///     Attempts to get a cloud process instance using supplied identifier.
     /// </summary>
     /// <param name="id">Input cloud process identifier.</param>
-    member __.TryGetJobById(procId:string) = taskManagerClient.TryGetCloudProcess(procId) |> Async.RunSync
+    member __.TryGetProcessById(procId:string) = taskManagerClient.TryGetProcessById(procId) |> Async.RunSync
 
     /// <summary>
     ///     Looks up a CloudProcess instance from cluster using supplied identifier.
     /// </summary>
     /// <param name="procId">Input cloud process identifier.</param>
-    member __.GetJobById(procId:string) = 
-        match __.TryGetJobById procId with
+    member __.GetProcessById(procId:string) = 
+        match __.TryGetProcessById procId with
         | None -> raise <| invalidArg "procId" "No cloud process with supplied id could be found in cluster."
         | Some t -> t
 
@@ -136,18 +136,18 @@ type MBraceClient (runtime : IRuntimeManager) =
     ///     Deletes cloud process and all related data from MBrace cluster.
     /// </summary>
     /// <param name="cloud process">Cloud process to be cleared.</param>
-    member __.ClearJob(proc:CloudProcess<'T>) : unit = taskManagerClient.ClearJob(proc) |> Async.RunSync
+    member __.ClearProcess(proc:CloudProcess<'T>) : unit = taskManagerClient.ClearProcess(proc) |> Async.RunSync
 
     /// <summary>
     ///     Deletes *all* cloud processes and related data from MBrace cluster.
     /// </summary>
-    member __.ClearAllJobs() : unit = taskManagerClient.ClearAllJobs() |> Async.RunSync
+    member __.ClearAllProcesses() : unit = taskManagerClient.ClearAllProcesses() |> Async.RunSync
 
     /// Gets a printed report of all current cloud processes.
-    member __.FormatJobs() : string = taskManagerClient.FormatJobs()
+    member __.FormatProcesses() : string = taskManagerClient.FormatProcesses()
 
     /// Prints a report of all current cloud processes to stdout.
-    member __.ShowJobs() : unit = taskManagerClient.ShowJobs()
+    member __.ShowProcesses() : unit = taskManagerClient.ShowProcesses()
 
     /// Gets a client object that can be used for interoperating with the MBrace store.
     member __.Store : CloudStoreClient = storeClient

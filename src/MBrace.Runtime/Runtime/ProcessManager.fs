@@ -161,26 +161,26 @@ type ICloudProcessManager =
     ///     Request a new cloud process from cluster state.
     /// </summary>
     /// <param name="info">User-supplied cloud process metadata.</param>
-    abstract StartJob : info:CloudProcessInfo -> Async<ICloudProcessCompletionSource>
+    abstract StartProcess : info:CloudProcessInfo -> Async<ICloudProcessCompletionSource>
 
     /// <summary>
     ///     Gets a cloud process entry for provided cloud process id.
     /// </summary>
     /// <param name="procId">Task id to be looked up.</param>
-    abstract TryGetCloudProcess : procId:string -> Async<ICloudProcessCompletionSource option>
+    abstract TryGetProcessById : procId:string -> Async<ICloudProcessCompletionSource option>
 
     /// <summary>
     ///     Asynchronously fetches cloud process execution state for all tasks currently in cloud process.
     /// </summary>
-    abstract GetAllJobs : unit -> Async<ICloudProcessCompletionSource []>
+    abstract GetAllProcesses : unit -> Async<ICloudProcessCompletionSource []>
 
     /// <summary>
     ///     Deletes cloud process info of given id.
     /// </summary>
     /// <param name="procId">Cloud process identifier.</param>
-    abstract Clear : procId:string -> Async<unit>
+    abstract ClearProcess : procId:string -> Async<unit>
 
     /// <summary>
     ///     Deletes all cloud process info from current runtime.
     /// </summary>
-    abstract ClearAllJobs : unit -> Async<unit>
+    abstract ClearAllProcesses : unit -> Async<unit>
