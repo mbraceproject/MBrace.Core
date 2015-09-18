@@ -57,6 +57,12 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
                     if not <| Directory.Exists dir then
                         Directory.CreateDirectory dir |> ignore)
 
+    let isCaseSensitive =
+        let file = Path.Combine(rootPath, mkUUID().ToLower())
+        File.CreateText(file).Close()
+        try not <| File.Exists(file.ToUpper())
+        finally File.Delete file
+
     static let getETag (path : string) : ETag = 
         let fI = new FileInfo(path)
         let lwt = fI.LastWriteTimeUtc
@@ -106,13 +112,14 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
     interface ICloudFileStore with
         member __.Name = "FileSystemStore"
         member __.Id = rootPath
+        member __.RootDirectory = rootPath
         member __.DefaultDirectory = defaultDirectory
+        member __.IsCaseSensitiveFileSystem = isCaseSensitive
         member __.WithDefaultDirectory newDirectory = new FileSystemStore(rootPath, newDirectory) :> _
         member __.IsPathRooted(path : string) = Path.IsPathRooted path
         member __.GetDirectoryName(path : string) = Path.GetDirectoryName path
         member __.GetFileName(path : string) = Path.GetFileName path
         member __.Combine(paths : string []) = Path.Combine paths
-        member __.GetRootDirectory () = rootPath
         member __.GetRandomDirectoryName () = Path.Combine(rootPath, mkUUID())
 
         member __.GetFileSize(path : string) = async {

@@ -279,7 +279,7 @@ type DefaultStoreSystemLogSchema(store : ICloudFileStore, ?logDirectoryPrefix : 
             store.Combine(logDir, sprintf "logs-%s%s" format logExtension) 
 
         member x.GetLogFiles() = async {
-            let! logDirectories = store.EnumerateDirectories (store.GetRootDirectory())
+            let! logDirectories = store.EnumerateRootDirectories()
             let! logFiles =
                 logDirectories 
                 |> Seq.filter (fun d -> let dn = store.GetFileName d in dn.StartsWith logDirectoryPrefix)

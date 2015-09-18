@@ -29,6 +29,8 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     abstract FileStore : ICloudFileStore
     /// Serializer implementation under test
     abstract Serializer : ISerializer
+    /// Specifies whether store implementation is expected to be case sensitive
+    abstract IsCaseSensitive : bool
 
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
@@ -43,6 +45,10 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     member self.``1. FileStore : UUID is not null or empty.`` () = 
         String.IsNullOrEmpty self.FileStore.Id
         |> shouldEqual false
+
+    [<Test>]
+    member self.``1. FileStore : check case sensitivity.`` () = 
+        self.FileStore.IsCaseSensitiveFileSystem |> shouldEqual self.IsCaseSensitive
 
     [<Test>]
     member self.``1. FileStore : Store instance should be serializable`` () =

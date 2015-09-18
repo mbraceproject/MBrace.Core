@@ -20,17 +20,20 @@ type ICloudFileStore =
     //  Region : Path operations
     //
 
-    /// Returns the root directory for cloud store instance.
-    abstract GetRootDirectory : unit -> string
+    /// Indicates whether the file system uses case sensitive paths
+    abstract IsCaseSensitiveFileSystem : bool
 
-    /// Generates a random, uniquely specified path to directory
-    abstract GetRandomDirectoryName : unit -> string
+    /// Gets the root directory for cloud store instance.
+    abstract RootDirectory : string
 
     /// Gets the default directory used by the current cluster.
     abstract DefaultDirectory : string
 
     /// Creates a copy of the file store implementation with updated default directory.
     abstract WithDefaultDirectory : directory:string -> ICloudFileStore
+
+    /// Generates a random, uniquely specified path to directory
+    abstract GetRandomDirectoryName : unit -> string
 
     /// <summary>
     ///     Returns the directory name for given path.
@@ -198,7 +201,7 @@ module CloudFileStoreUtils =
 
         /// Enumerate all directories inside root folder.
         member store.EnumerateRootDirectories () = async {
-            let dir = store.GetRootDirectory()
+            let dir = store.RootDirectory
             return! store.EnumerateDirectories(dir)
         }
 
@@ -346,9 +349,13 @@ type CloudFileInfo =
 /// operations in the cloud store.
 type CloudPath =
 
-    /// <summary>
-    ///     Gets the default directory in use by the runtime.
-    /// </summary>
+    /// Gets whether the current cloud file store is case sensitive.
+    static member IsCaseSensitive : Local<bool> = local {
+        let! store = Cloud.GetResource<ICloudFileStore> ()
+        return store.IsCaseSensitiveFileSystem
+    }
+
+    /// Gets the default directory in use by the runtime.
     static member DefaultDirectory : Local<string> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         return store.DefaultDirectory

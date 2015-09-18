@@ -442,6 +442,12 @@ type CloudPathClient internal (runtime : ThreadPoolRuntime) =
     /// </summary>
     member __.DefaultDirectory = store.DefaultDirectory
 
+    /// Gets the root directory used by the store instance.
+    member __.RootDirectory = store.RootDirectory
+
+    /// Gets whether the store instance uses case sensitive paths.
+    member __.IsCaseSensitive = store.IsCaseSensitiveFileSystem
+
     /// <summary>
     ///     Returns the directory name for given path.
     /// </summary>
