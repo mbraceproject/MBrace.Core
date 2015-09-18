@@ -28,7 +28,7 @@ type internal Trampoline private () =
     member private __.Reset () = bindCount <- 0
 
     /// Checks if continuation execution stack has reached specified threshold in the current thread.
-    static member internal IsBindThresholdReached () =
+    static member IsBindThresholdReached () =
         if isTrampolineEnabled then
             threadInstance.Value.IsBindThresholdReached()
         else
@@ -40,7 +40,7 @@ type internal Trampoline private () =
             threadInstance.Value.Reset()
 
     /// Queue a new work item to the .NET thread pool.
-    static member internal QueueWorkItem (f : unit -> unit) : unit =
+    static member QueueWorkItem (f : unit -> unit) : unit =
         let cb = new WaitCallback(fun _ -> Trampoline.Reset() ; f ())
         if not <| ThreadPool.QueueUserWorkItem cb then
             invalidOp "internal error: could not queue work item to thread pool."
