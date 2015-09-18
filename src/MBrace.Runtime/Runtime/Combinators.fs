@@ -285,7 +285,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionS
 /// <param name="additionalResources">Additional runtime resources supplied by the user.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
-let runStartJob (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionSource option)
+let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionSource option)
                         (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy : IFaultPolicy) (token : ICloudCancellationToken option) 
                         (additionalResources : ResourceRegistry option) (target : IWorkerRef option) 

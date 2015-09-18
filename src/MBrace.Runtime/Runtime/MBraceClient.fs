@@ -57,7 +57,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member c.StartJobAsync
+    member c.SubmitAsync
                  (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
                   ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, 
                   ?additionalResources : ResourceRegistry, ?taskName : string) : Async<CloudProcess<'T>> = async {
@@ -66,7 +66,7 @@ type MBraceClient (runtime : IRuntimeManager) =
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
-        return! Combinators.runStartJob runtime None assemblyIds taskName faultPolicy cancellationToken additionalResources target workflow
+        return! Combinators.runStartAsCloudProcess runtime None assemblyIds taskName faultPolicy cancellationToken additionalResources target workflow
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.StartJob
                  (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, 
                   ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
-        __.StartJobAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
+        __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
                                     ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
 
@@ -97,7 +97,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
-        let! proc = __.StartJobAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
+        let! proc = __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
         return! proc.AwaitResult()
     }
 
