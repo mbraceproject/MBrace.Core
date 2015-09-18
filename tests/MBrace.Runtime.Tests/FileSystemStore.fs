@@ -20,7 +20,7 @@ type ``Local FileSystemStore Tests`` () =
 
     override __.FileStore = fsStore :> _
     override __.Serializer = serializer :> _
-    override __.IsCaseSensitive = System.Environment.OSVersion.Platform = System.PlatformID.Unix
+    override __.IsCaseSensitive = platformId = System.PlatformID.Unix
     override __.Run(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunOnCurrentProcess(wf : Cloud<'T>) = imem.RunSynchronously wf
 

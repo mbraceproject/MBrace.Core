@@ -2,6 +2,7 @@
 
 open FsCheck
 
+open System
 open System.Collections.Generic
 open System.IO
 open System.Threading
@@ -17,6 +18,12 @@ module Utils =
     let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
     let isAppVeyorInstance = System.Environment.GetEnvironmentVariable("APPVEYOR") <> null
     let isTravisInstance = System.Environment.GetEnvironmentVariable("TRAVIS") <> null
+
+    /// detect platform id, properly giving MacOSX if so.
+    let platformId = 
+        match System.Environment.OSVersion.Platform with
+        | PlatformID.Unix when Directory.Exists("/Volumes") && Directory.Exists("/Applications") -> PlatformID.MacOSX
+        | p -> p
 
     let shouldfail (f : unit -> 'T) =
         let result = try let v = f () in Some v with _ -> None
