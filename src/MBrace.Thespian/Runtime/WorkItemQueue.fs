@@ -34,8 +34,8 @@ type internal Pickle =
 /// Can be used without need for assembly dependencies being loaded.
 type internal PickledWorkItem =
     {
-        /// Parent task entry as recorded in cluster.
-        TaskEntry : ICloudTaskCompletionSource
+        /// Parent process entry as recorded in cluster.
+        ProcEntry : ICloudProcessCompletionSource
         /// Unique work item identifier
         WorkItemId : CloudWorkItemId
         /// Work item type enumeration
@@ -129,7 +129,7 @@ type WorkItemLeaseToken internal (pWorkItem : PickledWorkItem, stateF : LocalSta
 
         member x.Size = pWorkItem.Pickle.Size
 
-        member x.TaskEntry = pWorkItem.TaskEntry
+        member x.ProcEntry = pWorkItem.ProcEntry
         
         member x.FaultInfo = faultInfo
         
@@ -176,7 +176,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
             let! pickle = localState.CreateResult(workItems, allowNewSifts = false, fileName = id)
             let mkPickle (index:int) (workItem: CloudWorkItem) =
                 {
-                    TaskEntry = workItem.TaskEntry
+                    ProcEntry = workItem.ProcEntry
                     WorkItemId = workItem.Id
                     Type = Type.prettyPrintUntyped workItem.Type
                     Target = workItem.TargetWorker
@@ -195,7 +195,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
             let! pickle = localState.CreateResult(workItem, allowNewSifts = isClientEnqueue, fileName = id)
             let item =
                 {
-                    TaskEntry = workItem.TaskEntry
+                    ProcEntry = workItem.ProcEntry
                     WorkItemId = workItem.Id
                     WorkItemType = workItem.WorkItemType
                     Type = Type.prettyPrintUntyped workItem.Type

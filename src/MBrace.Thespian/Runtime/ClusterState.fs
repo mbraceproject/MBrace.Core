@@ -35,8 +35,8 @@ type ClusterState =
         StoreCloudValueProvider : StoreCloudValueProvider
         /// Cluster worker monitor
         WorkerManager : WorkerManager
-        /// Cloud task instance
-        TaskManager : CloudTaskManager
+        /// Cloud process instance
+        ProcessManager : CloudProcessManager
         /// Cloud work item queue instance
         WorkItemQueue : WorkItemQueue
         /// Misc resources appended to runtime state
@@ -93,7 +93,7 @@ type ClusterState =
         let id = RuntimeId.Create()
         let resourceFactory = ResourceFactory.Create()
         let workerManager = WorkerManager.Create(localStateFactory)
-        let taskManager = CloudTaskManager.Create(localStateFactory)
+        let taskManager = CloudProcessManager.Create(localStateFactory)
         let workItemQueue = WorkItemQueue.Create(workerManager, localStateFactory)
 
         let resources = resource {
@@ -115,7 +115,7 @@ type ClusterState =
             ResourceFactory = resourceFactory
             StoreCloudValueProvider = cloudValueProvider
             WorkerManager = workerManager
-            TaskManager = taskManager
+            ProcessManager = taskManager
             WorkItemQueue = workItemQueue
             Resources = resources
             LocalStateFactory = localStateFactory
@@ -154,7 +154,7 @@ and [<AutoSerializable(false)>] private RuntimeManager (state : ClusterState) =
         member x.CounterFactory: ICloudCounterFactory = counterFactory :> _
         member x.ResultAggregatorFactory: ICloudResultAggregatorFactory = resultAggregatorFactory :> _
         member x.WorkerManager = state.WorkerManager :> _
-        member x.TaskManager = state.TaskManager :> _
+        member x.ProcessManager = state.ProcessManager :> _
         member x.WorkItemQueue: ICloudWorkItemQueue = state.WorkItemQueue :> _
 
         member x.ResetClusterState () = async { return raise <| new System.NotSupportedException("MBrace.Thespian: cluster reset not supported.") }

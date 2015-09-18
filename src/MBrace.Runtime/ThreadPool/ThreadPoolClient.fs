@@ -59,7 +59,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     member r.Resources = resources
     
     /// <summary>
-    ///     Converts a cloud workflow to an asynchronous workflow executed using parallelism
+    ///     Converts a cloud computation to an asynchronous workflow executed using parallelism
     ///     provided by the thread pool of the current process.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
@@ -73,7 +73,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
         Combinators.ToAsync(workflow, memoryEmulation, resources)
 
     /// <summary>
-    ///     Executes a cloud workflow using parallelism
+    ///     Executes a cloud computation using parallelism
     ///     provided by the thread pool of the current process.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
@@ -88,7 +88,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
         Combinators.RunSynchronously(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
 
     /// <summary>
-    ///     Executes a cloud workflow using parallelism
+    ///     Executes a cloud computation using parallelism
     ///     provided by the thread pool of the current process.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
@@ -101,7 +101,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
         r.RunSynchronously(workflow, ct, ?memoryEmulation = memoryEmulation, ?logger = logger, ?resources = resources)
 
     /// <summary>
-    ///     Executes a cloud workflow as a local task using parallelism
+    ///     Executes a cloud computation as a local task using parallelism
     ///     provided by the thread pool of the current process.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
@@ -116,7 +116,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
         Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
 
     /// <summary>
-    ///     Executes a cloud workflow as a local task using parallelism
+    ///     Executes a cloud computation as a local task using parallelism
     ///     provided by the thread pool of the current process.
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>

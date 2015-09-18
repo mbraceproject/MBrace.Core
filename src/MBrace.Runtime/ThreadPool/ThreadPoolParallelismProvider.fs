@@ -63,7 +63,7 @@ type ThreadPoolParallelismProvider private (processId : string, memoryEmulation 
             return ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
         }
 
-        member __.TaskId = sprintf "In-Memory MBrace computation %s" processId
+        member __.CloudProcessId = sprintf "In-Memory MBrace computation %s" processId
         member __.WorkItemId = sprintf "TheadId %d" <| System.Threading.Thread.CurrentThread.ManagedThreadId
         member __.Logger = logger
         member __.IsTargetedWorkerSupported = false
@@ -94,9 +94,9 @@ type ThreadPoolParallelismProvider private (processId : string, memoryEmulation 
         member __.ScheduleLocalParallel computations = Combinators.Parallel(mkNestedCts, MemoryEmulation.Shared, computations)
         member __.ScheduleLocalChoice computations = Combinators.Choice(mkNestedCts, MemoryEmulation.Shared, computations)
 
-        member __.ScheduleStartAsTask (workflow:Cloud<'T>, _ : IFaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
+        member __.ScheduleStartAsCloudProcess (workflow:Cloud<'T>, _ : IFaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             ignore taskName
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
             let! resources = Cloud.GetResourceRegistry()
-            return Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken) :> ICloudTask<'T>
+            return Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken) :> ICloudProcess<'T>
         }

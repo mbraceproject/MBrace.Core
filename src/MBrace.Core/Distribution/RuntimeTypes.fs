@@ -33,41 +33,41 @@ type IWorkerRef =
     /// Worker Process Id
     abstract ProcessId : int
 
-/// Denotes a task that is being executed in the cluster.
-type ICloudTask =
-    /// Unique task identifier
+/// Denotes a cloud process that is being executed in the cluster.
+type ICloudProcess =
+    /// Unique cloud process identifier
     abstract Id : string
     /// Gets the cancellation corresponding to the Task instance
     abstract CancellationToken : ICloudCancellationToken
-    /// Gets a TaskStatus enumeration indicating the current task state.
+    /// Gets a TaskStatus enumeration indicating the current cloud process state.
     abstract Status : TaskStatus
-    /// Gets a boolean indicating that the task has completed successfully.
+    /// Gets a boolean indicating that the cloud process has completed successfully.
     abstract IsCompleted : bool
-    /// Gets a boolean indicating that the task has completed with fault.
+    /// Gets a boolean indicating that the cloud process has completed with fault.
     abstract IsFaulted : bool
-    /// Gets a boolean indicating that the task has been canceled.
+    /// Gets a boolean indicating that the cloud process has been canceled.
     abstract IsCanceled : bool
-    /// Synchronously gets the task result, blocking until it completes.
+    /// Synchronously gets the cloud process result, blocking until it completes.
     abstract ResultBoxed : obj
     /// <summary>
-    ///     Awaits task for completion, returning its eventual result.
+    ///     Awaits cloud process for completion, returning its eventual result.
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
     abstract AwaitResultBoxed : ?timeoutMilliseconds:int -> Async<obj>
-    /// Returns the task result if completed or None if still pending.
+    /// Returns the cloud process result if completed or None if still pending.
     abstract TryGetResultBoxed : unit -> Async<obj option>
 
-/// Denotes a task that is being executed in the cluster.
-type ICloudTask<'T> =
-    inherit ICloudTask
+/// Denotes a cloud process that is being executed in the cluster.
+type ICloudProcess<'T> =
+    inherit ICloudProcess
     /// <summary>
-    ///     Awaits task for completion, returning its eventual result.
+    ///     Awaits cloud process for completion, returning its eventual result.
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
     abstract AwaitResult : ?timeoutMilliseconds:int -> Async<'T>
-    /// Returns the task result if completed or None if still pending.
+    /// Returns the cloud process result if completed or None if still pending.
     abstract TryGetResult : unit -> Async<'T option>
-    /// Synchronously gets the task result, blocking until it completes.
+    /// Synchronously gets the cloud process result, blocking until it completes.
     abstract Result : 'T
 
 

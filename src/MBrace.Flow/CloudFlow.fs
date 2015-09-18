@@ -19,7 +19,7 @@ type CloudFlow<'T> =
     abstract DegreeOfParallelism : int option
 
     /// <summary>
-    ///     Creates a cloud workflow that applies CloudFlow to provided evaluation functions.
+    ///     Creates a cloud computation that applies CloudFlow to provided evaluation functions.
     /// </summary>
     /// <param name="collectorFactory">Local in-memory collector factory.</param>
     /// <param name="projection">Projection function to intermediate result.</param>

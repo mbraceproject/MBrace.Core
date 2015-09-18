@@ -7,7 +7,7 @@ authors
 copyright
     Copyright 2015
 summary
-    The MBrace core library contains all cloud workflow essentials,
+    The MBrace core library contains all cloud computation essentials,
     libraries and local execution tools for authoring distributed code.
 licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
 projecturl http://www.m-brace.net/

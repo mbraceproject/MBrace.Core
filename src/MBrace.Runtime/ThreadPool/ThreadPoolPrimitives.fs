@@ -61,11 +61,11 @@ type ConsoleCloudLogger() =
     interface ICloudLogger with
         member __.Log msg = System.Console.WriteLine msg
 
-/// Cloud task implementation that wraps around System.Threading.Task for inmemory runtimes
+/// Cloud process implementation that wraps around System.Threading.Task for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
 type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
     member __.LocalTask = task
-    interface ICloudTask<'T> with
+    interface ICloudProcess<'T> with
         member __.Id = sprintf "System.Threading.Task %d" task.Id
         member __.AwaitResult(?timeoutMilliseconds:int) = async {
             try return! Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)

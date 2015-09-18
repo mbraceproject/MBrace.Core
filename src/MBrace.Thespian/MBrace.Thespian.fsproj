@@ -64,14 +64,14 @@
     <Compile Include="LocalState.fs" />
     <Compile Include="Primitives\ResourceFactory.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
-    <Compile Include="Primitives\TaskCompletionSource.fs" />
+    <Compile Include="Primitives\ProcessCompletionSource.fs" />
     <Compile Include="Primitives\Counter.fs" />
     <Compile Include="Primitives\ResultAggregator.fs" />
     <Compile Include="Primitives\CloudAtom.fs" />
     <Compile Include="Primitives\CloudQueue.fs" />
     <Compile Include="Primitives\CloudDictionary.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
-    <Compile Include="Runtime\TaskManager.fs" />
+    <Compile Include="Runtime\ProcessManager.fs" />
     <Compile Include="Runtime\WorkItemQueue.fs" />
     <Compile Include="Runtime\ClusterState.fs" />
     <Compile Include="Worker\Subscription.fs" />

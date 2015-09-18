@@ -35,7 +35,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
         member __.Dispose () = logger.Dispose()
         
     interface IParallelismProvider with
-        member __.TaskId = currentWorkItem.TaskEntry.Id
+        member __.CloudProcessId = currentWorkItem.ProcEntry.Id
         member __.WorkItemId = currentWorkItem.Id.ToString()
 
         member __.FaultPolicy = faultPolicy
@@ -57,7 +57,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
                 // force threadpool parallelism semantics
                 return! Combinators.Parallel(mkNestedCts false, MemoryEmulation.Shared, Seq.map fst computations)
             else
-                return! Combinators.runParallel runtime currentWorkItem.TaskEntry faultPolicy computations
+                return! Combinators.runParallel runtime currentWorkItem.ProcEntry faultPolicy computations
         }
 
         member __.ScheduleChoice (computations : seq<#Cloud<'T option> * IWorkerRef option>) = cloud {
@@ -65,15 +65,15 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
                 // force threadpool parallelism semantics
                 return! Combinators.Choice(mkNestedCts false, MemoryEmulation.Shared, Seq.map fst computations)
             else
-                return! Combinators.runChoice runtime currentWorkItem.TaskEntry faultPolicy computations
+                return! Combinators.runChoice runtime currentWorkItem.ProcEntry faultPolicy computations
         }
 
-        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy : IFaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
+        member __.ScheduleStartAsCloudProcess(workflow : Cloud<'T>, faultPolicy : IFaultPolicy, ?cancellationToken : ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             if isForcedLocalParallelism then
-                return invalidOp <| sprintf "cannot initialize cloud task when evaluating using local semantics."
+                return invalidOp <| sprintf "cannot initialize cloud process when evaluating using local semantics."
             else
-                let! task = Combinators.runStartAsCloudTask runtime (Some currentWorkItem.TaskEntry) currentWorkItem.TaskEntry.Info.Dependencies taskName faultPolicy cancellationToken currentWorkItem.TaskEntry.Info.AdditionalResources target workflow 
-                return task :> ICloudTask<'T>
+                let! task = Combinators.runStartAsCloudProcess runtime (Some currentWorkItem.ProcEntry) currentWorkItem.ProcEntry.Info.Dependencies taskName faultPolicy cancellationToken currentWorkItem.ProcEntry.Info.AdditionalResources target workflow 
+                return task :> ICloudProcess<'T>
         }
 
         member __.GetAvailableWorkers () = async {

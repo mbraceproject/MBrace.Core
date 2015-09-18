@@ -14,8 +14,8 @@ type CloudWorkItemId = Guid
 
 /// Cloud work item creation metadata
 type CloudWorkItemType =
-    /// Work item associated with a root task creation.
-    | TaskRoot
+    /// Work item associated with a root cloud process creation.
+    | ProcRoot
     /// Work item associated with the child computation of a Parallel workflow.
     | ParallelChild of index:int * size:int
     /// Work item associated with the child computation of a Choice workflow.
@@ -46,8 +46,8 @@ type CloudWorkItemFaultInfo =
 [<NoEquality; NoComparison>]
 type CloudWorkItem = 
     {
-        /// Parent task entry for work item
-        TaskEntry : ICloudTaskCompletionSource
+        /// Parent cloud process entry for work item
+        ProcEntry : ICloudProcessCompletionSource
         /// Cloud work item unique identifier
         Id : CloudWorkItemId
         /// Work item workflow 'return type';
@@ -70,7 +70,7 @@ type CloudWorkItem =
     /// <summary>
     ///     Create a cloud work item out of given cloud workflow and continuations.
     /// </summary>
-    /// <param name="taskEntry">Parent task entry.</param>
+    /// <param name="procEntry">Parent cloud process entry.</param>
     /// <param name="token">Cancellation token for work item.</param>
     /// <param name="faultPolicy">Fault policy for work item.</param>
     /// <param name="scont">Success continuation.</param>
@@ -79,7 +79,7 @@ type CloudWorkItem =
     /// <param name="workflow">Workflow to be executed in work item.</param>
     /// <param name="target">Declared target worker reference for computation to be executed.</param>
     /// <param name="fcont">Fault continuation. Defaults to exception continuation if not specified.</param>
-    static member Create (taskEntry : ICloudTaskCompletionSource, token : ICloudCancellationToken, faultPolicy : IFaultPolicy, 
+    static member Create (procEntry : ICloudProcessCompletionSource, token : ICloudCancellationToken, faultPolicy : IFaultPolicy, 
                             scont : ExecutionContext -> 'T -> unit, 
                             econt : ExecutionContext -> ExceptionDispatchInfo -> unit,
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
@@ -93,7 +93,7 @@ type CloudWorkItem =
             Cloud.StartWithContinuations(workflow, cont, ctx)
 
         {
-            TaskEntry = taskEntry
+            ProcEntry = procEntry
             Id = workItem
             Type = typeof<'T>
             WorkItemType = workItemType
@@ -106,8 +106,8 @@ type CloudWorkItem =
 
 /// Cloud work item lease token given to workers that dequeue it
 type ICloudWorkItemLeaseToken =
-    /// Parent Cloud Task info
-    abstract TaskEntry : ICloudTaskCompletionSource
+    /// Parent cloud process info
+    abstract ProcEntry : ICloudProcessCompletionSource
     /// Cloud work item identifier
     abstract Id : CloudWorkItemId
     /// Declared target worker for work item
