@@ -187,7 +187,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                 let! current = Cloud.CurrentWorker
                 // targeted work items should fail regardless of fault policy
                 return! 
-                    Cloud.StartCloudProcess(cloud { 
+                    Cloud.StartAsCloudProcess(cloud { 
                         do! f.Force true 
                         do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetries())
             }

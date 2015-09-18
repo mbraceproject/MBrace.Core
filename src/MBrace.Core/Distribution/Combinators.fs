@@ -223,7 +223,7 @@ type Cloud =
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Specify cancellation token for the cloud process. Defaults to no cancellation token.</param>
     /// <param name="procName">Optional user-specified name for the cloud process.</param>
-    static member StartCloudProcess(computation : Cloud<'T>, ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
+    static member StartAsCloudProcess(computation : Cloud<'T>, ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
         return! runtime.ScheduleStartAsCloudProcess(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = procName)
