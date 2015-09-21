@@ -8,6 +8,7 @@ open NUnit.Framework
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Library.Protected
 open MBrace.Runtime
 open MBrace.Core.Tests
 open MBrace.Thespian
@@ -215,3 +216,25 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
             t.Result |> shouldBe (function Some { NumberOfFaults = 1 } -> true | _ -> false))
+
+    [<Test>]
+    member __.``2. Fault Tolerance : protected parallel workflows`` () =
+        repeat(fun () ->
+            let runtime = session.Runtime
+            let f = runtime.Store.Atom.Create(false)
+            let task i = cloud {
+                do! f.Force true
+                do! Cloud.Sleep 5000
+                return i
+            }
+
+            let t =
+                [for i in 1 .. 10 -> task i]
+                |> Cloud.ProtectedParallel
+                |> runtime.CreateTask
+
+            while not f.Value do Thread.Sleep 1000
+            session.Chaos()
+            t.Result 
+            |> Array.forall (function FaultException _ -> true | _ -> false)
+            |> shouldEqual true)

@@ -90,6 +90,7 @@
     <Compile Include="Library\CloudCollectionUtils.fs" />
     <Compile Include="Library\PersistedValue.fs" />
     <Compile Include="Library\PersistedSequence.fs" />
+    <Compile Include="Library\ProtectedParallel.fs" />
     <Compile Include="Library\DomainLocal.fs" />
     <None Include="paket.template" />
   </ItemGroup>
