@@ -42,7 +42,7 @@ let private extractWorkerIds (runtime : IRuntimeManager) (computations : (#Cloud
 /// <param name="parentProc">Parent cloud process info object.</param>
 /// <param name="faultPolicy">Current cloud work item being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionSource) 
+let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry) 
                 (faultPolicy : IFaultPolicy) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
 
     asyncFromContinuations(fun ctx cont -> async {
@@ -175,7 +175,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletio
 /// <param name="parentProc">Parent cloud process info object.</param>
 /// <param name="faultPolicy">Current cloud work item being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionSource) 
+let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry) 
                 (faultPolicy : IFaultPolicy) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
 
     asyncFromContinuations(fun ctx cont -> async {
@@ -285,7 +285,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionS
 /// <param name="additionalResources">Additional runtime resources supplied by the user.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
-let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProcessCompletionSource option)
+let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry option)
                         (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy : IFaultPolicy) (token : ICloudCancellationToken option) 
                         (additionalResources : ResourceRegistry option) (target : IWorkerRef option) 

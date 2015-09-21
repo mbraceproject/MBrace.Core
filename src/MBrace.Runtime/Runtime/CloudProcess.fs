@@ -122,7 +122,7 @@ type CloudProcess internal () =
     member p.ShowInfo () : unit = Console.WriteLine(p.GetInfo())
 
 /// Represents a cloud computation that is being executed in the cluster.
-and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal (source : ICloudProcessCompletionSource, runtime : IRuntimeManager) =
+and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal (source : ICloudProcessEntry, runtime : IRuntimeManager) =
     inherit CloudProcess()
 
     let [<DataMember(Name = "ProcessCompletionSource")>] entry = source
@@ -255,7 +255,7 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
     ///     Fetches cloud process by provided cloud process id.
     /// </summary>
     /// <param name="procId">Cloud process identifier.</param>
-    member self.GetProcessBySource (entry : ICloudProcessCompletionSource) = async {
+    member self.GetProcessBySource (entry : ICloudProcessEntry) = async {
         let! assemblies = runtime.AssemblyManager.DownloadAssemblies(entry.Info.Dependencies)
         let loadInfo = runtime.AssemblyManager.LoadAssemblies(assemblies)
         for li in loadInfo do

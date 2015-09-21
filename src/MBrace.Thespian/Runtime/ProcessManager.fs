@@ -26,7 +26,7 @@ type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
     interface ICloudProcessManager with
         member x.StartProcess(info : CloudProcessInfo) = async {
             let! te = ref <!- fun ch -> CreateProcessEntry(info, ch)
-            return te :> ICloudProcessCompletionSource
+            return te :> ICloudProcessEntry
         }
 
         member x.ClearProcess(procId: string): Async<unit> = async {
@@ -38,12 +38,12 @@ type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
             return! ref <!- ClearAllProcesses
         }
         
-        member x.GetAllProcesses(): Async<ICloudProcessCompletionSource []> = async {
+        member x.GetAllProcesses(): Async<ICloudProcessEntry []> = async {
             let! entries = ref <!- GetAllProcesses
             return entries |> Array.map unbox
         }
         
-        member x.TryGetProcessById (procId: string): Async<ICloudProcessCompletionSource option> = async {
+        member x.TryGetProcessById (procId: string): Async<ICloudProcessEntry option> = async {
             let! result = ref <!- fun ch -> TryGetProcessCompletionSourceById(procId, ch)
             return result |> Option.map unbox
         }

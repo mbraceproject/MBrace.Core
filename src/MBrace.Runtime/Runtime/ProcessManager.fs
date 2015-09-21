@@ -106,7 +106,7 @@ type CloudProcessState =
     }
 
 /// Cloud process completion source abstraction
-type ICloudProcessCompletionSource =
+type ICloudProcessEntry =
     /// Unique Cloud Task identifier
     abstract Id : string
     /// Gets cloud process metadata
@@ -161,18 +161,18 @@ type ICloudProcessManager =
     ///     Request a new cloud process from cluster state.
     /// </summary>
     /// <param name="info">User-supplied cloud process metadata.</param>
-    abstract StartProcess : info:CloudProcessInfo -> Async<ICloudProcessCompletionSource>
+    abstract StartProcess : info:CloudProcessInfo -> Async<ICloudProcessEntry>
 
     /// <summary>
     ///     Gets a cloud process entry for provided cloud process id.
     /// </summary>
     /// <param name="procId">Task id to be looked up.</param>
-    abstract TryGetProcessById : procId:string -> Async<ICloudProcessCompletionSource option>
+    abstract TryGetProcessById : procId:string -> Async<ICloudProcessEntry option>
 
     /// <summary>
     ///     Asynchronously fetches cloud process execution state for all tasks currently in cloud process.
     /// </summary>
-    abstract GetAllProcesses : unit -> Async<ICloudProcessCompletionSource []>
+    abstract GetAllProcesses : unit -> Async<ICloudProcessEntry []>
 
     /// <summary>
     ///     Deletes cloud process info of given id.

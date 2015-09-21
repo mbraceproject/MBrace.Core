@@ -89,7 +89,7 @@ type ActorCompletionSource private (localStateF : LocalStateFactory, source : Ac
     member __.Id = id
     member __.Info = info
 
-    interface ICloudProcessCompletionSource with
+    interface ICloudProcessEntry with
         member x.Id = id
         member x.AwaitResult(): Async<CloudProcessResult> = async {
             let localState = localStateF.Value

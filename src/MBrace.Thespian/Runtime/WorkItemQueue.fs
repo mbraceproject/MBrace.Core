@@ -35,7 +35,7 @@ type internal Pickle =
 type internal PickledWorkItem =
     {
         /// Parent process entry as recorded in cluster.
-        ProcEntry : ICloudProcessCompletionSource
+        ProcEntry : ICloudProcessEntry
         /// Unique work item identifier
         WorkItemId : CloudWorkItemId
         /// Work item type enumeration
