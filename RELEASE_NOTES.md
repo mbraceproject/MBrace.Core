@@ -1,3 +1,8 @@
+#### 0.10.10-alpha
+* Rename CloudTask<_> to CloudProcess<_>.
+* Fix Vagabond issue in Mixed Mode assemblies.
+* Implement MBrace.Library.Protected combinators.
+
 #### 0.10.9-alpha
 * Refactor FaultPolicy using interfaces.
 * Implement Cloud.IsPreviouslyFaulted property.
