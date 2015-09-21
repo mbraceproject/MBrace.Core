@@ -368,7 +368,7 @@ type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, workI
     interface ICloudWorkItemLogger with
         member x.Dispose() : unit = (writer :> IDisposable).Dispose()
         member x.Log(message : string) : unit =
-            let entry = new CloudLogEntry(workItem.ProcEntry.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
+            let entry = new CloudLogEntry(workItem.Process.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
             writer.LogEntry(entry)
 
 /// Creates a schema for writing and fetching log files for specific Cloud tasks
@@ -395,7 +395,7 @@ type DefaultStoreCloudLogSchema(store : ICloudFileStore) =
         member x.GetLogFilePath(workItem: CloudWorkItem): string = 
             let timeStamp = DateTime.UtcNow
             let format = timeStamp.ToString("yyyyMMddTHHmmssfffZ")
-            store.Combine(getProcDir workItem.ProcEntry.Id, sprintf "workItemLog-%s-%s.json" (workItem.Id.ToBase32String()) format)
+            store.Combine(getProcDir workItem.Process.Id, sprintf "workItemLog-%s-%s.json" (workItem.Id.ToBase32String()) format)
         
         member x.GetLogFilesByProcess(procId: string): Async<string []> = async {
             let container = getProcDir procId

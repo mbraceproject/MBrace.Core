@@ -79,7 +79,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                     | Some workItemToken ->
                         // Successfully dequeued work item, run it.
                         if workItemToken.WorkItemType = CloudWorkItemType.ProcRoot then
-                            do! workItemToken.ProcEntry.DeclareStatus Dequeued
+                            do! workItemToken.Process.DeclareStatus Dequeued
 
                         let jc = Interlocked.Increment &currentWorkItemCount
                         do! runtime.WorkerManager.IncrementWorkItemCount workerId
@@ -90,10 +90,10 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                         let! _ = Async.StartChild <| async { 
                             try
                                 try
-                                    let! assemblies = runtime.AssemblyManager.DownloadAssemblies workItemToken.ProcEntry.Info.Dependencies
+                                    let! assemblies = runtime.AssemblyManager.DownloadAssemblies workItemToken.Process.Info.Dependencies
                                     do! workItemEvaluator.Evaluate (assemblies, workItemToken)
                                 with e ->
-                                    do! workItemToken.ProcEntry.IncrementFaultedWorkItemCount()
+                                    do! workItemToken.Process.IncrementFaultedWorkItemCount()
                                     do! workItemToken.DeclareFaulted(ExceptionDispatchInfo.Capture e)
                                     logger.Logf LogLevel.Error "Work item '%O' faulted at initialization:\n%A" workItemToken.Id e
                                     return ()

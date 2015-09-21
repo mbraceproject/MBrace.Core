@@ -46,14 +46,14 @@ type CloudWorkItemFaultInfo =
 [<NoEquality; NoComparison>]
 type CloudWorkItem = 
     {
-        /// Parent cloud process entry for work item
-        ProcEntry : ICloudProcessEntry
         /// Cloud work item unique identifier
         Id : CloudWorkItemId
         /// Work item workflow 'return type';
         /// Work items have no return type per se but this indicates the return type of 
         /// the initial computation that is being passed to its continuations.
         Type : Type
+        /// Parent cloud process entry for work item
+        Process : ICloudProcessEntry
         /// Work item creation metadata
         WorkItemType : CloudWorkItemType
         /// Declared target worker for work item
@@ -93,7 +93,7 @@ type CloudWorkItem =
             Cloud.StartWithContinuations(workflow, cont, ctx)
 
         {
-            ProcEntry = procEntry
+            Process = procEntry
             Id = workItem
             Type = typeof<'T>
             WorkItemType = workItemType
@@ -107,7 +107,7 @@ type CloudWorkItem =
 /// Cloud work item lease token given to workers that dequeue it
 type ICloudWorkItemLeaseToken =
     /// Parent cloud process info
-    abstract ProcEntry : ICloudProcessEntry
+    abstract Process : ICloudProcessEntry
     /// Cloud work item identifier
     abstract Id : CloudWorkItemId
     /// Declared target worker for work item

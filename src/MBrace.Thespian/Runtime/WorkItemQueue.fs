@@ -35,7 +35,7 @@ type internal Pickle =
 type internal PickledWorkItem =
     {
         /// Parent process entry as recorded in cluster.
-        ProcEntry : ICloudProcessEntry
+        Process : ICloudProcessEntry
         /// Unique work item identifier
         WorkItemId : CloudWorkItemId
         /// Work item type enumeration
@@ -129,7 +129,7 @@ type WorkItemLeaseToken internal (pWorkItem : PickledWorkItem, stateF : LocalSta
 
         member x.Size = pWorkItem.Pickle.Size
 
-        member x.ProcEntry = pWorkItem.ProcEntry
+        member x.Process = pWorkItem.Process
         
         member x.FaultInfo = faultInfo
         
@@ -176,7 +176,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
             let! pickle = localState.CreateResult(workItems, allowNewSifts = false, fileName = id)
             let mkPickle (index:int) (workItem: CloudWorkItem) =
                 {
-                    ProcEntry = workItem.ProcEntry
+                    Process = workItem.Process
                     WorkItemId = workItem.Id
                     Type = Type.prettyPrintUntyped workItem.Type
                     Target = workItem.TargetWorker
@@ -195,8 +195,8 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
             let! pickle = localState.CreateResult(workItem, allowNewSifts = isClientEnqueue, fileName = id)
             let item =
                 {
-                    ProcEntry = workItem.ProcEntry
                     WorkItemId = workItem.Id
+                    Process = workItem.Process
                     WorkItemType = workItem.WorkItemType
                     Type = Type.prettyPrintUntyped workItem.Type
                     Target = workItem.TargetWorker

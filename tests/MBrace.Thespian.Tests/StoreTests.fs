@@ -22,7 +22,7 @@ type ``MBrace Thespian FileStore Tests`` () =
 
     override __.FileStore = session.Runtime.GetResource<ICloudFileStore>()
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
-    override __.IsCaseSensitive = System.PlatformID.Unix = System.PlatformID.Unix
+    override __.IsCaseSensitive = platformId = System.PlatformID.Unix
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
