@@ -41,7 +41,7 @@ module WorkItemEvaluator =
         use! distributionProvider = ParallelismProvider.Create(currentWorker, manager, workItem)
         let resources = resource {
             yield! manager.ResourceRegistry
-            match workItem.TaskEntry.Info.AdditionalResources with Some r -> yield! r | None -> ()
+            match workItem.ProcEntry.Info.AdditionalResources with Some r -> yield! r | None -> ()
             yield jem
             yield currentWorker
             yield manager
@@ -124,12 +124,12 @@ module WorkItemEvaluator =
         match workItemResult with
         | Choice2Of2 e ->
             // failure to deserialize work item triggers special error handling;
-            // trigger root task as faulted without consulting fault policy.
+            // trigger root cloud process as faulted without consulting fault policy.
             logger.Logf LogLevel.Error "Failed to deserialize work item '%O':\n%O" workItemLease.Id e
             let e = new FaultException(sprintf "Failed to deserialize work item '%O'." workItemLease.Id, e)
             let edi = ExceptionDispatchInfo.Capture e
-            do! workItemLease.TaskEntry.DeclareStatus Faulted
-            let! _ = workItemLease.TaskEntry.TrySetResult(TaskResult.Exception edi, currentWorker)
+            do! workItemLease.ProcEntry.DeclareStatus Faulted
+            let! _ = workItemLease.ProcEntry.TrySetResult(CloudProcessResult.Exception edi, currentWorker)
             do! workItemLease.DeclareCompleted()
 
         | Choice1Of2 workItem ->
@@ -137,17 +137,17 @@ module WorkItemEvaluator =
             | WorkerDeathWhileProcessingWorkItem _ ->
                 // Workers that died while processing work items almost certainly were not able to decrement
                 // the active worker counter; use this as an interim fix, however it is not entirely correct.
-                // need to think of a better design which should be incorporated in the task/workItem hierarchies refactoring.
-                do! workItem.TaskEntry.IncrementFaultedWorkItemCount()
+                // need to think of a better design which should be incorporated in the cloud process/workItem hierarchies refactoring.
+                do! workItem.ProcEntry.IncrementFaultedWorkItemCount()
             | _ -> ()
 
-            if workItem.WorkItemType = CloudWorkItemType.TaskRoot then
-                match workItem.TaskEntry.Info.Name with
-                | None -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." workItem.TaskEntry.Id workItem.TaskEntry.Info.ReturnTypeName
-                | Some name -> logger.Logf LogLevel.Info "Starting cloud task '%s' of type '%s'." name workItem.TaskEntry.Info.ReturnTypeName
-                do! workItem.TaskEntry.DeclareStatus Running
+            if workItem.WorkItemType = CloudWorkItemType.ProcRoot then
+                match workItem.ProcEntry.Info.Name with
+                | None -> logger.Logf LogLevel.Info "Starting cloud process '%s' of type '%s'." workItem.ProcEntry.Id workItem.ProcEntry.Info.ReturnTypeName
+                | Some name -> logger.Logf LogLevel.Info "Starting cloud process '%s' of type '%s'." name workItem.ProcEntry.Info.ReturnTypeName
+                do! workItem.ProcEntry.DeclareStatus Running
 
-            do! workItem.TaskEntry.IncrementWorkItemCount()
+            do! workItem.ProcEntry.IncrementWorkItemCount()
             let sw = Stopwatch.StartNew()
             let! result = runWorkItemAsync manager currentWorker workItemLease.FaultInfo workItem |> Async.Catch
             sw.Stop()
@@ -155,14 +155,14 @@ module WorkItemEvaluator =
             match result with
             | Choice1Of2 () -> 
                 logger.Logf LogLevel.Info "Completed work item '%O' after %O" workItem.Id sw.Elapsed
-                do! workItem.TaskEntry.IncrementCompletedWorkItemCount()
+                do! workItem.ProcEntry.IncrementCompletedWorkItemCount()
                 do! workItemLease.DeclareCompleted ()
 
             | Choice2Of2 e ->
                 logger.Logf LogLevel.Error "Faulted work item '%O' after %O\n%O" workItem.Id sw.Elapsed e
                 do! workItemLease.DeclareFaulted (ExceptionDispatchInfo.Capture e)
-                // declare work item faulted to task manager
-                do! workItemLease.TaskEntry.IncrementFaultedWorkItemCount ()
+                // declare work item faulted to cloud process manager
+                do! workItemLease.ProcEntry.IncrementFaultedWorkItemCount ()
     }
        
 
@@ -219,7 +219,7 @@ type AppDomainWorkItemEvaluator private (configInitializer : DomainLocal<IRuntim
                 return! WorkItemEvaluator.loadAndRunWorkItemAsync manager currentWorker assemblies workItemToken 
             }
 
-            return! pool.EvaluateAsync(workItemToken.TaskEntry.Info.Dependencies, eval ())
+            return! pool.EvaluateAsync(workItemToken.ProcEntry.Info.Dependencies, eval ())
         }
 
     interface IDisposable with

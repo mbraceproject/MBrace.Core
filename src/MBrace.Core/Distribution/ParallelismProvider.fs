@@ -11,7 +11,7 @@ open MBrace.Core
 type IParallelismProvider =
 
     /// Get cloud process identifier
-    abstract TaskId : string
+    abstract CloudProcessId : string
     /// Get cloud work item identifier
     abstract WorkItemId : string
     /// Get all available workers in cluster
@@ -72,11 +72,11 @@ type IParallelismProvider =
     abstract ScheduleLocalChoice : computations:seq<Local<'T option>> -> Local<'T option>
 
     /// <summary>
-    ///     Start a new computation as a cloud task. 
+    ///     Start a new computation as a cloud process. 
     /// </summary>
     /// <param name="workflow">Workflow to be executed.</param>
     /// <param name="faultPolicy">Fault policy for new task.</param>
     /// <param name="cancellationToken">Cancellation token for task. Defaults to no cancellation token.</param>
     /// <param name="target">Explicitly specify a target worker for execution.</param>
-    /// <param name="taskName">Optional user-specified name for task.</param>
-    abstract ScheduleStartAsTask : workflow:Cloud<'T> * faultPolicy:IFaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef * ?taskName:string -> Cloud<ICloudTask<'T>>
+    /// <param name="procName">Optional user-specified name for task.</param>
+    abstract ScheduleStartAsCloudProcess : workflow:Cloud<'T> * faultPolicy:IFaultPolicy * ?cancellationToken:ICloudCancellationToken * ?target:IWorkerRef * ?procName:string -> Cloud<ICloudProcess<'T>>

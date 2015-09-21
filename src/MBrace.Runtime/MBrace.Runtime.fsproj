@@ -84,14 +84,14 @@
     <Compile Include="Runtime\SystemLogs.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\Primitives.fs" />
-    <Compile Include="Runtime\TaskManager.fs" />
+    <Compile Include="Runtime\ProcessManager.fs" />
     <Compile Include="Runtime\CloudWorkItem.fs" />
     <Compile Include="Runtime\AssemblyManager.fs" />
     <Compile Include="Runtime\LogManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />
     <Compile Include="Runtime\WorkerRef.fs" />
-    <Compile Include="Runtime\CloudTask.fs" />
+    <Compile Include="Runtime\CloudProcess.fs" />
     <Compile Include="Runtime\Combinators.fs" />
     <Compile Include="Runtime\ParallelismProvider.fs" />
     <Compile Include="Runtime\WorkItemEvaluator.fs" />

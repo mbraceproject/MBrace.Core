@@ -164,9 +164,9 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
-        public void GetProcessId()
+        public void GetCloudProcessId()
         {
-            var result = this.Run(Cloud.GetProcessId());
+            var result = this.Run(Cloud.GetCloudProcessId());
             Assert.True(!String.IsNullOrEmpty(result));
         }
 
@@ -192,12 +192,12 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
-        public void AwaitTask()
+        public void AwaitCloudProcess()
         {
             var workflow = Cloud.New(() =>
                 {
                     var task = Task.FromResult(42);
-                    return Cloud.AwaitTask(task);
+                    return Cloud.AwaitCloudProcess(task);
                 });
 
             var result = this.Run(workflow);

@@ -105,15 +105,15 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDisk)
                 c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
-                let taskF () = cloud {
+                let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
                     obj.ReferenceEquals(v1,v2) |> shouldEqual true
                     c.IsCachedLocally |> shouldEqual true
                 }
 
-                let! task = Cloud.StartAsTask(taskF())
-                return! task.AwaitResult()
+                let! job = Cloud.StartAsCloudProcess(jobF())
+                return! job.AwaitResult()
             } |> runOnCloud
 
     [<Test>]
@@ -123,15 +123,15 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDiskSerialized)
                 c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDiskSerialized
-                let taskF () = cloud {
+                let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
                     c.IsCachedLocally |> shouldEqual true
                     obj.ReferenceEquals(v1,v2) |> shouldEqual false
                 }
 
-                let! task = Cloud.StartAsTask(taskF())
-                return! task.AwaitResult()
+                let! job = Cloud.StartAsCloudProcess(jobF())
+                return! job.AwaitResult()
 
             } |> runOnCloud
 
@@ -142,15 +142,15 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
                 c.StorageLevel |> shouldEqual StorageLevel.Disk
-                let taskF () = cloud {
+                let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
                     c.IsCachedLocally |> shouldEqual false
                     obj.ReferenceEquals(v1,v2) |> shouldEqual false
                 }
 
-                let! task = Cloud.StartAsTask(taskF())
-                return! task.AwaitResult()
+                let! job = Cloud.StartAsCloudProcess(jobF())
+                return! job.AwaitResult()
             } |> runOnCloud
 
     [<Test>]
@@ -238,8 +238,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let size = 10000
             let! value = CloudValue.New<obj>([|1 .. size|], storageLevel = level)
             let value' = value.Cast<int[]>() :?> CloudArray<int>
-            let! t = Cloud.StartAsTask(cloud { value'.Length |> shouldEqual size })
-            return! t.AwaitResult()
+            let! job = Cloud.StartAsCloudProcess(cloud { value'.Length |> shouldEqual size })
+            return! job.AwaitResult()
         } |> runOnCloud
 
 
@@ -251,8 +251,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 let! cv = CloudValue.New value
                 do! CloudValue.Delete cv
                 do! Cloud.Sleep 2000
-                let! t = Cloud.StartAsTask(cloud { return! cv.GetValueAsync() })
-                return! t.AwaitResult()
+                let! job = Cloud.StartAsCloudProcess(cloud { return! cv.GetValueAsync() })
+                return! job.AwaitResult()
             } |> runOnCloud
 
         |> shouldFailwith<_,System.ObjectDisposedException>
@@ -263,7 +263,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         cloud {
             let! cv = CloudValue.New value
             let isCacheable = cv.StorageLevel.HasFlag StorageLevel.Memory
-            let! t = Cloud.StartAsTask(cloud {
+            let! job = Cloud.StartAsCloudProcess(cloud {
                 let! cv' = CloudValue.TryGetValueById cv.Id
                 let cv' = CloudValue.Cast<int list> cv
                 cv'.Id |> shouldEqual cv.Id
@@ -275,7 +275,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 v' |> shouldEqual v
             })
 
-            return! t.AwaitResult()
+            return! job.AwaitResult()
         } |> runOnCloud
 
     [<Test>]
@@ -286,10 +286,10 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let id = cv.Id
             do! CloudValue.Delete cv
             do! Cloud.Sleep 2000
-            let! t = Cloud.StartAsTask(cloud {
+            let! job = Cloud.StartAsCloudProcess(cloud {
                 return! CloudValue.TryGetValueById id
             })
-            return! t.AwaitResult()
+            return! job.AwaitResult()
 
         } |> runOnCloud |> shouldEqual None
 
@@ -300,10 +300,10 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         cloud {
             let! cv1 = CloudValue.New value
             let! cv2 = CloudValue.New value'
-            let! t = Cloud.StartAsTask(cloud {
+            let! job = Cloud.StartAsCloudProcess(cloud {
                 let! allValues = CloudValue.GetAllValues()
                 allValues |> Array.exists (fun v -> v.Id = cv1.Id && cv1.Value = (v.Cast<int list>()).Value) |> shouldEqual true
                 allValues |> Array.exists (fun v -> v.Id = cv2.Id && cv2.Value = (v.Cast<int list>()).Value) |> shouldEqual true
             })
-            return! t.AwaitResult()
+            return! job.AwaitResult()
         } |> runOnCloud
