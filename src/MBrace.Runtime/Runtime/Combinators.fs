@@ -349,7 +349,7 @@ let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProce
         let ccont ctx c = setResult ctx (Cancelled c) CloudProcessStatus.Canceled
         let fcont ctx e = setResult ctx (Exception e) CloudProcessStatus.Faulted
 
-        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.ProcRoot, computation, fcont = fcont, ?target = target)
+        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.ProcessRoot, computation, fcont = fcont, ?target = target)
         do! runtime.WorkItemQueue.Enqueue(workItem, isClientSideEnqueue = Option.isNone parentProc)
         runtime.SystemLogger.Logf LogLevel.Info "Posted CloudProcess<%s> '%s'." tcs.Info.ReturnTypeName tcs.Id
         return new CloudProcess<'T>(tcs, runtime)

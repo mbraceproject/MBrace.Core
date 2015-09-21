@@ -15,7 +15,7 @@ type CloudWorkItemId = Guid
 /// Cloud work item creation metadata
 type CloudWorkItemType =
     /// Work item associated with a root cloud process creation.
-    | ProcRoot
+    | ProcessRoot
     /// Work item associated with the child computation of a Parallel workflow.
     | ParallelChild of index:int * size:int
     /// Work item associated with the child computation of a Choice workflow.

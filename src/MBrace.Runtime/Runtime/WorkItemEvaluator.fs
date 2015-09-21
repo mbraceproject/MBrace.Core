@@ -141,7 +141,7 @@ module WorkItemEvaluator =
                 do! workItem.Process.IncrementFaultedWorkItemCount()
             | _ -> ()
 
-            if workItem.WorkItemType = CloudWorkItemType.ProcRoot then
+            if workItem.WorkItemType = CloudWorkItemType.ProcessRoot then
                 match workItem.Process.Info.Name with
                 | None -> logger.Logf LogLevel.Info "Starting cloud process '%s' of type '%s'." workItem.Process.Id workItem.Process.Info.ReturnTypeName
                 | Some name -> logger.Logf LogLevel.Info "Starting cloud process '%s' of type '%s'." name workItem.Process.Info.ReturnTypeName
