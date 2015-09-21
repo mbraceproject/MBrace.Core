@@ -663,10 +663,10 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     return! CloudAtom.Read count
                 }
 
-                let! proc = Cloud.StartAsCloudProcess(tworkflow)
+                let! cloudProcess = Cloud.StartAsCloudProcess(tworkflow)
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 0
-                return! Cloud.AwaitCloudProcess proc
+                return! Cloud.AwaitCloudProcess cloudProcess
             } |> runOnCloud |> Choice.shouldEqual 1)
 
     [<Test>]
@@ -681,14 +681,14 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     return invalidOp "failure"
                 }
 
-                let! proc = Cloud.StartAsCloudProcess(tworkflow)
+                let! cloudProcess = Cloud.StartAsCloudProcess(tworkflow)
                 let! value = CloudAtom.Read count
                 value |> shouldEqual 0
                 do! Cloud.Sleep (delayFactor / 10)
                 // ensure no exception is raised in parent workflow
                 // before the child workflow is properly evaluated
                 let! _ = CloudAtom.Incr count
-                return! Cloud.AwaitCloudProcess proc
+                return! Cloud.AwaitCloudProcess cloudProcess
             } |> runOnCloud |> Choice.shouldFailwith<_, InvalidOperationException>
 
             count.Value |> shouldEqual 2)

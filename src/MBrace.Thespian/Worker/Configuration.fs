@@ -102,8 +102,8 @@ module internal WorkerConfiguration =
 
         let config = { config with Parent = Some (Config.Serializer.PickleTyped receiver.Ref) }
         let args = WorkerConfiguration.ToCommandLineArgs config
-        let proc = new Process()
-        let psi = proc.StartInfo
+        let cloudProcess = new Process()
+        let psi = cloudProcess.StartInfo
         psi.FileName <- nodeExecutable
         psi.Arguments <- args
         psi.WorkingDirectory <- Path.GetDirectoryName nodeExecutable
@@ -113,17 +113,17 @@ module internal WorkerConfiguration =
         else
             psi.UseShellExecute <- true
 
-        proc.EnableRaisingEvents <- true
+        cloudProcess.EnableRaisingEvents <- true
 
         let awaiter =
             receiver 
             |> Receiver.toObservable
-            |> Observable.merge (proc.Exited |> Observable.map (fun _ -> ProcessExit proc.ExitCode))
+            |> Observable.merge (cloudProcess.Exited |> Observable.map (fun _ -> ProcessExit cloudProcess.ExitCode))
             |> Async.AwaitObservable
 
-        let _ = proc.Start()
+        let _ = cloudProcess.Start()
         let! result = awaiter
-        proc.EnableRaisingEvents <- false
+        cloudProcess.EnableRaisingEvents <- false
 
         match result with
         | ProcessExit code -> return failwithf "Child process exited with error code %d." code

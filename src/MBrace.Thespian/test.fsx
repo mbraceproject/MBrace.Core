@@ -29,12 +29,12 @@ cloud { return 42 } |> cluster.RunOnCurrentProcess
 cluster.ShowProcesses()
 cluster.ShowWorkers()
 
-let proc = 
+let cloudProcess = 
     CloudFlow.OfHttpFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
     |> CloudFlow.length
     |> cluster.Submit
 
-proc.Result
+cloudProcess.Result
 
 
 let test = cloud {

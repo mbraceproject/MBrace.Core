@@ -292,8 +292,8 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
             |> Async.Parallel
     }
 
-    member __.ClearProcess(proc:CloudProcess) = async {
-        do! runtime.ProcessManager.ClearProcess(proc.Id)
+    member __.ClearProcess(cloudProcess:CloudProcess) = async {
+        do! runtime.ProcessManager.ClearProcess(cloudProcess.Id)
     }
 
     /// <summary>
@@ -322,7 +322,7 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
 and internal CloudProcessReporter() = 
     static let template : Field<CloudProcess> list = 
         [ Field.create "Name" Left (fun p -> match p.Name with Some n -> n | None -> "")
-          Field.create "Cloud Process Id" Right (fun p -> p.Id)
+          Field.create "Process Id" Right (fun p -> p.Id)
           Field.create "Status" Right (fun p -> sprintf "%A" p.Status)
           Field.create "Execution Time" Left (fun p -> Option.toNullable p.ExecutionTime)
           Field.create "Work items" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveWorkItems p.FaultedWorkItems p.CompletedWorkItems p.TotalWorkItems)

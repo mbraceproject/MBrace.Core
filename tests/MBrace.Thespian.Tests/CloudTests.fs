@@ -228,13 +228,13 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                 return i
             }
 
-            let proc =
+            let cloudProcess =
                 [for i in 1 .. 10 -> task i]
                 |> Cloud.ProtectedParallel
                 |> runtime.Submit
 
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
-            proc.Result 
+            cloudProcess.Result 
             |> Array.forall (function FaultException _ -> true | _ -> false)
             |> shouldEqual true)

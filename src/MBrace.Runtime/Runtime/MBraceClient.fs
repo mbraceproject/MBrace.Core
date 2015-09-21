@@ -97,8 +97,8 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
-        let! proc = __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
-        return! proc.AwaitResult()
+        let! cloudProcess = __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
+        return! cloudProcess.AwaitResult()
     }
 
     /// <summary>
@@ -136,7 +136,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     ///     Deletes cloud process and all related data from MBrace cluster.
     /// </summary>
     /// <param name="cloud process">Cloud process to be cleared.</param>
-    member __.ClearProcess(proc:CloudProcess<'T>) : unit = taskManagerClient.ClearProcess(proc) |> Async.RunSync
+    member __.ClearProcess(cloudProcess:CloudProcess<'T>) : unit = taskManagerClient.ClearProcess(cloudProcess) |> Async.RunSync
 
     /// <summary>
     ///     Deletes *all* cloud processes and related data from MBrace cluster.

@@ -385,9 +385,9 @@ module Utils =
         member __.TryGetLocalProcess() =
             if machineId = MachineId.LocalInstance then
                 try 
-                    let proc = Process.GetProcessById(processId)
-                    if processName = proc.ProcessName && startTime = new DateTimeOffset(proc.StartTime) then
-                        Some proc
+                    let cloudProcess = Process.GetProcessById(processId)
+                    if processName = cloudProcess.ProcessName && startTime = new DateTimeOffset(cloudProcess.StartTime) then
+                        Some cloudProcess
                     else
                         None
                 with :? ArgumentException -> None
@@ -410,10 +410,10 @@ module Utils =
         /// <summary>
         ///     Gets a process identifier from given System.Diagnostics.process instance
         /// </summary>
-        /// <param name="proc">Process instance.</param>
-        static member FromProcess(proc : System.Diagnostics.Process) : ProcessId =
+        /// <param name="cloudProcess">Process instance.</param>
+        static member FromProcess(cloudProcess : System.Diagnostics.Process) : ProcessId =
             let mid = MachineId.LocalInstance
-            new ProcessId(mid, proc.Id, proc.ProcessName, new DateTimeOffset(proc.StartTime))
+            new ProcessId(mid, cloudProcess.Id, cloudProcess.ProcessName, new DateTimeOffset(cloudProcess.StartTime))
 
         /// Gets the process identifier for the current process
         static member LocalInstance : ProcessId = singleton.Value
@@ -468,7 +468,7 @@ module Utils =
         /// <summary>
         ///     Gets a process identifier from given System.Diagnostics.process instance
         /// </summary>
-        /// <param name="proc">Process instance.</param>
+        /// <param name="cloudProcess">Process instance.</param>
         static member FromAppDomain(domain : System.AppDomain) : AppDomainId =
             let pid = ProcessId.LocalInstance
             let uuid = AppDomainUUID.GetDomainId domain

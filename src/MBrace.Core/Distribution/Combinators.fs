@@ -232,10 +232,10 @@ type Cloud =
     /// <summary>
     ///     Asynchronously waits for a cloud process to complete and returns its result.
     /// </summary>
-    /// <param name="proc">Cloud process to be awaited.</param>
+    /// <param name="cloudProcess">Cloud process to be awaited.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
-    static member AwaitCloudProcess(proc : ICloudProcess<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
-        return! proc.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
+    static member AwaitCloudProcess(cloudProcess : ICloudProcess<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
+        return! cloudProcess.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
     }
 
     /// <summary>
@@ -246,9 +246,9 @@ type Cloud =
     static member StartChild(workflow : Cloud<'T>, ?target : IWorkerRef) : Cloud<Local<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let! cancellationToken = Cloud.CancellationToken
-        let! proc = runtime.ScheduleStartAsCloudProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
+        let! cloudProcess = runtime.ScheduleStartAsCloudProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
         let stackTraceSig = sprintf "Cloud.StartChild(Cloud<%s> computation)" typeof<'T>.Name
-        return Local.WithAppendedStackTrace stackTraceSig (local { return! proc.AwaitResult() })
+        return Local.WithAppendedStackTrace stackTraceSig (local { return! cloudProcess.AwaitResult() })
     }
 
     /// <summary>
