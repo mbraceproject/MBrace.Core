@@ -15,9 +15,9 @@ open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Store
 
 type private ProcessManagerMsg =
-    | CreateProcessEntry of info:CloudProcessInfo * IReplyChannel<ActorCompletionSource>
-    | TryGetProcessCompletionSourceById of procId:string * IReplyChannel<ActorCompletionSource option>
-    | GetAllProcesses of IReplyChannel<ActorCompletionSource []>
+    | CreateProcessEntry of info:CloudProcessInfo * IReplyChannel<ActorProcessEntry>
+    | TryGetProcessCompletionSourceById of procId:string * IReplyChannel<ActorProcessEntry option>
+    | GetAllProcesses of IReplyChannel<ActorProcessEntry []>
     | ClearAllProcesses of IReplyChannel<unit>
     | ClearProcess of procId:string * IReplyChannel<bool>
 
@@ -53,11 +53,11 @@ type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
     /// </summary>
     static member Create(localStateF : LocalStateFactory) =
         let logger = localStateF.Value.Logger
-        let behaviour (state : Map<string, ActorCompletionSource>) (msg : ProcessManagerMsg) = async {
+        let behaviour (state : Map<string, ActorProcessEntry>) (msg : ProcessManagerMsg) = async {
             match msg with
             | CreateProcessEntry(info, ch) ->
                 let id = mkUUID()
-                let te = ActorCompletionSource.Create(localStateF, id, info)
+                let te = ActorProcessEntry.Create(localStateF, id, info)
                 logger.Logf LogLevel.Debug "ProcessManager has created a new task completion source '%s' of type '%s'." te.Id te.Info.ReturnTypeName
                 do! ch.Reply te
                 return state.Add(te.Id, te)

@@ -18,7 +18,7 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Store
 
-type private ActorCompletionSourceMsg =
+type private ActorProcessEntryMsg =
     | GetState of IReplyChannel<CloudProcessState>
     | TrySetResult of ResultMessage<CloudProcessResult> * IWorkerId * IReplyChannel<bool>
     | TryGetResult of IReplyChannel<ResultMessage<CloudProcessResult> option>
@@ -28,7 +28,7 @@ type private ActorCompletionSourceMsg =
     | IncrementFaultedWorkItemCount
 
 /// Task completion source execution state
-type private ActorCompletionSourceState = 
+type private ActorProcessEntryState = 
     {
         /// Persisted result of actor, if available
         Result : ResultMessage<CloudProcessResult> option
@@ -67,7 +67,7 @@ type private ActorCompletionSourceState =
     ///     the MBrace actor manager.
     /// </summary>
     /// <param name="ts">Task state.</param>
-    static member ExportState(ts : ActorCompletionSourceState) : CloudProcessState =
+    static member ExportState(ts : ActorProcessEntryState) : CloudProcessState =
         {
             Status = ts.Status
             Info = ts.Info
@@ -85,7 +85,7 @@ type private ActorCompletionSourceState =
 
 /// Actor ProcEntry implementation
 [<AutoSerializable(true)>]
-type ActorCompletionSource private (localStateF : LocalStateFactory, source : ActorRef<ActorCompletionSourceMsg>, id : string, info : CloudProcessInfo)  =
+type ActorProcessEntry private (localStateF : LocalStateFactory, source : ActorRef<ActorProcessEntryMsg>, id : string, info : CloudProcessInfo)  =
     member __.Id = id
     member __.Info = info
 
@@ -152,10 +152,10 @@ type ActorCompletionSource private (localStateF : LocalStateFactory, source : Ac
     /// <param name="info">Task metadata.</param>
     static member Create(stateF : LocalStateFactory, id : string, info : CloudProcessInfo) =
         let logger = stateF.Value.Logger
-        let behaviour (state : ActorCompletionSourceState) (msg : ActorCompletionSourceMsg) = async {
+        let behaviour (state : ActorProcessEntryState) (msg : ActorProcessEntryMsg) = async {
             match msg with
             | GetState rc ->
-                do! rc.Reply (ActorCompletionSourceState.ExportState state)
+                do! rc.Reply (ActorProcessEntryState.ExportState state)
                 return state
 
             | TrySetResult(_, workerId, rc) when Option.isSome state.Result ->
@@ -197,9 +197,9 @@ type ActorCompletionSource private (localStateF : LocalStateFactory, source : Ac
         }
 
         let ref =
-            Behavior.stateful (ActorCompletionSourceState.Init info) behaviour
+            Behavior.stateful (ActorProcessEntryState.Init info) behaviour
             |> Actor.bind
             |> Actor.Publish
             |> Actor.ref
 
-        new ActorCompletionSource(stateF, ref, id, info)
+        new ActorProcessEntry(stateF, ref, id, info)
