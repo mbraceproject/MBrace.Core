@@ -552,7 +552,7 @@ module ``Continuation Tests`` =
 
     [<Test>]
     let ``start as task`` () =
-        let t = Cloud.StartAsSystemTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
+        let t = Cloud.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
         t.Result |> shouldEqual 42
 
     //

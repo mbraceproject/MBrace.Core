@@ -389,7 +389,7 @@ type ICloudLogStoreSchema =
 /// As simple store log schema where each cloud process creates its own root directory
 /// for storing logfiles; possibly not suitable for Azure where root directories are containers.
 type DefaultStoreCloudLogSchema(store : ICloudFileStore) =
-    let getProcDir (procId:string) = sprintf "taskLogs-%s" procId
+    let getProcDir (procId:string) = sprintf "procLogs-%s" procId
 
     interface ICloudLogStoreSchema with
         member x.GetLogFilePath(workItem: CloudWorkItem): string = 
@@ -431,8 +431,8 @@ type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogSt
         }
 
         member x.GetAllCloudLogsByProcess(procId: string): Async<seq<CloudLogEntry>> = async {
-            let! taskLogs = schema.GetLogFilesByProcess procId
-            return! StoreJsonLogger.ReadJsonLogEntries(store, taskLogs)
+            let! procLogs = schema.GetLogFilesByProcess procId
+            return! StoreJsonLogger.ReadJsonLogEntries(store, procLogs)
         }
         
         member x.GetCloudLogPollerByProcess(procId: string): Async<ILogPoller<CloudLogEntry>> = async {
