@@ -134,7 +134,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         FsiSession.Stop()
 
     [<Test>]
-    let ``01. Simple cloud workflow`` () =
+    let ``01. Simple cloud computation`` () =
         let fsi = FsiSession.Value
 
         "cloud { return 42 } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 42

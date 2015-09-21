@@ -251,7 +251,7 @@ type ISystemLogStoreSchema =
     /// </summary>
     abstract GetLogFiles : unit -> Async<string []>
 
-/// As simple store log schema where each cloud task creates its own root directory
+/// As simple store log schema where each cloud process creates its own root directory
 /// for storing logfiles; possibly not suitable for Azure where root directories are containers.
 type DefaultStoreSystemLogSchema(store : ICloudFileStore, ?logDirectoryPrefix : string, ?logExtension : string, ?getLogDirectorySuffix : IWorkerId -> string) =
     let logDirectoryPrefix = defaultArg logDirectoryPrefix "systemLogs"
@@ -368,7 +368,7 @@ type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, workI
     interface ICloudWorkItemLogger with
         member x.Dispose() : unit = (writer :> IDisposable).Dispose()
         member x.Log(message : string) : unit =
-            let entry = new CloudLogEntry(workItem.TaskEntry.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
+            let entry = new CloudLogEntry(workItem.ProcEntry.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
             writer.LogEntry(entry)
 
 /// Creates a schema for writing and fetching log files for specific Cloud tasks
@@ -383,22 +383,22 @@ type ICloudLogStoreSchema =
     /// <summary>
     ///     Gets all log files that have been persisted to store by given task identifier.
     /// </summary>
-    /// <param name="taskId">Cloud task identifier.</param>
-    abstract GetLogFilesByTask : taskId:string -> Async<string []>
+    /// <param name="procId">Cloud process identifier.</param>
+    abstract GetLogFilesByProcess : procId:string -> Async<string []>
 
-/// As simple store log schema where each cloud task creates its own root directory
+/// As simple store log schema where each cloud process creates its own root directory
 /// for storing logfiles; possibly not suitable for Azure where root directories are containers.
 type DefaultStoreCloudLogSchema(store : ICloudFileStore) =
-    let getTaskDir (taskId:string) = sprintf "taskLogs-%s" taskId
+    let getProcDir (procId:string) = sprintf "taskLogs-%s" procId
 
     interface ICloudLogStoreSchema with
         member x.GetLogFilePath(workItem: CloudWorkItem): string = 
             let timeStamp = DateTime.UtcNow
             let format = timeStamp.ToString("yyyyMMddTHHmmssfffZ")
-            store.Combine(getTaskDir workItem.TaskEntry.Id, sprintf "workItemLog-%s-%s.json" (workItem.Id.ToBase32String()) format)
+            store.Combine(getProcDir workItem.ProcEntry.Id, sprintf "workItemLog-%s-%s.json" (workItem.Id.ToBase32String()) format)
         
-        member x.GetLogFilesByTask(taskId: string): Async<string []> = async {
-            let container = getTaskDir taskId
+        member x.GetLogFilesByProcess(procId: string): Async<string []> = async {
+            let container = getProcDir procId
             let! logFiles = async {
                 try return! store.EnumerateFiles container
                 with :? DirectoryNotFoundException -> return [||]
@@ -430,13 +430,13 @@ type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogSt
             return new StoreCloudLogger(writer, workItem, worker.Id) :> _
         }
 
-        member x.GetAllCloudLogsByTask(taskId: string): Async<seq<CloudLogEntry>> = async {
-            let! taskLogs = schema.GetLogFilesByTask taskId
+        member x.GetAllCloudLogsByProcess(procId: string): Async<seq<CloudLogEntry>> = async {
+            let! taskLogs = schema.GetLogFilesByProcess procId
             return! StoreJsonLogger.ReadJsonLogEntries(store, taskLogs)
         }
         
-        member x.GetCloudLogPollerByTask(taskId: string): Async<ILogPoller<CloudLogEntry>> = async {
-            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByTask taskId) 
+        member x.GetCloudLogPollerByProcess(procId: string): Async<ILogPoller<CloudLogEntry>> = async {
+            let poller = StoreJsonLogger.CreateJsonLogPoller(store, fun () -> schema.GetLogFilesByProcess procId) 
             poller.Start()
             return poller :> _
         }

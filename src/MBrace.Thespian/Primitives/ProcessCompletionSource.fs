@@ -1,7 +1,7 @@
 ﻿namespace MBrace.Thespian.Runtime
 
 //
-// This section defines a runtime entry for a running Cloud task
+// This section defines a runtime entry for a running Cloud process
 //
 
 open System
@@ -18,43 +18,43 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Runtime.Store
 
-type private TaskCompletionSourceMsg =
-    | GetState of IReplyChannel<CloudTaskState>
-    | TrySetResult of ResultMessage<TaskResult> * IWorkerId * IReplyChannel<bool>
-    | TryGetResult of IReplyChannel<ResultMessage<TaskResult> option>
-    | DeclareStatus of status:CloudTaskStatus
+type private ActorCompletionSourceMsg =
+    | GetState of IReplyChannel<CloudProcessState>
+    | TrySetResult of ResultMessage<CloudProcessResult> * IWorkerId * IReplyChannel<bool>
+    | TryGetResult of IReplyChannel<ResultMessage<CloudProcessResult> option>
+    | DeclareStatus of status:CloudProcessStatus
     | IncrementWorkItemCount
     | IncrementCompletedWorkItemCount
     | IncrementFaultedWorkItemCount
 
 /// Task completion source execution state
-type private TaskCompletionSourceState = 
+type private ActorCompletionSourceState = 
     {
-        /// Persisted result of task, if available
-        Result : ResultMessage<TaskResult> option
-        /// Cloud task metadata
-        Info : CloudTaskInfo
-        /// Task execution status
-        Status : CloudTaskStatus
-        /// Number of currently executing MBrace work items for task
+        /// Persisted result of actor, if available
+        Result : ResultMessage<CloudProcessResult> option
+        /// Cloud process metadata
+        Info : CloudProcessInfo
+        /// Cloud process execution status
+        Status : CloudProcessStatus
+        /// Number of currently executing MBrace work items for actor
         ActiveWorkItemCount : int
-        /// Maximum number of concurrently executing MBrace work items for task
+        /// Maximum number of concurrently executing MBrace work items for actor
         MaxActiveWorkItemCount : int
-        /// Total number of MBrace work items for task
+        /// Total number of MBrace work items for actor
         TotalWorkItemCount : int
-        /// Total number of completed work items for task
+        /// Total number of completed work items for actor
         CompletedWorkItemCount : int
-        /// Total number of faulted work items for task
+        /// Total number of faulted work items for actor
         FaultedWorkItemCount : int
         /// Task execution time representation
         ExecutionTime: ExecutionTime
     }
 
     /// <summary>
-    ///     Initializes task state using provided task metadata.
+    ///     Initializes actor state using provided actor metadata.
     /// </summary>
     /// <param name="info">Task metadata.</param>
-    static member Init(info : CloudTaskInfo) = 
+    static member Init(info : CloudProcessInfo) = 
         { 
             Info = info ; Result = None
             TotalWorkItemCount = 0 ; ActiveWorkItemCount = 0 ; MaxActiveWorkItemCount = 0 ; 
@@ -63,11 +63,11 @@ type private TaskCompletionSourceState =
         }
 
     /// <summary>
-    ///     Converts the internal task representation to one that can by used by
-    ///     the MBrace task manager.
+    ///     Converts the internal actor representation to one that can by used by
+    ///     the MBrace actor manager.
     /// </summary>
     /// <param name="ts">Task state.</param>
-    static member ExportState(ts : TaskCompletionSourceState) : CloudTaskState =
+    static member ExportState(ts : ActorCompletionSourceState) : CloudProcessState =
         {
             Status = ts.Status
             Info = ts.Info
@@ -83,15 +83,15 @@ type private TaskCompletionSourceState =
                 | et -> et
         }
 
-/// Actor TaskEntry implementation
+/// Actor ProcEntry implementation
 [<AutoSerializable(true)>]
-type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source : ActorRef<TaskCompletionSourceMsg>, id : string, info : CloudTaskInfo)  =
+type ActorCompletionSource private (localStateF : LocalStateFactory, source : ActorRef<ActorCompletionSourceMsg>, id : string, info : CloudProcessInfo)  =
     member __.Id = id
     member __.Info = info
 
-    interface ICloudTaskCompletionSource with
+    interface ICloudProcessEntry with
         member x.Id = id
-        member x.AwaitResult(): Async<TaskResult> = async {
+        member x.AwaitResult(): Async<CloudProcessResult> = async {
             let localState = localStateF.Value
             let rec awaiter () = async {
                 let! result = source <!- TryGetResult
@@ -113,11 +113,11 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
             return! source.AsyncPost IncrementFaultedWorkItemCount
         }
         
-        member x.DeclareStatus(status: CloudTaskStatus): Async<unit> = async {
+        member x.DeclareStatus(status: CloudProcessStatus): Async<unit> = async {
             return! source.AsyncPost (DeclareStatus status)
         }
         
-        member x.GetState(): Async<CloudTaskState> = async {
+        member x.GetState(): Async<CloudProcessState> = async {
             return! source <!- GetState
         }
         
@@ -125,9 +125,9 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
             return! source.AsyncPost IncrementWorkItemCount
         }
         
-        member x.Info: CloudTaskInfo = info
+        member x.Info: CloudProcessInfo = info
         
-        member x.TryGetResult(): Async<TaskResult option> = async {
+        member x.TryGetResult(): Async<CloudProcessResult option> = async {
             let localState = localStateF.Value
             let! rp = source <!- TryGetResult
             match rp with
@@ -137,7 +137,7 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
                 return Some r
         }
         
-        member x.TrySetResult(result: TaskResult, workerId : IWorkerId): Async<bool> = async {
+        member x.TrySetResult(result: CloudProcessResult, workerId : IWorkerId): Async<bool> = async {
             let localState = localStateF.Value
             let id = sprintf "taskResult-%s" <| mkUUID()
             let! rm = localState.CreateResult(result, allowNewSifts = false, fileName = id)
@@ -145,26 +145,26 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
         }
 
     /// <summary>
-    ///     Creates a task entry instance in local process.
+    ///     Creates a actor entry instance in local process.
     /// </summary>
     /// <param name="stateF">Local state factory.</param>
     /// <param name="id">Task unique identifier.</param>
     /// <param name="info">Task metadata.</param>
-    static member Create(stateF : LocalStateFactory, id : string, info : CloudTaskInfo) =
+    static member Create(stateF : LocalStateFactory, id : string, info : CloudProcessInfo) =
         let logger = stateF.Value.Logger
-        let behaviour (state : TaskCompletionSourceState) (msg : TaskCompletionSourceMsg) = async {
+        let behaviour (state : ActorCompletionSourceState) (msg : ActorCompletionSourceMsg) = async {
             match msg with
             | GetState rc ->
-                do! rc.Reply (TaskCompletionSourceState.ExportState state)
+                do! rc.Reply (ActorCompletionSourceState.ExportState state)
                 return state
 
             | TrySetResult(_, workerId, rc) when Option.isSome state.Result ->
-                do logger.Logf LogLevel.Warning "CloudTask[%s] '%s' received duplicate result from worker '%s'." info.ReturnTypeName id workerId.Id
+                do logger.Logf LogLevel.Warning "CloudProcess[%s] '%s' received duplicate result from worker '%s'." info.ReturnTypeName id workerId.Id
                 do! rc.Reply false
                 return state
 
             | TrySetResult(r, workerId, rc) ->
-                do logger.Logf LogLevel.Debug "CloudTask[%s] '%s' received result from worker '%s'." info.ReturnTypeName id workerId.Id
+                do logger.Logf LogLevel.Debug "CloudProcess[%s] '%s' received result from worker '%s'." info.ReturnTypeName id workerId.Id
                 do! rc.Reply true
                 return { state with Result = Some r }
 
@@ -176,7 +176,7 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
                 let executionTime =
                     match state.ExecutionTime, status with
                     | NotStarted, Running -> Started (DateTime.Now, TimeSpan.Zero)
-                    | Started (t,_), (Completed | UserException | Canceled) -> 
+                    | Started (t,_), (CloudProcessStatus.Completed | UserException | Canceled) -> 
                         let now = DateTime.Now
                         Finished(t, now - t, now)
                     | et, _ -> et
@@ -197,9 +197,9 @@ type ActorTaskCompletionSource private (localStateF : LocalStateFactory, source 
         }
 
         let ref =
-            Behavior.stateful (TaskCompletionSourceState.Init info) behaviour
+            Behavior.stateful (ActorCompletionSourceState.Init info) behaviour
             |> Actor.bind
             |> Actor.Publish
             |> Actor.ref
 
-        new ActorTaskCompletionSource(stateF, ref, id, info)
+        new ActorCompletionSource(stateF, ref, id, info)

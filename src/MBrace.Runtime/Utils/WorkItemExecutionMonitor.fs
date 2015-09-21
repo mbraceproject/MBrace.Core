@@ -13,7 +13,7 @@ open MBrace.Core.Internals
 // WorkItemExecutionMonitor provides a way to cooperatively track execution
 // of such 'closed' computations.
 
-/// Provides a mechanism for cooperative task execution monitoring.
+/// Provides a mechanism for cooperative work item execution monitoring.
 [<AutoSerializable(false)>]
 type WorkItemExecutionMonitor () =
     let tcs = TaskCompletionSource<unit> ()
@@ -24,26 +24,26 @@ type WorkItemExecutionMonitor () =
     member __.TriggerCompletion () = tcs.TrySetResult () |> ignore
 
     /// Runs a single threaded, synchronous computation,
-    /// triggering the contextual TaskExecutionMonitor on uncaught exception
+    /// triggering the contextual WorkItemExecutionMonitor on uncaught exception
     static member ProtectSync ctx (f : unit -> unit) : unit =
         let tem = fromContext ctx
         try f () with e -> tem.TriggerFault e |> ignore
 
     /// Runs an asynchronous computation,
-    /// triggering the contextual TaskExecutionMonitor on uncaught exception
+    /// triggering the contextual WorkItemExecutionMonitor on uncaught exception
     static member ProtectAsync ctx (f : Async<unit>) : unit =
         let tem = fromContext ctx
         Async.StartWithContinuations(f, ignore, tem.TriggerFault, ignore)   
 
-    /// Triggers task completion on the contextual TaskExecutionMonitor
+    /// Triggers task completion on the contextual WorkItemExecutionMonitor
     static member TriggerCompletion ctx =
         let tem = fromContext ctx in tem.TriggerCompletion () |> ignore
 
-    /// Triggers task fault on the contextual TaskExecutionMonitor
+    /// Triggers task fault on the contextual WorkItemExecutionMonitor
     static member TriggerFault (ctx, e) =
         let tem = fromContext ctx in tem.TriggerFault e |> ignore
 
-    /// Asynchronously await completion of provided TaskExecutionMonitor
+    /// Asynchronously await completion of provided WorkItemExecutionMonitor
     static member AwaitCompletion (tem : WorkItemExecutionMonitor) = async {
         try return! Async.AwaitTask tem.Task
         with :? System.AggregateException as e when e.InnerException <> null ->

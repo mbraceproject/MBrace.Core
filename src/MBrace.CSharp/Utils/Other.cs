@@ -75,13 +75,13 @@ namespace MBrace.CSharp
         /// <summary>
         /// Gets the assigned id of the currently running cloud process.
         /// </summary>
-        public static Cloud<string> GetProcessId()
+        public static Cloud<string> GetCloudProcessId()
         {
-            return MCloud.GetProcessId(); 
+            return MCloud.GetCloudProcessId(); 
         }
 
         /// <summary>
-        /// Gets the assigned id of the currently running cloud task.
+        /// Gets the assigned id of the currently running work item.
         /// </summary>
         public static Cloud<string> GetWorkItemId()
         {

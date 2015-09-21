@@ -25,18 +25,18 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Wraps given value in cloud workflow that returns it.
+        ///     Wraps given value in cloud computation that returns it.
         /// </summary>
         /// <typeparam name="TResult">Value type.</typeparam>
         /// <param name="value">Value to be wrapped.</param>
-        /// <returns>A cloud workflow that will return the value once executed.</returns>
+        /// <returns>A cloud computation that will return the value once executed.</returns>
         public static Cloud<TResult> AsCloud<TResult>(this TResult value)
         {
             return Builder.Return(value);
         }
 
         /// <summary>
-        /// Creates a cloud workflow that throws an exception.
+        /// Creates a cloud computation that throws an exception.
         /// </summary>
         /// <typeparam name="TResult">Computation return type.</typeparam>
         /// <param name="ex">The exception to throw.</param>
@@ -58,22 +58,22 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Wraps a delayed cloud workflow in a containing workflow.
+        ///     Wraps a delayed cloud computation in a containing workflow.
         /// </summary>
         /// <typeparam name="TResult">Function return type.</typeparam>
-        /// <param name="func">Delayed cloud workflow.</param>
-        /// <returns>A cloud workflow that wraps the delayed cloud workflow.</returns>
+        /// <param name="func">Delayed cloud computation.</param>
+        /// <returns>A cloud computation that wraps the delayed cloud computation.</returns>
         public static Cloud<TResult> New<TResult>(Func<Cloud<TResult>> func)
         {
             return Builder.Delay(func.AsFSharpFunc());
         }
 
         /// <summary>
-        ///     Wraps given function in cloud workflow that executes it.
+        ///     Wraps given function in cloud computation that executes it.
         /// </summary>
         /// <typeparam name="TResult">Function return type.</typeparam>
         /// <param name="func">Function to be wrapped.</param>
-        /// <returns>A cloud workflow that will call the function and return its result once executed.</returns>
+        /// <returns>A cloud computation that will call the function and return its result once executed.</returns>
         public static Cloud<TResult> New<TResult>(Func<TResult> func)
         {
             Func<Cloud<TResult>> cloudDelay = () => func().AsCloud();
@@ -81,10 +81,10 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Wraps given function in cloud workflow that executes it.
+        ///     Wraps given function in cloud computation that executes it.
         /// </summary>
         /// <param name="delay">Function to be wrapped.</param>
-        /// <returns>A cloud workflow that will call the function once executed.</returns>
+        /// <returns>A cloud computation that will call the function once executed.</returns>
         public static CloudAction New(Func<CloudAction> delay)
         {
             Func<Cloud<Unit>> f = () => delay().Body;
@@ -93,7 +93,7 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Creates a cloud workflow that binds a workflow to a callback.
+        ///     Creates a cloud computation that binds a workflow to a callback.
         /// </summary>
         /// <typeparam name="TSource">Source type.</typeparam>
         /// <typeparam name="TResult">Result type.</typeparam>
@@ -106,7 +106,7 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Creates a cloud workflow that binds a workflow to a callback.
+        ///     Creates a cloud computation that binds a workflow to a callback.
         /// </summary>
         /// <typeparam name="TSource">Source type.</typeparam>
         /// <typeparam name="TResult">Result type.</typeparam>
@@ -120,7 +120,7 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Creates a cloud workflow that binds a workflow to a callback.
+        ///     Creates a cloud computation that binds a workflow to a callback.
         /// </summary>
         /// <typeparam name="TResult">Result type.</typeparam>
         /// <param name="workflow">Initial workflow to be executed.</param>
@@ -133,7 +133,7 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Creates a cloud workflow that binds a workflow to a callback.
+        ///     Creates a cloud computation that binds a workflow to a callback.
         /// </summary>
         /// <typeparam name="TResult">Result type.</typeparam>
         /// <param name="workflow">Initial workflow to be executed.</param>
@@ -149,7 +149,7 @@ namespace MBrace.CSharp
         // Linq comprehension syntax friendly methods.
 
         /// <summary>
-        ///     Creates a cloud workflow that chains a group of callbacks together.
+        ///     Creates a cloud computation that chains a group of callbacks together.
         /// </summary>
         /// <typeparam name="T">Initial return type.</typeparam>
         /// <typeparam name="U">Secondary return type.</typeparam>
@@ -164,11 +164,11 @@ namespace MBrace.CSharp
         }
 
         /// <summary>
-        ///     Wraps given value in cloud workflow that returns it.
+        ///     Wraps given value in cloud computation that returns it.
         /// </summary>
         /// <typeparam name="TResult">Value type.</typeparam>
         /// <param name="value">Value to be wrapped.</param>
-        /// <returns>A cloud workflow that will return the value once executed.</returns>
+        /// <returns>A cloud computation that will return the value once executed.</returns>
         public static Cloud<TResult> Select<TResult>(TResult value)
         {
             return Cloud.FromValue(value); 

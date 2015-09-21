@@ -39,10 +39,10 @@ let private extractWorkerIds (runtime : IRuntimeManager) (computations : (#Cloud
 ///     Defines a workflow that schedules provided cloud workflows for parallel computation.
 /// </summary>
 /// <param name="runtime">Runtime management object.</param>
-/// <param name="parentTask">Parent task info object.</param>
+/// <param name="parentProc">Parent cloud process info object.</param>
 /// <param name="faultPolicy">Current cloud work item being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSource) 
+let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry) 
                 (faultPolicy : IFaultPolicy) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
 
     asyncFromContinuations(fun ctx cont -> async {
@@ -163,7 +163,7 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
             // Create wok items and enqueue
             do!
                 computations
-                |> Array.mapi (fun i (c,w) -> CloudWorkItem.Create(parentTask, childCts, faultPolicy, onSuccess i, onException i, onCancellation, CloudWorkItemType.ParallelChild(i, computations.Length), c, ?target = w))
+                |> Array.mapi (fun i (c,w) -> CloudWorkItem.Create(parentProc, childCts, faultPolicy, onSuccess i, onException i, onCancellation, CloudWorkItemType.ParallelChild(i, computations.Length), c, ?target = w))
                 |> runtime.WorkItemQueue.BatchEnqueue
                     
             WorkItemExecutionMonitor.TriggerCompletion ctx })
@@ -172,10 +172,10 @@ let runParallel (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSo
 ///     Defines a workflow that schedules provided nondeterministic cloud workflows for parallel computation.
 /// </summary>
 /// <param name="runtime">Runtime management object.</param>
-/// <param name="parentTask">Parent task info object.</param>
+/// <param name="parentProc">Parent cloud process info object.</param>
 /// <param name="faultPolicy">Current cloud work item being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
-let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSource) 
+let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry) 
                 (faultPolicy : IFaultPolicy) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
 
     asyncFromContinuations(fun ctx cont -> async {
@@ -268,40 +268,40 @@ let runChoice (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSour
             // create child work items
             do!
                 computations
-                |> Array.mapi (fun i (c,w) -> CloudWorkItem.Create(parentTask, childCts, faultPolicy, onSuccess i, onException i, onCancellation, CloudWorkItemType.ChoiceChild(i, computations.Length), c, ?target = w))
+                |> Array.mapi (fun i (c,w) -> CloudWorkItem.Create(parentProc, childCts, faultPolicy, onSuccess i, onException i, onCancellation, CloudWorkItemType.ChoiceChild(i, computations.Length), c, ?target = w))
                 |> runtime.WorkItemQueue.BatchEnqueue
                     
             WorkItemExecutionMonitor.TriggerCompletion ctx })
 
 /// <summary>
-///     Executes provided cloud workflow as a cloud task using the provided resources and parameters.
+///     Executes provided cloud workflow as a cloud process using the provided resources and parameters.
 /// </summary>
 /// <param name="runtime">Runtime management object.</param>
-/// <param name="parentTask">Identifies whether task is being enqueued as part of a parent cloud task or of a client-side enqueue.</param>
+/// <param name="parentProc">Identifies whether cloud process is being enqueued as part of a parent cloud process or of a client-side enqueue.</param>
 /// <param name="dependencies">Vagabond dependencies for computation.</param>
-/// <param name="taskId">Task id for computation.</param>
+/// <param name="procId">Task id for computation.</param>
 /// <param name="faultPolicy">Fault policy for computation.</param>
 /// <param name="token">Optional cancellation token for computation.</param>
 /// <param name="additionalResources">Additional runtime resources supplied by the user.</param>
 /// <param name="target">Optional target worker identifier.</param>
 /// <param name="computation">Computation to be executed.</param>
-let runStartAsCloudTask (runtime : IRuntimeManager) (parentTask : ICloudTaskCompletionSource option)
+let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry option)
                         (dependencies : AssemblyId[]) (taskName : string option)
                         (faultPolicy : IFaultPolicy) (token : ICloudCancellationToken option) 
                         (additionalResources : ResourceRegistry option) (target : IWorkerRef option) 
                         (computation : Cloud<'T>) = async {
 
-    // TODO : some arguments seem to be duplicated when passed either through the parentTask parameter or on their own
-    //        this should be resolved when implementing proper task hierarchies
+    // TODO : some arguments seem to be duplicated when passed either through the parentProc parameter or on their own
+    //        this should be resolved when implementing proper cloud process hierarchies
 
     if not <| FsPickler.IsSerializableType<'T> () then
-        let msg = sprintf "Cloud task returns non-serializable type '%s'." Type.prettyPrint<'T>
+        let msg = sprintf "Cloud process returns non-serializable type '%s'." Type.prettyPrint<'T>
         return raise <| new SerializationException(msg)
     else
 
     match ensureSerializable computation with
     | Some e ->
-        let msg = sprintf "Cloud task of type '%s' uses non-serializable closure." Type.prettyPrint<'T>
+        let msg = sprintf "Cloud process of type '%s' uses non-serializable closure." Type.prettyPrint<'T>
         return raise <| new SerializationException(msg, e)
 
     | None ->
@@ -325,9 +325,9 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (parentTask : ICloudTaskComp
                 ReturnType = runtime.Serializer.PickleTyped typeof<'T>
             }
 
-        let! tcs = runtime.TaskManager.CreateTask taskInfo
+        let! tcs = runtime.ProcessManager.StartProcess taskInfo
 
-        let setResult ctx (result : TaskResult) status = 
+        let setResult ctx (result : CloudProcessResult) status = 
             async {
                 let currentWorker = ctx.Resources.Resolve<IWorkerId> ()
                 match ensureSerializable result with
@@ -344,13 +344,13 @@ let runStartAsCloudTask (runtime : IRuntimeManager) (parentTask : ICloudTaskComp
                 WorkItemExecutionMonitor.TriggerCompletion ctx
             } |> WorkItemExecutionMonitor.ProtectAsync ctx
 
-        let scont ctx t = setResult ctx (Completed t) CloudTaskStatus.Completed
-        let econt ctx e = setResult ctx (Exception e) CloudTaskStatus.UserException
-        let ccont ctx c = setResult ctx (Cancelled c) CloudTaskStatus.Canceled
-        let fcont ctx e = setResult ctx (Exception e) CloudTaskStatus.Faulted
+        let scont ctx t = setResult ctx (Completed t) CloudProcessStatus.Completed
+        let econt ctx e = setResult ctx (Exception e) CloudProcessStatus.UserException
+        let ccont ctx c = setResult ctx (Cancelled c) CloudProcessStatus.Canceled
+        let fcont ctx e = setResult ctx (Exception e) CloudProcessStatus.Faulted
 
-        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.TaskRoot, computation, fcont = fcont, ?target = target)
-        do! runtime.WorkItemQueue.Enqueue(workItem, isClientSideEnqueue = Option.isNone parentTask)
-        runtime.SystemLogger.Logf LogLevel.Info "Posted CloudTask<%s> '%s'." tcs.Info.ReturnTypeName tcs.Id
-        return new CloudTask<'T>(tcs, runtime)
+        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.ProcRoot, computation, fcont = fcont, ?target = target)
+        do! runtime.WorkItemQueue.Enqueue(workItem, isClientSideEnqueue = Option.isNone parentProc)
+        runtime.SystemLogger.Logf LogLevel.Info "Posted CloudProcess<%s> '%s'." tcs.Info.ReturnTypeName tcs.Id
+        return new CloudProcess<'T>(tcs, runtime)
 }

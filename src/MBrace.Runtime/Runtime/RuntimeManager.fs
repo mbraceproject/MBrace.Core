@@ -39,8 +39,8 @@ type IRuntimeManager =
     abstract WorkItemQueue : ICloudWorkItemQueue
     /// Gets the Vagabond assembly manager for this runtime.
     abstract AssemblyManager : IAssemblyManager
-    /// Gets the CloudTask manager instance for this runtime.
-    abstract TaskManager : ICloudTaskManager
+    /// Gets the CloudProcess manager instance for this runtime.
+    abstract ProcessManager : ICloudProcessManager
     /// Gets the distributed counter factory for this runtime.
     abstract CounterFactory : ICloudCounterFactory
     /// Gets the distributed result aggregator factory for this runtime,

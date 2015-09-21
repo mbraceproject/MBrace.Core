@@ -9,11 +9,11 @@ open Nessos.Vagabond
 open MBrace.Core
 open MBrace.Core.Internals
 
-/// Cloud task status
-type CloudTaskStatus =
+/// Cloud process status
+type CloudProcessStatus =
     /// Task posted to cluster for execution
     | Posted
-    /// Root work item for task dequeued
+    /// Root work item for cloud process dequeued
     | Dequeued 
     /// Task being executed by the cluster
     | Running
@@ -25,7 +25,7 @@ type CloudTaskStatus =
     | UserException
     /// Task cancelled by user
     | Canceled
-with
+
     /// Gets the corresponding System.Threading.TaskStatus enumeration
     member t.TaskStatus =
         match t with
@@ -39,14 +39,14 @@ with
 
 /// Task result container
 [<NoEquality; NoComparison>]
-type TaskResult =
+type CloudProcessResult =
     /// Task completed with value
     | Completed of obj
     /// Task failed with user exception
     | Exception of ExceptionDispatchInfo
     //// Task canceled
     | Cancelled of OperationCanceledException
-with
+
     /// Gets the contained result value,
     /// will be thrown if exception.
     member inline r.Value : obj =
@@ -55,17 +55,17 @@ with
         | Exception edi -> ExceptionDispatchInfo.raise true edi
         | Cancelled e -> raise e
 
-/// Cloud task metadata
+/// Cloud process metadata
 [<NoEquality; NoComparison>]
-type CloudTaskInfo =
+type CloudProcessInfo =
     {
-        /// User-specified task name
+        /// User-specified cloud process name
         Name : string option
-        /// Cancellation token source for task
+        /// Cancellation token source for cloud process
         CancellationTokenSource : ICloudCancellationTokenSource
         /// Vagabond dependencies for computation
         Dependencies : AssemblyId []
-        /// Additional user-supplied resources for cloud task.
+        /// Additional user-supplied resources for cloud process.
         AdditionalResources : ResourceRegistry option
         /// Task return type in pretty printed form
         ReturnTypeName : string
@@ -83,104 +83,104 @@ type ExecutionTime =
     /// Task has completed
     | Finished of startTime:DateTime * executionTime:TimeSpan * completionTime:DateTime
 
-/// Cloud task execution state record
+/// Cloud process execution state record
 [<NoEquality; NoComparison>]
-type CloudTaskState =
+type CloudProcessState =
     {
         /// Task metadata
-        Info : CloudTaskInfo
+        Info : CloudProcessInfo
         /// Task execution status
-        Status : CloudTaskStatus
+        Status : CloudProcessStatus
         /// Task execution time
         ExecutionTime : ExecutionTime
-        /// Max number of concurrently executing work items for task.
+        /// Max number of concurrently executing work items for cloud process.
         MaxActiveWorkItemCount : int
-        /// Number of work items currently executing for task.
+        /// Number of work items currently executing for cloud process.
         ActiveWorkItemCount : int
-        /// Number of work items completed for task.
+        /// Number of work items completed for cloud process.
         CompletedWorkItemCount : int
         /// Number of times work items have been faulted.
         FaultedWorkItemCount : int
-        /// Total number of work items spawned by task.
+        /// Total number of work items spawned by cloud process.
         TotalWorkItemCount : int
     }
 
-/// Cloud task completion source abstraction
-type ICloudTaskCompletionSource =
+/// Cloud process completion source abstraction
+type ICloudProcessEntry =
     /// Unique Cloud Task identifier
     abstract Id : string
-    /// Gets cloud task metadata
-    abstract Info : CloudTaskInfo
-    /// Asynchronously fetches current task state
-    abstract GetState : unit -> Async<CloudTaskState>
+    /// Gets cloud process metadata
+    abstract Info : CloudProcessInfo
+    /// Asynchronously fetches current cloud process state
+    abstract GetState : unit -> Async<CloudProcessState>
 
     /// <summary>
-    ///     Asynchronously awaits for the task result.
+    ///     Asynchronously awaits for the cloud process result.
     /// </summary>
-    abstract AwaitResult : unit -> Async<TaskResult>
+    abstract AwaitResult : unit -> Async<CloudProcessResult>
 
     /// <summary>
-    ///     Asynchronously checks if task result has been set.
+    ///     Asynchronously checks if cloud process result has been set.
     ///     Returns None if result has not been set.
     /// </summary>
-    abstract TryGetResult : unit -> Async<TaskResult option>
+    abstract TryGetResult : unit -> Async<CloudProcessResult option>
 
     /// <summary>
-    ///     Asynchronously attempts to set task result for entry.
+    ///     Asynchronously attempts to set cloud process result for entry.
     ///     Returns true if setting was successful.
     /// </summary>
     /// <param name="result">Result value to be set.</param>
     /// <param name="workerId">Worker identifier for result setter.</param>
-    abstract TrySetResult : result:TaskResult * workerId:IWorkerId -> Async<bool>
+    abstract TrySetResult : result:CloudProcessResult * workerId:IWorkerId -> Async<bool>
 
     /// <summary>
-    ///     Declares task execution status.
+    ///     Declares cloud process execution status.
     /// </summary>
     /// <param name="status">Declared status.</param>
-    abstract DeclareStatus : status:CloudTaskStatus -> Async<unit>
+    abstract DeclareStatus : status:CloudProcessStatus -> Async<unit>
 
     /// <summary>
-    ///     Increments work item count for provided task.
+    ///     Increments work item count for provided cloud process.
     /// </summary>
     abstract IncrementWorkItemCount : unit -> Async<unit>
 
     /// <summary>
-    ///     Asynchronously increments the faulted work item count for task.
+    ///     Asynchronously increments the faulted work item count for cloud process.
     /// </summary>
     abstract IncrementFaultedWorkItemCount : unit -> Async<unit>
 
     /// <summary>
-    ///     Decrements work item count for provided task.
+    ///     Decrements work item count for provided cloud process.
     /// </summary>
     abstract IncrementCompletedWorkItemCount : unit -> Async<unit>
 
-/// Cloud task manager object
-type ICloudTaskManager =
+/// Cloud process manager object
+type ICloudProcessManager =
     
     /// <summary>
-    ///     Request a new task from cluster state.
+    ///     Request a new cloud process from cluster state.
     /// </summary>
-    /// <param name="info">User-supplied cloud task metadata.</param>
-    abstract CreateTask : info:CloudTaskInfo -> Async<ICloudTaskCompletionSource>
+    /// <param name="info">User-supplied cloud process metadata.</param>
+    abstract StartProcess : info:CloudProcessInfo -> Async<ICloudProcessEntry>
 
     /// <summary>
-    ///     Gets a cloud task entry for provided task id.
+    ///     Gets a cloud process entry for provided cloud process id.
     /// </summary>
-    /// <param name="taskId">Task id to be looked up.</param>
-    abstract TryGetTask : taskId:string -> Async<ICloudTaskCompletionSource option>
+    /// <param name="procId">Task id to be looked up.</param>
+    abstract TryGetProcessById : procId:string -> Async<ICloudProcessEntry option>
 
     /// <summary>
-    ///     Asynchronously fetches task execution state for all tasks currently in task.
+    ///     Asynchronously fetches cloud process execution state for all tasks currently in cloud process.
     /// </summary>
-    abstract GetAllTasks : unit -> Async<ICloudTaskCompletionSource []>
+    abstract GetAllProcesses : unit -> Async<ICloudProcessEntry []>
 
     /// <summary>
-    ///     Deletes task info of given id.
+    ///     Deletes cloud process info of given id.
     /// </summary>
-    /// <param name="taskId">Cloud task identifier.</param>
-    abstract Clear : taskId:string -> Async<unit>
+    /// <param name="procId">Cloud process identifier.</param>
+    abstract ClearProcess : procId:string -> Async<unit>
 
     /// <summary>
-    ///     Deletes all task info from current runtime.
+    ///     Deletes all cloud process info from current runtime.
     /// </summary>
-    abstract ClearAllTasks : unit -> Async<unit>
+    abstract ClearAllProcesses : unit -> Async<unit>

@@ -33,9 +33,9 @@ type private ResultAggregator<'T> (size : int) =
     member __.Values = array
     member __.Item with set i x = array.[i] <- x
 
-/// Cloud task implementation that wraps around System.Threading.TaskCompletionSource for inmemory runtimes
+/// Cloud process implementation that wraps around System.Threading.ProcessCompletionSource for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
-type private ThreadPoolTaskCompletionSource<'T> (?cancellationToken : ICloudCancellationToken) =
+type private ThreadPoolProcessCompletionSource<'T> (?cancellationToken : ICloudCancellationToken) =
     let tcs = new TaskCompletionSource<'T>()
     let cts =
         match cancellationToken with
@@ -45,7 +45,7 @@ type private ThreadPoolTaskCompletionSource<'T> (?cancellationToken : ICloudCanc
     let task = new ThreadPoolTask<'T>(tcs.Task, cts.Token)
 
     member __.CancellationTokenSource = cts
-    member __.LocalTaskCompletionSource = tcs
+    member __.LocalProcessCompletionSource = tcs
     member __.Task = task
 
 /// Collection of workflows that provide parallelism
@@ -230,31 +230,31 @@ type Combinators private () =
     /// <param name="cancellationToken">Cancellation token for task. Defaults to new cancellation token.</param>
     static member StartAsTask (workflow : Cloud<'T>, memoryEmulation : MemoryEmulation, resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) =
         if memoryEmulation <> MemoryEmulation.Shared && not <| FsPickler.IsSerializableType<'T> () then
-            let msg = sprintf "Cloud task returns non-serializable type '%s'." Type.prettyPrint<'T>
+            let msg = sprintf "Cloud process returns non-serializable type '%s'." Type.prettyPrint<'T>
             raise <| new SerializationException(msg)
 
 
         match cloneProtected memoryEmulation workflow with
         | Choice2Of2 e ->
-            let msg = sprintf "Cloud task of type '%s' uses non-serializable closure." Type.prettyPrint<'T>
+            let msg = sprintf "Cloud process of type '%s' uses non-serializable closure." Type.prettyPrint<'T>
             raise <| new SerializationException(msg, e)
 
         | Choice1Of2 workflow ->
             let clonedWorkflow = EmulatedValue.clone memoryEmulation workflow
-            let tcs = new ThreadPoolTaskCompletionSource<'T>(?cancellationToken = cancellationToken)
+            let tcs = new ThreadPoolProcessCompletionSource<'T>(?cancellationToken = cancellationToken)
             let setResult cont result =
                 match cloneProtected memoryEmulation result with
                 | Choice1Of2 result -> cont result |> ignore
                 | Choice2Of2 e ->
                     let msg = sprintf "Could not serialize result for task of type '%s'." Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
-                    ignore <| tcs.LocalTaskCompletionSource.TrySetException se
+                    ignore <| tcs.LocalProcessCompletionSource.TrySetException se
 
             let cont = 
                 {
-                    Success = fun _ t -> t |> setResult tcs.LocalTaskCompletionSource.TrySetResult
-                    Exception = fun _ (edi:ExceptionDispatchInfo) -> edi |> setResult (fun edi -> tcs.LocalTaskCompletionSource.TrySetException (edi.Reify(false, false)))
-                    Cancellation = fun _ _ -> tcs.LocalTaskCompletionSource.TrySetCanceled() |> ignore
+                    Success = fun _ t -> t |> setResult tcs.LocalProcessCompletionSource.TrySetResult
+                    Exception = fun _ (edi:ExceptionDispatchInfo) -> edi |> setResult (fun edi -> tcs.LocalProcessCompletionSource.TrySetException (edi.Reify(false, false)))
+                    Cancellation = fun _ _ -> tcs.LocalProcessCompletionSource.TrySetCanceled() |> ignore
                 }
 
 
