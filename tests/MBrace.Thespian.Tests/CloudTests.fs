@@ -85,7 +85,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         runOnCloud Cloud.CurrentWorker |> shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``1. Runtime : Get task id`` () =
+    member __.``1. Runtime : Get process id`` () =
         runOnCloud (Cloud.GetCloudProcessId()) |> shouldBe (fun _ -> true)
 
     [<Test>]
@@ -112,7 +112,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         ra.Count |> shouldBe (fun i -> i >= cluster.Workers.Length)
 
     [<Test>]
-    member __.``1. Runtime : Task Log Observable`` () =
+    member __.``1. Runtime : CloudProcess Log Observable`` () =
         let workflow = cloud {
             let workItem i = local {
                 for j in 1 .. 100 do
