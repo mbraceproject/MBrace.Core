@@ -148,7 +148,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
                 | Some l -> l)
 
     /// Triggers elevation in event of serialization
-    [<OnSerialized>]
+    [<OnDeserialized>]
     let _onDeserialized (_ : StreamingContext) = 
         lockObj <- new obj()
         cell <- mkCell()

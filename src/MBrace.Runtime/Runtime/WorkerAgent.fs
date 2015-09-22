@@ -229,4 +229,4 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
             if w.IsRunning then w.Stop(timeout = 5000) |> Async.RunSync
             unsubscriber.Dispose()
             cts.Cancel()
-            perfmon |> Option.iter (fun pm -> (pm :> IDisposable).Dispose())
+            perfmon |> Option.iter (fun pm -> Disposable.dispose pm)

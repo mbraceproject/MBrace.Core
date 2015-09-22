@@ -12,6 +12,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.String
 
 [<AutoOpen>]
@@ -366,7 +367,7 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
 [<Sealed; AutoSerializable(false)>]
 type private StoreCloudLogger (writer : StoreJsonLogWriter<CloudLogEntry>, workItem : CloudWorkItem, workerId : string) =
     interface ICloudWorkItemLogger with
-        member x.Dispose() : unit = (writer :> IDisposable).Dispose()
+        member x.Dispose() : unit = Disposable.dispose writer
         member x.Log(message : string) : unit =
             let entry = new CloudLogEntry(workItem.Process.Id, workerId, workItem.Id, DateTimeOffset.Now, message)
             writer.LogEntry(entry)
