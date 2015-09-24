@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Runtime
 
 open System
+open System.Diagnostics
 open System.Threading
 open System.Threading.Tasks
 open System.Runtime.Serialization
@@ -33,6 +34,7 @@ type CloudProcess internal () =
     abstract TryGetResultBoxed : unit -> Async<obj option>
 
     /// Awaits the boxed result of the process.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract ResultBoxed : obj
 
     /// Date of process execution start.
@@ -111,6 +113,7 @@ type CloudProcess internal () =
             | CloudProcessStatus.Faulted | CloudProcessStatus.UserException -> true
             | _ -> false
 
+        [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
         member x.ResultBoxed: obj = x.ResultBoxed
         member x.Status: TaskStatus = x.Status.TaskStatus
         member x.TryGetResultBoxed(): Async<obj option> = x.TryGetResultBoxed()
@@ -173,6 +176,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     }
 
     /// Synchronously awaits cloud process result 
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member __.Result : 'T = __.AwaitResult() |> Async.RunSync
 
     override __.AwaitResultBoxed (?timeoutMilliseconds:int) = async {
@@ -185,6 +189,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
         return r |> Option.map box
     }
 
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     override __.ResultBoxed = __.Result |> box
 
     override __.StartTime =

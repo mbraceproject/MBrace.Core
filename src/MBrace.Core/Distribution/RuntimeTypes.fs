@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Core
 
 open System
+open System.Diagnostics
 open System.Threading
 open System.Threading.Tasks
 
@@ -48,6 +49,7 @@ type ICloudProcess =
     /// Gets a boolean indicating that the cloud process has been canceled.
     abstract IsCanceled : bool
     /// Synchronously gets the cloud process result, blocking until it completes.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract ResultBoxed : obj
     /// <summary>
     ///     Awaits cloud process for completion, returning its eventual result.
@@ -68,6 +70,7 @@ type ICloudProcess<'T> =
     /// Returns the cloud process result if completed or None if still pending.
     abstract TryGetResult : unit -> Async<'T option>
     /// Synchronously gets the cloud process result, blocking until it completes.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract Result : 'T
 
 
