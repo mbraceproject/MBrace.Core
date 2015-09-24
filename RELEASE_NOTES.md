@@ -1,3 +1,7 @@
+#### 0.11.0-alpha
+* Fix CloudProcess serialization issue.
+* Fix StructuredFormatDisplay issues in MBrace primitives.
+
 #### 0.10.10-alpha
 * Rename CloudTask<_> to CloudProcess<_>.
 * Fix Vagabond issue in Mixed Mode assemblies.
