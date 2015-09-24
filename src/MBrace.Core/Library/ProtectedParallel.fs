@@ -4,6 +4,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 
 /// Protected computation result coming from a child computation in a Cloud.Parallel workflow.
+[<NoEquality; NoComparison>]
 type ProtectedResult<'T> =
     /// Computation successfully completed with value.
     | Value of 'T

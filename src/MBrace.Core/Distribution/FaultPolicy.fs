@@ -15,6 +15,7 @@ type FaultException =
 
 /// Specifies the recovery action that should happen
 /// in the event of an MBrace fault.
+[<NoEquality; NoComparison>]
 type FaultRecoveryAction =
     /// Give up on the computation raising a fault exception.
     | ThrowException of exn
@@ -22,6 +23,7 @@ type FaultRecoveryAction =
     | Retry of delay:TimeSpan
 
 /// Contains fault data for a given MBrace computation.
+[<NoEquality; NoComparison>]
 type FaultData =
     {
         /// Number of times the current computation has faulted.
