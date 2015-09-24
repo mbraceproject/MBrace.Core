@@ -240,6 +240,14 @@ type MBraceClient (runtime : IRuntimeManager) =
             |> Seq.map (fun e -> SystemLogEntry.Format(e, showDate = true, showSourceId = true))
             |> Seq.iter System.Console.WriteLine
 
+    /// Asynchronously clears all system logs from the cluster state.
+    member __.ClearSystemLogsAsync() =
+        runtime.RuntimeSystemLogManager.ClearLogs()
+
+    /// Clears all system logs from the cluster state.
+    member __.ClearSystemLogs() = 
+        __.ClearSystemLogsAsync() |> Async.RunSync
+
     /// Event for subscribing to runtime-wide system logs
     [<CLIEvent>]
     member __.SystemLogs = getSystemLogPoller() :> IEvent<SystemLogEntry>

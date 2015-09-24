@@ -28,6 +28,8 @@ cloud { return 42 } |> cluster.RunOnCurrentProcess
 
 cluster.ShowProcesses()
 cluster.ShowWorkers()
+cluster.ClearSystemLogs()
+cluster.ShowSystemLogs()
 
 let cloudProcess = 
     CloudFlow.OfHttpFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
