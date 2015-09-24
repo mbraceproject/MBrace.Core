@@ -464,6 +464,12 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         | Some cfg -> cfg
         | None -> invalidOp <| sprintf "StoreCloudValue '%s' not installed in the local context." globalConfig.Id
 
+    [<OnDeserialized>]
+    let _onDeserialized(_ : StreamingContext) =
+        match StoreCloudValueRegistry.TryGetConfiguration(globalConfig.Id) with
+        | Some lc -> config <- Some lc
+        | None -> ()
+
     let tryGetPersistedCloudValueByPath(path : string) = async {
         let config = getConfig()
         let! header = config.Global.MainStore.TryGetHeader(config.Global.Serializer, path)
@@ -550,12 +556,6 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
 
         let localConfig = StoreCloudValueRegistry.Install config
         new StoreCloudValueProvider(localConfig)
-
-    [<OnDeserialized>]
-    member private __.OnDeserialized(_ : StreamingContext) =
-        match StoreCloudValueRegistry.TryGetConfiguration(globalConfig.Id) with
-        | Some lc -> config <- Some lc
-        | None -> ()
 
     /// Installs InMemory cache for StoreCloudValue instance in the local context
     member __.InstallCacheOnLocalAppDomain() =

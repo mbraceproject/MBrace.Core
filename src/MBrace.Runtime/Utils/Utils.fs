@@ -304,7 +304,8 @@ module Utils =
         [<IgnoreDataMember>]
         let mutable value = factory ()
 
-        member private __.OnDeserialized (_ : StreamingContext) =
+        [<OnDeserialized>]
+        let _onDeserialized (_ : StreamingContext) =
             value <- factory()
 
         member __.Value = value
