@@ -244,7 +244,7 @@ type private StoreCloudValueRegistry private () =
         else None
 
 /// Store-based CloudValue implementation
-[<DataContract>]
+[<DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, reflectedType : Type, config : LocalStoreCloudValueConfiguration) =
 
     [<DataMember(Name = "Id")>]
@@ -262,6 +262,12 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
     /// configuration object not serialized
     [<IgnoreDataMember>]
     let mutable config = Some config
+
+    [<OnDeserialized>]
+    let _onDeserialized (_ : StreamingContext) =
+        match StoreCloudValueRegistry.TryGetConfiguration configId with
+        | Some cfg -> config <- Some cfg
+        | None -> ()
 
     let getConfig() =
         match config with
@@ -349,11 +355,14 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
             let e = Existential.FromType containerType
             e.Apply { new IFunc<ICloudValue> with member __.Invoke<'T>() = new StoreCloudValue<'T>(id, elementCount, reflectedType, config) :> ICloudValue }
 
-    [<OnDeserialized>]
-    member private __.OnDeserialized (_ : StreamingContext) =
-        match StoreCloudValueRegistry.TryGetConfiguration configId with
-        | Some cfg -> config <- Some cfg
-        | None -> ()
+    abstract StructuredFormatDisplay : string
+    default __.StructuredFormatDisplay =
+        if reflectedType.IsArray then
+            sprintf "{ CloudArray[%s] of %d elements @ %s }" (Type.prettyPrintUntyped (reflectedType.GetElementType())) elementCount id.Hash.Id
+        else
+            sprintf "{ CloudValue[%s] @ %s }" (Type.prettyPrintUntyped reflectedType) id.Hash.Id
+
+    override __.ToString() = __.StructuredFormatDisplay
 
     interface CloudValue<'T> with
         member x.Dispose(): Async<unit> = async {
@@ -517,7 +526,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
     /// <param name="cacheFactory">User-supplied InMemory cache factory. Must be serializable.</param>
     /// <param name="localFileStore">Optional local file store factory used for caching persisted values. Defaults to none.</param>
     /// <param name="serializer">Serializer instance used for persisting values. Defaults to FsPickler.</param>
-    /// <param name="encapsulationThreshold">Values less than this size will be encapsulated in CloudValue instance. Defaults to 64KiB.</param>
+    /// <param name="encapsulationThreshold">Values less than this size will be encapsulated in CloudValue instance. Defaults to 32KiB.</param>
     /// <param name="shadowPersistObjects">Asynchronously persist values to store, even if StorageLevel is declared memory only.</param>
     static member InitCloudValueProvider(mainStore:ICloudFileStore, ?cacheFactory : unit -> InMemoryCache, 
                                             ?localFileStore:(unit -> ICloudFileStore), ?serializer:ISerializer, 
@@ -526,7 +535,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         ignore VagabondRegistry.Instance
         let id = sprintf "%s:%s/%s" mainStore.Name mainStore.Id mainStore.DefaultDirectory
         let serializer = match serializer with Some s -> s | None -> new VagabondFsPicklerBinarySerializer() :> ISerializer
-        let encapsulationThreshold = defaultArg encapsulationThreshold (64L * 1024L)
+        let encapsulationThreshold = defaultArg encapsulationThreshold (32L * 1024L)
         FsPickler.EnsureSerializable ((cacheFactory, localFileStore))
         let config = 
             { 

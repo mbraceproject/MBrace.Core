@@ -42,7 +42,7 @@ module LogLevel =
         | _ -> ""
 
 /// Struct that specifies a single system log entry
-[<Struct; DataContract>]
+[<Struct; DataContract; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type SystemLogEntry =
     /// Originating worker identifier
     [<DataMember(Name = "Source", Order = 0)>]
@@ -67,6 +67,11 @@ type SystemLogEntry =
 
     /// Worker source identifier is specified in the entry.
     member __.IsSourceSpecified = __.SourceId <> null
+
+    member private e.StructuredFormatDisplay =
+        sprintf "\"%s\"" <| SystemLogEntry.Format(e, showDate = false, showSourceId = false)
+
+    override e.ToString() = SystemLogEntry.Format(e, showDate = false, showSourceId = false)
 
     /// <summary>
     ///     Displays log entry as string with supplied parameters.
