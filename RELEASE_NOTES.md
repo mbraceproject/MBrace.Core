@@ -1,3 +1,6 @@
+#### 0.11.1-alpha
+* Fix packaging issue in MBrace.Thespian.
+
 #### 0.11.0-alpha
 * Fix CloudProcess serialization issue.
 * Fix StructuredFormatDisplay issues in MBrace primitives.

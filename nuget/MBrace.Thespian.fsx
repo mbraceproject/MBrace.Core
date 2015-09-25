@@ -12,4 +12,4 @@
 open System.IO
 open MBrace.Thespian
 
-MBraceWorker.LocalExecutable <- Path.Combine(__SOURCE_DIRECTORY__, @"tools\mbrace.thespian.worker.exe")
+ThespianWorker.LocalExecutable <- Path.Combine(__SOURCE_DIRECTORY__, @"tools\mbrace.thespian.worker.exe")
