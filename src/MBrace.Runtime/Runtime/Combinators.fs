@@ -335,7 +335,7 @@ let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProce
                     let msg = sprintf "Could not serialize result for task '%s' of type '%s'." tcs.Id Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
                     let! _ = tcs.TrySetResult(Exception (ExceptionDispatchInfo.Capture se), currentWorker)
-                    do! tcs.DeclareStatus Faulted
+                    do! tcs.DeclareStatus CloudProcessStatus.Faulted
                 | None ->
                     let! _ = tcs.TrySetResult(result, currentWorker)
                     do! tcs.DeclareStatus status

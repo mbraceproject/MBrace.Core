@@ -83,7 +83,17 @@ type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken)
 
         member __.TryGetResult () = async { return task.TryGetResult() }
         member __.TryGetResultBoxed () = async { return task.TryGetResult() |> Option.map box }
-        member __.Status = task.Status
+        member __.Status = 
+            match task.Status with
+            | TaskStatus.Created -> CloudProcessStatus.Created
+            | TaskStatus.Faulted -> CloudProcessStatus.UserException
+            | TaskStatus.RanToCompletion -> CloudProcessStatus.Completed
+            | TaskStatus.Running -> CloudProcessStatus.Running
+            | TaskStatus.WaitingForActivation -> CloudProcessStatus.WaitingToRun
+            | TaskStatus.WaitingForChildrenToComplete -> CloudProcessStatus.Running
+            | TaskStatus.WaitingToRun -> CloudProcessStatus.WaitingToRun
+            | _ -> enum -1
+
         member __.IsCompleted = task.IsCompleted
         member __.IsFaulted = task.IsFaulted
         member __.IsCanceled = task.IsCanceled

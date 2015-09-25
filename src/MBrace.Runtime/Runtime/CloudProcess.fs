@@ -115,7 +115,7 @@ type CloudProcess internal () =
 
         [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
         member x.ResultBoxed: obj = x.ResultBoxed
-        member x.Status: TaskStatus = x.Status.TaskStatus
+        member x.Status: CloudProcessStatus = x.Status
         member x.TryGetResultBoxed(): Async<obj option> = x.TryGetResultBoxed()
 
     /// Gets a printed report on the current process status
@@ -245,7 +245,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
         
         member x.Result: 'T = x.Result
         
-        member x.Status: TaskStatus = cell.Value.Status.TaskStatus
+        member x.Status: CloudProcessStatus = cell.Value.Status
         
         member x.TryGetResult(): Async<'T option> = x.TryGetResult()
 

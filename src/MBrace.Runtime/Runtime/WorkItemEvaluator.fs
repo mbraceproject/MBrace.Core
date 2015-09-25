@@ -128,7 +128,7 @@ module WorkItemEvaluator =
             logger.Logf LogLevel.Error "Failed to deserialize work item '%O':\n%O" workItemLease.Id e
             let e = new FaultException(sprintf "Failed to deserialize work item '%O'." workItemLease.Id, e)
             let edi = ExceptionDispatchInfo.Capture e
-            do! workItemLease.Process.DeclareStatus Faulted
+            do! workItemLease.Process.DeclareStatus CloudProcessStatus.Faulted
             let! _ = workItemLease.Process.TrySetResult(CloudProcessResult.Exception edi, currentWorker)
             do! workItemLease.DeclareCompleted()
 
@@ -145,7 +145,7 @@ module WorkItemEvaluator =
                 match workItem.Process.Info.Name with
                 | None -> logger.Logf LogLevel.Info "Starting cloud process '%s' of type '%s'." workItem.Process.Id workItem.Process.Info.ReturnTypeName
                 | Some name -> logger.Logf LogLevel.Info "Starting cloud process '%s' of type '%s'." name workItem.Process.Info.ReturnTypeName
-                do! workItem.Process.DeclareStatus Running
+                do! workItem.Process.DeclareStatus CloudProcessStatus.Running
 
             do! workItem.Process.IncrementWorkItemCount()
             let sw = Stopwatch.StartNew()

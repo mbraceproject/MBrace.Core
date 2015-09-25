@@ -79,7 +79,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                     | Some workItemToken ->
                         // Successfully dequeued work item, run it.
                         if workItemToken.WorkItemType = CloudWorkItemType.ProcessRoot then
-                            do! workItemToken.Process.DeclareStatus Dequeued
+                            do! workItemToken.Process.DeclareStatus CloudProcessStatus.WaitingToRun
 
                         let jc = Interlocked.Increment &currentWorkItemCount
                         do! runtime.WorkerManager.IncrementWorkItemCount workerId

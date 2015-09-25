@@ -2,20 +2,36 @@
 
 open System
 open System.Diagnostics
-open System.Threading
-open System.Threading.Tasks
+
 
 /// Specifies memory semantics in InMemory MBrace execution
 type MemoryEmulation =
     /// Freely share values across MBrace workflows; async semantics.
-    | Shared                = 0
+    | Shared                = 1
 
     /// Freely share values across MBrace workflows but
     /// emulate serialization errors by checking that they are serializable.
-    | EnsureSerializable    = 1
+    | EnsureSerializable    = 2
 
     /// Values copied when passed across worfklows; full distribution semantics.
-    | Copied                = 2
+    | Copied                = 4
+
+/// Enumeration specifying the execution status for a CloudProcess
+type CloudProcessStatus =
+    /// Process posted to cluster for execution.
+    | Created               = 1
+    /// Process has been allocated and awaits execution.
+    | WaitingToRun          = 2
+    /// Process is being executed by the runtime.
+    | Running               = 4
+    /// Process encountered a runtime fault.
+    | Faulted               = 8
+    /// Process has completed successfully.
+    | Completed             = 16
+    /// Process has completed with an uncaught user exception.
+    | UserException         = 32
+    /// Process has been cancelled by the user.
+    | Canceled              = 64
 
 
 /// Denotes a reference to a worker node in the cluster.
@@ -41,7 +57,7 @@ type ICloudProcess =
     /// Gets the cancellation corresponding to the Task instance
     abstract CancellationToken : ICloudCancellationToken
     /// Gets a TaskStatus enumeration indicating the current cloud process state.
-    abstract Status : TaskStatus
+    abstract Status : CloudProcessStatus
     /// Gets a boolean indicating that the cloud process has completed successfully.
     abstract IsCompleted : bool
     /// Gets a boolean indicating that the cloud process has completed with fault.

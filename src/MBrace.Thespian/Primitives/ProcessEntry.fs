@@ -59,7 +59,7 @@ type private ActorProcessEntryState =
             Info = info ; Result = None
             TotalWorkItemCount = 0 ; ActiveWorkItemCount = 0 ; MaxActiveWorkItemCount = 0 ; 
             CompletedWorkItemCount = 0 ; FaultedWorkItemCount = 0
-            ExecutionTime = NotStarted ; Status = Posted 
+            ExecutionTime = NotStarted ; Status = CloudProcessStatus.Created 
         }
 
     /// <summary>
@@ -175,8 +175,8 @@ type ActorProcessEntry private (localStateF : LocalStateFactory, source : ActorR
             | DeclareStatus status ->
                 let executionTime =
                     match state.ExecutionTime, status with
-                    | NotStarted, Running -> Started (DateTime.Now, TimeSpan.Zero)
-                    | Started (t,_), (CloudProcessStatus.Completed | UserException | Canceled) -> 
+                    | NotStarted, CloudProcessStatus.Running -> Started (DateTime.Now, TimeSpan.Zero)
+                    | Started (t,_), (CloudProcessStatus.Completed | CloudProcessStatus.UserException | CloudProcessStatus.Canceled) -> 
                         let now = DateTime.Now
                         Finished(t, now - t, now)
                     | et, _ -> et

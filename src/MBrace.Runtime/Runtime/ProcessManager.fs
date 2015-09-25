@@ -9,34 +9,6 @@ open Nessos.Vagabond
 open MBrace.Core
 open MBrace.Core.Internals
 
-/// Cloud process status
-type CloudProcessStatus =
-    /// Task posted to cluster for execution
-    | Posted
-    /// Root work item for cloud process dequeued
-    | Dequeued 
-    /// Task being executed by the cluster
-    | Running
-    /// Task encountered a cluster fault
-    | Faulted
-    /// Task completed successfully
-    | Completed
-    /// Task completed with user exception
-    | UserException
-    /// Task cancelled by user
-    | Canceled
-
-    /// Gets the corresponding System.Threading.TaskStatus enumeration
-    member t.TaskStatus =
-        match t with
-        | Posted -> TaskStatus.Created
-        | Dequeued -> TaskStatus.WaitingToRun
-        | Running -> TaskStatus.Running
-        | Faulted | UserException -> TaskStatus.Faulted
-        | Completed -> TaskStatus.RanToCompletion
-        | Canceled -> TaskStatus.Canceled
-
-
 /// Task result container
 [<NoEquality; NoComparison>]
 type CloudProcessResult =
