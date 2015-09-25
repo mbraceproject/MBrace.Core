@@ -6,6 +6,7 @@ open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Text
 open System.IO
+open System.IO.Compression
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -143,7 +144,9 @@ type PersistedSequence =
     /// <param name="values">Input sequence.</param>
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    static member New(values : seq<'T>, ?path : string, ?serializer : ISerializer) : Local<PersistedSequence<'T>> = local {
+    /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
+    static member New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?compress : bool) : Local<PersistedSequence<'T>> = local {
+        let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let path = 
             match path with
@@ -156,8 +159,18 @@ type PersistedSequence =
             | Some s -> return s
         }
 
-        let deserializer (stream : Stream) = _serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
+        let deserializer (stream : Stream) = 
+            let stream =
+                if compress then new GZipStream(stream, CompressionMode.Decompress) :> Stream
+                else stream
+
+            _serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
+
         let writer (stream : Stream) = async {
+            let stream =
+                if compress then new GZipStream(stream, CompressionLevel.Optimal) :> Stream
+                else stream
+
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }
         let! etag, length = store.WriteETag(path, writer)

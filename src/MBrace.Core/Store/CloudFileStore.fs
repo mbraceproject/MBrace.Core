@@ -240,6 +240,7 @@ open System.Runtime.Serialization
 open System.Text
 open System.Threading.Tasks
 open System.IO
+open System.IO.Compression
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -704,15 +705,23 @@ type CloudFile =
     /// <param name="sourcePath">Path to file in local disk.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<CloudFileInfo> = local {
+    /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
+    static member Upload(sourcePath : string, targetPath : string, ?overwrite : bool, ?compress : bool) : Local<CloudFileInfo> = local {
         let overwrite = defaultArg overwrite false
+        let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore>()
         if not overwrite then
             let! exists = store.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use fs = File.OpenRead (Path.GetFullPath sourcePath)
-        do! store.CopyOfStream(fs, targetPath)
+        use stream =
+            let fs = File.OpenRead (Path.GetFullPath sourcePath)
+            if compress then
+                new GZipStream(fs, CompressionLevel.Optimal) :> Stream
+            else
+                fs :> _
+
+        do! store.CopyOfStream(stream, targetPath)
         return new CloudFileInfo(store, targetPath)
     }
 
@@ -722,7 +731,8 @@ type CloudFile =
     /// <param name="sourcePaths">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Local<CloudFileInfo []> = local {
+    /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
+    static member Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?compress : bool) : Local<CloudFileInfo []> = local {
         let sourcePaths = Seq.toArray sourcePaths
         match sourcePaths |> Array.tryFind (not << File.Exists) with
         | Some notFound -> raise <| new FileNotFoundException(notFound)
@@ -731,7 +741,7 @@ type CloudFile =
         let uploadFile (localFile : string) = local {
             let fileName = Path.GetFileName localFile
             let! targetPath = CloudPath.Combine(targetDirectory, fileName)
-            return! CloudFile.Upload(localFile, targetPath, ?overwrite = overwrite)
+            return! CloudFile.Upload(localFile, targetPath, ?overwrite = overwrite, ?compress = compress)
         }
 
         return!
@@ -746,15 +756,23 @@ type CloudFile =
     /// <param name="sourcePath">Source path to file in store.</param>
     /// <param name="targetPath">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Download(sourcePath : string, targetPath : string, ?overwrite : bool) : Local<unit> = local {
+    /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
+    static member Download(sourcePath : string, targetPath : string, ?overwrite : bool, ?decompress : bool) : Local<unit> = local {
         let overwrite = defaultArg overwrite false
+        let decompress = defaultArg decompress false
         let targetPath = Path.GetFullPath targetPath
         let! store = Cloud.GetResource<ICloudFileStore> ()
         if not overwrite && File.Exists targetPath then
             raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use fs = File.OpenWrite targetPath
-        do! store.CopyToStream(sourcePath, fs)
+        use stream =
+            let fs = File.OpenWrite targetPath
+            if decompress then
+                new GZipStream(fs, CompressionMode.Decompress) :> Stream
+            else
+                fs :> _
+
+        do! store.CopyToStream(sourcePath, stream)
     }
 
     /// <summary>
@@ -763,10 +781,11 @@ type CloudFile =
     /// <param name="sourcePaths">Paths to files in store.</param>
     /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    static member Download(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Local<string []> = local {
+    /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
+    static member Download(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?decompress : bool) : Local<string []> = local {
         let download (path : string) = local {
             let localFile = Path.Combine(targetDirectory, Path.GetFileName path)
-            do! CloudFile.Download(path, localFile, ?overwrite = overwrite)
+            do! CloudFile.Download(path, localFile, ?overwrite = overwrite, ?decompress = decompress)
             return localFile
         }
 

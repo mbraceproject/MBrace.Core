@@ -3,6 +3,7 @@
 open System
 open System.Runtime.Serialization
 open System.IO
+open System.IO.Compression
 open System.Text
 
 open MBrace.Core
@@ -69,7 +70,9 @@ type PersistedValue =
     /// <param name="value">Input value.</param>
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime serializer.</param>
-    static member New(value : 'T, ?path : string, ?serializer : ISerializer) : Local<PersistedValue<'T>> = local {
+    /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
+    static member New(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : Local<PersistedValue<'T>> = local {
+        let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore>()
         let path = 
             match path with
@@ -82,9 +85,18 @@ type PersistedValue =
             | None -> return! Cloud.GetResource<ISerializer>()
         }
 
-        let deserializer (stream : Stream) = _serializer.Deserialize<'T>(stream, leaveOpen = false)
+        let deserializer (stream : Stream) = 
+            let stream =
+                if compress then new GZipStream(stream, CompressionMode.Decompress) :> Stream
+                else stream
+  
+            _serializer.Deserialize<'T>(stream, leaveOpen = false)
+
         let writer (stream : Stream) = async {
-            // write value
+            let stream = 
+                if compress then new GZipStream(stream, CompressionLevel.Optimal) :> Stream
+                else stream
+
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
 

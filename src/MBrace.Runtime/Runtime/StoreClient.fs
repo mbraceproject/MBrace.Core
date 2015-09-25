@@ -779,8 +779,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePath">Local file system path to file.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.UploadAsync(sourcePath : string, targetPath : string, ?overwrite : bool) : Async<CloudFileInfo> =
-        CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> runtime.ToAsync
+    /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
+    member __.UploadAsync(sourcePath : string, targetPath : string, ?overwrite : bool, ?compress : bool) : Async<CloudFileInfo> =
+        CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?compress = compress) |> runtime.ToAsync
 
     /// <summary>
     ///     Uploads a local file to store.
@@ -788,8 +789,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePath">Local file system path to file.</param>
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Upload(sourcePath : string, targetPath : string, ?overwrite : bool) : CloudFileInfo =
-        CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> runtime.RunSynchronously
+    /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
+    member __.Upload(sourcePath : string, targetPath : string, ?overwrite : bool, ?compress : bool) : CloudFileInfo =
+        CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?compress = compress) |> runtime.RunSynchronously
 
     /// <summary>
     ///     Uploads a collection local files to store.
@@ -797,8 +799,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePaths">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.UploadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Async<CloudFileInfo []> =
-        CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> runtime.ToAsync
+    /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
+    member __.UploadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?compress : bool) : Async<CloudFileInfo []> =
+        CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?compress = compress) |> runtime.ToAsync
 
     /// <summary>
     ///     Uploads a collection local files to store.
@@ -806,8 +809,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePaths">Local paths to files.</param>
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : CloudFileInfo [] = 
-        CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> runtime.RunSynchronously
+    /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
+    member __.Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?compress : bool) : CloudFileInfo [] = 
+        CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?compress = compress) |> runtime.RunSynchronously
 
     /// <summary>
     ///     Asynchronously downloads a file from store to local disk.
@@ -815,8 +819,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePath">Path to file in store.</param>
     /// <param name="targetPath">Path to target file in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.DownloadAsync(sourcePath : string, targetPath : string, ?overwrite : bool) : Async<unit> =
-        CloudFile.Download(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> runtime.ToAsync
+    /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
+    member __.DownloadAsync(sourcePath : string, targetPath : string, ?overwrite : bool, ?decompress : bool) : Async<unit> =
+        CloudFile.Download(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?decompress = decompress) |> runtime.ToAsync
 
     /// <summary>
     ///     Downloads a file from store to local disk.
@@ -824,8 +829,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePath">Path to file in store.</param>
     /// <param name="targetPath">Path to target file in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Download(sourcePath : string, targetPath : string, ?overwrite : bool) : unit =
-        CloudFile.Download(sourcePath, targetPath = targetPath, ?overwrite = overwrite) |> runtime.RunSynchronously
+    /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
+    member __.Download(sourcePath : string, targetPath : string, ?overwrite : bool, ?decompress : bool) : unit =
+        CloudFile.Download(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?decompress = decompress) |> runtime.RunSynchronously
 
     /// <summary>
     ///     Asynchronously downloads a collection of cloud files to local disk.
@@ -833,8 +839,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePaths">Paths to files in store.</param>
     /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.DownloadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : Async<string []> =
-        CloudFile.Download(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> runtime.ToAsync
+    /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
+    member __.DownloadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?decompress : bool) : Async<string []> =
+        CloudFile.Download(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?decompress = decompress) |> runtime.ToAsync
 
     /// <summary>
     ///     Downloads a collection of cloud files to local disk.
@@ -842,8 +849,9 @@ type CloudFileClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="sourcePaths">Paths to files in store.</param>
     /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member __.Download(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool) : string [] =
-        CloudFile.Download(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite) |> runtime.RunSynchronously
+    /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
+    member __.Download(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?decompress : bool) : string [] =
+        CloudFile.Download(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?decompress = decompress) |> runtime.RunSynchronously
 
 /// Client-side API for cloud store operations
 [<Sealed; AutoSerializable(false)>]
