@@ -714,14 +714,15 @@ type CloudFile =
             let! exists = store.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use stream =
-            let fs = File.OpenRead (Path.GetFullPath sourcePath)
-            if compress then
-                new GZipStream(fs, CompressionLevel.Optimal) :> Stream
-            else
-                fs :> _
+        use fs = File.OpenRead (Path.GetFullPath sourcePath)
 
-        do! store.CopyOfStream(stream, targetPath)
+        if compress then
+            use! stream = store.BeginWrite targetPath
+            use gz = new GZipStream(stream, CompressionLevel.Optimal)
+            do! fs.CopyToAsync gz |> Async.AwaitTask
+        else
+            do! store.CopyOfStream(fs, targetPath)
+
         return new CloudFileInfo(store, targetPath)
     }
 

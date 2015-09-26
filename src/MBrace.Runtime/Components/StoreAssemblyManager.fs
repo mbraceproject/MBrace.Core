@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.IO.Compression
 open System.Text.RegularExpressions
 open System.Runtime.Serialization
 open System.Reflection
@@ -28,8 +29,8 @@ module private Common =
     /// Gets a unique blob filename for provided assembly
     let filename (id : AssemblyId) = Vagabond.GetUniqueFileName id
 
-    let getStoreAssemblyPath k id = k <| filename id + id.Extension
-    let getStoreSymbolsPath k id = k <| filename id + ".pdb"
+    let getStoreAssemblyPath k compress id = k <| filename id + id.Extension + if compress then ".gz" else ""
+    let getStoreSymbolsPath k compress id = k <| filename id + ".pdb" + if compress then ".gz" else ""
     let getStoreMetadataPath k id = k <| filename id + ".vgb"
 
     let getStoreDataPath prefixByAssemblySessionId k (id : AssemblyId) (hash : HashResult) =
@@ -47,7 +48,7 @@ module private Common =
 
 /// Assembly to file store uploader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool, compressAssemblies : bool) =
     let sizeOfLocalFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
     let getFullPath (fileName : string) = store.GetFullPath fileName
 
@@ -61,7 +62,7 @@ type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRun
     }
 
     let getAssemblyLoadInfo (id : AssemblyId) = local {
-        let! assemblyExists = CloudFile.Exists (getStoreAssemblyPath getFullPath id)
+        let! assemblyExists = CloudFile.Exists (getStoreAssemblyPath getFullPath compressAssemblies id)
         if not assemblyExists then return NotLoaded id
         else
             let! metadata = tryGetCurrentMetadata id
@@ -73,7 +74,7 @@ type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRun
 
     /// upload assembly to blob store
     let uploadAssembly (va : VagabondAssembly) = local {
-        let assemblyStorePath = getStoreAssemblyPath getFullPath va.Id
+        let assemblyStorePath = getStoreAssemblyPath getFullPath compressAssemblies va.Id
         let! assemblyExists = CloudFile.Exists assemblyStorePath
 
         // 1. Upload assembly image.
@@ -88,17 +89,17 @@ type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRun
                 } |> String.concat ", "
 
             logger.Logf LogLevel.Info "Uploading '%s' [%s]" va.FullName uploadSizes
-            let! _ = CloudFile.Upload(va.Image, assemblyStorePath, overwrite = true)
+            let! _ = CloudFile.Upload(va.Image, assemblyStorePath, overwrite = true, compress = compressAssemblies)
             return ()
 
             // 2. Upload symbols if applicable.
             match va.Symbols with
             | None -> ()
             | Some symbolsPath ->
-                let symbolsStorePath = getStoreSymbolsPath getFullPath va.Id
+                let symbolsStorePath = getStoreSymbolsPath getFullPath compressAssemblies va.Id
                 let! symbolsExist = CloudFile.Exists symbolsStorePath
                 if not symbolsExist then
-                    let! _ = CloudFile.Upload(symbolsPath, symbolsStorePath, overwrite = true)
+                    let! _ = CloudFile.Upload(symbolsPath, symbolsStorePath, overwrite = true, compress = compressAssemblies)
                     return ()
 
         // 3. Upload metadata
@@ -155,20 +156,28 @@ type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRun
 
 /// File store assembly downloader implementation
 [<AutoSerializable(false)>]
-type private StoreAssemblyDownloader(store : ICloudFileStore, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool) =
+type private StoreAssemblyDownloader(store : ICloudFileStore, imem : ThreadPoolRuntime, logger : ISystemLogger, prefixDataByAssemblyId : bool, compressAssemblies : bool) =
     let getFullPath (fileName : string) = store.GetFullPath fileName
+
+    let getImageReader (path : string) = async {
+        let! stream = store.BeginRead path
+        if compressAssemblies then
+            return new GZipStream(stream, CompressionMode.Decompress) :> Stream
+        else
+            return stream
+    }
 
     interface IAssemblyDownloader with
         member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
             logger.Logf LogLevel.Info "Downloading '%s'" id.FullName
-            return! store.BeginRead (getStoreAssemblyPath getFullPath id)
+            return! getImageReader (getStoreAssemblyPath getFullPath compressAssemblies id)
         }
         
         member x.TryGetSymbolReader(id: AssemblyId): Async<Stream option> = async {
-            let symbolsStorePath = getStoreSymbolsPath getFullPath id
+            let symbolsStorePath = getStoreSymbolsPath getFullPath compressAssemblies id
             let! exists = store.FileExists symbolsStorePath
             if exists then
-                let! stream = store.BeginRead symbolsStorePath
+                let! stream = getImageReader symbolsStorePath
                 return Some stream
             else
                 return None
@@ -197,6 +206,8 @@ type StoreAssemblyManagerConfiguration =
         Serializer : ISerializer
         /// Specifies if data dependencies are to be prefixed by their assembly session identifiers.
         PrefixDataDependenciesByAssemblyId : bool
+        /// Specifies that uploaded assemblies should use GZip compression when uploaded to store.
+        CompressAssemblies : bool
         /// Assemblies ignored by Vagabond
         IgnoredAssemblies : Set<AssemblyId>
     }
@@ -209,7 +220,10 @@ with
     /// <param name="ignoredAssemblies">Store directory used for storing vagabond data. Defaults to "vagabond".</param>
     /// <param name="container">Store directory used for storing vagabond data. Defaults to "vagabond".</param>
     /// <param name="prefixDataDependenciesByAssemblyId">Prefix upload data dependency files by their assembly session identifiers. Defaults to true.</param>
-    static member Create(store : ICloudFileStore, serializer : ISerializer, ?ignoredAssemblies : Assembly [], ?container : string, ?prefixDataDependenciesByAssemblyId : bool) =
+    /// <param name="compressAssemblies">Specifies that uploaded assemblies should use GZip compression when uploaded to store. Defaults to false.</param>
+    static member Create(store : ICloudFileStore, serializer : ISerializer, ?ignoredAssemblies : Assembly [], 
+                            ?container : string, ?prefixDataDependenciesByAssemblyId : bool, ?compressAssemblies : bool) =
+
         let ignoredAssemblies = 
             defaultArg ignoredAssemblies [||]
             |> fun ia -> Vagabond.ComputeAssemblyDependencies(ia, policy = AssemblyLookupPolicy.ResolveRuntime)
@@ -221,6 +235,7 @@ with
             Serializer = serializer
             VagabondContainer = defaultArg container "vagabond"
             PrefixDataDependenciesByAssemblyId = defaultArg prefixDataDependenciesByAssemblyId true
+            CompressAssemblies = defaultArg compressAssemblies false
             IgnoredAssemblies = ignoredAssemblies
         }
 
@@ -230,8 +245,8 @@ with
 type StoreAssemblyManager private (config : StoreAssemblyManagerConfiguration, localLogger : ISystemLogger) =
     let fileStore = config.Store.WithDefaultDirectory config.VagabondContainer
     let imem = ThreadPoolRuntime.Create(fileStore = fileStore, serializer = config.Serializer, memoryEmulation = MemoryEmulation.Shared)
-    let uploader = new StoreAssemblyUploader(fileStore, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
-    let downloader = new StoreAssemblyDownloader(fileStore, imem, localLogger, config.PrefixDataDependenciesByAssemblyId)
+    let uploader = new StoreAssemblyUploader(fileStore, imem, localLogger, config.PrefixDataDependenciesByAssemblyId, config.CompressAssemblies)
+    let downloader = new StoreAssemblyDownloader(fileStore, imem, localLogger, config.PrefixDataDependenciesByAssemblyId, config.CompressAssemblies)
 
     /// <summary>
     ///     Creates a local StoreAssemblyManager instance with provided configuration. 
