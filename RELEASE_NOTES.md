@@ -1,3 +1,9 @@
+#### 0.11.2-alpha
+* Implement compression support for CloudFiles and PersistedCloudValues.
+* Implement compression support for StoreAssemblyManager.
+* Implement compression support for StoreCloudValueProvider.
+* Use DateTimeOffset in WorkerRef and CloudProcess properties.
+
 #### 0.11.1-alpha
 * Fix packaging issue in MBrace.Thespian.
 
