@@ -79,7 +79,7 @@ type private ActorProcessEntryState =
 
             ExecutionTime = 
                 match ts.ExecutionTime with 
-                | Started (t,_) -> Started (t, DateTime.Now - t)
+                | Started (t,_) -> Started (t, DateTimeOffset.Now - t)
                 | et -> et
         }
 
@@ -175,10 +175,10 @@ type ActorProcessEntry private (localStateF : LocalStateFactory, source : ActorR
             | DeclareStatus status ->
                 let executionTime =
                     match state.ExecutionTime, status with
-                    | NotStarted, CloudProcessStatus.Running -> Started (DateTime.Now, TimeSpan.Zero)
+                    | NotStarted, CloudProcessStatus.Running -> Started (DateTimeOffset.Now, TimeSpan.Zero)
                     | Started (t,_), (CloudProcessStatus.Completed | CloudProcessStatus.UserException | CloudProcessStatus.Canceled) -> 
-                        let now = DateTime.Now
-                        Finished(t, now - t, now)
+                        let now = DateTimeOffset.Now
+                        Finished(t, now - t)
                     | et, _ -> et
 
                 return { state with Status = status ; ExecutionTime = executionTime}

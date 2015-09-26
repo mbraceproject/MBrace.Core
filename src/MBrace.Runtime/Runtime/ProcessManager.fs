@@ -51,9 +51,9 @@ type ExecutionTime =
     /// Task has not been started
     | NotStarted
     /// Task has started but not completed yet
-    | Started of startTime:DateTime * executionTime:TimeSpan
+    | Started of startTime:DateTimeOffset * executionTime:TimeSpan
     /// Task has completed
-    | Finished of startTime:DateTime * executionTime:TimeSpan * completionTime:DateTime
+    | Finished of startTime:DateTimeOffset * executionTime:TimeSpan
 
 /// Cloud process execution state record
 [<NoEquality; NoComparison>]

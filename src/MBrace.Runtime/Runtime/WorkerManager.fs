@@ -56,11 +56,11 @@ type WorkerState =
         /// Current number of executing work items
         CurrentWorkItemCount : int
         /// Last Heartbeat submitted by worker
-        LastHeartbeat : DateTime
+        LastHeartbeat : DateTimeOffset
         /// Heartbeat rate designated by worker manager
         HeartbeatRate : TimeSpan
         /// Time of worker initialization/subscription
-        InitializationTime : DateTime
+        InitializationTime : DateTimeOffset
         /// Worker work item execution status
         ExecutionStatus : CloudWorkItemExecutionStatus
         /// Latest worker performance metrics

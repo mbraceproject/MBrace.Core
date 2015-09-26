@@ -97,7 +97,7 @@ module Atom =
     let force (atom : Atom<'T>) t = atom.Force t
 
 
-[<NoEquality; NoComparison>]
+[<AutoSerializable(false); NoEquality; NoComparison>]
 type private CacheState<'T> =
     | Undefined
     | Error of exn * DateTime * 'T option // last successful state

@@ -156,10 +156,10 @@ type WorkItemLeaseToken internal (pWorkItem : PickledWorkItem, stateF : LocalSta
 type private QueueState = 
     {
         Queue : WorkItemQueueTopic
-        LastCleanup : DateTime
+        LastCleanup : DateTimeOffset
     }
-
-    static member Empty = { Queue = WorkItemQueueTopic.Empty ; LastCleanup = DateTime.Now }
+with
+    static member Empty = { Queue = WorkItemQueueTopic.Empty ; LastCleanup = DateTimeOffset.Now }
 
 and private WorkItemQueueTopic = TopicQueue<IWorkerId, PickledWorkItem * CloudWorkItemFaultInfo>
 
@@ -248,7 +248,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
 
             | TryDequeue(worker, rc) ->
                 let state =
-                    if DateTime.Now - state.LastCleanup > cleanupThreshold then
+                    if DateTimeOffset.Now - state.LastCleanup > cleanupThreshold then
                         // remove work items from worker topics if inactive.
                         let removed, state' = state.Queue.Cleanup (workerMonitor.IsAlive >> Async.RunSync >> not)
                         let appendRemoved (s:WorkItemQueueTopic) (j : PickledWorkItem, faultState : CloudWorkItemFaultInfo) =
@@ -260,7 +260,7 @@ type WorkItemQueue private (source : ActorRef<WorkItemQueueMsg>, localStateF : L
                             s.Enqueue((j, faultState), ?topic = None)
 
                         let queue2 = removed |> Seq.fold appendRemoved state'
-                        { Queue = queue2 ; LastCleanup = DateTime.Now }
+                        { Queue = queue2 ; LastCleanup = DateTimeOffset.Now }
                     else
                         state
 

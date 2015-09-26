@@ -211,8 +211,8 @@ and internal WorkerReporter private () =
           Field.create "Work items" Center (fun p -> sprintf "%d / %d" p.ActiveWorkItems p.MaxWorkItemCount)
           Field.create "Hostname" Left (fun p -> p.Hostname)
           Field.create "Task Id" Right (fun p -> p.ProcessId)
-          Field.create "Heartbeat" Left (fun p -> p.LastHeartbeat)
-          Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
+          Field.create "Initialization Time" Left (fun p -> let d = p.InitializationTime in d.LocalDateTime) 
+          Field.create "Latest Heartbeat" Left (fun p -> let d = p.LastHeartbeat in d.LocalDateTime)
         ]
     
     /// <summary>

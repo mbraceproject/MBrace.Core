@@ -38,13 +38,13 @@ type CloudProcess internal () =
     abstract ResultBoxed : obj
 
     /// Date of process execution start.
-    abstract StartTime : DateTime option
+    abstract StartTime : DateTimeOffset option
 
     /// TimeSpan of executing process.
     abstract ExecutionTime : TimeSpan option
 
     /// DateTime of cloud process completion
-    abstract CompletionTime : DateTime option
+    abstract CompletionTime : DateTimeOffset option
 
     /// Active number of work items related to the process.
     abstract ActiveWorkItems : int
@@ -195,18 +195,18 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     override __.StartTime =
         match cell.Value.ExecutionTime with
         | NotStarted -> None
-        | Started(st,_) -> Some st
-        | Finished(st,_,_) -> Some st
+        | Started(st,_) -> Some (st.ToLocalTime())
+        | Finished(st,_) -> Some (st.ToLocalTime())
 
     override __.ExecutionTime =
         match cell.Value.ExecutionTime with
         | NotStarted -> None
         | Started(_,et) -> Some et
-        | Finished(_,et,_) -> Some et
+        | Finished(_,et) -> Some et
 
     override __.CompletionTime =
         match cell.Value.ExecutionTime with
-        | Finished(_,_,ct) -> Some ct
+        | Finished(st,et) -> Some (st.ToLocalTime() + et)
         | _ -> None
 
     override __.CancellationToken = entry.Info.CancellationTokenSource.Token
@@ -332,8 +332,8 @@ and internal CloudProcessReporter() =
           Field.create "Execution Time" Left (fun p -> Option.toNullable p.ExecutionTime)
           Field.create "Work items" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveWorkItems p.FaultedWorkItems p.CompletedWorkItems p.TotalWorkItems)
           Field.create "Result Type" Left (fun p -> Type.prettyPrintUntyped p.Type) 
-          Field.create "Start Time" Left (fun p -> Option.toNullable p.StartTime)
-          Field.create "Completion Time" Left (fun p -> Option.toNullable p.CompletionTime)
+          Field.create "Start Time" Left (fun p -> p.StartTime |> Option.map (fun d -> d.LocalDateTime) |> Option.toNullable)
+          Field.create "Completion Time" Left (fun p -> p.CompletionTime |> Option.map (fun d -> d.LocalDateTime) |> Option.toNullable)
         ]
     
     static member Report(processes : seq<CloudProcess>, title : string, borders : bool) = 

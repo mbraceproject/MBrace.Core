@@ -40,7 +40,7 @@ type WorkerId private (processId : ProcessId, uri : string) =
 type private HeartbeatMonitorMsg = 
     | SendHeartbeat
     | CheckHeartbeat
-    | GetLatestHeartbeat of IReplyChannel<DateTime>
+    | GetLatestHeartbeat of IReplyChannel<DateTimeOffset>
     | Stop of IReplyChannel<unit>
 
 /// Global worker monitor actor
@@ -66,13 +66,13 @@ module private HeartbeatMonitor =
     /// <param name="worker">Worker to monitor.</param>
     let create (threshold : TimeSpan) (workerMonitor : ActorRef<WorkerMonitorMsg>) (worker : WorkerId) =
         let cts = new CancellationTokenSource()
-        let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTime) (msg : HeartbeatMonitorMsg) = async {
+        let behaviour (self : Actor<HeartbeatMonitorMsg>) (lastRenew : DateTimeOffset) (msg : HeartbeatMonitorMsg) = async {
             match msg with
             | SendHeartbeat -> 
                 // update latest heartbeat to now
-                return DateTime.Now
+                return DateTimeOffset.Now
             | CheckHeartbeat ->
-                if DateTime.Now - lastRenew > threshold then
+                if DateTimeOffset.Now - lastRenew > threshold then
                     // send message to parent worker monitor declaring worker dead
                     workerMonitor <-- DeclareDead worker
 
@@ -89,7 +89,7 @@ module private HeartbeatMonitor =
         }
 
         let aref =
-            Actor.SelfStateful DateTime.Now behaviour
+            Actor.SelfStateful DateTimeOffset.Now behaviour
             |> Actor.Publish
             |> Actor.ref
 
@@ -188,9 +188,9 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
                         Id = unbox w
                         Info = info
                         CurrentWorkItemCount = 0
-                        LastHeartbeat = DateTime.Now
+                        LastHeartbeat = DateTimeOffset.Now
                         HeartbeatRate = heartbeatThreshold
-                        InitializationTime = DateTime.Now
+                        InitializationTime = DateTimeOffset.Now
                         ExecutionStatus = Stopped
                         PerformanceMetrics = PerformanceInfo.Empty
                     }
