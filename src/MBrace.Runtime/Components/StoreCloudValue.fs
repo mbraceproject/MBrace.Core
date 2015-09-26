@@ -3,6 +3,7 @@
 open System
 open System.Reflection
 open System.IO
+open System.IO.Compression
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 
@@ -20,9 +21,10 @@ open MBrace.Runtime.Utils.PrettyPrinters
 
 [<AutoOpen>]
 module private StoreCloudValueImpl =
-    
-    [<Literal>]
-    let persistFileSuffix = ".cv"
+
+    let getPersistFileSuffix usesCompression =
+        if usesCompression then ".cv.gz"
+        else ".cv"
 
     // StoreCloudValue instances have three possible representations
     //  * Encapsulated: values small enough to be encapsulated in the CloudValue instance
@@ -124,6 +126,8 @@ module private StoreCloudValueImpl =
             CacheFactory : (unit -> InMemoryCache) option
             /// Asynchronously persist 'StorageLevel.Memory' to disk
             ShadowPersistObjects : bool
+            /// Specify GZip compression level to be used when persisting to disk
+            CompressionLevel : CompressionLevel
         }
 
     /// StoreConfiguration object specific to local process
@@ -138,6 +142,8 @@ module private StoreCloudValueImpl =
             LocalCache : InMemoryCache
         }
     with
+        member c.UsesCompression = c.Global.CompressionLevel <> CompressionLevel.NoCompression
+
         static member Init(config : StoreCloudValueConfiguration) =
             {
                 Global = config
@@ -154,16 +160,16 @@ module private StoreCloudValueImpl =
         ///     Creates a filename based on given hashcode.
         /// </summary>
         /// <param name="hash">Input hash.</param>
-        member s.GetPathByHash (hash : HashResult) =
+        member s.GetPathByHash (hash : HashResult, useCompression : bool) =
             let fileName = Vagabond.GetUniqueFileName hash
-            s.GetFullPath (fileName + persistFileSuffix)
+            s.GetFullPath (fileName + getPersistFileSuffix useCompression)
 
         /// <summary>
         ///     Checks if object by given hash is persisted in store.
         /// </summary>
         /// <param name="hash">Hash to be checked.</param>
-        member s.ContainsHash(hash : HashResult) = async {
-            let filePath = s.GetPathByHash hash
+        member s.ContainsHash(hash : HashResult, useCompression : bool) = async {
+            let filePath = s.GetPathByHash(hash, useCompression)
             return! s.FileExists filePath
         }
 
@@ -171,8 +177,8 @@ module private StoreCloudValueImpl =
         ///     Deletes persisted object of given hash from underlying store.
         /// </summary>
         /// <param name="hash">Hash to be deleted.</param>
-        member s.DeleteByHash(hash : HashResult) = async {
-            let filePath = s.GetPathByHash hash
+        member s.DeleteByHash(hash : HashResult, useCompression : bool) = async {
+            let filePath = s.GetPathByHash(hash, useCompression)
             do! s.DeleteFile filePath
         }
 
@@ -183,11 +189,18 @@ module private StoreCloudValueImpl =
         /// <param name="header">CloudValue header object.</param>
         /// <param name="value">Value to be persisted.</param>
         /// <param name="overwrite">Overwrite persisted file if it already exists.</param>
-        member s.Serialize<'T>(serializer : ISerializer, header : CloudValueHeader, value : 'T, overwrite : bool) = async {
-            let filePath = s.GetPathByHash header.Hash
+        /// <param name="compression">GZip compression level to be used when persisting to disk.</param>
+        member s.Serialize<'T>(serializer : ISerializer, header : CloudValueHeader, value : 'T, compression : CompressionLevel, overwrite : bool) = async {
+            let filePath = s.GetPathByHash(header.Hash, compression <> CompressionLevel.NoCompression)
             let! exists = s.FileExists filePath
             if not exists || overwrite then
-                use! stream = s.BeginWrite filePath
+                use! stream = async {
+                    let! stream = s.BeginWrite filePath
+                    match compression with
+                    | CompressionLevel.NoCompression -> return stream
+                    | _ -> return new GZipStream(stream, compression) :> _
+                }
+
                 serializer.Serialize<CloudValueHeader>(stream, header, leaveOpen = true)
                 serializer.Serialize<obj>(stream, value, leaveOpen = true)
         }
@@ -197,9 +210,16 @@ module private StoreCloudValueImpl =
         /// </summary>
         /// <param name="serializer">Serializer to be used.</param>
         /// <param name="path">Path to file to be read.</param>
-        member s.TryGetHeader(serializer : ISerializer, path : string) = async {
+        /// <param name="compression">GZip CompressionLevel to be used when reading from file.</param>
+        member s.TryGetHeader(serializer : ISerializer, path : string, compression : CompressionLevel) = async {
             try
-                use! stream = s.BeginRead path
+                use! stream = async {
+                    let! stream = s.BeginRead path
+                    match compression with
+                    | CompressionLevel.NoCompression -> return stream
+                    | _ -> return new GZipStream(stream, CompressionMode.Decompress) :> _
+                }
+
                 let header = serializer.Deserialize<CloudValueHeader>(stream, leaveOpen = true)
                 return Some header
             with 
@@ -212,10 +232,17 @@ module private StoreCloudValueImpl =
         /// </summary>
         /// <param name="serializer">Serializer to be used.</param>
         /// <param name="hash">Hash identifier for object.</param>
-        member s.TryDeserialize<'T>(serializer : ISerializer, hash : HashResult) = async {
-            let filePath = s.GetPathByHash hash
+        /// <param name="compression">GZip CompressionLevel to be used when reading from file.</param>
+        member s.TryDeserialize<'T>(serializer : ISerializer, hash : HashResult, compression : CompressionLevel) = async {
+            let filePath = s.GetPathByHash(hash, compression <> CompressionLevel.NoCompression)
             try
-                use! stream = s.BeginRead filePath
+                use! stream = async {
+                    let! stream = s.BeginRead filePath
+                    match compression with
+                    | CompressionLevel.NoCompression -> return stream
+                    | _ -> return new GZipStream(stream, CompressionMode.Decompress) :> _
+                }
+
                 let _ = serializer.Deserialize<CloudValueHeader>(stream, leaveOpen = true)
                 let value = serializer.Deserialize<obj>(stream, leaveOpen = true) :?> 'T
                 return Some value
@@ -226,7 +253,7 @@ module private StoreCloudValueImpl =
         }
 
 
-
+type CompressionLevel = System.IO.Compression.CompressionLevel
 
 /// Registry for StoreCloudValue configurations; used for StoreCloudValue deserialization
 type private StoreCloudValueRegistry private () =
@@ -296,7 +323,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                 let! localCached = async {
                     match config.LocalStore with
                     | Some ls -> 
-                        try return! ls.TryDeserialize<'T>(config.Global.Serializer, hash)
+                        try return! ls.TryDeserialize<'T>(config.Global.Serializer, hash, config.Global.CompressionLevel)
                         with _ -> return None
                     | _ -> return None
                 }
@@ -305,7 +332,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                 let! value = async {
                     match localCached with
                     | None -> 
-                        let! globalValue = config.Global.MainStore.TryDeserialize<'T>(config.Global.Serializer, hash)
+                        let! globalValue = config.Global.MainStore.TryDeserialize<'T>(config.Global.Serializer, hash, config.Global.CompressionLevel)
                         match globalValue with
                         // value not found in any storage level
                         | None -> return raise <| new ObjectDisposedException(hash.Id, "Could not dereference CloudValue from store.")
@@ -314,7 +341,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                             match config.LocalStore with
                             | Some ls -> 
                                 let header = CloudValueHeader.FromValue(gv, hash, level)
-                                let _ = Async.StartAsTask(ls.Serialize<'T>(config.Global.Serializer, header, gv, overwrite = true))
+                                let _ = Async.StartAsTask(ls.Serialize<'T>(config.Global.Serializer, header, gv, config.Global.CompressionLevel, overwrite = true))
                                 ()
 
                             | _ -> ()
@@ -372,9 +399,9 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
             | Cached (level, hash) -> 
                 let config = getConfig()
                 if level.HasFlag StorageLevel.Disk then 
-                    do! config.Global.MainStore.DeleteByHash hash
+                    do! config.Global.MainStore.DeleteByHash(hash, config.UsesCompression)
                     match config.LocalStore with
-                    | Some ls -> do! ls.DeleteByHash hash
+                    | Some ls -> do! ls.DeleteByHash(hash, config.UsesCompression)
                     | None -> ()
 
                 if level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized then
@@ -472,7 +499,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
 
     let tryGetPersistedCloudValueByPath(path : string) = async {
         let config = getConfig()
-        let! header = config.Global.MainStore.TryGetHeader(config.Global.Serializer, path)
+        let! header = config.Global.MainStore.TryGetHeader(config.Global.Serializer, path, config.Global.CompressionLevel)
         match header with
         | None -> return None
         | Some hd -> 
@@ -494,10 +521,10 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         let config = getConfig()
         let header = { Type = getReflectedType value ; Hash = hash ; Level = level ; Count = elementCount }
         match config.LocalStore with
-        | Some lc -> ignore <| Async.StartAsTask(lc.Serialize(config.Global.Serializer, header, value, overwrite = false))
+        | Some lc -> ignore <| Async.StartAsTask(lc.Serialize(config.Global.Serializer, header, value, config.Global.CompressionLevel, overwrite = false))
         | None -> ()
 
-        do! config.Global.MainStore.Serialize(config.Global.Serializer, header, value, overwrite = false)
+        do! config.Global.MainStore.Serialize(config.Global.Serializer, header, value, config.Global.CompressionLevel, overwrite = false)
     }
 
     let createCloudValue (level : StorageLevel) (value:'T) = async {
@@ -534,14 +561,17 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
     /// <param name="serializer">Serializer instance used for persisting values. Defaults to FsPickler.</param>
     /// <param name="encapsulationThreshold">Values less than this size will be encapsulated in CloudValue instance. Defaults to 32KiB.</param>
     /// <param name="shadowPersistObjects">Asynchronously persist values to store, even if StorageLevel is declared memory only.</param>
+    /// <param name="compressionLevel">GZipStream compression level to be used when persisting files to store. Defaults to no compression.</param>
     static member InitCloudValueProvider(mainStore:ICloudFileStore, ?cacheFactory : unit -> InMemoryCache, 
                                             ?localFileStore:(unit -> ICloudFileStore), ?serializer:ISerializer, 
-                                            ?encapsulationThreshold:int64, ?shadowPersistObjects:bool) =
+                                            ?encapsulationThreshold:int64, ?shadowPersistObjects:bool,
+                                            ?compressionLevel : CompressionLevel) =
 
         ignore VagabondRegistry.Instance
         let id = sprintf "%s:%s/%s" mainStore.Name mainStore.Id mainStore.DefaultDirectory
         let serializer = match serializer with Some s -> s | None -> new VagabondFsPicklerBinarySerializer() :> ISerializer
         let encapsulationThreshold = defaultArg encapsulationThreshold (32L * 1024L)
+        let compressionLevel = defaultArg compressionLevel CompressionLevel.NoCompression
         FsPickler.EnsureSerializable ((cacheFactory, localFileStore))
         let config = 
             { 
@@ -552,6 +582,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
                 CacheFactory = cacheFactory
                 EncapsulationTreshold = encapsulationThreshold
                 ShadowPersistObjects = defaultArg shadowPersistObjects true
+                CompressionLevel = compressionLevel
             }
 
         let localConfig = StoreCloudValueRegistry.Install config
@@ -604,9 +635,10 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         member x.DisposeAllValues(): Async<unit> = async {
             let config = getConfig()
             let! files = config.Global.MainStore.EnumerateFiles config.Global.MainStore.DefaultDirectory
+            let cvSuffix = getPersistFileSuffix config.UsesCompression
             return!
                 files
-                |> Seq.filter (fun f -> f.EndsWith persistFileSuffix)
+                |> Seq.filter (fun f -> f.EndsWith cvSuffix)
                 |> Seq.map config.Global.MainStore.DeleteFile
                 |> Async.Parallel
                 |> Async.Ignore
@@ -615,9 +647,10 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
         member x.GetAllCloudValues(): Async<ICloudValue []> = async {
             let config = getConfig()
             let! files = config.Global.MainStore.EnumerateFiles config.Global.MainStore.DefaultDirectory
+            let cvSuffix = getPersistFileSuffix config.UsesCompression
             let! cvalues =
                 files
-                |> Seq.filter (fun f -> f.EndsWith persistFileSuffix)
+                |> Seq.filter (fun f -> f.EndsWith cvSuffix)
                 |> Seq.map (getPersistedCloudValueByPath >> Async.Catch)
                 |> Async.Parallel
 
@@ -638,7 +671,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
 
             // Step 2. attempt to look up from store
             | _ ->
-                let path = config.Global.MainStore.GetPathByHash hash
+                let path = config.Global.MainStore.GetPathByHash(hash, config.UsesCompression)
                 try return! tryGetPersistedCloudValueByPath path
                 with :? System.IO.FileNotFoundException -> return None
         }
