@@ -18,21 +18,23 @@ open MBrace.Runtime.Store
 open MBrace.Thespian.Runtime
 open MBrace.Thespian.Runtime.WorkerConfiguration
 
-/// A system logger that writes entries to stdout
+/// A system logger that writes entries to stdout.
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
-/// Struct that specifies a single system log entry
+/// Struct that specifies a single system log entry.
 type SystemLogEntry = MBrace.Runtime.SystemLogEntry
-/// Struct that specifies a single cloud log entry
+/// Struct that specifies a single cloud log entry.
 type CloudLogEntry = MBrace.Runtime.CloudLogEntry
-/// Log level used by the MBrace runtime implementation
+/// Log level used by the MBrace runtime implementation.
 type LogLevel = MBrace.Runtime.LogLevel
 /// A Serializable object used to identify a specific worker in a cluster.
 /// Can be used to point computations for execution at specific machines.
 type WorkerRef = MBrace.Runtime.WorkerRef
-/// Represents a distributed computation that is being executed by an MBrace runtime
+/// Represents a distributed computation that is being executed by an MBrace runtime.
 type CloudProcess = MBrace.Runtime.CloudProcess
-/// Represents a distributed computation that is being executed by an MBrace runtime
+/// Represents a distributed computation that is being executed by an MBrace runtime.
 type CloudProcess<'T> = MBrace.Runtime.CloudProcess<'T>
+/// Simple ICloudFileStore implementation using a local or shared File System.
+type FileSystemStore = MBrace.Runtime.Store.FileSystemStore
 
 /// Defines a client object used for administering MBrace worker processes.
 [<AutoSerializable(false)>]
@@ -203,7 +205,7 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager) =
         do! Array.init count attachNewWorker |> Async.Parallel |> Async.Ignore
     }
 
-    static let getDefaultStore() = FileSystemStore.CreateSharedLocal() :> ICloudFileStore
+    static let getDefaultStore() = FileSystemStore.CreateRandomLocal() :> ICloudFileStore
 
     let masterNode =
         if state.IsWorkerHosted then Some <| ThespianWorker.Connect state.Uri
