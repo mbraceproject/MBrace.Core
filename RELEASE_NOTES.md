@@ -1,3 +1,6 @@
+#### 0.11.3-alpha
+* Minor fixes and improvements.
+
 #### 0.11.2-alpha
 * Implement compression support for CloudFiles and PersistedCloudValues.
 * Implement compression support for StoreAssemblyManager.
