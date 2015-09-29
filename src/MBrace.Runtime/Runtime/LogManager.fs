@@ -52,6 +52,11 @@ type ICloudWorkItemLogger =
     inherit IDisposable
     inherit ICloudLogger
 
+/// System logger instance used for logging cluster-wide entries
+type IRemoteSystemLogger =
+    inherit IDisposable
+    inherit ISystemLogger
+
 /// Log polling abstraction used for subscribing to new log events
 type ILogPoller<'LogEntry> =
     inherit IDisposable
@@ -109,7 +114,7 @@ type IRuntimeSystemLogManager =
     ///     Asynchronously initializes a system logger implementation that logs entries to the cluster state.
     /// </summary>
     /// <param name="id">Current worker identifier.</param>
-    abstract CreateLogWriter : id:IWorkerId -> Async<ISystemLogger>
+    abstract CreateLogWriter : id:IWorkerId -> Async<IRemoteSystemLogger>
 
     /// <summary>
     ///     Asynchronously fetches all system logs produced by all workers in the cluster.

@@ -21,6 +21,7 @@ module internal WorkerSubscription =
             Agent : WorkerAgent
             LoggerSubscription : IDisposable
             WorkItemEvaluator : ICloudWorkItemEvaluator
+            StoreLogger : IRemoteSystemLogger
             StoreLoggerSubscription : IDisposable
         }
         member s.Dispose() =
@@ -28,6 +29,7 @@ module internal WorkerSubscription =
             Disposable.dispose s.WorkItemEvaluator
             Disposable.dispose s.LoggerSubscription
             Disposable.dispose s.StoreLoggerSubscription
+            Disposable.dispose s.StoreLogger
 
     /// AppDomain configuration object that can be safely
     /// passed to AppDomain before it has been initialized
@@ -50,25 +52,25 @@ module internal WorkerSubscription =
     /// <param name="logger">Logger bound to local worker process.s</param>
     /// <param name="maxConcurrentWorkItems">Maximum number of permitted concurrent work items.</param>
     /// <param name="state">MBrace.Thespian state object.</param>
-    let initSubscription (useAppDomainIsolation : bool) (logger : AttacheableLogger) 
+    let initSubscription (useAppDomainIsolation : bool) (logger : ISystemLogger) 
                             (maxConcurrentWorkItems : int) (state : ClusterState) = async {
 
         ignore Config.Serializer
         // it is important that the current worker id is initialized in the master AppDomain
-        // and not in the worker domains. This ensures that all workers identify with the master uri.
+        // and not in the worker domains. This ensures that all AppDomains identify with the master domain uri.
         let currentWorker = WorkerId.LocalInstance :> IWorkerId
         let manager = state.GetLocalRuntimeManager()
         let loggerSubscription = manager.LocalSystemLogManager.AttachLogger logger
         logger.LogInfo "Initializing worker store logger."
-        let! storeLogger = state.LocalStateFactory.Value.SystemLogManager.CreateLogWriter(currentWorker)
-        let storeLoggerSubscription = logger.AttachLogger(storeLogger)
+        let! storeLogger = manager.RuntimeSystemLogManager.CreateLogWriter(currentWorker)
+        let storeLoggerSubscription = manager.LocalSystemLogManager.AttachLogger storeLogger
 
         let workItemEvaluator =
             if useAppDomainIsolation then
                 logger.LogInfo "Initializing AppDomain pool evaluator."
                 let domainConfig =
                     {
-                        Logger = new MarshaledLogger(logger)
+                        Logger = new MarshaledLogger(manager.SystemLogger)
                         RuntimeState = Config.Serializer.PickleTyped state
                         WorkingDirectory = Config.WorkingDirectory
                         Hostname = Config.HostName
@@ -101,6 +103,7 @@ module internal WorkerSubscription =
             LoggerSubscription = loggerSubscription
             WorkItemEvaluator = workItemEvaluator
             RuntimeState = state
+            StoreLogger = storeLogger
             StoreLoggerSubscription = storeLoggerSubscription
         }
     }

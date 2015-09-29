@@ -227,10 +227,12 @@ type StoreJsonLogger =
 
 [<Sealed; AutoSerializable(false)>]
 type private StoreSystemLogWriter (workerId : string, writer : StoreJsonLogWriter<SystemLogEntry>) =
-    interface ISystemLogger with
+    interface IRemoteSystemLogger with
         member x.LogEntry(entry: SystemLogEntry): unit = 
             let updated = SystemLogEntry.WithWorkerId(workerId, entry)
             writer.LogEntry updated
+
+        member x.Dispose() = Disposable.dispose writer
 
 /// Creates a schema for writing and fetching system log files for specific workers
 type ISystemLogStoreSchema =
@@ -317,11 +319,11 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
     member x.CreateLogWriter(workerId : IWorkerId) = async {
         do! clearWorkerLogs workerId
         let writer = StoreJsonLogger.CreateJsonLogWriter(store, fun () -> schema.GetLogFilePath workerId)
-        return new StoreSystemLogWriter(workerId.Id, writer) :> ISystemLogger
+        return new StoreSystemLogWriter(workerId.Id, writer) :> IRemoteSystemLogger
     }
 
     interface IRuntimeSystemLogManager with
-        member x.CreateLogWriter(workerId : IWorkerId) : Async<ISystemLogger> = x.CreateLogWriter workerId
+        member x.CreateLogWriter(workerId : IWorkerId) : Async<IRemoteSystemLogger> = x.CreateLogWriter workerId
         
         member x.GetRuntimeLogs(): Async<seq<SystemLogEntry>> = async {
             let! logFiles = schema.GetLogFiles()
