@@ -27,6 +27,8 @@ module internal WorkerConfiguration =
         | [<AltCommandLine("-j")>] Max_Concurrent_Work_Items of int
         | [<AltCommandLine("-i")>] Use_AppDomain_Isolation of bool
         | [<AltCommandLine("-L")>] Log_File of string
+        | [<AltCommandLine("-b")>] Heartbeat_Interval of float
+        | [<AltCommandLine("-t")>] Heartbeat_Threshold of float
 
         interface IArgParserTemplate with
             member a.Usage =
@@ -38,6 +40,8 @@ module internal WorkerConfiguration =
                 | Log_Level _ -> "Specify the log level: 0 none, 1 critical, 2 error, 3 warning, 4 info, 5 debug."
                 | Max_Concurrent_Work_Items _ -> "Maximum number of concurrent MBrace work items. Defaults to 20."
                 | Use_AppDomain_Isolation _ -> "Enables or disables AppDomain isolation in worker node. Defaults to true."
+                | Heartbeat_Interval _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 0.5 seconds."
+                | Heartbeat_Threshold _ -> "Specify the maximum heartbeat threshold after which the worker should be declared dead. Defaults to 10 seconds."
                 | Log_File _ -> "Specify a log file for node logging purposes."
 
     /// Argument parser instance object
@@ -59,6 +63,8 @@ module internal WorkerConfiguration =
             LogFiles : string list
             MaxConcurrentWorkItems : int option
             UseAppDomainIsolation : bool option
+            HeartbeatInterval : TimeSpan option
+            HeartbeatThreshold : TimeSpan option
             // Deserializing ActorRefs in uninitialized thespian states has strange side-effects; 
             // use pickle wrapping for delayed deserialization
             /// ActorRef to parent process that has spawned this process, if applicable.
@@ -76,6 +82,8 @@ module internal WorkerConfiguration =
                 LogLevel = results.TryPostProcessResult(<@ Log_Level @>, fun l -> if l < 0 || l > 5 then failwith "invalid log level" else enum l)
                 MaxConcurrentWorkItems = results.TryPostProcessResult(<@ Max_Concurrent_Work_Items @>, fun j -> if j <= 0 || j > 1000 then failwith "max concurrent work items out of range" else j)
                 UseAppDomainIsolation = results.TryGetResult(<@ Use_AppDomain_Isolation @>)
+                HeartbeatInterval = results.TryPostProcessResult(<@ Heartbeat_Interval @>, fun s -> if s > 0. then TimeSpan.FromSeconds s else failwith "must be positive.")
+                HeartbeatThreshold = results.TryPostProcessResult(<@ Heartbeat_Threshold @>, fun s -> if s > 0. then TimeSpan.FromSeconds s else failwith "must be positive.")
                 Parent = results.TryPostProcessResult(<@ Parent_Actor @>, fun bytes -> new Pickle<_>(bytes))
             }
 
@@ -90,6 +98,8 @@ module internal WorkerConfiguration =
                 match config.MaxConcurrentWorkItems with Some j -> yield Max_Concurrent_Work_Items j | None -> ()
                 match config.UseAppDomainIsolation with Some i -> yield Use_AppDomain_Isolation i | None -> ()
                 match config.Parent with Some p -> yield Parent_Actor p.Bytes | None -> ()
+                match config.HeartbeatInterval with Some i -> yield Heartbeat_Interval i.TotalSeconds | None -> ()
+                match config.HeartbeatThreshold with Some i -> yield Heartbeat_Threshold i.TotalSeconds | None -> ()
             ] |> argParser.PrintCommandLineFlat
 
     /// Asynchronously spawns a worker process with supplied configuration
@@ -97,7 +107,7 @@ module internal WorkerConfiguration =
         use receiver =
             Receiver.create<WorkerStartupResult>()
             |> Receiver.rename (mkUUID())
-            |> Receiver.publish [ Protocols.utcp() ]
+            |> Receiver.publish [| Protocols.utcp() |]
             |> Receiver.start
 
         let config = { config with Parent = Some (Config.Serializer.PickleTyped receiver.Ref) }

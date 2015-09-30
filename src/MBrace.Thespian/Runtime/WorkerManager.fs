@@ -123,7 +123,7 @@ module private HeartbeatMonitor =
 
 /// WorkerManager actor reference used for handling MBrace.Thespian worker instances
 [<AutoSerializable(true)>]
-type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<WorkerMonitorMsg>) =
+type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<WorkerMonitorMsg>) =
 
     /// <summary>
     ///     Revokes worker subscription for given id.
@@ -163,8 +163,9 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
         }
         
         member x.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
-            let! heartbeatMon, threshold = source <!- fun ch -> Subscribe(unbox id, info, ch)
+            let! heartbeatMon, heartbeatInterval = source <!- fun ch -> Subscribe(unbox id, info, ch)
             let! unsubscriber = HeartbeatMonitor.initHeartbeat heartbeatInterval heartbeatMon
+            stateF.Value.Logger.Logf LogLevel.Info "Subscribed to cluster with heartbeat interval %A" heartbeatInterval
             return new WorkerSubscriptionManager(x, id, unsubscriber) :> IDisposable
         }
         
@@ -175,28 +176,32 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
     /// <summary>
     ///     Creates a new worker manager instance running in the local process.
     /// </summary>
-    /// <param name="heartbeatThreshold">Maximum heartbeat threshold demanded by monitor. Defaults to 10 seconds.</param>
+    /// <param name="heartbeatThreshold">Force a heartbeat threshold regardless of threshold declared by worker.</param>
+    /// <param name="heartbeatInterval">Force a heartbeat interval regardless of interval declared by worker.</param>
     static member Create(localStateF : LocalStateFactory, ?heartbeatThreshold : TimeSpan, ?heartbeatInterval : TimeSpan) =
-        let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 10.)
-        let heartbeatInterval = defaultArg heartbeatInterval (TimeSpan.FromSeconds 0.5)
         let logger = localStateF.Value.Logger
         let behaviour (self : Actor<WorkerMonitorMsg>) (state : Map<WorkerId, WorkerState * ActorRef<HeartbeatMonitorMsg>>) (msg : WorkerMonitorMsg) = async {
             match msg with
             | Subscribe(w, info, rc) ->
+                let info2 = { 
+                    info with 
+                        HeartbeatInterval = defaultArg heartbeatInterval info.HeartbeatInterval 
+                        HeartbeatThreshold = defaultArg heartbeatThreshold info.HeartbeatThreshold
+                }
+
                 let workerState = 
                     { 
                         Id = unbox w
-                        Info = info
+                        Info = info2
                         CurrentWorkItemCount = 0
                         LastHeartbeat = DateTimeOffset.Now
-                        HeartbeatRate = heartbeatThreshold
                         InitializationTime = DateTimeOffset.Now
                         ExecutionStatus = Stopped
                         PerformanceMetrics = PerformanceInfo.Empty
                     }
 
-                let hmon = HeartbeatMonitor.create heartbeatThreshold self.Ref w
-                do! rc.Reply(hmon, heartbeatThreshold)
+                let hmon = HeartbeatMonitor.create info2.HeartbeatThreshold self.Ref w
+                do! rc.Reply(hmon, info2.HeartbeatInterval)
                 logger.Logf LogLevel.Info "Subscribed new worker '%s' to cluster." w.Id
                 return state.Add(w, (workerState, hmon))
 
@@ -266,7 +271,7 @@ type WorkerManager private (heartbeatInterval : TimeSpan, source : ActorRef<Work
             |> Actor.Publish
             |> Actor.ref
 
-        new WorkerManager(heartbeatInterval, aref)
+        new WorkerManager(localStateF, aref)
 
 
 /// Subscribption disposer object

@@ -60,7 +60,10 @@ module internal WorkerController =
     /// <param name="useAppDomain">Use application domain isolation for MBrace work item execution.</param>
     /// <param name="maxConcurrentWorkItems">Maximum number of concurrent MBrace work items running in worker.</param>
     /// <param name="logger">Underlying system logger used by actor.</param>
-    let initController (useAppDomain : bool) (maxConcurrentWorkItems : int) (logger : ISystemLogger) : ActorRef<WorkerControllerMsg> =
+    let initController (useAppDomain : bool) (maxConcurrentWorkItems : int) 
+                        (heartbeatInterval : TimeSpan) (heartbeatThreshold : TimeSpan) 
+                        (logger : ISystemLogger) : ActorRef<WorkerControllerMsg> =
+
         let behaviour (state : WorkerState) (message : WorkerControllerMsg) = async {
             match message with
             | Kill i -> 
@@ -85,7 +88,7 @@ module internal WorkerController =
                     return state
                 | Idle ->
                     logger.Logf LogLevel.Info "Subscribing worker to runtime hosted at '%s'." rs.Uri
-                    let! result = WorkerSubscription.initSubscription useAppDomain logger maxConcurrentWorkItems rs |> Async.Catch
+                    let! result = WorkerSubscription.initSubscription useAppDomain logger heartbeatInterval heartbeatThreshold maxConcurrentWorkItems rs |> Async.Catch
                     match result with
                     | Choice1Of2 subscr -> 
                         do! rc.Reply (())

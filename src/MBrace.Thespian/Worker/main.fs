@@ -10,6 +10,8 @@ open MBrace.Runtime
 
 let maxConcurrentWorkItems = 20
 let useAppDomainIsolation = true
+let heartbeatInterval = TimeSpan.FromSeconds 0.5
+let heartbeatThreshold = TimeSpan.FromSeconds 10.
 
 let main (args : string []) =
     try
@@ -40,6 +42,8 @@ let main (args : string []) =
                 WorkerController.initController 
                     (defaultArg config.UseAppDomainIsolation useAppDomainIsolation) 
                     (defaultArg config.MaxConcurrentWorkItems maxConcurrentWorkItems)
+                    (defaultArg config.HeartbeatInterval heartbeatInterval)
+                    (defaultArg config.HeartbeatThreshold heartbeatThreshold)
                     logger
 
             replyToParent logger config (Success controller)

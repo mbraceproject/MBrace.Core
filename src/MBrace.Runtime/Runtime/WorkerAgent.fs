@@ -184,19 +184,25 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
     /// <param name="workItemEvaluator">Abstract work item evaluator.</param>
     /// <param name="maxConcurrentWorkItems">Maximum number of work items to be executed concurrently in this worker.</param>
     /// <param name="submitPerformanceMetrics">Enable or disable automatic performance metric submission to cluster worker manager.</param>
-    static member Create(runtimeManager : IRuntimeManager, workerId : IWorkerId, workItemEvaluator : ICloudWorkItemEvaluator, maxConcurrentWorkItems : int, submitPerformanceMetrics:bool) = async {
-        if maxConcurrentWorkItems < 1 then invalidArg "maxConcurrentWorkItems" "must be positive."
-        let workerInfo =
-            {
-                Hostname = System.Net.Dns.GetHostName()
-                ProcessorCount = Environment.ProcessorCount
-                ProcessId = System.Diagnostics.Process.GetCurrentProcess().Id
-                MaxWorkItemCount = maxConcurrentWorkItems
-            }
+    /// <param name="heartbeatInterval">Designated heartbeat interval sent by worker to the cluster.</param>
+    /// <param name="heartbeatThreshold">Designated maximum heartbeat interval before declaring the cluster declares the worker dead.</param>
+    static member Create(runtimeManager : IRuntimeManager, workerId : IWorkerId, workItemEvaluator : ICloudWorkItemEvaluator, 
+                            maxConcurrentWorkItems : int, submitPerformanceMetrics:bool, heartbeatInterval : TimeSpan, heartbeatThreshold : TimeSpan) =                     
+        async {
+            if maxConcurrentWorkItems < 1 then invalidArg "maxConcurrentWorkItems" "must be positive."
+            let workerInfo =
+                {
+                    Hostname = System.Net.Dns.GetHostName()
+                    ProcessorCount = Environment.ProcessorCount
+                    ProcessId = System.Diagnostics.Process.GetCurrentProcess().Id
+                    MaxWorkItemCount = maxConcurrentWorkItems
+                    HeartbeatInterval = heartbeatInterval
+                    HeartbeatThreshold = heartbeatThreshold
+                }
 
-        let! unsubscriber = runtimeManager.WorkerManager.SubscribeWorker(workerId, workerInfo)
-        return new WorkerAgent(runtimeManager, workerId, workItemEvaluator, maxConcurrentWorkItems, unsubscriber, submitPerformanceMetrics)
-    }
+            let! unsubscriber = runtimeManager.WorkerManager.SubscribeWorker(workerId, workerInfo)
+            return new WorkerAgent(runtimeManager, workerId, workItemEvaluator, maxConcurrentWorkItems, unsubscriber, submitPerformanceMetrics)
+        }
 
     /// Worker ref representing the current worker instance.
     member w.CurrentWorker = workerId

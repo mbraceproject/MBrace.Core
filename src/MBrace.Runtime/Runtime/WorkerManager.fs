@@ -43,6 +43,10 @@ type WorkerInfo =
         ProcessorCount : int
         /// Maximum number of executing work items
         MaxWorkItemCount : int
+        /// Heartbeat rate designated by worker instance
+        HeartbeatInterval : TimeSpan
+        /// Maximum designated heartbeat interval before declaring worker dead
+        HeartbeatThreshold : TimeSpan
     }
 
 /// Worker state object
@@ -57,8 +61,6 @@ type WorkerState =
         CurrentWorkItemCount : int
         /// Last Heartbeat submitted by worker
         LastHeartbeat : DateTimeOffset
-        /// Heartbeat rate designated by worker manager
-        HeartbeatRate : TimeSpan
         /// Time of worker initialization/subscription
         InitializationTime : DateTimeOffset
         /// Worker work item execution status

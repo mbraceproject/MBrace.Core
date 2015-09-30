@@ -52,7 +52,8 @@ module internal WorkerSubscription =
     /// <param name="logger">Logger bound to local worker process.s</param>
     /// <param name="maxConcurrentWorkItems">Maximum number of permitted concurrent work items.</param>
     /// <param name="state">MBrace.Thespian state object.</param>
-    let initSubscription (useAppDomainIsolation : bool) (logger : ISystemLogger) 
+    let initSubscription (useAppDomainIsolation : bool) (logger : ISystemLogger)
+                            (heartBeatInterval : TimeSpan) (heartBeatThreshold : TimeSpan)
                             (maxConcurrentWorkItems : int) (state : ClusterState) = async {
 
         ignore Config.Serializer
@@ -96,7 +97,8 @@ module internal WorkerSubscription =
                 LocalWorkItemEvaluator.Create(manager, currentWorker) :> ICloudWorkItemEvaluator
 
         logger.LogInfo "Creating worker agent."
-        let! agent = WorkerAgent.Create(manager, currentWorker, workItemEvaluator, maxConcurrentWorkItems, submitPerformanceMetrics = true)
+        let! agent = WorkerAgent.Create(manager, currentWorker, workItemEvaluator, maxConcurrentWorkItems, 
+                                            submitPerformanceMetrics = true, heartbeatInterval = heartBeatInterval, heartbeatThreshold = heartBeatThreshold)
         do! agent.Start()
         return {
             Agent = agent
