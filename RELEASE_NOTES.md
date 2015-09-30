@@ -1,3 +1,6 @@
+#### 0.11.4-alpha
+* Use longs in ICloudCounter.
+
 #### 0.11.3-alpha
 * Minor fixes and improvements.
 
