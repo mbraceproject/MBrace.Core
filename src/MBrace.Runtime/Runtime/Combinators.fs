@@ -91,7 +91,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
             let currentCts = ctx.CancellationToken
             let! childCts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
             let! resultAggregator = runtime.ResultAggregatorFactory.CreateResultAggregator<'T>(aggregatorId = parallelWorkflowId, capacity = N)
-            let! cancellationLatch = runtime.CounterFactory.CreateCounter(initialValue = 0)
+            let! cancellationLatch = runtime.CounterFactory.CreateCounter(initialValue = 0L)
 
             let onSuccess i ctx (t : 'T) = 
                 async {
@@ -100,7 +100,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
                     match ensureSerializable t with
                     | Some e ->
                         let! latchCount = cancellationLatch.Increment()
-                        if latchCount = 1 then // is first work item to request workflow cancellation, grant access
+                        if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                             logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s child #%d failed to serialize result." Type.prettyPrint<'T> parallelWorkflowId i
                             childCts.Cancel()
                             let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
@@ -130,7 +130,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
                     match ensureSerializable e with
                     | Some e ->
                         let! latchCount = cancellationLatch.Increment()
-                        if latchCount = 1 then // is first work item to request workflow cancellation, grant access
+                        if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                             logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s child #%d failed to serialize result." Type.prettyPrint<'T> parallelWorkflowId i
                             childCts.Cancel()
                             let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
@@ -142,7 +142,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
                         
                     | None ->
                         let! latchCount = cancellationLatch.Increment()
-                        if latchCount = 1 then // is first work item to request workflow cancellation, grant access
+                        if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                             logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s child #%d has raised an exception." Type.prettyPrint<'T> parallelWorkflowId i
                             childCts.Cancel()
                             cont.Exception (withCancellationToken currentCts ctx) e
@@ -153,7 +153,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
             let onCancellation ctx c =
                 async {
                     let! latchCount = cancellationLatch.Increment()
-                    if latchCount = 1 then // is first work item to request workflow cancellation, grant access
+                    if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                         childCts.Cancel()
                         cont.Cancellation ctx c
                     else // cancellation already triggered by different party, declare work item completed.
@@ -206,22 +206,22 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
             // ensure that target workers are valid in the current cluster context
             let computations = extractWorkerIds runtime computations
 
-            let N = computations.Length // avoid capturing computation array in continuation closures
+            let N = int64 computations.Length // avoid capturing computation array in continuation closures
             let choiceWorkflowId = mkUUID()
             runtime.SystemLogger.Logf LogLevel.Info "Starting Cloud.Choice<%s> workflow '%s' of %d children." Type.prettyPrint<'T> choiceWorkflowId N
 
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken
             let! childCts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, [|currentCts|], elevate = true)
-            let! completionLatch = runtime.CounterFactory.CreateCounter(initialValue = 0)
-            let! cancellationLatch = runtime.CounterFactory.CreateCounter(initialValue = 0)
+            let! completionLatch = runtime.CounterFactory.CreateCounter(initialValue = 0L)
+            let! cancellationLatch = runtime.CounterFactory.CreateCounter(initialValue = 0L)
 
             let onSuccess i ctx (topt : 'T option) =
                 async {
                     let logger = ctx.Resources.Resolve<IRuntimeManager>().SystemLogger
                     if Option.isSome topt then // 'Some' result, attempt to complete workflow
                         let! latchCount = cancellationLatch.Increment()
-                        if latchCount = 1 then 
+                        if latchCount = 1L then 
                             logger.Logf LogLevel.Debug "Cloud.Choice<%s> workflow %s child #%d has completed with result." Type.prettyPrint<'T> choiceWorkflowId i
                             // first child to initiate cancellation, grant access to parent scont
                             childCts.Cancel ()
@@ -247,7 +247,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
                 async {
                     let logger = ctx.Resources.Resolve<IRuntimeManager>().SystemLogger
                     let! latchCount = cancellationLatch.Increment()
-                    if latchCount = 1 then // is first work item to request workflow cancellation, grant access
+                    if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                         logger.Logf LogLevel.Debug "Cloud.Choice<%s> workflow %s child #%d raised an exception." Type.prettyPrint<'T> choiceWorkflowId i
                         childCts.Cancel ()
                         cont.Exception (withCancellationToken currentCts ctx) e
@@ -258,7 +258,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
             let onCancellation ctx c =
                 async {
                     let! latchCount = cancellationLatch.Increment()
-                    if latchCount = 1 then // is first work item to request workflow cancellation, grant access
+                    if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                         childCts.Cancel()
                         cont.Cancellation (withCancellationToken currentCts ctx) c
                     else // cancellation already triggered by different party, declare work item completed.

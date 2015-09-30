@@ -7,8 +7,8 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 
 type private CounterMessage =
-    | Increment of IReplyChannel<int>
-    | GetValue of IReplyChannel<int>
+    | Increment of IReplyChannel<int64>
+    | GetValue of IReplyChannel<int64>
 
 /// Distributed counter implementation
 type ActorCounter private (source : ActorRef<CounterMessage>) =
@@ -21,12 +21,12 @@ type ActorCounter private (source : ActorRef<CounterMessage>) =
     ///     Initializes an actor counter instance in the local process.
     /// </summary>
     /// <param name="init">Initial counter value.</param>
-    static member Create(init : int) =
+    static member Create(init : int64) =
         let behaviour count msg = async {
             match msg with
             | Increment rc ->
-                do! rc.Reply (count + 1)
-                return (count + 1)
+                do! rc.Reply (count + 1L)
+                return (count + 1L)
             | GetValue rc ->
                 do! rc.Reply count
                 return count
@@ -42,5 +42,5 @@ type ActorCounter private (source : ActorRef<CounterMessage>) =
 
 type ActorCounterFactory(factory : ResourceFactory) =
     interface ICloudCounterFactory with
-        member x.CreateCounter(initialValue: int): Async<ICloudCounter> =
+        member x.CreateCounter(initialValue: int64): Async<ICloudCounter> =
             factory.RequestResource(fun () -> ActorCounter.Create initialValue :> ICloudCounter)

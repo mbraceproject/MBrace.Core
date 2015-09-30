@@ -29,9 +29,9 @@ type ICancellationEntryFactory =
 type ICloudCounter =
     inherit IAsyncDisposable
     /// Asynchronously increments counter by 1, returning the updated count
-    abstract Increment : unit -> Async<int>
+    abstract Increment : unit -> Async<int64>
     /// Asynchronously fetches the current value for the counter.
-    abstract Value       : Async<int>
+    abstract Value       : Async<int64>
 
 /// Defines a cloud counter factory abstraction.
 type ICloudCounterFactory =
@@ -40,7 +40,7 @@ type ICloudCounterFactory =
     ///     Creates a new counter with provided initial value.
     /// </summary>
     /// <param name="initialValue">Initial value for counter.</param>
-    abstract CreateCounter : initialValue:int -> Async<ICloudCounter>
+    abstract CreateCounter : initialValue:int64 -> Async<ICloudCounter>
 
 /// Defines a serializable, distributed result aggregator entity.
 type ICloudResultAggregator<'T> =

@@ -35,7 +35,8 @@ module AsyncUtils =
         /// <param name="task">Task to be awaited.</param>
         static member AwaitTaskCorrect(task : Task<'T>) = async {
             try return! Async.AwaitTask task
-            with :? AggregateException as ae -> return! Async.Raise (ae.InnerExceptions.[0])
+            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 -> 
+                return! Async.Raise (ae.InnerExceptions.[0])
         }
 
         /// <summary>
