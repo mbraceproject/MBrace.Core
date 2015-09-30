@@ -1,3 +1,6 @@
+#### 0.11.5-alpha
+* Add support for worker specifiable heartbeat intervals.
+
 #### 0.11.4-alpha
 * Use longs in ICloudCounter.
 
