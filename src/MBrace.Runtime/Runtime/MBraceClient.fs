@@ -264,4 +264,7 @@ type MBraceClient (runtime : IRuntimeManager) =
         runtime.AssemblyManager.NativeDependencies |> Array.map (fun v -> v.Image)
 
     /// Resets cluster state. This will cancel and delete all cloud process data.
-    member __.Reset() = runtime.ResetClusterState()
+    member __.ResetAsync() = runtime.ResetClusterState()
+
+    /// Resets cluster state. This will cancel and delete all cloud process data.
+    member __.Reset() = __.ResetAsync() |> Async.RunSync
