@@ -517,7 +517,7 @@ module Utils =
                 VagabondRegistry.Instance.Serializer.Pickle e
 
     [<Sealed; DataContract>]
-    type MarshalledAction<'T>(action : 'T -> unit) =
+    type MarshaledAction<'T>(action : 'T -> unit) =
         do VagabondRegistry.Instance |> ignore
         [<IgnoreDataMember>]
         let mutable proxy = new ActionProxy<'T>(action)
