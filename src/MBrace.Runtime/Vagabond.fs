@@ -8,7 +8,6 @@ open System.IO
 open Nessos.Vagabond
 
 open MBrace.Core.Internals
-open MBrace.Runtime.Utils
 
 /// Global Vagabond instance container
 type VagabondRegistry private () =

@@ -20,7 +20,7 @@ type private WorkerAgentMessage =
     | Start of ReplyChannel<unit>
 
 /// Worker agent with updatable configuration
-type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workItemEvaluator : ICloudWorkItemEvaluator, maxConcurrentWorkItems : int, unsubscriber : IDisposable, submitPerformanceMetrics : bool) =
+type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workItemEvaluator : ICloudWorkItemEvaluator, maxConcurrentWorkItems : int, unsubscriber : IDisposable, performanceMetricsInterval : int option) =
     let cts = new CancellationTokenSource()
     // TODO : keep a detailed record of work items, possibly add provision for forcible termination.
     let mutable currentWorkItemCount = 0
@@ -155,7 +155,9 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
     let agent = MailboxProcessor.Start(workerLoop Stopped, cts.Token)
 
     let perfmon =
-        if submitPerformanceMetrics then
+        match performanceMetricsInterval with
+        | None -> None
+        | Some pi ->
             let perfmon = new PerformanceMonitor()
             perfmon.Start()
 
@@ -163,18 +165,16 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                 let perf = perfmon.GetCounters()
                 try 
                     do! runtime.WorkerManager.SubmitPerformanceMetrics(workerId, perf)
-                    do! Async.Sleep 1000
+                    do! Async.Sleep pi
                 with e -> 
                     runtime.SystemLogger.Logf LogLevel.Error "Error submitting performance metrics:\n%O" e
-                    do! Async.Sleep 2000
+                    do! Async.Sleep (3 * pi)
 
                 return! perfLoop ()
             }
 
             Async.Start(perfLoop(), cts.Token)
             Some perfmon
-        else
-            None
 
     /// <summary>
     ///     Creates a new Worker agent instance with provided runtime configuration.
@@ -190,6 +190,10 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                             maxConcurrentWorkItems : int, submitPerformanceMetrics:bool, heartbeatInterval : TimeSpan, heartbeatThreshold : TimeSpan) =                     
         async {
             if maxConcurrentWorkItems < 1 then invalidArg "maxConcurrentWorkItems" "must be positive."
+            let performanceMetricsInterval = 
+                if submitPerformanceMetrics then Some (int heartbeatInterval.TotalMilliseconds) 
+                else None
+
             let workerInfo =
                 {
                     Hostname = System.Net.Dns.GetHostName()
@@ -201,7 +205,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                 }
 
             let! unsubscriber = runtimeManager.WorkerManager.SubscribeWorker(workerId, workerInfo)
-            return new WorkerAgent(runtimeManager, workerId, workItemEvaluator, maxConcurrentWorkItems, unsubscriber, submitPerformanceMetrics)
+            return new WorkerAgent(runtimeManager, workerId, workItemEvaluator, maxConcurrentWorkItems, unsubscriber, performanceMetricsInterval)
         }
 
     /// Worker ref representing the current worker instance.

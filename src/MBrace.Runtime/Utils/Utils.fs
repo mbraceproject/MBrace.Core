@@ -14,6 +14,7 @@ open System.Text.RegularExpressions
 
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Runtime
 open MBrace.Runtime.Utils.Retry
 
 open Nessos.FsPickler.Hashing
@@ -500,3 +501,36 @@ module Utils =
         member s.UnPickle<'T>(pickle : byte[]) =
             use m = new MemoryStream(pickle)
             s.Deserialize<'T>(m, leaveOpen = true)
+
+
+    // MarshalledAction: used for sending cross-AppDomain events
+
+    type private ActionProxy<'T>(action : 'T -> unit) =
+        inherit MarshalByRefObject()
+        override __.InitializeLifetimeService () = null
+        member __.Trigger(pickle : byte[]) =
+            try 
+                let t = VagabondRegistry.Instance.Serializer.UnPickle<'T>(pickle)
+                let _ = Async.StartAsTask(async { action t })
+                null
+            with e ->
+                VagabondRegistry.Instance.Serializer.Pickle e
+
+    [<Sealed; DataContract>]
+    type MarshalledAction<'T>(action : 'T -> unit) =
+        do VagabondRegistry.Instance |> ignore
+        [<IgnoreDataMember>]
+        let mutable proxy = new ActionProxy<'T>(action)
+        [<DataMember(Name = "ObjRef")>]
+        let objRef = System.Runtime.Remoting.RemotingServices.Marshal(proxy)
+        [<OnDeserialized>]
+        let _onDeserialized (_ : StreamingContext) =
+            proxy <- System.Runtime.Remoting.RemotingServices.Unmarshal objRef :?> ActionProxy<'T>
+
+        member __.Trigger(t : 'T) =
+            let pickle = VagabondRegistry.Instance.Serializer.Pickle t
+            match proxy.Trigger pickle with
+            | null -> ()
+            | exnP -> raise <| VagabondRegistry.Instance.Serializer.UnPickle<exn> exnP
+
+        member __.Dispose() = System.Runtime.Remoting.RemotingServices.Disconnect proxy

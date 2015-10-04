@@ -59,6 +59,8 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Vagabond.fs" />
+    <Compile Include="Serializers.fs" />
     <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\Task.fs" />
@@ -72,8 +74,6 @@
     <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
     <Compile Include="Utils\Serialization.fs" />
-    <Compile Include="Vagabond.fs" />
-    <Compile Include="Serializers.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
     <Compile Include="ThreadPool\ThreadPoolPrimitives.fs" />

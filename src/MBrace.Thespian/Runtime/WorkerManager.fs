@@ -103,24 +103,6 @@ module private HeartbeatMonitor =
         Async.Start(poll(), cts.Token)
         aref
 
-    /// <summary>
-    ///     Initializes a heartbeat loop on the worker side.
-    /// </summary>
-    /// <param name="threshold">Worker death threshold.</param>
-    /// <param name="target">Target heartbeat monitor.</param>
-    let initHeartbeat (interval : TimeSpan) (target : ActorRef<HeartbeatMonitorMsg>) = async {
-        let cts = new CancellationTokenSource()
-        let rec loop () = async {
-            try target <-- SendHeartbeat with _ -> ()
-            do! Async.Sleep(int interval.TotalMilliseconds)
-            return! loop ()
-        }
-
-        Async.Start(loop(), cts.Token)
-        return { new IDisposable with member __.Dispose() = cts.Cancel() }
-    }
-
-
 /// WorkerManager actor reference used for handling MBrace.Thespian worker instances
 [<AutoSerializable(true)>]
 type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<WorkerMonitorMsg>) =
@@ -164,9 +146,9 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
         
         member x.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
             let! heartbeatMon, heartbeatInterval = source <!- fun ch -> Subscribe(unbox id, info, ch)
-            let! unsubscriber = HeartbeatMonitor.initHeartbeat heartbeatInterval heartbeatMon
+//            let! unsubscriber = HeartbeatMonitor.initHeartbeat heartbeatInterval heartbeatMon
             stateF.Value.Logger.Logf LogLevel.Info "Subscribed to cluster with heartbeat interval %A" heartbeatInterval
-            return new WorkerSubscriptionManager(x, id, unsubscriber) :> IDisposable
+            return new WorkerSubscriptionManager(x, id) :> IDisposable
         }
         
         member x.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = async {
@@ -243,6 +225,7 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
                 | None -> return state
                 | Some (info, hm) -> 
                     let info' = { info with PerformanceMetrics = perf }
+                    hm <-- SendHeartbeat
                     return state.Add(w, (info', hm))
 
             | GetAvailableWorkers rc ->
@@ -276,7 +259,7 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
 
 /// Subscribption disposer object
 and [<AutoSerializable(false)>] private 
-    WorkerSubscriptionManager (wmon : WorkerManager, currentWorker : IWorkerId, heartbeatDisposer : IDisposable) =
+    WorkerSubscriptionManager (wmon : WorkerManager, currentWorker : IWorkerId) =
 
     let mutable isDisposed = false
     let lockObj = obj()
@@ -285,7 +268,6 @@ and [<AutoSerializable(false)>] private
     member __.UnSubscribe() =
         lock lockObj (fun () ->
             if isDisposed then () else
-            heartbeatDisposer.Dispose()
             wmon.UnSubscribe currentWorker |> Async.RunSync
             isDisposed <- true)
 

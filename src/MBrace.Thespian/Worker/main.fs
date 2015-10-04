@@ -10,8 +10,8 @@ open MBrace.Runtime
 
 let maxConcurrentWorkItems = 20
 let useAppDomainIsolation = true
-let heartbeatInterval = TimeSpan.FromSeconds 0.5
-let heartbeatThreshold = TimeSpan.FromSeconds 10.
+let heartbeatInterval = TimeSpan.FromSeconds 1.
+let heartbeatThreshold = TimeSpan.FromSeconds 30.
 
 let main (args : string []) =
     try
