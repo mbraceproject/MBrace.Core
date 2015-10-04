@@ -1,3 +1,6 @@
+#### 0.11.6-alpha
+* Expose worker performance submission intervals.
+
 #### 0.11.5-alpha
 * Add support for worker specifiable heartbeat intervals.
 
