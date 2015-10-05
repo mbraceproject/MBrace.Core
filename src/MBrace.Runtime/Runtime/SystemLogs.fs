@@ -215,6 +215,15 @@ type ConsoleLogger (?showDate : bool, ?useColors : bool) =
 [<AutoSerializable(false)>]
 type FileSystemLogger private (fs : FileStream, writer : StreamWriter, showDate : bool) =
 
+//    let rec flushLoop() = async {
+//        do! Async.Sleep 1000
+//        let _ = writer.FlushAsync()
+//        return! flushLoop()
+//    }
+//
+//    let cts = new CancellationTokenSource()
+//    do Async.Start(flushLoop(), cts.Token)
+
     /// <summary>
     ///     Creates a new file logger instance.
     /// </summary>
@@ -226,6 +235,7 @@ type FileSystemLogger private (fs : FileStream, writer : StreamWriter, showDate 
         let fileMode = if defaultArg append true then FileMode.OpenOrCreate else FileMode.Create
         let fs = new FileStream(path, fileMode, FileAccess.Write, FileShare.Read)
         let writer = new StreamWriter(fs)
+        writer.AutoFlush <- true
         new FileSystemLogger(fs, writer, showDate)
 
     interface ISystemLogger with
@@ -234,7 +244,7 @@ type FileSystemLogger private (fs : FileStream, writer : StreamWriter, showDate 
             writer.WriteLine text
              
     interface IDisposable with
-        member __.Dispose () = writer.Flush () ; writer.Close () ; fs.Close()
+        member __.Dispose () = (*cts.Cancel();*) writer.Flush (); writer.Close (); fs.Close()
 
 /// Logger that can be used to subscribe underlying loggers.
 [<Sealed; AutoSerializable(false)>]

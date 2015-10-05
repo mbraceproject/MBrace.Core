@@ -2,11 +2,12 @@
 
 open System
 open System.IO
+open System.Threading
 
-open Nessos.Thespian
-open Nessos.Thespian.Remote.Protocols
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils
+open MBrace.Thespian.Runtime
 
 let maxConcurrentWorkItems = 20
 let useAppDomainIsolation = true
@@ -52,8 +53,7 @@ let main (args : string []) =
             replyToParent logger config (ProcessError e)
             reraise()
 
-        while true do System.Threading.Thread.Sleep 10000
-        0
+        Thread.Diverge()
 
     with e ->
         printfn "Unhandled exception : %O" e

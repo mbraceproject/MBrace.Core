@@ -1,3 +1,7 @@
+#### 0.11.8-alpha
+* Add support for working directory prefixes.
+* File logger bugfix.
+
 #### 0.11.7-alpha
 * Minor bugfix.
 

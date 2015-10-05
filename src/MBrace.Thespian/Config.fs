@@ -38,7 +38,8 @@ type Config private () =
     static member Initialize(populateDirs : bool, isClient : bool, ?hostname : string, ?workingDirectory : string, ?port : int) =
         lock _isInitialized (fun () ->
             if _isInitialized.Value then invalidOp "Runtime configuration has already been initialized."
-            _workingDirectory <- WorkingDirectory.CreateWorkingDirectory(?path = workingDirectory, cleanup = populateDirs)
+            _workingDirectory <- match workingDirectory with Some wd -> wd | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess(prefix = "mbrace.thespian")
+            let _ = WorkingDirectory.CreateWorkingDirectory(_workingDirectory, cleanup = populateDirs)
             let vagabondDir = Path.Combine(_workingDirectory, "vagabond")
             if populateDirs then ignore <| Directory.CreateDirectory vagabondDir
             VagabondRegistry.Initialize(vagabondDir, isClientSession = isClient)

@@ -11,6 +11,8 @@ open System.Runtime.Serialization
 open System.Threading.Tasks
 open System.Text
 open System.Text.RegularExpressions
+open System.Threading
+open System.Threading.Tasks
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -197,14 +199,22 @@ module Utils =
             if d.TryGetValue(k, &v) then Some v else None
     
     type WorkingDirectory =
-        /// Generates a working directory path that is unique to the current process
-        static member GetDefaultWorkingDirectoryForProcess() : string =
-            Path.Combine(Path.GetTempPath(), sprintf "mbrace-process-%d" <| Process.GetCurrentProcess().Id)
+        /// <summary>
+        ///     Generates a working directory path that is unique to the current process
+        /// </summary>
+        /// <param name="prefix">Optional directory name prefix.</param>
+        static member GetDefaultWorkingDirectoryForProcess(?prefix : string) : string =
+            let prefix = defaultArg prefix "mbrace"
+            Path.Combine(Path.GetTempPath(), sprintf "%s-pid%d" prefix <| Process.GetCurrentProcess().Id)
 
-        /// Generates a working directory path that is unique.
-        static member GetRandomWorkingDirectory() : string =
+        /// <summary>
+        ///     Generates a working directory path that is unique.
+        /// </summary>
+        /// <param name="prefix">Optional directory name prefix.</param>
+        static member GetRandomWorkingDirectory(?prefix : string) : string =
+            let prefix = defaultArg prefix "mbrace"
             let g = Guid.NewGuid()
-            Path.Combine(Path.GetTempPath(), sprintf "mbrace-%O" g)
+            Path.Combine(Path.GetTempPath(), sprintf "%s-uuid%O" prefix g)
 
         /// <summary>
         ///     Creates a working directory suitable for the current process.
@@ -547,3 +557,14 @@ module Utils =
         /// </summary>
         /// <param name="action">Action to be marshalled.</param>
         static member Create(action : 'T -> unit) = new MarshaledAction<_>(action)
+
+
+    type Thread with
+        /// <summary>
+        ///     Computation that diverges on the current thread.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for diverging computation.</param>
+        static member Diverge<'T>(?cancellationToken : CancellationToken) : 'T =
+            let cts = new TaskCompletionSource<'T>()
+            cancellationToken |> Option.iter (fun ct -> ignore <| ct.Register(fun () -> ignore <| cts.TrySetCanceled()))
+            cts.Task.Result
