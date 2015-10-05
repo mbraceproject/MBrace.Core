@@ -1,3 +1,6 @@
+#### 0.11.7-alpha
+* Minor bugfix.
+
 #### 0.11.6-alpha
 * Expose worker performance submission intervals.
 
