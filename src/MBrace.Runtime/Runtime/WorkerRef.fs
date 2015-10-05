@@ -182,6 +182,9 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     static member Create(runtime : IRuntimeManager, workerId : IWorkerId) =
         new WorkerRef(runtime, workerId)
 
+    /// Gets the hostname of the current process
+    static member CurrentHostname = System.Net.Dns.GetHostName()
+
 
 /// WorkerRef information reporting
 and internal WorkerReporter private () =

@@ -196,7 +196,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
 
             let workerInfo =
                 {
-                    Hostname = System.Net.Dns.GetHostName()
+                    Hostname = WorkerRef.CurrentHostname
                     ProcessorCount = Environment.ProcessorCount
                     ProcessId = System.Diagnostics.Process.GetCurrentProcess().Id
                     MaxWorkItemCount = maxConcurrentWorkItems

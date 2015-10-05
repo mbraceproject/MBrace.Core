@@ -146,7 +146,6 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
         
         member x.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
             let! heartbeatMon, heartbeatInterval = source <!- fun ch -> Subscribe(unbox id, info, ch)
-//            let! unsubscriber = HeartbeatMonitor.initHeartbeat heartbeatInterval heartbeatMon
             stateF.Value.Logger.Logf LogLevel.Info "Subscribed to cluster with heartbeat interval %A" heartbeatInterval
             return new WorkerSubscriptionManager(x, id) :> IDisposable
         }
