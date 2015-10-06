@@ -23,12 +23,15 @@ type WorkerExecutionStatus =
     | Stopped
     /// Error dequeueing work items
     | QueueFault of ExceptionDispatchInfo
+    /// Worker declared dead by cluster
+    | WorkerDeath
 with
     override s.ToString() =
         match s with
         | Running -> "Running"
         | Stopped -> "Stopped"
         | QueueFault _ -> "Queue Fault"
+        | WorkerDeath -> "Worker Death"
 
 
 /// Worker metadata as specified by the instance itself
