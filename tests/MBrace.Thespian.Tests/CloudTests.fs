@@ -163,7 +163,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    member __.``3. Fault Tolerance : Custom fault policy 2`` () =
+    member __.``2. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
