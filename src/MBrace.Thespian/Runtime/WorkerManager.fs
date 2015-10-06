@@ -48,7 +48,7 @@ and private WorkerMonitorMsg =
     | Subscribe of WorkerId * WorkerInfo * IReplyChannel<ActorRef<HeartbeatMonitorMsg> * TimeSpan>
     | UnSubscribe of WorkerId
     | IncrementWorkItemCountBy of WorkerId * int
-    | DeclareStatus of WorkerId * CloudWorkItemExecutionStatus
+    | DeclareStatus of WorkerId * WorkerExecutionStatus
     | DeclarePerformanceMetrics of WorkerId * PerformanceInfo
     | DeclareDead of WorkerId
     | IsAlive of WorkerId * IReplyChannel<bool>
@@ -124,7 +124,7 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
     }
 
     interface IWorkerManager with
-        member x.DeclareWorkerStatus(id: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = async {
+        member x.DeclareWorkerStatus(id: IWorkerId, status: WorkerExecutionStatus): Async<unit> = async {
             return! source.AsyncPost <| DeclareStatus(unbox id, status)
         }
 
@@ -206,7 +206,7 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
                 match state.TryFind w with
                 | None -> return state
                 | Some(info,hm) ->
-                    match s : CloudWorkItemExecutionStatus with
+                    match s : WorkerExecutionStatus with
                     | Stopped -> logger.Logf LogLevel.Info "Worker '%s' has declared itself stopped." w.Id
                     | QueueFault _ -> logger.Logf LogLevel.Warning "Worker '%s' has declared itself in errored state." w.Id
                     | _ -> ()

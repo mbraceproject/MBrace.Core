@@ -16,7 +16,7 @@ type IWorkerId =
 
 /// Worker execution status for specific item
 [<NoEquality; NoComparison>]
-type CloudWorkItemExecutionStatus =
+type WorkerExecutionStatus =
     /// Worker dequeueing work items normally
     | Running
     /// Worker has been stopped manually
@@ -64,7 +64,7 @@ type WorkerState =
         /// Time of worker initialization/subscription
         InitializationTime : DateTimeOffset
         /// Worker work item execution status
-        ExecutionStatus : CloudWorkItemExecutionStatus
+        ExecutionStatus : WorkerExecutionStatus
         /// Latest worker performance metrics
         PerformanceMetrics : PerformanceInfo
     }
@@ -104,7 +104,7 @@ type IWorkerManager =
     /// </summary>
     /// <param name="id">Worker identifier.</param>
     /// <param name="status">work item execution status to be set.</param>
-    abstract DeclareWorkerStatus : id:IWorkerId * status:CloudWorkItemExecutionStatus -> Async<unit>
+    abstract DeclareWorkerStatus : id:IWorkerId * status:WorkerExecutionStatus -> Async<unit>
 
     /// <summary>
     ///     Asynchronously submits node performance metrics for provided worker.
