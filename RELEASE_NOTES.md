@@ -1,3 +1,6 @@
+#### 0.11.11-alpha
+* Fix CloudQueue unit test issue.
+
 #### 0.11.10-alpha
 * Improve FaultPolicy implementation, add FaultPolicy getter,setter in MBraceClient instances.
 

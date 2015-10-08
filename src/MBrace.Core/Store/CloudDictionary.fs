@@ -87,7 +87,7 @@ type ICloudDictionaryProvider =
     ///     Attempt to recover an already existing CloudDictionary of provided Id and type.
     /// </summary>
     /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
-    abstract GetById<'T> : dictionaryId:string -> Async<CloudDictionary<'T>>
+    abstract GetDictionaryById<'T> : dictionaryId:string -> Async<CloudDictionary<'T>>
 
 namespace MBrace.Core
 

@@ -176,5 +176,5 @@ type ActorDictionaryProvider (factory : ResourceFactory) =
             return dict :> CloudDictionary<'T>
         }
 
-        member __.GetById<'T> (dictId : string) : Async<CloudDictionary<'T>> =
+        member __.GetDictionaryById<'T> (dictId : string) : Async<CloudDictionary<'T>> =
             raise (new NotSupportedException("Named CloudAtom lookup not supported in Thespian atoms."))

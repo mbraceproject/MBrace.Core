@@ -27,7 +27,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Simple send/receive`` () =
         cloud {
-            let! cq = CloudQueue.New<int> ()
+            use! cq = CloudQueue.New<int> ()
             let! _,value = CloudQueue.Enqueue(cq, 42) <||> CloudQueue.Dequeue cq
             return value
         } |> runOnCloud |> shouldEqual 42
@@ -35,7 +35,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Multiple send/receive`` () =
         cloud {
-            let! cq = CloudQueue.New<int option> ()
+            use! cq = CloudQueue.New<int option> ()
             let rec sender n = cloud {
                 if n = 0 then
                     do! CloudQueue.Enqueue(cq, None)
@@ -59,7 +59,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     member __.``Multiple senders`` () =
         let parallelismFactor = parallelismFactor
         cloud {
-            let! cq = CloudQueue.New<int> ()
+            use! cq = CloudQueue.New<int> ()
             let sender n = cloud {
                 for i in [1 .. n] do
                     do! CloudQueue.Enqueue(cq, i)
@@ -79,19 +79,27 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Batch enqueue/dequeue`` () =
-        let x = [|1 .. 1000|]
+        let xs = [|1 .. 1000|]
         cloud {
-            let! queue = CloudQueue.New<int>()
-            do! queue.EnqueueBatch x
-            do! Async.Sleep 5000
-            return! queue.DequeueBatch(maxItems = x.Length)
-        } |> runOnCloud |> shouldEqual x
+            use! queue = CloudQueue.New<int>()
+            do! queue.EnqueueBatch xs
+            let gathered = new ResizeArray<int>()
+            let rec dequeue count = cloud {
+                if count <= 0 then return ()
+                else
+                    let! dq = queue.DequeueBatch(maxItems = count)
+                    gathered.AddRange dq
+                    return! dequeue (count - dq.Length)
+            }
+            do! dequeue xs.Length
+            return gathered.ToArray()
+        } |> runOnCloud |> shouldEqual xs
 
     [<Test>]
     member __.``Lookup by name`` () =
         if __.IsSupportedNamedLookup then
             cloud {
-                let! queue = CloudQueue.New<int> ()
+                use! queue = CloudQueue.New<int> ()
                 do! queue.Enqueue 42
                 let! queue' = CloudQueue.New<int>(queue.Id)
                 let! x = queue'.Dequeue()

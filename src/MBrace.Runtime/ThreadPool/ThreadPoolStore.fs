@@ -422,5 +422,5 @@ type ThreadPoolDictionaryProvider (memoryEmulation : MemoryEmulation) =
             return new InMemoryDictionary<'T>(dictId, memoryEmulation) :> CloudDictionary<'T>
         }
 
-        member s.GetById(_dictId : string) =
+        member s.GetDictionaryById(_dictId : string) =
             raise (System.NotSupportedException("Named lookups not supported in ThreadPool CloudDictionaries."))
