@@ -118,6 +118,7 @@ type ``InMemory CloudQueue Tests`` () =
 
     override __.Run(workflow) = imem.RunSynchronously workflow
     override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
+    override __.IsNamedLookupSupported = false
 
 type ``InMemory CloudDictionary Tests`` () =
     inherit ``CloudDictionary Tests`` (parallelismFactor = 100)

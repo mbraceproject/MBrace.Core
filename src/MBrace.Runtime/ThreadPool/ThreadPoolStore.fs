@@ -280,6 +280,22 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
             let! ev = mbox.Receive(?timeout = timeout)
             return ev.Value
         }
+
+        member x.DequeueBatch(maxItems : int) : Async<'T []> = async {
+            let acc = new ResizeArray<'T> ()
+            let rec aux () = async {
+                if acc.Count < maxItems then
+                    let! t = mbox.TryReceive(timeout = 10)
+                    match t with
+                    | Some t -> acc.Add t.Value ; return! aux ()
+                    | None -> return ()
+                else
+                    return ()
+            }
+
+            do! aux ()
+            return acc.ToArray()
+        }
         
         member x.Dispose(): Async<unit> = async {
             isDisposed <- true
@@ -291,9 +307,8 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
         }
         
         member x.EnqueueBatch(messages: seq<'T>): Async<unit> = async {
-            do
-                checkDisposed()
-                for m in messages do mbox.Post (clone m)
+            checkDisposed()
+            do for m in messages do mbox.Post (clone m)
         }
         
         member x.TryDequeue(): Async<'T option> = async {
@@ -305,15 +320,17 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
 /// Defines an in-memory queue factory using mailbox processor
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolQueueProvider (memoryEmulation : MemoryEmulation) =
-    let id = mkUUID()
+    let id = sprintf "queueProvider-%s" <| mkUUID()
 
     interface ICloudQueueProvider with
-        member __.Name = "InMemoryQueueProvider"
-        member __.Id = id
-        member __.DefaultContainer = ""
-        member __.WithDefaultContainer _ = __ :> _
-        member __.CreateUniqueContainerName () = ""
-        member __.DisposeContainer _ = async.Zero()
+        member x.GetQueueById(_queueId: string): Async<CloudQueue<'T>> = 
+            raise (System.NotSupportedException("Named queue lookups not supported in ThreadPool runtimes."))
+        
+        member x.GetRandomQueueName(): string = sprintf "queue-%s" <| mkUUID()
+        
+        member x.Id: string = id
+        
+        member x.Name: string = "ThreadPool InMemory CloudQueue Provider"
 
         member __.CreateQueue<'T> (container : string) = async {
             if not <| MemoryEmulation.isShared memoryEmulation && not <| FsPickler.IsSerializableType<'T>() then
@@ -391,7 +408,7 @@ type ThreadPoolDictionaryProvider (memoryEmulation : MemoryEmulation) =
     let id = mkUUID()
 
     interface ICloudDictionaryProvider with
-        member s.Name = "InMemoryDictionaryProvider"
+        member s.Name = "ThreadPool In-Memory CloudDictionary Provider"
         member s.Id = id
         member s.IsSupportedValue _ = true
         member s.Create<'T> () = async {

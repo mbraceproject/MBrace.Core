@@ -21,9 +21,11 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    /// Specifies if current implementation supports lookup by name
+    abstract IsNamedLookupSupported : bool
 
     [<Test>]
-    member __.``Queues: simple send/receive`` () =
+    member __.``Simple send/receive`` () =
         cloud {
             let! cq = CloudQueue.New<int> ()
             let! _,value = CloudQueue.Enqueue(cq, 42) <||> CloudQueue.Dequeue cq
@@ -31,7 +33,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud |> shouldEqual 42
 
     [<Test>]
-    member __.``Queues: multiple send/receive`` () =
+    member __.``Multiple send/receive`` () =
         cloud {
             let! cq = CloudQueue.New<int option> ()
             let rec sender n = cloud {
@@ -54,7 +56,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud |> shouldEqual 5050
 
     [<Test>]
-    member __.``Queues: multiple senders`` () =
+    member __.``Multiple senders`` () =
         let parallelismFactor = parallelismFactor
         cloud {
             let! cq = CloudQueue.New<int> ()
@@ -74,3 +76,24 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
             let! _,result = senders <||> receiver 0 (parallelismFactor * 10)
             return result
         } |> runOnCloud |> shouldEqual (parallelismFactor * 10)
+
+    [<Test>]
+    member __.``Batch enqueue/dequeue`` () =
+        let x = [|1 .. 1000|]
+        cloud {
+            let! queue = CloudQueue.New<int>()
+            do! queue.EnqueueBatch x
+            do! Async.Sleep 5000
+            return! queue.DequeueBatch(maxItems = x.Length)
+        } |> runOnCloud |> shouldEqual x
+
+    [<Test>]
+    member __.``Lookup by name`` () =
+        if __.IsNamedLookupSupported then
+            cloud {
+                let! queue = CloudQueue.New<int> ()
+                do! queue.Enqueue 42
+                let! queue' = CloudQueue.New<int>(queue.Id)
+                let! x = queue'.Dequeue()
+                return x
+            } |> runOnCloud |> shouldEqual 42

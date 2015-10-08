@@ -31,6 +31,13 @@ type CloudQueue<'T> =
     abstract Dequeue : ?timeout:int -> Async<'T>
 
     /// <summary>
+    ///     Asynchronously dequeues a batch of messages from the queue.
+    ///     Will dequeue up to the given maximum number of items, depending on current availability.
+    /// </summary>
+    /// <param name="maxItems">Maximum number of items to dequeue.</param>
+    abstract DequeueBatch : maxItems:int -> Async<'T []>
+
+    /// <summary>
     ///     Asynchronously attempts to dequeue a message from the queue.
     ///     Returns None instantly if no message is currently available.
     /// </summary>
@@ -49,29 +56,21 @@ type ICloudQueueProvider =
     /// unique cloud queue source identifier
     abstract Id : string
 
-    /// Gets the default container used by the queue provider
-    abstract DefaultContainer : string
-
-    /// <summary>
-    ///     Creates a copy of the queue provider with updated default container.
-    /// </summary>
-    /// <param name="container">Container to be updated.</param>
-    abstract WithDefaultContainer : container:string -> ICloudQueueProvider
-
-    /// Create a uniquely specified container name.
-    abstract CreateUniqueContainerName : unit -> string
+    /// Generates a unique, random queue name.
+    abstract GetRandomQueueName : unit -> string
 
     /// <summary>
     ///     Creates a new queue instance of given type.
     /// </summary>
-    /// <param name="container">Container for queue.</param>
-    abstract CreateQueue<'T> : container:string -> Async<CloudQueue<'T>>
+    /// <param name="queueId">Unique queue identifier.</param>
+    abstract CreateQueue<'T> : queueId:string -> Async<CloudQueue<'T>>
 
     /// <summary>
-    ///     Disposes all queues in provided container.
+    ///     Attempt to recover an existing queue instance of specified id.
     /// </summary>
-    /// <param name="container">Queue container.</param>
-    abstract DisposeContainer : container:string -> Async<unit>
+    /// <param name="queueId">Queue identifier.</param>
+    abstract GetQueueById<'T> : queueId:string -> Async<CloudQueue<'T>>
+
 
 namespace MBrace.Core
 
@@ -86,11 +85,20 @@ type CloudQueue =
     /// <summary>
     ///     Creates a new queue instance.
     /// </summary>
-    /// <param name="container">Container to queue. Defaults to process default.</param>
-    static member New<'T>(?container : string) = local {
+    /// <param name="queueId">Unique queue identifier. Defaults to randomly generated queue name.</param>
+    static member New<'T>(?queueId : string) = local {
         let! provider = Cloud.GetResource<ICloudQueueProvider> ()
-        let container = defaultArg container provider.DefaultContainer
-        return! provider.CreateQueue<'T> (container)
+        let queueId = match queueId with Some qi -> qi | None -> provider.GetRandomQueueName()
+        return! provider.CreateQueue<'T> queueId
+    }
+
+    /// <summary>
+    ///     Attempt to recover an existing of given type and identifier.
+    /// </summary>
+    /// <param name="queueId">Unique queue identifier.</param>
+    static member GetById<'T>(queueId : string) = local {
+        let! provider = Cloud.GetResource<ICloudQueueProvider> ()
+        return! provider.GetQueueById<'T> queueId
     }
 
     /// <summary>
@@ -121,6 +129,16 @@ type CloudQueue =
     }
 
     /// <summary>
+    ///     Dequeues a batch of messages from the queue.
+    ///     Will dequeue up to the given maximum number of items, depending on current availability.
+    /// </summary>
+    /// <param name="queue">Source queue.</param>
+    /// <param name="maxItems">Maximum number of items to dequeue.</param>
+    static member DequeueBatch<'T>(queue : CloudQueue<'T>, maxItems : int) = local {
+        return! queue.DequeueBatch(maxItems)
+    }
+
+    /// <summary>
     ///     Asynchronously attempts to dequeue a message from the queue.
     ///     Returns None instantly if no message is currently available.
     /// </summary>
@@ -135,18 +153,3 @@ type CloudQueue =
     /// <param name="queue">Queue to be disposed.</param>
     static member Delete(queue : CloudQueue<'T>) : Local<unit> = 
         local { return! queue.Dispose() }
-
-    /// <summary>
-    ///     Deletes container and all its contained queues.
-    /// </summary>
-    /// <param name="container"></param>
-    static member DeleteContainer (container : string) = local {
-        let! provider = Cloud.GetResource<ICloudQueueProvider> ()
-        return! provider.DisposeContainer container
-    }
-
-    /// Generates a unique container name.
-    static member CreateContainerName() = local {
-        let! provider = Cloud.GetResource<ICloudQueueProvider> ()
-        return provider.CreateUniqueContainerName()
-    }

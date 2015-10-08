@@ -77,6 +77,7 @@ type ``MBrace Thespian Queue Tests`` () =
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
+    override __.IsNamedLookupSupported = false
 
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)

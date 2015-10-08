@@ -25,7 +25,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
 
     [<Test>]
-    member __.``add/remove`` () =
+    member __.``Add/remove`` () =
         cloud {
             let! dict = CloudDictionary.New<int> ()
             let! _ = dict.Add("key", 42)
@@ -35,7 +35,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud |> shouldEqual (Some 42)
 
     [<Test>]
-    member __.``multiple adds`` () =
+    member __.``Multiple adds`` () =
         cloud {
             let! dict = CloudDictionary.New<int> ()
             for i in [1 .. 100] do
@@ -46,7 +46,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud |> shouldEqual 5050
 
     [<Test>]
-    member __.``concurrent adds`` () =
+    member __.``Concurrent adds`` () =
         let parallelismFactor = parallelismFactor
         cloud {
             let! dict = CloudDictionary.New<int> ()
@@ -58,7 +58,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud |> shouldEqual (int64 parallelismFactor)
 
     [<Test>]
-    member __.``concurrent add or update`` () =
+    member __.``Concurrent add or update`` () =
         let parallelismFactor = parallelismFactor
         cloud {
             let! dict = CloudDictionary.New<int> ()

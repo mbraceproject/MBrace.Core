@@ -29,7 +29,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     abstract Repeats : int
 
     [<Test>]
-    member __.``Atom: update with contention`` () =
+    member __.``Update with contention`` () =
         let parallelismFactor = parallelismFactor
         cloud {
             let! atom = CloudAtom.New 0
@@ -44,7 +44,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud |> shouldEqual (parallelismFactor * nSequential)
 
     [<Test>]
-    member __.``CloudAtom - Sequential updates`` () =
+    member __.``Sequential updates`` () =
         // avoid capturing test fixture class in closures
         let atom =
             local {
@@ -58,7 +58,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
         atom.Value |> shouldEqual nSequential
 
     [<Test>]
-    member __.``CloudAtom - Parallel updates`` () =
+    member __.``Parallel updates`` () =
         repeat(fun () ->
             // avoid capturing test fixture class in closures
             let parallelismFactor = parallelismFactor
@@ -76,7 +76,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             atom.Value |> shouldEqual (parallelismFactor * nSequential))
 
     [<Test>]
-    member __.``CloudAtom - Parallel updates with large obj`` () =
+    member __.``Parallel updates with large obj`` () =
         repeat(fun () ->
             // avoid capturing test fixture class in closures
             let parallelismFactor = parallelismFactor
@@ -91,7 +91,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             } |> runOnCloud |> shouldEqual true)
 
     [<Test>]
-    member __.``CloudAtom - transact with contention`` () =
+    member __.``Transact with contention`` () =
         repeat(fun () ->
             // avoid capturing test fixture class in closures
             let parallelismFactor = parallelismFactor
@@ -102,7 +102,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             } |> runOnCloud |> shouldEqual (Array.sum [|0 .. parallelismFactor - 1|]))
 
     [<Test>]
-    member __.``CloudAtom - force with contention`` () =
+    member __.``Force with contention`` () =
         repeat(fun () ->
             // avoid capturing test fixture class in closures
             let parallelismFactor = parallelismFactor
@@ -113,7 +113,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             } |> runOnCloud |> shouldBe (fun i -> i > 0))
 
     [<Test>]
-    member __.``CloudAtom - dispose`` () =
+    member __.``Dispose`` () =
         repeat(fun () ->
             cloud {
                 let! a = CloudAtom.New 0

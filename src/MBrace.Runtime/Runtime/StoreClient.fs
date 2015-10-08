@@ -192,16 +192,30 @@ type CloudQueueClient internal (runtime : ThreadPoolRuntime) =
     /// <summary>
     ///     Creates a new queue instance.
     /// </summary>
-    /// <param name="container">Container for cloud queue.</param>
-    member c.CreateAsync<'T>(?container : string) : Async<CloudQueue<'T>> = 
-        CloudQueue.New<'T>(?container = container) |> runtime.ToAsync
+    /// <param name="queueId">Cloud queue identifier. Defaults to randomly generated name.</param>
+    member c.CreateAsync<'T>(?queueId : string) : Async<CloudQueue<'T>> = 
+        CloudQueue.New<'T>(?queueId = queueId) |> runtime.ToAsync
 
     /// <summary>
     ///     Creates a new queue instance.
     /// </summary>
-    /// <param name="container">Container for cloud queue.</param>
-    member c.Create<'T>(?container : string) : CloudQueue<'T> = 
-        CloudQueue.New<'T>(?container = container) |> runtime.RunSynchronously
+    /// <param name="queueId">Cloud queue identifier. Defaults to randomly generated name.</param>
+    member c.Create<'T>(?queueId : string) : CloudQueue<'T> = 
+        CloudQueue.New<'T>(?queueId = queueId) |> runtime.RunSynchronously
+
+    /// <summary>
+    ///     Attempt to recover an existing queue of given type and identifier.
+    /// </summary>
+    /// <param name="queueId">Cloud queue identifier.</param>
+    member c.GetByIdAsync(queueId : string) : Async<CloudQueue<'T>> =
+        CloudQueue.GetById(queueId) |> runtime.ToAsync
+
+    /// <summary>
+    ///     Attempt to recover an existing queue of given type and identifier.
+    /// </summary>
+    /// <param name="queueId">Cloud queue identifier.</param>
+    member c.GetById(queueId : string) : CloudQueue<'T> =
+        CloudQueue.GetById(queueId) |> runtime.RunSynchronously
 
     /// <summary>
     ///     Asynchronously enqueues a new message to the queue.
@@ -252,6 +266,24 @@ type CloudQueueClient internal (runtime : ThreadPoolRuntime) =
         CloudQueue.Dequeue(queue, ?timeout = timeout) |> runtime.RunSynchronously
 
     /// <summary>
+    ///     Asynchronously dequeues a batch of messages from the queue.
+    ///     Will dequeue up to the given maximum number of items, depending on current availability.
+    /// </summary>
+    /// <param name="queue">Source queue.</param>
+    /// <param name="maxItems">Maximum number of items to dequeue.</param>
+    member c.DequeueBatchAsync<'T>(queue : CloudQueue<'T>, maxItems : int) : Async<'T []> =
+        CloudQueue.DequeueBatch(queue, maxItems) |> runtime.ToAsync
+
+    /// <summary>
+    ///     Dequeues a batch of messages from the queue.
+    ///     Will dequeue up to the given maximum number of items, depending on current availability.
+    /// </summary>
+    /// <param name="queue">Source queue.</param>
+    /// <param name="maxItems">Maximum number of items to dequeue.</param>
+    member c.DequeueBatch<'T>(queue : CloudQueue<'T>, maxItems : int) : 'T [] =
+        CloudQueue.DequeueBatch(queue, maxItems) |> runtime.RunSynchronously
+
+    /// <summary>
     ///     Asynchronously attempt to dequeue message from queue.
     ///     Returns instantly, with None if empty or Some element if found.
     /// </summary>
@@ -280,20 +312,6 @@ type CloudQueueClient internal (runtime : ThreadPoolRuntime) =
     /// <param name="queue">Queue to be deleted.</param>    
     member c.Delete(queue : CloudQueue<'T>) : unit = 
         CloudQueue.Delete queue |> runtime.RunSynchronously
-
-    /// <summary>
-    ///     Deletes the provided queue container and all its contents.
-    /// </summary>
-    /// <param name="container">Container name.</param>
-    member c.DeleteContainerAsync (container : string): Async<unit> = 
-        CloudQueue.DeleteContainer container |> runtime.ToAsync
-
-    /// <summary>
-    ///     Deletes the provided queue container and all its contents.
-    /// </summary>
-    /// <param name="container">Container name.</param>
-    member c.DeleteContainer (container : string) : unit = 
-        CloudQueue.DeleteContainer container |> runtime.RunSynchronously
 
 
 [<Sealed; AutoSerializable(false)>]

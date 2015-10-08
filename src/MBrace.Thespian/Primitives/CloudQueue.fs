@@ -84,6 +84,22 @@ module private ActorQueue =
                 | Some t -> return! Async.WithTimeout(poll(), t)
             }
 
+            member __.DequeueBatch(maxItems : int) = async {
+                let acc = new ResizeArray<'T>()
+                let rec aux() = async {
+                    if acc.Count < maxItems then
+                        let! result = source <!- TryDequeue
+                        match result with
+                        | Some t -> acc.Add <| Config.Serializer.UnPickle<'T> t ; return! aux()
+                        | None -> return ()
+                    else
+                        return ()
+                }
+
+                do! aux()
+                return acc.ToArray()
+            }
+
             member __.TryDequeue() = async {
                 let! result = source <!- TryDequeue
                 return result |> Option.map (fun p -> Config.Serializer.UnPickle<'T> p)
@@ -93,14 +109,15 @@ module private ActorQueue =
 
 /// Defines a distributed cloud channel factory
 type ActorQueueProvider (factory : ResourceFactory) =
-    let id = mkUUID()
+    let id = sprintf "actorQueueProvider-%s" <| mkUUID()
     interface ICloudQueueProvider with
-        member __.Name = "ActorQueue"
+        member __.Name = "Actor CloudQueue Provider"
         member __.Id = id
-        member __.CreateUniqueContainerName () = ""
-        member __.DefaultContainer = ""
-        member __.WithDefaultContainer _ = __ :> _
-        member __.DisposeContainer _ = async.Zero()
+        member x.GetRandomQueueName(): string = sprintf "actorQueue-%s" <| mkUUID()
+
+        member x.GetQueueById(queueId: string): Async<CloudQueue<'T>> = 
+            raise (System.NotSupportedException("Named lookup not supported in Thespian queues"))
+
         member __.CreateQueue<'T> (container : string) = async {
             let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
             let! actor = factory.RequestResource(fun () -> ActorQueue.init())
