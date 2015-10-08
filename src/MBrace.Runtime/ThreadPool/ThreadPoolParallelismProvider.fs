@@ -44,7 +44,7 @@ type ThreadPoolWorker private () =
 
 /// ThreadPool runtime IParallelismProvider implementation
 [<Sealed; AutoSerializable(false)>]
-type ThreadPoolParallelismProvider private (processId : string, memoryEmulation : MemoryEmulation, logger : ICloudLogger, faultPolicy : IFaultPolicy) =
+type ThreadPoolParallelismProvider private (processId : string, memoryEmulation : MemoryEmulation, logger : ICloudLogger, faultPolicy : FaultPolicy) =
 
     static let mkNestedCts (ct : ICloudCancellationToken) = 
         ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
@@ -94,7 +94,7 @@ type ThreadPoolParallelismProvider private (processId : string, memoryEmulation 
         member __.ScheduleLocalParallel computations = Combinators.Parallel(mkNestedCts, MemoryEmulation.Shared, computations)
         member __.ScheduleLocalChoice computations = Combinators.Choice(mkNestedCts, MemoryEmulation.Shared, computations)
 
-        member __.ScheduleStartAsCloudProcess (workflow:Cloud<'T>, _ : IFaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
+        member __.ScheduleStartAsCloudProcess (workflow:Cloud<'T>, _ : FaultPolicy, ?cancellationToken:ICloudCancellationToken, ?target:IWorkerRef, ?taskName:string) = cloud {
             ignore taskName
             target |> Option.iter (fun _ -> raise <| new System.NotSupportedException("Targeted workers not supported in In-Memory runtime."))
             let! resources = Cloud.GetResourceRegistry()

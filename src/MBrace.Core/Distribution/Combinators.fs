@@ -223,7 +223,7 @@ type Cloud =
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Specify cancellation token for the cloud process. Defaults to no cancellation token.</param>
     /// <param name="procName">Optional user-specified name for the cloud process.</param>
-    static member StartAsCloudProcess(computation : Cloud<'T>, ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
+    static member StartAsCloudProcess(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
         return! runtime.ScheduleStartAsCloudProcess(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = procName)
@@ -319,7 +319,7 @@ type Cloud =
     /// <summary>
     ///     Gets the current fault policy.
     /// </summary>
-    static member FaultPolicy : Local<IFaultPolicy> = local {
+    static member FaultPolicy : Local<FaultPolicy> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.FaultPolicy
     }
@@ -329,7 +329,7 @@ type Cloud =
     /// </summary>
     /// <param name="policy">Updated fault policy.</param>
     /// <param name="workflow">Workflow to be used.</param>
-    static member WithFaultPolicy (policy : IFaultPolicy) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
+    static member WithFaultPolicy (policy : FaultPolicy) (workflow : Cloud<'T>) : Cloud<'T> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let currentPolicy = runtime.FaultPolicy
         let update (runtime : IParallelismProvider) = runtime.WithFaultPolicy policy

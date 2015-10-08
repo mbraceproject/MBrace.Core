@@ -1,5 +1,7 @@
 ﻿namespace MBrace.Runtime
 
+open System.Diagnostics
+
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.ThreadPool
@@ -14,6 +16,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
     let imem = ThreadPoolRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
     let storeClient = CloudStoreClient.Create(imem)
+    let mutable defaultFaultPolicy = FaultPolicy.WithMaxRetries(maxRetries = 1)
 
     let taskManagerClient = new CloudProcessManagerClient(runtime)
     let getWorkers () = async {
@@ -53,16 +56,16 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="workflow">Cloud computation to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
-    /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
+    /// <param name="faultPolicy">Specify a custom fault policy for the computation.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member c.SubmitAsync
                  (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                  ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, 
+                  ?faultPolicy : FaultPolicy, ?target : IWorkerRef, 
                   ?additionalResources : ResourceRegistry, ?taskName : string) : Async<CloudProcess<'T>> = async {
 
-        let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.WithMaxRetries(maxRetries = 1)
+        let faultPolicy = defaultArg faultPolicy defaultFaultPolicy
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
@@ -80,7 +83,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member __.Submit
-                 (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, 
+                 (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, 
                   ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
         __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
                                     ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
@@ -96,7 +99,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
+    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
         let! cloudProcess = __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
         return! cloudProcess.AwaitResult()
     }
@@ -111,7 +114,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : IFaultPolicy, ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : 'T =
+    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : 'T =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
     /// Gets a collection of all running or completed cloud processes that exist in the current MBrace runtime.
@@ -150,10 +153,17 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.ShowProcesses() : unit = taskManagerClient.ShowProcesses()
 
     /// Gets a client object that can be used for interoperating with the MBrace store.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member __.Store : CloudStoreClient = storeClient
 
     /// Gets all available workers for the MBrace runtime.
     member __.Workers : WorkerRef [] = workers.Value
+
+    /// Gets or sets the default fault policy used by computations
+    /// uploaded by this client instance.
+    member __.FaultPolicy
+        with get () = defaultFaultPolicy
+        and set fp  = defaultFaultPolicy <- fp
 
     /// Gets a printed report on all workers on the runtime
     member __.FormatWorkers() = WorkerReporter.Report(__.Workers, title = "Workers", borders = false)

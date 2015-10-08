@@ -33,7 +33,12 @@ type FaultData =
     }
 
 /// Fault policy to be applied in a distributed MBrace computation.
-type IFaultPolicy =
+[<AutoSerializable(true); AbstractClass; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
+type FaultPolicy () =
+
+    /// FaultPolicy identifier
+    abstract Id : string
+
     /// <summary>
     ///     Decides on the recovery action that should take place using supplied fault data.
     /// </summary>
@@ -41,12 +46,18 @@ type IFaultPolicy =
     /// <param name="faultException">Latest fault exception that was raised.</param>
     abstract GetFaultRecoveryAction : numberOfFaults:int * faultException:exn -> FaultRecoveryAction
 
-/// Collection of fault policy implementations.
-type FaultPolicy =
+    member private __.StructuredFormatDisplay = __.Id
+    override __.ToString() = __.Id
+
+    //
+    // #region Collection of common fault policy implementations.
+    //
 
     /// Makes no attempt at retrying a faulted computation, raising any exception at the first occurrence.
     static member NoRetry =
-        { new IFaultPolicy with member __.GetFaultRecoveryAction(_,e) = ThrowException e }
+        { new FaultPolicy() with 
+            member __.Id = "NoRetry"
+            member __.GetFaultRecoveryAction(_,e) = ThrowException e }
 
     /// <summary>
     ///     Forever re-attempt faulted computations.
@@ -54,7 +65,9 @@ type FaultPolicy =
     /// <param name="delay">Delay before each retry. Defaults to zero.</param>
     static member InfiniteRetries (?delay : TimeSpan) = 
         let delay = defaultArg delay TimeSpan.Zero
-        { new IFaultPolicy with member __.GetFaultRecoveryAction(_,_) = Retry delay }
+        { new FaultPolicy() with 
+            member __.Id = sprintf "InfiniteRetries (delay: %O)" delay
+            member __.GetFaultRecoveryAction(_,_) = Retry delay }
 
     /// <summary>
     ///     Retries at most a given number of times.
@@ -64,7 +77,8 @@ type FaultPolicy =
     static member WithMaxRetries(maxRetries : int, ?delay : TimeSpan) =
         if maxRetries < 0 then invalidArg "maxRetries" "must be non-negative."
         let delay = defaultArg delay TimeSpan.Zero
-        { new IFaultPolicy with 
+        { new FaultPolicy() with 
+            member __.Id = sprintf "WithMaxRetries (maxRetries: %d, delay: %O)" maxRetries delay
             member __.GetFaultRecoveryAction(retries,e) =
                 if retries > maxRetries then ThrowException e
                 else Retry delay }
@@ -77,7 +91,8 @@ type FaultPolicy =
     /// <param name="initialDelay">Initial delay. Defaults to 50ms</param>
     static member WithExponentialDelay(maxRetries : int, ?initialDelay : TimeSpan) =
         let initialDelay = defaultArg initialDelay <| TimeSpan.FromMilliseconds 50.
-        { new IFaultPolicy with
+        { new FaultPolicy() with
+            member __.Id = sprintf "WithExponentialDelay (maxRetries: %d, initialDelay: %O)" maxRetries initialDelay
             member __.GetFaultRecoveryAction(retries,e) =
                 if retries > maxRetries then ThrowException e
                 else
@@ -91,7 +106,8 @@ type FaultPolicy =
     /// <param name="maxRetries">Maximum number of retries.</param>
     /// <param name="delayF">Delay mapping function.</param>
     static member WithMappedDelay(maxRetries : int, delayF : int -> TimeSpan) =
-        { new IFaultPolicy with
+        { new FaultPolicy() with
+            member __.Id = sprintf "WithMappedDelay (maxRetries: %d)" maxRetries
             member __.GetFaultRecoveryAction(retries,e) =
                 if retries > maxRetries then ThrowException e
                 else

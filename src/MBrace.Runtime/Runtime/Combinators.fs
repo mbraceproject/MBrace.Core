@@ -43,7 +43,7 @@ let private extractWorkerIds (runtime : IRuntimeManager) (computations : (#Cloud
 /// <param name="faultPolicy">Current cloud work item being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
 let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry) 
-                (faultPolicy : IFaultPolicy) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
+                (faultPolicy : FaultPolicy) (computations : seq<#Cloud<'T> * IWorkerRef option>) : Cloud<'T []> =
 
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -176,7 +176,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
 /// <param name="faultPolicy">Current cloud work item being executed.</param>
 /// <param name="computations">Computations to be executed in parallel.</param>
 let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry) 
-                (faultPolicy : IFaultPolicy) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
+                (faultPolicy : FaultPolicy) (computations : seq<#Cloud<'T option> * IWorkerRef option>) =
 
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
@@ -287,7 +287,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
 /// <param name="computation">Computation to be executed.</param>
 let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry option)
                         (dependencies : AssemblyId[]) (taskName : string option)
-                        (faultPolicy : IFaultPolicy) (token : ICloudCancellationToken option) 
+                        (faultPolicy : FaultPolicy) (token : ICloudCancellationToken option) 
                         (additionalResources : ResourceRegistry option) (target : IWorkerRef option) 
                         (computation : Cloud<'T>) = async {
 
