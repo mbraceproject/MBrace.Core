@@ -1,3 +1,6 @@
+#### 0.11.10-alpha
+* Improve FaultPolicy implementation, add FaultPolicy getter,setter in MBraceClient instances.
+
 #### 0.11.9-alpha
 * Refactor CloudAtom, CloudDictionary and CloudQueue core APIs to support named lookups.
 * Minor improvements in MBrace.Runtime types.
