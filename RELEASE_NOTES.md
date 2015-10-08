@@ -1,3 +1,7 @@
+#### 0.11.9-alpha
+* Refactor CloudAtom, CloudDictionary and CloudQueue core APIs to support named lookups.
+* Minor improvements in MBrace.Runtime types.
+
 #### 0.11.8-alpha
 * Add support for working directory prefixes.
 * File logger bugfix.
