@@ -22,7 +22,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     /// Evaluate workflow in the local test process
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
     /// Specifies if current implementation supports lookup by name
-    abstract IsNamedLookupSupported : bool
+    abstract IsSupportedNamedLookup : bool
 
     [<Test>]
     member __.``Simple send/receive`` () =
@@ -89,7 +89,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
     [<Test>]
     member __.``Lookup by name`` () =
-        if __.IsNamedLookupSupported then
+        if __.IsSupportedNamedLookup then
             cloud {
                 let! queue = CloudQueue.New<int> ()
                 do! queue.Enqueue 42

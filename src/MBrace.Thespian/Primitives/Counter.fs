@@ -11,6 +11,7 @@ type private CounterMessage =
     | GetValue of IReplyChannel<int64>
 
 /// Distributed counter implementation
+[<Sealed; AutoSerializable(true)>]
 type ActorCounter private (source : ActorRef<CounterMessage>) =
     interface ICloudCounter with
         member __.Increment () = source <!- Increment
@@ -39,7 +40,7 @@ type ActorCounter private (source : ActorRef<CounterMessage>) =
 
         new ActorCounter(ref)
 
-
+[<Sealed; AutoSerializable(true)>]
 type ActorCounterFactory(factory : ResourceFactory) =
     interface ICloudCounterFactory with
         member x.CreateCounter(initialValue: int64): Async<ICloudCounter> =

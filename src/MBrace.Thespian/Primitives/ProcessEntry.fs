@@ -84,7 +84,7 @@ type private ActorProcessEntryState =
         }
 
 /// Actor ProcEntry implementation
-[<AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true)>]
 type ActorProcessEntry private (localStateF : LocalStateFactory, source : ActorRef<ActorProcessEntryMsg>, id : string, info : CloudProcessInfo)  =
     member __.Id = id
     member __.Info = info

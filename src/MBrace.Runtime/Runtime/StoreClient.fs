@@ -68,18 +68,38 @@ type CloudAtomClient internal (runtime : ThreadPoolRuntime) =
     let provider = runtime.Resources.Resolve<ICloudAtomProvider>()
 
     /// <summary>
-    ///     Creates a new cloud atom instance with given value.
+    ///     Asynchronously creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    member c.CreateAsync<'T>(initial : 'T, ?container : string) : Async<CloudAtom<'T>> =
-        CloudAtom.New(initial, ?container = container) |> runtime.ToAsync
+    /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
+    /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
+    member c.CreateAsync<'T>(initial : 'T, ?atomId : string, ?container : string) : Async<CloudAtom<'T>> =
+        CloudAtom.New(initial, ?atomId = atomId, ?container = container) |> runtime.ToAsync
 
     /// <summary>
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    member c.Create<'T>(initial : 'T, ?container : string) : CloudAtom<'T> =
-        CloudAtom.New(initial, ?container = container) |> runtime.RunSynchronously
+    /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
+    /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
+    member c.Create<'T>(initial : 'T, ?atomId : string, ?container : string) : CloudAtom<'T> =
+        CloudAtom.New(initial, ?atomId = atomId, ?container = container) |> runtime.RunSynchronously
+
+    /// <summary>
+    ///     Asynchronously attempt to recover an existing atom instance by its unique identifier and type.
+    /// </summary>
+    /// <param name="atomId">CloudAtom unique entity identifier.</param>
+    /// <param name="container">Cloud atom container. Defaults to process container.</param>
+    member c.GetByIdAsync<'T>(atomId : string, ?container : string) : Async<CloudAtom<'T>> =
+        CloudAtom.GetById(atomId, ?container = container) |> runtime.ToAsync
+
+    /// <summary>
+    ///     Attempt to recover an existing atom instance by its unique identifier and type.
+    /// </summary>
+    /// <param name="atomId">CloudAtom unique entity identifier.</param>
+    /// <param name="container">Cloud atom container. Defaults to process container.</param>
+    member c.GetById<'T>(atomId : string, ?container : string) : CloudAtom<'T> =
+        CloudAtom.GetById(atomId, ?container = container) |> runtime.RunSynchronously
        
     /// <summary>
     ///     Dereferences a cloud atom.
@@ -321,13 +341,33 @@ type CloudDictionaryClient internal (runtime : ThreadPoolRuntime) =
     // force exception in event of missing resource
     let _ = runtime.Resources.Resolve<ICloudDictionaryProvider>()
 
-    /// Asynchronously creates a new CloudDictionary instance.
-    member __.NewAsync<'T> () : Async<CloudDictionary<'T>> = 
-        CloudDictionary.New<'T> () |> runtime.ToAsync
+    /// <summary>
+    ///     Asynchronously creates a new CloudDictionary instance.
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier. Defaults to randomly generated name.</param>
+    member __.NewAsync<'T> (?dictionaryId : string) : Async<CloudDictionary<'T>> = 
+        CloudDictionary.New<'T> (?dictionaryId = dictionaryId) |> runtime.ToAsync
 
-    /// Creates a new CloudDictionary instance.
-    member __.New<'T> () : CloudDictionary<'T> =
-        CloudDictionary.New<'T> () |> runtime.RunSynchronously
+    /// <summary>
+    ///    Creates a new CloudDictionary instance.
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier. Defaults to randomly generated name.</param>
+    member __.New<'T> (?dictionaryId : string) : CloudDictionary<'T> =
+        CloudDictionary.New<'T> (?dictionaryId = dictionaryId) |> runtime.RunSynchronously
+
+    /// <summary>
+    ///     Asynchronously attempt to recover an already existing CloudDictionary of provided Id and type.
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
+    member c.GetByIdAsync<'T>(dictionaryId : string) : Async<CloudDictionary<'T>> =
+        CloudDictionary.GetById<'T>(dictionaryId) |> runtime.ToAsync
+
+    /// <summary>
+    ///     Attempt to recover an already existing CloudDictionary of provided Id and type.
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
+    member c.GetById<'T>(dictionaryId : string) : CloudDictionary<'T> =
+        CloudDictionary.GetById<'T>(dictionaryId) |> runtime.RunSynchronously
 
     /// <summary>
     ///     Asynchronously checks if entry of given key exists in dictionary.

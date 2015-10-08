@@ -7,6 +7,9 @@ type CloudAtom<'T> =
     /// Cloud atom identifier
     abstract Id : string
 
+    /// Cloud atom container Id
+    abstract Container : string
+
     /// Gets the current value of the atom.
     abstract Value : 'T
 
@@ -39,8 +42,11 @@ type ICloudAtomProvider =
     /// Cloud atom identifier
     abstract Id : string
 
-    /// Create a uniquely specified container name.
-    abstract CreateUniqueContainerName : unit -> string
+    /// Create a uniquely specified atom container name.
+    abstract GetRandomContainerName : unit -> string
+
+    /// Create a uniquely specified atom identifier.
+    abstract GetRandomAtomIdentifier : unit -> string
 
     /// Gets the default container used by the atom provider
     abstract DefaultContainer : string
@@ -60,9 +66,17 @@ type ICloudAtomProvider =
     /// <summary>
     ///     Creates a new atom instance with given initial value.
     /// </summary>
-    /// <param name="container">Atom container.</param>
-    /// <param name="initValue"></param>
-    abstract CreateAtom<'T> : container:string * initValue:'T -> Async<CloudAtom<'T>>
+    /// <param name="container">CloudAtom container identifier.</param>
+    /// <param name="atomId">CloudAtom unique identifier.</param>
+    /// <param name="initValue">Initial value to populate atom with.</param>
+    abstract CreateAtom<'T> : container:string * atomId: string * initValue:'T -> Async<CloudAtom<'T>>
+
+    /// <summary>
+    ///     Gets an already existing CloudAtom of specified identifiers and type.
+    /// </summary>
+    /// <param name="container">CloudAtom container identifier.</param>
+    /// <param name="atomId">CloudAtom unique identifier.</param>
+    abstract GetAtomById<'T> : container:string * atomId:string -> Async<CloudAtom<'T>>
 
     /// <summary>
     ///     Disposes all atoms in provided container
@@ -83,10 +97,24 @@ type CloudAtom =
     ///     Creates a new cloud atom instance with given value.
     /// </summary>
     /// <param name="initial">Initial value.</param>
-    static member New<'T>(initial : 'T, ?container : string) : Local<CloudAtom<'T>> = local {
+    /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
+    /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
+    static member New<'T>(initial : 'T, ?atomId : string, ?container : string) : Local<CloudAtom<'T>> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         let container = defaultArg container provider.DefaultContainer
-        return! provider.CreateAtom(container, initial)
+        let atomId = match atomId with None -> provider.GetRandomAtomIdentifier() | Some id -> id
+        return! provider.CreateAtom(container, atomId, initial)
+    }
+
+    /// <summary>
+    ///     Attempt to recover an existing atom instance by its unique identifier and type.
+    /// </summary>
+    /// <param name="atomId">CloudAtom unique entity identifier.</param>
+    /// <param name="container">Cloud atom container. Defaults to process container.</param>
+    static member GetById<'T>(atomId : string, ?container : string) : Local<CloudAtom<'T>> = local {
+        let! provider = Cloud.GetResource<ICloudAtomProvider> ()
+        let container = defaultArg container provider.DefaultContainer
+        return! provider.GetAtomById<'T>(container, atomId)
     }
 
     /// <summary>
@@ -144,9 +172,9 @@ type CloudAtom =
     }
 
     /// Generates a unique container name.
-    static member CreateContainerName() = local {
+    static member CreateRandomContainerName() = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
-        return provider.CreateUniqueContainerName()
+        return provider.GetRandomContainerName()
     }
 
     /// <summary>
@@ -165,7 +193,7 @@ type CloudAtom =
     ///     Increments a cloud counter by one.
     /// </summary>
     /// <param name="atom">Input atom.</param>
-    static member inline Incr (atom : CloudAtom<'T>) : Local<'T> = local {
+    static member inline Increment (atom : CloudAtom<'T>) : Local<'T> = local {
         return! atom.Transact (fun i -> let i' = i + LanguagePrimitives.GenericOne in i',i')
     }
 
@@ -173,6 +201,6 @@ type CloudAtom =
     ///     Decrements a cloud counter by one.
     /// </summary>
     /// <param name="atom">Input atom.</param>
-    static member inline Decr (atom : CloudAtom<'T>) : Local<'T> = local {
+    static member inline Decrement (atom : CloudAtom<'T>) : Local<'T> = local {
         return! atom.Transact (fun i -> let i' = i - LanguagePrimitives.GenericOne in i',i')
     }

@@ -84,7 +84,7 @@ module private ActorCloudDictionary =
         |> Actor.ref
 
     /// Serializable actor ICloudDictionary implementation
-    [<AutoSerializable(true)>]
+    [<Sealed; AutoSerializable(true)>]
     type ActorCloudDictionary<'T> internal (id : string, source : ActorRef<CloudDictionaryMsg>) =
         static let pickle t = Config.Serializer.Pickle t
         static let unpickle bytes = Config.Serializer.UnPickle<'T> bytes
@@ -162,14 +162,19 @@ module private ActorCloudDictionary =
             member x.Dispose(): Async<unit> = async.Zero ()
 
 /// Defines a distributed cloud channel factory
-type ActorDictionaryProvider (id : string, factory : ResourceFactory) =
+[<Sealed; AutoSerializable(true)>]
+type ActorDictionaryProvider (factory : ResourceFactory) =
+    let id = sprintf "actorDictProvider-%s" <| mkUUID()
     interface ICloudDictionaryProvider with
-        member __.Name = "ActorDictionary"
+        member __.Name = "MBrace.Thespian Actor CloudDictionary Provider"
         member __.Id = id
         member __.IsSupportedValue _ = true
-        member __.Create<'T> () = async {
-            let id = mkUUID()
+        member __.GetRandomDictionaryId() = sprintf "actorDict-%s" <| mkUUID()
+        member __.CreateDictionary<'T> (dictId : string) : Async<CloudDictionary<'T>> = async {
             let! actor = factory.RequestResource(fun () -> ActorCloudDictionary.init())
-            let dict = new ActorCloudDictionary<'T>(mkUUID(), actor)
+            let dict = new ActorCloudDictionary<'T>(dictId, actor)
             return dict :> CloudDictionary<'T>
         }
+
+        member __.GetById<'T> (dictId : string) : Async<CloudDictionary<'T>> =
+            raise (new NotSupportedException("Named CloudAtom lookup not supported in Thespian atoms."))

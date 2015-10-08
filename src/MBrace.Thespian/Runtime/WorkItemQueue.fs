@@ -115,7 +115,7 @@ module private WorkItemLeaseMonitor =
         ref
 
 /// Work item lease token implementation, received when dequeuing a work item from the queue.
-[<AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true)>]
 type WorkItemLeaseToken internal (pWorkItem : PickledWorkItem, stateF : LocalStateFactory, faultInfo : CloudWorkItemFaultInfo, leaseMonitor : ActorRef<WorkItemLeaseMonitorMsg>) =
 
     interface ICloudWorkItemLeaseToken with

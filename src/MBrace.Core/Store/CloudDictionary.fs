@@ -68,14 +68,26 @@ type ICloudDictionaryProvider =
     /// CloudDictionary provider instance id
     abstract Id : string
 
+    /// Creates a unique CloudDictionary identifier
+    abstract GetRandomDictionaryId : unit -> string
+
     /// <summary>
     ///     Checks if supplied value is supported by Dictionary implementation.
     /// </summary>
     /// <param name="value">Value to be checked.</param>
     abstract IsSupportedValue : value:'T -> bool
 
-    /// Create a new ICloudDictionary instance.
-    abstract Create<'T> : unit -> Async<CloudDictionary<'T>>
+    /// <summary>
+    ///   Create a new CloudDictionary instance.  
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
+    abstract CreateDictionary<'T> : dictionaryId:string -> Async<CloudDictionary<'T>>
+
+    /// <summary>
+    ///     Attempt to recover an already existing CloudDictionary of provided Id and type.
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
+    abstract GetById<'T> : dictionaryId:string -> Async<CloudDictionary<'T>>
 
 namespace MBrace.Core
 
@@ -100,10 +112,23 @@ type CloudDictionary =
         return config.IsSupportedValue value
     }
 
-    /// Creates a new CloudDictionary instance.
-    static member New<'T>() = local {
+    /// <summary>
+    ///     Creates a new CloudDictionary instance.
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier. Defaults to randomly generated name.</param>
+    static member New<'T>(?dictionaryId : string) = local {
         let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
-        return! provider.Create<'T> ()
+        let dictionaryId = match dictionaryId with None -> provider.GetRandomDictionaryId() | Some did -> did
+        return! provider.CreateDictionary<'T> dictionaryId
+    }
+
+    /// <summary>
+    ///     Attempt to recover an already existing CloudDictionary of provided Id and type.
+    /// </summary>
+    /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
+    static member GetById<'T>(dictionaryId : string) = local {
+        let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
+        return! provider.CreateDictionary<'T> dictionaryId
     }
 
     /// <summary>

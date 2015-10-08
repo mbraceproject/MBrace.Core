@@ -49,6 +49,7 @@ module private ActorQueue =
         |> Actor.ref
 
     /// Actor CloudQueue implementation
+    [<Sealed; AutoSerializable(true)>]
     type ActorQueue<'T> internal (id : string, source : ActorRef<QueueMsg>) =
 
         interface CloudQueue<'T> with
@@ -108,6 +109,7 @@ module private ActorQueue =
             member __.Dispose () = async.Zero()
 
 /// Defines a distributed cloud channel factory
+[<Sealed; AutoSerializable(true)>]
 type ActorQueueProvider (factory : ResourceFactory) =
     let id = sprintf "actorQueueProvider-%s" <| mkUUID()
     interface ICloudQueueProvider with

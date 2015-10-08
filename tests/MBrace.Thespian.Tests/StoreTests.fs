@@ -55,6 +55,7 @@ type ``MBrace Thespian Atom Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
+    override __.IsSupportedNamedLookup = false
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
@@ -77,7 +78,7 @@ type ``MBrace Thespian Queue Tests`` () =
 
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
-    override __.IsNamedLookupSupported = false
+    override __.IsSupportedNamedLookup = false
 
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)
@@ -91,5 +92,6 @@ type ``MBrace Thespian Dictionary Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.IsInMemoryFixture = false
+    override __.IsSupportedNamedLookup = false
     override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow

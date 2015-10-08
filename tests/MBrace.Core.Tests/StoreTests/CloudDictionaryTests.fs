@@ -23,6 +23,8 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    /// Specifies whether current implementation support named lookups
+    abstract IsSupportedNamedLookup : bool
 
     [<Test>]
     member __.``Add/remove`` () =
@@ -70,3 +72,13 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> incr i ] |> Cloud.Ignore
             return! dict.TryFind "key"
         } |> runOnCloud |> shouldEqual (Some (Array.sum [|1 .. parallelismFactor|]))
+
+    [<Test>]
+    member __.``Named lookup`` () =
+        if __.IsSupportedNamedLookup then
+            cloud {
+                let! dict = CloudDictionary.New<int> ()
+                do! dict.Add("testKey", 42)
+                let! dict' = CloudDictionary.GetById<int>(dict.Id)
+                return! dict'.TryFind "testKey"
+            } |> runOnCloud |> shouldEqual (Some 42)

@@ -110,6 +110,7 @@ type ``InMemory CloudAtom Tests`` () =
 #else
     override __.Repeats = 3
 #endif
+    override __.IsSupportedNamedLookup = false
 
 type ``InMemory CloudQueue Tests`` () =
     inherit ``CloudQueue Tests`` (parallelismFactor = 100)
@@ -118,16 +119,17 @@ type ``InMemory CloudQueue Tests`` () =
 
     override __.Run(workflow) = imem.RunSynchronously workflow
     override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
-    override __.IsNamedLookupSupported = false
+    override __.IsSupportedNamedLookup = false
 
 type ``InMemory CloudDictionary Tests`` () =
     inherit ``CloudDictionary Tests`` (parallelismFactor = 100)
 
     let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
-    override __.IsInMemoryFixture = true
     override __.Run(workflow) = imem.RunSynchronously workflow
     override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
+    override __.IsInMemoryFixture = true
+    override __.IsSupportedNamedLookup = false
 
 type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()

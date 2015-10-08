@@ -99,7 +99,7 @@ type ClusterState =
         let resources = resource {
             yield new ActorAtomProvider(resourceFactory) :> ICloudAtomProvider
             yield new ActorQueueProvider(resourceFactory) :> ICloudQueueProvider
-            yield new ActorDictionaryProvider(id.Id, resourceFactory) :> ICloudDictionaryProvider
+            yield new ActorDictionaryProvider(resourceFactory) :> ICloudDictionaryProvider
             yield serializer :> ISerializer
             yield cloudValueProvider :> ICloudValueProvider
             match miscResources with Some r -> yield! r | None -> ()

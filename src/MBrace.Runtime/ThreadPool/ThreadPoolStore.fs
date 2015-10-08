@@ -147,7 +147,7 @@ and [<AutoSerializable(false); Sealed; CloneableOnly>]
 /// Provides an In-Memory CloudValue implementation
 and [<Sealed; AutoSerializable(false)>] 
   ThreadPoolValueProvider () as self =
-    let id = mkUUID()
+    let id = sprintf "inMemoryCloudValueProvider-%s" <| mkUUID()
     let cache = new ConcurrentDictionary<HashResult, EmulatedValue<obj>>()
 
     static let isSupportedLevel (level : StorageLevel) =
@@ -187,7 +187,7 @@ and [<Sealed; AutoSerializable(false)>]
 
     interface ICloudValueProvider with
         member x.Id: string = id
-        member x.Name: string = "In-Memory Value Provider"
+        member x.Name: string = "ThreadPool In-Memory CloudValue Provider"
         member x.DefaultStorageLevel : StorageLevel = StorageLevel.Memory
         member x.IsSupportedStorageLevel (level : StorageLevel) = isSupportedLevel level
         member x.GetCloudValueId (value : 'T) = computeHash(value).Id
@@ -209,7 +209,7 @@ and [<Sealed; AutoSerializable(false)>]
 
 
 [<AutoSerializable(false); Sealed; CloneableOnly>]
-type private ThreadPoolAtom<'T> internal (id : string, initial : 'T, memoryEmulation : MemoryEmulation) =
+type private ThreadPoolAtom<'T> internal (id : string, container : string, initial : 'T, memoryEmulation : MemoryEmulation) =
     // false: always clone value when reading payload
     let clone (t:'T) = EmulatedValue.create memoryEmulation false t
 
@@ -221,6 +221,7 @@ type private ThreadPoolAtom<'T> internal (id : string, initial : 'T, memoryEmula
 
     interface CloudAtom<'T> with
         member x.Id = id
+        member x.Container = container
         member x.Value = getAtom().Value.Value
         member x.GetValueAsync() = async { return getAtom().Value.Value }
 
@@ -240,20 +241,23 @@ type private ThreadPoolAtom<'T> internal (id : string, initial : 'T, memoryEmula
 
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolAtomProvider (memoryEmulation : MemoryEmulation) =
-    let id = mkUUID()
+    let id = sprintf "threadPoolCloudAtomProvider-%s" <| mkUUID()
 
     interface ICloudAtomProvider with
-        member __.Name = "InMemoryAtomProvider"
+        member __.Name = "ThreadPool In-Memory CloudAtom Provider"
         member __.Id = id
-        member __.DefaultContainer = ""
-        member __.WithDefaultContainer _ = __ :> _
-        member __.IsSupportedValue _ = true
-        member __.CreateAtom<'T>(_, init : 'T) = async { 
-            let id = mkUUID()
-            return new ThreadPoolAtom<'T>(id, init, memoryEmulation) :> _ 
+        member __.DefaultContainer = "<CloudAtom Container>"
+        member __.GetRandomContainerName () = "<CloudAtom Container>"
+        member __.GetRandomAtomIdentifier() = sprintf "threadPoolCloudAtom-%s" <| mkUUID()
+        member __.WithDefaultContainer _container = __ :> _
+        member __.IsSupportedValue _value = true
+        member __.CreateAtom<'T>(container : string, id : string, init : 'T) = async { 
+            return new ThreadPoolAtom<'T>(id, container, init, memoryEmulation) :> _ 
         }
 
-        member __.CreateUniqueContainerName () = ""
+        member x.GetAtomById(_container: string, _atomId: string): Async<CloudAtom<'T>> =
+            raise (System.NotSupportedException("Named lookups not supported in ThreadPool CloudAtoms."))
+
         member __.DisposeContainer _ = async.Zero()
 
 
@@ -320,31 +324,29 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
 /// Defines an in-memory queue factory using mailbox processor
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolQueueProvider (memoryEmulation : MemoryEmulation) =
-    let id = sprintf "queueProvider-%s" <| mkUUID()
+    let id = sprintf "threadPoolQueueProvider-%s" <| mkUUID()
 
     interface ICloudQueueProvider with
         member x.GetQueueById(_queueId: string): Async<CloudQueue<'T>> = 
             raise (System.NotSupportedException("Named queue lookups not supported in ThreadPool runtimes."))
         
-        member x.GetRandomQueueName(): string = sprintf "queue-%s" <| mkUUID()
+        member x.GetRandomQueueName(): string = sprintf "threadPoolQueue-%s" <| mkUUID()
         
         member x.Id: string = id
         
         member x.Name: string = "ThreadPool InMemory CloudQueue Provider"
 
-        member __.CreateQueue<'T> (container : string) = async {
+        member __.CreateQueue<'T> (queueId : string) = async {
             if not <| MemoryEmulation.isShared memoryEmulation && not <| FsPickler.IsSerializableType<'T>() then
                 let msg = sprintf "Cannot create queue for non-serializable type '%O'." typeof<'T>
                 raise <| new SerializationException(msg)
 
-            let id = sprintf "%s/%s" container <| mkUUID()
-            return new ThreadPoolQueue<'T>(id, memoryEmulation) :> CloudQueue<'T>
+            return new ThreadPoolQueue<'T>(queueId, memoryEmulation) :> CloudQueue<'T>
         }
 
 
 [<Sealed; AutoSerializable(false); CloneableOnly>]
-type private InMemoryDictionary<'T> internal (memoryEmulation : MemoryEmulation) =
-    let id = mkUUID()
+type private InMemoryDictionary<'T> internal (id : string, memoryEmulation : MemoryEmulation) =
     let clone (t:'T) = EmulatedValue.create memoryEmulation true t
     let dict = new ConcurrentDictionary<string, EmulatedValue<'T>> ()
     let toEnum() = dict |> Seq.map (fun kv -> new KeyValuePair<_,_>(kv.Key, kv.Value.Value))
@@ -405,16 +407,20 @@ type private InMemoryDictionary<'T> internal (memoryEmulation : MemoryEmulation)
 /// Defines an in-memory dictionary factory using ConcurrentDictionary
 [<Sealed; AutoSerializable(false)>]
 type ThreadPoolDictionaryProvider (memoryEmulation : MemoryEmulation) =
-    let id = mkUUID()
+    let id = sprintf "threadPoolCloudDictionaryProvider-%s" <| mkUUID()
 
     interface ICloudDictionaryProvider with
         member s.Name = "ThreadPool In-Memory CloudDictionary Provider"
         member s.Id = id
         member s.IsSupportedValue _ = true
-        member s.Create<'T> () = async {
+        member s.GetRandomDictionaryId() = sprintf "threadPoolCloudDictionary-%s" <| mkUUID()
+        member s.CreateDictionary<'T> (dictId : string) = async {
             if not <| MemoryEmulation.isShared memoryEmulation && not <| FsPickler.IsSerializableType<'T>() then
                 let msg = sprintf "Cannot create queue for non-serializable type '%O'." typeof<'T>
                 raise <| new SerializationException(msg)
 
-            return new InMemoryDictionary<'T>(memoryEmulation) :> CloudDictionary<'T>
+            return new InMemoryDictionary<'T>(dictId, memoryEmulation) :> CloudDictionary<'T>
         }
+
+        member s.GetById(_dictId : string) =
+            raise (System.NotSupportedException("Named lookups not supported in ThreadPool CloudDictionaries."))

@@ -14,7 +14,7 @@ type private ResourceFactoryMsg =
 
 /// Defines a reference to an actor implementation that accepts remote requests
 /// for factory initializations. Can be used for quickly spawning actors remotely.
-[<AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true)>]
 type ResourceFactory private (source : ActorRef<ResourceFactoryMsg>) =
 
     /// <summary>

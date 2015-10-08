@@ -71,7 +71,7 @@ module private ActorResultAggregator =
         |> Actor.ref
 
     /// A distributed resource that aggregates an array of results.
-    [<AutoSerializable(true)>]
+    [<Sealed; AutoSerializable(true)>]
     type ActorResultAggregator<'T> internal (stateF : LocalStateFactory, capacity : int, source : ActorRef<ResultAggregatorMsg>) =
 
         interface ICloudResultAggregator<'T> with
@@ -99,6 +99,7 @@ module private ActorResultAggregator =
             member __.Dispose () = async.Zero()
 
 /// Defines a distributed result aggregator factory
+[<Sealed; AutoSerializable(true)>]
 type ActorResultAggregatorFactory(factory : ResourceFactory, stateF : LocalStateFactory) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(aggregatorId : string, capacity: int): Async<ICloudResultAggregator<'T>> = async {

@@ -61,7 +61,8 @@ module private ActorAtom =
         |> Actor.ref
 
     /// Actor atom interface implementation
-    type ActorAtom<'T> internal (id : string, source : ActorRef<AtomMsg>) =
+    [<Sealed; AutoSerializable(true)>]
+    type ActorAtom<'T> internal (id : string, container : string, source : ActorRef<AtomMsg>) =
         static let pickle (t : 'T) = Config.Serializer.Pickle t
         static let unpickle (bytes : byte[]) = Config.Serializer.UnPickle<'T> bytes
 
@@ -72,6 +73,7 @@ module private ActorAtom =
 
         interface CloudAtom<'T> with
             member __.Id = id
+            member __.Container = container
             member __.Value = getValue() |> Async.RunSync
             member __.GetValueAsync() = getValue()
 
@@ -107,19 +109,22 @@ module private ActorAtom =
 
 /// Defines a distributed cloud atom factory
 type ActorAtomProvider (factory : ResourceFactory) =
-    let id = mkUUID()
+    let id = sprintf "actorAtomProvider-%s" <| mkUUID()
 
     interface ICloudAtomProvider with
-        member x.Name: string = "ActorAtom"
+        member x.Name: string = "MBrace.Thespian Actor CloudAtom Provider"
         member x.Id = id
         member x.IsSupportedValue(value: 'T): bool = true
-        member x.DefaultContainer = ""
+        member x.DefaultContainer = "<Default CloudAtom Container>"
         member x.WithDefaultContainer _ = x :> _
-        member x.CreateUniqueContainerName () = ""
+        member x.GetRandomContainerName () = "<Default CloudAtom Container>"
+        member x.GetRandomAtomIdentifier() = sprintf "actorAtom-%s" <| mkUUID()
         member x.DisposeContainer (_ : string) = async.Zero()
-        member x.CreateAtom(container: string, initValue: 'T): Async<CloudAtom<'T>> = async {
-            let id = sprintf "%s/%s" container <| System.Guid.NewGuid().ToString()
+        member x.CreateAtom(container: string, atomId : string, initValue: 'T): Async<CloudAtom<'T>> = async {
             let initPickle = Config.Serializer.Pickle initValue
-            let! actor = factory.RequestResource(fun () -> ActorAtom.init id initPickle)
-            return new ActorAtom<'T>(id, actor) :> CloudAtom<'T>
+            let! actor = factory.RequestResource(fun () -> ActorAtom.init atomId initPickle)
+            return new ActorAtom<'T>(atomId, container, actor) :> CloudAtom<'T>
         }
+
+        member x.GetAtomById(_container : string, _atomId : string) : Async<CloudAtom<'T>> =
+            raise (new NotSupportedException("Named CloudAtom lookup not supported in Thespian atoms."))

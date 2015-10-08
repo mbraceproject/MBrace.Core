@@ -27,6 +27,8 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     abstract RunOnCurrentProcess : Cloud<'T> -> 'T
     /// Maximum number of repeats to run nondeterministic tests
     abstract Repeats : int
+    /// Determines whether current CloudAtom implementation supports named lookups
+    abstract IsSupportedNamedLookup : bool
 
     [<Test>]
     member __.``Update with contention`` () =
@@ -50,7 +52,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             local {
                 let! a = CloudAtom.New 0
                 for i in 1 .. nSequential do
-                    do! CloudAtom.Incr a |> Local.Ignore
+                    do! CloudAtom.Increment a |> Local.Ignore
 
                 return a
             } |> runOnCloud
@@ -67,7 +69,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     let! a = CloudAtom.New 0
                     let worker _ = local {
                         for _ in 1 .. nSequential do
-                            do! CloudAtom.Incr a |> Local.Ignore
+                            do! CloudAtom.Increment a |> Local.Ignore
                     }
                     do! Seq.init parallelismFactor worker |> Cloud.Parallel |> Cloud.Ignore
                     return a
@@ -111,6 +113,15 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 do! Seq.init parallelismFactor (fun i -> CloudAtom.Force(a, i + 1)) |> Cloud.Parallel |> Cloud.Ignore
                 return! CloudAtom.Read a
             } |> runOnCloud |> shouldBe (fun i -> i > 0))
+
+    [<Test>]
+    member __.``Named lookups`` () =
+        if __.IsSupportedNamedLookup then
+            cloud {
+                let! atom = CloudAtom.New(41)
+                let! atom' = CloudAtom.GetById<int>(atom.Id)
+                return! CloudAtom.Increment atom'
+            } |> runOnCloud |> shouldEqual 42
 
     [<Test>]
     member __.``Dispose`` () =

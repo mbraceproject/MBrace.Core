@@ -15,7 +15,7 @@ type private CancellationEntryMsg =
     | Cancel
 
 /// Defines a cancellable entity with linking support
-and ActorCancellationEntry private (id : string, source : ActorRef<CancellationEntryMsg>) =
+and [<Sealed; AutoSerializable(true)>] ActorCancellationEntry private (id : string, source : ActorRef<CancellationEntryMsg>) =
     member __.Id = id
     member __.Cancel () = source.AsyncPost Cancel
     member __.IsCancellationRequested = source <!- IsCancellationRequested
@@ -72,6 +72,7 @@ and ActorCancellationEntry private (id : string, source : ActorRef<CancellationE
         new ActorCancellationEntry(id, aref)
 
 /// Global actor cancellation entry factory
+[<Sealed; AutoSerializable(true)>]
 type ActorCancellationEntryFactory(factory : ResourceFactory) =
     interface ICancellationEntryFactory with
         member x.CreateCancellationEntry() =

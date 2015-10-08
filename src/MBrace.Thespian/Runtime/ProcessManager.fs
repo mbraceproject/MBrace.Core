@@ -22,6 +22,7 @@ type private ProcessManagerMsg =
     | ClearProcess of procId:string * IReplyChannel<bool>
 
 ///  Task manager actor reference used for handling MBrace.Thespian task instances
+[<Sealed; AutoSerializable(true)>]
 type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
     interface ICloudProcessManager with
         member x.StartProcess(info : CloudProcessInfo) = async {

@@ -12,7 +12,7 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PerformanceMonitor
 
 /// Defines a unique idenfier for an MBrace.Thespian worker
-[<AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true)>]
 type WorkerId private (processId : ProcessId, uri : string) =
     member __.ProcessId = processId
     member __.Id = uri
@@ -104,7 +104,7 @@ module private HeartbeatMonitor =
         aref
 
 /// WorkerManager actor reference used for handling MBrace.Thespian worker instances
-[<AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true)>]
 type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<WorkerMonitorMsg>) =
 
     /// <summary>
