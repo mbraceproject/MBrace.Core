@@ -1,3 +1,6 @@
+#### 0.11.12-alpha
+* Minor bugfix.
+
 #### 0.11.11-alpha
 * Fix CloudQueue unit test issue.
 

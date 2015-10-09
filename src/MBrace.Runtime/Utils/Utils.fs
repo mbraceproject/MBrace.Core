@@ -230,13 +230,13 @@ module Utils =
                 (fun () ->
                     if Directory.Exists path then
                         if cleanup then 
-                            Directory.Delete(path, true)
-                            if Directory.Exists path then
-                                raise <| new IOException(sprintf "Could not delete directory '%s'." path)
+                            for d in Directory.EnumerateDirectories path do 
+                                Directory.Delete(d, true)
+                                if Directory.Exists d then raise <| new IOException(sprintf "Could not delete directory '%s'." d)
 
-                            ignore <| Directory.CreateDirectory path
-                            if not <| Directory.Exists path then
-                                raise <| new IOException(sprintf "Could not create directory '%s'." path)
+                            for f in Directory.EnumerateFiles path do 
+                                File.Delete f
+                                if File.Exists f then raise <| new IOException(sprintf "Could not delete file '%s'." f)
                     else
                         ignore <| Directory.CreateDirectory path
                         if not <| Directory.Exists path then

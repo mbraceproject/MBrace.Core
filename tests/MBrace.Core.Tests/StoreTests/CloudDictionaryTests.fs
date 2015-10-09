@@ -29,7 +29,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Add/remove`` () =
         cloud {
-            let! dict = CloudDictionary.New<int> ()
+            use! dict = CloudDictionary.New<int> ()
             let! _ = dict.Add("key", 42)
             let! contains = dict.ContainsKey "key"
             contains |> shouldEqual true
@@ -39,7 +39,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Multiple adds`` () =
         cloud {
-            let! dict = CloudDictionary.New<int> ()
+            use! dict = CloudDictionary.New<int> ()
             for i in [1 .. 100] do
                 do! dict.Add(string i, i) |> Async.Ignore
 
@@ -51,7 +51,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     member __.``Concurrent adds`` () =
         let parallelismFactor = parallelismFactor
         cloud {
-            let! dict = CloudDictionary.New<int> ()
+            use! dict = CloudDictionary.New<int> ()
             let add i = local { return! dict.Add(string i, i) }
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
@@ -63,7 +63,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     member __.``Concurrent add or update`` () =
         let parallelismFactor = parallelismFactor
         cloud {
-            let! dict = CloudDictionary.New<int> ()
+            use! dict = CloudDictionary.New<int> ()
             let incr i = local {
                 let! _ = CloudDictionary.AddOrUpdate "key" (function None -> i | Some c -> c + i) dict
                 return ()
@@ -77,7 +77,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     member __.``Named lookup`` () =
         if __.IsSupportedNamedLookup then
             cloud {
-                let! dict = CloudDictionary.New<int> ()
+                use! dict = CloudDictionary.New<int> ()
                 do! dict.Add("testKey", 42)
                 let! dict' = CloudDictionary.GetById<int>(dict.Id)
                 return! dict'.TryFind "testKey"

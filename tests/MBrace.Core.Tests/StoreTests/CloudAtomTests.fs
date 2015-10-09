@@ -34,7 +34,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     member __.``Update with contention`` () =
         let parallelismFactor = parallelismFactor
         cloud {
-            let! atom = CloudAtom.New 0
+            use! atom = CloudAtom.New 0
             let updater _ = local {
                 for i in 1 .. nSequential do
                     do! CloudAtom.Update (atom, (+) 1)
@@ -57,7 +57,8 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 return a
             } |> runOnCloud
             
-        atom.Value |> shouldEqual nSequential
+        try atom.Value |> shouldEqual nSequential
+        finally atom.Dispose() |> Async.RunSync
 
     [<Test>]
     member __.``Parallel updates`` () =
@@ -75,7 +76,8 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                     return a
                 } |> runOnCloud
         
-            atom.Value |> shouldEqual (parallelismFactor * nSequential))
+            try atom.Value |> shouldEqual (parallelismFactor * nSequential)
+            finally atom.Dispose() |> Async.RunSync)
 
     [<Test>]
     member __.``Parallel updates with large obj`` () =
@@ -86,7 +88,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 let! isSupported = CloudAtom.IsSupportedValue [1 .. parallelismFactor]
                 if isSupported then return true
                 else
-                    let! atom = CloudAtom.New List.empty<int>
+                    use! atom = CloudAtom.New List.empty<int>
                     do! Seq.init parallelismFactor (fun i -> CloudAtom.Update (atom, fun is -> i :: is)) |> Cloud.Parallel |> Cloud.Ignore
                     let! values = CloudAtom.Read atom
                     return List.sum values = List.sum [1 .. parallelismFactor]
@@ -98,7 +100,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             // avoid capturing test fixture class in closures
             let parallelismFactor = parallelismFactor
             cloud {
-                let! a = CloudAtom.New 0
+                use! a = CloudAtom.New 0
                 let! results = Seq.init parallelismFactor (fun _ -> CloudAtom.Transact(a, fun i -> i, i+1)) |> Cloud.Parallel
                 return Array.sum results
             } |> runOnCloud |> shouldEqual (Array.sum [|0 .. parallelismFactor - 1|]))
@@ -109,7 +111,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             // avoid capturing test fixture class in closures
             let parallelismFactor = parallelismFactor
             cloud {
-                let! a = CloudAtom.New 0
+                use! a = CloudAtom.New 0
                 do! Seq.init parallelismFactor (fun i -> CloudAtom.Force(a, i + 1)) |> Cloud.Parallel |> Cloud.Ignore
                 return! CloudAtom.Read a
             } |> runOnCloud |> shouldBe (fun i -> i > 0))
@@ -118,7 +120,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     member __.``Named lookups`` () =
         if __.IsSupportedNamedLookup then
             cloud {
-                let! atom = CloudAtom.New(41)
+                use! atom = CloudAtom.New(41)
                 let! atom' = CloudAtom.GetById<int>(atom.Id)
                 return! CloudAtom.Increment atom'
             } |> runOnCloud |> shouldEqual 42

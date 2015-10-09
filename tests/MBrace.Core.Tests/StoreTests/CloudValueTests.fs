@@ -64,7 +64,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedLevel StorageLevel.Memory then
             let value = getUniqueValue()
             cloud {
-                let! c = CloudValue.New(value, storageLevel = StorageLevel.Memory)
+                use! c = CloudValue.New(value, storageLevel = StorageLevel.Memory)
                 c.StorageLevel |> shouldEqual StorageLevel.Memory
                 c.IsCachedLocally |> shouldEqual true
                 let! v1 = c.GetValueAsync()
@@ -77,7 +77,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedLevel StorageLevel.MemorySerialized then
             let value = getUniqueValue()
             cloud {
-                let! c = CloudValue.New(value, storageLevel = StorageLevel.MemorySerialized)
+                use! c = CloudValue.New(value, storageLevel = StorageLevel.MemorySerialized)
                 c.StorageLevel |> shouldEqual StorageLevel.MemorySerialized
                 c.IsCachedLocally |> shouldEqual true
                 let! v1 = c.GetValueAsync()
@@ -90,7 +90,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedLevel StorageLevel.Disk then
             let value = getUniqueValue()
             cloud {
-                let! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
+                use! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
                 c.StorageLevel |> shouldEqual StorageLevel.Disk
                 c.IsCachedLocally |> shouldEqual false
                 let! v1 = c.GetValueAsync()
@@ -103,7 +103,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedLevel StorageLevel.MemoryAndDisk then
             let value = getUniqueValue()
             cloud {
-                let! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDisk)
+                use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDisk)
                 c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
                 let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
@@ -121,7 +121,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedLevel StorageLevel.MemoryAndDiskSerialized then
             let value = getUniqueValue()
             cloud {
-                let! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDiskSerialized)
+                use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDiskSerialized)
                 c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDiskSerialized
                 let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
@@ -140,7 +140,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedLevel StorageLevel.Disk then
             let value = getUniqueValue()
             cloud {
-                let! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
+                use! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
                 c.StorageLevel |> shouldEqual StorageLevel.Disk
                 let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
@@ -169,7 +169,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     member __.``Structurally identical values should yield identical cache entities with boxing`` () =
         cloud {
             let value = [|for i in 1 .. 10000 -> sprintf "string %d" i|]
-            let! cv1 = CloudValue.New value
+            use! cv1 = CloudValue.New value
             let! cv2 = CloudValue.New (box value)
             cv2.Id |> shouldEqual cv1.Id
         } |> runOnCloud
@@ -177,7 +177,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Casting`` () =
         cloud {
-            let! v1 = CloudValue.New [|1 .. 100|]
+            use! v1 = CloudValue.New [|1 .. 100|]
             let v2 = CloudValue.Cast<obj> v1
             let v3 = CloudValue.Cast<System.Array> v2
             v2.Id |> shouldEqual v1.Id
@@ -200,7 +200,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 for i in 1 .. size -> r.Next()
             }
 
-            let! ca = CloudValue.NewArray xs
+            use! ca = CloudValue.NewArray xs
             ca.Length |> shouldEqual size
         } |> runOnCloud
 
@@ -261,7 +261,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     member __.``Get CloudValue by Id`` () =
         let value = getUniqueValue()
         cloud {
-            let! cv = CloudValue.New value
+            use! cv = CloudValue.New value
             let isCacheable = cv.StorageLevel.HasFlag StorageLevel.Memory
             let! job = Cloud.StartAsCloudProcess(cloud {
                 let! cv' = CloudValue.TryGetValueById cv.Id
