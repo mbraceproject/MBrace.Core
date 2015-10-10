@@ -65,8 +65,6 @@ type CloudProcessState =
         Status : CloudProcessStatus
         /// Task execution time
         ExecutionTime : ExecutionTime
-        /// Max number of concurrently executing work items for cloud process.
-        MaxActiveWorkItemCount : int
         /// Number of work items currently executing for cloud process.
         ActiveWorkItemCount : int
         /// Number of work items completed for cloud process.

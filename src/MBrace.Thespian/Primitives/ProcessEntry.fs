@@ -38,8 +38,6 @@ type private ActorProcessEntryState =
         Status : CloudProcessStatus
         /// Number of currently executing MBrace work items for actor
         ActiveWorkItemCount : int
-        /// Maximum number of concurrently executing MBrace work items for actor
-        MaxActiveWorkItemCount : int
         /// Total number of MBrace work items for actor
         TotalWorkItemCount : int
         /// Total number of completed work items for actor
@@ -57,7 +55,7 @@ type private ActorProcessEntryState =
     static member Init(info : CloudProcessInfo) = 
         { 
             Info = info ; Result = None
-            TotalWorkItemCount = 0 ; ActiveWorkItemCount = 0 ; MaxActiveWorkItemCount = 0 ; 
+            TotalWorkItemCount = 0 ; ActiveWorkItemCount = 0 ;
             CompletedWorkItemCount = 0 ; FaultedWorkItemCount = 0
             ExecutionTime = NotStarted ; Status = CloudProcessStatus.Created 
         }
@@ -73,7 +71,6 @@ type private ActorProcessEntryState =
             Info = ts.Info
             ActiveWorkItemCount = ts.ActiveWorkItemCount
             TotalWorkItemCount = ts.TotalWorkItemCount
-            MaxActiveWorkItemCount = ts.MaxActiveWorkItemCount
             CompletedWorkItemCount = ts.CompletedWorkItemCount
             FaultedWorkItemCount = ts.FaultedWorkItemCount
 
@@ -186,8 +183,7 @@ type ActorProcessEntry private (localStateF : LocalStateFactory, source : ActorR
             | IncrementWorkItemCount ->
                 return { state with 
                                 TotalWorkItemCount = state.TotalWorkItemCount + 1 ; 
-                                ActiveWorkItemCount = state.ActiveWorkItemCount + 1 ;
-                                MaxActiveWorkItemCount = max state.MaxActiveWorkItemCount (1 + state.ActiveWorkItemCount) }
+                                ActiveWorkItemCount = state.ActiveWorkItemCount + 1 }
 
             | IncrementCompletedWorkItemCount ->
                 return { state with ActiveWorkItemCount = state.ActiveWorkItemCount - 1 ; CompletedWorkItemCount = state.CompletedWorkItemCount + 1 }

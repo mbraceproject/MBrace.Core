@@ -48,8 +48,6 @@ type CloudProcess internal () =
 
     /// Active number of work items related to the process.
     abstract ActiveWorkItems : int
-    /// Max number of concurrently executing work items for process.
-    abstract MaxActiveWorkItems : int
     /// Number of work items that have been completed for process.
     abstract CompletedWorkItems : int
     /// Number of faults encountered while executing work items for process.
@@ -212,7 +210,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     override __.CancellationToken = entry.Info.CancellationTokenSource.Token
     /// Active number of work items related to the process.
     override __.ActiveWorkItems = cell.Value.ActiveWorkItemCount
-    override __.MaxActiveWorkItems = cell.Value.MaxActiveWorkItemCount
     override __.CompletedWorkItems = cell.Value.CompletedWorkItemCount
     override __.FaultedWorkItems = cell.Value.FaultedWorkItemCount
     override __.TotalWorkItems = cell.Value.TotalWorkItemCount
