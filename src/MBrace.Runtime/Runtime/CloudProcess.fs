@@ -16,6 +16,42 @@ open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 
+[<NoEquality; NoComparison>]
+type private CloudProcessData =
+    {
+        Id : string
+        Info : CloudProcessInfo
+        State : CloudProcessState
+        StartTime : DateTimeOffset option
+        ExecutionTime : TimeSpan option
+        CompletionTime : DateTimeOffset option
+    }
+with
+    static member OfCloudProcessEntry(entry : ICloudProcessEntry) = async {
+        let! state = entry.GetState()
+        return {
+            Id = entry.Id
+            Info = entry.Info
+            State = state
+            StartTime =
+                match state.ExecutionTime with
+                | NotStarted -> None
+                | Started(st,_) -> Some (st.ToLocalTime())
+                | Finished(st,_) -> Some (st.ToLocalTime())
+
+            ExecutionTime =
+                match state.ExecutionTime with
+                | NotStarted -> None
+                | Started(_,et) -> Some et
+                | Finished(_,et) -> Some et
+
+            CompletionTime =
+                match state.ExecutionTime with
+                | Finished(st,et) -> Some (st.ToLocalTime() + et)
+                | _ -> None
+        }
+    }
+
 /// Represents a cloud computation that is being executed in the cluster.
 [<AbstractClass>]
 type CloudProcess internal () =
@@ -117,7 +153,7 @@ type CloudProcess internal () =
         member x.TryGetResultBoxed(): Async<obj option> = x.TryGetResultBoxed()
 
     /// Gets a printed report on the current process status
-    member p.GetInfo() : string = CloudProcessReporter.Report([|p|], "Process", false)
+    abstract GetInfo : unit -> string 
 
     /// Prints a report on the current process status to stdout
     member p.ShowInfo () : unit = Console.WriteLine(p.GetInfo())
@@ -129,7 +165,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     let [<DataMember(Name = "ProcessCompletionSource")>] entry = source
     let [<DataMember(Name = "RuntimeId")>] runtimeId = runtime.Id
 
-    let mkCell () = CacheAtom.Create(async { return! entry.GetState() }, intervalMilliseconds = 500)
+    let mkCell () = CacheAtom.Create(CloudProcessData.OfCloudProcessEntry entry, intervalMilliseconds = 500)
 
     let [<IgnoreDataMember>] mutable lockObj = new obj()
     let [<IgnoreDataMember>] mutable cell = mkCell()
@@ -190,30 +226,17 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     override __.ResultBoxed = __.Result |> box
 
-    override __.StartTime =
-        match cell.Value.ExecutionTime with
-        | NotStarted -> None
-        | Started(st,_) -> Some (st.ToLocalTime())
-        | Finished(st,_) -> Some (st.ToLocalTime())
-
-    override __.ExecutionTime =
-        match cell.Value.ExecutionTime with
-        | NotStarted -> None
-        | Started(_,et) -> Some et
-        | Finished(_,et) -> Some et
-
-    override __.CompletionTime =
-        match cell.Value.ExecutionTime with
-        | Finished(st,et) -> Some (st.ToLocalTime() + et)
-        | _ -> None
+    override __.StartTime = cell.Value.StartTime
+    override __.ExecutionTime = cell.Value.ExecutionTime
+    override __.CompletionTime = cell.Value.CompletionTime
 
     override __.CancellationToken = entry.Info.CancellationTokenSource.Token
     /// Active number of work items related to the process.
-    override __.ActiveWorkItems = cell.Value.ActiveWorkItemCount
-    override __.CompletedWorkItems = cell.Value.CompletedWorkItemCount
-    override __.FaultedWorkItems = cell.Value.FaultedWorkItemCount
-    override __.TotalWorkItems = cell.Value.TotalWorkItemCount
-    override __.Status = cell.Value.Status
+    override __.ActiveWorkItems = cell.Value.State.ActiveWorkItemCount
+    override __.CompletedWorkItems = cell.Value.State.CompletedWorkItemCount
+    override __.FaultedWorkItems = cell.Value.State.FaultedWorkItemCount
+    override __.TotalWorkItems = cell.Value.State.TotalWorkItemCount
+    override __.Status = cell.Value.State.Status
     override __.Id = entry.Id
     override __.Name = entry.Info.Name
     override __.Type = typeof<'T>
@@ -221,6 +244,8 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
 
     [<CLIEvent>]
     override __.Logs = getLogEvent() :> IEvent<CloudLogEntry>
+
+    override __.GetInfo() = CloudProcessReporter.Report([|cell.Value|], "Process", false)
 
     override __.GetLogsAsync(?filter : CloudLogEntry -> bool) = async { 
         let! entries = runtime.CloudLogManager.GetAllCloudLogsByProcess __.Id
@@ -241,9 +266,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
             entry.Info.CancellationTokenSource.Token
         
         member x.Result: 'T = x.Result
-        
-        member x.Status: CloudProcessStatus = cell.Value.Status
-        
+        member x.Status: CloudProcessStatus = cell.Value.State.Status
         member x.TryGetResult(): Async<'T option> = x.TryGetResult()
 
 /// Cloud Process client object
@@ -306,9 +329,14 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
     }
 
     /// Gets a printed report of all currently executing processes
-    member pm.FormatProcesses() : string =
-        let procs = pm.GetAllProcesses() |> Async.RunSync
-        CloudProcessReporter.Report(procs, "Processes", borders = false)
+    member pm.FormatProcessesAsync() : Async<string> = async {
+        let! entries = runtime.ProcessManager.GetAllProcesses()
+        let! data = entries |> Seq.map CloudProcessData.OfCloudProcessEntry |> Async.Parallel
+        return CloudProcessReporter.Report(data, "Processes", borders = false)
+    }
+
+    /// Gets a printed report of all currently executing processes
+    member pm.FormatProcesses() : string = pm.FormatProcessesAsync() |> Async.RunSync
 
     /// Prints a report of all currently executing processes to stdout.
     member pm.ShowProcesses() : unit =
@@ -321,19 +349,19 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
         member __.Dispose() = clients.TryRemove runtime.Id |> ignore
         
          
-and internal CloudProcessReporter() = 
-    static let template : Field<CloudProcess> list = 
-        [ Field.create "Name" Left (fun p -> match p.Name with Some n -> n | None -> "")
+and private CloudProcessReporter private () = 
+    static let template : Field<CloudProcessData> list = 
+        [ Field.create "Name" Left (fun p -> match p.Info.Name with Some n -> n | None -> "")
           Field.create "Process Id" Right (fun p -> p.Id)
-          Field.create "Status" Right (fun p -> sprintf "%A" p.Status)
+          Field.create "Status" Right (fun p -> sprintf "%A" p.State.Status)
           Field.create "Execution Time" Left (fun p -> Option.toNullable p.ExecutionTime)
-          Field.create "Work items" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveWorkItems p.FaultedWorkItems p.CompletedWorkItems p.TotalWorkItems)
-          Field.create "Result Type" Left (fun p -> Type.prettyPrintUntyped p.Type) 
+          Field.create "Work items" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.State.ActiveWorkItemCount p.State.FaultedWorkItemCount p.State.CompletedWorkItemCount p.State.TotalWorkItemCount)
+          Field.create "Result Type" Left (fun p -> p.Info.ReturnTypeName) 
           Field.create "Start Time" Left (fun p -> p.StartTime |> Option.map (fun d -> d.LocalDateTime) |> Option.toNullable)
           Field.create "Completion Time" Left (fun p -> p.CompletionTime |> Option.map (fun d -> d.LocalDateTime) |> Option.toNullable)
         ]
     
-    static member Report(processes : seq<CloudProcess>, title : string, borders : bool) = 
+    static member Report(processes : seq<CloudProcessData>, title : string, borders : bool) = 
         let ps = processes 
                  |> Seq.sortBy (fun p -> p.StartTime)
                  |> Seq.toList
