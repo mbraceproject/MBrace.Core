@@ -1,3 +1,6 @@
+#### 0.12.1-beta
+* Fix packaging issue.
+
 #### 0.12.0-beta
 * Revise and consolidate API names.
 * Bugfix in CloudProcess client reporting code.
