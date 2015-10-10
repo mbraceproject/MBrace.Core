@@ -13,7 +13,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     static let nSequential = 100
 
     let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
+    let runOnCurrentProcess wf = self.RunLocally wf
 
     let repeat f = repeat self.Repeats f
 
@@ -24,7 +24,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Maximum number of repeats to run nondeterministic tests
     abstract Repeats : int
     /// Determines whether current CloudAtom implementation supports named lookups

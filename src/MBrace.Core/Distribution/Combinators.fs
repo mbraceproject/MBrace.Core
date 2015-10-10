@@ -217,16 +217,16 @@ type Cloud =
     }
 
     /// <summary>
-    ///     Start cloud computation as a cloud process. Returns a cloud computation that queries the result.
+    ///     Start cloud computation as a separate cloud process. Returns a cloud computation that queries the result.
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Specify cancellation token for the cloud process. Defaults to no cancellation token.</param>
     /// <param name="procName">Optional user-specified name for the cloud process.</param>
-    static member StartAsCloudProcess(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
+    static member CreateProcess(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
-        return! runtime.ScheduleStartAsCloudProcess(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = procName)
+        return! runtime.ScheduleCreateProcess(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = procName)
     }
 
     /// <summary>
@@ -234,7 +234,7 @@ type Cloud =
     /// </summary>
     /// <param name="cloudProcess">Cloud process to be awaited.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
-    static member AwaitCloudProcess(cloudProcess : ICloudProcess<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
+    static member AwaitProcess(cloudProcess : ICloudProcess<'T>, ?timeoutMilliseconds:int) : Local<'T> = local {
         return! cloudProcess.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
     }
 
@@ -246,7 +246,7 @@ type Cloud =
     static member StartChild(workflow : Cloud<'T>, ?target : IWorkerRef) : Cloud<Local<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let! cancellationToken = Cloud.CancellationToken
-        let! cloudProcess = runtime.ScheduleStartAsCloudProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
+        let! cloudProcess = runtime.ScheduleCreateProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
         let stackTraceSig = sprintf "Cloud.StartChild(Cloud<%s> computation)" typeof<'T>.Name
         return Local.WithAppendedStackTrace stackTraceSig (local { return! cloudProcess.AwaitResult() })
     }

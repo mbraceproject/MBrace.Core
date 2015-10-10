@@ -39,7 +39,7 @@ type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
         imem.RunSynchronously workflow
         logTester.GetLogs()
 
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = imem.RunSynchronously(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = imem.RunSynchronously(workflow)
     override __.IsTargetWorkerSupported = false
     override __.IsSiftedWorkflowSupported = false
     override __.FsCheckMaxTests = 100
@@ -96,7 +96,7 @@ type ``InMemory CloudValue Tests`` () =
     override __.IsSupportedLevel lvl = lvl = StorageLevel.Memory || lvl = StorageLevel.MemorySerialized
 
     override __.Run(workflow) = imem.RunSynchronously workflow
-    override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
+    override __.RunLocally(workflow) = imem.RunSynchronously workflow
 
 type ``InMemory CloudAtom Tests`` () =
     inherit ``CloudAtom Tests`` (parallelismFactor = 100)
@@ -104,7 +104,7 @@ type ``InMemory CloudAtom Tests`` () =
     let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.Run(workflow) = imem.RunSynchronously workflow
-    override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
+    override __.RunLocally(workflow) = imem.RunSynchronously workflow
 #if DEBUG
     override __.Repeats = 10
 #else
@@ -118,7 +118,7 @@ type ``InMemory CloudQueue Tests`` () =
     let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.Run(workflow) = imem.RunSynchronously workflow
-    override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
+    override __.RunLocally(workflow) = imem.RunSynchronously workflow
     override __.IsSupportedNamedLookup = false
 
 type ``InMemory CloudDictionary Tests`` () =
@@ -127,7 +127,7 @@ type ``InMemory CloudDictionary Tests`` () =
     let imem = ThreadPoolRuntime.Create(memoryEmulation = MemoryEmulation.EnsureSerializable)
 
     override __.Run(workflow) = imem.RunSynchronously workflow
-    override __.RunOnCurrentProcess(workflow) = imem.RunSynchronously workflow
+    override __.RunLocally(workflow) = imem.RunSynchronously workflow
     override __.IsInMemoryFixture = true
     override __.IsSupportedNamedLookup = false
 
@@ -139,7 +139,7 @@ type ``InMemory CloudFlow tests`` () =
     let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, memoryEmulation = MemoryEmulation.Copied)
 
     override __.Run(workflow : Cloud<'T>) = imem.RunSynchronously workflow
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = imem.RunSynchronously workflow
+    override __.RunLocally(workflow : Cloud<'T>) = imem.RunSynchronously workflow
     override __.IsSupportedStorageLevel(level : StorageLevel) = level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

@@ -50,7 +50,7 @@ module ``CloudFlow Core property tests`` =
 [<TestFixture; AbstractClass>]
 type ``CloudFlow tests`` () as self =
     let runOnCloud (workflow : Cloud<'T>) = self.Run(workflow)
-    let runOnCurrentProcess (workflow : Cloud<'T>) = self.RunOnCurrentProcess(workflow)
+    let runOnCurrentProcess (workflow : Cloud<'T>) = self.RunLocally(workflow)
 
     /// Urls for running HTTP tests
     let testUrls = 
@@ -75,7 +75,7 @@ type ``CloudFlow tests`` () as self =
         lineCount
 
     abstract Run : Cloud<'T> -> 'T
-    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     abstract IsSupportedStorageLevel : StorageLevel -> bool
     abstract FsCheckMaxNumberOfTests : int
     abstract FsCheckMaxNumberOfIOBoundTests : int
@@ -249,7 +249,7 @@ type ``CloudFlow tests`` () as self =
                         |> runOnCloud
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunOnCurrentProcess(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -270,7 +270,7 @@ type ``CloudFlow tests`` () as self =
                         |> runOnCloud
                         |> Set.ofArray
             
-            let y = cfs |> Array.map (fun f -> __.RunOnCurrentProcess(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -301,7 +301,7 @@ type ``CloudFlow tests`` () as self =
                     
             
             let y = 
-                __.RunOnCurrentProcess(cloud { return! CloudFile.ReadLines cf.Path })
+                __.RunLocally(cloud { return! CloudFile.ReadLines cf.Path })
                 |> Seq.sortBy id
                 |> Seq.toArray
                     
@@ -330,7 +330,7 @@ type ``CloudFlow tests`` () as self =
                 |> runOnCloud
                 
             let y = 
-                __.RunOnCurrentProcess(cloud { let! lines = CloudFile.ReadLines path in return lines |> Seq.length })
+                __.RunLocally(cloud { let! lines = CloudFile.ReadLines path in return lines |> Seq.length })
                             
             Assert.AreEqual(y, x)
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
@@ -350,7 +350,7 @@ type ``CloudFlow tests`` () as self =
                         |> runOnCloud
                         |> Set.ofArray
 
-            let y = cfs |> Array.map (fun f -> __.RunOnCurrentProcess(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let y = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Set.ofSeq
 
@@ -804,13 +804,13 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : toTextCloudFiles`` () =
         let f(xs : int[]) =
             let xs = xs |> Array.map string
-            let dir = CloudPath.GetRandomDirectoryName() |> __.RunOnCurrentProcess
+            let dir = CloudPath.GetRandomDirectoryName() |> __.RunLocally
             let cfs = 
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.toTextCloudFiles dir
                 |> runOnCloud
-            let ys = cfs |> Array.map (fun f -> __.RunOnCurrentProcess(cloud { return! CloudFile.ReadAllLines f.Path }))
+            let ys = cfs |> Array.map (fun f -> __.RunLocally(cloud { return! CloudFile.ReadAllLines f.Path }))
                         |> Seq.collect id
                         |> Seq.toArray
             Assert.AreEqual(xs, ys)

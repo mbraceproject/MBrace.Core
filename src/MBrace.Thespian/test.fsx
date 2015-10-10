@@ -24,7 +24,7 @@ cluster.AttachLogger(new ConsoleLogger())
 let workers = cluster.Workers
 
 cloud { return 42 } |> cluster.Run
-cloud { return 42 } |> cluster.RunOnCurrentProcess
+cloud { return 42 } |> cluster.RunLocally
 
 cluster.ShowProcesses()
 cluster.ShowWorkers()
@@ -34,7 +34,7 @@ cluster.ShowSystemLogs()
 let cloudProcess = 
     CloudFlow.OfHttpFileByLine "http://www.textfiles.com/etext/AUTHORS/SHAKESPEARE/shakespeare-alls-11.txt"
     |> CloudFlow.length
-    |> cluster.Submit
+    |> cluster.CreateProcess
 
 cloudProcess.Result
 
@@ -45,16 +45,16 @@ let test = cloud {
     return !cell
 }
 
-cluster.RunOnCurrentProcess(test, memoryEmulation = MemoryEmulation.Shared)
-cluster.RunOnCurrentProcess(test, memoryEmulation = MemoryEmulation.Copied)
+cluster.RunLocally(test, memoryEmulation = MemoryEmulation.Shared)
+cluster.RunLocally(test, memoryEmulation = MemoryEmulation.Copied)
 cluster.Run test
 
 let test' = cloud {
     return box(new System.IO.MemoryStream())
 }
 
-cluster.RunOnCurrentProcess(test', memoryEmulation = MemoryEmulation.Shared)
-cluster.RunOnCurrentProcess(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
+cluster.RunLocally(test', memoryEmulation = MemoryEmulation.Shared)
+cluster.RunLocally(test', memoryEmulation = MemoryEmulation.EnsureSerializable)
 cluster.Run test'
 
 let pflow =

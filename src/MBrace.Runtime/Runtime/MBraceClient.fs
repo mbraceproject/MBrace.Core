@@ -60,11 +60,9 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member c.SubmitAsync
-                 (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                  ?faultPolicy : FaultPolicy, ?target : IWorkerRef, 
-                  ?additionalResources : ResourceRegistry, ?taskName : string) : Async<CloudProcess<'T>> = async {
-
+    member c.CreateProcessAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
+                                    ?faultPolicy : FaultPolicy, ?target : IWorkerRef, 
+                                    ?additionalResources : ResourceRegistry, ?taskName : string) : Async<CloudProcess<'T>> = async {
         let faultPolicy = defaultArg faultPolicy defaultFaultPolicy
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
@@ -82,10 +80,9 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.Submit
-                 (workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, 
-                  ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
-        __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
+    member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, 
+                                ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
+        __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
                                     ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
 
@@ -100,7 +97,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
-        let! cloudProcess = __.SubmitAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
+        let! cloudProcess = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
         return! cloudProcess.AwaitResult()
     }
 
@@ -180,7 +177,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="workflow">Cloud computation to execute.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunOnCurrentProcessAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
+    member __.RunLocallyAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
         imem.ToAsync(workflow, ?memoryEmulation = memoryEmulation)
 
     /// <summary>
@@ -190,7 +187,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// <param name="workflow">Cloud computation to execute.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunOnCurrentProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
+    member __.RunLocally(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
         imem.RunSynchronously(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)
 
     /// <summary>

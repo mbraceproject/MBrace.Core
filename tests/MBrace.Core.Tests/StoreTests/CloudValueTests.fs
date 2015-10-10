@@ -8,7 +8,7 @@ open MBrace.Core
 type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
+    let runOnCurrentProcess wf = self.RunLocally wf
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -26,7 +26,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Checks if storage level is supported
     abstract IsSupportedLevel : StorageLevel -> bool
 
@@ -112,7 +112,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                     c.IsCachedLocally |> shouldEqual true
                 }
 
-                let! job = Cloud.StartAsCloudProcess(jobF())
+                let! job = Cloud.CreateProcess(jobF())
                 return! job.AwaitResult()
             } |> runOnCloud
 
@@ -130,7 +130,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                     obj.ReferenceEquals(v1,v2) |> shouldEqual false
                 }
 
-                let! job = Cloud.StartAsCloudProcess(jobF())
+                let! job = Cloud.CreateProcess(jobF())
                 return! job.AwaitResult()
 
             } |> runOnCloud
@@ -149,7 +149,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                     obj.ReferenceEquals(v1,v2) |> shouldEqual false
                 }
 
-                let! job = Cloud.StartAsCloudProcess(jobF())
+                let! job = Cloud.CreateProcess(jobF())
                 return! job.AwaitResult()
             } |> runOnCloud
 
@@ -238,7 +238,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let size = 10000
             let! value = CloudValue.New<obj>([|1 .. size|], storageLevel = level)
             let value' = value.Cast<int[]>() :?> CloudArray<int>
-            let! job = Cloud.StartAsCloudProcess(cloud { value'.Length |> shouldEqual size })
+            let! job = Cloud.CreateProcess(cloud { value'.Length |> shouldEqual size })
             return! job.AwaitResult()
         } |> runOnCloud
 
@@ -251,7 +251,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 let! cv = CloudValue.New value
                 do! CloudValue.Delete cv
                 do! Cloud.Sleep 2000
-                let! job = Cloud.StartAsCloudProcess(cloud { return! cv.GetValueAsync() })
+                let! job = Cloud.CreateProcess(cloud { return! cv.GetValueAsync() })
                 return! job.AwaitResult()
             } |> runOnCloud
 
@@ -263,7 +263,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         cloud {
             use! cv = CloudValue.New value
             let isCacheable = cv.StorageLevel.HasFlag StorageLevel.Memory
-            let! job = Cloud.StartAsCloudProcess(cloud {
+            let! job = Cloud.CreateProcess(cloud {
                 let! cv' = CloudValue.TryGetValueById cv.Id
                 let cv' = CloudValue.Cast<int list> cv
                 cv'.Id |> shouldEqual cv.Id
@@ -286,7 +286,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let id = cv.Id
             do! CloudValue.Delete cv
             do! Cloud.Sleep 2000
-            let! job = Cloud.StartAsCloudProcess(cloud {
+            let! job = Cloud.CreateProcess(cloud {
                 return! CloudValue.TryGetValueById id
             })
             return! job.AwaitResult()
@@ -300,7 +300,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
         cloud {
             let! cv1 = CloudValue.New value
             let! cv2 = CloudValue.New value'
-            let! job = Cloud.StartAsCloudProcess(cloud {
+            let! job = Cloud.CreateProcess(cloud {
                 let! allValues = CloudValue.GetAllValues()
                 allValues |> Array.exists (fun v -> v.Id = cv1.Id && cv1.Value = (v.Cast<int list>()).Value) |> shouldEqual true
                 allValues |> Array.exists (fun v -> v.Id = cv2.Id && cv2.Value = (v.Cast<int list>()).Value) |> shouldEqual true

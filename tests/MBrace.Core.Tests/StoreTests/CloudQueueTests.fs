@@ -11,7 +11,7 @@ open NUnit.Framework
 type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
+    let runOnCurrentProcess wf = self.RunLocally wf
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -20,7 +20,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Specifies if current implementation supports lookup by name
     abstract IsSupportedNamedLookup : bool
 

@@ -11,7 +11,7 @@ open NUnit.Framework
 type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
+    let runOnCurrentProcess wf = self.RunLocally wf
 
     let runProtected wf = 
         try self.Run wf |> Choice1Of2
@@ -22,7 +22,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow in the local test process
-    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
     /// Specifies whether current implementation support named lookups
     abstract IsSupportedNamedLookup : bool
 

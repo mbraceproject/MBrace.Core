@@ -45,11 +45,11 @@ type ``MBrace Thespian Cloud Tests`` () as self =
         } |> Async.RunSync
 
     override __.RunWithLogs(workflow : Cloud<unit>) =
-        let job = session.Runtime.Submit(workflow)
+        let job = session.Runtime.CreateProcess(workflow)
         do job.Result
         job.GetLogs () |> Array.map CloudLogEntry.Format
 
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
 
     override __.FsCheckMaxTests = 10
     override __.UsesSerialization = true
@@ -125,7 +125,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
-        let job = session.Runtime.Submit(workflow)
+        let job = session.Runtime.CreateProcess(workflow)
         use d = job.Logs.Subscribe(fun e -> ra.Add(e))
         do job.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
@@ -140,7 +140,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         repeat (fun () ->
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
-            let t = runtime.Submit(cloud {
+            let t = runtime.CreateProcess(cloud {
                 do! f.Force true
                 return! WordCount.run 20 WordCount.mapReduceRec
             }, faultPolicy = FaultPolicy.InfiniteRetries())
@@ -154,7 +154,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
-            let t = runtime.Submit(cloud {
+            let t = runtime.CreateProcess(cloud {
                 do! f.Force true
                 do! Cloud.Sleep 20000
             }, faultPolicy = FaultPolicy.NoRetry)
@@ -167,7 +167,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         repeat(fun () ->
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
-            let t = runtime.Submit(cloud {
+            let t = runtime.CreateProcess(cloud {
                 return! 
                     Cloud.WithFaultPolicy FaultPolicy.NoRetry
                         (cloud { 
@@ -188,7 +188,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                 let! current = Cloud.CurrentWorker
                 // targeted work items should fail regardless of fault policy
                 return! 
-                    Cloud.StartAsCloudProcess(cloud { 
+                    Cloud.CreateProcess(cloud { 
                         do! f.Force true 
                         do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetries())
             }
@@ -206,7 +206,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
             let t = 
-                runtime.Submit(
+                runtime.CreateProcess(
                     cloud {
                         do! f.Force true
                         do! Cloud.Sleep 5000
@@ -231,7 +231,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let cloudProcess =
                 [for i in 1 .. 10 -> task i]
                 |> Cloud.ProtectedParallel
-                |> runtime.Submit
+                |> runtime.CreateProcess
 
             while not f.Value do Thread.Sleep 1000
             session.Chaos()

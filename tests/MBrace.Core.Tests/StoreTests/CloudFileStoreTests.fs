@@ -16,7 +16,7 @@ open MBrace.Library
 type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunOnCurrentProcess wf
+    let runOnCurrentProcess wf = self.RunLocally wf
 
     let testDirectory = lazy(self.FileStore.GetRandomDirectoryName())
     let runSync wf = Async.RunSync wf
@@ -35,7 +35,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
     /// Evaluate workflow under local semantics in the test process
-    abstract RunOnCurrentProcess : Cloud<'T> -> 'T
+    abstract RunLocally : Cloud<'T> -> 'T
 
     //
     //  Section 1: Local raw fileStore tests
