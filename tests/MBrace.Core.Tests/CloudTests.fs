@@ -733,7 +733,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         repeat(fun () ->
             cloud {
-                let! job = Cloud.CreateProcess(Cloud.Sleep (5 * delayFactor))
+                let! job = Cloud.CreateProcess(Cloud.Sleep (20 * delayFactor))
                 return! Cloud.AwaitProcess(job, timeoutMilliseconds = 1)
             } |> runOnCloud |> Choice.shouldFailwith<_, TimeoutException>)
 
