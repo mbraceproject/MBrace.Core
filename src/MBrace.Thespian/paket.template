@@ -25,6 +25,10 @@ files
 	../../bin/MBrace.Thespian.pdb ==> lib/net45
 	../../bin/MBrace.Thespian.xml ==> lib/net45
 	../../bin/Newtonsoft.Json.dll ==> tools
+	../../packages/FSharp.Core/lib/net40/FSharp.Core.dll ==> tools
+	../../packages/FSharp.Core/lib/net40/FSharp.Core.xml ==> tools
+	../../packages/FSharp.Core/lib/net40/FSharp.Core.optdata ==> tools
+	../../packages/FSharp.Core/lib/net40/FSharp.Core.sigdata ==> tools
     ../../bin/FsPickler.dll ==> tools
     ../../bin/FsPickler.Json.dll ==> tools
 	../../bin/Mono.Cecil.dll ==> tools
@@ -42,4 +46,4 @@ files
 	../../bin/MBrace.Thespian.pdb ==> tools
 	../../bin/MBrace.Thespian.xml ==> tools
 	../../bin/mbrace.thespian.worker.exe ==> tools
-	../../bin/mBrace.thespian.worker.exe.config ==> tools
+	../../bin/mbrace.thespian.worker.exe.config ==> tools

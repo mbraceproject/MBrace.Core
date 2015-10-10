@@ -11,9 +11,10 @@
     <AssemblyName>mbrace.thespian.worker</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
+    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <Name>MBrace.Thespian.Worker</Name>
     <Win32Resource>..\..\resource\Mgrey.res</Win32Resource>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -66,8 +67,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj">
       <Name>MBrace.Core</Name>
       <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
