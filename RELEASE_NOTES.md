@@ -1,3 +1,8 @@
+#### 0.12.0-beta
+* Revise and consolidate API names.
+* Bugfix in CloudProcess client reporting code.
+* Package MBrace.Thespian with FSharp.Core 4.4.0.0.
+
 #### 0.11.12-alpha
 * Minor bugfix.
 

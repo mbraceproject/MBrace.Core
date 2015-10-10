@@ -6,9 +6,9 @@ open System.Reflection
 [<assembly: AssemblyCompanyAttribute("Nessos Information Technologies")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace")>]
-[<assembly: AssemblyVersionAttribute("0.11.12")>]
-[<assembly: AssemblyFileVersionAttribute("0.11.12")>]
+[<assembly: AssemblyVersionAttribute("0.12.0")>]
+[<assembly: AssemblyFileVersionAttribute("0.12.0")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "0.11.12"
+    let [<Literal>] Version = "0.12.0"
