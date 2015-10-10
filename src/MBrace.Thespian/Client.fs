@@ -41,7 +41,7 @@ type BinarySerializer = MBrace.Runtime.VagabondFsPicklerBinarySerializer
 type JsonSerializer = MBrace.Runtime.VagabondFsPicklerJsonSerializer
 
 /// Defines a client object used for administering MBrace worker processes.
-[<AutoSerializable(false)>]
+[<AutoSerializable(false); StructuredFormatDisplay("{Uri}")>]
 type ThespianWorker private (uri : string) =
     let protectAsync (w:Async<'T>) = async {
         try return! w
@@ -77,6 +77,7 @@ type ThespianWorker private (uri : string) =
 
     /// MBrace uri identifier for worker instance.
     member __.Uri = uri
+    override __.ToString() = uri
 
     /// <summary>
     ///     Sends a kill signal to the worker process.
