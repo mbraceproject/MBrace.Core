@@ -42,7 +42,7 @@ type Config private () =
             let _ = WorkingDirectory.CreateWorkingDirectory(_workingDirectory, cleanup = populateDirs)
             let vagabondDir = Path.Combine(_workingDirectory, "vagabond")
             if populateDirs then ignore <| Directory.CreateDirectory vagabondDir
-            VagabondRegistry.Initialize(vagabondDir, isClientSession = isClient)
+            VagabondRegistry.Initialize(vagabondDir, isClientSession = isClient, forceLocalFSharpCore = true)
 
             let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
             _objectCache <- InMemoryCache.Create()

@@ -36,7 +36,8 @@ type VagabondRegistry private () =
     /// </summary>
     /// <param name="workingDirectory">Working directory used by Vagabond. Defaults to self-assigned directory.</param>
     /// <param name="isClientSession">Indicates that Vagabond instance is for usage by MBrace client. Defaults to false.</param>
-    static member Initialize(?workingDirectory : string, ?isClientSession : bool) =
+    /// <param name="forceLocalFSharpCore">Force binding redirect to FSharp.Core when deserializing. Defaults to false.</param>
+    static member Initialize(?workingDirectory : string, ?isClientSession : bool, ?forceLocalFSharpCore : bool) =
         let isClientSession = defaultArg isClientSession false
         let policy = 
             if isClientSession then
@@ -47,4 +48,8 @@ type VagabondRegistry private () =
                 AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| 
                 AssemblyLookupPolicy.ResolveVagabondCache
 
-        registerVagabond (not isClientSession) (fun () -> Vagabond.Initialize(ignoredAssemblies = [|Assembly.GetExecutingAssembly()|], ?cacheDirectory = workingDirectory, lookupPolicy = policy))
+        let init () =
+            Vagabond.Initialize(ignoredAssemblies = [|Assembly.GetExecutingAssembly()|], ?cacheDirectory = workingDirectory, 
+                                    lookupPolicy = policy, forceLocalFSharpCore = defaultArg forceLocalFSharpCore false)
+
+        registerVagabond (not isClientSession) init
