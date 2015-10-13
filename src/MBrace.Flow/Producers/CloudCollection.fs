@@ -31,13 +31,13 @@ type internal CloudCollection private () =
                     let! partitionSlices = local {
                         match sizeThresholdPerWorker with
                         | None -> return [| partitions |]
-                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.GetSize()) (f ())
+                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.GetSize()) (f ()) |> Cloud.OfAsync
                     }
 
                     // compute a single partition
                     let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
                         let! collector = collectorf
-                        let! seqs = slice |> Seq.map (fun p -> p.ToEnumerable()) |> Async.Parallel
+                        let! seqs = slice |> Seq.map (fun p -> p.ToEnumerable()) |> Async.Parallel |> Cloud.OfAsync
                         let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
                         let value = pStream.Apply (collector.ToParStreamCollector())
                         return! projection value
@@ -53,7 +53,7 @@ type internal CloudCollection private () =
                 match collection with
                 | :? ITargetedPartitionCollection<'T> as tpc when isTargetedWorkerSupported ->
                     // scheduling data is encapsulated in CloudCollection, partition according to this
-                    let! assignedPartitions = CloudCollection.ExtractTargetedCollections [|tpc|]
+                    let! assignedPartitions = CloudCollection.ExtractTargetedCollections [|tpc|] |> Cloud.OfAsync
 
                     if Array.isEmpty assignedPartitions then return! combiner [||] else
                     let! results =
@@ -75,8 +75,8 @@ type internal CloudCollection private () =
                     | Some dp -> [| for i in 0 .. dp - 1 -> workers.[i % workers.Length] |]
 
 
-                let! partitions = CloudCollection.ExtractPartitions collection
-                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported, ?weight = weight)
+                let! partitions = CloudCollection.ExtractPartitions collection |> Cloud.OfAsync
+                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported, ?weight = weight) |> Cloud.OfAsync
                 if Array.isEmpty partitionss then return! combiner [||] else
                         
                 let! results =

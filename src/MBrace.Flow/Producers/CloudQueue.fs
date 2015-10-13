@@ -29,9 +29,8 @@ type internal CloudQueue =
                     let workerCount = defaultArg collector.DegreeOfParallelism workers.Length
 
                     let createTask () = local {
-                        let! ctx = Cloud.GetExecutionContext()
                         let! collector = collectorf
-                        let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudQueue.Dequeue channel, ctx.Resources, ctx.CancellationToken))
+                        let seq = Seq.initInfinite (fun _ -> channel.DequeueAsync() |> Async.RunSync) // TODO : use batch dequeue here
                         let parStream = ParStream.ofSeq seq
                         let collectorResult = parStream.Apply (collector.ToParStreamCollector())
                         return! projection collectorResult

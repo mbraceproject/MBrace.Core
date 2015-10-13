@@ -226,7 +226,7 @@ type CloudFlow =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists)
+                let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists) |> Cloud.OfAsync
                 let collectionStream = CloudFlow.OfCloudCollection httpCollection
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
@@ -246,6 +246,7 @@ type CloudFlow =
                     urls
                     |> Seq.map (fun uri ->  CloudCollection.OfHttpFile(uri, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists))
                     |> Async.Parallel
+                    |> Cloud.OfAsync
 
                 let collection = CloudCollection.Concat httpCollections
                 let collectionStream = CloudFlow.OfCloudCollection collection
@@ -706,7 +707,7 @@ module CloudFlow =
     /// <returns>Nothing.</returns>
     let toCloudQueue (queue : CloudQueue<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
         // TODO : use EnqueueBatch overload
-        flow |> iterLocal (fun v -> CloudQueue.Enqueue(queue, v))
+        flow |> iterLocal queue.Enqueue
 
     /// <summary>
     ///     Returs true if the flow is empty and false otherwise.
