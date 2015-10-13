@@ -276,21 +276,6 @@ type CloudDirectoryInfo =
     member d.LastModifiedTime =
         d.store.GetLastModifiedTime(d.path, isDirectory = true) |> Async.RunSync
 
-    /// Asynchronously checks if directory exists in underlying store.
-    member d.ExistsAsync() = async {
-        return! d.store.DirectoryExists d.path
-    }
-
-    /// Asynchronously enumerates all files in given directory.
-    member d.EnumerateAsync() = async {
-        return! d.store.EnumerateFiles d.path
-    }
-
-    /// Asynchronously enumerates all subdirectories in given directory.
-    member d.EnumerateDirectoriesAsync() = async {
-        return! d.store.EnumerateDirectories d.path
-    }
-
     interface ICloudDisposable with
         member d.Dispose () = async {
             return! d.store.DeleteDirectory(d.path, recursiveDelete = true)
@@ -328,20 +313,8 @@ type CloudFileInfo =
     member f.LastModifed : DateTimeOffset =
         f.store.GetLastModifiedTime (f.path, isDirectory = false) |> Async.RunSync
 
-    /// Asynchronously checks if file exists.
-    member f.ExistsAsync() : Async<bool> = async {
-        return! f.store.FileExists f.path
-    }
-
-    /// Asynchronously get a reader stream for local file.
-    member f.BeginReadAsync() : Async<Stream> = async {
-        return! f.store.BeginRead f.path
-    }
-
     interface ICloudDisposable with
-        member f.Dispose () = async {
-            return! f.store.DeleteFile f.path
-        }
+        member f.Dispose () = async { return! f.store.DeleteFile f.path }
 
     override __.ToString() = __.path
     member private r.StructuredFormatDisplay = r.ToString()

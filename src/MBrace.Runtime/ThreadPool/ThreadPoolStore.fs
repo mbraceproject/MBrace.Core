@@ -140,9 +140,9 @@ and [<AutoSerializable(false); Sealed; CloneableOnly>]
         member x.IsKnownCount: bool = checkDisposed () ; true
         member x.IsKnownSize: bool = checkDisposed () ; true
         member x.IsMaterialized: bool = checkDisposed () ; true
-        member x.GetCount(): Async<int64> =  async { return (getPayload().RawValue :?> 'T[]).LongLength }
-        member x.GetSize(): Async<int64> = async { let _ = checkDisposed () in return hash.Length }
-        member x.ToEnumerable(): Async<seq<'T>> = async { return getPayload().Value :?> seq<'T> }
+        member x.GetCountAsync(): Async<int64> =  async { return (getPayload().RawValue :?> 'T[]).LongLength }
+        member x.GetSizeAsync(): Async<int64> = async { let _ = checkDisposed () in return hash.Length }
+        member x.GetEnumerableAsync(): Async<seq<'T>> = async { return getPayload().Value :?> seq<'T> }
 
 /// Provides an In-Memory CloudValue implementation
 and [<Sealed; AutoSerializable(false)>] 
@@ -385,10 +385,10 @@ type private InMemoryDictionary<'T> internal (id : string, memoryEmulation : Mem
         member x.IsKnownSize = checkDisposed(); true
         member x.IsMaterialized = checkDisposed(); true
                     
-        member x.GetCount(): Async<int64> = 
+        member x.GetCountAsync(): Async<int64> = 
             async { let _ = checkDisposed() in return int64 dict.Count }
 
-        member x.GetSize(): Async<int64> = 
+        member x.GetSizeAsync(): Async<int64> = 
             async { let _ = checkDisposed() in return int64 dict.Count }
                     
         member x.Dispose(): Async<unit> = async { isDisposed <- true }
@@ -398,7 +398,7 @@ type private InMemoryDictionary<'T> internal (id : string, memoryEmulation : Mem
         member x.RemoveAsync(key: string): Async<bool> = 
             async { let _ = checkDisposed() in return dict.TryRemove key |> fst }
                     
-        member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
+        member x.GetEnumerableAsync(): Async<seq<KeyValuePair<string, 'T>>> = 
             async { let _ = checkDisposed() in return toEnum() }
                     
         member x.TryFindAsync(key: string): Async<'T option> = 

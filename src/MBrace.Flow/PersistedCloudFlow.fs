@@ -67,12 +67,12 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
         member cv.IsKnownSize = true
         member cv.IsKnownCount = true
         member cv.IsMaterialized = false
-        member cv.GetSize(): Async<int64> = async { return cv.Size }
-        member cv.GetCount(): Async<int64> = async { return cv.Count }
+        member cv.GetSizeAsync(): Async<int64> = async { return cv.Size }
+        member cv.GetCountAsync(): Async<int64> = async { return cv.Count }
         member cv.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun (_,p) -> p :> ICloudCollection<'T>) }
         member cv.GetTargetedPartitions() :Async<(IWorkerRef * ICloudCollection<'T>) []> = async { return partitions |> Array.map (fun (w,ca) -> w, ca :> _) }
         member cv.PartitionCount: Async<int> = async { return partitions.Length }
-        member cv.ToEnumerable() = async { return cv.ToEnumerable() }
+        member cv.GetEnumerableAsync() = async { return cv.ToEnumerable() }
 
     interface CloudFlow<'T> with
         member cv.DegreeOfParallelism = None

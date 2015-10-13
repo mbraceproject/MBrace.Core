@@ -28,11 +28,11 @@ type ICloudCollection<'T> =
     /// This could be total amount of bytes of persisting files
     /// or the total number of elements if this is a known value.
     /// It used for weighing collection partitions.
-    abstract GetSize : unit -> Async<int64>
+    abstract GetSizeAsync : unit -> Async<int64>
     /// Computes the element count for the collection.
-    abstract GetCount : unit -> Async<int64>
+    abstract GetCountAsync : unit -> Async<int64>
     /// Gets an enumeration of all elements in the collection
-    abstract ToEnumerable : unit -> Async<seq<'T>>
+    abstract GetEnumerableAsync : unit -> Async<seq<'T>>
 
 /// A cloud collection that comprises of a fixed number of partitions.
 type IPartitionedCollection<'T> =

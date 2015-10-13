@@ -3,6 +3,7 @@
 open System
 open System.Collections
 open System.Collections.Generic
+open System.Diagnostics
 open System.Runtime.Serialization
 open System.Text
 open System.IO
@@ -53,9 +54,6 @@ type PersistedSequence<'T> =
         return Seq.toArray seq 
     }
 
-    /// Fetches all elements of the cloud sequence and returns them as a local array.
-    member c.ToArray () : 'T [] = c.ToArrayAsync() |> Async.RunSync
-
     /// Path to Cloud sequence in store.
     member c.Path = c.path
 
@@ -65,7 +63,7 @@ type PersistedSequence<'T> =
     /// ETag of persisted sequence instance.
     member c.ETag = c.etag
 
-    /// Asynchronously gets Cloud sequence element count
+    /// Asynchronously gets persisted sequence element count
     member c.GetCountAsync() = async {
         match c.count with
         | Some l -> return l
@@ -77,16 +75,26 @@ type PersistedSequence<'T> =
             return l
     }
 
-    /// Gets Cloud sequence element count
-    member c.Count = c.GetCountAsync() |> Async.RunSync
-
     /// Asynchronously gets underlying sequence size in bytes
     member c.GetSizeAsync() = async {
         return! c.store.GetFileSize c.path
     }
 
+    /// Gets persisted sequence element count
+    member c.GetCount() = Cloud.OfAsync <| c.GetCountAsync()
+
+    /// Gets underlying sequence size in bytes
+    member c.GetSize() = Cloud.OfAsync <| c.GetSizeAsync()
+
+    /// Gets Cloud sequence element count
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member c.Count = c.GetCountAsync() |> Async.RunSync
+
     /// Gets underlying sequence size in bytes
     member c.Size = c.GetSizeAsync() |> Async.RunSync
+
+    /// Fetches all elements of the cloud sequence and returns them as a local array.
+    member c.ToArray () : 'T [] = c.ToArrayAsync() |> Async.RunSync
 
     interface ICloudDisposable with
         member c.Dispose () = async {
@@ -97,9 +105,9 @@ type PersistedSequence<'T> =
         member c.IsKnownCount = Option.isSome c.count
         member c.IsKnownSize = true
         member c.IsMaterialized = false
-        member c.GetCount() = c.GetCountAsync()
-        member c.GetSize() = c.GetSizeAsync()
-        member c.ToEnumerable() = c.GetEnumerableAsync()
+        member c.GetCountAsync() = c.GetCountAsync()
+        member c.GetSizeAsync() = c.GetSizeAsync()
+        member c.GetEnumerableAsync() = c.GetEnumerableAsync()
 
     override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()  

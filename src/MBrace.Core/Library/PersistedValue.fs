@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Library
 
 open System
+open System.Diagnostics
 open System.Runtime.Serialization
 open System.IO
 open System.IO.Compression
@@ -41,13 +42,19 @@ type PersistedValue<'T> =
         | Some stream -> use stream = stream in return c.deserializer stream
     }
 
-
     /// Asynchronously gets the size of the persisted value in bytes.
     member c.GetSizeAsync () : Async<int64> = async {
         return! c.store.GetFileSize c.path
     }
 
+    /// Dereferences value from store
+    member c.GetValue () : Local<'T> = Cloud.OfAsync <| c.GetValueAsync()
+
+    /// Gets the size of the persisted value in bytes.
+    member c.GetSize () : Local<int64> = Cloud.OfAsync <| c.GetSizeAsync()
+
     /// Dereferences value from store.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member c.Value : 'T = c.GetValueAsync() |> Async.RunSync
 
     /// Gets the size of the persisted value in bytes.

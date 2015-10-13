@@ -144,7 +144,7 @@ module private ActorCloudDictionary =
             }
 
         interface ICloudCollection<KeyValuePair<string,'T>> with
-            member x.GetCount(): Async<int64> = async {
+            member x.GetCountAsync(): Async<int64> = async {
                 return! source <!- GetCount
             }
 
@@ -152,11 +152,11 @@ module private ActorCloudDictionary =
             member x.IsKnownCount = true
             member x.IsMaterialized = false
 
-            member x.GetSize(): Async<int64> = async {
+            member x.GetSizeAsync(): Async<int64> = async {
                 return! source <!- GetCount
             }
 
-            member x.ToEnumerable() = toEnum ()
+            member x.GetEnumerableAsync() = toEnum ()
 
         interface ICloudDisposable with
             member x.Dispose(): Async<unit> = async.Zero ()

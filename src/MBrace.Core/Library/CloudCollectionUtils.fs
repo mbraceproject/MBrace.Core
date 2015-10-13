@@ -41,9 +41,9 @@ type SequenceCollection<'T> (seq : seq<'T>) =
         member x.IsKnownSize = isKnownCount seq
         member x.IsKnownCount = isKnownCount seq
         member x.IsMaterialized = isKnownCount seq
-        member x.GetCount(): Async<int64> = async { return getCount seq }
-        member x.GetSize(): Async<int64> = async { return getCount seq }
-        member x.ToEnumerable(): Async<seq<'T>> = async { return seq }
+        member x.GetCountAsync(): Async<int64> = async { return getCount seq }
+        member x.GetSizeAsync(): Async<int64> = async { return getCount seq }
+        member x.GetEnumerableAsync(): Async<seq<'T>> = async { return seq }
 
 /// CloudCollection implementation consisting of a set of concatenated CloudCollection partitions
 [<Sealed; DataContract>]
@@ -62,19 +62,19 @@ type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
         member x.IsKnownSize = partitions |> Array.forall (fun p -> p.IsKnownSize)
         member x.IsKnownCount = partitions |> Array.forall (fun p -> p.IsKnownCount)
         member x.IsMaterialized = partitions |> Array.forall (fun p -> p.IsMaterialized)
-        member x.GetCount(): Async<int64> = async { 
-            let! counts = partitions |> Seq.map (fun p -> p.GetCount()) |> Async.Parallel 
+        member x.GetCountAsync(): Async<int64> = async { 
+            let! counts = partitions |> Seq.map (fun p -> p.GetCountAsync()) |> Async.Parallel 
             return Array.sum counts
         }
 
-        member x.GetSize(): Async<int64> = async { 
-            let! counts = partitions |> Seq.map (fun p -> p.GetSize()) |> Async.Parallel 
+        member x.GetSizeAsync(): Async<int64> = async { 
+            let! counts = partitions |> Seq.map (fun p -> p.GetSizeAsync()) |> Async.Parallel 
             return Array.sum counts
         }
 
         member x.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions }
         member x.PartitionCount: Async<int> = async { return partitions.Length }
-        member x.ToEnumerable(): Async<seq<'T>> = async { return Seq.concat partitions }
+        member x.GetEnumerableAsync(): Async<seq<'T>> = async { return Seq.concat partitions }
 
 
 /// Partitionable HTTP line reader implementation
@@ -110,9 +110,9 @@ type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (i
         member c.IsKnownCount = false
         member c.IsKnownSize = true
         member c.IsMaterialized = false
-        member c.GetCount () = raise <| new NotSupportedException()
-        member c.GetSize () = getSize ()
-        member c.ToEnumerable() = async { return toEnumerable () }
+        member c.GetCountAsync () = raise <| new NotSupportedException()
+        member c.GetSizeAsync () = getSize ()
+        member c.GetEnumerableAsync() = async { return toEnumerable () }
 
     interface IPartitionableCollection<string> with
         member cs.GetPartitions(weights : int []) = async {
@@ -333,7 +333,7 @@ type CloudCollection private () =
         let! collections = CloudCollection.ExtractPartitions collections
 
         // compute size per collection and allocate expected size per worker according to weight.
-        let! wsizes = collections |> Seq.map (fun c -> async { let! sz = c.GetSize() in return c, sz }) |> Async.Parallel
+        let! wsizes = collections |> Seq.map (fun c -> async { let! sz = c.GetSizeAsync() in return c, sz }) |> Async.Parallel
         let totalSize = wsizes |> Array.sumBy snd
         let coreCount = workers |> Array.sumBy (fun w -> if isTargetedWorkerEnabled then weight w else 1)
         let sizePerCore = totalSize / int64 coreCount

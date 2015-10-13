@@ -31,13 +31,13 @@ type internal CloudCollection private () =
                     let! partitionSlices = local {
                         match sizeThresholdPerWorker with
                         | None -> return [| partitions |]
-                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.GetSize()) (f ()) |> Cloud.OfAsync
+                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.GetSizeAsync()) (f ()) |> Cloud.OfAsync
                     }
 
                     // compute a single partition
                     let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
                         let! collector = collectorf
-                        let! seqs = slice |> Seq.map (fun p -> p.ToEnumerable()) |> Async.Parallel |> Cloud.OfAsync
+                        let! seqs = slice |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
                         let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
                         let value = pStream.Apply (collector.ToParStreamCollector())
                         return! projection value
