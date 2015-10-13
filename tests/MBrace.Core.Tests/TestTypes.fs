@@ -34,7 +34,7 @@ module CloudTree =
     }
 
     let rec getBranchCount (tree : TreeRef<int>) = cloud {
-        let! value = tree.GetValueAsync()
+        let! value = Cloud.OfAsync <| tree.GetValueAsync()
         match value with
         | Leaf -> return 0
         | Branch(_,l,r) ->

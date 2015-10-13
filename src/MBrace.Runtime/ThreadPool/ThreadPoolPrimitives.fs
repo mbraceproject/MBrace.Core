@@ -67,12 +67,12 @@ type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken)
     member __.LocalTask = task
     interface ICloudProcess<'T> with
         member __.Id = sprintf "System.Threading.Task %d" task.Id
-        member __.AwaitResult(?timeoutMilliseconds:int) = async {
+        member __.AwaitResultAsync(?timeoutMilliseconds:int) = async {
             try return! Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
             with :? AggregateException as e -> return! Async.Raise (e.InnerExceptions.[0])
         }
 
-        member __.AwaitResultBoxed(?timeoutMilliseconds:int) : Async<obj> = async {
+        member __.AwaitResultBoxedAsync(?timeoutMilliseconds:int) : Async<obj> = async {
             try 
                 let! r = Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
                 return r :> obj
@@ -81,8 +81,8 @@ type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken)
                 return! Async.Raise (e.InnerExceptions.[0])
         }
 
-        member __.TryGetResult () = async { return task.TryGetResult() }
-        member __.TryGetResultBoxed () = async { return task.TryGetResult() |> Option.map box }
+        member __.TryGetResultAsync () = async { return task.TryGetResult() }
+        member __.TryGetResultBoxedAsync () = async { return task.TryGetResult() |> Option.map box }
         member __.Status = 
             match task.Status with
             | TaskStatus.Created -> CloudProcessStatus.Created

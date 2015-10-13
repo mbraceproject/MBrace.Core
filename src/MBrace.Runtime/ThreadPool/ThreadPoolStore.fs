@@ -109,11 +109,11 @@ type private ThreadPoolValue<'T> (hash : HashResult, provider : ThreadPoolValueP
 
         member x.Type: Type = typeof<'T>
         member x.ReflectedType : Type = getReflectedType <| getPayload().RawValue
-        member x.GetBoxedValueAsync(): Async<obj> = async { return getPayload().Value }
+        member x.GetValueBoxedAsync(): Async<obj> = async { return getPayload().Value }
         member x.GetValueAsync(): Async<'T> = async { return getPayload().Value :?> 'T }
         member x.IsCachedLocally: bool = not <| provider.IsDisposed hash
         member x.Value: 'T = getPayload().Value :?> 'T
-        member x.GetBoxedValue () : obj = getPayload().Value
+        member x.ValueBoxed: obj = getPayload().Value
         member x.Cast<'S> () = ThreadPoolValue<'S>.Create(hash, getPayload(), provider) :> CloudValue<'S>
         member x.Dispose() = async { provider.Dispose hash }
 
@@ -274,7 +274,7 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
     interface CloudQueue<'T> with
         member x.Id: string = id
 
-        member x.GetCountAsync: Async<int64> = async {
+        member x.GetCountAsync() : Async<int64> = async {
             checkDisposed()
             return int64 mbox.CurrentQueueLength
         }

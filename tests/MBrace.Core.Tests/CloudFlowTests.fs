@@ -759,7 +759,7 @@ type ``CloudFlow tests`` () as self =
                         Cloud.Choice [
                             cloud { 
                                 for i in [|1..1000|] do
-                                    do! CloudQueue.Enqueue(queue, i)
+                                    do! queue.Enqueue i
                                     do! Cloud.Sleep(100)
                                 return None
                             };
@@ -791,7 +791,7 @@ type ``CloudFlow tests`` () as self =
                 cloud {
                     let list = ResizeArray<int>()
                     for x in xs do 
-                        let! v = CloudQueue.Dequeue(queue)
+                        let! v = queue.Dequeue()
                         list.Add(v)
                     return list
                 } |> runOnCloud

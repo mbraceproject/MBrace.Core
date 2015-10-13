@@ -28,7 +28,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     member __.``Simple send/receive`` () =
         cloud {
             use! cq = CloudQueue.New<int> ()
-            let! _,value = CloudQueue.Enqueue(cq, 42) <||> CloudQueue.Dequeue cq
+            let! _,value = cq.Enqueue 42 <||> cq.Dequeue()
             return value
         } |> runOnCloud |> shouldEqual 42
 
@@ -38,14 +38,14 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
             use! cq = CloudQueue.New<int option> ()
             let rec sender n = cloud {
                 if n = 0 then
-                    do! CloudQueue.Enqueue(cq, None)
+                    do! cq.Enqueue None
                 else
-                    do! CloudQueue.Enqueue(cq, Some n)
+                    do! cq.Enqueue(Some n)
                     return! sender (n-1)
             }
 
             let rec receiver c = cloud {
-                let! v = CloudQueue.Dequeue cq
+                let! v = cq.Dequeue()
                 match v with
                 | None -> return c
                 | Some i -> return! receiver (c + i)
@@ -62,13 +62,13 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
             use! cq = CloudQueue.New<int> ()
             let sender n = cloud {
                 for i in [1 .. n] do
-                    do! CloudQueue.Enqueue(cq, i)
+                    do! cq.Enqueue i
             }
 
             let rec receiver c n = cloud {
                 if n = 0 then return c
                 else
-                    let! i = CloudQueue.Dequeue cq
+                    let! i = cq.Dequeue()
                     return! receiver (c + 1) (n - 1)
             }
 

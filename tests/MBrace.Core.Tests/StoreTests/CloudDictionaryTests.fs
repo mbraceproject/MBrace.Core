@@ -41,9 +41,9 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         cloud {
             use! dict = CloudDictionary.New<int> ()
             for i in [1 .. 100] do
-                do! dict.Add(string i, i) |> Async.Ignore
+                do! dict.Add(string i, i)
 
-            let! values = dict.ToEnumerable()
+            let! values = Cloud.OfAsync <| dict.ToEnumerable()
             return values |> Seq.map (fun kv -> kv.Value) |> Seq.sum
         } |> runOnCloud |> shouldEqual 5050
 
@@ -56,7 +56,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 
-            return! dict.GetCount()
+            return! dict.GetCount() |> Cloud.OfAsync
         } |> runOnCloud |> shouldEqual (int64 parallelismFactor)
 
     [<Test>]
@@ -65,12 +65,12 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         cloud {
             use! dict = CloudDictionary.New<int> ()
             let incr i = local {
-                let! _ = CloudDictionary.AddOrUpdate "key" (function None -> i | Some c -> c + i) dict
+                let! _ = dict.AddOrUpdate ("key", function None -> i | Some c -> c + i)
                 return ()
             }
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> incr i ] |> Cloud.Ignore
-            return! dict.TryFindAsync "key"
+            return! dict.TryFind "key"
         } |> runOnCloud |> shouldEqual (Some (Array.sum [|1 .. parallelismFactor|]))
 
     [<Test>]

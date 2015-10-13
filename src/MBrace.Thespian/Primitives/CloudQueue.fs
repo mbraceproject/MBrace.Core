@@ -55,7 +55,7 @@ module private ActorQueue =
         interface CloudQueue<'T> with
             member __.Id = id
 
-            member __.GetCountAsync = async {
+            member __.GetCountAsync () = async {
                 let! count = source <!- GetMessageCount
                 return int64 count
             }

@@ -408,7 +408,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                     ignore <| config.LocalCache.Delete hash.Id
         }
         
-        member x.GetBoxedValueAsync(): Async<obj> = async {
+        member x.GetValueBoxedAsync(): Async<obj> = async {
             let! t = getValue ()
             return box t
         }
@@ -434,7 +434,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
         member x.Value: 'T =
             getValue() |> Async.RunSync
         
-        member x.GetBoxedValue() : obj = 
+        member x.ValueBoxed : obj = 
             getValue() |> Async.RunSync |> box
 
         member x.Cast<'S> () : CloudValue<'S> =

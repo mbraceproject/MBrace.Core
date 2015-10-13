@@ -67,8 +67,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.Memory)
                 c.StorageLevel |> shouldEqual StorageLevel.Memory
                 c.IsCachedLocally |> shouldEqual true
-                let! v1 = c.GetValueAsync()
-                let! v2 = c.GetValueAsync()
+                let! v1 = c.GetValue()
+                let! v2 = c.GetValue()
                 obj.ReferenceEquals(v1,v2) |> shouldEqual true
             } |> runOnCloud
 
@@ -80,8 +80,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemorySerialized)
                 c.StorageLevel |> shouldEqual StorageLevel.MemorySerialized
                 c.IsCachedLocally |> shouldEqual true
-                let! v1 = c.GetValueAsync()
-                let! v2 = c.GetValueAsync()
+                let! v1 = c.GetValue()
+                let! v2 = c.GetValue()
                 obj.ReferenceEquals(v1,v2) |> shouldEqual false
             } |> runOnCloud
 
@@ -93,8 +93,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
                 c.StorageLevel |> shouldEqual StorageLevel.Disk
                 c.IsCachedLocally |> shouldEqual false
-                let! v1 = c.GetValueAsync()
-                let! v2 = c.GetValueAsync()
+                let! v1 = c.GetValue()
+                let! v2 = c.GetValue()
                 obj.ReferenceEquals(v1,v2) |> shouldEqual false
             } |> runOnCloud
 
@@ -106,8 +106,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDisk)
                 c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
                 let jobF () = cloud {
-                    let! v1 = c.GetValueAsync()
-                    let! v2 = c.GetValueAsync()
+                    let! v1 = c.GetValue()
+                    let! v2 = c.GetValue()
                     obj.ReferenceEquals(v1,v2) |> shouldEqual true
                     c.IsCachedLocally |> shouldEqual true
                 }
@@ -124,8 +124,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDiskSerialized)
                 c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDiskSerialized
                 let jobF () = cloud {
-                    let! v1 = c.GetValueAsync()
-                    let! v2 = c.GetValueAsync()
+                    let! v1 = c.GetValue()
+                    let! v2 = c.GetValue()
                     c.IsCachedLocally |> shouldEqual true
                     obj.ReferenceEquals(v1,v2) |> shouldEqual false
                 }
@@ -143,8 +143,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
                 c.StorageLevel |> shouldEqual StorageLevel.Disk
                 let jobF () = cloud {
-                    let! v1 = c.GetValueAsync()
-                    let! v2 = c.GetValueAsync()
+                    let! v1 = c.GetValue()
+                    let! v2 = c.GetValue()
                     c.IsCachedLocally |> shouldEqual false
                     obj.ReferenceEquals(v1,v2) |> shouldEqual false
                 }
@@ -251,7 +251,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 let! cv = CloudValue.New value
                 do! CloudValue.Delete cv
                 do! Cloud.Sleep 2000
-                let! job = Cloud.CreateProcess(cloud { return! cv.GetValueAsync() })
+                let! job = Cloud.CreateProcess(cv.GetValue())
                 return! job.AwaitResult()
             } |> runOnCloud
 
@@ -267,10 +267,10 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 let! cv' = CloudValue.TryGetValueById cv.Id
                 let cv' = CloudValue.Cast<int list> cv
                 cv'.Id |> shouldEqual cv.Id
-                let! v' = cv'.GetValueAsync()
+                let! v' = cv'.GetValue()
                 if isCacheable then cv'.IsCachedLocally |> shouldEqual true
                 if isCacheable then cv.IsCachedLocally |> shouldEqual true
-                let! v = cv.GetValueAsync()
+                let! v = cv.GetValue()
                 if isCacheable then obj.ReferenceEquals(v,v') |> shouldEqual true
                 v' |> shouldEqual v
             })
