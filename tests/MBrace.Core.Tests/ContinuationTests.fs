@@ -547,8 +547,8 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``await task`` () =
         let mkTask (t:int) = Tasks.Task.Factory.StartNew(fun () -> Thread.Sleep t ; 42)
-        Cloud.AwaitSystemTask (mkTask 0) |> run |> Choice.shouldEqual 42
-        Cloud.AwaitSystemTask (mkTask 500) |> run |> Choice.shouldEqual 42
+        Cloud.AwaitTask (mkTask 0) |> run |> Choice.shouldEqual 42
+        Cloud.AwaitTask (mkTask 500) |> run |> Choice.shouldEqual 42
 
     [<Test>]
     let ``start as task`` () =
