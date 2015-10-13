@@ -128,7 +128,7 @@ type CloudDictionary =
     /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
     static member GetById<'T>(dictionaryId : string) = local {
         let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
-        return! provider.CreateDictionary<'T> dictionaryId
+        return! provider.GetDictionaryById<'T> dictionaryId
     }
 
     /// <summary>
