@@ -334,7 +334,7 @@ type CloudFileInfo =
     }
 
     /// Asynchronously get a reader stream for local file.
-    member f.BeginRead() : Async<Stream> = async {
+    member f.BeginReadAsync() : Async<Stream> = async {
         return! f.store.BeginRead f.path
     }
 
@@ -455,7 +455,7 @@ type CloudDirectory =
     /// <param name="dirPath">Path to directory.</param>
     static member Exists(dirPath : string) : Local<bool> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.DirectoryExists dirPath
+        return! Cloud.OfAsync <| store.DirectoryExists dirPath
     }
 
     /// <summary>
@@ -464,7 +464,7 @@ type CloudDirectory =
     /// <param name="dirPath">Path to newly created directory.</param>
     static member Create(dirPath : string) : Local<CloudDirectoryInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        do! store.CreateDirectory(dirPath)
+        do! Cloud.OfAsync <| store.CreateDirectory(dirPath)
         return new CloudDirectoryInfo(store, dirPath)
     }
 
@@ -476,7 +476,7 @@ type CloudDirectory =
     static member GetInfo(dirPath : string, ?verify:bool) : Local<CloudDirectoryInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         if defaultArg verify true then
-            let! exists = store.DirectoryExists dirPath
+            let! exists = Cloud.OfAsync <| store.DirectoryExists dirPath
             if not exists then return raise <| new DirectoryNotFoundException(dirPath)
 
         return new CloudDirectoryInfo(store, dirPath)
@@ -490,7 +490,7 @@ type CloudDirectory =
     static member Delete(dirPath : string, ?recursiveDelete : bool) : Local<unit> = local {
         let recursiveDelete = defaultArg recursiveDelete false
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
+        return! Cloud.OfAsync <| store.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
     }
 
     /// <summary>
@@ -499,7 +499,7 @@ type CloudDirectory =
     /// <param name="dirPath">Directory path to be modified.</param>
     static member GetLastModifiedTime(dirPath : string) : Local<DateTimeOffset> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.GetLastModifiedTime(dirPath, isDirectory = true)
+        return! Cloud.OfAsync <| store.GetLastModifiedTime(dirPath, isDirectory = true)
     }
 
     /// <summary>
@@ -508,7 +508,7 @@ type CloudDirectory =
     /// <param name="directory">Directory to be enumerated.</param>
     static member Enumerate(dirPath : string) : Local<CloudDirectoryInfo []> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        let! dirs = store.EnumerateDirectories(dirPath)
+        let! dirs = Cloud.OfAsync <| store.EnumerateDirectories(dirPath)
         return dirs |> Array.map (fun d -> new CloudDirectoryInfo(store, d))
     }
 
@@ -522,7 +522,7 @@ type CloudFile =
     /// <param name="path">Path to cloud file.</param>
     static member GetSize(path : string) : Local<int64> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.GetFileSize path
+        return! Cloud.OfAsync <| store.GetFileSize path
     }
 
     /// <summary>
@@ -531,7 +531,7 @@ type CloudFile =
     /// <param name="path">Path to cloud file.</param>
     static member GetLastModifiedTime(path : string) : Local<DateTimeOffset> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.GetLastModifiedTime(path, isDirectory = false)
+        return! Cloud.OfAsync <| store.GetLastModifiedTime(path, isDirectory = false)
     }
 
     /// <summary>
@@ -540,7 +540,7 @@ type CloudFile =
     /// <param name="path">Path to cloud file.</param>
     static member Exists(path : string) : Local<bool> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.FileExists path
+        return! Cloud.OfAsync <| store.FileExists path
     }
 
     /// <summary>
@@ -549,7 +549,7 @@ type CloudFile =
     /// <param name="path">Path to cloud file.</param>
     static member Delete(path : string) : Local<unit> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.DeleteFile path
+        return! Cloud.OfAsync <| store.DeleteFile path
     }
 
     /// <summary>
@@ -560,7 +560,7 @@ type CloudFile =
     static member GetInfo(path : string, ?verify:bool) : Local<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         if defaultArg verify true then
-            let! exists = store.FileExists path
+            let! exists = Cloud.OfAsync <| store.FileExists path
             if not exists then return raise <| new FileNotFoundException(path)
 
         return new CloudFileInfo(store, path)
@@ -572,7 +572,7 @@ type CloudFile =
     /// <param name="path">Path to new cloud file.</param>
     static member BeginWrite(path : string) : Local<System.IO.Stream> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.BeginWrite path
+        return! Cloud.OfAsync <| store.BeginWrite path
     }
 
     /// <summary>
@@ -581,7 +581,7 @@ type CloudFile =
     /// <param name="path">Path to cloud file.</param>
     static member BeginRead<'T>(path : string) : Local<System.IO.Stream> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        return! store.BeginRead path
+        return! Cloud.OfAsync <| store.BeginRead path
     }
 
     /// <summary>
@@ -590,7 +590,7 @@ type CloudFile =
     /// <param name="dirPath">Path to directory.</param>
     static member Enumerate(dirPath : string) : Local<CloudFileInfo []> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        let! paths = store.EnumerateFiles(dirPath)
+        let! paths = Cloud.OfAsync <| store.EnumerateFiles(dirPath)
         return paths |> Array.map (fun path -> new CloudFileInfo(store, path))
     }
 
@@ -606,7 +606,7 @@ type CloudFile =
     /// <param name="encoding">Text encoding.</param>
     static member WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : Local<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
-        use! stream = store.BeginWrite path
+        use! stream = Cloud.OfAsync <| store.BeginWrite path
         use sw = 
             match encoding with
             | None -> new StreamWriter(stream)
@@ -651,13 +651,13 @@ type CloudFile =
     /// <param name="encoding">Output encoding.</param>
     static member WriteAllText(path : string, text : string, ?encoding : Encoding) : Local<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
-        use! stream = store.BeginWrite path
+        use! stream = Cloud.OfAsync <| store.BeginWrite path
         use sw = 
             match encoding with
             | None -> new StreamWriter(stream)
             | Some e -> new StreamWriter(stream, e)
 
-        do! Async.AwaitTask(sw.WriteAsync(text))
+        do! Cloud.OfAsync <| Async.AwaitTask(sw.WriteAsync(text))
         return new CloudFileInfo(store, path)
     }
 
@@ -683,8 +683,8 @@ type CloudFile =
     /// <param name="buffer">Source buffer.</param>
     static member WriteAllBytes(path : string, buffer : byte []) : Local<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
-        use! stream = store.BeginWrite path
-        do! stream.AsyncWrite(buffer, 0, buffer.Length)
+        use! stream = Cloud.OfAsync <| store.BeginWrite path
+        do! Cloud.OfAsync <| stream.AsyncWrite(buffer, 0, buffer.Length)
         return new CloudFileInfo(store, path)
     }
         
@@ -695,7 +695,7 @@ type CloudFile =
     static member ReadAllBytes(path : string) : Local<byte []> = local {
         use! stream = CloudFile.BeginRead path
         use ms = new MemoryStream()
-        do! Async.AwaitTask(stream.CopyToAsync ms)
+        do! Cloud.OfAsync <| Async.AwaitTask(stream.CopyToAsync ms)
         return ms.ToArray()
     }
 
@@ -711,17 +711,17 @@ type CloudFile =
         let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore>()
         if not overwrite then
-            let! exists = store.FileExists targetPath
+            let! exists = Cloud.OfAsync <| store.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
         use fs = File.OpenRead (Path.GetFullPath sourcePath)
 
         if compress then
-            use! stream = store.BeginWrite targetPath
+            use! stream = Cloud.OfAsync <| store.BeginWrite targetPath
             use gz = new GZipStream(stream, CompressionLevel.Optimal)
-            do! fs.CopyToAsync gz |> Async.AwaitTask
+            do! fs.CopyToAsync gz |> Async.AwaitTask |> Cloud.OfAsync
         else
-            do! store.CopyOfStream(fs, targetPath)
+            do! Cloud.OfAsync <| store.CopyOfStream(fs, targetPath)
 
         return new CloudFileInfo(store, targetPath)
     }
@@ -773,7 +773,7 @@ type CloudFile =
             else
                 fs :> _
 
-        do! store.CopyToStream(sourcePath, stream)
+        do! Cloud.OfAsync <| store.CopyToStream(sourcePath, stream)
     }
 
     /// <summary>

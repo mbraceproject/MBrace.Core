@@ -65,7 +65,7 @@ type Cloud =
     ///     Wraps an asynchronous workflow into a cloud workflow.
     /// </summary>
     /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
-    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Local<'T> = local { return! asyncWorkflow }
+    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : Local<'T> = mkLocal(ofAsync asyncWorkflow)
 
     /// <summary>
     ///     Performs a cloud computations, discarding its result
@@ -78,7 +78,7 @@ type Cloud =
     /// </summary>
     /// <param name="disposable">Resource to be disposed.</param>
     static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : Local<unit> =
-        local { return! disposable.Dispose () }
+        local { return! Cloud.OfAsync <| disposable.Dispose () }
 
     // region : runtime API
 

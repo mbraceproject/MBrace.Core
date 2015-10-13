@@ -2,7 +2,10 @@
 
 open System
 open System.Diagnostics
+open System.Runtime.CompilerServices
+open System.ComponentModel
 
+open MBrace.Core.Internals
 
 /// Specifies memory semantics in InMemory MBrace execution
 type MemoryEmulation =
@@ -71,9 +74,9 @@ type ICloudProcess =
     ///     Awaits cloud process for completion, returning its eventual result.
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
-    abstract AwaitResultBoxed : ?timeoutMilliseconds:int -> Async<obj>
+    abstract AwaitResultBoxedAsync : ?timeoutMilliseconds:int -> Async<obj>
     /// Returns the cloud process result if completed or None if still pending.
-    abstract TryGetResultBoxed : unit -> Async<obj option>
+    abstract TryGetResultBoxedAsync : unit -> Async<obj option>
 
 /// Denotes a cloud process that is being executed in the cluster.
 type ICloudProcess<'T> =
@@ -82,13 +85,42 @@ type ICloudProcess<'T> =
     ///     Awaits cloud process for completion, returning its eventual result.
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
-    abstract AwaitResult : ?timeoutMilliseconds:int -> Async<'T>
+    abstract AwaitResultAsync : ?timeoutMilliseconds:int -> Async<'T>
     /// Returns the cloud process result if completed or None if still pending.
-    abstract TryGetResult : unit -> Async<'T option>
+    abstract TryGetResultAsync : unit -> Async<'T option>
     /// Synchronously gets the cloud process result, blocking until it completes.
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract Result : 'T
 
+
+[<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
+type CloudProcessExtensions =
+
+    /// Returns the cloud process result if completed or None if still pending.
+    [<Extension>]
+    static member TryGetResultBoxed(this : ICloudProcess) : Local<obj option> = 
+        this.TryGetResultBoxedAsync() |> ofAsync |> mkLocal
+
+    /// <summary>
+    ///     Awaits cloud process for completion, returning its eventual result.
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
+    [<Extension>]
+    static member AwaitResultBoxed(this : ICloudProcess, ?timeoutMilliseconds) : Local<obj> = 
+        this.AwaitResultBoxedAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal
+
+    /// Returns the cloud process result if completed or None if still pending.
+    [<Extension>]
+    static member TryGetResult(this : ICloudProcess<'T>) : Local<'T option> = 
+        this.TryGetResultAsync() |> ofAsync |> mkLocal
+
+    /// <summary>
+    ///     Awaits cloud process for completion, returning its eventual result.
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
+    [<Extension>]
+    static member AwaitResult(this : ICloudProcess<'T>, ?timeoutMilliseconds : int) : Local<'T> = 
+        this.AwaitResultAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal
 
 namespace MBrace.Core.Internals
 
@@ -96,6 +128,8 @@ open System
 open MBrace.Core
 
 module WorkerRef =
+
+    let f (p : ICloudProcess<'T>) = p.AwaitResult()
 
     /// <summary>
     ///     Partitions a set of inputs to workers.

@@ -3,6 +3,7 @@
 #nowarn "444"
 
 open System
+open System.Diagnostics
 
 open MBrace.Core.Internals
 
@@ -65,6 +66,7 @@ type ICloudValue =
 and CloudValue<'T> =
     inherit ICloudValue
     /// Gets the payload of the CloudValue.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract Value : 'T
     /// Asynchronously gets the boxed payload of the CloudValue.
     abstract GetValueAsync : unit -> Async<'T>
@@ -171,7 +173,7 @@ type CloudValue =
     static member New<'T>(value : 'T, ?storageLevel : StorageLevel) : Local<CloudValue<'T>> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
-        return! provider.CreateCloudValue(value, storageLevel)
+        return! Cloud.OfAsync <| provider.CreateCloudValue(value, storageLevel)
     }
 
     /// <summary>
@@ -193,7 +195,7 @@ type CloudValue =
     static member NewArrayPartitioned<'T>(values : seq<'T>, partitionThreshold : int64, ?storageLevel : StorageLevel) : Local<CloudArray<'T> []> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
-        return! provider.CreateCloudArrayPartitioned(values, partitionThreshold, storageLevel)
+        return! Cloud.OfAsync <| provider.CreateCloudArrayPartitioned(values, partitionThreshold, storageLevel)
     }
 
     /// <summary>
@@ -209,7 +211,7 @@ type CloudValue =
     /// <param name="id">CloudValue identifier.</param>
     static member TryGetValueById(id : string) : Local<ICloudValue option> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
-        return! provider.TryGetCloudValueById(id)
+        return! Cloud.OfAsync <| provider.TryGetCloudValueById(id)
     }
 
     /// <summary>
@@ -217,7 +219,7 @@ type CloudValue =
     /// </summary>
     static member GetAllValues() : Local<ICloudValue []> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
-        return! provider.GetAllCloudValues()
+        return! Cloud.OfAsync <| provider.GetAllCloudValues()
     }
 
     /// <summary>
@@ -225,7 +227,7 @@ type CloudValue =
     /// </summary>
     /// <param name="value">CloudValue instance.</param>
     static member Read(value : CloudValue<'T>) : Local<'T> = local {
-        return! value.GetValueAsync()
+        return! Cloud.OfAsync <| value.GetValueAsync()
     }
 
     /// <summary>
@@ -233,5 +235,5 @@ type CloudValue =
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
     static member Delete (value : ICloudValue) : Local<unit> = local {
-        return! value.Dispose()
+        return! Cloud.OfAsync <| value.Dispose()
     }

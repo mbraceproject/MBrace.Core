@@ -6,7 +6,7 @@ open MBrace.Core
 open MBrace.Flow
 
 [<System.Runtime.CompilerServices.Extension>]
-type CloudFlowExtensions() =
+type CloudFlowExtensions =
     /// <summary>Wraps array as a CloudFlow.</summary>
     /// <param name="this">The input array.</param>
     /// <returns>The result CloudFlow.</returns>
