@@ -41,6 +41,7 @@ type PersistedValue<'T> =
         | Some stream -> use stream = stream in return c.deserializer stream
     }
 
+
     /// Asynchronously gets the size of the persisted value in bytes.
     member c.GetSizeAsync () : Async<int64> = async {
         return! c.store.GetFileSize c.path
@@ -62,6 +63,7 @@ type PersistedValue<'T> =
 
 #nowarn "444"
 
+/// PersistedValue extension methods
 type PersistedValue =
     
     /// <summary>
@@ -100,7 +102,7 @@ type PersistedValue =
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
 
-        let! etag,_ = store.WriteETag(path, writer)
+        let! etag,_ = Cloud.OfAsync <| store.WriteETag(path, writer)
         return new PersistedValue<'T>(store, path, etag, deserializer)
     }
 
@@ -121,13 +123,13 @@ type PersistedValue =
                 return fun s -> serializer.Deserialize<'T>(s, leaveOpen = false)
         }
 
-        let! etag = store.TryGetETag path
+        let! etag = Cloud.OfAsync <| store.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
             let fpv = new PersistedValue<'T>(store, path, et, deserializer)
             if defaultArg force false then
-                let! _ = fpv.GetValueAsync() in ()
+                let! _ = Cloud.OfAsync <| fpv.GetValueAsync() in ()
             return fpv
     }
 
@@ -162,9 +164,3 @@ type PersistedValue =
 
         return! PersistedValue.OfCloudFile(path, deserializer, ?force = force)
     }
-
-    /// <summary>
-    ///     Dereferences a persisted value.
-    /// </summary>
-    /// <param name="cloudCell">CloudValue to be dereferenced.</param>
-    static member Read(value : PersistedValue<'T>) : Local<'T> = local { return! value.GetValueAsync() }

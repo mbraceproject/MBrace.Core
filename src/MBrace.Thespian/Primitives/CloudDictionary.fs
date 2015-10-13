@@ -99,11 +99,11 @@ module private ActorCloudDictionary =
             member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator()
         
         interface CloudDictionary<'T> with
-            member x.Add(key: string, value: 'T): Async<unit> = async { 
+            member x.AddAsync(key: string, value: 'T): Async<unit> = async { 
                 let! _ = source <!- fun ch -> ForceAdd(key, pickle value, ch) in return () 
             }
         
-            member x.Transact(key: string, updater: 'T option -> 'R * 'T, ?maxRetries:int): Async<'R> = async { 
+            member x.TransactAsync(key: string, updater: 'T option -> 'R * 'T, ?maxRetries:int): Async<'R> = async { 
                 if maxRetries |> Option.exists (fun i -> i < 0) then
                     invalidArg "maxRetries" "must be non-negative."
 
@@ -127,18 +127,18 @@ module private ActorCloudDictionary =
                 return cell.Value
             }
         
-            member x.ContainsKey(key: string): Async<bool> = 
+            member x.ContainsKeyAsync(key: string): Async<bool> = 
                 async { return! source <!- fun ch -> ContainsKey(key, ch) }
         
             member x.Id: string = id
         
-            member x.Remove(key: string): Async<bool> = 
+            member x.RemoveAsync(key: string): Async<bool> = 
                 async { return! source <!- fun ch -> Remove(key, ch) }
         
-            member x.TryAdd(key: string, value: 'T): Async<bool> = 
+            member x.TryAddAsync(key: string, value: 'T): Async<bool> = 
                 async { let! tag = source <!- fun ch -> TryAdd(key, pickle value, ch) in return Option.isSome tag }
         
-            member x.TryFind(key: string): Async<'T option> = async { 
+            member x.TryFindAsync(key: string): Async<'T option> = async { 
                 let! _,bytes = source <!- fun ch -> TryGetValue(key, ch)
                 return bytes |> Option.map unpickle
             }

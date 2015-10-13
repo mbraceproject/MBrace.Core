@@ -129,8 +129,6 @@ open MBrace.Core
 
 module WorkerRef =
 
-    let f (p : ICloudProcess<'T>) = p.AwaitResult()
-
     /// <summary>
     ///     Partitions a set of inputs to workers.
     /// </summary>

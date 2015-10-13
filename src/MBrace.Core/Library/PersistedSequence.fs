@@ -173,7 +173,7 @@ type PersistedSequence =
 
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }
-        let! etag, length = store.WriteETag(path, writer)
+        let! etag, length = Cloud.OfAsync <| store.WriteETag(path, writer)
         return new PersistedSequence<'T>(store, path, etag, Some length, deserializer)
     }
 
@@ -195,7 +195,7 @@ type PersistedSequence =
         }
 
         let deserializer (stream : Stream) = _serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
-        return! async {
+        return! Cloud.OfAsync <| async {
             if maxPartitionSize <= 0L then return invalidArg "maxPartitionSize" "Must be greater that 0."
 
             let seqs = new ResizeArray<PersistedSequence<'T>>()
@@ -233,13 +233,13 @@ type PersistedSequence =
                 return fun s -> serializer.SeqDeserialize<'T>(s, leaveOpen = true)
         }
 
-        let! etag = store.TryGetETag path
+        let! etag = Cloud.OfAsync <| store.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
             let cseq = new PersistedSequence<'T>(store, path, et, None, deserializer)
             if defaultArg force false then
-                let! _ = cseq.GetCountAsync() in ()
+                let! _ = Cloud.OfAsync <| cseq.GetCountAsync() in ()
 
             return cseq
     }
@@ -285,13 +285,13 @@ type PersistedSequence =
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     static member OfCloudFileByLine(path : string, ?encoding : Encoding, ?force : bool) : Local<PersistedSequence<string>> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        let! etag = store.TryGetETag path
+        let! etag = Cloud.OfAsync <| store.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
             let cseq = new TextSequenceByLine(store, path, et, ?encoding = encoding)
             if defaultArg force false then
-                let! _ = cseq.GetCountAsync() in ()
+                let! _ = Cloud.OfAsync <| cseq.GetCountAsync() in ()
 
             return cseq :> PersistedSequence<string>
     }

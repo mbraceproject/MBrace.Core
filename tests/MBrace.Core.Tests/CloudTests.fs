@@ -87,7 +87,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let parallelismFactor = parallelismFactor
         let c = CloudAtom.New 0 |> runOnCurrentProcess
         cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = c.Transact(fun i -> (), i + 1) }
+            use foo = { new ICloudDisposable with member __.Dispose () = c.TransactAsync(fun i -> (), i + 1) }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Increment c) |> Cloud.Parallel
             return! CloudAtom.Read c
         } |> runOnCloud |> Choice.shouldEqual parallelismFactor

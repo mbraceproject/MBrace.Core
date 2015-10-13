@@ -4,6 +4,8 @@
 
 open System
 open System.Diagnostics
+open System.Runtime.CompilerServices
+open System.ComponentModel
 
 open MBrace.Core.Internals
 
@@ -55,9 +57,10 @@ type ICloudValue =
     /// in the local execution context.
     abstract IsCachedLocally : bool
     /// Gets the boxed payload of the CloudValue.
-    abstract GetBoxedValue : unit -> obj
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    abstract ValueBoxed : obj
     /// Asynchronously gets the boxed payload of the CloudValue.
-    abstract GetBoxedValueAsync : unit -> Async<obj>
+    abstract GetValueBoxedAsync : unit -> Async<obj>
     /// Casts CloudValue to specified type, if applicable.
     abstract Cast<'S> : unit -> CloudValue<'S>
 
@@ -68,7 +71,7 @@ and CloudValue<'T> =
     /// Gets the payload of the CloudValue.
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract Value : 'T
-    /// Asynchronously gets the boxed payload of the CloudValue.
+    /// Asynchronously gets the payload of the CloudValue.
     abstract GetValueAsync : unit -> Async<'T>
 
 /// Serializable entity that represents an immutable 
@@ -78,6 +81,17 @@ type CloudArray<'T> =
     inherit ICloudCollection<'T>
     /// Array element count
     abstract Length : int
+
+[<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
+type CloudValueExtensions =
+
+    /// Asynchronously gets the boxed payload of the CloudValue.
+    [<Extension>]
+    static member GetValueBoxed(this : ICloudValue) = Cloud.OfAsync <| this.GetValueBoxedAsync()
+    /// Asynchronously gets the payload of the CloudValue.
+    [<Extension>]
+    static member GetValue(this : CloudValue<'T>) = Cloud.OfAsync <| this.GetValueAsync()
+    
 
 namespace MBrace.Core.Internals
 

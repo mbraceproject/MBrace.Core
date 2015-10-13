@@ -141,7 +141,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
             let t = runtime.CreateProcess(cloud {
-                do! f.Force true
+                do! f.ForceAsync true
                 return! WordCount.run 20 WordCount.mapReduceRec
             }, faultPolicy = FaultPolicy.InfiniteRetries())
             while not f.Value do Thread.Sleep 1000
@@ -155,7 +155,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
             let t = runtime.CreateProcess(cloud {
-                do! f.Force true
+                do! f.ForceAsync true
                 do! Cloud.Sleep 20000
             }, faultPolicy = FaultPolicy.NoRetry)
             while not f.Value do Thread.Sleep 1000
@@ -171,7 +171,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                 return! 
                     Cloud.WithFaultPolicy FaultPolicy.NoRetry
                         (cloud { 
-                            do! f.Force(true) 
+                            do! f.ForceAsync(true) 
                             return! Cloud.Sleep 20000 <||> Cloud.Sleep 20000
                         })
             })
@@ -189,7 +189,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                 // targeted work items should fail regardless of fault policy
                 return! 
                     Cloud.CreateProcess(cloud { 
-                        do! f.Force true 
+                        do! f.ForceAsync true 
                         do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetries())
             }
 
@@ -208,7 +208,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let t = 
                 runtime.CreateProcess(
                     cloud {
-                        do! f.Force true
+                        do! f.ForceAsync true
                         do! Cloud.Sleep 5000
                         return! Cloud.TryGetFaultData()
                     })
@@ -223,7 +223,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let runtime = session.Runtime
             let f = runtime.Store.Atom.Create(false)
             let task i = cloud {
-                do! f.Force true
+                do! f.ForceAsync true
                 do! Cloud.Sleep 5000
                 return i
             }

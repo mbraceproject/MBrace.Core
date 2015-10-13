@@ -70,7 +70,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
             }
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> incr i ] |> Cloud.Ignore
-            return! dict.TryFind "key"
+            return! dict.TryFindAsync "key"
         } |> runOnCloud |> shouldEqual (Some (Array.sum [|1 .. parallelismFactor|]))
 
     [<Test>]
