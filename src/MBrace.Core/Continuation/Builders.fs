@@ -381,3 +381,21 @@ module Builders =
     /// replace by a more constrained "local" workflow.  
     let cloud = new CloudBuilder ()
 
+
+/// Collection of MBrace builder extensions for seamlessly
+/// composing MBrace with asynchronous workflows
+module BuilderAsyncExtensions =
+    
+    type CloudBuilder with
+        member __.Bind(f : Async<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> =
+            mkCloud <| bind (ofAsync f) g
+
+        member __.ReturnFrom(f : Async<'T>) : Cloud<'T> =
+            mkCloud <| ofAsync f
+
+    type LocalBuilder =
+        member __.Bind(f : Async<'T>, g : 'T -> Local<'S>) : Local<'S> =
+            mkLocal <| bind (ofAsync f) g
+
+        member __.ReturnFrom(f : Async<'T>) : Local<'T> =
+            mkLocal <| ofAsync f    
