@@ -5,6 +5,7 @@ open System
 open NUnit.Framework
 
 open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Core.Internals
 
 [<TestFixture; AbstractClass>]
@@ -37,12 +38,12 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             use! atom = CloudAtom.New 0
             let updater _ = local {
                 for i in 1 .. nSequential do
-                    do! atom.Update((+) 1)
+                    atom.Update((+) 1)
             }
 
             let! _ = Seq.init parallelismFactor updater |> Cloud.Parallel
 
-            return! atom.GetValue()
+            return atom.Value
         } |> runOnCloud |> shouldEqual (parallelismFactor * nSequential)
 
     [<Test>]
@@ -89,8 +90,8 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
                 if isSupported then return true
                 else
                     use! atom = CloudAtom.New List.empty<int>
-                    do! Seq.init parallelismFactor (fun i -> atom.Update(fun is -> i :: is)) |> Cloud.Parallel |> Cloud.Ignore
-                    let! values = atom.GetValue()
+                    do! Seq.init parallelismFactor (fun i -> cloud { return! atom.UpdateAsync(fun is -> i :: is) }) |> Cloud.Parallel |> Cloud.Ignore
+                    let! values = atom.GetValueAsync()
                     return List.sum values = List.sum [1 .. parallelismFactor]
             } |> runOnCloud |> shouldEqual true)
 
@@ -101,7 +102,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             let parallelismFactor = parallelismFactor
             cloud {
                 use! a = CloudAtom.New 0
-                let! results = Seq.init parallelismFactor (fun _ -> a.Transact(fun i -> i, i+1)) |> Cloud.Parallel
+                let! results = Seq.init parallelismFactor (fun _ -> cloud { return! a.TransactAsync(fun i -> i, i+1) }) |> Cloud.Parallel
                 return Array.sum results
             } |> runOnCloud |> shouldEqual (Array.sum [|0 .. parallelismFactor - 1|]))
 
@@ -112,8 +113,8 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             let parallelismFactor = parallelismFactor
             cloud {
                 use! a = CloudAtom.New 0
-                do! Seq.init parallelismFactor (fun i -> a.Force(i + 1)) |> Cloud.Parallel |> Cloud.Ignore
-                return! a.GetValue()
+                do! Seq.init parallelismFactor (fun i -> cloud { return! a.ForceAsync(i + 1) }) |> Cloud.Parallel |> Cloud.Ignore
+                return! a.GetValueAsync()
             } |> runOnCloud |> shouldBe (fun i -> i > 0))
 
     [<Test>]
@@ -131,5 +132,5 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
             cloud {
                 let! a = CloudAtom.New 0
                 do! cloud { use a = a in () }
-                return! a.GetValue()
+                return! a.GetValueAsync()
             } |> runProtected |> Choice.shouldFailwith<_,exn>)

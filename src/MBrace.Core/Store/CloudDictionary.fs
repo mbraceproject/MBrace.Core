@@ -142,9 +142,8 @@ type CloudDictionaryExtensions =
     /// </summary>
     /// <param name="key">Key to be checked.</param>
     [<Extension>]
-    static member ContainsKey (this : CloudDictionary<'T>, key : string) = local {
-        return! Cloud.OfAsync <| this.ContainsKeyAsync key
-    }
+    static member ContainsKey (this : CloudDictionary<'T>, key : string) : bool =
+        Async.RunSync <| this.ContainsKeyAsync key
 
     /// <summary>
     ///     Try adding a new key/value pair to dictionary. Returns true if successful.
@@ -152,9 +151,8 @@ type CloudDictionaryExtensions =
     /// <param name="key">Key to be added.</param>
     /// <param name="value">Value to be added.</param>
     [<Extension>]
-    static member TryAdd (this : CloudDictionary<'T>, key : string, value : 'T) = local {
-        return! Cloud.OfAsync <| this.TryAddAsync(key, value)
-    }
+    static member TryAdd (this : CloudDictionary<'T>, key : string, value : 'T) : bool =
+        Async.RunSync <| this.TryAddAsync(key, value)
 
     /// <summary>
     ///     Force add a new key/value pair to dictionary.
@@ -162,9 +160,8 @@ type CloudDictionaryExtensions =
     /// <param name="key">Key to be added.</param>
     /// <param name="value">Value to be added.</param>
     [<Extension>]
-    static member Add (this : CloudDictionary<'T>, key : string, value : 'T) : CloudLocal<unit>  = local {
-        return! Cloud.OfAsync <| this.AddAsync(key, value)
-    }
+    static member Add (this : CloudDictionary<'T>, key : string, value : 'T) : unit =
+        Async.RunSync <| this.AddAsync(key, value)
 
     /// <summary>
     ///     Atomically adds or updates a key/value entry.
@@ -172,10 +169,11 @@ type CloudDictionaryExtensions =
     /// </summary>
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Updater function.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member AddOrUpdate (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T) : CloudLocal<'T> = local {
+    static member AddOrUpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, ?maxRetries : int) : Async<'T> = async {
         let transacter (curr : 'T option) = let t = updater curr in t, t
-        return! Cloud.OfAsync <| this.TransactAsync(key, transacter)
+        return! this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
     }
 
     /// <summary>
@@ -184,33 +182,15 @@ type CloudDictionaryExtensions =
     /// </summary>
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Entry updater function.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member Update (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T) = local {
+    static member UpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, ?maxRetries : int) : Async<'T> = async {
         let transacter (curr : 'T option) =
             match curr with
             | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
             | Some t -> let t' = updater t in t', t'
 
-        return! Cloud.OfAsync <| this.TransactAsync(key, transacter)
-    }
-
-    /// <summary>
-    ///     Try reading value for entry of supplied key.
-    /// </summary>
-    /// <param name="key">Key to entry.</param>
-    [<Extension>]
-    static member TryFind (this : CloudDictionary<'T>, key : string) : CloudLocal<'T option> = local {
-        return! Cloud.OfAsync <| this.TryFindAsync key
-    }
-
-    /// <summary>
-    ///     Removes entry of supplied key from dictionary.
-    /// </summary>
-    /// <param name="key">Key to be removed.</param>
-    /// <param name="dictionary">Dictionary to be updated.</param>
-    [<Extension>]
-    static member Remove (this : CloudDictionary<'T>, key : string) : CloudLocal<bool> = local {
-        return! Cloud.OfAsync <| this.RemoveAsync(key)
+        return! this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
     }
 
     /// <summary>
@@ -218,12 +198,46 @@ type CloudDictionaryExtensions =
     /// </summary>
     /// <param name="key">Key to perform transaction on.</param>
     /// <param name="transacter">Transaction funtion.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member Transact (this : CloudDictionary<'T>, key : string, transacter : 'T -> 'R * 'T) : CloudLocal<'R> = local {
-        let transacter (curr : 'T option) =
-            match curr with
-            | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
-            | Some t -> let r,t' = transacter t in r, t'
+    static member Transact (this : CloudDictionary<'T>, key : string, transacter : 'T option -> 'R * 'T, ?maxRetries : int) : 'R =
+        Async.RunSync <| this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
 
-        return! Cloud.OfAsync <| this.TransactAsync(key, transacter)
-    }
+    /// <summary>
+    ///     Atomically adds or updates a key/value entry.
+    ///     Returns the updated value.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Updater function.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
+    [<Extension>]
+    static member AddOrUpdate (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, ?maxRetries : int) : 'T =
+        Async.RunSync <| CloudDictionaryExtensions.AddOrUpdateAsync(this, key, updater, ?maxRetries = maxRetries)
+
+    /// <summary>
+    ///     Atomically updates a key/value entry.
+    ///     Returns the updated value.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Entry updater function.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
+    [<Extension>]
+    static member Update (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, ?maxRetries : int) : 'T =
+        Async.RunSync <| CloudDictionaryExtensions.UpdateAsync(this, key, updater, ?maxRetries = maxRetries)
+
+    /// <summary>
+    ///     Try reading value for entry of supplied key.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    [<Extension>]
+    static member TryFind (this : CloudDictionary<'T>, key : string) : 'T option =
+        Async.RunSync <| this.TryFindAsync key
+
+    /// <summary>
+    ///     Removes entry of supplied key from dictionary.
+    /// </summary>
+    /// <param name="key">Key to be removed.</param>
+    /// <param name="dictionary">Dictionary to be updated.</param>
+    [<Extension>]
+    static member Remove (this : CloudDictionary<'T>, key : string) : bool =
+        Async.RunSync <| this.RemoveAsync(key)

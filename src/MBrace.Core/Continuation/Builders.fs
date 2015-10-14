@@ -342,7 +342,7 @@ module Builders =
         member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = mkCloud <| whileM pred body.Body
 
     /// Represents a workflow builder used to specify single-machine cloud computations. 
-    type LocalBuilder () =
+    type CloudLocalBuilder () =
         let lzero : CloudLocal<unit> = mkLocal zero
         member __.Return (t : 'T) : CloudLocal<'T> = mkLocal <| ret t
         member __.Zero () : CloudLocal<unit> = lzero
@@ -373,7 +373,7 @@ module Builders =
     /// computation runs to completion as a locally executing in-memory 
     /// computation. The computation may access concurrent shared memory and 
     /// unserializable resources.  
-    let local = new LocalBuilder ()
+    let local = new CloudLocalBuilder ()
 
     /// A workflow builder used to specify distributed cloud computations. Constituent parts of the computation
     /// may be serialized, scheduled and may migrate between different distributed 
@@ -385,6 +385,13 @@ module Builders =
 /// Collection of MBrace builder extensions for seamlessly
 /// composing MBrace with asynchronous workflows
 module BuilderAsyncExtensions =
+
+    type CloudLocalBuilder with
+        member __.Bind(f : Async<'T>, g : 'T -> CloudLocal<'S>) : CloudLocal<'S> =
+            mkLocal <| bind (ofAsync f) g
+
+        member __.ReturnFrom(f : Async<'T>) : CloudLocal<'T> =
+            mkLocal <| ofAsync f    
     
     type CloudBuilder with
         member __.Bind(f : Async<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> =
@@ -392,10 +399,3 @@ module BuilderAsyncExtensions =
 
         member __.ReturnFrom(f : Async<'T>) : Cloud<'T> =
             mkCloud <| ofAsync f
-
-    type LocalBuilder =
-        member __.Bind(f : Async<'T>, g : 'T -> CloudLocal<'S>) : CloudLocal<'S> =
-            mkLocal <| bind (ofAsync f) g
-
-        member __.ReturnFrom(f : Async<'T>) : CloudLocal<'T> =
-            mkLocal <| ofAsync f    

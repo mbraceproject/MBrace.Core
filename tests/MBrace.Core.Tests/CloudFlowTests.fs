@@ -1,17 +1,22 @@
 ﻿namespace MBrace.Core.Tests
 
-#nowarn "0444" // Disable mbrace warnings
 open System
 open System.Linq
 open System.Collections.Generic
 open System.Net
+open System.Text
 open System.IO
+
 open FsCheck
+
 open NUnit.Framework
+
+open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Flow
 open MBrace.Flow.Internals
-open MBrace.Core
-open System.Text
+
+#nowarn "0444" // Disable mbrace warnings
 
 // Helper type
 type Separator = N | R | RN
@@ -759,7 +764,7 @@ type ``CloudFlow tests`` () as self =
                         Cloud.Choice [
                             cloud { 
                                 for i in [|1..1000|] do
-                                    do! queue.Enqueue i
+                                    do! queue.EnqueueAsync i
                                     do! Cloud.Sleep(100)
                                 return None
                             };
@@ -791,7 +796,7 @@ type ``CloudFlow tests`` () as self =
                 cloud {
                     let list = ResizeArray<int>()
                     for x in xs do 
-                        let! v = queue.Dequeue()
+                        let! v = queue.DequeueAsync()
                         list.Add(v)
                     return list
                 } |> runOnCloud

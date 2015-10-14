@@ -257,7 +257,6 @@ type Combinators private () =
                     Cancellation = fun _ _ -> tcs.LocalProcessCompletionSource.TrySetCanceled() |> ignore
                 }
 
-
             queueWorkItem (fun _ -> Cloud.StartWithContinuations(clonedWorkflow, cont, resources, tcs.CancellationTokenSource.Token))
             tcs.Task
 

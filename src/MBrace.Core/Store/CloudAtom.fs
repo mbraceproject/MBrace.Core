@@ -179,11 +179,7 @@ type CloudAtom =
 
 
 [<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
-type CloudAtomExtensions =    
-
-    /// Dereferences a cloud atom.
-    [<Extension>]
-    static member GetValue(this : CloudAtom<'T>) : CloudLocal<'T> = Cloud.OfAsync <| this.GetValueAsync()
+type CloudAtomExtensions =
 
     /// <summary>
     ///     Atomically updates the contained value.
@@ -201,9 +197,8 @@ type CloudAtomExtensions =
     /// <param name="transacter">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     [<Extension>]
-    static member Transact (this : CloudAtom<'T>, transacter : 'T -> 'R * 'T, ?maxRetries : int) : CloudLocal<'R> = local {
-        return! Cloud.OfAsync <| this.TransactAsync(transacter, ?maxRetries = maxRetries)
-    }
+    static member Transact (this : CloudAtom<'T>, transacter : 'T -> 'R * 'T, ?maxRetries : int) : 'R =
+        this.TransactAsync(transacter, ?maxRetries = maxRetries) |> Async.RunSync
 
     /// <summary>
     ///     Atomically updates the contained value.
@@ -211,15 +206,13 @@ type CloudAtomExtensions =
     /// <param name="updater">value updating function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     [<Extension>]
-    static member Update (this : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int) : CloudLocal<unit> = local {
-        return! Cloud.OfAsync <| this.TransactAsync((fun t -> (), updater t), ?maxRetries = maxRetries)
-    }
+    static member Update (this : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int) : unit =
+        this.TransactAsync((fun t -> (), updater t), ?maxRetries = maxRetries) |> Async.RunSync
 
     /// <summary>
     ///     Forces the contained value to provided argument.
     /// </summary>
     /// <param name="atom">Atom instance to be updated.</param>
     [<Extension>]
-    static member Force (this : CloudAtom<'T>, value : 'T) : CloudLocal<unit> = local {
-        return! Cloud.OfAsync <| this.ForceAsync value
-    }
+    static member Force (this : CloudAtom<'T>, value : 'T) : unit =
+        this.ForceAsync value |> Async.RunSync

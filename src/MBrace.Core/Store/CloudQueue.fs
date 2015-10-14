@@ -104,42 +104,44 @@ type CloudQueue =
         return! Cloud.OfAsync <| provider.GetQueueById<'T> queueId
     }
 
+    /// <summary>
+    ///     Deletes cloud queue instance.
+    /// </summary>
+    static member Delete(queue : CloudQueue<'T>) : CloudLocal<unit> = 
+        local { return! Cloud.OfAsync <| queue.Dispose() }
+
 
 [<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
 type CloudQueueExtensions =
 
     /// Gets the current message count of the queue.
     [<Extension>]
-    static member GetCount<'T> (this : CloudQueue<'T>) : CloudLocal<int64> = local {
-        return! Cloud.OfAsync <| this.GetCountAsync()
-    }
+    static member GetCount<'T> (this : CloudQueue<'T>) : int64 =
+        Async.RunSync <| this.GetCountAsync()
 
     /// <summary>
     ///     Add message to the queue.
     /// </summary>
     /// <param name="message">Message to send.</param>
     [<Extension>]
-    static member Enqueue<'T> (this : CloudQueue<'T>, message : 'T) : CloudLocal<unit> = local {
-        return! Cloud.OfAsync <| this.EnqueueAsync message
-    }
+    static member Enqueue<'T> (this : CloudQueue<'T>, message : 'T) : unit =
+        Async.RunSync <| this.EnqueueAsync message
 
     /// <summary>
     ///     Add batch of messages to the queue.
     /// </summary>
     /// <param name="messages">Messages to be enqueued.</param>
     [<Extension>]
-    static member EnqueueBatch<'T> (this : CloudQueue<'T>, messages : seq<'T>) : CloudLocal<unit> = local {
-        return! Cloud.OfAsync <| this.EnqueueBatchAsync messages
-    }
+    static member EnqueueBatch<'T> (this : CloudQueue<'T>, messages : seq<'T>) : unit =
+        Async.RunSync <| this.EnqueueBatchAsync messages
 
     /// <summary>
     ///     Receive a single message from queue.
     /// </summary>
     /// <param name="timeout">Timeout in milliseconds.</param>
     [<Extension>]
-    static member Dequeue<'T> (this : CloudQueue<'T>, ?timeout : int) : CloudLocal<'T> = local {
-        return! Cloud.OfAsync <| this.DequeueAsync (?timeout = timeout)
-    }
+    static member Dequeue<'T> (this : CloudQueue<'T>, ?timeout : int) : 'T =
+        Async.RunSync <| this.DequeueAsync (?timeout = timeout)
 
     /// <summary>
     ///     Dequeues a batch of messages from the queue.
@@ -147,22 +149,13 @@ type CloudQueueExtensions =
     /// </summary>
     /// <param name="maxItems">Maximum number of items to dequeue.</param>
     [<Extension>]
-    static member DequeueBatch<'T>(this : CloudQueue<'T>, maxItems : int) : CloudLocal<'T []> = local {
-        return! Cloud.OfAsync <| this.DequeueBatchAsync(maxItems)
-    }
+    static member DequeueBatch<'T>(this : CloudQueue<'T>, maxItems : int) : 'T [] =
+        Async.RunSync <| this.DequeueBatchAsync(maxItems)
 
     /// <summary>
     ///     Asynchronously attempts to dequeue a message from the queue.
     ///     Returns None instantly if no message is currently available.
     /// </summary>
     [<Extension>]
-    static member TryDequeue<'T> (this : CloudQueue<'T>) : CloudLocal<'T option> = local {
-        return! Cloud.OfAsync <| this.TryDequeueAsync()
-    }
-
-    /// <summary>
-    ///     Deletes cloud queue instance.
-    /// </summary>
-    [<Extension>]
-    static member Delete(this : CloudQueue<'T>) : CloudLocal<unit> = 
-        local { return! Cloud.OfAsync <| this.Dispose() }
+    static member TryDequeue<'T> (this : CloudQueue<'T>) : 'T option =
+        Async.RunSync <| this.TryDequeueAsync()

@@ -707,7 +707,7 @@ module CloudFlow =
     /// <returns>Nothing.</returns>
     let toCloudQueue (queue : CloudQueue<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
         // TODO : use EnqueueBatch overload
-        flow |> iterLocal queue.Enqueue
+        flow |> iter queue.Enqueue
 
     /// <summary>
     ///     Returs true if the flow is empty and false otherwise.

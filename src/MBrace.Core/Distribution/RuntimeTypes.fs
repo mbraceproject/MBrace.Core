@@ -98,8 +98,13 @@ type CloudProcessExtensions =
 
     /// Returns the cloud process result if completed or None if still pending.
     [<Extension>]
-    static member TryGetResultBoxed(this : ICloudProcess) : CloudLocal<obj option> = 
-        this.TryGetResultBoxedAsync() |> ofAsync |> mkLocal
+    static member TryGetResultBoxed(this : ICloudProcess) : obj option = 
+        this.TryGetResultBoxedAsync() |> Async.RunSync
+
+    /// Returns the cloud process result if completed or None if still pending.
+    [<Extension>]
+    static member TryGetResult(this : ICloudProcess<'T>) : 'T option = 
+        this.TryGetResultAsync() |> Async.RunSync
 
     /// <summary>
     ///     Awaits cloud process for completion, returning its eventual result.
@@ -108,11 +113,6 @@ type CloudProcessExtensions =
     [<Extension>]
     static member AwaitResultBoxed(this : ICloudProcess, ?timeoutMilliseconds) : CloudLocal<obj> = 
         this.AwaitResultBoxedAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal
-
-    /// Returns the cloud process result if completed or None if still pending.
-    [<Extension>]
-    static member TryGetResult(this : ICloudProcess<'T>) : CloudLocal<'T option> = 
-        this.TryGetResultAsync() |> ofAsync |> mkLocal
 
     /// <summary>
     ///     Awaits cloud process for completion, returning its eventual result.

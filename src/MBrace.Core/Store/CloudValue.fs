@@ -87,10 +87,10 @@ type CloudValueExtensions =
 
     /// Asynchronously gets the boxed payload of the CloudValue.
     [<Extension>]
-    static member GetValueBoxed(this : ICloudValue) = Cloud.OfAsync <| this.GetValueBoxedAsync()
+    static member GetValueBoxed(this : ICloudValue) = Async.RunSync <| this.GetValueBoxedAsync()
     /// Asynchronously gets the payload of the CloudValue.
     [<Extension>]
-    static member GetValue(this : CloudValue<'T>) = Cloud.OfAsync <| this.GetValueAsync()
+    static member GetValue(this : CloudValue<'T>) = Async.RunSync <| this.GetValueAsync()
     
 
 namespace MBrace.Core.Internals
