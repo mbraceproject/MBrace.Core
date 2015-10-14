@@ -76,7 +76,7 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
 
     interface CloudFlow<'T> with
         member cv.DegreeOfParallelism = None
-        member cv.WithEvaluators(collectorf : Local<Collector<'T,'S>>) (projection: 'S -> Local<'R>) (combiner: 'R [] -> Local<'R>): Cloud<'R> = cloud {
+        member cv.WithEvaluators(collectorf : CloudLocal<Collector<'T,'S>>) (projection: 'S -> CloudLocal<'R>) (combiner: 'R [] -> CloudLocal<'R>): Cloud<'R> = cloud {
             let flow = CloudCollection.ToCloudFlow(cv)
             return! flow.WithEvaluators collectorf projection combiner
         }
@@ -108,7 +108,7 @@ and PersistedCloudFlow private () =
     /// <param name="elems">Input sequence.</param>
     /// <param name="elems">Storage level used for caching.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to 1GiB.</param>
-    static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : Local<PersistedCloudFlow<'T>> = local {
+    static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : CloudLocal<PersistedCloudFlow<'T>> = local {
         let partitionThreshold = defaultArg partitionThreshold defaultTreshold
         let! currentWorker = Cloud.CurrentWorker
         let! partitions = CloudValue.NewArrayPartitioned(elems, ?storageLevel = storageLevel, partitionThreshold = partitionThreshold)
@@ -119,7 +119,7 @@ and PersistedCloudFlow private () =
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
     /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
-    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : Local<PersistedCloudFlow<'T>> = local {
+    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : CloudLocal<PersistedCloudFlow<'T>> = local {
         let! workers = Cloud.GetAvailableWorkers()
         let partitions = cloudArrays |> Seq.mapi (fun i ca -> workers.[i % workers.Length], ca :> CloudArray<'T>) |> Seq.toArray
         return new PersistedCloudFlow<'T>(Seq.toArray partitions)

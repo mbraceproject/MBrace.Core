@@ -45,7 +45,7 @@ type DomainLocal<'T> internal (factory : unit -> 'T) =
 /// exactly once in each AppDomain(Worker) that consumes it.
 /// Distributed equivalent to System.Threading.ThreadLocal<T> type.
 [<Sealed; DataContract>]
-type DomainLocalMBrace<'T> internal (factory : Local<'T>) =
+type DomainLocalMBrace<'T> internal (factory : CloudLocal<'T>) =
     // domain local value container
     static let dict = new ConcurrentDictionary<string, Lazy<'T>> ()
 
@@ -58,7 +58,7 @@ type DomainLocalMBrace<'T> internal (factory : Local<'T>) =
     /// <summary>
     ///     Returns the value initialized in the local Application Domain.
     /// </summary>
-    member __.Value : Local<'T> = local {
+    member __.Value : CloudLocal<'T> = local {
         let! ctx = Cloud.GetExecutionContext()
         let mkLazy _ = lazy (Cloud.RunSynchronously(factory, ctx.Resources, ctx.CancellationToken))
         let lv = dict.GetOrAdd(id, mkLazy)
@@ -87,4 +87,4 @@ type DomainLocal =
     ///     Creates a new DomainLocal entity with supplied MBrace factory workflow.
     /// </summary>
     /// <param name="factory">Factory workflow.</param>
-    static member Create(factory : Local<'T>) = new DomainLocalMBrace<'T>(factory)
+    static member Create(factory : CloudLocal<'T>) = new DomainLocalMBrace<'T>(factory)

@@ -162,7 +162,7 @@ type CloudDictionaryExtensions =
     /// <param name="key">Key to be added.</param>
     /// <param name="value">Value to be added.</param>
     [<Extension>]
-    static member Add (this : CloudDictionary<'T>, key : string, value : 'T) : Local<unit>  = local {
+    static member Add (this : CloudDictionary<'T>, key : string, value : 'T) : CloudLocal<unit>  = local {
         return! Cloud.OfAsync <| this.AddAsync(key, value)
     }
 
@@ -173,7 +173,7 @@ type CloudDictionaryExtensions =
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Updater function.</param>
     [<Extension>]
-    static member AddOrUpdate (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T) : Local<'T> = local {
+    static member AddOrUpdate (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T) : CloudLocal<'T> = local {
         let transacter (curr : 'T option) = let t = updater curr in t, t
         return! Cloud.OfAsync <| this.TransactAsync(key, transacter)
     }
@@ -199,7 +199,7 @@ type CloudDictionaryExtensions =
     /// </summary>
     /// <param name="key">Key to entry.</param>
     [<Extension>]
-    static member TryFind (this : CloudDictionary<'T>, key : string) : Local<'T option> = local {
+    static member TryFind (this : CloudDictionary<'T>, key : string) : CloudLocal<'T option> = local {
         return! Cloud.OfAsync <| this.TryFindAsync key
     }
 
@@ -209,7 +209,7 @@ type CloudDictionaryExtensions =
     /// <param name="key">Key to be removed.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
     [<Extension>]
-    static member Remove (this : CloudDictionary<'T>, key : string) : Local<bool> = local {
+    static member Remove (this : CloudDictionary<'T>, key : string) : CloudLocal<bool> = local {
         return! Cloud.OfAsync <| this.RemoveAsync(key)
     }
 
@@ -219,7 +219,7 @@ type CloudDictionaryExtensions =
     /// <param name="key">Key to perform transaction on.</param>
     /// <param name="transacter">Transaction funtion.</param>
     [<Extension>]
-    static member Transact (this : CloudDictionary<'T>, key : string, transacter : 'T -> 'R * 'T) : Local<'R> = local {
+    static member Transact (this : CloudDictionary<'T>, key : string, transacter : 'T -> 'R * 'T) : CloudLocal<'R> = local {
         let transacter (curr : 'T option) =
             match curr with
             | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key

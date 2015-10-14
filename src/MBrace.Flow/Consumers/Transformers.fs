@@ -23,7 +23,7 @@ module Transformers =
     let mapGen (f : ExecutionContext -> 'T -> 'R) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         { new CloudFlow<'R> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.WithEvaluators<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+            member self.WithEvaluators<'S, 'Result> (collectorf : CloudLocal<Collector<'R, 'S>>) (projection : 'S -> CloudLocal<'Result>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
                     let! ctx = Cloud.GetExecutionContext()
@@ -47,7 +47,7 @@ module Transformers =
     let filterGen (predicate : ExecutionContext -> 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
+            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
                     let! ctx = Cloud.GetExecutionContext()
@@ -70,7 +70,7 @@ module Transformers =
     let chooseGen (chooser : ExecutionContext -> 'T -> 'R option) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         { new CloudFlow<'R> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.WithEvaluators<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+            member self.WithEvaluators<'S, 'Result> (collectorf : CloudLocal<Collector<'R, 'S>>) (projection : 'S -> CloudLocal<'Result>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
                     let! ctx = Cloud.GetExecutionContext()
@@ -96,7 +96,7 @@ module Transformers =
     let collectGen (f : ExecutionContext -> 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         { new CloudFlow<'R> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.WithEvaluators<'S, 'Result> (collectorf : Local<Collector<'R, 'S>>) (projection : 'S -> Local<'Result>) combiner =
+            member self.WithEvaluators<'S, 'Result> (collectorf : CloudLocal<Collector<'R, 'S>>) (projection : 'S -> CloudLocal<'Result>) combiner =
                 let collectorf' = local {
                     let! collector = collectorf
                     let! ctx = Cloud.GetExecutionContext()

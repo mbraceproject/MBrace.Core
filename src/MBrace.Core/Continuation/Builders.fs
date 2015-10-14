@@ -15,7 +15,7 @@ module internal BuilderImpl =
     // Implementation of expression builder combinators over Body<'T>
 
     let inline mkCloud body = new Cloud<'T>(body)
-    let inline mkLocal body = new Local<'T>(body)
+    let inline mkLocal body = new CloudLocal<'T>(body)
 
     let inline capture (e : 'exn) = ExceptionDispatchInfo.Capture e
     let inline extract (edi : ExceptionDispatchInfo) = edi.Reify(false, false)
@@ -343,30 +343,30 @@ module Builders =
 
     /// Represents a workflow builder used to specify single-machine cloud computations. 
     type LocalBuilder () =
-        let lzero : Local<unit> = mkLocal zero
-        member __.Return (t : 'T) : Local<'T> = mkLocal <| ret t
-        member __.Zero () : Local<unit> = lzero
-        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| mkExplicitDelay f
-        member __.ReturnFrom (c : Local<'T>) : Local<'T> = c
-        member __.Combine(f : Local<unit>, g : Local<'T>) : Local<'T> = mkLocal <| combine f.Body g.Body
-        member __.Bind (f : Local<'T>, g : 'T -> Local<'S>) : Local<'S> = mkLocal <| bind f.Body g
+        let lzero : CloudLocal<unit> = mkLocal zero
+        member __.Return (t : 'T) : CloudLocal<'T> = mkLocal <| ret t
+        member __.Zero () : CloudLocal<unit> = lzero
+        member __.Delay (f : unit -> CloudLocal<'T>) : CloudLocal<'T> = mkLocal <| mkExplicitDelay f
+        member __.ReturnFrom (c : CloudLocal<'T>) : CloudLocal<'T> = c
+        member __.Combine(f : CloudLocal<unit>, g : CloudLocal<'T>) : CloudLocal<'T> = mkLocal <| combine f.Body g.Body
+        member __.Bind (f : CloudLocal<'T>, g : 'T -> CloudLocal<'S>) : CloudLocal<'S> = mkLocal <| bind f.Body g
 
-        member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Local<'U>) : Local<'U> = 
+        member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> CloudLocal<'U>) : CloudLocal<'U> = 
             mkLocal <| usingIDisposable value bindF
-        member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Local<'U>) : Local<'U> = 
+        member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> CloudLocal<'U>) : CloudLocal<'U> = 
             mkLocal <| usingICloudDisposable value bindF
 
-        member __.TryWith(f : Local<'T>, handler : exn -> Local<'T>) : Local<'T> = mkLocal <| tryWith f.Body handler
-        member __.TryFinally(f : Local<'T>, finalizer : unit -> unit) : Local<'T> = 
+        member __.TryWith(f : CloudLocal<'T>, handler : exn -> CloudLocal<'T>) : CloudLocal<'T> = mkLocal <| tryWith f.Body handler
+        member __.TryFinally(f : CloudLocal<'T>, finalizer : unit -> unit) : CloudLocal<'T> = 
             mkLocal <| tryFinally f.Body (retFunc finalizer)
 
-        member __.For(ts : seq<'T>, body : 'T -> Local<unit>) : Local<unit> = 
+        member __.For(ts : seq<'T>, body : 'T -> CloudLocal<unit>) : CloudLocal<unit> = 
             match ts with
             | :? ('T []) as ts -> mkLocal <| forArray body ts
             | :? ('T list) as ts -> mkLocal <| forList body ts
             | _ -> mkLocal <| forSeq body ts
 
-        member __.While(pred : unit -> bool, body : Local<unit>) : Local<unit> = mkLocal <| whileM pred body.Body
+        member __.While(pred : unit -> bool, body : CloudLocal<unit>) : CloudLocal<unit> = mkLocal <| whileM pred body.Body
 
 
     /// A workflow builder used to specify single-machine cloud computations. The
@@ -394,8 +394,8 @@ module BuilderAsyncExtensions =
             mkCloud <| ofAsync f
 
     type LocalBuilder =
-        member __.Bind(f : Async<'T>, g : 'T -> Local<'S>) : Local<'S> =
+        member __.Bind(f : Async<'T>, g : 'T -> CloudLocal<'S>) : CloudLocal<'S> =
             mkLocal <| bind (ofAsync f) g
 
-        member __.ReturnFrom(f : Async<'T>) : Local<'T> =
+        member __.ReturnFrom(f : Async<'T>) : CloudLocal<'T> =
             mkLocal <| ofAsync f    

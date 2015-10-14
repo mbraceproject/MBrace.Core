@@ -70,7 +70,7 @@ type Combinators private () =
     /// <param name="mkNestedCts">Creates a child cancellation token source for child workflows.</param>
     /// <param name="memoryEmulation">Memory semantics used for parallelism.</param>
     /// <param name="computations">Input computations.</param>
-    static member Parallel (mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T>>) : Local<'T []> =
+    static member Parallel (mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T>>) : CloudLocal<'T []> =
         Local.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             // handle computation sequence enumeration error
@@ -160,7 +160,7 @@ type Combinators private () =
     /// <param name="mkNestedCts">Creates a child cancellation token source for child workflows.</param>
     /// <param name="memoryEmulation">Memory semantics used for parallelism.</param>
     /// <param name="computations">Input computations.</param>
-    static member Choice(mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T option>>) : Local<'T option> =
+    static member Choice(mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T option>>) : CloudLocal<'T option> =
         Local.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             // handle computation sequence enumeration error

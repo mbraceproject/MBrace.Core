@@ -60,7 +60,7 @@ module Take =
             }
         { new CloudFlow<'T> with
               member __.DegreeOfParallelism = flow.DegreeOfParallelism
-              member __.WithEvaluators<'S, 'R>(collectorF: Local<Collector<'T, 'S>>) (projection: 'S -> Local<'R>) combiner =
+              member __.WithEvaluators<'S, 'R>(collectorF: CloudLocal<Collector<'T, 'S>>) (projection: 'S -> CloudLocal<'R>) combiner =
                   cloud {
                       let! flow = gather 
                       return! (flow :> CloudFlow<_>).WithEvaluators collectorF projection combiner

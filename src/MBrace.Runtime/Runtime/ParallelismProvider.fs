@@ -49,8 +49,8 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
         member __.WithForcedLocalParallelismSetting (setting : bool) = 
             new ParallelismProvider(currentWorker, runtime, currentWorkItem, faultPolicy, logger, setting) :> IParallelismProvider
 
-        member __.ScheduleLocalParallel (computations : seq<Local<'T>>) = Combinators.Parallel(mkNestedCts false, MemoryEmulation.Shared, computations)
-        member __.ScheduleLocalChoice (computations : seq<Local<'T option>>) = Combinators.Choice(mkNestedCts false, MemoryEmulation.Shared, computations)
+        member __.ScheduleLocalParallel (computations : seq<CloudLocal<'T>>) = Combinators.Parallel(mkNestedCts false, MemoryEmulation.Shared, computations)
+        member __.ScheduleLocalChoice (computations : seq<CloudLocal<'T option>>) = Combinators.Choice(mkNestedCts false, MemoryEmulation.Shared, computations)
 
         member __.ScheduleParallel (computations : seq<#Cloud<'T> * IWorkerRef option>) = cloud {
             if isForcedLocalParallelism then

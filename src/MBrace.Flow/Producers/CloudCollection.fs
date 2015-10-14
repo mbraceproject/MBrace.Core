@@ -24,7 +24,7 @@ type internal CloudCollection private () =
     static member ToCloudFlow (collection : ICloudCollection<'T>, ?weight : IWorkerRef -> int, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
                 // Performs flow reduction on given input partition in a single MBrace work item
                 let reducePartitionsInSingleWorkItem (partitions : ICloudCollection<'T> []) = local {
                     // further partition according to collection size threshold, if so specified.

@@ -48,10 +48,10 @@ type PersistedValue<'T> =
     }
 
     /// Dereferences value from store
-    member c.GetValue () : Local<'T> = Cloud.OfAsync <| c.GetValueAsync()
+    member c.GetValue () : CloudLocal<'T> = Cloud.OfAsync <| c.GetValueAsync()
 
     /// Gets the size of the persisted value in bytes.
-    member c.GetSize () : Local<int64> = Cloud.OfAsync <| c.GetSizeAsync()
+    member c.GetSize () : CloudLocal<int64> = Cloud.OfAsync <| c.GetSizeAsync()
 
     /// Dereferences value from store.
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
@@ -80,7 +80,7 @@ type PersistedValue =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime serializer.</param>
     /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
-    static member New(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : Local<PersistedValue<'T>> = local {
+    static member New(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : CloudLocal<PersistedValue<'T>> = local {
         let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore>()
         let path = 
@@ -120,7 +120,7 @@ type PersistedValue =
     /// <param name="path">Path to cloud file.</param>
     /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool) : Local<PersistedValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool) : CloudLocal<PersistedValue<'T>> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
         let! deserializer = local {
             match deserializer with 
@@ -160,7 +160,7 @@ type PersistedValue =
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool) : Local<PersistedValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool) : CloudLocal<PersistedValue<'T>> = local {
         let deserializer (stream : Stream) =
             let sr =
                 match encoding with
