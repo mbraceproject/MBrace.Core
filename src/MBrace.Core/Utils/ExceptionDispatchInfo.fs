@@ -177,12 +177,9 @@ module ExceptionDispatchInfoUtils =
         /// </summary>
         /// <param name="task">Task to be awaited.</param>
         static member AwaitTaskCorrect(task : Task<'T>) : Async<'T> = async {
-            let! _ = Async.AwaitTask task |> Async.Catch
-            match task.Status with
-            | TaskStatus.RanToCompletion -> return task.Result
-            | TaskStatus.Faulted -> return! Async.Raise task.InnerException
-            | TaskStatus.Canceled -> return raise <| new InvalidOperationException()
-            | _ -> return invalidOp "internal error"
+            try return! Async.AwaitTask task
+            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 ->   
+                return! Async.Raise ae.InnerExceptions.[0]
         }
 
         /// <summary>
