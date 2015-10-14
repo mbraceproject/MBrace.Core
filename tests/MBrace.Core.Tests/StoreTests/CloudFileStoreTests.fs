@@ -204,7 +204,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         let data = Array.init (1024 * 1024) byte
         let writeData _ = async {
             use! fs = self.FileStore.BeginWrite file
-            do! fs.WriteAsync(data, 0, data.Length)
+            do! fs.WriteAsync(data, 0, data.Length) |> Async.AwaitTaskCorrect
         }
 
         Seq.init 20 writeData |> Async.Parallel |> Async.Ignore |> Async.RunSync
@@ -222,7 +222,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         let readData _ = async {
             use! fs = self.FileStore.BeginRead file
             let data = Array.zeroCreate<byte> (1024 * 1024)
-            do! fs.ReadAsync(data, 0, data.Length)
+            let! _ = fs.ReadAsync(data, 0, data.Length) |> Async.AwaitTaskCorrect
             return data.Length
         }
 

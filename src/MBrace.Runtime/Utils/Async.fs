@@ -9,6 +9,16 @@ open MBrace.Core.Internals
 [<AutoOpen>]
 module AsyncUtils =
 
+    type AsyncBuilder with
+        member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
+            __.Bind(Async.AwaitTaskCorrect f, g)
+        member inline __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
+            __.Bind(Async.AwaitTaskCorrect (f.ContinueWith ignore), g)
+        member inline __.ReturnFrom(f : Task<'T>) : Async<'T> =
+            __.ReturnFrom(Async.AwaitTaskCorrect f)
+        member inline __.ReturnFrom(f : Task) : Async<unit> =
+            __.ReturnFrom(Async.AwaitTaskCorrect (f.ContinueWith ignore))
+
     type Async with
         
         /// <summary>
@@ -26,17 +36,7 @@ module AsyncUtils =
                 let timeoutCallback _ = tcs.SetException(new TimeoutException())
                 let _ = new Timer(timeoutCallback, null, timeoutMilliseconds, Timeout.Infinite)
                 do Async.StartWithContinuations(workflow, tcs.TrySetResult >> ignore, tcs.TrySetException >> ignore, ignore >> tcs.TrySetCanceled >> ignore, ct)
-                return! tcs.Task.AwaitResultAsync()
-        }
-
-        /// <summary>
-        ///     Asynchronously awaits a task in a way that correctly exposes user exceptions.
-        /// </summary>
-        /// <param name="task">Task to be awaited.</param>
-        static member AwaitTaskCorrect(task : Task<'T>) = async {
-            try return! Async.AwaitTask task
-            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 -> 
-                return! Async.Raise (ae.InnerExceptions.[0])
+                return! tcs.Task |> Async.AwaitTaskCorrect
         }
 
         /// <summary>
@@ -45,11 +45,11 @@ module AsyncUtils =
         /// </summary>
         /// <param name="observable">Observable source.</param>
         /// <param name="timeout">Timeout in milliseconds. Defaults to no timeout.</param>
-        static member AwaitObservable(observable: IObservable<'T>, ?timeoutMilliseconds:int) =
+        static member AwaitObservable(observable: IObservable<'T>, ?timeoutMilliseconds:int) : Async<'T> =
             let tcs = new TaskCompletionSource<'T>()
             let rec observer t = tcs.TrySetResult t |> ignore ; remover.Dispose()
             and remover : IDisposable = observable.Subscribe observer
 
             match timeoutMilliseconds with
-            | None -> tcs.Task.AwaitResultAsync()
-            | Some t -> Async.WithTimeout(tcs.Task.AwaitResultAsync(), t)
+            | None -> tcs.Task |> Async.AwaitTaskCorrect
+            | Some t -> Async.WithTimeout(tcs.Task |> Async.AwaitTaskCorrect, t)

@@ -630,7 +630,7 @@ type CloudFile =
             | None -> new StreamWriter(stream)
             | Some e -> new StreamWriter(stream, e)
 
-        do! Cloud.OfAsync <| Async.AwaitTask(sw.WriteAsync(text))
+        do! sw.WriteAsync text |> Async.AwaitTaskCorrect |> Cloud.OfAsync
         return new CloudFileInfo(store, path)
     }
 
@@ -668,7 +668,7 @@ type CloudFile =
     static member ReadAllBytes(path : string) : Local<byte []> = local {
         use! stream = CloudFile.BeginRead path
         use ms = new MemoryStream()
-        do! Cloud.OfAsync <| Async.AwaitTask(stream.CopyToAsync ms)
+        do! stream.CopyToAsync ms |> Async.AwaitTaskCorrect |> Cloud.OfAsync
         return ms.ToArray()
     }
 
@@ -692,7 +692,7 @@ type CloudFile =
         if compress then
             use! stream = Cloud.OfAsync <| store.BeginWrite targetPath
             use gz = new GZipStream(stream, CompressionLevel.Optimal)
-            do! fs.CopyToAsync gz |> Async.AwaitTask |> Cloud.OfAsync
+            do! fs.CopyToAsync gz |> Async.AwaitTaskCorrect |> Cloud.OfAsync
         else
             do! Cloud.OfAsync <| store.CopyOfStream(fs, targetPath)
 

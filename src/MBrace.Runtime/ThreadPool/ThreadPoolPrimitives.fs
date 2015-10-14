@@ -63,22 +63,16 @@ type ConsoleCloudLogger() =
 
 /// Cloud process implementation that wraps around System.Threading.Task for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
-type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
+type ThreadPoolProcess<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
     member __.LocalTask = task
     interface ICloudProcess<'T> with
         member __.Id = sprintf "System.Threading.Task %d" task.Id
-        member __.AwaitResultAsync(?timeoutMilliseconds:int) = async {
-            try return! Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
-            with :? AggregateException as e -> return! Async.Raise (e.InnerExceptions.[0])
-        }
+        member __.AwaitResultAsync(?timeoutMilliseconds:int) =
+            Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
 
         member __.AwaitResultBoxedAsync(?timeoutMilliseconds:int) : Async<obj> = async {
-            try 
-                let! r = Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
-                return r :> obj
-
-            with :? AggregateException as e -> 
-                return! Async.Raise (e.InnerExceptions.[0])
+            let! r = Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
+            return r :> obj
         }
 
         member __.TryGetResultAsync () = async { return task.TryGetResult() }
@@ -98,8 +92,8 @@ type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken)
         member __.IsFaulted = task.IsFaulted
         member __.IsCanceled = task.IsCanceled
         member __.CancellationToken = ct
-        member __.Result = task.GetResult()
-        member __.ResultBoxed = task.GetResult() :> obj
+        member __.Result = task.CorrectResult
+        member __.ResultBoxed = task.CorrectResult :> obj
 
 
 /// FsPickler Binary serializer for use by thread pool runtimes

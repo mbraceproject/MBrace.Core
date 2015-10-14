@@ -42,7 +42,7 @@ type private ThreadPoolProcessCompletionSource<'T> (?cancellationToken : ICloudC
         | None -> ThreadPoolCancellationTokenSource()
         | Some ct -> ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
 
-    let task = new ThreadPoolTask<'T>(tcs.Task, cts.Token)
+    let task = new ThreadPoolProcess<'T>(tcs.Task, cts.Token)
 
     member __.CancellationTokenSource = cts
     member __.LocalProcessCompletionSource = tcs
@@ -283,4 +283,4 @@ type Combinators private () =
     /// <param name="resources">Resource registry used for cloud workflow.</param>
     static member RunSynchronously(workflow : Cloud<'T>, memoryEmulation : MemoryEmulation, resources : ResourceRegistry, ?cancellationToken) : 'T =
         let task = Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
-        task.LocalTask.GetResult()
+        (task :> ICloudProcess<'T>).Result

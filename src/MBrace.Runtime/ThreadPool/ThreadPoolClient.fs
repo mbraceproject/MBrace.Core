@@ -109,7 +109,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
-    member r.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : ThreadPoolTask<'T> =
+    member r.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : ThreadPoolProcess<'T> =
         match vagabondGraphChecker with Some v -> v workflow | None -> ()
         let memoryEmulation = defaultArg memoryEmulation _memoryEmulation
         let resources = buildResources memoryEmulation logger resources
@@ -124,7 +124,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
-    member r.StartAsTask(workflow : Cloud<'T>, cancellationToken : CancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : ThreadPoolTask<'T> =
+    member r.StartAsTask(workflow : Cloud<'T>, cancellationToken : CancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : ThreadPoolProcess<'T> =
         let ct = new ThreadPoolCancellationToken(cancellationToken)
         r.StartAsTask(workflow, ct, ?memoryEmulation = memoryEmulation, ?logger = logger, ?resources = resources)
 
@@ -133,7 +133,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// </summary>
     /// <param name="logger">Logger abstraction. Defaults to no logging.</param>
     /// <param name="memoryEmulation">Memory semantics used for parallelism. Defaults to shared memory.</param>
-    /// <param name="fileStore">Cloud file store to be used. Defaults to no store.</param>
+    /// <param name="fileStore">Cloud file store to be used. Defaults to random local FileSystemStore location.</param>
     /// <param name="serializer">Default serializer implementations. Defaults to FsPickler binary serializer.</param>
     /// <param name="valueProvider">CloudValue provider instance. Defaults to in-memory implementation.</param>
     /// <param name="atomProvider">Cloud atom provider instance. Defaults to in-memory atoms.</param>
@@ -153,6 +153,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
                             ?vagabondChecker : obj -> unit) : ThreadPoolRuntime =
 
         let memoryEmulation = match memoryEmulation with Some m -> m | None -> MemoryEmulation.Shared
+        let fileStore = match fileStore with Some fs -> fs | None -> FileSystemStore.CreateRandomLocal() :> _
         let serializer = match serializer with Some s -> s | None -> new ThreadPoolFsPicklerBinarySerializer() :> _
         let valueProvider = match valueProvider with Some vp -> vp | None -> new ThreadPoolValueProvider() :> _
         let atomProvider = match atomProvider with Some ap -> ap | None -> new ThreadPoolAtomProvider(memoryEmulation) :> _
@@ -162,11 +163,11 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
 
         let resources = resource {
             yield serializer
+            yield fileStore
             yield valueProvider
             yield atomProvider
             yield dictionaryProvider
             yield queueProvider
-            match fileStore with Some fc -> yield fc | None -> ()
             match resources with Some r -> yield! r | None -> ()
         }
 

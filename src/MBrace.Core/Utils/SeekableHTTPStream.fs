@@ -52,7 +52,7 @@ type SeekableHTTPStream(url : string) as self =
         | None -> 
             let request = HttpWebRequest.CreateHttp(url)
             request.Method <- "HEAD"
-            use! response = request.GetResponseAsync().AwaitResultAsync()
+            use! response = request.GetResponseAsync() |> Async.AwaitTaskCorrect
             let contentLength = response.ContentLength
             length <- Some contentLength    
             return contentLength

@@ -183,7 +183,7 @@ type Cloud private () =
     /// <param name="cancellationToken">Cancellation token used for task. Defaults to no cancellation token.</param>
     [<CompilerMessage("'StartAsTask' only intended for runtime implementers.", 444)>]
     static member StartAsTask(workflow : Cloud<'T>, resources : ResourceRegistry, 
-                                        ?cancellationToken : ICloudCancellationToken, ?taskCreationOptions : TaskCreationOptions) : Task<'T> =
+                                ?cancellationToken : ICloudCancellationToken, ?taskCreationOptions : TaskCreationOptions) : Task<'T> =
 
         let taskCreationOptions = defaultArg taskCreationOptions TaskCreationOptions.None
         let tcs = new TaskCompletionSource<'T>(taskCreationOptions)
@@ -295,4 +295,4 @@ type Cloud private () =
     static member RunSynchronously(workflow : Cloud<'T>, ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : 'T =
         let resources = defaultArg resources ResourceRegistry.Empty
         let cancellationToken = getCancellationToken cancellationToken
-        Cloud.StartAsTask(workflow, resources, cancellationToken).GetResult()
+        Cloud.StartAsTask(workflow, resources, cancellationToken).CorrectResult
