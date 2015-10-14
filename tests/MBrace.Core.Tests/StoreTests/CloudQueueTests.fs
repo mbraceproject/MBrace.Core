@@ -70,13 +70,13 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
                 if n = 0 then return c
                 else
                     let! i = cq.DequeueAsync()
-                    return! receiver (c + 1) (n - 1)
+                    return! receiver (c + i) (n - 1)
             }
 
             let senders = Seq.init parallelismFactor (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
             let! _,result = senders <||> receiver 0 (parallelismFactor * 10)
             return result
-        } |> runOnCloud |> shouldEqual (parallelismFactor * 10)
+        } |> runOnCloud |> shouldEqual (parallelismFactor * 55)
 
     [<Test>]
     member __.``Batch enqueue/dequeue`` () =

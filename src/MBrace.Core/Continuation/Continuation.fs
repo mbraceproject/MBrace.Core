@@ -196,7 +196,7 @@ type Cloud private () =
                 Cancellation = fun _ _ -> tcs.TrySetCanceled() |> ignore
             }
 
-        Trampoline.QueueWorkItem(fun () -> Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken))
+        Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken)
         tcs.Task
 
     /// <summary>
@@ -224,7 +224,6 @@ type Cloud private () =
                     Cancellation = fun _ c -> cc c
                 }
 
-            do Trampoline.Reset()
             Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken))
     }
 
@@ -252,26 +251,7 @@ type Cloud private () =
 
         let resources = defaultArg resources ResourceRegistry.Empty
         let cancellationToken = getCancellationToken cancellationToken
-        workflow.Body { Resources = resources ; CancellationToken = cancellationToken } continuation
-
-    /// <summary>
-    ///     Starts provided cloud workflow immediately in the current thread.
-    /// </summary>
-    /// <param name="workflow">Cloud workflow to be executed.</param>
-    /// <param name="resources">Resource registry passed to execution context. Defaults to the empty resource registry.</param>
-    /// <param name="cancellationToken">Cancellation token used for computation. Defaults to no cancellation token.</param>
-    [<CompilerMessage("'StartImmediate' only intended for runtime implementers.", 444)>]
-    static member StartImmediate(workflow : Cloud<unit>, ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
-        let resources = defaultArg resources ResourceRegistry.Empty
-        let cancellationToken = getCancellationToken cancellationToken
-        let cont =
-            {
-                Success = fun _ _ -> ()
-                Exception = fun _ edi -> ExceptionDispatchInfo.raise true edi
-                Cancellation = fun _ _ -> ()
-            }
-            
-        Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken)
+        Cloud.StartWithContinuations(workflow, continuation, { Resources = resources ; CancellationToken = cancellationToken })
 
     /// <summary>
     ///     Starts provided cloud workflow in the thread pool.
@@ -283,7 +263,14 @@ type Cloud private () =
     static member Start(workflow : Cloud<unit>, ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
         let resources = defaultArg resources ResourceRegistry.Empty
         let cancellationToken = getCancellationToken cancellationToken
-        Trampoline.QueueWorkItem(fun () -> Cloud.StartImmediate(workflow, resources, cancellationToken))
+        let cont =
+            {
+                Success = fun _ _ -> ()
+                Exception = fun _ edi -> ExceptionDispatchInfo.raise true edi
+                Cancellation = fun _ _ -> ()
+            }
+            
+        Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken)
 
     /// <summary>
     ///     Synchronously await a locally executing workflow.
