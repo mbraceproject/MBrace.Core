@@ -502,6 +502,18 @@ module ``Continuation Tests`` =
 
         run(diveTo 100000) |> Choice.shouldEqual 100000
 
+
+    [<Test>]
+    let ``async binding stack overflow`` () =
+        let rec diveTo n = cloud {
+            if n = 0 then return ()
+            else
+                let! x = Cloud.OfAsync <| async { return n }
+                return! diveTo (n-1)
+        }
+
+        run(diveTo 100000) |> Choice.shouldEqual ()
+
     [<Test>]
     let ``deep exception`` () =
         let rec diveRaise n = cloud {
