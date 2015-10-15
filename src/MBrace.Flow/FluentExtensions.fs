@@ -20,6 +20,12 @@ type CloudFlowExtensions =
     [<System.Runtime.CompilerServices.Extension>]
     static member inline map (this : CloudFlow<'T>, f : 'T -> 'R) : CloudFlow<'R> = CloudFlow.map f this
 
+    /// <summary>Enables the insertion of a monadic side-effect in a distributed flow. Output remains the same.</summary>
+    /// <param name="f">A locally executing cloud function that performs side effect on input flow elements.</param>
+    /// <returns>The result CloudFlow.</returns>
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline peek (this : CloudFlow<'T>, f : 'T -> CloudLocal<unit>) : CloudFlow<'T> = CloudFlow.peek f this
+
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements.</summary>
     /// <param name="this">The input CloudFlow.</param>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
