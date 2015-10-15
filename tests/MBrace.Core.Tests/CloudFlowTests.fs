@@ -79,8 +79,12 @@ type ``CloudFlow tests`` () as self =
 
         lineCount
 
+    /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
+    /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
+    /// Run workflow in the runtime under test, returning logs created by the process.
+    abstract RunWithLogs : workflow:Cloud<unit> -> string []
     abstract IsSupportedStorageLevel : StorageLevel -> bool
     abstract FsCheckMaxNumberOfTests : int
     abstract FsCheckMaxNumberOfIOBoundTests : int
@@ -393,6 +397,18 @@ type ``CloudFlow tests`` () as self =
             let x = xs |> CloudFlow.OfArray |> CloudFlow.map (fun n -> 2 * n) |> CloudFlow.toArray |> runOnCloud
             let y = xs |> Seq.map (fun n -> 2 * n) |> Seq.toArray
             Assert.AreEqual(y, x)
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : peek`` () =
+        let f(xs : int[]) =
+            let wf = cloud {
+                let! ys = xs |> CloudFlow.OfArray |> CloudFlow.peek (Cloud.Logf "%d") |> CloudFlow.toArray
+                Assert.AreEqual(Array.sort ys, Array.sort xs)
+            }
+            let logs = __.RunWithLogs wf
+            logs.Length |> shouldEqual xs.Length
+
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]

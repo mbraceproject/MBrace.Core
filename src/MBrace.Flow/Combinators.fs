@@ -279,12 +279,12 @@ module CloudFlow =
     let inline map (f : 'T -> 'R) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         Transformers.mapGen (fun _ x -> f x) flow
 
-    /// <summary>Transforms each element of the input CloudFlow using a locally executing cloud function.</summary>
-    /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
+    /// <summary>Enables the insertion of a monadic side-effect in a distributed flow. Output remains the same.</summary>
+    /// <param name="f">A locally executing cloud function that performs side effect on input flow elements.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
-    let mapLocal (f : 'T -> CloudLocal<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.mapGen (fun ctx x -> f x |> run ctx) flow
+    let peek (f : 'T -> CloudLocal<unit>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Transformers.mapGen (fun ctx x -> f x |> run ctx ; x) flow
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements.</summary>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
@@ -293,13 +293,6 @@ module CloudFlow =
     let inline collect (f : 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         Transformers.collectGen (fun _ x -> f x) flow
 
-    /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements using a locally executing cloud function.</summary>
-    /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let collectLocal (f : 'T -> CloudLocal<#seq<'R>>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.collectGen (fun ctx x -> f x |> run ctx) flow
-
     /// <summary>Filters the elements of the input CloudFlow.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input CloudFlow.</param>
@@ -307,26 +300,12 @@ module CloudFlow =
     let inline filter (predicate : 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
         Transformers.filterGen (fun _ x -> predicate x) flow
 
-    /// <summary>Filters the elements of the input CloudFlow using a locally executing cloud function.</summary>
-    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let filterLocal (predicate : 'T -> CloudLocal<bool>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Transformers.filterGen (fun ctx x -> predicate x |> run ctx) flow
-
     /// <summary>Applies the given chooser function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
     /// <param name="predicate">A function to transform items of type 'T into options of type 'R.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline choose (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : CloudFlow<'R> =
         Transformers.chooseGen (fun _ x -> chooser x) flow
-
-    /// <summary>Applies the given locally executing cloud function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
-    /// <param name="chooser">A locally executing cloud function to transform items of type 'T into options of type 'R.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let inline chooseLocal (chooser : 'T -> CloudLocal<'R option>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.chooseGen (fun ctx x -> chooser x |> run ctx) flow
 
     /// <summary>Returns a cloud flow with a new degree of parallelism.</summary>
     /// <param name="degreeOfParallelism">The degree of parallelism.</param>
@@ -341,18 +320,6 @@ module CloudFlow =
                     member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) combiner =
                         flow.WithEvaluators collectorf projection combiner }
 
-    /// <summary>Applies a locally executing cloud function to each element of the CloudFlow, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
-    /// <param name="folder">A locally executing cloud function that updates the state with each element from the CloudFlow.</param>
-    /// <param name="combiner">A locally executing cloud function that combines partial states into a new state.</param>
-    /// <param name="state">A locally executing cloud function that produces the initial state.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The final result.</returns>
-    let foldLocal (folder : 'State -> 'T -> CloudLocal<'State>) 
-                    (combiner : 'State -> 'State -> CloudLocal<'State>)
-                    (state : unit -> CloudLocal<'State>) (flow : CloudFlow<'T>) : Cloud<'State> =
-
-        Fold.foldGen (fun ctx x y -> run ctx (folder x y)) (fun ctx x y -> run ctx (combiner x y)) (fun ctx -> run ctx (state ())) flow
-
     /// <summary>Applies a function to each element of the CloudFlow, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
     /// <param name="folder">A function that updates the state with each element from the CloudFlow.</param>
     /// <param name="combiner">A function that combines partial states into a new state.</param>
@@ -364,19 +331,6 @@ module CloudFlow =
                     (state : unit -> 'State) (flow : CloudFlow<'T>) : Cloud<'State> =
 
         Fold.foldGen (fun _ x y -> folder x y) (fun _ x y -> combiner x y) (fun _ -> state ()) flow
-
-    /// <summary>Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and the result of the threading an accumulator. The folder, combiner and state are locally executing cloud functions.</summary>
-    /// <param name="projection">A function to transform items from the input CloudFlow to keys.</param>
-    /// <param name="folder">A locally executing cloud function that updates the state with each element from the CloudFlow.</param>
-    /// <param name="combiner">A locally executing cloud function that combines partial states into a new state.</param>
-    /// <param name="state">A locally executing cloud function that produces the initial state.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The final result.</returns>
-    let inline foldByLocal (projection : 'T -> CloudLocal<'Key>)
-                    (folder : 'State -> 'T -> CloudLocal<'State>)
-                    (combiner : 'State -> 'State -> CloudLocal<'State>)
-                    (state : unit -> CloudLocal<'State>) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> =
-        Fold.foldByGen (fun ctx x -> projection x |> run ctx) (fun ctx x y -> folder x y |> run ctx) (fun ctx s1 s2 -> combiner s1 s2 |> run ctx) (fun ctx -> state () |> run ctx) flow
 
     /// <summary>Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and the result of the threading an accumulator.</summary>
     /// <param name="projection">A function to transform items from the input CloudFlow to keys.</param>
@@ -400,25 +354,11 @@ module CloudFlow =
     let inline countBy (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
         Fold.foldByGen (fun _ctx x -> projection x) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ctx -> 0L) flow
 
-    /// <summary>
-    /// Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and their number of occurrences in the original sequence.
-    /// </summary>
-    /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    let countByLocal (projection : 'T -> CloudLocal<'Key>) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
-        Fold.foldByGen (fun ctx x -> projection x |> run ctx) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ -> 0L) flow
-
     /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>Nothing.</returns>
     let inline iter (action: 'T -> unit) (flow : CloudFlow< 'T >) : Cloud< unit > =
         fold (fun () x -> action x) (fun () () -> ()) (fun () -> ()) flow
-
-    /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>Nothing.</returns>
-    let iterLocal (action: 'T -> CloudLocal<unit>) (flow : CloudFlow< 'T >) : Cloud< unit > =
-        foldLocal (fun () x -> action x) (fun () () -> local { return () }) (fun () -> local { return () }) flow
 
     /// <summary>Returns the sum of the elements.</summary>
     /// <param name="flow">The input CloudFlow.</param>
@@ -436,14 +376,6 @@ module CloudFlow =
             when ^S : (static member ( + ) : ^S * ^S -> ^S)
             and  ^S : (static member Zero : ^S) =
         fold (fun s x -> s + projection x) (+) (fun () -> LanguagePrimitives.GenericZero) flow
-
-    /// <summary>Applies a key-generating locally executing cloud function to each element of a CloudFlow and return the sum of the keys.</summary>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The sum of the keys.</returns>
-    let inline sumByLocal (projection : 'T -> CloudLocal< ^Key>) (flow : CloudFlow< 'T >) : Cloud< ^Key>
-            when ^Key : (static member ( + ) : ^Key * ^Key -> ^Key)
-            and  ^Key : (static member Zero : ^Key) =
-        Fold.foldGen (fun ctx s x -> s + run ctx (projection x)) (fun _ctx x y -> x + y) (fun _ctx -> LanguagePrimitives.GenericZero) flow
 
     /// <summary>Returns the total number of elements of the CloudFlow.</summary>
     /// <param name="flow">The input CloudFlow.</param>
@@ -535,45 +467,12 @@ module CloudFlow =
         let comparer = mkDescComparer LanguagePrimitives.FastGenericComparer<'Key>
         Sort.sortByGen comparer (fun _ctx x -> projection x) takeCount flow
 
-    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
-    /// <param name="projection">A locally executing cloud function to transform items of the input CloudFlow into comparable keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <param name="takeCount">The number of elements to return.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let sortByLocal (projection : 'T -> CloudLocal<'Key>) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = _PrivateFastGenericComparerTable<'Key>.ValueCanBeNullIfDefaultSemantics
-        Sort.sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount flow
-
-    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
-    /// <param name="projection">A locally executing cloud function to transform items of the input CloudFlow into comparable keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <param name="takeCount">The number of elements to return.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let sortByUsingLocal (projection : 'T -> CloudLocal<'Key>) comparer (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount flow
-
-    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by descending keys.</summary>
-    /// <param name="projection">A locally executing cloud function to transform items of the input CloudFlow into comparable keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <param name="takeCount">The number of elements to return.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let sortByDescendingLocal (projection : 'T -> CloudLocal<'Key>) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = mkDescComparer LanguagePrimitives.FastGenericComparer<'Key>
-        Sort.sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount flow
-
     /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
     let inline tryFind (predicate : 'T -> bool) (flow : CloudFlow<'T>) : Cloud<'T option> =
         NonDeterministic.tryFindGen (fun _ctx x -> predicate x) flow
-
-    /// <summary>Returns the first element for which the given locally executing cloud function returns true. Returns None if no such element exists.</summary>
-    /// <param name="predicate">A function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
-    let tryFindLocal (predicate : 'T -> CloudLocal<bool>) (flow : CloudFlow<'T>) : Cloud<'T option> =
-        NonDeterministic.tryFindGen (fun ctx x -> predicate x |> run ctx) flow
 
     /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -589,33 +488,12 @@ module CloudFlow =
                 | None -> raise <| new KeyNotFoundException()
         }
 
-    /// <summary>Returns the first element for which the given locally executing cloud function returns true. Raises KeyNotFoundException if no such element exists.</summary>
-    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the predicate returns true.</returns>
-    /// <exception cref="System.KeyNotFoundException">Thrown if the predicate evaluates to false for all the elements of the cloud flow.</exception>
-    let findLocal (predicate : 'T -> CloudLocal<bool>) (flow : CloudFlow<'T>) : Cloud<'T> =
-        cloud {
-            let! result = tryFindLocal predicate flow
-            return
-                match result with
-                | Some value -> value
-                | None -> raise <| new KeyNotFoundException()
-        }
-
     /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.</summary>
     /// <param name="chooser">A function that transforms items into options.</param>
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
     let inline tryPick (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : Cloud<'R option> =
         NonDeterministic.tryPickGen (fun _ctx x -> chooser x) flow
-
-    /// <summary>Applies the given locally executing cloud function to successive elements, returning the first result where the function returns a Some value.</summary>
-    /// <param name="chooser">A locally executing cloud function that transforms items into options.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
-    let tryPickLocal (chooser : 'T -> CloudLocal<'R option>) (flow : CloudFlow<'T>) : Cloud<'R option> =
-        NonDeterministic.tryPickGen (fun ctx x -> chooser x |> run ctx) flow
 
     /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.
     /// Raises KeyNotFoundException when every item of the cloud flow evaluates to None when the given function is applied.</summary>
@@ -626,21 +504,6 @@ module CloudFlow =
     let inline pick (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : Cloud<'R> =
         cloud {
             let! result = tryPick chooser flow
-            return
-                match result with
-                | Some value -> value
-                | None -> raise <| new KeyNotFoundException()
-        }
-
-    /// <summary>Applies the given locally executing cloud function to successive elements, returning the first result where the function returns a Some value.
-    /// Raises KeyNotFoundException when every item of the cloud flow evaluates to None when the given function is applied.</summary>
-    /// <param name="chooser">A locally executing cloud function that transforms items into options.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the chooser returns Some, or raises KeyNotFoundException if every element evaluates to None.</returns>
-    /// <exception cref="System.KeyNotFoundException">Thrown if every item of the cloud flow evaluates to None when the given function is applied.</exception>
-    let pickLocal (chooser : 'T -> CloudLocal<'R option>) (flow : CloudFlow<'T>) : Cloud<'R> =
-        cloud {
-            let! result = tryPickLocal chooser flow
             return
                 match result with
                 | Some value -> value
@@ -660,20 +523,6 @@ module CloudFlow =
                 | None -> false
         }
 
-    /// <summary>Tests if any element of the flow satisfies the given locally executing cloud predicate.</summary>
-    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>true if any element satisfies the predicate. Otherwise, returns false.</returns>
-    let existsLocal (predicate : 'T -> CloudLocal<bool>) (flow : CloudFlow<'T>) : Cloud<bool> =
-        cloud {
-            let! result = tryFindLocal predicate flow
-            return
-                match result with
-                | Some _ -> true
-                | None -> false
-        }
-
-
     /// <summary>Tests if all elements of the parallel flow satisfy the given predicate.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input cloud flow.</param>
@@ -681,17 +530,6 @@ module CloudFlow =
     let inline forall (predicate : 'T -> bool) (flow : CloudFlow<'T>) : Cloud<bool> =
         cloud {
             let! result = exists (fun x -> not <| predicate x) flow
-            return not result
-        }
-
-
-    /// <summary>Tests if all elements of the parallel flow satisfy the given predicate.</summary>
-    /// <param name="predicate">A function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>true if all of the elements satisfies the predicate. Otherwise, returns false.</returns>
-    let forallLocal (predicate : 'T -> CloudLocal<bool>) (flow : CloudFlow<'T>) : Cloud<bool> =
-        cloud {
-            let! result = existsLocal (fun x -> local { let! v = predicate x in return not v }) flow
             return not result
         }
 
