@@ -179,17 +179,106 @@ type Cloud private () =
         Local.FromContinuations(fun ctx cont -> cont.Success ctx <| ctx.Resources.TryResolve<'TResource> ())
 
     /// <summary>
+    ///     Starts a cloud workflow with given execution context in the current thread.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to be executed.</param>
+    /// <param name="continuation">Root continuation for workflow.</param>
+    /// <param name="context">Local execution context.</param>
+    [<CompilerMessage("'StartImmediateWithContinuations' only intended for runtime implementers.", 444)>]
+    static member StartImmediateWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, context : ExecutionContext) : unit =
+        workflow.Body context continuation
+
+    /// <summary>
+    ///     Starts a cloud workflow with given execution context in the current thread.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to be executed.</param>
+    /// <param name="continuation">Root continuation for workflow.</param>
+    /// <param name="resources">Resource registry for workflow. Defaults to the empty resource registry.</param>
+    /// <param name="cancellationToken">Cancellation token used for workflow. Defaults to no cancellation token.</param>
+    [<CompilerMessage("'StartImmediateWithContinuations' only intended for runtime implementers.", 444)>]
+    static member StartImmediateWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, 
+                                                    ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
+
+        let resources = defaultArg resources ResourceRegistry.Empty
+        let cancellationToken = getCancellationToken cancellationToken
+        Cloud.StartImmediateWithContinuations(workflow, continuation, { Resources = resources ; CancellationToken = cancellationToken })
+
+    /// <summary>
+    ///     Starts a cloud workflow with given continuations and execution context in the thread pool.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to be executed.</param>
+    /// <param name="continuation">Root continuation for workflow.</param>
+    /// <param name="context">Local execution context.</param>
+    [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
+    static member StartWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, context : ExecutionContext) : unit =
+        Trampoline.QueueWorkItem(fun () -> workflow.Body context continuation)
+
+    /// <summary>
+    ///     Starts a cloud workflow with given continuations and execution context in the thread pool.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to be executed.</param>
+    /// <param name="continuation">Root continuation for workflow.</param>
+    /// <param name="resources">Resource registry for workflow. Defaults to the empty resource registry.</param>
+    /// <param name="cancellationToken">Cancellation token used for workflow. Defaults to no cancellation token.</param>
+    [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
+    static member StartWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, 
+                                            ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
+
+        let resources = defaultArg resources ResourceRegistry.Empty
+        let cancellationToken = getCancellationToken cancellationToken
+        Cloud.StartWithContinuations(workflow, continuation, { Resources = resources ; CancellationToken = cancellationToken })
+
+    /// <summary>
+    ///     Starts provided cloud workflow in the current thread.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to be executed.</param>
+    /// <param name="resources">Resource registry passed to execution context. Defaults to the empty resource registry.</param>
+    /// <param name="cancellationToken">Cancellation token used for computation. Defaults to no cancellation token.</param>
+    [<CompilerMessage("'StartImmediate' only intended for runtime implementers.", 444)>]
+    static member StartImmediate(workflow : Cloud<unit>, ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
+        let resources = defaultArg resources ResourceRegistry.Empty
+        let cancellationToken = getCancellationToken cancellationToken
+        let cont =
+            {
+                Success = fun _ _ -> ()
+                Exception = fun _ edi -> ExceptionDispatchInfo.raise true edi
+                Cancellation = fun _ _ -> ()
+            }
+            
+        Cloud.StartImmediateWithContinuations(workflow, cont, resources, cancellationToken)
+
+    /// <summary>
+    ///     Starts provided cloud workflow in the thread pool.
+    /// </summary>
+    /// <param name="workflow">Cloud workflow to be executed.</param>
+    /// <param name="resources">Resource registry passed to execution context. Defaults to the empty resource registry.</param>
+    /// <param name="cancellationToken">Cancellation token used for computation. Defaults to no cancellation token.</param>
+    [<CompilerMessage("'Start' only intended for runtime implementers.", 444)>]
+    static member Start(workflow : Cloud<unit>, ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
+        let resources = defaultArg resources ResourceRegistry.Empty
+        let cancellationToken = getCancellationToken cancellationToken
+        let cont =
+            {
+                Success = fun _ _ -> ()
+                Exception = fun _ edi -> ExceptionDispatchInfo.raise true edi
+                Cancellation = fun _ _ -> ()
+            }
+            
+        Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken)
+
+    /// <summary>
     ///     Starts given workflow as a System.Threading.Task
     /// </summary>
     /// <param name="workflow">Cloud workflow to be executed.</param>
-    /// <param name="resources">Resource registry used with workflows.</param>
+    /// <param name="resources">Resource registry used with workflows. Defaults to the empty resource registry.</param>
     /// <param name="taskCreationOptions">Resource registry used with workflows.</param>
     /// <param name="cancellationToken">Cancellation token used for task. Defaults to no cancellation token.</param>
     [<CompilerMessage("'StartAsTask' only intended for runtime implementers.", 444)>]
-    static member StartAsTask(workflow : Cloud<'T>, resources : ResourceRegistry, 
+    static member StartAsTask(workflow : Cloud<'T>, ?resources : ResourceRegistry, 
                                 ?cancellationToken : ICloudCancellationToken, ?taskCreationOptions : TaskCreationOptions) : Task<'T> =
 
         let taskCreationOptions = defaultArg taskCreationOptions TaskCreationOptions.None
+        let resources = defaultArg resources ResourceRegistry.Empty
         let tcs = new TaskCompletionSource<'T>(taskCreationOptions)
         let cancellationToken = getCancellationToken cancellationToken
 
@@ -228,53 +317,8 @@ type Cloud private () =
                     Cancellation = fun _ c -> cc c
                 }
 
-            Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken))
+            Cloud.StartImmediateWithContinuations(workflow, cont, resources, cancellationToken))
     }
-
-    /// <summary>
-    ///     Starts a cloud workflow with given execution context in the current thread.
-    /// </summary>
-    /// <param name="workflow">Cloud workflow to be executed.</param>
-    /// <param name="continuation">Root continuation for workflow.</param>
-    /// <param name="context">Local execution context.</param>
-    [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
-    static member StartWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, ?context : ExecutionContext) : unit =
-        let context = match context with Some c -> c | None -> ExecutionContext.Empty()
-        workflow.Body context continuation
-
-    /// <summary>
-    ///     Starts a cloud workflow with given execution context in the current thread.
-    /// </summary>
-    /// <param name="workflow">Cloud workflow to be executed.</param>
-    /// <param name="continuation">Root continuation for workflow.</param>
-    /// <param name="resources">Resource registry for workflow. Defaults to the empty resource registry.</param>
-    /// <param name="cancellationToken">Cancellation token used for workflow. Defaults to no cancellation token.</param>
-    [<CompilerMessage("'StartWithContinuations' only intended for runtime implementers.", 444)>]
-    static member StartWithContinuations(workflow : Cloud<'T>, continuation : Continuation<'T>, 
-                                            ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
-
-        let resources = defaultArg resources ResourceRegistry.Empty
-        let cancellationToken = getCancellationToken cancellationToken
-        Cloud.StartWithContinuations(workflow, continuation, { Resources = resources ; CancellationToken = cancellationToken })
-
-    /// <summary>
-    ///     Starts provided cloud workflow in the thread pool.
-    /// </summary>
-    /// <param name="workflow">Cloud workflow to be executed.</param>
-    /// <param name="resources">Resource registry passed to execution context. Defaults to the empty resource registry.</param>
-    /// <param name="cancellationToken">Cancellation token used for computation. Defaults to no cancellation token.</param>
-    [<CompilerMessage("'Start' only intended for runtime implementers.", 444)>]
-    static member Start(workflow : Cloud<unit>, ?resources : ResourceRegistry, ?cancellationToken : ICloudCancellationToken) : unit =
-        let resources = defaultArg resources ResourceRegistry.Empty
-        let cancellationToken = getCancellationToken cancellationToken
-        let cont =
-            {
-                Success = fun _ _ -> ()
-                Exception = fun _ edi -> ExceptionDispatchInfo.raise true edi
-                Cancellation = fun _ _ -> ()
-            }
-            
-        Cloud.StartWithContinuations(workflow, cont, resources, cancellationToken)
 
     /// <summary>
     ///     Synchronously await a locally executing workflow.

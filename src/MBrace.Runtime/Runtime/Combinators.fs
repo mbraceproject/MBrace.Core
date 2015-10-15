@@ -62,7 +62,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
             match clone with
             | Choice1Of2 (comp, cont) -> 
                 let cont' = Continuation.map (fun t -> [| t |]) cont
-                Cloud.StartWithContinuations(comp, cont', ctx)
+                Cloud.StartImmediateWithContinuations(comp, cont', ctx)
 
             | Choice2Of2 e ->
                 let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
@@ -187,7 +187,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
         | Choice1Of2 [| (comp, None) |] -> 
             let clone = try FsPickler.Clone ((comp, cont)) |> Choice1Of2 with e -> Choice2Of2 e
             match clone with
-            | Choice1Of2 (comp, cont) -> Cloud.StartWithContinuations(comp, cont, ctx)
+            | Choice1Of2 (comp, cont) -> Cloud.StartImmediateWithContinuations(comp, cont, ctx)
             | Choice2Of2 e ->
                 let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
                 let se = new SerializationException(msg, e)

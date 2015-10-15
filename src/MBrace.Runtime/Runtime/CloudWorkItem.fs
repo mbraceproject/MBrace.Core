@@ -90,7 +90,7 @@ type CloudWorkItem =
         let workItem = Guid.NewGuid()
         let runWorkItem ctx =
             let cont = { Success = scont ; Exception = econt ; Cancellation = ccont }
-            Cloud.StartWithContinuations(workflow, cont, ctx)
+            Cloud.StartImmediateWithContinuations(workflow, cont, ctx)
 
         {
             Process = procEntry
