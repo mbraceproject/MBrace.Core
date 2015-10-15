@@ -92,6 +92,7 @@
     <Compile Include="Library\PersistedSequence.fs" />
     <Compile Include="Library\ProtectedParallel.fs" />
     <Compile Include="Library\DomainLocal.fs" />
+    <Compile Include="Library\StoreClient.fs" />
     <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>

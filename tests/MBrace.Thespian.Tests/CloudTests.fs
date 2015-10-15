@@ -140,7 +140,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : map/reduce`` () =
         repeat (fun () ->
             let runtime = session.Runtime
-            let f = runtime.Store.Atom.Create(false)
+            let f = runtime.Store.CloudAtom.Create(false)
             let t = runtime.CreateProcess(cloud {
                 do! f.ForceAsync true
                 return! WordCount.run 20 WordCount.mapReduceRec
@@ -154,7 +154,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let f = runtime.Store.Atom.Create(false)
+            let f = runtime.Store.CloudAtom.Create(false)
             let t = runtime.CreateProcess(cloud {
                 do! f.ForceAsync true
                 do! Cloud.Sleep 20000
@@ -167,7 +167,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let f = runtime.Store.Atom.Create(false)
+            let f = runtime.Store.CloudAtom.Create(false)
             let t = runtime.CreateProcess(cloud {
                 return! 
                     Cloud.WithFaultPolicy FaultPolicy.NoRetry
@@ -184,7 +184,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : targeted workers`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let f = runtime.Store.Atom.Create(false)
+            let f = runtime.Store.CloudAtom.Create(false)
             let wf () = cloud {
                 let! current = Cloud.CurrentWorker
                 // targeted work items should fail regardless of fault policy
@@ -205,7 +205,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
         repeat(fun () ->
             let runtime = session.Runtime
-            let f = runtime.Store.Atom.Create(false)
+            let f = runtime.Store.CloudAtom.Create(false)
             let t = 
                 runtime.CreateProcess(
                     cloud {
@@ -222,7 +222,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.``2. Fault Tolerance : protected parallel workflows`` () =
         repeat(fun () ->
             let runtime = session.Runtime
-            let f = runtime.Store.Atom.Create(false)
+            let f = runtime.Store.CloudAtom.Create(false)
             let task i = cloud {
                 do! f.ForceAsync true
                 do! Cloud.Sleep 5000

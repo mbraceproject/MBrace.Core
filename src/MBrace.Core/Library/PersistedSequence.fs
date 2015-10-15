@@ -144,6 +144,7 @@ type private TextSequenceByLine(store : ICloudFileStore, path : string, etag : E
                 return mkRangedSeqs weights
         }
 
+/// Persisted Sequence collection of APIs
 type PersistedSequence =
 
     /// <summary>
