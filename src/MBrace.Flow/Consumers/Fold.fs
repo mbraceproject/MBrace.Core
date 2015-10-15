@@ -165,7 +165,7 @@ module Fold =
             }
         { new CloudFlow<'Key * 'State> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'Key * 'State, 'S>>) (projection : 'S -> Local<'R>) combiner =
+            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'Key * 'State, 'S>>) (projection : 'S -> CloudLocal<'R>) combiner =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (Array.ToCloudFlow result)
@@ -287,7 +287,7 @@ module Fold =
             }
         { new CloudFlow<'Key * 'State> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'Key * 'State, 'S>>) (projection : 'S -> Local<'R>) combiner =
+            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'Key * 'State, 'S>>) (projection : 'S -> CloudLocal<'R>) combiner =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (Array.ToCloudFlow result)

@@ -30,11 +30,11 @@ type Cloud<'T> =
     internal new (body : Body<'T>) = { body = body }
     member internal __.Body = __.body
 
-/// Represents a single-machine cloud computation. The
+/// Represents a machine-constrained cloud computation. The
 /// computation runs to completion as a locally executing in-memory 
 /// computation. The computation may access concurrent shared memory and 
 /// unserializable resources.  When run will produce 
 /// a value of type 'T, or raise an exception.
 [<Sealed; DataContract>]
-type Local<'T> internal (body : Body<'T>) = 
+type CloudLocal<'T> internal (body : Body<'T>) = 
     inherit Cloud<'T>(body)

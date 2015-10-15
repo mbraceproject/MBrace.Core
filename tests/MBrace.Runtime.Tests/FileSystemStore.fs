@@ -54,6 +54,12 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
 
     override __.Run(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunLocally(wf : Cloud<'T>) = imem.RunSynchronously wf
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let logTester = new InMemoryLogTester()
+        let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, logger = logTester, memoryEmulation = MemoryEmulation.Copied)
+        imem.RunSynchronously workflow
+        logTester.GetLogs()
+
     override __.IsSupportedStorageLevel level = cloudValueProvider.IsSupportedStorageLevel level
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

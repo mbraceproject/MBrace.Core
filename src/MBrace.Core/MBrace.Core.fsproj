@@ -16,8 +16,8 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
-    <Tailcalls>true</Tailcalls>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>TRACE;DEBUG</DefineConstants>
     <WarningLevel>3</WarningLevel>
@@ -92,6 +92,7 @@
     <Compile Include="Library\PersistedSequence.fs" />
     <Compile Include="Library\ProtectedParallel.fs" />
     <Compile Include="Library\DomainLocal.fs" />
+    <Compile Include="Library\StoreClient.fs" />
     <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>

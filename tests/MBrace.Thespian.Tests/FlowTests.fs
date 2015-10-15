@@ -26,3 +26,7 @@ type ``MBrace Thespian Flow Tests`` () =
     override __.IsSupportedStorageLevel level = session.Runtime.GetResource<ICloudValueProvider>().IsSupportedStorageLevel level
     override __.Run(expr : Cloud<'T>) : 'T = session.Runtime.Run(expr, faultPolicy = FaultPolicy.NoRetry)
     override __.RunLocally(expr : Cloud<'T>) : 'T = session.Runtime.RunLocally(expr)
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let job = session.Runtime.CreateProcess(workflow)
+        do job.Result
+        job.GetLogs () |> Array.map CloudLogEntry.Format

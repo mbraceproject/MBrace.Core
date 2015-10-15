@@ -408,7 +408,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
                     ignore <| config.LocalCache.Delete hash.Id
         }
         
-        member x.GetBoxedValueAsync(): Async<obj> = async {
+        member x.GetValueBoxedAsync(): Async<obj> = async {
             let! t = getValue ()
             return box t
         }
@@ -434,7 +434,7 @@ type private StoreCloudValue<'T> internal (id:CachedEntityId, elementCount:int, 
         member x.Value: 'T =
             getValue() |> Async.RunSync
         
-        member x.GetBoxedValue() : obj = 
+        member x.ValueBoxed : obj = 
             getValue() |> Async.RunSync |> box
 
         member x.Cast<'S> () : CloudValue<'S> =
@@ -456,11 +456,11 @@ and [<Sealed; DataContract>]
         member x.GetEnumerator() = ((x :> CloudValue<'T []>).Value :> seq<'T>).GetEnumerator()
 
     interface ICloudCollection<'T> with
-        member x.GetCount(): Async<int64> = async {
+        member x.GetCountAsync(): Async<int64> = async {
             return int64 x.ElementCount
         }
         
-        member x.GetSize(): Async<int64> = async {
+        member x.GetSizeAsync(): Async<int64> = async {
             return (x :> ICloudValue).Size
         }
         
@@ -468,7 +468,7 @@ and [<Sealed; DataContract>]
         member x.IsKnownSize: bool = true
         member x.IsMaterialized: bool = (x :> ICloudValue).IsCachedLocally
         
-        member x.ToEnumerable(): Async<seq<'T>> = async {
+        member x.GetEnumerableAsync(): Async<seq<'T>> = async {
             let! v = (x :> CloudValue<'T []>).GetValueAsync()
             return v :> seq<'T>
         }

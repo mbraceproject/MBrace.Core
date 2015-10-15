@@ -128,7 +128,7 @@ type CloudProcess internal () =
     interface ICloudProcess with
         member x.Id: string = x.Id
 
-        member x.AwaitResultBoxed(?timeoutMilliseconds: int): Async<obj> = 
+        member x.AwaitResultBoxedAsync(?timeoutMilliseconds: int): Async<obj> = 
             x.AwaitResultBoxed(?timeoutMilliseconds = timeoutMilliseconds)
     
         member x.CancellationToken = x.CancellationToken
@@ -150,7 +150,7 @@ type CloudProcess internal () =
         [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
         member x.ResultBoxed: obj = x.ResultBoxed
         member x.Status: CloudProcessStatus = x.Status
-        member x.TryGetResultBoxed(): Async<obj option> = x.TryGetResultBoxed()
+        member x.TryGetResultBoxedAsync(): Async<obj option> = x.TryGetResultBoxed()
 
     /// Gets a printed report on the current process status
     abstract GetInfo : unit -> string 
@@ -259,7 +259,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
         for e in filtered do Console.WriteLine(CloudLogEntry.Format(e, showDate = true))
 
     interface ICloudProcess<'T> with
-        member x.AwaitResult(timeoutMilliseconds: int option): Async<'T> =
+        member x.AwaitResultAsync(timeoutMilliseconds: int option): Async<'T> =
             x.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
         
         member x.CancellationToken: ICloudCancellationToken = 
@@ -267,7 +267,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
         
         member x.Result: 'T = x.Result
         member x.Status: CloudProcessStatus = cell.Value.State.Status
-        member x.TryGetResult(): Async<'T option> = x.TryGetResult()
+        member x.TryGetResultAsync(): Async<'T option> = x.TryGetResult()
 
 /// Cloud Process client object
 and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRuntimeManager) =

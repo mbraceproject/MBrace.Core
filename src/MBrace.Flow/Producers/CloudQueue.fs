@@ -21,7 +21,7 @@ type internal CloudQueue =
     static member ToCloudFlow (channel : CloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = Some degreeOfParallelism
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) =
                 cloud {
                     let! collector = collectorf 
                     let! workers = Cloud.GetAvailableWorkers() 
@@ -29,9 +29,8 @@ type internal CloudQueue =
                     let workerCount = defaultArg collector.DegreeOfParallelism workers.Length
 
                     let createTask () = local {
-                        let! ctx = Cloud.GetExecutionContext()
                         let! collector = collectorf
-                        let seq = Seq.initInfinite (fun _ -> Cloud.RunSynchronously(CloudQueue.Dequeue channel, ctx.Resources, ctx.CancellationToken))
+                        let seq = Seq.initInfinite (fun _ -> channel.DequeueAsync() |> Async.RunSync) // TODO : use batch dequeue here
                         let parStream = ParStream.ofSeq seq
                         let collectorResult = parStream.Apply (collector.ToParStreamCollector())
                         return! projection collectorResult

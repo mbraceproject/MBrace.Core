@@ -55,22 +55,22 @@ module private ActorQueue =
         interface CloudQueue<'T> with
             member __.Id = id
 
-            member __.Count = async {
+            member __.GetCountAsync () = async {
                 let! count = source <!- GetMessageCount
                 return int64 count
             }
 
-            member __.Enqueue(msg : 'T) = async { 
+            member __.EnqueueAsync(msg : 'T) = async { 
                 let msgP = Config.Serializer.Pickle msg
                 return! source.AsyncPost(Enqueue msgP) 
             }
 
-            member __.EnqueueBatch(messages : seq<'T>) = async {
+            member __.EnqueueBatchAsync(messages : seq<'T>) = async {
                 let msgs = messages |> Seq.map Config.Serializer.Pickle |> Seq.toArray
                 return! source.AsyncPost(BatchEnqueue msgs)
             }
 
-            member __.Dequeue(?timeout : int) = async { 
+            member __.DequeueAsync(?timeout : int) = async { 
                 let rec poll () = async {
                     let! result = source <!- TryDequeue
                     match result with
@@ -85,7 +85,7 @@ module private ActorQueue =
                 | Some t -> return! Async.WithTimeout(poll(), t)
             }
 
-            member __.DequeueBatch(maxItems : int) = async {
+            member __.DequeueBatchAsync(maxItems : int) = async {
                 let acc = new ResizeArray<'T>()
                 let rec aux() = async {
                     if acc.Count < maxItems then
@@ -101,7 +101,7 @@ module private ActorQueue =
                 return acc.ToArray()
             }
 
-            member __.TryDequeue() = async {
+            member __.TryDequeueAsync() = async {
                 let! result = source <!- TryDequeue
                 return result |> Option.map (fun p -> Config.Serializer.UnPickle<'T> p)
             }

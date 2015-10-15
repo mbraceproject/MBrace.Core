@@ -17,21 +17,21 @@ type CloudDictionary<'T> =
     ///     Checks if entry of supplied key exists in dictionary.
     /// </summary>
     /// <param name="key">Input key.</param>
-    abstract ContainsKey : key:string -> Async<bool>
+    abstract ContainsKeyAsync : key:string -> Async<bool>
 
     /// <summary>
     ///     Try adding a new key-value pair to dictionary.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="value">Value for entry.</param>
-    abstract TryAdd : key:string * value:'T -> Async<bool>
+    abstract TryAddAsync : key:string * value:'T -> Async<bool>
 
     /// <summary>
     ///     Add a new key-value pair to dictionary, overwriting if one already exists.
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="value">Value for entry.</param>
-    abstract Add : key:string * value:'T -> Async<unit>
+    abstract AddAsync : key:string * value:'T -> Async<unit>
 
     /// <summary>
     ///     Performs an atomic transaction on value of given key.
@@ -39,20 +39,20 @@ type CloudDictionary<'T> =
     /// <param name="key">Key to be transacted.</param>
     /// <param name="transacter">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries. Defaults to infinite.</param>
-    abstract Transact : key:string * transacter:('T option -> 'R * 'T) * ?maxRetries:int -> Async<'R>
+    abstract TransactAsync : key:string * transacter:('T option -> 'R * 'T) * ?maxRetries:int -> Async<'R>
 
     /// <summary>
     ///     Removes entry of supplied key from dictionary.
     ///     Returns true if successful.
     /// </summary>
     /// <param name="key">Key to be removed.</param>
-    abstract Remove : key:string -> Async<bool>
+    abstract RemoveAsync : key:string -> Async<bool>
 
     /// <summary>
     ///     Attempt reading a value of provided key from dictionary.
     /// </summary>
     /// <param name="key">Key to be read.</param>
-    abstract TryFind : key:string -> Async<'T option>
+    abstract TryFindAsync : key:string -> Async<'T option>
 
 namespace MBrace.Core.Internals
 
@@ -91,7 +91,9 @@ type ICloudDictionaryProvider =
 
 namespace MBrace.Core
 
+open System.ComponentModel
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -119,7 +121,7 @@ type CloudDictionary =
     static member New<'T>(?dictionaryId : string) = local {
         let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
         let dictionaryId = match dictionaryId with None -> provider.GetRandomDictionaryId() | Some did -> did
-        return! provider.CreateDictionary<'T> dictionaryId
+        return! Cloud.OfAsync <| provider.CreateDictionary<'T> dictionaryId
     }
 
     /// <summary>
@@ -128,37 +130,38 @@ type CloudDictionary =
     /// <param name="dictionaryId">CloudDictionary unique identifier.</param>
     static member GetById<'T>(dictionaryId : string) = local {
         let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
-        return! provider.GetDictionaryById<'T> dictionaryId
+        return! Cloud.OfAsync <| provider.GetDictionaryById<'T> dictionaryId
     }
+
+
+[<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
+type CloudDictionaryExtensions =
 
     /// <summary>
     ///     Checks if supplied key is contained in dictionary.
     /// </summary>
     /// <param name="key">Key to be checked.</param>
-    /// <param name="dictionary">Input dictionary.</param>
-    static member ContainsKey (key : string) (dictionary : CloudDictionary<'T>) = local {
-        return! dictionary.ContainsKey key
-    }
+    [<Extension>]
+    static member ContainsKey (this : CloudDictionary<'T>, key : string) : bool =
+        Async.RunSync <| this.ContainsKeyAsync key
 
     /// <summary>
     ///     Try adding a new key/value pair to dictionary. Returns true if successful.
     /// </summary>
     /// <param name="key">Key to be added.</param>
     /// <param name="value">Value to be added.</param>
-    /// <param name="dictionary">Dictionary to be updated.</param>
-    static member TryAdd (key : string) (value : 'T) (dictionary : CloudDictionary<'T>) = local {
-        return! dictionary.TryAdd(key, value)
-    }
+    [<Extension>]
+    static member TryAdd (this : CloudDictionary<'T>, key : string, value : 'T) : bool =
+        Async.RunSync <| this.TryAddAsync(key, value)
 
     /// <summary>
-    ///     Adds a new key/value pair to dictionary. Returns true if successful.
+    ///     Force add a new key/value pair to dictionary.
     /// </summary>
     /// <param name="key">Key to be added.</param>
     /// <param name="value">Value to be added.</param>
-    /// <param name="dictionary">Dictionary to be updated.</param>
-    static member Add (key : string) (value : 'T) (dictionary : CloudDictionary<'T>) = local {
-        return! dictionary.Add(key, value)
-    }
+    [<Extension>]
+    static member Add (this : CloudDictionary<'T>, key : string, value : 'T) : unit =
+        Async.RunSync <| this.AddAsync(key, value)
 
     /// <summary>
     ///     Atomically adds or updates a key/value entry.
@@ -166,10 +169,11 @@ type CloudDictionary =
     /// </summary>
     /// <param name="key">Key to entry.</param>
     /// <param name="updater">Updater function.</param>
-    /// <param name="dictionary">Dictionary to be updated.</param>
-    static member AddOrUpdate (key : string) (updater : 'T option -> 'T) (dictionary : CloudDictionary<'T>) = local {
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
+    [<Extension>]
+    static member AddOrUpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, ?maxRetries : int) : Async<'T> = async {
         let transacter (curr : 'T option) = let t = updater curr in t, t
-        return! dictionary.Transact(key, transacter)
+        return! this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
     }
 
     /// <summary>
@@ -177,46 +181,63 @@ type CloudDictionary =
     ///     Returns the updated value.
     /// </summary>
     /// <param name="key">Key to entry.</param>
-    /// <param name="newValue">Value to be inserted in case of missing entry.</param>
     /// <param name="updater">Entry updater function.</param>
-    static member Update (key : string) (updater : 'T -> 'T) (dictionary : CloudDictionary<'T>) = local {
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
+    [<Extension>]
+    static member UpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, ?maxRetries : int) : Async<'T> = async {
         let transacter (curr : 'T option) =
             match curr with
             | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
             | Some t -> let t' = updater t in t', t'
 
-        return! dictionary.Transact(key, transacter)
+        return! this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
     }
+
+    /// <summary>
+    ///     Performs a transaction on value contained in provided key
+    /// </summary>
+    /// <param name="key">Key to perform transaction on.</param>
+    /// <param name="transacter">Transaction funtion.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
+    [<Extension>]
+    static member Transact (this : CloudDictionary<'T>, key : string, transacter : 'T option -> 'R * 'T, ?maxRetries : int) : 'R =
+        Async.RunSync <| this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
+
+    /// <summary>
+    ///     Atomically adds or updates a key/value entry.
+    ///     Returns the updated value.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Updater function.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
+    [<Extension>]
+    static member AddOrUpdate (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, ?maxRetries : int) : 'T =
+        Async.RunSync <| CloudDictionaryExtensions.AddOrUpdateAsync(this, key, updater, ?maxRetries = maxRetries)
+
+    /// <summary>
+    ///     Atomically updates a key/value entry.
+    ///     Returns the updated value.
+    /// </summary>
+    /// <param name="key">Key to entry.</param>
+    /// <param name="updater">Entry updater function.</param>
+    /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
+    [<Extension>]
+    static member Update (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, ?maxRetries : int) : 'T =
+        Async.RunSync <| CloudDictionaryExtensions.UpdateAsync(this, key, updater, ?maxRetries = maxRetries)
 
     /// <summary>
     ///     Try reading value for entry of supplied key.
     /// </summary>
     /// <param name="key">Key to entry.</param>
-    /// <param name="dictionary">Dictionary to be accessed.</param>
-    static member TryFind (key : string) (dictionary : CloudDictionary<'T>) : Local<'T option> = local {
-        return! dictionary.TryFind key
-    }
+    [<Extension>]
+    static member TryFind (this : CloudDictionary<'T>, key : string) : 'T option =
+        Async.RunSync <| this.TryFindAsync key
 
     /// <summary>
     ///     Removes entry of supplied key from dictionary.
     /// </summary>
     /// <param name="key">Key to be removed.</param>
     /// <param name="dictionary">Dictionary to be updated.</param>
-    static member Remove (key : string) (dictionary : CloudDictionary<'T>) = local {
-        return! dictionary.Remove(key)
-    }
-
-    /// <summary>
-    ///     Performs a transaction on value contained in provided key
-    /// </summary>
-    /// <param name="transacter">Transaction funtion.</param>
-    /// <param name="key">Key to perform transaction on.</param>
-    /// <param name="dictionary">Input dictionary.</param>
-    static member Transact (transacter : 'T -> 'R * 'T) (key : string) (dictionary : CloudDictionary<'T>) = local {
-        let transacter (curr : 'T option) =
-            match curr with
-            | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
-            | Some t -> let r,t' = transacter t in r, t'
-
-        return! dictionary.Transact(key, transacter)
-    }
+    [<Extension>]
+    static member Remove (this : CloudDictionary<'T>, key : string) : bool =
+        Async.RunSync <| this.RemoveAsync(key)

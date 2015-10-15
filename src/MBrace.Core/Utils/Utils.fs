@@ -26,8 +26,6 @@ module Utils =
                 Async.StartWithContinuations(body, sc', ec', cc, ct))
         }
 
-        static member AwaitTask(task : Task) = Async.AwaitTask(task.ContinueWith ignore)
-
     /// Resource that can be disposed of asynchronouslys
     type IAsyncDisposable =
         /// Asynchronously disposes of resource.
@@ -36,12 +34,6 @@ module Utils =
     type AsyncBuilder with
         member __.Using<'T, 'U when 'T :> IAsyncDisposable>(value : 'T, bindF : 'T -> Async<'U>) : Async<'U> =
             Async.TryFinally(async { return! bindF value }, async { return! value.Dispose() })
-
-    type AsyncBuilder with
-        member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
-        member ab.Bind(t : Task, cont : unit -> Async<'S>) =
-            let t0 = t.ContinueWith ignore
-            ab.Bind(Async.AwaitTask t0, cont)
 
     [<RequireQualifiedAccess>]
     module Array =

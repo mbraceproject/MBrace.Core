@@ -140,6 +140,12 @@ type ``InMemory CloudFlow tests`` () =
 
     override __.Run(workflow : Cloud<'T>) = imem.RunSynchronously workflow
     override __.RunLocally(workflow : Cloud<'T>) = imem.RunSynchronously workflow
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let logTester = new InMemoryLogTester()
+        let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, logger = logTester, memoryEmulation = MemoryEmulation.Copied)
+        imem.RunSynchronously workflow
+        logTester.GetLogs()
+
     override __.IsSupportedStorageLevel(level : StorageLevel) = level.HasFlag StorageLevel.Memory || level.HasFlag StorageLevel.MemorySerialized
     override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
     override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30

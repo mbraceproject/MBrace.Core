@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Library
 
 open System
+open System.Diagnostics
 open System.Runtime.Serialization
 open System.IO
 open System.IO.Compression
@@ -46,7 +47,14 @@ type PersistedValue<'T> =
         return! c.store.GetFileSize c.path
     }
 
+    /// Dereferences value from store
+    member c.GetValue () : CloudLocal<'T> = Cloud.OfAsync <| c.GetValueAsync()
+
+    /// Gets the size of the persisted value in bytes.
+    member c.GetSize () : CloudLocal<int64> = Cloud.OfAsync <| c.GetSizeAsync()
+
     /// Dereferences value from store.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member c.Value : 'T = c.GetValueAsync() |> Async.RunSync
 
     /// Gets the size of the persisted value in bytes.
@@ -62,6 +70,7 @@ type PersistedValue<'T> =
 
 #nowarn "444"
 
+/// PersistedValue extension methods
 type PersistedValue =
     
     /// <summary>
@@ -71,7 +80,7 @@ type PersistedValue =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime serializer.</param>
     /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
-    static member New(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : Local<PersistedValue<'T>> = local {
+    static member New(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : CloudLocal<PersistedValue<'T>> = local {
         let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore>()
         let path = 
@@ -100,7 +109,7 @@ type PersistedValue =
             _serializer.Serialize(stream, value, leaveOpen = false)
         }
 
-        let! etag,_ = store.WriteETag(path, writer)
+        let! etag,_ = Cloud.OfAsync <| store.WriteETag(path, writer)
         return new PersistedValue<'T>(store, path, etag, deserializer)
     }
 
@@ -111,7 +120,7 @@ type PersistedValue =
     /// <param name="path">Path to cloud file.</param>
     /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool) : Local<PersistedValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool) : CloudLocal<PersistedValue<'T>> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
         let! deserializer = local {
             match deserializer with 
@@ -121,13 +130,13 @@ type PersistedValue =
                 return fun s -> serializer.Deserialize<'T>(s, leaveOpen = false)
         }
 
-        let! etag = store.TryGetETag path
+        let! etag = Cloud.OfAsync <| store.TryGetETag path
         match etag with
         | None -> return raise <| new FileNotFoundException(path)
         | Some et ->
             let fpv = new PersistedValue<'T>(store, path, et, deserializer)
             if defaultArg force false then
-                let! _ = fpv.GetValueAsync() in ()
+                let! _ = Cloud.OfAsync <| fpv.GetValueAsync() in ()
             return fpv
     }
 
@@ -151,7 +160,7 @@ type PersistedValue =
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool) : Local<PersistedValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool) : CloudLocal<PersistedValue<'T>> = local {
         let deserializer (stream : Stream) =
             let sr =
                 match encoding with
@@ -162,9 +171,3 @@ type PersistedValue =
 
         return! PersistedValue.OfCloudFile(path, deserializer, ?force = force)
     }
-
-    /// <summary>
-    ///     Dereferences a persisted value.
-    /// </summary>
-    /// <param name="cloudCell">CloudValue to be dereferenced.</param>
-    static member Read(value : PersistedValue<'T>) : Local<'T> = local { return! value.GetValueAsync() }

@@ -42,7 +42,7 @@ type private ThreadPoolProcessCompletionSource<'T> (?cancellationToken : ICloudC
         | None -> ThreadPoolCancellationTokenSource()
         | Some ct -> ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
 
-    let task = new ThreadPoolTask<'T>(tcs.Task, cts.Token)
+    let task = new ThreadPoolProcess<'T>(tcs.Task, cts.Token)
 
     member __.CancellationTokenSource = cts
     member __.LocalProcessCompletionSource = tcs
@@ -70,7 +70,7 @@ type Combinators private () =
     /// <param name="mkNestedCts">Creates a child cancellation token source for child workflows.</param>
     /// <param name="memoryEmulation">Memory semantics used for parallelism.</param>
     /// <param name="computations">Input computations.</param>
-    static member Parallel (mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T>>) : Local<'T []> =
+    static member Parallel (mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T>>) : CloudLocal<'T []> =
         Local.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             // handle computation sequence enumeration error
@@ -160,7 +160,7 @@ type Combinators private () =
     /// <param name="mkNestedCts">Creates a child cancellation token source for child workflows.</param>
     /// <param name="memoryEmulation">Memory semantics used for parallelism.</param>
     /// <param name="computations">Input computations.</param>
-    static member Choice(mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T option>>) : Local<'T option> =
+    static member Choice(mkNestedCts : ICloudCancellationToken -> ICloudCancellationTokenSource, memoryEmulation : MemoryEmulation, computations : seq<#Cloud<'T option>>) : CloudLocal<'T option> =
         Local.FromContinuations(fun ctx cont ->
             match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
             // handle computation sequence enumeration error
@@ -257,7 +257,6 @@ type Combinators private () =
                     Cancellation = fun _ _ -> tcs.LocalProcessCompletionSource.TrySetCanceled() |> ignore
                 }
 
-
             queueWorkItem (fun _ -> Cloud.StartWithContinuations(clonedWorkflow, cont, resources, tcs.CancellationTokenSource.Token))
             tcs.Task
 
@@ -283,4 +282,4 @@ type Combinators private () =
     /// <param name="resources">Resource registry used for cloud workflow.</param>
     static member RunSynchronously(workflow : Cloud<'T>, memoryEmulation : MemoryEmulation, resources : ResourceRegistry, ?cancellationToken) : 'T =
         let task = Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
-        task.LocalTask.GetResult()
+        (task :> ICloudProcess<'T>).Result

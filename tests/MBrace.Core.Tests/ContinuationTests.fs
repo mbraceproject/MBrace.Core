@@ -187,7 +187,7 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``try finally monadic`` () =
         let n = ref 10
-        let rec loop () : Local<unit> =
+        let rec loop () : CloudLocal<unit> =
             Local.TryFinally(
                 Cloud.Raise(new Exception()),
                 local { if !n > 0 then decr n ; return! loop () }
@@ -502,6 +502,18 @@ module ``Continuation Tests`` =
 
         run(diveTo 100000) |> Choice.shouldEqual 100000
 
+
+    [<Test>]
+    let ``async binding stack overflow`` () =
+        let rec diveTo n = cloud {
+            if n = 0 then return ()
+            else
+                let! x = Cloud.OfAsync <| async { return n }
+                return! diveTo (n-1)
+        }
+
+        run(diveTo 100000) |> Choice.shouldEqual ()
+
     [<Test>]
     let ``deep exception`` () =
         let rec diveRaise n = cloud {
@@ -547,8 +559,8 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``await task`` () =
         let mkTask (t:int) = Tasks.Task.Factory.StartNew(fun () -> Thread.Sleep t ; 42)
-        Cloud.AwaitSystemTask (mkTask 0) |> run |> Choice.shouldEqual 42
-        Cloud.AwaitSystemTask (mkTask 500) |> run |> Choice.shouldEqual 42
+        Cloud.AwaitTask (mkTask 0) |> run |> Choice.shouldEqual 42
+        Cloud.AwaitTask (mkTask 500) |> run |> Choice.shouldEqual 42
 
     [<Test>]
     let ``start as task`` () =

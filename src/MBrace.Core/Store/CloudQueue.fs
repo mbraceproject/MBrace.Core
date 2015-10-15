@@ -9,39 +9,39 @@ type CloudQueue<'T> =
     /// Queue identifier
     abstract Id : string
 
-    /// Gets the current message count of the queue
-    abstract Count : Async<int64>
+    /// Asynchronously gets the current message count of the queue
+    abstract GetCountAsync : unit -> Async<int64>
 
     /// <summary>
     ///     Asynchronously enqueues a message to the start of the queue.
     /// </summary>
     /// <param name="message">Message to be queued.</param>
-    abstract Enqueue : message:'T -> Async<unit>
+    abstract EnqueueAsync : message:'T -> Async<unit>
 
     /// <summary>
     ///     Enqueues a batch of messages to the start of the queue.
     /// </summary>
     /// <param name="messages">Messages to be enqueued.</param>
-    abstract EnqueueBatch : messages:seq<'T> -> Async<unit>
+    abstract EnqueueBatchAsync : messages:seq<'T> -> Async<unit>
 
     /// <summary>
     ///     Asynchronously dequeues a message from the queue.
     /// </summary>
     /// <param name="timeout">Timeout in milliseconds. Defaults to no timeout.</param>
-    abstract Dequeue : ?timeout:int -> Async<'T>
+    abstract DequeueAsync : ?timeout:int -> Async<'T>
 
     /// <summary>
     ///     Asynchronously dequeues a batch of messages from the queue.
     ///     Will dequeue up to the given maximum number of items, depending on current availability.
     /// </summary>
     /// <param name="maxItems">Maximum number of items to dequeue.</param>
-    abstract DequeueBatch : maxItems:int -> Async<'T []>
+    abstract DequeueBatchAsync : maxItems:int -> Async<'T []>
 
     /// <summary>
     ///     Asynchronously attempts to dequeue a message from the queue.
     ///     Returns None instantly if no message is currently available.
     /// </summary>
-    abstract TryDequeue : unit -> Async<'T option>
+    abstract TryDequeueAsync : unit -> Async<'T option>
 
 namespace MBrace.Core.Internals
 
@@ -74,6 +74,9 @@ type ICloudQueueProvider =
 
 namespace MBrace.Core
 
+open System.ComponentModel
+open System.Runtime.CompilerServices
+
 open MBrace.Core
 open MBrace.Core.Internals
 
@@ -89,7 +92,7 @@ type CloudQueue =
     static member New<'T>(?queueId : string) = local {
         let! provider = Cloud.GetResource<ICloudQueueProvider> ()
         let queueId = match queueId with Some qi -> qi | None -> provider.GetRandomQueueName()
-        return! provider.CreateQueue<'T> queueId
+        return! Cloud.OfAsync <| provider.CreateQueue<'T> queueId
     }
 
     /// <summary>
@@ -98,58 +101,61 @@ type CloudQueue =
     /// <param name="queueId">Unique queue identifier.</param>
     static member GetById<'T>(queueId : string) = local {
         let! provider = Cloud.GetResource<ICloudQueueProvider> ()
-        return! provider.GetQueueById<'T> queueId
-    }
-
-    /// <summary>
-    ///     Add message to the queue.
-    /// </summary>
-    /// <param name="message">Message to send.</param>
-    /// <param name="queue">Target queue.</param>
-    static member Enqueue<'T> (queue : CloudQueue<'T>, message : 'T) = local {
-        return! queue.Enqueue message
-    }
-
-    /// <summary>
-    ///     Add batch of messages to the queue.
-    /// </summary>
-    /// <param name="messages">Message to be enqueued.</param>
-    /// <param name="queue">Target queue.</param>
-    static member EnqueueBatch<'T> (queue : CloudQueue<'T>, messages : seq<'T>) = local {
-        return! queue.EnqueueBatch messages
-    }
-
-    /// <summary>
-    ///     Receive message from queue.
-    /// </summary>
-    /// <param name="queue">Source queue.</param>
-    /// <param name="timeout">Timeout in milliseconds.</param>
-    static member Dequeue<'T> (queue : CloudQueue<'T>, ?timeout : int) = local {
-        return! queue.Dequeue (?timeout = timeout)
-    }
-
-    /// <summary>
-    ///     Dequeues a batch of messages from the queue.
-    ///     Will dequeue up to the given maximum number of items, depending on current availability.
-    /// </summary>
-    /// <param name="queue">Source queue.</param>
-    /// <param name="maxItems">Maximum number of items to dequeue.</param>
-    static member DequeueBatch<'T>(queue : CloudQueue<'T>, maxItems : int) = local {
-        return! queue.DequeueBatch(maxItems)
-    }
-
-    /// <summary>
-    ///     Asynchronously attempts to dequeue a message from the queue.
-    ///     Returns None instantly if no message is currently available.
-    /// </summary>
-    /// <param name="queue"></param>
-    static member TryDequeue<'T> (queue : CloudQueue<'T>) = local {
-        return! queue.TryDequeue()
+        return! Cloud.OfAsync <| provider.GetQueueById<'T> queueId
     }
 
     /// <summary>
     ///     Deletes cloud queue instance.
     /// </summary>
-    /// <param name="queue">Queue to be disposed.</param>
-    static member Delete(queue : CloudQueue<'T>) : Local<unit> = 
-        local { return! queue.Dispose() }
+    static member Delete(queue : CloudQueue<'T>) : CloudLocal<unit> = 
+        local { return! Cloud.OfAsync <| queue.Dispose() }
+
+
+[<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
+type CloudQueueExtensions =
+
+    /// Gets the current message count of the queue.
+    [<Extension>]
+    static member GetCount<'T> (this : CloudQueue<'T>) : int64 =
+        Async.RunSync <| this.GetCountAsync()
+
+    /// <summary>
+    ///     Add message to the queue.
+    /// </summary>
+    /// <param name="message">Message to send.</param>
+    [<Extension>]
+    static member Enqueue<'T> (this : CloudQueue<'T>, message : 'T) : unit =
+        Async.RunSync <| this.EnqueueAsync message
+
+    /// <summary>
+    ///     Add batch of messages to the queue.
+    /// </summary>
+    /// <param name="messages">Messages to be enqueued.</param>
+    [<Extension>]
+    static member EnqueueBatch<'T> (this : CloudQueue<'T>, messages : seq<'T>) : unit =
+        Async.RunSync <| this.EnqueueBatchAsync messages
+
+    /// <summary>
+    ///     Receive a single message from queue.
+    /// </summary>
+    /// <param name="timeout">Timeout in milliseconds.</param>
+    [<Extension>]
+    static member Dequeue<'T> (this : CloudQueue<'T>, ?timeout : int) : 'T =
+        Async.RunSync <| this.DequeueAsync (?timeout = timeout)
+
+    /// <summary>
+    ///     Dequeues a batch of messages from the queue.
+    ///     Will dequeue up to the given maximum number of items, depending on current availability.
+    /// </summary>
+    /// <param name="maxItems">Maximum number of items to dequeue.</param>
+    [<Extension>]
+    static member DequeueBatch<'T>(this : CloudQueue<'T>, maxItems : int) : 'T [] =
+        Async.RunSync <| this.DequeueBatchAsync(maxItems)
+
+    /// <summary>
+    ///     Asynchronously attempts to dequeue a message from the queue.
+    ///     Returns None instantly if no message is currently available.
+    /// </summary>
+    [<Extension>]
+    static member TryDequeue<'T> (this : CloudQueue<'T>) : 'T option =
+        Async.RunSync <| this.TryDequeueAsync()

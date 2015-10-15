@@ -115,6 +115,34 @@ module ExceptionDispatchInfo =
 [<AutoOpen>]
 module ExceptionDispatchInfoUtils =
 
+    type Task with
+        /// Gets the inner exception of the faulted task.
+        member t.InnerException =
+            let e = t.Exception
+            if e.InnerExceptions.Count = 1 then e.InnerExceptions.[0]
+            else
+                e :> exn
+
+    type Task<'T> with
+
+        /// <summary>
+        ///     Returns Some result if completed, None if pending, exception if faulted.
+        /// </summary>
+        member t.TryGetResult() : 'T option =
+            match t.Status with
+            | TaskStatus.RanToCompletion -> Some t.Result
+            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
+            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
+            | _ -> None
+
+        /// Gets the result of given task so that in the event of exception
+        /// the actual user exception is raised as opposed to being wrapped
+        /// in a System.AggregateException
+        member t.CorrectResult : 'T =
+            try t.Result
+            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 ->
+                ExceptionDispatchInfo.raiseWithCurrentStackTrace true ae.InnerExceptions.[0]
+
     type Async =
 
         /// <summary>
@@ -131,7 +159,7 @@ module ExceptionDispatchInfoUtils =
         /// <param name="cancellationToken">Optional cancellation token.</param>
         static member RunSync(workflow : Async<'T>, ?cancellationToken : CancellationToken) =
             let tcs = new TaskCompletionSource<Choice<'T,exn,OperationCanceledException>>()
-            let inline commit f r = tcs.SetResult(f r)
+            let inline commit f r = ignore <| tcs.TrySetResult(f r)
             Trampoline.QueueWorkItem(fun () ->
                 Async.StartWithContinuations(workflow, 
                     commit Choice1Of3, commit Choice2Of3, commit Choice3Of3, 
@@ -142,38 +170,23 @@ module ExceptionDispatchInfoUtils =
             | Choice2Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
             | Choice3Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
 
-
-    type Task<'T> with
-
-        /// Returns the inner exception of the faulted task.
-        member t.InnerException =
-            let e = t.Exception
-            if e.InnerExceptions.Count = 1 then e.InnerExceptions.[0]
-            else
-                e :> exn
+        /// <summary>
+        ///     Gets the result of given task so that in the event of exception
+        ///     the actual user exception is raised as opposed to being wrapped
+        ///     in a System.AggregateException.
+        /// </summary>
+        /// <param name="task">Task to be awaited.</param>
+        static member AwaitTaskCorrect(task : Task<'T>) : Async<'T> = async {
+            try return! Async.AwaitTask task
+            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 ->   
+                return! Async.Raise ae.InnerExceptions.[0]
+        }
 
         /// <summary>
-        ///     Returns Some result if completed, None if pending, exception if faulted.
+        ///     Gets the result of given task so that in the event of exception
+        ///     the actual user exception is raised as opposed to being wrapped
+        ///     in a System.AggregateException.
         /// </summary>
-        member t.TryGetResult () =
-            match t.Status with
-            | TaskStatus.RanToCompletion -> Some t.Result
-            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
-            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
-            | _ -> None
-
-        /// Returns the task result
-        member t.GetResult () =
-            try t.Result
-            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 ->
-                raise ae.InnerExceptions.[0]
-
-        /// Asynchronously awaits task completion
-        member t.AwaitResultAsync() = async {
-            let! _ = Async.AwaitTask t |> Async.Catch
-            match t.Status with
-            | TaskStatus.RanToCompletion -> return t.Result
-            | TaskStatus.Faulted -> return! Async.Raise t.InnerException
-            | TaskStatus.Canceled -> return raise <| new InvalidOperationException()
-            | _ -> return invalidOp "internal error"
-        }
+        /// <param name="task">Task to be awaited.</param>
+        static member AwaitTaskCorrect(task : Task) : Async<unit> =
+            Async.AwaitTaskCorrect(task.ContinueWith(ignore, TaskContinuationOptions.None))

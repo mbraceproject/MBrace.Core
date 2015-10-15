@@ -3,6 +3,7 @@
 open NUnit.Framework
 
 open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 
 [<TestFixture; AbstractClass>]
 type ``CloudValue Tests`` (parallelismFactor : int) as self =

@@ -1,5 +1,7 @@
 ﻿namespace MBrace.Core
 
+open System.Diagnostics
+
 /// Represents a distributed, atomically updatable value reference
 type CloudAtom<'T> =
     inherit ICloudDisposable
@@ -11,6 +13,7 @@ type CloudAtom<'T> =
     abstract Container : string
 
     /// Gets the current value of the atom.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract Value : 'T
 
     /// Asynchronously gets the current value of the atom.
@@ -21,13 +24,13 @@ type CloudAtom<'T> =
     /// </summary>
     /// <param name="updater">Value transaction function.</param>
     /// <param name="maxRetries">Maximum retries under optimistic semantics. Defaults to infinite.</param>
-    abstract Transact : transaction:('T -> 'R * 'T) * ?maxRetries:int -> Async<'R>
+    abstract TransactAsync : transaction:('T -> 'R * 'T) * ?maxRetries:int -> Async<'R>
 
     /// <summary>
     ///      Forces a value on atom.
     /// </summary>
     /// <param name="value">value to be set.</param>
-    abstract Force : value:'T -> Async<unit>
+    abstract ForceAsync : value:'T -> Async<unit>
 
 namespace MBrace.Core.Internals
  
@@ -87,6 +90,9 @@ type ICloudAtomProvider =
 
 namespace MBrace.Core
 
+open System.ComponentModel
+open System.Runtime.CompilerServices
+
 open MBrace.Core.Internals
 
 #nowarn "444"
@@ -99,11 +105,11 @@ type CloudAtom =
     /// <param name="initial">Initial value.</param>
     /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
     /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
-    static member New<'T>(initial : 'T, ?atomId : string, ?container : string) : Local<CloudAtom<'T>> = local {
+    static member New<'T>(initial : 'T, ?atomId : string, ?container : string) : CloudLocal<CloudAtom<'T>> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         let container = defaultArg container provider.DefaultContainer
         let atomId = match atomId with None -> provider.GetRandomAtomIdentifier() | Some id -> id
-        return! provider.CreateAtom(container, atomId, initial)
+        return! Cloud.OfAsync <| provider.CreateAtom(container, atomId, initial)
     }
 
     /// <summary>
@@ -111,65 +117,47 @@ type CloudAtom =
     /// </summary>
     /// <param name="atomId">CloudAtom unique entity identifier.</param>
     /// <param name="container">Cloud atom container. Defaults to process container.</param>
-    static member GetById<'T>(atomId : string, ?container : string) : Local<CloudAtom<'T>> = local {
+    static member GetById<'T>(atomId : string, ?container : string) : CloudLocal<CloudAtom<'T>> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         let container = defaultArg container provider.DefaultContainer
-        return! provider.GetAtomById<'T>(container, atomId)
+        return! Cloud.OfAsync <| provider.GetAtomById<'T>(container, atomId)
     }
 
-    /// <summary>
-    ///     Dereferences a cloud atom.
-    /// </summary>
-    /// <param name="atom">Atom instance.</param>
-    static member Read(atom : CloudAtom<'T>) : Local<'T> = local {
-        return! atom.GetValueAsync()
-    }
-
-    /// <summary>
-    ///     Atomically updates the contained value.
-    /// </summary>
-    /// <param name="updater">value updating function.</param>
-    /// <param name="atom">Atom instance to be updated.</param>
-    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    static member Update (atom : CloudAtom<'T>, updateF : 'T -> 'T, ?maxRetries : int)  : Local<unit> = local {
-        return! atom.Transact((fun t -> (), updateF t), ?maxRetries = maxRetries)
-    }
-
-    /// <summary>
-    ///     Forces the contained value to provided argument.
-    /// </summary>
-    /// <param name="value">Value to be set.</param>
-    /// <param name="atom">Atom instance to be updated.</param>
-    static member Force (atom : CloudAtom<'T>, value : 'T) : Local<unit> = local {
-        return! atom.Force value
-    }
-
-    /// <summary>
-    ///     Transactionally updates the contained value.
-    /// </summary>
-    /// <param name="atom">Input atom.</param>
-    /// <param name="transactF">Transaction function.</param>
-    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
-    static member Transact (atom : CloudAtom<'T>, transactF : 'T -> 'R * 'T, ?maxRetries : int) : Local<'R> = local {
-        return! atom.Transact(transactF, ?maxRetries = maxRetries)
-    }
 
     /// <summary>
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (atom : CloudAtom<'T>) : Local<unit> = local {
-        return! atom.Dispose()
+    static member Delete (atom : CloudAtom<'T>) : CloudLocal<unit> = local {
+        return! Cloud.OfAsync <| atom.Dispose()
     }
+
 
     /// <summary>
     ///     Deletes container and all its contained atoms.
     /// </summary>
-    /// <param name="container"></param>
-    static member DeleteContainer (container : string) : Local<unit> = local {
+    /// <param name="container">Container to be deleted.</param>
+    static member DeleteContainer (container : string) : CloudLocal<unit> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
-        return! provider.DisposeContainer container
+        return! Cloud.OfAsync <| provider.DisposeContainer container
     }
+
+    /// <summary>
+    ///     Increments a cloud counter by one.
+    /// </summary>
+    /// <param name="atom">Input atom.</param>
+    static member inline Increment (atom : CloudAtom<'T>) : CloudLocal<'T> = local {
+        return! Cloud.OfAsync <| atom.TransactAsync (fun i -> let i' = i + LanguagePrimitives.GenericOne in i',i')
+    }
+
+    /// <summary>
+    ///     Decrements a cloud counter by one.
+    /// </summary>
+    /// <param name="atom">Input atom.</param>
+    static member inline Decrement (atom : CloudAtom<'T>) : CloudLocal<'T> = local {
+        return! Cloud.OfAsync <| atom.TransactAsync (fun i -> let i' = i - LanguagePrimitives.GenericOne in i',i')
+    }
+
 
     /// Generates a unique container name.
     static member CreateRandomContainerName() = local {
@@ -189,18 +177,42 @@ type CloudAtom =
             | Some ap -> ap.IsSupportedValue value
     }
 
+
+[<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
+type CloudAtomExtensions =
+
     /// <summary>
-    ///     Increments a cloud counter by one.
+    ///     Atomically updates the contained value.
     /// </summary>
-    /// <param name="atom">Input atom.</param>
-    static member inline Increment (atom : CloudAtom<'T>) : Local<'T> = local {
-        return! atom.Transact (fun i -> let i' = i + LanguagePrimitives.GenericOne in i',i')
+    /// <param name="updater">value updating function.</param>
+    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+    [<Extension>]
+    static member UpdateAsync (this : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int) : Async<unit> = async {
+        return! this.TransactAsync((fun t -> (), updater t), ?maxRetries = maxRetries)
     }
 
     /// <summary>
-    ///     Decrements a cloud counter by one.
+    ///     Transactionally updates the contained value.
     /// </summary>
-    /// <param name="atom">Input atom.</param>
-    static member inline Decrement (atom : CloudAtom<'T>) : Local<'T> = local {
-        return! atom.Transact (fun i -> let i' = i - LanguagePrimitives.GenericOne in i',i')
-    }
+    /// <param name="transacter">Transaction function.</param>
+    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+    [<Extension>]
+    static member Transact (this : CloudAtom<'T>, transacter : 'T -> 'R * 'T, ?maxRetries : int) : 'R =
+        this.TransactAsync(transacter, ?maxRetries = maxRetries) |> Async.RunSync
+
+    /// <summary>
+    ///     Atomically updates the contained value.
+    /// </summary>
+    /// <param name="updater">value updating function.</param>
+    /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+    [<Extension>]
+    static member Update (this : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int) : unit =
+        this.TransactAsync((fun t -> (), updater t), ?maxRetries = maxRetries) |> Async.RunSync
+
+    /// <summary>
+    ///     Forces the contained value to provided argument.
+    /// </summary>
+    /// <param name="atom">Atom instance to be updated.</param>
+    [<Extension>]
+    static member Force (this : CloudAtom<'T>, value : 'T) : unit =
+        this.ForceAsync value |> Async.RunSync

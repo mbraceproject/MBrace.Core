@@ -13,9 +13,6 @@ open MBrace.Flow
 [<AutoOpen>]
 module Utils =
 
-    type Async with
-        static member AwaitTask(t : Task) = Async.AwaitTask(t.ContinueWith(ignore, TaskContinuationOptions.None))
-
     type Collector<'T, 'R> with
         /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
         member collector.ToParStreamCollector () =

@@ -15,7 +15,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     let syncRoot = new obj()
     let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
     let imem = ThreadPoolRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
-    let storeClient = CloudStoreClient.Create(imem)
+    let storeClient = new CloudStoreClient(runtime.ResourceRegistry)
     let mutable defaultFaultPolicy = FaultPolicy.WithMaxRetries(maxRetries = 1)
 
     let taskManagerClient = new CloudProcessManagerClient(runtime)
@@ -121,15 +121,15 @@ type MBraceClient (runtime : IRuntimeManager) =
     ///     Attempts to get a cloud process instance using supplied identifier.
     /// </summary>
     /// <param name="id">Input cloud process identifier.</param>
-    member __.TryGetProcessById(procId:string) = taskManagerClient.TryGetProcessById(procId) |> Async.RunSync
+    member __.TryGetProcessById(processId:string) = taskManagerClient.TryGetProcessById(processId) |> Async.RunSync
 
     /// <summary>
     ///     Looks up a CloudProcess instance from cluster using supplied identifier.
     /// </summary>
-    /// <param name="procId">Input cloud process identifier.</param>
-    member __.GetProcessById(procId:string) = 
-        match __.TryGetProcessById procId with
-        | None -> raise <| invalidArg "procId" "No cloud process with supplied id could be found in cluster."
+    /// <param name="processId">Input cloud process identifier.</param>
+    member __.GetProcessById(processId:string) = 
+        match __.TryGetProcessById processId with
+        | None -> raise <| invalidArg "processId" "No cloud process with supplied id could be found in cluster."
         | Some t -> t
 
     /// <summary>
