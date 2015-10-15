@@ -224,14 +224,6 @@ module CloudFileStoreUtils =
         /// Combines two strings into a single path.
         member store.Combine(path1 : string, path2 : string, path3 : string) = store.Combine [| path1 ; path2 ; path3 |]
 
-        /// <summary>
-        ///     Combines a collection of file names with a given path prefix.
-        /// </summary>
-        /// <param name="container">Path prefix.</param>
-        /// <param name="fileNames">File name collections.</param>
-        member store.Combine(container : string, fileNames : seq<string>) =
-            fileNames |> Seq.map (fun f -> store.Combine [|container ; f |]) |> Seq.toArray
-
 
 namespace MBrace.Core
 
@@ -381,16 +373,6 @@ type CloudPath =
     static member Combine(paths : string []) = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         return store.Combine paths
-    }
-
-    /// <summary>
-    ///     Combines a collection of file names with provided directory prefix.
-    /// </summary>
-    /// <param name="directory">Directory prefix path.</param>
-    /// <param name="fileNames">File names to be combined.</param>
-    static member Combine(directory : string, fileNames : seq<string>) = local {
-        let! store = Cloud.GetResource<ICloudFileStore> ()
-        return store.Combine(directory, fileNames)
     }
 
     /// <summary>

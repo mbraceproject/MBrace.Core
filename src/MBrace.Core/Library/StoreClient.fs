@@ -307,13 +307,6 @@ type CloudPathClient internal (fileStore : ICloudFileStore, resources : Resource
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
     member __.Combine(paths : string []) : string = fileStore.Combine paths
-
-    /// <summary>
-    ///     Combines a collection of file names with provided directory prefix.
-    /// </summary>
-    /// <param name="directory">Directory prefix path.</param>
-    /// <param name="fileNames">File names to be combined.</param>
-    member __.Combine(directory : string, fileNames : seq<string>) : string[] = fileStore.Combine(directory, fileNames)
                    
     /// Generates a random, uniquely specified path to directory
     member __.GetRandomDirectoryName() : string = fileStore.GetRandomDirectoryName()

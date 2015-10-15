@@ -499,8 +499,9 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``2. MBrace : CloudFile - get files in container`` () =
         cloud {
-            let! container = CloudPath.GetRandomDirectoryName()
-            let! fileNames = CloudPath.Combine(container, Seq.map (sprintf "file%d") [1..10])
+            let! fs = CloudStore.FileSystem
+            let container = fs.Path.GetRandomDirectoryName()
+            let fileNames = [for i in 1 .. 10 -> fs.Path.Combine(container, sprintf "file%d" i)]
             let! files =
                 fileNames
                 |> Seq.map (fun f -> CloudFile.WriteAllBytes(f, [|1uy .. 100uy|]))
