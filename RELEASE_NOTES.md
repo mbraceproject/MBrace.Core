@@ -1,3 +1,6 @@
+#### 0.13.1-beta
+* Clean up MBrace.Core Async extensions
+
 #### 0.13.0-beta
 * Rename Local<'T> workflows to CloudLocal<'T>.
 * Refactor store primitive APIs to only use asynchronous and synchronous methods.

@@ -163,7 +163,7 @@ type CloudCollection private () =
             let webRequest = WebRequest.Create(url)
             webRequest.Method <- "HEAD"
             let task = webRequest.GetResponseAsync()
-            use! response = Async.AwaitTaskCorrect task
+            use! response = task
             ignore response
 
         return HTTPTextCollection(url, ?encoding = encoding)

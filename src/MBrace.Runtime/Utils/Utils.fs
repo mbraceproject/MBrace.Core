@@ -172,12 +172,6 @@ module Utils =
         elif size <= 512L * 1024L * 1024L * 1024L then sprintf "%.2f GiB" (decimal size / decimal (1024L * 1024L * 1024L))
         else sprintf "%.2f TiB" (decimal size / decimal (1024L * 1024L * 1024L * 1024L))
 
-    type AsyncBuilder with
-        member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
-        member ab.Bind(t : Task, cont : unit -> Async<'S>) =
-            let t0 = t.ContinueWith ignore
-            ab.Bind(Async.AwaitTask t0, cont)
-
     type ConcurrentDictionary<'K,'V> with
         member dict.TryAdd(key : 'K, value : 'V, ?forceUpdate) =
             if defaultArg forceUpdate false then
