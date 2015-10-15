@@ -1,3 +1,12 @@
+#### 0.13.0-beta
+* Rename Local<'T> workflows to CloudLocal<'T>.
+* Refactor store primitive APIs to only use asynchronous and synchronous methods.
+* Make async bindings to cloud builders optional.
+* Remove all CloudFlow.*Local combinators.
+* Implement CloudFlow.peek.
+* Refactor StoreClient objects and make them serializable.
+* MBrace.Core bugfixes and improvements.
+
 #### 0.12.2-beta
 * Add support for forced local FSharp.Core binding redirects.
 
