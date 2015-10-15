@@ -54,21 +54,33 @@ module internal BuilderImpl =
     let zero : Body<unit> = ret ()
 
     let inline raiseM e : Body<'T> = fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx (capture e)
+
+    let inline fromContinuations (body : Body<'T>) : Body<'T> =
+        fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx
+            elif Trampoline.IsBindThresholdReached(isContinuationExposed = true) then
+                Trampoline.QueueWorkItem(fun () -> body ctx cont)
+            else
+                body ctx cont
+        
     let inline ofAsync (asyncWorkflow : Async<'T>) : Body<'T> = 
         fun ctx cont ->
-            if ctx.IsCancellationRequested then cont.Cancel ctx else
-            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken)
+            if ctx.IsCancellationRequested then cont.Cancel ctx
+            elif Trampoline.IsBindThresholdReached(isContinuationExposed = true) then
+                Trampoline.QueueWorkItem(fun () -> Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken))
+            else
+                Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken)
 
     let inline delay (f : unit -> #Cloud<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
-        if ctx.IsCancellationRequested then cont.Cancel ctx else
-        if Trampoline.IsBindThresholdReached() then 
+        if ctx.IsCancellationRequested then cont.Cancel ctx
+        elif Trampoline.IsBindThresholdReached false then 
             Trampoline.QueueWorkItem (fun () -> cont.ContinueWith2(ctx, ValueOrException.protect f ()))
         else
             cont.ContinueWith2(ctx, ValueOrException.protect f ())
     
     let inline delay' (f : unit -> Body<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
-        if ctx.IsCancellationRequested then cont.Cancel ctx else
-        if Trampoline.IsBindThresholdReached() then 
+        if ctx.IsCancellationRequested then cont.Cancel ctx
+        elif Trampoline.IsBindThresholdReached false then 
             Trampoline.QueueWorkItem (fun () -> cont.ContinueWith2(ctx, ValueOrException.protect f ()))
         else
             cont.ContinueWith2(ctx, ValueOrException.protect f ())
@@ -96,7 +108,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx t ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect g t))
                         else
                             cont.ContinueWith2(ctx, ValueOrException.protect g t)
@@ -104,7 +116,7 @@ module internal BuilderImpl =
                 Exception = 
                     fun ctx e -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Exception ctx e)
                         else
                             cont.Exception ctx e
@@ -112,7 +124,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
@@ -124,7 +136,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx t ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect g t))
                         else
                             cont.ContinueWith2(ctx, ValueOrException.protect g t)
@@ -132,7 +144,7 @@ module internal BuilderImpl =
                 Exception = 
                     fun ctx e -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Exception ctx e)
                         else
                             cont.Exception ctx e
@@ -140,7 +152,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
@@ -152,7 +164,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx _ ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> g ctx cont)
                         else
                             g ctx cont
@@ -160,7 +172,7 @@ module internal BuilderImpl =
                 Exception = 
                     fun ctx e -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Exception ctx e)
                         else
                             cont.Exception ctx e
@@ -168,7 +180,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
@@ -180,7 +192,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx t -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Success ctx t)
                         else
                             cont.Success ctx t
@@ -188,7 +200,7 @@ module internal BuilderImpl =
                 Exception =
                     fun ctx edi ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect handler (extract edi)))
                         else
                             cont.ContinueWith2(ctx, ValueOrException.protect handler (extract edi))
@@ -196,7 +208,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> wf ctx cont')
             else
                 wf ctx cont'
@@ -211,7 +223,7 @@ module internal BuilderImpl =
                     fun ctx t -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx else
                         let cont' = Continuation.map (fun () -> t) cont
-                        if Trampoline.IsBindThresholdReached() then
+                        if Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
                         else
                             finalizer ctx cont'
@@ -220,7 +232,7 @@ module internal BuilderImpl =
                     fun ctx edi -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx else
                         let cont' = Continuation.failwith (fun () -> (extract edi)) cont
-                        if Trampoline.IsBindThresholdReached() then
+                        if Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
                         else
                             finalizer ctx cont'
@@ -228,7 +240,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'

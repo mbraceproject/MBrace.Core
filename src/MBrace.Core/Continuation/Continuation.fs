@@ -17,7 +17,7 @@ type Local =
     /// <param name="body">Execution body.</param>
     [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
     static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : CloudLocal<'T> = 
-        mkLocal(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
+        mkLocal(fromContinuations body)
 
     /// <summary>
     ///     Runs provided workflow in a nested execution context that is
@@ -87,7 +87,7 @@ type Cloud private () =
     /// <param name="body">Execution body.</param>
     [<CompilerMessage("'FromContinuations' only intended for runtime implementers.", 444)>]
     static member FromContinuations(body : ExecutionContext -> Continuation<'T> -> unit) : Cloud<'T> = 
-        mkCloud(fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else body ctx cont)
+        mkCloud(fromContinuations body)
 
     /// <summary>
     ///     Runs provided workflow in a nested execution context that is
@@ -143,6 +143,10 @@ type Cloud private () =
             let cont' = { cont with Exception = fun ctx edi -> cont.Exception ctx (appendToStacktrace functionName edi) }
             workflow.Body ctx cont')
 
+    /// Forces the workflow to schedule its current continuation to the thread pool,
+    /// offloading the accumulated stack from the current thread.
+    static member SwitchToThreadPool() : CloudLocal<unit> =
+        mkLocal(fun ctx cont -> Trampoline.QueueWorkItem(fun () -> zero ctx cont))
 
     /// <summary>
     ///     Returns the execution context of current computation.
