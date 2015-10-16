@@ -19,7 +19,7 @@ type RuntimeSession(workerCount : int) =
 
     member __.Start () =
         lock lockObj (fun () -> 
-            let runtime = ThespianCluster.InitOnCurrentMachine(workerCount, logLevel = LogLevel.Debug)
+            let runtime = ThespianCluster.InitOnCurrentMachine(workerCount, hostClusterStateOnCurrentProcess = true, logLevel = LogLevel.Debug)
             let _ = runtime.AttachLogger(new ConsoleLogger())
             while runtime.Workers.Length <> workerCount do Thread.Sleep 200
             state <- Some runtime)

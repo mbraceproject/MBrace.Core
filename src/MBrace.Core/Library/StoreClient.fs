@@ -3,6 +3,8 @@
 #nowarn "0444"
 
 open System.IO
+open System.ComponentModel
+open System.Diagnostics
 open System.Text
 open System.Runtime.Serialization
 
@@ -22,11 +24,13 @@ type CloudValueClient (provider : ICloudValueProvider) =
     let toAsync x = Cloud.ToAsync(x, resources)
     let toSync x = Cloud.RunSynchronously(x, resources)
 
-    member __.Id = provider.Id
-    override __.ToString() = provider.Id
-
     /// Creates a CloudValue client by resolving the local execution context.
     static member Create(resources : ResourceRegistry) = new CloudValueClient(resources.Resolve())
+
+    member __.Id = provider.Id
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    member __.Provider = provider
+    override __.ToString() = provider.Id
 
     /// <summary>
     ///     Creates a new cloud value to the underlying cache with provided payload.
@@ -88,11 +92,13 @@ type CloudAtomClient (provider : ICloudAtomProvider) =
     let toAsync x = Cloud.ToAsync(x, resources)
     let toSync x = Cloud.RunSynchronously(x, resources)
 
-    member __.Id = provider.Id
-    override __.ToString() = provider.Id
-
     /// Creates a CloudAtom client by resolving the local execution context.
     static member Create(resources : ResourceRegistry) = new CloudAtomClient(resources.Resolve())
+
+    member __.Id = provider.Id
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    member __.Provider = provider
+    override __.ToString() = provider.Id
 
     /// <summary>
     ///     Asynchronously creates a new cloud atom instance with given value.
@@ -178,6 +184,8 @@ type CloudQueueClient (provider : ICloudQueueProvider) =
     let toSync x = Cloud.RunSynchronously(x, resources)
 
     member __.Id = provider.Id
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    member __.Provider = provider
     override __.ToString() = provider.Id
 
     /// Creates a CloudQueue client by resolving the local execution context.
@@ -226,6 +234,8 @@ type CloudDictionaryClient (provider : ICloudDictionaryProvider) =
     let toSync x = Cloud.RunSynchronously(x, resources)
 
     member __.Id = provider.Id
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    member __.Provider = provider
     override __.ToString() = provider.Id
 
     /// Creates a CloudDictionary client by resolving the local execution context.
@@ -261,7 +271,7 @@ type CloudDictionaryClient (provider : ICloudDictionaryProvider) =
 
 
 /// Collection of path-related file store methods.
-[<Sealed; AutoSerializable(false)>]
+[<Sealed; AutoSerializable(true)>]
 type CloudPathClient internal (fileStore : ICloudFileStore, resources : ResourceRegistry) =
 
     let run x = Cloud.RunSynchronously(x, resources = resources)
@@ -319,7 +329,7 @@ type CloudPathClient internal (fileStore : ICloudFileStore, resources : Resource
 
 
 /// Collection of file store operations
-[<Sealed; AutoSerializable(false)>]
+[<Sealed; AutoSerializable(true)>]
 type CloudDirectoryClient internal (resources : ResourceRegistry) =
     let toAsync x = Cloud.ToAsync(x, resources)
     let run x = Cloud.RunSynchronously(x, resources = resources)
@@ -383,7 +393,7 @@ type CloudDirectoryClient internal (resources : ResourceRegistry) =
         CloudDirectory.Enumerate(dirPath = dirPath) |> run
 
 /// Collection of file store operations
-[<Sealed; AutoSerializable(false)>]
+[<Sealed; AutoSerializable(true)>]
 type CloudFileClient internal (resources : ResourceRegistry) =
     let toAsync x = Cloud.ToAsync(x, resources)
     let toSync x = Cloud.RunSynchronously(x, resources = resources)
@@ -746,6 +756,11 @@ type CloudFileSystem (fileStore : ICloudFileStore, ?serializer : ISerializer) =
     member __.Directory = dirClient
     /// CloudFile client.
     member __.File = fileClient
+
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    member __.Store = fileStore
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    member __.Serializer = serializer
 
     member __.Id = fileStore.Id
     override __.ToString() = fileStore.Id

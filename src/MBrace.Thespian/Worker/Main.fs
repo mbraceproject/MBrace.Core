@@ -25,7 +25,7 @@ let main (args : string []) =
 
         try
             do Config.Initialize(populateDirs = true, isClient = false, ?workingDirectory = config.WorkingDirectory, ?hostname = config.Hostname, ?port = config.Port)
-            Console.Title <- sprintf "MBrace.Thespian Worker [pid:%d, port:%d]" pid Config.LocalTcpPort
+            Config.SetConsoleTitle()
 
             let _ = logger.AttachLogger (new ConsoleLogger(useColors = true))
             for file in config.LogFiles do

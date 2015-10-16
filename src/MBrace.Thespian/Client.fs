@@ -287,33 +287,43 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager) =
     ///     are processes that will be spawned for this purpose.
     /// </summary>
     /// <param name="workerCount">Number of workers to spawn for cluster.</param>
+    /// <param name="hostClusterStateOnCurrentProcess">
+    ///     Hosts the cluster state in the client process, making all worker processes stateless. 
+    ///     Otherwise a separate worker process will be spawned to carry the cluster state. Defaults to true.
+    /// </param>
     /// <param name="fileStore">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="resources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logger">Logger implementation to attach on client by default. Defaults to no logging.</param>
     /// <param name="logLevel">Sets the log level for the cluster. Defaults to LogLevel.Info.</param>
-    static member InitOnCurrentMachine(workerCount : int, ?fileStore : ICloudFileStore, 
+    static member InitOnCurrentMachine(workerCount : int, ?hostClusterStateOnCurrentProcess : bool, ?fileStore : ICloudFileStore, 
                                         ?resources : ResourceRegistry, ?logger : ISystemLogger, ?logLevel : LogLevel) : ThespianCluster =
 
+        let hostClusterStateOnCurrentProcess = defaultArg hostClusterStateOnCurrentProcess true
         if workerCount < 0 then invalidArg "workerCount" "must be non-negative."
         let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
-        let state = ClusterState.Create(fileStore, isWorkerHosted = false, ?miscResources = resources)
+        let state =
+            if hostClusterStateOnCurrentProcess then
+                ClusterState.Create(fileStore, isWorkerHosted = false, ?miscResources = resources)
+            else
+                let master = ThespianWorker.Spawn(?logLevel = logLevel)
+                master.InitAsClusterMasterNode(fileStore, ?miscResources = resources) |> Async.RunSync
+
         let _ = initWorkers logLevel workerCount state |> Async.RunSync
         let cluster = new ThespianCluster(state, logLevel)
         logger |> Option.iter (fun l -> cluster.AttachLogger l |> ignore)
         cluster
 
     /// <summary>
-    ///     Initializes a new cluster state that is hosted on provided worker instance.
+    ///     Initializes a new cluster state that is hosted on an existing worker instance.
     /// </summary>
-    /// <param name="target">Target MBrace worker to host the cluster state. Defaults to a new spawned node.</param>
+    /// <param name="target">Target MBrace worker to host the cluster state.</param>
     /// <param name="fileStore">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="miscResources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
-    static member InitOnWorker(?target : ThespianWorker, ?fileStore : ICloudFileStore, 
+    static member InitOnWorker(target : ThespianWorker, ?fileStore : ICloudFileStore, 
                                     ?miscResources : ResourceRegistry, ?logLevel : LogLevel) : ThespianCluster =
 
         let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
-        let target = match target with Some t -> t | None -> ThespianWorker.Spawn()
         let state = target.InitAsClusterMasterNode(fileStore, ?miscResources = miscResources) |> Async.RunSync
         new ThespianCluster(state, logLevel)
 
