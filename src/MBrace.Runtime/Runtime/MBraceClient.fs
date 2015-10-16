@@ -9,13 +9,13 @@ open MBrace.Runtime.Utils
 
 /// MBrace runtime client handle abstract class.
 [<AbstractClass; NoEquality; NoComparison; AutoSerializable(false)>]
-type MBraceClient (runtime : IRuntimeManager) =
+type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) =
     do ignore <| RuntimeManagerRegistry.TryRegister runtime
 
     let syncRoot = new obj()
     let imem = ThreadPoolRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared)
     let storeClient = new CloudStoreClient(runtime.ResourceRegistry)
-    let mutable defaultFaultPolicy = FaultPolicy.WithMaxRetries(maxRetries = 1)
+    let mutable defaultFaultPolicy = defaultFaultPolicy
 
     let taskManagerClient = new CloudProcessManagerClient(runtime)
     let getWorkers () = async {
@@ -55,7 +55,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="workflow">Cloud computation to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
-    /// <param name="faultPolicy">Specify a custom fault policy for the computation.</param>
+    /// <param name="faultPolicy">Fault retry policy for the process. Defaults to the client FaultPolicy property.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
@@ -75,7 +75,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="workflow">Cloud computation to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
-    /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
+    /// <param name="faultPolicy">Fault retry policy for the process. Defaults to the client FaultPolicy property.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
@@ -91,7 +91,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="workflow">Cloud computation to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
-    /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
+    /// <param name="faultPolicy">Fault retry policy for the process. Defaults to the client FaultPolicy property.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
@@ -106,7 +106,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     /// </summary>
     /// <param name="workflow">Cloud computation to be executed.</param>
     /// <param name="cancellationToken">Cancellation token for computation.</param>
-    /// <param name="faultPolicy">Fault policy. Defaults to single retry.</param>
+    /// <param name="faultPolicy">Fault retry policy for the process. Defaults to the client FaultPolicy property.</param>
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
@@ -149,7 +149,6 @@ type MBraceClient (runtime : IRuntimeManager) =
     member __.ShowProcesses() : unit = taskManagerClient.ShowProcesses()
 
     /// Gets a client object that can be used for interoperating with the MBrace store.
-    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member __.Store : CloudStoreClient = storeClient
 
     /// Gets all available workers for the MBrace runtime.

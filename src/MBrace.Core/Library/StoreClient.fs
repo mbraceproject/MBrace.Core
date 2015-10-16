@@ -4,7 +4,6 @@
 
 open System.IO
 open System.ComponentModel
-open System.Diagnostics
 open System.Text
 open System.Runtime.Serialization
 
@@ -28,7 +27,7 @@ type CloudValueClient (provider : ICloudValueProvider) =
     static member Create(resources : ResourceRegistry) = new CloudValueClient(resources.Resolve())
 
     member __.Id = provider.Id
-    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     member __.Provider = provider
     override __.ToString() = provider.Id
 
@@ -96,7 +95,7 @@ type CloudAtomClient (provider : ICloudAtomProvider) =
     static member Create(resources : ResourceRegistry) = new CloudAtomClient(resources.Resolve())
 
     member __.Id = provider.Id
-    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     member __.Provider = provider
     override __.ToString() = provider.Id
 
@@ -184,7 +183,7 @@ type CloudQueueClient (provider : ICloudQueueProvider) =
     let toSync x = Cloud.RunSynchronously(x, resources)
 
     member __.Id = provider.Id
-    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     member __.Provider = provider
     override __.ToString() = provider.Id
 
@@ -234,7 +233,7 @@ type CloudDictionaryClient (provider : ICloudDictionaryProvider) =
     let toSync x = Cloud.RunSynchronously(x, resources)
 
     member __.Id = provider.Id
-    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     member __.Provider = provider
     override __.ToString() = provider.Id
 
@@ -757,9 +756,9 @@ type CloudFileSystem (fileStore : ICloudFileStore, ?serializer : ISerializer) =
     /// CloudFile client.
     member __.File = fileClient
 
-    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     member __.Store = fileStore
-    [<DebuggerBrowsable(DebuggerBrowsableState.Never); EditorBrowsable(EditorBrowsableState.Never)>]
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     member __.Serializer = serializer
 
     member __.Id = fileStore.Id
