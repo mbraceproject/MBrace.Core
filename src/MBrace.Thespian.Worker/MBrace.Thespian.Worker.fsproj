@@ -56,7 +56,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="main.fs" />
+    <Compile Include="Main.fs" />
     <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
