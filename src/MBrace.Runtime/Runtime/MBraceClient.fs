@@ -13,8 +13,7 @@ type MBraceClient (runtime : IRuntimeManager) =
     do ignore <| RuntimeManagerRegistry.TryRegister runtime
 
     let syncRoot = new obj()
-    let checkVagabondDependencies (graph:obj) = runtime.AssemblyManager.ComputeDependencies graph |> ignore
-    let imem = ThreadPoolRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared, vagabondChecker = checkVagabondDependencies)
+    let imem = ThreadPoolRuntime.Create(resources = runtime.ResourceRegistry, memoryEmulation = MemoryEmulation.Shared)
     let storeClient = new CloudStoreClient(runtime.ResourceRegistry)
     let mutable defaultFaultPolicy = FaultPolicy.WithMaxRetries(maxRetries = 1)
 

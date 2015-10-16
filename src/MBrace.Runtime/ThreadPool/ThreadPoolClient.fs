@@ -15,7 +15,7 @@ type FileSystemStore = MBrace.Runtime.Store.FileSystemStore
 /// Defines an MBrace thread pool runtime instance that is capable of
 /// executing cloud workflows in the thread pool of the current process.
 [<Sealed; AutoSerializable(false); NoEquality; NoComparison>]
-type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLogger, _memoryEmulation : MemoryEmulation, vagabondGraphChecker : (obj -> unit) option) =
+type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLogger, _memoryEmulation : MemoryEmulation) =
 
     // Constructs a resource registry object with supplied paramaters
     let buildResources (memoryEmulation : MemoryEmulation) (logger : ICloudLogger option) (additionalResources : ResourceRegistry option) =
@@ -67,7 +67,6 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
     member r.ToAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : Async<'T> =
-        match vagabondGraphChecker with Some v -> v workflow | None -> ()
         let memoryEmulation = defaultArg memoryEmulation _memoryEmulation
         let resources = buildResources memoryEmulation logger resources
         Combinators.ToAsync(workflow, memoryEmulation, resources)
@@ -82,7 +81,6 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
     member r.RunSynchronously(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : 'T =
-        match vagabondGraphChecker with Some v -> v workflow | None -> ()
         let memoryEmulation = defaultArg memoryEmulation _memoryEmulation
         let resources = buildResources memoryEmulation logger resources
         Combinators.RunSynchronously(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
@@ -110,7 +108,6 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
     member r.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : ThreadPoolProcess<'T> =
-        match vagabondGraphChecker with Some v -> v workflow | None -> ()
         let memoryEmulation = defaultArg memoryEmulation _memoryEmulation
         let resources = buildResources memoryEmulation logger resources
         Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
@@ -140,7 +137,6 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="queueProvider">Cloud queue provider instance. Defaults to in-memory queues.</param>
     /// <param name="dictionaryProvider">Cloud dictionary configuration. Defaults to in-memory dictionary.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
-    /// <param name="vagabondChecker">User-supplied workflow dependency checker function.</param>
     static member Create(?logger : ICloudLogger,
                             ?memoryEmulation : MemoryEmulation,
                             ?fileStore : ICloudFileStore,
@@ -149,8 +145,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
                             ?atomProvider : ICloudAtomProvider,
                             ?queueProvider : ICloudQueueProvider,
                             ?dictionaryProvider : ICloudDictionaryProvider,
-                            ?resources : ResourceRegistry,
-                            ?vagabondChecker : obj -> unit) : ThreadPoolRuntime =
+                            ?resources : ResourceRegistry) : ThreadPoolRuntime =
 
         let memoryEmulation = match memoryEmulation with Some m -> m | None -> MemoryEmulation.Shared
         let fileStore = match fileStore with Some fs -> fs | None -> FileSystemStore.CreateRandomLocal() :> _
@@ -171,4 +166,4 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
             match resources with Some r -> yield! r | None -> ()
         }
 
-        new ThreadPoolRuntime(resources, logger, memoryEmulation, vagabondChecker)
+        new ThreadPoolRuntime(resources, logger, memoryEmulation)
