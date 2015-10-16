@@ -91,6 +91,7 @@ module internal WorkerController =
                     let! result = WorkerSubscription.initSubscription useAppDomain logger heartbeatInterval heartbeatThreshold maxConcurrentWorkItems rs |> Async.Catch
                     match result with
                     | Choice1Of2 subscr -> 
+                        Config.SetConsoleTitle "Slave Node"
                         do! rc.Reply (())
                         return SubscribedWorker subscr  
                     | Choice2Of2 e ->
@@ -125,6 +126,7 @@ module internal WorkerController =
                     match result with
                     | Choice1Of2 rs ->
                         logger.Logf LogLevel.Info "Cluster '%O' has been initialized." rs.Id
+                        Config.SetConsoleTitle "Master Node"
                         do! rc.Reply rs
                         return MasterNode rs
                     | Choice2Of2 e ->

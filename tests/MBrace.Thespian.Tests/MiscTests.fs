@@ -66,10 +66,11 @@ module ``MBrace Thespian Misc Tests`` =
 
     [<Test>]
     let ``Management : Attach new nodes to a cluster`` () =
-        let cluster = ThespianCluster.InitOnWorker()
+        let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 0, hostClusterStateOnCurrentProcess = false)
         try
             cluster.AttachNewLocalWorkers(3)
             cluster.Workers |> Array.map (fun w -> w.WorkerManager) |> Array.length |> shouldEqual 3
+            cluster.MasterNode |> shouldBe Option.isSome
         finally
            cluster.KillAllWorkers()
            cluster.MasterNode |> Option.iter (fun n -> n.Kill())
