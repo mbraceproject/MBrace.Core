@@ -1,3 +1,6 @@
+#### 0.13.2-beta
+* Misc improvements and bugfixes
+
 #### 0.13.1-beta
 * Clean up MBrace.Core Async extensions
 
