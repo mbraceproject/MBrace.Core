@@ -411,7 +411,7 @@ module CloudFlow =
                     { new Collector<string, CloudFileInfo []> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
-                            let path = store.Combine(dirPath, sprintf "Part-%s-%d.txt" cloudFlowStaticId results.Count)
+                            let path = store.Combine(dirPath, sprintf "Part-%s-%s.txt" cloudFlowStaticId (mkUUID ()))
                             let stream = store.BeginWrite(path) |> Async.RunSync
                             let writer = new StreamWriter(stream)
                             results.Add((path, writer))
