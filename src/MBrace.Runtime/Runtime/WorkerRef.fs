@@ -212,8 +212,7 @@ and internal WorkerReporter private () =
             )
           Field.create "Network(ul/dl : KB/s)" Center (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUsageUp <| double_printer n.NetworkUsageDown)
           Field.create "Work items" Center (fun p -> sprintf "%d / %d" p.ActiveWorkItems p.MaxWorkItemCount)
-          Field.create "Hostname" Left (fun p -> p.Hostname)
-          Field.create "Process Id" Right (fun p -> p.ProcessId)
+          Field.create "Hostname (PID)" Left (fun p -> sprintf "%s (%d)" p.Hostname p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> let d = p.InitializationTime in d.LocalDateTime) 
           Field.create "Latest Heartbeat" Left (fun p -> let d = p.LastHeartbeat in d.LocalDateTime)
         ]
