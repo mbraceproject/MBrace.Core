@@ -24,7 +24,8 @@ CloudFlow.OfHttpFileByLine "http://my.server.local/large.txt"
 |> CloudFlow.collect (fun line -> line.Split [|' '; ',' ; '.'|])
 |> CloudFlow.filter (fun line -> line.Length > 3)
 |> CloudFlow.countBy id
-|> CloudFlow.take 50
+|> CloudFlow.sortBy (fun (_,c) -> -c) 10
+|> CloudFlow.toArray
 ```
 It is written on top of the [Nessos.Streams](http://nessos.github.io/Streams) library, a fast streaming library inspired by [Java 8 Streams](http://www.oracle.com/technetwork/articles/java/ma14-java-se-8-streams-2177646.html).
 
