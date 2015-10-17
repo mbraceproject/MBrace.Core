@@ -54,6 +54,19 @@ Refer to [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/mas
 
 [MBrace.Azure](http://github.com/mbraceproject/MBrace.Azure/) is an MBrace framework implementation on top of Azure PaaS components. Enables easy deployment of scalable MBrace clusters using worker roles. It also supports on-site cluster deployments using Azure storage/service bus components for communication.
 
+## Building and Running unit tests
+
+Building MBrace Core requires Visual Studio 2015/F# 4.0. You can build the project either from Visual Studio or by running `build.cmd Build` if using cmd/powershell or `./build.sh Build` if using bash/sh.
+
+Unit tests can be run by calling `build.cmd RunTests` or `./build.sh RunTests`. 
+You can skip the time consuming Thespian by adding the `-ef IgnoreClusterTests` flag in the above commands.
+Alternatively you can run individual tests by opening test assemblies found in the repository's `/bin` folder
+using [NUnit-GUI](http://www.nunit.org/index.php?p=nunit-gui&r=2.2.10). Building the solution produces the following
+test assemblies:
+  * `MBrace.Core.Tests.dll` for testing the core MBrace library.
+  * `MBrace.Runtime.Tests.dll` for testing MBrace.Runtime components.
+  * `MBrace.Thespian.Tests.dll` for testing the MBrace Thespian implementation.
+
 ## License
 
 This project is subject to the [Apache Licence, Version 2.0](License.md).
