@@ -69,6 +69,15 @@ test assemblies:
 
 When performing changes to MBrace.Core, MBrace.Flow or MBrace.Runtime it is essential to verify that the MBrace.Thespian tests are still passing. 
 
+## Contributing
+
+The MBrace project is happy to accept quality contributions from the .NET community.
+If you would like to get involved, here are a few places you could have a look at:
+  * MBrace Libraries: we are looking for data scientists and domain experts who can help us develop specialized libraries that run on top of MBrace.Core. Examples include [Machine Learning](https://spark.apache.org/docs/1.1.0/mllib-guide.html) and [Graph analytics](http://spark.apache.org/graphx/) libraries.
+  * MBrace Runtimes: help MBrace grow by extending support to your favorite cloud service. It could be AWS, YARN/HDFS or your private infrastructure.
+  * C# Support: As of MBrace 1.0, development of [MBrace.CSharp](#mbrace.csharp) has been suspended. We are looking for working C# developers interested in extending MBrace support to C# and testing deployments using the upcoming C# Interactive.
+  * Documentation & Code Samples: help improve MBrace documentation and coding samples. See the [MBrace.StarterKit](https://github.com/mbraceproject/MBrace.StarterKit) for current coding samples and the [mbrace-docs](https://github.com/mbraceproject/mbrace-docs) repo for documentation and the [m-brace.net](http://www.m-brace.net/) website.
+
 ## License
 
 This project is subject to the [Apache Licence, Version 2.0](License.md).
