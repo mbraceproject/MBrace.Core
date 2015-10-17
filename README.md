@@ -22,7 +22,8 @@ You can also follow the official MBrace twitter account [@mbracethecloud](https:
 ```fsharp
 CloudFlow.OfHttpFileByLine "http://my.server.local/large.txt"
 |> CloudFlow.collect (fun line -> line.Split [|' '; ',' ; '.'|])
-|> CloudFlow.filter (fun line -> line.Length > 3)
+|> CloudFlow.filter (fun w -> w.Length > 3)
+|> CloudFlow.map (fun w -> w.ToLower())
 |> CloudFlow.countBy id
 |> CloudFlow.sortBy (fun (_,c) -> -c) 10
 |> CloudFlow.toArray
