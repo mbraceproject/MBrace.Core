@@ -4,7 +4,11 @@
 # MBrace Core Libraries
 
 This repository contains core libraries and runtime foundation components 
-for the [MBrace](http://m-brace.net/) distributed computation programming model and frameworks.
+for the MBrace cloud programming model and frameworks.
+
+For a first introduction to MBrace please refer to the main website at [m-brace.net](http://www.m-brace.net/).
+If you have any questions regarding MBrace don't hesitate to create an issue or ask one of the [maintainers](#maintainers). 
+You can also follow the official MBrace twitter account [@mbracethecloud](https://twitter.com/mbracethecloud).
 
 ## Repo Contents
 
@@ -43,6 +47,12 @@ Refer to [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/mas
 ### MBrace.Thespian [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Thespian.svg?style=flat)](https://www.nuget.org/packages/MBrace.Thespian/)
 
 [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/master/samples/MBrace.Thespian) is a simple MBrace cluster implementation on top of MBrace.Runtime and the [Thespian](http://nessos.github.io/Thespian) actor library. Not intended for production deployments, it is used for testing MBrace core development.
+
+## Other MBrace Implementations
+
+### MBrace.Azure [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Azure.svg?style=flat)](https://www.nuget.org/packages/MBrace.Azure/)
+
+[MBrace.Azure](http://github.com/mbraceproject/MBrace.Azure/) is an MBrace framework implementation on top of Azure PaaS components. Enables easy deployment of scalable MBrace clusters using worker roles. It also supports on-site cluster deployments using Azure storage/service bus components for communication.
 
 ## License
 
