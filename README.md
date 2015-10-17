@@ -6,7 +6,7 @@
 This repository contains core libraries and runtime foundation components 
 for the [MBrace](http://m-brace.net/) distributed computation programming model and frameworks.
 
-## Contents
+## Repo Contents
 
 ### MBrace.Core [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/)
 
