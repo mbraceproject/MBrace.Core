@@ -49,6 +49,12 @@ Refer to [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/mas
 This project is subject to the Apache Licence, Version 2.0. 
 A copy of the license can be found in [License.md](License.md) at the root of this repo.
 
+## Maintainers
+
+  * [@eiriktsarpalis](https://twitter.com/eiriktsarpalis)
+  * [@nickpalladinos](https://twitter.com/nickpalladinos)
+  * [@krontogiannis](https://twitter.com/krontogiannis)
+
 ## Build Status
 
 Head (branch master), Build & Unit tests
