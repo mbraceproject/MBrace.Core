@@ -44,6 +44,11 @@ Refer to [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/mas
 
 [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/master/samples/MBrace.Thespian) is a simple MBrace cluster implementation on top of MBrace.Runtime and the [Thespian](http://nessos.github.io/Thespian) actor library. Not intended for production deployments, it is used for testing MBrace core development.
 
+## License
+
+This project is subject to the Apache Licence, Version 2.0. 
+A copy of the license can be found in [License.md](License.md) at the root of this repo.
+
 ## Build Status
 
 Head (branch master), Build & Unit tests
