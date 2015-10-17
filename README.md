@@ -67,6 +67,8 @@ test assemblies:
   * `MBrace.Runtime.Tests.dll` for testing MBrace.Runtime components.
   * `MBrace.Thespian.Tests.dll` for testing the MBrace Thespian implementation.
 
+When performing changes to MBrace.Core, MBrace.Flow or MBrace.Runtime it is essential to verify that the MBrace.Thespian tests are still passing. 
+
 ## License
 
 This project is subject to the [Apache Licence, Version 2.0](License.md).
