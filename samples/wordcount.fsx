@@ -12,7 +12,7 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../bin/mbrace.thespian.worker.exe"
+ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../bin/mbrace.thespian.worker.exe"
 
 (* WordCount Example using CloudFlow *)
 
@@ -65,7 +65,7 @@ let getWordCount (count : int) (words : CloudFlow<string>) =
     |> CloudFlow.toArray
 
 /// initialize a local cluster of 4 workers
-let cluster = MBraceCluster.InitOnCurrentMachine(workerCount = 4, logger = new ConsoleLogger())
+let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 4, logger = new ConsoleLogger())
 
 /// input data set
 let testUrls = 
