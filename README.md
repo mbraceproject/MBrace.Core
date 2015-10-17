@@ -44,11 +44,7 @@ Refer to [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/mas
 
 [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/master/samples/MBrace.Thespian) is a simple MBrace cluster implementation on top of MBrace.Runtime and the [Thespian](http://nessos.github.io/Thespian) actor library. Not intended for production deployments, it is used for testing MBrace core development.
 
-### Road map
-
-See [ROADMAP.md](ROADMAP.md)
-
-### Build Status
+## Build Status
 
 Head (branch master), Build & Unit tests
   * Windows/.NET [![Build status](https://ci.appveyor.com/api/projects/status/3yaglw86q7vnja7w/branch/master?svg=true)](https://ci.appveyor.com/project/nessos/mbrace-core/branch/master)
