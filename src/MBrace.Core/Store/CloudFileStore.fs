@@ -642,6 +642,19 @@ type CloudFile =
         do! Cloud.OfAsync <| stream.AsyncWrite(buffer, 0, buffer.Length)
         return new CloudFileInfo(store, path)
     }
+
+    /// <summary>
+    ///     Write the contents of a stream directly to a CloudFile.
+    /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
+    /// <param name="inputStream">The stream to read from. Assumes that the stream is already at the correct position for reading.</param>
+    static member WriteStream(path : string, stream : Stream) : CloudLocal<CloudFileInfo> = local {
+        let! destination = CloudFile.BeginWrite path
+        do! (stream.CopyToAsync destination) |> Async.AwaitTaskCorrect |> Cloud.OfAsync
+
+        let! store = Cloud.GetResource<ICloudFileStore>()
+        return new CloudFileInfo(store, path)
+    }
         
     /// <summary>
     ///     Store all contents of given file to a new byte array.
