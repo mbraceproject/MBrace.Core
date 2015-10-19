@@ -4,7 +4,7 @@
 #r "MBrace.Runtime.dll"
 #r "MBrace.Thespian.dll"
 #r "MBrace.Flow.dll"
-#r "Streams.Core.dll"
+#r "Streams.dll"
 
 open System
 open MBrace.Core
