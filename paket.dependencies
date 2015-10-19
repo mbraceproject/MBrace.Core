@@ -13,8 +13,8 @@ nuget Thespian.Core 0.1.6-alpha
 nuget FSharp.Core
 nuget FsCheck >= 2.0.1
 nuget Unquote >= 2.2.2
-nuget Streams ~> 0.3.0
-nuget Streams.CSharp ~> 0.3.0
+nuget Streams ~> 0.4.0
+nuget Streams.CSharp ~> 0.4.0
 nuget NuGet.CommandLine
 nuget FSharp.Compiler.Service 1.3.1.2
 nuget FAKE

@@ -28,8 +28,7 @@ module NonDeterministic =
                     { new Collector<'T, 'T option> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
-                            {   Index = ref -1;
-                                Func = (fun value -> if predicate ctx value then resultRef := Some value; cloudCts.Cancel() else ());
+                            {   Func = (fun value -> if predicate ctx value then resultRef := Some value; cloudCts.Cancel() else ());
                                 Cts = cts }
                         member self.Result =
                             !resultRef }
@@ -50,8 +49,7 @@ module NonDeterministic =
                     { new Collector<'T, 'R option> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
-                            {   Index = ref -1;
-                                Func = (fun value -> match chooser ctx value with Some value' -> resultRef := Some value'; cloudCts.Cancel() | None -> ());
+                            {   Func = (fun value -> match chooser ctx value with Some value' -> resultRef := Some value'; cloudCts.Cancel() | None -> ());
                                 Cts = cts }
                         member self.Result =
                             !resultRef }

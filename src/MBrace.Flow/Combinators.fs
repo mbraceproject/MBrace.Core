@@ -415,8 +415,7 @@ module CloudFlow =
                             let stream = store.BeginWrite(path) |> Async.RunSync
                             let writer = new StreamWriter(stream)
                             results.Add((path, writer))
-                            {   Index = ref -1;
-                                Func = (fun line -> writer.WriteLine(line));
+                            {   Func = (fun line -> writer.WriteLine(line));
                                 Cts = cts }
                         member self.Result =
                             results |> Seq.iter (fun (_, writer) -> writer.Dispose())

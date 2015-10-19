@@ -120,8 +120,8 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6')">
       <ItemGroup>
-        <Reference Include="Streams.Core">
-          <HintPath>..\..\packages\Streams\lib\net45\Streams.Core.dll</HintPath>
+        <Reference Include="Streams">
+          <HintPath>..\..\packages\Streams\lib\net45\Streams.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

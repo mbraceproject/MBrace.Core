@@ -31,8 +31,7 @@ module Take =
                       member __.Iterator() =
                           let list = new List<'T>()
                           results.Add(list)
-                          { Index = ref -1
-                            Func = (fun value -> if list.Count < n then list.Add(value) else cloudCts.Cancel())
+                          { Func = (fun value -> if list.Count < n then list.Add(value) else cloudCts.Cancel())
                             Cts = cts }
                       member __.Result =
                           (results |> Seq.concat).Take(n) |> Seq.toArray

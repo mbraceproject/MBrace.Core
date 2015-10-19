@@ -32,8 +32,7 @@ module Transformers =
                         member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() =
                             let { Func = iter } as iterator = collector.Iterator()
-                            {   Index = iterator.Index;
-                                Func = (fun value -> iter (f ctx value));
+                            {   Func = (fun value -> iter (f ctx value));
                                 Cts = iterator.Cts }
                         member self.Result = collector.Result  }
                 }
@@ -55,8 +54,7 @@ module Transformers =
                         member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() =
                             let { Func = iter } as iterator = collector.Iterator()
-                            {   Index = iterator.Index;
-                                Func = (fun value -> if predicate ctx value then iter value else ());
+                            {   Func = (fun value -> if predicate ctx value then iter value else ());
                                 Cts = iterator.Cts }
                         member self.Result = collector.Result }
                 }
@@ -78,7 +76,7 @@ module Transformers =
                         member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() =
                             let { Func = iter } as iterator = collector.Iterator()
-                            {   Index = iterator.Index;
+                            {
                                 Func = (fun value ->
                                           match chooser ctx value with
                                           | Some value' -> iter value'
@@ -105,8 +103,7 @@ module Transformers =
                         member self.DegreeOfParallelism = collector.DegreeOfParallelism
                         member self.Iterator() =
                             let { Func = iter } as iterator = collector.Iterator()
-                            {   Index = iterator.Index;
-                                Func =
+                            {   Func =
                                     (fun value ->
                                         let (Stream streamf) = Stream.ofSeq (f ctx value)
                                         let cts = CancellationTokenSource.CreateLinkedTokenSource(iterator.Cts.Token)

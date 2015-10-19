@@ -31,8 +31,7 @@ module Distinct =
                     { new Collector<'T, seq<int * seq<'Key * 'T>>> with
                       member __.DegreeOfParallelism = source.DegreeOfParallelism
                       member __.Iterator() =
-                          { Index = ref -1;
-                            Func = (fun v -> let k = projection v in dict.TryAdd(k, v) |> ignore);
+                          { Func = (fun v -> let k = projection v in dict.TryAdd(k, v) |> ignore);
                             Cts = cts }
                       member __.Result =
                            dict
@@ -71,8 +70,7 @@ module Distinct =
                     { new Collector<int * PersistedCloudFlow<'Key * 'T>, seq<'T>> with
                       member __.DegreeOfParallelism = source.DegreeOfParallelism
                       member __.Iterator() =
-                          { Index = ref -1;
-                            Func = (fun (_, pkvs) -> for (k, v) in pkvs do dict.TryAdd(k, v) |> ignore);
+                          { Func = (fun (_, pkvs) -> for (k, v) in pkvs do dict.TryAdd(k, v) |> ignore);
                             Cts = cts }
                       member __.Result = dict |> Seq.map (fun kv -> kv.Value)
                     }

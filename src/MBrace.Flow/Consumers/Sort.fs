@@ -38,8 +38,7 @@ module Sort =
                 member self.Iterator() =
                     let list = new List<'T>()
                     results.Add(list)
-                    {   Index = ref -1;
-                        Func = (fun value -> list.Add(value));
+                    {   Func = (fun value -> list.Add(value));
                         Cts = cts }
                 member self.Result =
                     let count = results |> Seq.sumBy (fun list -> list.Count)

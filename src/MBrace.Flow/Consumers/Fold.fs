@@ -37,8 +37,7 @@ module Fold =
                 member self.Iterator() =
                     let accRef = ref <| state ctx
                     results.Add(accRef)
-                    {   Index = ref -1;
-                        Func = (fun value -> accRef := folder ctx !accRef value);
+                    {   Func = (fun value -> accRef := folder ctx !accRef value);
                         Cts = cts }
                 member self.Result =
                     let mutable acc = state ctx
@@ -82,8 +81,7 @@ module Fold =
               { new Collector<'T,  seq<int * seq<'Key * 'State>>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism
                 member self.Iterator() =
-                    {   Index = ref -1;
-                        Func =
+                    {   Func =
                             (fun value ->
                                     let mutable grouping = Unchecked.defaultof<_>
                                     let key = projection ctx value
@@ -135,8 +133,7 @@ module Fold =
             return { new Collector<int * PersistedCloudFlow<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism
                 member self.Iterator() =
-                    {   Index = ref -1;
-                        Func =
+                    {   Func =
                             (fun (_, keyValues) ->
                                 for (key, value) in keyValues do
                                     let mutable grouping = Unchecked.defaultof<_>
@@ -198,8 +195,7 @@ module Fold =
               { new Collector<'S,  seq<int * seq<'Key * 'State>>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism
                 member self.Iterator() =
-                    {   Index = ref -1;
-                        Func =
+                    {   Func =
                             (fun value ->
                                     let mutable grouping = Unchecked.defaultof<_>
                                     let key = projection ctx value
@@ -257,8 +253,7 @@ module Fold =
             return { new Collector<int * PersistedCloudFlow<'Key * 'State>,  seq<'Key * 'State>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism
                 member self.Iterator() =
-                    {   Index = ref -1;
-                        Func =
+                    {   Func =
                             (fun (_, keyValues) ->
                                 for (key, value) in keyValues do
                                     let mutable grouping = Unchecked.defaultof<_>
