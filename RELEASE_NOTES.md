@@ -2,6 +2,7 @@
 * Add CloudFile.UploadFromStream and CloudFile.DownloadToStream methods.
 * Add ICloudFileStore.Upload and .Download methods.
 * Fix CloudFlow sortBy issue.
+* Rename CloudLocal<T> to LocalCloud<T>.
 
 #### 0.13.2-beta
 * Misc improvements and bugfixes
