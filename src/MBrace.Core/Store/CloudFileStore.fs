@@ -136,18 +136,32 @@ type ICloudFileStore =
     abstract BeginRead : path:string -> Async<Stream>
 
     /// <summary>
-    ///     Creates a new file from provided stream.
+    ///     Uploads the contents of provided read stream to specified cloud file.
     /// </summary>
-    /// <param name="targetFile">Target file.</param>
-    /// <param name="source">Source stream.</param>
-    abstract CopyOfStream : source:Stream * target:string -> Async<unit>
+    /// <param name="path">Path to cloud file.</param>
+    /// <param name="source">Source read stream.</param>
+    abstract UploadFromStream : path:string * stream:Stream -> Async<unit>
 
     /// <summary>
-    ///     Reads an existing file to target stream.
+    ///     Downloads the contents of provided cloud file to specified write stream.
     /// </summary>
-    /// <param name="sourceFile">Source file.</param>
-    /// <param name="target">Target stream.</param>
-    abstract CopyToStream : sourceFile:string * target:Stream -> Async<unit>
+    /// <param name="path">Path to source cloud file.</param>
+    /// <param name="stream">Target write stream.</param>
+    abstract DownloadToStream : path:string * stream:Stream -> Async<unit>
+
+    /// <summary>
+    ///     Uploads a local file to specified path in the cloud file store.
+    /// </summary>
+    /// <param name="localSourcePath">Path to local source file.</param>
+    /// <param name="cloudTargetPath">Path to cloud target file.</param>
+    abstract UploadFromLocalFile : localSourcePath:string * cloudTargetPath:string -> Async<unit>
+
+    /// <summary>
+    ///     Downloads a cloud file to the specified path in the local disk.
+    /// </summary>
+    /// <param name="cloudSourcePath">Path to cloud source file.</param>
+    /// <param name="localTargetPath">Path to local target file.</param>
+    abstract DownloadToLocalFile : cloudSourcePath:string * localTargetPath:string -> Async<unit>
 
     //
     //  Entity tag API
@@ -648,9 +662,15 @@ type CloudFile =
     /// </summary>
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="inputStream">The stream to read from. Assumes that the stream is already at the correct position for reading.</param>
-    static member WriteStream(path : string, stream : Stream) : CloudLocal<CloudFileInfo> = local {
+    /// <param name="overwrite">Overwrite the target file if it exists. Defaults to false.</param>
+    static member UploadFromStream(path : string, stream : Stream, ?overwrite : bool) : CloudLocal<CloudFileInfo> = local {
+        let overwrite = defaultArg overwrite false
         let! store = Cloud.GetResource<ICloudFileStore>()
-        do! store.CopyOfStream(stream, path) |> Cloud.OfAsync
+        if not overwrite then
+            let! exists = store.FileExists path |> Cloud.OfAsync
+            if exists then raise <| new IOException(sprintf "The file '%s' already exists." path)
+
+        do! store.UploadFromStream(path, stream) |> Cloud.OfAsync
         return new CloudFileInfo(store, path)
     }
 
@@ -659,9 +679,9 @@ type CloudFile =
     /// </summary>
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="inputStream">The stream to write to.</param>
-    static member ReadStream(path : string, stream : Stream) : CloudLocal<unit> = local {
+    static member DownloadToStream(path : string, stream : Stream) : CloudLocal<unit> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
-        return! store.CopyToStream(path, stream) |> Cloud.OfAsync
+        return! store.DownloadToStream(path, stream) |> Cloud.OfAsync
     }
 
     /// <summary>
@@ -690,14 +710,13 @@ type CloudFile =
             let! exists = Cloud.OfAsync <| store.FileExists targetPath
             if exists then raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use fs = File.OpenRead (Path.GetFullPath sourcePath)
-
         if compress then
+            use fs = File.OpenRead (Path.GetFullPath sourcePath)
             use! stream = Cloud.OfAsync <| store.BeginWrite targetPath
             use gz = new GZipStream(stream, CompressionLevel.Optimal)
             do! fs.CopyToAsync gz |> Async.AwaitTaskCorrect |> Cloud.OfAsync
         else
-            do! Cloud.OfAsync <| store.CopyOfStream(fs, targetPath)
+            do! Cloud.OfAsync <| store.UploadFromLocalFile(sourcePath, targetPath)
 
         return new CloudFileInfo(store, targetPath)
     }
@@ -742,14 +761,12 @@ type CloudFile =
         if not overwrite && File.Exists targetPath then
             raise <| new IOException(sprintf "The file '%s' already exists." targetPath)
 
-        use stream =
-            let fs = File.OpenWrite targetPath
-            if decompress then
-                new GZipStream(fs, CompressionMode.Decompress) :> Stream
-            else
-                fs :> _
-
-        do! Cloud.OfAsync <| store.CopyToStream(sourcePath, stream)
+        if decompress then
+            use fs = File.OpenWrite targetPath
+            use gz = new GZipStream(fs, CompressionMode.Decompress)
+            return! Cloud.OfAsync <| store.DownloadToStream(sourcePath, gz)
+        else
+            return! Cloud.OfAsync <| store.DownloadToLocalFile(sourcePath, targetPath)
     }
 
     /// <summary>

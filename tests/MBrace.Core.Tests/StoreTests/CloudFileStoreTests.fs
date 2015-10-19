@@ -165,6 +165,33 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
+    member self.``1. FileStore : upload local file to the cloud.`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
+        let localFile = Path.GetTempFileName()
+        File.WriteAllBytes(localFile, [|1uy .. 100uy|])
+        self.FileStore.FileExists file |> runSync |> shouldEqual false
+        self.FileStore.UploadFromLocalFile(localFile, file) |> runSync
+        self.FileStore.GetFileSize file |> runSync |> shouldEqual 100L
+        self.FileStore.DeleteFile file |> runSync
+
+    [<Test>]
+    member self.``1. FileStore : download local file from the cloud.`` () =
+        let file = self.FileStore.GetRandomFilePath testDirectory.Value
+        let localFile = Path.GetTempFileName()
+
+        self.FileStore.FileExists file |> runSync |> shouldEqual false
+
+        // write to file
+        do
+            use stream = self.FileStore.BeginWrite file |> runSync
+            for i = 1 to 100 do stream.WriteByte(byte i)
+
+        self.FileStore.FileExists file |> runSync |> shouldEqual true
+        self.FileStore.DownloadToLocalFile(file, localFile) |> runSync
+        FileInfo(localFile).Length |> shouldEqual 100L
+        self.FileStore.DeleteFile file |> runSync
+
+    [<Test>]
     member self.``1. FileStore : Create and Read a large file.`` () =
         let data = Array.init (1024 * 1024 * 4) byte
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
@@ -188,12 +215,12 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         do
             use m = new MemoryStream(data)
-            let _ = self.FileStore.CopyOfStream(m, file) |> runSync
+            let _ = self.FileStore.UploadFromStream(file, m) |> runSync
             ()
 
         do
             use m = new MemoryStream()
-            let _ = self.FileStore.CopyToStream(file, m) |> runSync
+            let _ = self.FileStore.DownloadToStream(file, m) |> runSync
             m.ToArray() |> shouldEqual data
 
         self.FileStore.DeleteFile file |> runSync
@@ -254,6 +281,9 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         |> shouldFailwith<_, FileNotFoundException>
 
         fun () -> self.FileStore.GetFileSize file |> Async.RunSync
+        |> shouldFailwith<_, FileNotFoundException>
+
+        fun () -> self.FileStore.DownloadToLocalFile(file, "foo.txt") |> Async.RunSync
         |> shouldFailwith<_, FileNotFoundException>
 
         fun () -> self.FileStore.GetLastModifiedTime (file, isDirectory = false) |> Async.RunSync

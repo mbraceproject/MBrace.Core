@@ -468,6 +468,40 @@ type CloudFileClient internal (resources : ResourceRegistry) =
         CloudFile.BeginRead(path) |> toSync
 
     /// <summary>
+    ///     Asynchronously Write the contents of a stream directly to a CloudFile.
+    /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
+    /// <param name="inputStream">The stream to read from. Assumes that the stream is already at the correct position for reading.</param>
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member c.UploadFromStreamAsync(path : string, stream : Stream, ?overwrite : bool) : Async<CloudFileInfo> =
+        CloudFile.UploadFromStream(path, stream, ?overwrite = overwrite) |> toAsync
+
+    /// <summary>
+    ///     Write the contents of a stream directly to a CloudFile.
+    /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
+    /// <param name="inputStream">The stream to read from. Assumes that the stream is already at the correct position for reading.</param>
+    /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
+    member c.UploadFromStream(path : string, stream : Stream, ?overwrite : bool) : CloudFileInfo =
+        CloudFile.UploadFromStream(path, stream, ?overwrite = overwrite) |> toSync
+
+    /// <summary>
+    ///     Asynchronously write the contents of a CloudFile directly to a Stream.
+    /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
+    /// <param name="inputStream">The stream to write to.</param>
+    member c.DownloadToStreamAsync(path : string, stream : Stream) : Async<unit> =
+        CloudFile.DownloadToStream(path, stream) |> toAsync
+
+    /// <summary>
+    ///     Asynchronously write the contents of a CloudFile directly to a Stream.
+    /// </summary>
+    /// <param name="path">Path to Cloud file.</param>
+    /// <param name="inputStream">The stream to write to.</param>
+    member c.DownloadToStream(path : string, stream : Stream) : unit =
+        CloudFile.DownloadToStream(path, stream) |> toSync
+
+    /// <summary>
     ///     Gets all files that exist in given container.
     /// </summary>
     /// <param name="dirPath">Path to directory.</param>
