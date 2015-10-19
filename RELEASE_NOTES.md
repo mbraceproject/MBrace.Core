@@ -1,6 +1,7 @@
-#### 0.13.3-beta
-* Add CloudFile.WriteStream and CloudFile.ReadStream methods.
-* Fix 
+#### 0.14.0-beta
+* Add CloudFile.UploadFromStream and CloudFile.DownloadToStream methods.
+* Add ICloudFileStore.Upload and .Download methods.
+* Fix CloudFlow sortBy issue.
 
 #### 0.13.2-beta
 * Misc improvements and bugfixes
