@@ -16,7 +16,7 @@ module Utils =
     type Collector<'T, 'R> with
         /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
         member collector.ToParStreamCollector () =
-            { new Nessos.Streams.Collector<'T, 'R> with
+            { new Nessos.Streams.ParCollector<'T, 'R> with
                 member self.DegreeOfParallelism = match collector.DegreeOfParallelism with Some n -> n | None -> Environment.ProcessorCount
                 member self.Iterator() = collector.Iterator()
                 member self.Result = collector.Result }

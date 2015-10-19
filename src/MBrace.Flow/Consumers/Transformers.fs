@@ -105,9 +105,8 @@ module Transformers =
                             let { Func = iter } as iterator = collector.Iterator()
                             {   Func =
                                     (fun value ->
-                                        let (Stream streamf) = Stream.ofSeq (f ctx value)
-                                        let cts = CancellationTokenSource.CreateLinkedTokenSource(iterator.Cts.Token)
-                                        let { Bulk = bulk; Iterator = _ } = streamf { Complete = (fun () -> ()); Cont = iter; Cts = cts } in bulk ());
+                                        let values = f ctx value
+                                        values |> Seq.iter iter);
                                 Cts = iterator.Cts }
                         member self.Result = collector.Result  }
                 }
