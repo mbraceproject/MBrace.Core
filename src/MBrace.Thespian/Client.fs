@@ -203,8 +203,8 @@ type ThespianWorker private (uri : string) =
 
 /// MBrace.Thespian client object used to manage cluster and submit work items for computation.
 [<AutoSerializable(false)>]
-type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, defaultFaultPolicy : FaultPolicy) =
-    inherit MBraceClient(manager, defaultFaultPolicy)
+type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, defaultFaultPolicy : FaultPolicy option) =
+    inherit MBraceClient(manager, defaultArg defaultFaultPolicy FaultPolicy.NoRetry)
 
     static do Config.Initialize(isClient = true, populateDirs = true)
     static let initWorkers logLevel (count : int) (target : ClusterState) = async {
@@ -219,7 +219,6 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     }
 
     static let getDefaultStore() = FileSystemStore.CreateRandomLocal() :> ICloudFileStore
-    static let getDefaultFaultPolicy() = FaultPolicy.NoRetry
 
     let masterNode =
         if state.IsWorkerHosted then Some <| ThespianWorker.Connect state.Uri
@@ -229,7 +228,7 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     let logger = manager.RuntimeSystemLogManager.CreateLogWriter(WorkerId.LocalInstance) |> Async.RunSync
     let _ = manager.LocalSystemLogManager.AttachLogger logger
 
-    private new (state : ClusterState, logLevel : LogLevel option, defaultFaultPolicy : FaultPolicy) = 
+    private new (state : ClusterState, logLevel : LogLevel option, defaultFaultPolicy : FaultPolicy option) = 
         let manager = state.GetLocalRuntimeManager()
         Actor.Logger <- manager.SystemLogger
         manager.LocalSystemLogManager.LogLevel <- defaultArg logLevel LogLevel.Info
@@ -302,7 +301,6 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
 
         if workerCount < 0 then invalidArg "workerCount" "must be non-negative."
         let hostClusterStateOnCurrentProcess = defaultArg hostClusterStateOnCurrentProcess true
-        let faultPolicy = match faultPolicy with Some f -> f | None -> getDefaultFaultPolicy()
         let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
         let state =
             if hostClusterStateOnCurrentProcess then
@@ -328,7 +326,6 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
                                     ?miscResources : ResourceRegistry, ?logLevel : LogLevel) : ThespianCluster =
 
         let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
-        let faultPolicy = match faultPolicy with Some f -> f | None -> getDefaultFaultPolicy()
         let state = target.InitAsClusterMasterNode(fileStore, ?miscResources = miscResources) |> Async.RunSync
         new ThespianCluster(state, logLevel, faultPolicy)
 
@@ -339,7 +336,6 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     static member Connect(worker : ThespianWorker, ?logLevel : LogLevel, ?faultPolicy : FaultPolicy) : ThespianCluster =
-        let faultPolicy = match faultPolicy with Some f -> f | None -> getDefaultFaultPolicy()
         match worker.RuntimeState with
         | None -> invalidOp "Worker '%s' is not part of an active cluster." worker.Uri
         | Some state -> new ThespianCluster(state, logLevel, faultPolicy)
