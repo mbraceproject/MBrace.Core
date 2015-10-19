@@ -99,7 +99,7 @@ module private ActorCloudDictionary =
             member x.GetEnumerator() = Async.RunSync(toEnum()).GetEnumerator()
         
         interface CloudDictionary<'T> with
-            member x.AddAsync(key: string, value: 'T): Async<unit> = async { 
+            member x.ForceAddAsync(key: string, value: 'T): Async<unit> = async { 
                 let! _ = source <!- fun ch -> ForceAdd(key, pickle value, ch) in return () 
             }
         

@@ -31,7 +31,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     member __.``Add/remove`` () =
         cloud {
             use! dict = CloudDictionary.New<int> ()
-            let! _ = dict.AddAsync("key", 42)
+            let! _ = dict.ForceAddAsync("key", 42)
             let! contains = dict.ContainsKeyAsync "key"
             contains |> shouldEqual true
             return! dict.TryFindAsync "key"
@@ -42,7 +42,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         cloud {
             use! dict = CloudDictionary.New<int> ()
             for i in [1 .. 100] do
-                do! dict.AddAsync(string i, i)
+                do! dict.ForceAddAsync(string i, i)
 
             let! values = Cloud.OfAsync <| dict.GetEnumerableAsync()
             return values |> Seq.map (fun kv -> kv.Value) |> Seq.sum
@@ -53,7 +53,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         let parallelismFactor = parallelismFactor
         cloud {
             use! dict = CloudDictionary.New<int> ()
-            let add i = local { return! dict.AddAsync(string i, i) }
+            let add i = local { return! dict.ForceAddAsync(string i, i) }
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 
@@ -79,7 +79,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedNamedLookup then
             cloud {
                 use! dict = CloudDictionary.New<int> ()
-                do! dict.AddAsync("testKey", 42)
+                do! dict.ForceAddAsync("testKey", 42)
                 let! dict' = CloudDictionary.GetById<int>(dict.Id)
                 return! dict'.TryFindAsync "testKey"
             } |> runOnCloud |> shouldEqual (Some 42)

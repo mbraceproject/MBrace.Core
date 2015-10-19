@@ -1,3 +1,7 @@
+#### 0.13.3-beta
+* Add CloudFile.WriteStream and CloudFile.ReadStream methods.
+* Fix 
+
 #### 0.13.2-beta
 * Misc improvements and bugfixes
 

@@ -359,7 +359,7 @@ type private InMemoryDictionary<'T> internal (id : string, memoryEmulation : Mem
         member x.GetEnumerator() = checkDisposed() ; toEnum().GetEnumerator()
     
     interface CloudDictionary<'T> with
-        member x.AddAsync(key : string, value : 'T) : Async<unit> =
+        member x.ForceAddAsync(key : string, value : 'T) : Async<unit> =
             async { let _ = checkDisposed() in return dict.[key] <- clone value }
 
         member x.TryAddAsync(key: string, value: 'T): Async<bool> = 

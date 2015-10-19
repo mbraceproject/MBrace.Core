@@ -31,7 +31,7 @@ type CloudDictionary<'T> =
     /// </summary>
     /// <param name="key">Key for entry.</param>
     /// <param name="value">Value for entry.</param>
-    abstract AddAsync : key:string * value:'T -> Async<unit>
+    abstract ForceAddAsync : key:string * value:'T -> Async<unit>
 
     /// <summary>
     ///     Performs an atomic transaction on value of given key.
@@ -160,8 +160,8 @@ type CloudDictionaryExtensions =
     /// <param name="key">Key to be added.</param>
     /// <param name="value">Value to be added.</param>
     [<Extension>]
-    static member Add (this : CloudDictionary<'T>, key : string, value : 'T) : unit =
-        Async.RunSync <| this.AddAsync(key, value)
+    static member ForceAdd (this : CloudDictionary<'T>, key : string, value : 'T) : unit =
+        Async.RunSync <| this.ForceAddAsync(key, value)
 
     /// <summary>
     ///     Atomically adds or updates a key/value entry.
