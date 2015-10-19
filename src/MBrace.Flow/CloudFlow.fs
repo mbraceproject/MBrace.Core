@@ -24,6 +24,6 @@ type CloudFlow<'T> =
     /// <param name="collectorFactory">Local in-memory collector factory.</param>
     /// <param name="projection">Projection function to intermediate result.</param>
     /// <param name="combiner">Result combiner.</param>
-    abstract WithEvaluators<'S, 'R> : collectorFactory : CloudLocal<Collector<'T, 'S>> -> 
-                                        projection : ('S -> CloudLocal<'R>) -> 
-                                        combiner : ('R []  -> CloudLocal<'R>) -> Cloud<'R>
+    abstract WithEvaluators<'S, 'R> : collectorFactory : LocalCloud<Collector<'T, 'S>> -> 
+                                        projection : ('S -> LocalCloud<'R>) -> 
+                                        combiner : ('R []  -> LocalCloud<'R>) -> Cloud<'R>

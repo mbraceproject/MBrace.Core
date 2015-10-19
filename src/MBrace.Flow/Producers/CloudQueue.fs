@@ -21,7 +21,7 @@ type internal CloudQueue =
     static member ToCloudFlow (channel : CloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = Some degreeOfParallelism
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let! collector = collectorf 
                     let! workers = Cloud.GetAvailableWorkers() 

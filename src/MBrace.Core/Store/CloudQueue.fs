@@ -107,7 +107,7 @@ type CloudQueue =
     /// <summary>
     ///     Deletes cloud queue instance.
     /// </summary>
-    static member Delete(queue : CloudQueue<'T>) : CloudLocal<unit> = 
+    static member Delete(queue : CloudQueue<'T>) : LocalCloud<unit> = 
         local { return! Cloud.OfAsync <| queue.Dispose() }
 
 

@@ -111,7 +111,7 @@ type CloudProcessExtensions =
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
     [<Extension>]
-    static member AwaitResultBoxed(this : ICloudProcess, ?timeoutMilliseconds) : CloudLocal<obj> = 
+    static member AwaitResultBoxed(this : ICloudProcess, ?timeoutMilliseconds) : LocalCloud<obj> = 
         this.AwaitResultBoxedAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal
 
     /// <summary>
@@ -119,7 +119,7 @@ type CloudProcessExtensions =
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
     [<Extension>]
-    static member AwaitResult(this : ICloudProcess<'T>, ?timeoutMilliseconds : int) : CloudLocal<'T> = 
+    static member AwaitResult(this : ICloudProcess<'T>, ?timeoutMilliseconds : int) : LocalCloud<'T> = 
         this.AwaitResultAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal
 
 namespace MBrace.Core.Internals

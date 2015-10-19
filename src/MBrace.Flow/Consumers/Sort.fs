@@ -86,7 +86,7 @@ module Sort =
 
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = flow.DegreeOfParallelism
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) combiner =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) combiner =
                 cloud {
                     let! result = sortByComp
                     return! (Array.ToCloudFlow result).WithEvaluators collectorf projection combiner

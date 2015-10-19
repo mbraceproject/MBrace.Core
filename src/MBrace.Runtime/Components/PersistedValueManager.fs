@@ -38,7 +38,7 @@ type PersistedValueManager private (resources : ResourceRegistry, persistThresho
     [<DataMember(Name = "PersistThreshold")>]
     let _persistThreshold = persistThreshold
 
-    let toAsync (workflow : CloudLocal<'T>) = Cloud.ToAsync(workflow, resources)
+    let toAsync (workflow : LocalCloud<'T>) = Cloud.ToAsync(workflow, resources)
 
     let getPath (fileName : string) = local {
         let! dir = CloudPath.DefaultDirectory

@@ -105,7 +105,7 @@ type CloudAtom =
     /// <param name="initial">Initial value.</param>
     /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
     /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
-    static member New<'T>(initial : 'T, ?atomId : string, ?container : string) : CloudLocal<CloudAtom<'T>> = local {
+    static member New<'T>(initial : 'T, ?atomId : string, ?container : string) : LocalCloud<CloudAtom<'T>> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         let container = defaultArg container provider.DefaultContainer
         let atomId = match atomId with None -> provider.GetRandomAtomIdentifier() | Some id -> id
@@ -117,7 +117,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="atomId">CloudAtom unique entity identifier.</param>
     /// <param name="container">Cloud atom container. Defaults to process container.</param>
-    static member GetById<'T>(atomId : string, ?container : string) : CloudLocal<CloudAtom<'T>> = local {
+    static member GetById<'T>(atomId : string, ?container : string) : LocalCloud<CloudAtom<'T>> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         let container = defaultArg container provider.DefaultContainer
         return! Cloud.OfAsync <| provider.GetAtomById<'T>(container, atomId)
@@ -128,7 +128,7 @@ type CloudAtom =
     ///     Deletes the provided atom instance from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (atom : CloudAtom<'T>) : CloudLocal<unit> = local {
+    static member Delete (atom : CloudAtom<'T>) : LocalCloud<unit> = local {
         return! Cloud.OfAsync <| atom.Dispose()
     }
 
@@ -137,7 +137,7 @@ type CloudAtom =
     ///     Deletes container and all its contained atoms.
     /// </summary>
     /// <param name="container">Container to be deleted.</param>
-    static member DeleteContainer (container : string) : CloudLocal<unit> = local {
+    static member DeleteContainer (container : string) : LocalCloud<unit> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         return! Cloud.OfAsync <| provider.DisposeContainer container
     }
@@ -146,7 +146,7 @@ type CloudAtom =
     ///     Increments a cloud counter by one.
     /// </summary>
     /// <param name="atom">Input atom.</param>
-    static member inline Increment (atom : CloudAtom<'T>) : CloudLocal<'T> = local {
+    static member inline Increment (atom : CloudAtom<'T>) : LocalCloud<'T> = local {
         return! Cloud.OfAsync <| atom.TransactAsync (fun i -> let i' = i + LanguagePrimitives.GenericOne in i',i')
     }
 
@@ -154,7 +154,7 @@ type CloudAtom =
     ///     Decrements a cloud counter by one.
     /// </summary>
     /// <param name="atom">Input atom.</param>
-    static member inline Decrement (atom : CloudAtom<'T>) : CloudLocal<'T> = local {
+    static member inline Decrement (atom : CloudAtom<'T>) : LocalCloud<'T> = local {
         return! Cloud.OfAsync <| atom.TransactAsync (fun i -> let i' = i - LanguagePrimitives.GenericOne in i',i')
     }
 

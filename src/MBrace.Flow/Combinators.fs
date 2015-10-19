@@ -42,7 +42,7 @@ type CloudFlow =
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
     /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
-    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : CloudLocal<PersistedCloudFlow<'T>> =
+    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : LocalCloud<PersistedCloudFlow<'T>> =
         PersistedCloudFlow.OfCloudArrays cloudArrays
 
     /// <summary>
@@ -62,7 +62,7 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
                     let toCloudSeq (path : string) = PersistedSequence.OfCloudFile(path, ?deserializer = deserializer)
@@ -83,7 +83,7 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, serializer : ISerializer, ?sizeThresholdPerCore : int64) =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let deserializer (stream : System.IO.Stream) = serializer.SeqDeserialize(stream, leaveOpen = false)
                     let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -100,7 +100,7 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let deserializer (stream : System.IO.Stream) =
                         let sr =
@@ -124,7 +124,7 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, ?deserializer = deserializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -141,7 +141,7 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, serializer : ISerializer, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, serializer = serializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -158,7 +158,7 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -174,7 +174,7 @@ type CloudFlow =
     static member OfCloudFileByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<string, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
                 let toLineReader (path : string) = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding)
                 let! cseqs = Local.Sequential.map toLineReader paths
@@ -193,7 +193,7 @@ type CloudFlow =
     static member OfCloudDirectoryByLine (dirPath : string, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<string, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFileByLine(paths, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -209,7 +209,7 @@ type CloudFlow =
     static member OfCloudFileByLine (path : string, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<string, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! cseq = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, force = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
                 return! collectionStream.WithEvaluators collectorf projection combiner
@@ -225,7 +225,7 @@ type CloudFlow =
     static member OfHttpFileByLine (url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<string, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists) |> Cloud.OfAsync
                 let collectionStream = CloudFlow.OfCloudCollection httpCollection
                 return! collectionStream.WithEvaluators collectorf projection combiner
@@ -241,7 +241,7 @@ type CloudFlow =
     static member OfHttpFileByLine (urls : seq<string>, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<string, 'S>>) (projection : 'S -> CloudLocal<'R>) (combiner : 'R [] -> CloudLocal<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! httpCollections = 
                     urls
                     |> Seq.map (fun uri ->  CloudCollection.OfHttpFile(uri, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists))
@@ -283,7 +283,7 @@ module CloudFlow =
     /// <param name="f">A locally executing cloud function that performs side effect on input flow elements.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
-    let peek (f : 'T -> CloudLocal<unit>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+    let peek (f : 'T -> LocalCloud<unit>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
         Transformers.mapGen (fun ctx x -> f x |> run ctx ; x) flow
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements.</summary>
@@ -317,7 +317,7 @@ module CloudFlow =
         else
             { new CloudFlow<'T> with
                     member self.DegreeOfParallelism = Some degreeOfParallelism
-                    member self.WithEvaluators<'S, 'R> (collectorf : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) combiner =
+                    member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) combiner =
                         flow.WithEvaluators collectorf projection combiner }
 
     /// <summary>Applies a function to each element of the CloudFlow, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>

@@ -15,7 +15,7 @@ module internal BuilderImpl =
     // Implementation of expression builder combinators over Body<'T>
 
     let inline mkCloud body = new Cloud<'T>(body)
-    let inline mkLocal body = new CloudLocal<'T>(body)
+    let inline mkLocal body = new LocalCloud<'T>(body)
 
     let inline capture (e : 'exn) = ExceptionDispatchInfo.Capture e
     let inline extract (edi : ExceptionDispatchInfo) = edi.Reify(false, false)
@@ -355,30 +355,30 @@ module Builders =
 
     /// Represents a workflow builder used to specify single-machine cloud computations. 
     type CloudLocalBuilder () =
-        let lzero : CloudLocal<unit> = mkLocal zero
-        member __.Return (t : 'T) : CloudLocal<'T> = mkLocal <| ret t
-        member __.Zero () : CloudLocal<unit> = lzero
-        member __.Delay (f : unit -> CloudLocal<'T>) : CloudLocal<'T> = mkLocal <| mkExplicitDelay f
-        member __.ReturnFrom (c : CloudLocal<'T>) : CloudLocal<'T> = c
-        member __.Combine(f : CloudLocal<unit>, g : CloudLocal<'T>) : CloudLocal<'T> = mkLocal <| combine f.Body g.Body
-        member __.Bind (f : CloudLocal<'T>, g : 'T -> CloudLocal<'S>) : CloudLocal<'S> = mkLocal <| bind f.Body g
+        let lzero : LocalCloud<unit> = mkLocal zero
+        member __.Return (t : 'T) : LocalCloud<'T> = mkLocal <| ret t
+        member __.Zero () : LocalCloud<unit> = lzero
+        member __.Delay (f : unit -> LocalCloud<'T>) : LocalCloud<'T> = mkLocal <| mkExplicitDelay f
+        member __.ReturnFrom (c : LocalCloud<'T>) : LocalCloud<'T> = c
+        member __.Combine(f : LocalCloud<unit>, g : LocalCloud<'T>) : LocalCloud<'T> = mkLocal <| combine f.Body g.Body
+        member __.Bind (f : LocalCloud<'T>, g : 'T -> LocalCloud<'S>) : LocalCloud<'S> = mkLocal <| bind f.Body g
 
-        member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> CloudLocal<'U>) : CloudLocal<'U> = 
+        member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> LocalCloud<'U>) : LocalCloud<'U> = 
             mkLocal <| usingIDisposable value bindF
-        member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> CloudLocal<'U>) : CloudLocal<'U> = 
+        member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> LocalCloud<'U>) : LocalCloud<'U> = 
             mkLocal <| usingICloudDisposable value bindF
 
-        member __.TryWith(f : CloudLocal<'T>, handler : exn -> CloudLocal<'T>) : CloudLocal<'T> = mkLocal <| tryWith f.Body handler
-        member __.TryFinally(f : CloudLocal<'T>, finalizer : unit -> unit) : CloudLocal<'T> = 
+        member __.TryWith(f : LocalCloud<'T>, handler : exn -> LocalCloud<'T>) : LocalCloud<'T> = mkLocal <| tryWith f.Body handler
+        member __.TryFinally(f : LocalCloud<'T>, finalizer : unit -> unit) : LocalCloud<'T> = 
             mkLocal <| tryFinally f.Body (retFunc finalizer)
 
-        member __.For(ts : seq<'T>, body : 'T -> CloudLocal<unit>) : CloudLocal<unit> = 
+        member __.For(ts : seq<'T>, body : 'T -> LocalCloud<unit>) : LocalCloud<unit> = 
             match ts with
             | :? ('T []) as ts -> mkLocal <| forArray body ts
             | :? ('T list) as ts -> mkLocal <| forList body ts
             | _ -> mkLocal <| forSeq body ts
 
-        member __.While(pred : unit -> bool, body : CloudLocal<unit>) : CloudLocal<unit> = mkLocal <| whileM pred body.Body
+        member __.While(pred : unit -> bool, body : LocalCloud<unit>) : LocalCloud<unit> = mkLocal <| whileM pred body.Body
 
 
     /// A workflow builder used to specify single-machine cloud computations. The
@@ -399,10 +399,10 @@ module Builders =
 module BuilderAsyncExtensions =
 
     type CloudLocalBuilder with
-        member __.Bind(f : Async<'T>, g : 'T -> CloudLocal<'S>) : CloudLocal<'S> =
+        member __.Bind(f : Async<'T>, g : 'T -> LocalCloud<'S>) : LocalCloud<'S> =
             mkLocal <| bind (ofAsync f) g
 
-        member __.ReturnFrom(f : Async<'T>) : CloudLocal<'T> =
+        member __.ReturnFrom(f : Async<'T>) : LocalCloud<'T> =
             mkLocal <| ofAsync f    
     
     type CloudBuilder with

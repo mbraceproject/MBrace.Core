@@ -63,13 +63,13 @@ type IParallelismProvider =
     ///     Parallel fork/join implementation.
     /// </summary>
     /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
-    abstract ScheduleLocalParallel : computations:seq<CloudLocal<'T>> -> CloudLocal<'T []>
+    abstract ScheduleLocalParallel : computations:seq<LocalCloud<'T>> -> LocalCloud<'T []>
 
     /// <summary>
     ///     Parallel nondeterministic choice implementation.
     /// </summary>
     /// <param name="computations">Computations to be executed. Contains optional target worker.</param>
-    abstract ScheduleLocalChoice : computations:seq<CloudLocal<'T option>> -> CloudLocal<'T option>
+    abstract ScheduleLocalChoice : computations:seq<LocalCloud<'T option>> -> LocalCloud<'T option>
 
     /// <summary>
     ///     Start a new computation as a cloud process. 

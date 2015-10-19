@@ -84,7 +84,7 @@ module Distinct =
             }
         { new CloudFlow<'T> with
             member __.DegreeOfParallelism = source.DegreeOfParallelism
-            member __.WithEvaluators<'S, 'R> (collectorF : CloudLocal<Collector<'T, 'S>>) (projection : 'S -> CloudLocal<'R>) combiner =
+            member __.WithEvaluators<'S, 'R> (collectorF : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) combiner =
                 cloud {
                     let! result = shuffling
                     let! result' = reducer (Array.ToCloudFlow result)

@@ -187,7 +187,7 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``try finally monadic`` () =
         let n = ref 10
-        let rec loop () : CloudLocal<unit> =
+        let rec loop () : LocalCloud<unit> =
             Local.TryFinally(
                 Cloud.Raise(new Exception()),
                 local { if !n > 0 then decr n ; return! loop () }

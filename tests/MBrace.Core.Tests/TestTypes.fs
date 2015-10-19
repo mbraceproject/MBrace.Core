@@ -51,8 +51,8 @@ module WordCount =
         mapReduceAlgorithm mapF reduceF 0 inputs
 
     // naive, binary recursive mapreduce implementation
-    let rec mapReduceRec (mapF : 'T -> CloudLocal<'S>) 
-                            (reduceF : 'S -> 'S -> CloudLocal<'S>) 
+    let rec mapReduceRec (mapF : 'T -> LocalCloud<'S>) 
+                            (reduceF : 'S -> 'S -> LocalCloud<'S>) 
                             (id : 'S) (inputs : 'T []) =
         cloud {
             match inputs with

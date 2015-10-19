@@ -14,16 +14,16 @@ type Cloud =
     /// <summary>
     ///     Gets the current cancellation token.
     /// </summary>
-    static member CancellationToken : CloudLocal<ICloudCancellationToken> = 
+    static member CancellationToken : LocalCloud<ICloudCancellationToken> = 
         mkLocal(fun ctx cont -> cont.Success ctx ctx.CancellationToken)
 
     /// Attempts to fetch a fault data record for the current computation.
     /// Returns 'Some' if the current computation is a retry of a previously faulted
     /// computation or 'None' if no fault has occurred.
-    static member TryGetFaultData() : CloudLocal<FaultData option> = Cloud.TryGetResource<FaultData> ()
+    static member TryGetFaultData() : LocalCloud<FaultData option> = Cloud.TryGetResource<FaultData> ()
 
     /// Returns true if the current computation is a retry of a previously faulted computation.
-    static member IsPreviouslyFaulted : CloudLocal<bool> = local {
+    static member IsPreviouslyFaulted : LocalCloud<bool> = local {
         let! resources = Cloud.GetResourceRegistry()
         return resources.Contains<FaultData>()
     }
@@ -32,7 +32,7 @@ type Cloud =
     ///     Raise an exception.
     /// </summary>
     /// <param name="e">exception to be raised.</param>
-    static member Raise<'T> (e : exn) : CloudLocal<'T> = mkLocal (raiseM e)
+    static member Raise<'T> (e : exn) : LocalCloud<'T> = mkLocal (raiseM e)
 
     /// <summary>
     ///     Catch exception from given cloud workflow.
@@ -51,21 +51,21 @@ type Cloud =
     /// </summary>
     /// <param name="body">Workflow body.</param>
     /// <param name="finalizer">Finalizer workflow.</param>
-    static member TryFinally(body : Cloud<'T>, finalizer : CloudLocal<unit>) : Cloud<'T> =
+    static member TryFinally(body : Cloud<'T>, finalizer : LocalCloud<unit>) : Cloud<'T> =
         mkCloud <| tryFinally body.Body finalizer.Body
 
     /// <summary>
     ///     Creates a cloud workflow that asynchronously sleeps for a given amount of time.
     /// </summary>
     /// <param name="millisecondsDue">Milliseconds to suspend computation.</param>
-    static member Sleep(millisecondsDue : int) : CloudLocal<unit> = 
+    static member Sleep(millisecondsDue : int) : LocalCloud<unit> = 
         Cloud.OfAsync<unit>(Async.Sleep millisecondsDue)
 
     /// <summary>
     ///     Wraps an asynchronous workflow into a cloud workflow.
     /// </summary>
     /// <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
-    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : CloudLocal<'T> = mkLocal(ofAsync asyncWorkflow)
+    static member OfAsync<'T>(asyncWorkflow : Async<'T>) : LocalCloud<'T> = mkLocal(ofAsync asyncWorkflow)
 
     /// <summary>
     ///     Performs a cloud computations, discarding its result
@@ -77,7 +77,7 @@ type Cloud =
     ///     Disposes of a distributed resource.
     /// </summary>
     /// <param name="disposable">Resource to be disposed.</param>
-    static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : CloudLocal<unit> =
+    static member Dispose<'Disposable when 'Disposable :> ICloudDisposable>(disposable : 'Disposable) : LocalCloud<unit> =
         local { return! Cloud.OfAsync <| disposable.Dispose () }
 
     /// <summary>
@@ -85,7 +85,7 @@ type Cloud =
     /// </summary>
     /// <param name="task">Awaited task.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
-    static member AwaitTask(task : Task<'T>, ?timeoutMilliseconds : int) : CloudLocal<'T> =
+    static member AwaitTask(task : Task<'T>, ?timeoutMilliseconds : int) : LocalCloud<'T> =
         Local.FromContinuations(fun ctx cont ->
             let task = match timeoutMilliseconds with None -> task | Some ms -> task.WithTimeout ms
             let onCompletion (t : Task<'T>) =
@@ -102,7 +102,7 @@ type Cloud =
     ///     Writes an entry to a logging provider, if it exists.
     /// </summary>
     /// <param name="logEntry">Added log entry.</param>
-    static member Log(logEntry : string) : CloudLocal<unit> = local {
+    static member Log(logEntry : string) : LocalCloud<unit> = local {
         let! runtime = Cloud.TryGetResource<IParallelismProvider> ()
         return 
             match runtime with
@@ -118,7 +118,7 @@ type Cloud =
 
     /// Returns true iff runtime supports executing workflows in specific worker.
     /// Should be used with combinators that support worker targeting like Cloud.Parallel/Choice/StartChild.
-    static member IsTargetedWorkerSupported : CloudLocal<bool> = local {
+    static member IsTargetedWorkerSupported : LocalCloud<bool> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider>()
         return runtime.IsTargetedWorkerSupported
     }
@@ -250,7 +250,7 @@ type Cloud =
     /// </summary>
     /// <param name="cloudProcess">Cloud process to be awaited.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
-    static member AwaitProcess(cloudProcess : ICloudProcess<'T>, ?timeoutMilliseconds:int) : CloudLocal<'T> = local {
+    static member AwaitProcess(cloudProcess : ICloudProcess<'T>, ?timeoutMilliseconds:int) : LocalCloud<'T> = local {
         return! cloudProcess.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
     }
 
@@ -259,7 +259,7 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
-    static member StartChild(workflow : Cloud<'T>, ?target : IWorkerRef) : Cloud<CloudLocal<'T>> = cloud {
+    static member StartChild(workflow : Cloud<'T>, ?target : IWorkerRef) : Cloud<LocalCloud<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let! cancellationToken = Cloud.CancellationToken
         let! cloudProcess = runtime.ScheduleCreateProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
@@ -273,7 +273,7 @@ type Cloud =
     ///     workflow will be re-interpreted using thread parallelism semantics.
     /// </summary>
     /// <param name="workflow">Cloud workflow to be wrapped.</param>
-    static member AsLocal(workflow : Cloud<'T>) : CloudLocal<'T> = local {
+    static member AsLocal(workflow : Cloud<'T>) : LocalCloud<'T> = local {
         let isLocalEvaluated = ref false
         let updateCtx (ctx : ExecutionContext) =
             match ctx.Resources.TryResolve<IParallelismProvider> () with
@@ -295,7 +295,7 @@ type Cloud =
     /// <summary>
     ///     Gets information on the execution cluster.
     /// </summary>
-    static member CurrentWorker : CloudLocal<IWorkerRef> = local {
+    static member CurrentWorker : LocalCloud<IWorkerRef> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.CurrentWorker
     }
@@ -303,7 +303,7 @@ type Cloud =
     /// <summary>
     ///     Gets all workers in currently running cluster context.
     /// </summary>
-    static member GetAvailableWorkers () : CloudLocal<IWorkerRef []> = local {
+    static member GetAvailableWorkers () : LocalCloud<IWorkerRef []> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return! Cloud.OfAsync <| runtime.GetAvailableWorkers()
     }
@@ -311,7 +311,7 @@ type Cloud =
     /// <summary>
     ///     Gets total number of available workers in cluster context.
     /// </summary>
-    static member GetWorkerCount () : CloudLocal<int> = local {
+    static member GetWorkerCount () : LocalCloud<int> = local {
         let! workers = Cloud.GetAvailableWorkers()
         return workers.Length
     }
@@ -319,7 +319,7 @@ type Cloud =
     /// <summary>
     ///     Gets the assigned id of the currently running CloudProcess.
     /// </summary>
-    static member GetCloudProcessId () : CloudLocal<string> = local {
+    static member GetCloudProcessId () : LocalCloud<string> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.CloudProcessId
     }
@@ -327,7 +327,7 @@ type Cloud =
     /// <summary>
     ///     Gets the assigned id of the currently running cloud work item.
     /// </summary>
-    static member GetWorkItemId () : CloudLocal<string> = local {
+    static member GetWorkItemId () : LocalCloud<string> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.WorkItemId
     }
@@ -335,7 +335,7 @@ type Cloud =
     /// <summary>
     ///     Gets the current fault policy.
     /// </summary>
-    static member FaultPolicy : CloudLocal<FaultPolicy> = local {
+    static member FaultPolicy : LocalCloud<FaultPolicy> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         return runtime.FaultPolicy
     }
@@ -397,7 +397,7 @@ type Local =
     ///     Catch exception from given cloud workflow.
     /// </summary>
     /// <param name="cloudWorkflow">Workflow to be protected.</param>
-    static member Catch(workflow : CloudLocal<'T>) : CloudLocal<Choice<'T, exn>> = local {
+    static member Catch(workflow : LocalCloud<'T>) : LocalCloud<Choice<'T, exn>> = local {
         try
             let! res = workflow
             return Choice1Of2 res
@@ -410,14 +410,14 @@ type Local =
     /// </summary>
     /// <param name="body">Workflow body.</param>
     /// <param name="finalizer">Finalizer workflow.</param>
-    static member TryFinally(body : CloudLocal<'T>, finalizer : CloudLocal<unit>) : CloudLocal<'T> =
+    static member TryFinally(body : LocalCloud<'T>, finalizer : LocalCloud<unit>) : LocalCloud<'T> =
         mkLocal <| tryFinally body.Body finalizer.Body
 
     /// <summary>
     ///     Performs a cloud computations, discarding its result
     /// </summary>
     /// <param name="workflow"></param>
-    static member Ignore (workflow : CloudLocal<'T>) : CloudLocal<unit> = local { let! _ = workflow in return () }
+    static member Ignore (workflow : LocalCloud<'T>) : LocalCloud<unit> = local { let! _ = workflow in return () }
 
     /// <summary>
     ///     Creates a cloud computation that will execute given computations to targeted workers
@@ -426,7 +426,7 @@ type Local =
     ///     Exceptions raised by children carry cancellation semantics.
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
-    static member Parallel (computations : seq<CloudLocal<'T>>) : CloudLocal<'T []> = local {
+    static member Parallel (computations : seq<LocalCloud<'T>>) : LocalCloud<'T []> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let workflow = runtime.ScheduleLocalParallel computations
         let stackTraceSig = sprintf "Local.Parallel(seq<Local<%s>> computations)" typeof<'T>.Name
@@ -440,9 +440,9 @@ type Local =
     ///     Exceptions raised by children carry cancellation semantics.
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
-    static member Parallel (left : CloudLocal<'L>, right : CloudLocal<'R>) : CloudLocal<'L * 'R> = local {
+    static member Parallel (left : LocalCloud<'L>, right : LocalCloud<'R>) : LocalCloud<'L * 'R> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
-        let wrap (w : CloudLocal<_>) = local { let! r = w in return box r }
+        let wrap (w : LocalCloud<_>) = local { let! r = w in return box r }
         let workflow = runtime.ScheduleLocalParallel [| wrap left ; wrap right |]
         let stackTraceSig = sprintf "Local.Parallel(Local<%s> left, Local<%s> right)" typeof<'L>.Name typeof<'R>.Name
         let! result = Local.WithAppendedStackTrace stackTraceSig workflow
@@ -458,7 +458,7 @@ type Local =
     ///     This operator may create distribution.
     /// </summary>
     /// <param name="computations">Input computations to be executed in parallel.</param>
-    static member Choice (computations : seq<CloudLocal<'T option>>) : CloudLocal<'T option> = local {
+    static member Choice (computations : seq<LocalCloud<'T option>>) : LocalCloud<'T option> = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let workflow = runtime.ScheduleLocalChoice computations
         let stackTraceSig = sprintf "Local.Choice(seq<Local<%s option>> computations)" typeof<'T>.Name

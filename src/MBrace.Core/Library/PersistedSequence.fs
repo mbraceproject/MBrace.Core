@@ -154,7 +154,7 @@ type PersistedSequence =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
-    static member New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?compress : bool) : CloudLocal<PersistedSequence<'T>> = local {
+    static member New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?compress : bool) : LocalCloud<PersistedSequence<'T>> = local {
         let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let path = 
@@ -194,7 +194,7 @@ type PersistedSequence =
     /// <param name="maxPartitionSize">Maximum size in bytes per cloud sequence partition.</param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    static member NewPartitioned(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer) : CloudLocal<PersistedSequence<'T> []> = local {
+    static member NewPartitioned(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer) : LocalCloud<PersistedSequence<'T> []> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let directory = defaultArg directory store.DefaultDirectory
         let! _serializer = local {
@@ -232,7 +232,7 @@ type PersistedSequence =
     /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool) : CloudLocal<PersistedSequence<'T>> = local {
+    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool) : LocalCloud<PersistedSequence<'T>> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let! deserializer = local {
             match deserializer with
@@ -260,7 +260,7 @@ type PersistedSequence =
     /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="serializer">Serializer implementation used for element deserialization.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool) : CloudLocal<PersistedSequence<'T>> = local {
+    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool) : LocalCloud<PersistedSequence<'T>> = local {
         let deserializer stream = serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
         return! PersistedSequence.OfCloudFile<'T>(path, deserializer = deserializer, ?force = force)
     }
@@ -273,7 +273,7 @@ type PersistedSequence =
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool) : CloudLocal<PersistedSequence<'T>> = local {
+    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool) : LocalCloud<PersistedSequence<'T>> = local {
         let deserializer (stream : Stream) =
             let sr = 
                 match encoding with
@@ -292,7 +292,7 @@ type PersistedSequence =
     /// <param name="path">Path to file.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFileByLine(path : string, ?encoding : Encoding, ?force : bool) : CloudLocal<PersistedSequence<string>> = local {
+    static member OfCloudFileByLine(path : string, ?encoding : Encoding, ?force : bool) : LocalCloud<PersistedSequence<string>> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let! etag = Cloud.OfAsync <| store.TryGetETag path
         match etag with

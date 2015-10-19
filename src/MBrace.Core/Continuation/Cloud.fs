@@ -36,5 +36,5 @@ type Cloud<'T> =
 /// unserializable resources.  When run will produce 
 /// a value of type 'T, or raise an exception.
 [<Sealed; DataContract>]
-type CloudLocal<'T> internal (body : Body<'T>) = 
+type LocalCloud<'T> internal (body : Body<'T>) = 
     inherit Cloud<'T>(body)
