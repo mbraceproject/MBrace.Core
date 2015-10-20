@@ -9,6 +9,7 @@ open NUnit.Framework
 open MBrace.Core
 open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Core.Internals
+open MBrace.Flow
 open MBrace.Library.Protected
 open MBrace.Runtime
 open MBrace.Core.Tests
@@ -198,6 +199,24 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
+
+    [<Test>]
+    member __.``2. Fault Tolerance : persistedCloudFlow`` () =
+        let runtime = session.Runtime
+        let n = 1000000
+        let wf () = cloud {
+            let data = [|1..n|]
+            return!
+                CloudFlow.OfArray data
+                |> CloudFlow.persist StorageLevel.Disk
+        }
+        let flow = runtime.Run (wf ())
+        session.Chaos()
+        let result = 
+            flow
+            |> CloudFlow.length
+            |> runtime.Run
+        result |> shouldEqual (int64 n)
 
     [<Test>]
     member __.``2. Fault Tolerance : fault data`` () =

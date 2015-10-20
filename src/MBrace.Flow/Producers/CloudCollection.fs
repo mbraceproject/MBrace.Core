@@ -55,6 +55,25 @@ type internal CloudCollection private () =
                     // scheduling data is encapsulated in CloudCollection, partition according to this
                     let! assignedPartitions = CloudCollection.ExtractTargetedCollections [|tpc|] |> Cloud.OfAsync
 
+                    // reassign partitions according to the available workers
+                    let! assignedPartitions = local {
+                        let! workerRefs = Cloud.GetAvailableWorkers()
+                        let missingWorkerRefs = Set.difference (Set.ofArray (assignedPartitions |> Array.map fst))
+                                                               (Set.ofArray workerRefs) 
+                        let availableWorkerRefs = Set.difference (Set.ofArray workerRefs)
+                                                                 (Set.ofArray (assignedPartitions |> Array.map fst)) |> Set.toArray
+                        let result = 
+                            let availableCounter = ref 0
+                            [| for (w, cols) in assignedPartitions do 
+                                if Set.contains w missingWorkerRefs then
+                                    yield (availableWorkerRefs.[!availableCounter], cols)
+                                    incr availableCounter
+                                else
+                                    yield (w, cols) |]
+
+                        return result
+                    }
+
                     if Array.isEmpty assignedPartitions then return! combiner [||] else
                     let! results =
                         assignedPartitions
