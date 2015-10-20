@@ -231,7 +231,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
                         do! f.ForceAsync true
                         do! Cloud.Sleep 5000
                         return! Cloud.TryGetFaultData()
-                    })
+                    }, faultPolicy = FaultPolicy.WithMaxRetries 1)
 
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
