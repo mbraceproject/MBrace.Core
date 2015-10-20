@@ -740,10 +740,12 @@ type CloudFile =
             return! CloudFile.Upload(localFile, targetPath, ?overwrite = overwrite, ?compress = compress)
         }
 
+        let! resources = Cloud.GetResourceRegistry()
         return!
             sourcePaths
-            |> Seq.map uploadFile
-            |> Local.Parallel
+            |> Seq.map (fun f -> Cloud.ToAsync(uploadFile f, resources))
+            |> Async.Parallel
+            |> Cloud.OfAsync
     }
 
     /// <summary>
@@ -783,8 +785,10 @@ type CloudFile =
             return localFile
         }
 
+        let! resources = Cloud.GetResourceRegistry()
         return!
             sourcePaths
-            |> Seq.map download
-            |> Local.Parallel
+            |> Seq.map (fun f -> Cloud.ToAsync(download f, resources))
+            |> Async.Parallel
+            |> Cloud.OfAsync
     }
