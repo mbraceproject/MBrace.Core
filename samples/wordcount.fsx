@@ -46,7 +46,7 @@ let splitWords =
 let normalize (word : string) = word.Trim().ToLower()
 
 /// Checks if provided word qualifies as noise
-let isNoiseWord (word : string) = word.Length < 3 || noiseWords.Contains(word)
+let isNoiseWord (word : string) = word.Length <= 3 || noiseWords.Contains(word)
 
 /// Computes and caches words across the MBrace cluster
 let getWords (urls : seq<string>) =
@@ -59,7 +59,7 @@ let getWords (urls : seq<string>) =
 let getWordCount (count : int) (words : CloudFlow<string>) =
     words
     |> CloudFlow.collect (fun line -> splitWords line |> Seq.map normalize)
-    |> CloudFlow.filter isNoiseWord
+    |> CloudFlow.filter (not << isNoiseWord)
     |> CloudFlow.countBy id
     |> CloudFlow.sortBy (fun (_,c) -> -c) count
     |> CloudFlow.toArray
