@@ -38,9 +38,16 @@ type internal CloudCollection private () =
                     let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
                         let! collector = collectorf
                         let! seqs = slice |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
-                        let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
-                        let value = pStream.Apply (collector.ToParStreamCollector())
-                        return! projection value
+                        // Partial fix for performance issue when the number of slices is less than the number of cores
+                        match seqs with
+                        | [|col|] ->
+                            let pStream = col |> ParStream.ofSeq 
+                            let value = pStream.Apply (collector.ToParStreamCollector())
+                            return! projection value
+                        | _ ->
+                            let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
+                            let value = pStream.Apply (collector.ToParStreamCollector())
+                            return! projection value
                     }
 
                     // sequentially compute partitions

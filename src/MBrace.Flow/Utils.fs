@@ -17,7 +17,7 @@ module Utils =
         /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
         member collector.ToParStreamCollector () =
             { new Nessos.Streams.ParCollector<'T, 'R> with
-                member self.DegreeOfParallelism = match collector.DegreeOfParallelism with Some n -> n | None -> Environment.ProcessorCount
+                member self.DegreeOfParallelism = Environment.ProcessorCount
                 member self.Iterator() = collector.Iterator()
                 member self.Result = collector.Result }
 
@@ -75,6 +75,7 @@ module Utils =
         elif size <= 512L * 1024L * 1024L then sprintf "%.2f MiB" (decimal size / decimal (1024L * 1024L))
         elif size <= 512L * 1024L * 1024L * 1024L then sprintf "%.2f GiB" (decimal size / decimal (1024L * 1024L * 1024L))
         else sprintf "%.2f TiB" (decimal size / decimal (1024L * 1024L * 1024L * 1024L))
+        
 
     module Partition =
 
