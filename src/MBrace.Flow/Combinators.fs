@@ -330,7 +330,7 @@ module CloudFlow =
                     (combiner : 'State -> 'State -> 'State)
                     (state : unit -> 'State) (flow : CloudFlow<'T>) : Cloud<'State> =
 
-        Fold.foldGen (fun _ x y -> folder x y) (fun _ x y -> combiner x y) (fun _ -> state ()) flow
+        Fold.fold folder combiner state flow
 
     /// <summary>Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and the result of the threading an accumulator.</summary>
     /// <param name="projection">A function to transform items from the input CloudFlow to keys.</param>
@@ -562,7 +562,7 @@ module CloudFlow =
     let maxBy<'T, 'Key when 'Key : comparison> (projection: 'T -> 'Key) (flow: CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x ->
+                Fold.fold (fun state x ->
                                let kx = projection x
                                match state with
                                | None -> Some (ref x, ref kx)
@@ -571,7 +571,7 @@ module CloudFlow =
                                    k := kx
                                    state
                                | _ -> state)
-                        (fun _ left right ->
+                        (fun left right ->
                              match left, right with
                              | Some (_, k), Some (_, k') -> if !k' > !k then right else left
                              | None, _ -> right
@@ -592,7 +592,7 @@ module CloudFlow =
     let minBy<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x ->
+                Fold.fold (fun state x ->
                              let kx = projection x
                              match state with
                              | None -> Some (ref x, ref kx)
@@ -601,7 +601,7 @@ module CloudFlow =
                                  k := kx
                                  state
                              | _ -> state)
-                        (fun _ left right ->
+                        (fun left right ->
                              match left, right with
                              | Some (_, k), Some (_, k') -> if !k' > !k then left else right
                              | None, _ -> right
@@ -627,8 +627,8 @@ module CloudFlow =
     let reduce (reducer : 'T -> 'T -> 'T) (flow : CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
-                        (fun _ left right ->
+                Fold.fold (fun state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
+                        (fun left right ->
                          match left, right with
                          | Some y, Some x -> y := reducer !y !x; left
                          | None, Some _ -> right

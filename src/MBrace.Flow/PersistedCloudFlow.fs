@@ -108,11 +108,11 @@ and PersistedCloudFlow private () =
     /// <param name="elems">Input sequence.</param>
     /// <param name="elems">Storage level used for caching.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to 1GiB.</param>
-    static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : LocalCloud<PersistedCloudFlow<'T>> = local {
+    static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?targetWorker : IWorkerRef, ?partitionThreshold : int64) : LocalCloud<PersistedCloudFlow<'T>> = local {
         let partitionThreshold = defaultArg partitionThreshold defaultTreshold
-        let! currentWorker = Cloud.CurrentWorker
+        let! targetWorker = match targetWorker with None -> Cloud.CurrentWorker | Some w -> local { return w }
         let! partitions = CloudValue.NewArrayPartitioned(elems, ?storageLevel = storageLevel, partitionThreshold = partitionThreshold)
-        return new PersistedCloudFlow<'T>(partitions |> Array.map (fun p -> (currentWorker,p)))
+        return new PersistedCloudFlow<'T>(partitions |> Array.map (fun p -> (targetWorker,p)))
     }
 
     /// <summary>
