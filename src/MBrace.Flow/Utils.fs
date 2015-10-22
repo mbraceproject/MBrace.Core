@@ -11,7 +11,7 @@ open MBrace.Core.Internals
 open MBrace.Flow
 
 [<AutoOpen>]
-module internal Utils =
+module Utils =
 
     type Collector<'T, 'R> with
         /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector

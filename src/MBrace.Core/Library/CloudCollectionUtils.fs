@@ -312,7 +312,9 @@ type CloudCollection private () =
                 return! aux (partition :: accPartitions) w wsz [] rw remCollections
         }
 
-        if workers.Length = 0 then return invalidArg "workers" "must be non-empty."
+        if collections.Length = 0 then return [||]
+        elif workers.Length = 0 then return invalidArg "workers" "must be non-empty." else
+
         let isSizeKnown = collections |> Array.forall (fun c -> c.IsKnownSize)
         if not isSizeKnown then
             // size of collections not known a priori, do not take it into account.

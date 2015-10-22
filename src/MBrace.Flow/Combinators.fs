@@ -277,35 +277,35 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline map (f : 'T -> 'R) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.mapGen (fun _ x -> f x) flow
+        Transformers.map f flow
 
     /// <summary>Enables the insertion of a monadic side-effect in a distributed flow. Output remains the same.</summary>
     /// <param name="f">A locally executing cloud function that performs side effect on input flow elements.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let peek (f : 'T -> LocalCloud<unit>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Transformers.mapGen (fun ctx x -> f x |> run ctx ; x) flow
+        Transformers.peek f flow
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements.</summary>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline collect (f : 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.collectGen (fun _ x -> f x) flow
+        Transformers.collect f flow
 
     /// <summary>Filters the elements of the input CloudFlow.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline filter (predicate : 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Transformers.filterGen (fun _ x -> predicate x) flow
+        Transformers.filter predicate flow
 
     /// <summary>Applies the given chooser function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
     /// <param name="predicate">A function to transform items of type 'T into options of type 'R.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline choose (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.chooseGen (fun _ x -> chooser x) flow
+        Transformers.choose chooser flow
 
     /// <summary>Returns a cloud flow with a new degree of parallelism.</summary>
     /// <param name="degreeOfParallelism">The degree of parallelism.</param>
