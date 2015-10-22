@@ -18,16 +18,14 @@ open MBrace.Flow
 
 module Sort =
 
-    // why use both IComparer AND a projection function?
-
     /// <summary>
-    /// 
+    ///     Generic comparer CloudFlow combinator
     /// </summary>
     /// <param name="comparer"></param>
     /// <param name="projection"></param>
     /// <param name="takeCount"></param>
     /// <param name="flow"></param>
-    let sortByGen (comparer : IComparer<'Key>) (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+    let sortByGen (comparer : IComparer<'Key> option) (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
         let collectorf (cloudCt : ICloudCancellationToken) = local {
             let results = new List<List<'T>>()
             let! ctx = Cloud.GetExecutionContext()
@@ -51,10 +49,10 @@ module Sort =
                             counter <- counter + 1
                             keys.[counter] <- projection ctx value
                             values.[counter] <- value
-                    if box comparer <> null || System.Environment.OSVersion.Platform = System.PlatformID.Unix then
-                        Array.Sort(keys, values, comparer)
-                    else
-                        Sort.parallelSort Environment.ProcessorCount keys values
+
+                    match comparer with
+                    | None -> Sort.parallelSort Environment.ProcessorCount keys values
+                    | Some cmp -> Array.Sort(keys, values, cmp) // note that this performs sequential sort operation!!!!
 
                     new List<_>(Seq.singleton
                                     (keys.Take(takeCount).ToArray(),
@@ -75,10 +73,10 @@ module Sort =
                             counter <- counter + 1
                             keys.[counter] <- keys'.[i]
                             values.[counter] <- values'.[i]
-                    if box comparer <> null || System.Environment.OSVersion.Platform = System.PlatformID.Unix then
-                        Array.Sort(keys, values, comparer)
-                    else
-                        Sort.parallelSort Environment.ProcessorCount keys values
+
+                    match comparer with
+                    | None -> Sort.parallelSort Environment.ProcessorCount keys values
+                    | Some cmp -> Array.Sort(keys, values, cmp) // note that this performs sequential sort operation!!!!
 
                     values.Take(takeCount).ToArray()
                 return result

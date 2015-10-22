@@ -1,3 +1,6 @@
+#### 0.14.1-beta
+* Misc bugfixes and improvements.
+
 #### 0.14.0-beta
 * Add CloudFile.UploadFromStream and CloudFile.DownloadToStream methods.
 * Add ICloudFileStore.Upload and .Download methods.
