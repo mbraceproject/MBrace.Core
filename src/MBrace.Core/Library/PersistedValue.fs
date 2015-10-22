@@ -38,7 +38,7 @@ type PersistedValue<'T> =
     member c.GetValueAsync () : Async<'T> = async {
         let! streamOpt = c.store.ReadETag(c.path, c.etag)
         match streamOpt with
-        | None -> return raise <| new InvalidDataException(sprintf "CloudValue: incorrect etag in file '%s'." c.path)
+        | None -> return raise <| new InvalidDataException(sprintf "PersistedValue: incorrect etag in file '%s'." c.path)
         | Some stream -> use stream = stream in return c.deserializer stream
     }
 
@@ -60,7 +60,7 @@ type PersistedValue<'T> =
     /// Gets the size of the persisted value in bytes.
     member c.Size : int64 = c.GetSizeAsync() |> Async.RunSync
 
-    override c.ToString() = sprintf "CloudValue[%O] at %s" typeof<'T> c.path
+    override c.ToString() = sprintf "PersistedValue[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()
 
     interface ICloudDisposable with

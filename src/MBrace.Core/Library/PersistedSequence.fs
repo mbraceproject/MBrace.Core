@@ -40,7 +40,7 @@ type PersistedSequence<'T> =
         let! streamOpt = c.store.ReadETag(c.path, c.etag)
         return
             match streamOpt with
-            | None -> raise <| new InvalidDataException(sprintf "CloudSequence: incorrect etag in file '%s'." c.path)
+            | None -> raise <| new InvalidDataException(sprintf "PersistedSequence: incorrect etag in file '%s'." c.path)
             | Some stream -> c.deserializer stream
     }
 
@@ -109,7 +109,7 @@ type PersistedSequence<'T> =
         member c.GetSizeAsync() = c.GetSizeAsync()
         member c.GetEnumerableAsync() = c.GetEnumerableAsync()
 
-    override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
+    override c.ToString() = sprintf "PersistedSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()  
 
 /// Partitionable implementation of cloud file line reader
@@ -226,7 +226,7 @@ type PersistedSequence =
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided deserialization function.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided deserialization function.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to file.</param>
@@ -254,7 +254,7 @@ type PersistedSequence =
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided serializer implementation.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided serializer implementation.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to Cloud sequence.</param>
@@ -266,7 +266,7 @@ type PersistedSequence =
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided text deserialization function.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to file.</param>
@@ -286,7 +286,7 @@ type PersistedSequence =
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided text deserialization function.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to file.</param>
