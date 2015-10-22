@@ -133,12 +133,7 @@ type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (i
                 let partitions = Array.splitWeightedRange weights 0L size
                 Array.map mkRangedSeq partitions
 
-            if size < 512L * 1024L then
-                let lines = toEnumerable ()
-                let liness = Array.splitWeighted weights (lines |> Seq.toArray)
-                return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> ICloudCollection<_>)
-            else
-                return mkRangedSeqs weights
+            return mkRangedSeqs weights
         }
 
 type CloudCollection private () =
@@ -242,7 +237,7 @@ type CloudCollection private () =
                 let rcs = rcs |> List.map fst |> List.rev
                 return! aux accPartitions currWorker 0L (rcs @ awc) [] []
 
-            // next collection is withing remaining worker size, include to accumulated collections and update size.
+            // next collection is within remaining worker size, include to accumulated collections and update size.
             | _, _, (c, csz) :: rc when csz <= remWorkerSize -> 
                 return! aux accPartitions currWorker (remWorkerSize - csz) (c :: accWorkerCollections) remWorkers rc
 

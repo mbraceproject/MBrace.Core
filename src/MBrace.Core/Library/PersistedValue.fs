@@ -36,10 +36,17 @@ type PersistedValue<'T> =
 
     /// Asynchronously dereferences value from store
     member c.GetValueAsync () : Async<'T> = async {
-        let! streamOpt = c.store.ReadETag(c.path, c.etag)
-        match streamOpt with
-        | None -> return raise <| new InvalidDataException(sprintf "PersistedValue: incorrect etag in file '%s'." c.path)
-        | Some stream -> use stream = stream in return c.deserializer stream
+        use! stream = async {
+            match c.etag with
+            | null -> return! c.store.BeginRead c.path
+            | etag ->
+                let! streamOpt = c.store.ReadETag(c.path, etag)
+                match streamOpt with
+                | None -> return raise <| new InvalidDataException(sprintf "PersistedValue: incorrect etag in file '%s'." c.path)
+                | Some stream -> return stream
+        }
+
+        return c.deserializer stream
     }
 
     /// Asynchronously gets the size of the persisted value in bytes.
@@ -120,7 +127,10 @@ type PersistedValue =
     /// <param name="path">Path to cloud file.</param>
     /// <param name="deserializer">Value deserializer function. Defaults to runtime serializer.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool) : LocalCloud<PersistedValue<'T>> = local {
+    /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
+    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?force : bool, ?resolveEtag : bool) : LocalCloud<PersistedValue<'T>> = local {
+        let force = defaultArg force false
+        let resolveEtag = defaultArg resolveEtag false
         let! store = Cloud.GetResource<ICloudFileStore>()
         let! deserializer = local {
             match deserializer with 
@@ -130,14 +140,23 @@ type PersistedValue =
                 return fun s -> serializer.Deserialize<'T>(s, leaveOpen = false)
         }
 
-        let! etag = Cloud.OfAsync <| store.TryGetETag path
-        match etag with
-        | None -> return raise <| new FileNotFoundException(path)
-        | Some et ->
-            let fpv = new PersistedValue<'T>(store, path, et, deserializer)
-            if defaultArg force false then
-                let! _ = Cloud.OfAsync <| fpv.GetValueAsync() in ()
-            return fpv
+        let! etag = Cloud.OfAsync <| async {
+            if resolveEtag then
+                let! etag = store.TryGetETag path
+                match etag with
+                | None -> return raise <| new FileNotFoundException(path)
+                | Some et -> return et
+            elif not force then
+                let! exists = store.FileExists path
+                if not exists then raise <| new FileNotFoundException(path)
+                return null
+            else
+                return null
+        }
+
+        let fpv = new PersistedValue<'T>(store, path, etag, deserializer)
+        if force then let! _ = Cloud.OfAsync <| fpv.GetValueAsync() in ()
+        return fpv
     }
 
     /// <summary>
@@ -147,9 +166,10 @@ type PersistedValue =
     /// <param name="path">Path to cloud value.</param>
     /// <param name="serializer">Serializer implementation used for value.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool) = local {
+    /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
+    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool, ?resolveEtag : bool) = local {
         let deserializer stream = serializer.Deserialize<'T>(stream, leaveOpen = false)
-        return! PersistedValue.OfCloudFile<'T>(path, deserializer = deserializer, ?force = force)
+        return! PersistedValue.OfCloudFile<'T>(path, deserializer = deserializer, ?force = force, ?resolveEtag = resolveEtag)
     }
 
     /// <summary>
@@ -160,7 +180,8 @@ type PersistedValue =
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
     /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool) : LocalCloud<PersistedValue<'T>> = local {
+    /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
+    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?force : bool, ?resolveEtag : bool) : LocalCloud<PersistedValue<'T>> = local {
         let deserializer (stream : Stream) =
             let sr =
                 match encoding with
@@ -169,5 +190,5 @@ type PersistedValue =
 
             textDeserializer sr 
 
-        return! PersistedValue.OfCloudFile(path, deserializer, ?force = force)
+        return! PersistedValue.OfCloudFile(path, deserializer, ?force = force, ?resolveEtag = resolveEtag)
     }
