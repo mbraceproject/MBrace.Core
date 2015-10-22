@@ -366,4 +366,4 @@ and private CloudProcessReporter private () =
                  |> Seq.sortBy (fun p -> p.StartTime)
                  |> Seq.toList
 
-        sprintf "%s\nWork items : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
+        sprintf "%s\nWork items : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders, parallelize = true)

@@ -24,7 +24,7 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     let initWorkerStateReader () =
         let rm = RuntimeManagerRegistry.Resolve runtimeId
         let getId = async { return! rm.WorkerManager.TryGetWorkerState workerId }
-        CacheAtom.Create(getId, intervalMilliseconds = 100, keepLastResultOnError = true)
+        CacheAtom.Create(getId, intervalMilliseconds = 500, keepLastResultOnError = true)
 
     let [<IgnoreDataMember>] mutable cvalue = initWorkerStateReader()
     let [<IgnoreDataMember>] mutable logPoller : ILogPoller<SystemLogEntry> option = None
@@ -229,4 +229,4 @@ and internal WorkerReporter private () =
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList
 
-        Record.PrettyPrint(template, ws, title, borders)
+        Record.PrettyPrint(template, ws, title, borders, parallelize = true)
