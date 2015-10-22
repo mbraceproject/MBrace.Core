@@ -90,14 +90,15 @@ module Fold =
                     member self.Result = dict |> Seq.map (fun kv -> kv.Key, kv.Value.Value) }
             }
 
+            let! workers = Cloud.GetAvailableWorkers()
+            let workers = workers |> Array.sortBy (fun w -> w.Id)
+            let workers = 
+                match flow.DegreeOfParallelism with 
+                | None -> workers
+                | Some dp -> Array.init (min dp workers.Length) (fun i -> workers.[i % workers.Length])
+
             // local shuffle of grouped results
             let shuffleLocal (groupings : seq<'Key * 'State>) = local {
-                let! workers = Cloud.GetAvailableWorkers()
-                let workers = 
-                    match flow.DegreeOfParallelism with 
-                    | None -> workers
-                    | Some dp -> Array.init (min dp workers.Length) (fun i -> workers.[i % workers.Length])
-
                 return!
                     groupings
                     |> Seq.groupBy (fun (k,_) -> workers.[abs (hash k) % workers.Length])
@@ -194,14 +195,15 @@ module Fold =
                         member self.Result = dict |> Seq.map (fun kv -> kv.Key, kv.Value.Value) }
             }
 
+            let! workers = Cloud.GetAvailableWorkers()
+            let workers = workers |> Array.sortBy (fun w -> w.Id)
+            let workers = 
+                match flow.DegreeOfParallelism with 
+                | None -> workers
+                | Some dp -> Array.init (min dp workers.Length) (fun i -> workers.[i % workers.Length])
+
             // local shuffle of grouped results
             let shuffleLocal (groupings : seq<'Key * 'State>) = local {
-                let! workers = Cloud.GetAvailableWorkers()
-                let workers = 
-                    match flow.DegreeOfParallelism with 
-                    | None -> workers
-                    | Some dp -> Array.init (min dp workers.Length) (fun i -> workers.[i % workers.Length])
-
                 return!
                     groupings
                     |> Seq.groupBy (fun (k,_) -> workers.[abs (hash k) % workers.Length])

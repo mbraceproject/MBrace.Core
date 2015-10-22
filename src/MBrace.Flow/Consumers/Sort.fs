@@ -25,11 +25,11 @@ module Sort =
     /// <param name="projection"></param>
     /// <param name="takeCount"></param>
     /// <param name="flow"></param>
-    let sortByGen (comparer : IComparer<'Key> option) (projection : ExecutionContext -> 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let collectorf (cloudCt : ICloudCancellationToken) = local {
+    let sortBy (comparer : IComparer<'Key> option) (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        let mkCollector () = local {
             let results = new List<List<'T>>()
-            let! ctx = Cloud.GetExecutionContext()
-            let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCt.LocalToken)
+            let! ct = Cloud.CancellationToken
+            let cts = CancellationTokenSource.CreateLinkedTokenSource(ct.LocalToken)
             return
               { new Collector<'T, List<'Key[] * 'T []>> with
                 member self.DegreeOfParallelism = flow.DegreeOfParallelism
@@ -47,7 +47,7 @@ module Sort =
                         for i = 0 to list.Count - 1 do
                             let value = list.[i]
                             counter <- counter + 1
-                            keys.[counter] <- projection ctx value
+                            keys.[counter] <- projection value
                             values.[counter] <- value
 
                     match comparer with
@@ -61,8 +61,7 @@ module Sort =
 
         let sortByComp =
             cloud {
-                use! cts = Cloud.CreateLinkedCancellationTokenSource()
-                let! results = flow.WithEvaluators (collectorf cts.Token) (fun x -> local { return x }) (fun result -> local { match result with [||] -> return List() | _ -> return Array.reduce (fun left right -> left.AddRange(right); left) result })
+                let! results = flow.WithEvaluators (mkCollector ()) (fun x -> local { return x }) (fun result -> local { match result with [||] -> return List() | _ -> return Array.reduce (fun left right -> left.AddRange(right); left) result })
                 let result =
                     let count = results |> Seq.sumBy (fun (keys, _) -> keys.Length)
                     let keys = Array.zeroCreate<'Key> count

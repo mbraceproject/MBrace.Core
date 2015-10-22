@@ -13,6 +13,7 @@ open Nessos.Streams.Internals
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Flow
+open MBrace.Flow.Internals
 
 #nowarn "444"
 
@@ -23,71 +24,86 @@ module Distinct =
     /// <param name="source">The input flow.</param>
     /// <returns>A flow of elements distinct on their keys.</returns>
     let distinctBy (projection : 'T -> 'Key) (source : CloudFlow<'T>) : CloudFlow<'T> =
-        let collectorF (cloudCt : ICloudCancellationToken) (totalWorkers : int) =
-            local {
+        // Stage 1: distinct and shuffle data to cluster
+        let distinctAndShuffle () = cloud {
+            let distinctCollectorF = local {
                 let dict = new ConcurrentDictionary<'Key, 'T>()
-                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCt.LocalToken)
+                let! ct = Cloud.CancellationToken
+                let cts = CancellationTokenSource.CreateLinkedTokenSource ct.LocalToken
                 return
-                    { new Collector<'T, seq<int * seq<'Key * 'T>>> with
-                      member __.DegreeOfParallelism = source.DegreeOfParallelism
-                      member __.Iterator() =
-                          { Func = (fun v -> let k = projection v in dict.TryAdd(k, v) |> ignore);
-                            Cts = cts }
-                      member __.Result =
-                           dict
-                           |> Seq.groupBy (fun kv -> Math.Abs(kv.Key.GetHashCode()) % totalWorkers)
-                           |> Seq.map (fun (pk, kvs) -> (pk, kvs |> Seq.map (fun kv -> (kv.Key, kv.Value))))
+                    { new Collector<'T, ICollection<'Key * 'T>> with
+                        member __.DegreeOfParallelism = source.DegreeOfParallelism
+                        member __.Iterator() =
+                            {   Func = fun v -> dict.TryAdd(projection v, v) |> ignore
+                                Cts = cts }
+                        member __.Result = dict |> Collection.map (fun kv -> kv.Key, kv.Value)
                     }
             }
-        let shuffling =
-            cloud {
-                let combiner' (result : _ []) = local { return Array.concat result }
-                let! totalWorkers = match source.DegreeOfParallelism with Some n -> local.Return n | None -> Cloud.GetWorkerCount()
-                use! cts = Cloud.CreateLinkedCancellationTokenSource()
-                let! kvs = source.WithEvaluators (collectorF cts.Token totalWorkers)
-                                                 (fun kvs ->
-                                                      local {
-                                                         let dict = new Dictionary<int, PersistedCloudFlow<'Key * 'T>>()
-                                                         for (k, kvs') in kvs do
-                                                             let! pkvs = PersistedCloudFlow.New(kvs', storageLevel = StorageLevel.Disk)
-                                                             dict.[k] <- pkvs;
-                                                         return dict |> Seq.map (fun kv -> kv.Key, kv.Value) |> Seq.toArray
-                                                      })
-                                                 combiner'
-                let merged =
-                    kvs
-                    |> Stream.ofArray
-                    |> Stream.groupBy fst
-                    |> Stream.map (fun (i,kva) -> i, kva |> Seq.map snd |> PersistedCloudFlow.Concat)
-                    |> Stream.toArray
-                return merged
+
+            let! workers = Cloud.GetAvailableWorkers()
+            let workers = workers |> Array.sortBy (fun w -> w.Id)
+            let workers = 
+                match source.DegreeOfParallelism with 
+                | None -> workers
+                | Some dp -> Array.init (min dp workers.Length) (fun i -> workers.[i % workers.Length])
+            
+            // local shuffle of grouped results
+            let shuffleLocal (groupings : seq<'Key * 'T>) = local {
+                return!
+                    groupings
+                    |> Seq.groupBy (fun (k,_) -> workers.[abs (hash k) % workers.Length])
+                    |> Seq.map (fun (w,gps) -> local { let! ca = CloudValue.NewArray(gps |> Seq.map snd, storageLevel = StorageLevel.Disk) in return w, ca })
+                    |> Local.Parallel
             }
-        let reducerF (cloudCt : ICloudCancellationToken) =
-            local {
+
+            // top-level shuffled results combiner
+            let combiner (gathered : (IWorkerRef * CloudArray<'T>) [] []) = local {
+                return gathered |> Seq.concat |> Seq.sortBy fst |> Seq.toArray
+            }
+
+            let! shuffleResults = source.WithEvaluators distinctCollectorF shuffleLocal combiner
+            return PersistedCloudFlow<'T>(shuffleResults) :> CloudFlow<'T>
+        }
+
+        // Stage 2 : Perform final distinction operation on shuffled data
+        let reduceFlow (collectorf : LocalCloud<Collector<'T, 'S>>) 
+                        (flowProjection : 'S -> LocalCloud<'R>) (flowCombiner : 'R [] -> LocalCloud<'R>)
+                        (shuffled : CloudFlow<'T>) = cloud {
+
+            let reduceCollectorF = local {
+                let! ct = Cloud.CancellationToken
                 let dict = new ConcurrentDictionary<'Key, 'T>()
-                let cts = CancellationTokenSource.CreateLinkedTokenSource(cloudCt.LocalToken)
-                return
-                    { new Collector<int * PersistedCloudFlow<'Key * 'T>, seq<'T>> with
-                      member __.DegreeOfParallelism = source.DegreeOfParallelism
-                      member __.Iterator() =
-                          { Func = (fun (_, pkvs) -> for (k, v) in pkvs do dict.TryAdd(k, v) |> ignore);
-                            Cts = cts }
-                      member __.Result = dict |> Seq.map (fun kv -> kv.Value)
+                let cts = CancellationTokenSource.CreateLinkedTokenSource ct.LocalToken
+                return 
+                    { new Collector<'T, ICollection<'T>> with
+                        member self.DegreeOfParallelism = source.DegreeOfParallelism
+                        member self.Iterator() =
+                            {   Func = fun t -> dict.TryAdd(projection t, t) |> ignore
+                                Cts = cts }
+
+                        member self.Result = dict |> Collection.map (fun kv -> kv.Value)
                     }
             }
-        let reducer (flow : CloudFlow<int * PersistedCloudFlow<'Key * 'T>>) : Cloud<PersistedCloudFlow<'T>> =
-            cloud {
-                let combiner' (result : PersistedCloudFlow<_> []) = local { return PersistedCloudFlow.Concat result }
-                use! cts = Cloud.CreateLinkedCancellationTokenSource()
-                let! pkvs = flow.WithEvaluators (reducerF cts.Token) (fun kvs -> PersistedCloudFlow.New(kvs, storageLevel = StorageLevel.Disk)) combiner'
-                return pkvs
+
+            let reduceProjection (inputs : ICollection<'T>) = local {
+                let! collector = collectorf
+                let iterators = Array.init Environment.ProcessorCount (fun _ -> collector.Iterator())
+                let! _ =
+                    inputs
+                    |> Collection.splitByPartitionCount iterators.Length
+                    |> Seq.mapi (fun i ts -> local { let iter = iterators.[i] in return for t in ts do iter.Func t })
+                    |> Local.Parallel
+
+                return! flowProjection collector.Result
             }
+
+            return! shuffled.WithEvaluators reduceCollectorF reduceProjection flowCombiner
+        }
+
         { new CloudFlow<'T> with
             member __.DegreeOfParallelism = source.DegreeOfParallelism
-            member __.WithEvaluators<'S, 'R> (collectorF : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) combiner =
-                cloud {
-                    let! result = shuffling
-                    let! result' = reducer (Array.ToCloudFlow result)
-                    return! (result' :> CloudFlow<_>).WithEvaluators collectorF projection combiner
-                }
+            member __.WithEvaluators<'S, 'R> collectorF (projection : 'S -> LocalCloud<'R>) combiner = cloud {
+                let! shuffledResult = distinctAndShuffle()
+                return! reduceFlow collectorF projection combiner shuffledResult
+            }
         }

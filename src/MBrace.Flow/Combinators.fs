@@ -446,7 +446,7 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen None (fun _ctx x -> projection x) takeCount flow
+        Sort.sortBy None projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered using the given comparer for the keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
@@ -454,7 +454,7 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortByUsing (projection : 'T -> 'Key) comparer (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen (Some comparer) (fun _ctx x -> projection x) takeCount flow
+        Sort.sortBy (Some comparer) projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered descending by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
@@ -463,14 +463,14 @@ module CloudFlow =
     /// <returns>The result CloudFlow.</returns>
     let inline sortByDescending (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
         let comparer = mkDescComparer LanguagePrimitives.FastGenericComparer<'Key>
-        Sort.sortByGen (Some comparer) (fun _ctx x -> projection x) takeCount flow
+        Sort.sortBy (Some comparer) projection takeCount flow
 
     /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
     let inline tryFind (predicate : 'T -> bool) (flow : CloudFlow<'T>) : Cloud<'T option> =
-        NonDeterministic.tryFindGen (fun _ctx x -> predicate x) flow
+        NonDeterministic.tryFind predicate flow
 
     /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -491,7 +491,7 @@ module CloudFlow =
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
     let inline tryPick (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : Cloud<'R option> =
-        NonDeterministic.tryPickGen (fun _ctx x -> chooser x) flow
+        NonDeterministic.tryPick chooser flow
 
     /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.
     /// Raises KeyNotFoundException when every item of the cloud flow evaluates to None when the given function is applied.</summary>
