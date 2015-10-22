@@ -727,13 +727,13 @@ module CloudFlow =
     /// <param name="secondSource">The second input flow.</param>
     /// <returns>A flow of tuples where each tuple contains the unique key and the sequences of all the elements that match the key.</returns>
     let inline groupJoinBy (firstProjection : 'T -> 'Key) (secondProjection : 'R -> 'Key) (secondSource : CloudFlow<'R>) (firstSource : CloudFlow<'T>) : CloudFlow<'Key * seq<'T> * seq<'R>> =
-        Fold.foldByGen2 
-               (fun _ x -> firstProjection x)
-               (fun _ x -> secondProjection x)
-               (fun _ ((xs : ResizeArray<'T>, _ : ResizeArray<'R>) as tuple) x -> xs.Add x; tuple)
-               (fun _ ((_ : ResizeArray<'T>, ys : ResizeArray<'R>) as tuple) y -> ys.Add y; tuple)
-               (fun _ (xs, ys) (xs', ys') -> ((xs.AddRange(xs'); xs), (ys.AddRange(ys'); ys)))
-               (fun _ -> (new ResizeArray<'T>(), new ResizeArray<'R>()))
+        Fold.foldBy2
+               firstProjection
+               secondProjection
+               (fun ((xs : ResizeArray<'T>, _ : ResizeArray<'R>) as tuple) x -> xs.Add x; tuple)
+               (fun ((_ : ResizeArray<'T>, ys : ResizeArray<'R>) as tuple) y -> ys.Add y; tuple)
+               (fun (xs, ys) (xs', ys') -> ((xs.AddRange(xs'); xs), (ys.AddRange(ys'); ys)))
+               (fun () -> (new ResizeArray<'T>(), new ResizeArray<'R>()))
                firstSource
                secondSource
         |> map (fun (k, (xs, ys)) -> k, xs :> seq<_>, ys :> seq<_>)

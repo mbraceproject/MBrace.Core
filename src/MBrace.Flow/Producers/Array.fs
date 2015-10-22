@@ -16,9 +16,9 @@ type internal Array =
     /// <summary>Wraps array as a CloudFlow.</summary>
     /// <param name="source">The input array.</param>
     /// <returns>The result CloudFlow.</returns>
-    static member ToCloudFlow (source : 'T [], ?parallelismfactor : int) : CloudFlow<'T> =
+    static member ToCloudFlow (source : 'T [], ?degreeOfParallelism : int) : CloudFlow<'T> =
         { new CloudFlow<'T> with
-            member self.DegreeOfParallelism = parallelismfactor
+            member self.DegreeOfParallelism = degreeOfParallelism
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     // local worker ParStream workflow

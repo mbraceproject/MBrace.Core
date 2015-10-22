@@ -25,6 +25,9 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
     [<DataMember(Name = "Partitions")>]
     let partitions = partitions
 
+    [<DataMember(Name = "DegreeOfParallelism")>]
+    let degreeOfParallelism = partitions |> Seq.groupBySequential fst |> Seq.length
+
     /// Number of partitions in the vector.
     member __.PartitionCount = partitions.Length
 
@@ -75,7 +78,7 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
         member cv.GetEnumerableAsync() = async { return cv.ToEnumerable() }
 
     interface CloudFlow<'T> with
-        member cv.DegreeOfParallelism = None
+        member cv.DegreeOfParallelism = Some degreeOfParallelism
         member cv.WithEvaluators(collectorf : LocalCloud<Collector<'T,'S>>) (projection: 'S -> LocalCloud<'R>) (combiner: 'R [] -> LocalCloud<'R>): Cloud<'R> = cloud {
             let flow = CloudCollection.ToCloudFlow(cv)
             return! flow.WithEvaluators collectorf projection combiner

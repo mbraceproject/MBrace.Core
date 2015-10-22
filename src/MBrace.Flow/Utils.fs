@@ -11,7 +11,7 @@ open MBrace.Core.Internals
 open MBrace.Flow
 
 [<AutoOpen>]
-module Utils =
+module internal Utils =
 
     type Collector<'T, 'R> with
         /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
@@ -105,9 +105,30 @@ module Utils =
         }
 
     module Collection =
-        let splitByPartitionCount (partitionCount : int) (collection : ICollection<'T>) : 'T [][] =
+        let map (f : 'T -> 'S) (collection : ICollection<'T>) : ICollection<'S> =
+            let mapped = Seq.map f collection
+            { new ICollection<'S> with
+                  member x.Count: int = collection.Count
+                  member x.GetEnumerator(): IEnumerator = 
+                      (mapped :> IEnumerable).GetEnumerator() : IEnumerator
+                  member x.GetEnumerator(): IEnumerator<'S> = 
+                      mapped.GetEnumerator()
+                  member x.IsReadOnly: bool = true
+                  member x.Add(_: 'S): unit = 
+                      raise (System.NotSupportedException())
+                  member x.Remove(item: 'S): bool = 
+                      raise (System.NotSupportedException())
+                  member x.Clear(): unit = 
+                      raise (System.NotSupportedException())
+                  member x.Contains(item: 'S): bool = 
+                      raise (System.NotSupportedException())
+                  member x.CopyTo(array: 'S [], arrayIndex: int): unit = 
+                      raise (System.NotSupportedException())
+            }
+
+        let splitByPartitionCount (partitionCount : int) (collection : ICollection<'T>) : seq<'T []> =
             if partitionCount <= 0 then 
-                if collection.Count = 0 then [||]
+                if collection.Count = 0 then Seq.empty
                 else raise <| ArgumentOutOfRangeException("partitionCount")
             else
 
@@ -128,4 +149,4 @@ module Utils =
                 else
                     i <- i + 1
 
-            results.ToArray()
+            results :> _
