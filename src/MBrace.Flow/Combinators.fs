@@ -344,7 +344,7 @@ module CloudFlow =
                       (combiner : 'State -> 'State -> 'State)
                       (state : unit -> 'State) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> =
 
-        Fold.foldByGen (fun _ x -> projection x) (fun _ x y -> folder x y) (fun _ s1 s2 -> combiner s1 s2) (fun _ -> state ()) flow
+        Fold.foldBy projection folder combiner state flow
 
     /// <summary>
     /// Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and their number of occurrences in the original sequence.
@@ -352,7 +352,7 @@ module CloudFlow =
     /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     let inline countBy (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
-        Fold.foldByGen (fun _ctx x -> projection x) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ctx -> 0L) flow
+        Fold.foldBy projection (fun state _ -> state + 1L) (fun x y -> x + y) (fun () -> 0L) flow
 
     /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
     /// <param name="flow">The input CloudFlow.</param>

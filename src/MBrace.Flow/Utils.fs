@@ -103,3 +103,29 @@ module Utils =
                 |> Seq.map (fun gp -> gp |> List.rev |> List.toArray)
                 |> Seq.toArray
         }
+
+    module Collection =
+        let splitByPartitionCount (partitionCount : int) (collection : ICollection<'T>) : 'T [][] =
+            if partitionCount <= 0 then 
+                if collection.Count = 0 then [||]
+                else raise <| ArgumentOutOfRangeException("partitionCount")
+            else
+
+            let N = collection.Count
+            let div = N / partitionCount
+            let rem = N % partitionCount
+            let mutable p = 0
+            let mutable i = 0
+            let results = new ResizeArray<'T []> ()
+            let acc = new ResizeArray<'T> ()
+            for t in collection do
+                acc.Add t
+                if i + 1 = div + (if p < rem then 1 else 0) then
+                    results.Add (acc.ToArray())
+                    acc.Clear()
+                    p <- p + 1
+                    i <- 0
+                else
+                    i <- i + 1
+
+            results.ToArray()
