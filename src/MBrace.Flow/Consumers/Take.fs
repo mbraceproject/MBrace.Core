@@ -37,26 +37,29 @@ module Take =
                           (results |> Seq.concat).Take(n) |> Seq.toArray
                      }
             }
+
         let gather =
             cloud {
                 use! cts = Cloud.CreateLinkedCancellationTokenSource()
-                let! flow = flow.WithEvaluators (collectorF cts) (fun value -> PersistedCloudFlow.New(value, storageLevel = StorageLevel.Disk) ) 
+                let! flow = flow.WithEvaluators (collectorF cts) (fun value -> PersistedCloudFlow.New(value, storageLevel = StorageLevel.Memory) ) 
                                                                  (fun results -> local { return PersistedCloudFlow.Concat results } )
 
                 // Calculate number of partitions up to n
                 let partitions = ResizeArray<_>()
                 let totalCount = ref 0
-                for (workerRef, cloudArray) in flow.GetPartitions() do
+                for workerRef, cloudArray in flow.GetPartitions() do
                     if !totalCount < n then
-                        let count = cloudArray.GetCountAsync() |> Async.RunSync
+                        let! count = Cloud.OfAsync <| cloudArray.GetCountAsync()
                         if !totalCount + int count <= n then
                             partitions.Add(workerRef, cloudArray)
                         else 
+                            // TODO : creates unnecessary reads/writes; needs a replacement for PersistedCloudFlow
                             let! cloudArray = CloudValue.NewArray(cloudArray.Take(n - !totalCount).ToArray(), storageLevel = StorageLevel.Disk)
                             partitions.Add(workerRef, cloudArray)
                         totalCount := !totalCount + int count
                 return new PersistedCloudFlow<_>(partitions.ToArray())
             }
+
         { new CloudFlow<'T> with
               member __.DegreeOfParallelism = flow.DegreeOfParallelism
               member __.WithEvaluators<'S, 'R>(collectorF: LocalCloud<Collector<'T, 'S>>) (projection: 'S -> LocalCloud<'R>) combiner =

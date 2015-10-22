@@ -103,3 +103,50 @@ module Utils =
                 |> Seq.map (fun gp -> gp |> List.rev |> List.toArray)
                 |> Seq.toArray
         }
+
+    module Collection =
+        let map (f : 'T -> 'S) (collection : ICollection<'T>) : ICollection<'S> =
+            let mapped = Seq.map f collection
+            { new ICollection<'S> with
+                  member x.Count: int = collection.Count
+                  member x.GetEnumerator(): IEnumerator = 
+                      (mapped :> IEnumerable).GetEnumerator() : IEnumerator
+                  member x.GetEnumerator(): IEnumerator<'S> = 
+                      mapped.GetEnumerator()
+                  member x.IsReadOnly: bool = true
+                  member x.Add(_: 'S): unit = 
+                      raise (System.NotSupportedException())
+                  member x.Remove(item: 'S): bool = 
+                      raise (System.NotSupportedException())
+                  member x.Clear(): unit = 
+                      raise (System.NotSupportedException())
+                  member x.Contains(item: 'S): bool = 
+                      raise (System.NotSupportedException())
+                  member x.CopyTo(array: 'S [], arrayIndex: int): unit = 
+                      raise (System.NotSupportedException())
+            }
+
+        let splitByPartitionCount (partitionCount : int) (collection : ICollection<'T>) : seq<'T []> =
+            if partitionCount <= 0 then 
+                if collection.Count = 0 then Seq.empty
+                else raise <| ArgumentOutOfRangeException("partitionCount")
+            else
+
+            let N = collection.Count
+            let div = N / partitionCount
+            let rem = N % partitionCount
+            let mutable p = 0
+            let mutable i = 0
+            let results = new ResizeArray<'T []> ()
+            let acc = new ResizeArray<'T> ()
+            for t in collection do
+                acc.Add t
+                if i + 1 = div + (if p < rem then 1 else 0) then
+                    results.Add (acc.ToArray())
+                    acc.Clear()
+                    p <- p + 1
+                    i <- 0
+                else
+                    i <- i + 1
+
+            results :> _

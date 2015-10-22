@@ -277,35 +277,35 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline map (f : 'T -> 'R) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.mapGen (fun _ x -> f x) flow
+        Transformers.map f flow
 
     /// <summary>Enables the insertion of a monadic side-effect in a distributed flow. Output remains the same.</summary>
     /// <param name="f">A locally executing cloud function that performs side effect on input flow elements.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let peek (f : 'T -> LocalCloud<unit>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Transformers.mapGen (fun ctx x -> f x |> run ctx ; x) flow
+        Transformers.peek f flow
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements.</summary>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline collect (f : 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.collectGen (fun _ x -> f x) flow
+        Transformers.collect f flow
 
     /// <summary>Filters the elements of the input CloudFlow.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline filter (predicate : 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Transformers.filterGen (fun _ x -> predicate x) flow
+        Transformers.filter predicate flow
 
     /// <summary>Applies the given chooser function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
     /// <param name="predicate">A function to transform items of type 'T into options of type 'R.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline choose (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.chooseGen (fun _ x -> chooser x) flow
+        Transformers.choose chooser flow
 
     /// <summary>Returns a cloud flow with a new degree of parallelism.</summary>
     /// <param name="degreeOfParallelism">The degree of parallelism.</param>
@@ -330,7 +330,7 @@ module CloudFlow =
                     (combiner : 'State -> 'State -> 'State)
                     (state : unit -> 'State) (flow : CloudFlow<'T>) : Cloud<'State> =
 
-        Fold.foldGen (fun _ x y -> folder x y) (fun _ x y -> combiner x y) (fun _ -> state ()) flow
+        Fold.fold folder combiner state flow
 
     /// <summary>Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and the result of the threading an accumulator.</summary>
     /// <param name="projection">A function to transform items from the input CloudFlow to keys.</param>
@@ -344,7 +344,7 @@ module CloudFlow =
                       (combiner : 'State -> 'State -> 'State)
                       (state : unit -> 'State) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> =
 
-        Fold.foldByGen (fun _ x -> projection x) (fun _ x y -> folder x y) (fun _ s1 s2 -> combiner s1 s2) (fun _ -> state ()) flow
+        Fold.foldBy projection folder combiner state flow
 
     /// <summary>
     /// Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and their number of occurrences in the original sequence.
@@ -352,7 +352,7 @@ module CloudFlow =
     /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     let inline countBy (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
-        Fold.foldByGen (fun _ctx x -> projection x) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ctx -> 0L) flow
+        Fold.foldBy projection (fun state _ -> state + 1L) (fun x y -> x + y) (fun () -> 0L) flow
 
     /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
     /// <param name="flow">The input CloudFlow.</param>
@@ -446,7 +446,7 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen None (fun _ctx x -> projection x) takeCount flow
+        Sort.sortByGen None false projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered using the given comparer for the keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
@@ -454,7 +454,7 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortByUsing (projection : 'T -> 'Key) comparer (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen (Some comparer) (fun _ctx x -> projection x) takeCount flow
+        Sort.sortByGen (Some comparer) false projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered descending by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
@@ -462,15 +462,14 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortByDescending (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = mkDescComparer LanguagePrimitives.FastGenericComparer<'Key>
-        Sort.sortByGen (Some comparer) (fun _ctx x -> projection x) takeCount flow
+        Sort.sortByGen None true projection takeCount flow
 
     /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
     let inline tryFind (predicate : 'T -> bool) (flow : CloudFlow<'T>) : Cloud<'T option> =
-        NonDeterministic.tryFindGen (fun _ctx x -> predicate x) flow
+        NonDeterministic.tryFind predicate flow
 
     /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -491,7 +490,7 @@ module CloudFlow =
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
     let inline tryPick (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : Cloud<'R option> =
-        NonDeterministic.tryPickGen (fun _ctx x -> chooser x) flow
+        NonDeterministic.tryPick chooser flow
 
     /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.
     /// Raises KeyNotFoundException when every item of the cloud flow evaluates to None when the given function is applied.</summary>
@@ -562,7 +561,7 @@ module CloudFlow =
     let maxBy<'T, 'Key when 'Key : comparison> (projection: 'T -> 'Key) (flow: CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x ->
+                Fold.fold (fun state x ->
                                let kx = projection x
                                match state with
                                | None -> Some (ref x, ref kx)
@@ -571,7 +570,7 @@ module CloudFlow =
                                    k := kx
                                    state
                                | _ -> state)
-                        (fun _ left right ->
+                        (fun left right ->
                              match left, right with
                              | Some (_, k), Some (_, k') -> if !k' > !k then right else left
                              | None, _ -> right
@@ -592,7 +591,7 @@ module CloudFlow =
     let minBy<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x ->
+                Fold.fold (fun state x ->
                              let kx = projection x
                              match state with
                              | None -> Some (ref x, ref kx)
@@ -601,7 +600,7 @@ module CloudFlow =
                                  k := kx
                                  state
                              | _ -> state)
-                        (fun _ left right ->
+                        (fun left right ->
                              match left, right with
                              | Some (_, k), Some (_, k') -> if !k' > !k then left else right
                              | None, _ -> right
@@ -627,8 +626,8 @@ module CloudFlow =
     let reduce (reducer : 'T -> 'T -> 'T) (flow : CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
-                        (fun _ left right ->
+                Fold.fold (fun state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
+                        (fun left right ->
                          match left, right with
                          | Some y, Some x -> y := reducer !y !x; left
                          | None, Some _ -> right
@@ -727,13 +726,13 @@ module CloudFlow =
     /// <param name="secondSource">The second input flow.</param>
     /// <returns>A flow of tuples where each tuple contains the unique key and the sequences of all the elements that match the key.</returns>
     let inline groupJoinBy (firstProjection : 'T -> 'Key) (secondProjection : 'R -> 'Key) (secondSource : CloudFlow<'R>) (firstSource : CloudFlow<'T>) : CloudFlow<'Key * seq<'T> * seq<'R>> =
-        Fold.foldByGen2 
-               (fun _ x -> firstProjection x)
-               (fun _ x -> secondProjection x)
-               (fun _ ((xs : ResizeArray<'T>, _ : ResizeArray<'R>) as tuple) x -> xs.Add x; tuple)
-               (fun _ ((_ : ResizeArray<'T>, ys : ResizeArray<'R>) as tuple) y -> ys.Add y; tuple)
-               (fun _ (xs, ys) (xs', ys') -> ((xs.AddRange(xs'); xs), (ys.AddRange(ys'); ys)))
-               (fun _ -> (new ResizeArray<'T>(), new ResizeArray<'R>()))
+        Fold.foldBy2
+               firstProjection
+               secondProjection
+               (fun ((xs : ResizeArray<'T>, _ : ResizeArray<'R>) as tuple) x -> xs.Add x; tuple)
+               (fun ((_ : ResizeArray<'T>, ys : ResizeArray<'R>) as tuple) y -> ys.Add y; tuple)
+               (fun (xs, ys) (xs', ys') -> ((xs.AddRange(xs'); xs), (ys.AddRange(ys'); ys)))
+               (fun () -> (new ResizeArray<'T>(), new ResizeArray<'R>()))
                firstSource
                secondSource
         |> map (fun (k, (xs, ys)) -> k, xs :> seq<_>, ys :> seq<_>)

@@ -29,4 +29,5 @@ type ``MBrace Thespian Flow Tests`` () =
     override __.RunWithLogs(workflow : Cloud<unit>) =
         let job = session.Runtime.CreateProcess(workflow)
         do job.Result
+        System.Threading.Thread.Sleep 1000
         job.GetLogs () |> Array.map CloudLogEntry.Format

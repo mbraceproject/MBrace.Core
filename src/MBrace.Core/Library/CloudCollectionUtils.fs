@@ -312,7 +312,6 @@ type CloudCollection private () =
                 return! aux (partition :: accPartitions) w wsz [] rw remCollections
         }
 
-        if workers.Length = 0 then return invalidArg "workers" "must be non-empty."
         let isSizeKnown = collections |> Array.forall (fun c -> c.IsKnownSize)
         if not isSizeKnown then
             // size of collections not known a priori, do not take it into account.
@@ -331,6 +330,9 @@ type CloudCollection private () =
 
         // extract nested collections
         let! collections = CloudCollection.ExtractPartitions collections
+
+        if Array.isEmpty collections then return [||]
+        elif Array.isEmpty workers then return invalidArg "workers" "must be non-empty." else
 
         // compute size per collection and allocate expected size per worker according to weight.
         let! wsizes = collections |> Seq.map (fun c -> async { let! sz = c.GetSizeAsync() in return c, sz }) |> Async.Parallel

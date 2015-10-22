@@ -131,7 +131,8 @@ module ``Collection Partitioning Tests`` =
             let partitions = [| for p in 0us .. partitions - 1us -> RangeCollection.Empty(discloseSize = false) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
             let partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargeted) |> run
-            partitionss |> Array.map fst |> shouldEqual workers
+            if partitions.Length > 0 then partitionss |> Array.map fst |> shouldEqual workers
+            else partitionss.Length |> shouldEqual 0
             partitionss |> Array.collect snd |> shouldEqual partitions
 
             partitionss
@@ -148,7 +149,8 @@ module ``Collection Partitioning Tests`` =
             let partitions = [| for size in sizes -> new RangeCollection(0L, int64 size, discloseSize = true) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
             let partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargeted) |> run
-            partitionss |> Array.map fst |> shouldEqual workers
+            if partitions.Length > 0 then partitionss |> Array.map fst |> shouldEqual workers
+            else partitionss.Length |> shouldEqual 0
             partitionss |> Array.collect snd |> shouldEqual partitions
 
         Check.QuickThrowOnFail(tester, maxRuns = fsCheckRetries)
@@ -196,7 +198,8 @@ module ``Collection Partitioning Tests`` =
             // perform partitioning
             let partitionss = CloudCollection.PartitionBySize(partitionables, workers, isTargeted) |> run
             // test that all workers are assigned partitions
-            partitionss |> Array.map fst |> shouldEqual workers
+            if partitionables.Length > 0 then partitionss |> Array.map fst |> shouldEqual workers
+            else partitionss.Length |> shouldEqual 0
             // compute size per partition
             let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Seq.map (fun p -> p.GetSizeAsync()) |> Async.Parallel |> run |> Array.sum)
             sizes |> Array.sumBy snd |> shouldEqual (totalSizes |> Array.sumBy (fun s -> abs s))
@@ -232,7 +235,8 @@ module ``Collection Partitioning Tests`` =
 
             let workers = [| for i in 0 .. workerCores.Length - 1 -> mkDummyWorker (string i) (1 + int workerCores.[i]) |]
             let partitionss = CloudCollection.PartitionBySize(collections, workers, isTargeted) |> run
-            partitionss |> Array.map fst |> shouldEqual workers
+            if collectionSizes.Length > 0 then partitionss |> Array.map fst |> shouldEqual workers
+            else partitionss.Length |> shouldEqual 0
             let sizes = partitionss |> Array.map (fun (w,ps) -> w, ps |> Seq.map (fun p -> p.GetSizeAsync()) |> Async.Parallel |> run |> Array.sum)
             sizes |> Array.sumBy snd |> shouldEqual (collectionSizes |> Array.sumBy (snd >> abs))
 
