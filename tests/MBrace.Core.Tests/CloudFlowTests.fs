@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Core.Tests
 
 open System
+open System.Threading
 open System.Linq
 open System.Collections.Generic
 open System.Net
@@ -15,6 +16,7 @@ open MBrace.Core
 open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Flow
 open MBrace.Flow.Internals
+
 
 #nowarn "0444" // Disable mbrace warnings
 
@@ -90,6 +92,7 @@ type ``CloudFlow tests`` () as self =
     abstract FsCheckMaxNumberOfIOBoundTests : int
 
     // #region Flow persist tests
+
 
     [<Test>]
     member __.``1. PersistedCloudFlow : Simple StorageLevel.Disk`` () =
@@ -711,6 +714,21 @@ type ``CloudFlow tests`` () as self =
             if xs.Length = 0 then x = 0
             else x = 1
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : Test MultiCore Parallelism`` () = 
+        let f(count : int) = 
+            let path = CloudPath.GetRandomFileName() |> runOnCurrentProcess
+            let cf = CloudFile.WriteAllLines(path, [|1..((Math.Abs(count) + 10) * 1000)|] |> Array.map string) |> runOnCurrentProcess
+            let r = cf.Path
+                    |> CloudFlow.OfCloudFileByLine
+                    |> CloudFlow.map (fun _ -> Thread.CurrentThread.ManagedThreadId)
+                    |> CloudFlow.toArray
+                    |> runOnCurrentProcess
+                    |> Seq.distinct 
+                    |> Seq.length
+            r > 1
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
 
     [<Test>]
     member __.``2. CloudFlow : tryFind`` () =
