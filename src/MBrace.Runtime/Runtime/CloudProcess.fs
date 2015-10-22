@@ -331,7 +331,12 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
     /// Gets a printed report of all currently executing processes
     member pm.FormatProcessesAsync() : Async<string> = async {
         let! entries = runtime.ProcessManager.GetAllProcesses()
-        let! data = entries |> Seq.map CloudProcessData.OfCloudProcessEntry |> Async.Parallel
+        let mkProc (e : ICloudProcessEntry) = async {
+            let! proc = CloudProcessData.OfCloudProcessEntry e
+            ignore proc.ExecutionTime // force data fetch for all procs using multicore
+            return proc
+        }
+        let! data = entries |> Seq.map mkProc |> Async.Parallel
         return CloudProcessReporter.Report(data, "Processes", borders = false)
     }
 

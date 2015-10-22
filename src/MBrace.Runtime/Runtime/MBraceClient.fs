@@ -20,6 +20,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     let taskManagerClient = new CloudProcessManagerClient(runtime)
     let getWorkers () = async {
         let! workers = runtime.WorkerManager.GetAvailableWorkers()
+        do workers |> Array.Parallel.iter (fun w -> ignore w.LastHeartbeat) // force worker property refresh using multicore
         return workers |> Array.map (fun w -> WorkerRef.Create(runtime, w.Id))
     }
 
