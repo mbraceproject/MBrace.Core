@@ -333,7 +333,6 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
         let! entries = runtime.ProcessManager.GetAllProcesses()
         let mkProc (e : ICloudProcessEntry) = async {
             let! proc = CloudProcessData.OfCloudProcessEntry e
-            ignore proc.ExecutionTime // force data fetch for all procs using multicore
             return proc
         }
         let! data = entries |> Seq.map mkProc |> Async.Parallel

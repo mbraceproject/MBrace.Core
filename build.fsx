@@ -144,10 +144,8 @@ Target "Help" (fun _ -> PrintTargets() )
 "Build"
   ==> "PrepareRelease"
   ==> "NuGet"
-  ==> "Release"
-
-"NuGet" 
   ==> "NuGetPush"
+  ==> "Release"
 
 //// start build
 RunTargetOrDefault "Default"

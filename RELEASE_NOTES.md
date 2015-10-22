@@ -1,3 +1,6 @@
+#### 0.15.2-beta
+* WorkerRef pretty printing performance improvements.
+
 #### 0.15.1-beta
 * ICloudCollection performance fixes and improvements.
 

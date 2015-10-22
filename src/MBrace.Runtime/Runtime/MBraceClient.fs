@@ -20,11 +20,10 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     let taskManagerClient = new CloudProcessManagerClient(runtime)
     let getWorkers () = async {
         let! workers = runtime.WorkerManager.GetAvailableWorkers()
-        do workers |> Array.Parallel.iter (fun w -> ignore w.LastHeartbeat) // force worker property refresh using multicore
         return workers |> Array.map (fun w -> WorkerRef.Create(runtime, w.Id))
     }
 
-    let workers = CacheAtom.Create(getWorkers(), intervalMilliseconds = 500)
+    let workers = CacheAtom.Create(getWorkers(), intervalMilliseconds = 1000)
 
     let mutable systemLogPoller : ILogPoller<SystemLogEntry> option = None
     let getSystemLogPoller() =
@@ -153,7 +152,10 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     member __.Store : CloudStoreClient = storeClient
 
     /// Gets all available workers for the MBrace runtime.
-    member __.Workers : WorkerRef [] = workers.Value
+    member __.Workers : WorkerRef [] = 
+        let ws = workers.Value
+        ws |> Array.Parallel.iter (fun w -> ignore w.CpuUsage) // force value update using multicore
+        ws
 
     /// Gets or sets the default fault policy used by computations
     /// uploaded by this client instance.
