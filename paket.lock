@@ -26,9 +26,9 @@ NUGET
     NuGet.CommandLine (2.8.6)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
-    Streams (0.4.0)
-    Streams.CSharp (0.4.0)
-      Streams (0.4.0)
+    Streams (0.4.1)
+    Streams.CSharp (0.4.1)
+      Streams (0.4.1)
     TaskParallelLibrary (1.0.2856) - framework: net35
     Thespian.Core (0.1.6-alpha)
       FsPickler (>= 1.2.1)

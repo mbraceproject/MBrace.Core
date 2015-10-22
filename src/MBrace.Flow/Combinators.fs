@@ -446,7 +446,7 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortBy None projection takeCount flow
+        Sort.sortByGen None false projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered using the given comparer for the keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
@@ -454,7 +454,7 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortByUsing (projection : 'T -> 'Key) comparer (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortBy (Some comparer) projection takeCount flow
+        Sort.sortByGen (Some comparer) false projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered descending by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
@@ -462,8 +462,7 @@ module CloudFlow =
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline sortByDescending (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = mkDescComparer LanguagePrimitives.FastGenericComparer<'Key>
-        Sort.sortBy (Some comparer) projection takeCount flow
+        Sort.sortByGen None true projection takeCount flow
 
     /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
