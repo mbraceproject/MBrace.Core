@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Flow
 
 open System
+open System.IO
 open System.Threading
 open System.Text
 open System.Collections.Concurrent
@@ -264,11 +265,8 @@ type CloudFlow =
 /// Provides basic operations on CloudFlows.
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module CloudFlow =
-    open System.IO
 
     let private cloudFlowStaticId = mkUUID()
-
-    let inline private run ctx a = Cloud.RunSynchronously(a, ctx.Resources,ctx.CancellationToken)
 
     //#region Intermediate functions
 
