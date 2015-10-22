@@ -1,3 +1,6 @@
+#### 0.15.1-beta
+* ICloudCollection performance fixes and improvements.
+
 #### 0.15.0-beta
 * CloudFlow performance fixes and improvements.
 
