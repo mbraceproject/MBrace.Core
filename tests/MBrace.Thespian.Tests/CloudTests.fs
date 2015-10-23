@@ -201,6 +201,24 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
+    member __.``2. Fault Tolerance : test process status`` () =
+        repeat(fun () ->
+            let runtime = session.Runtime
+            let f = runtime.Store.CloudAtom.Create(false)
+            let wf () = cloud {
+                return! 
+                    Cloud.CreateProcess(cloud { 
+                        do! f.ForceAsync true 
+                        do! Cloud.Sleep 60000 })
+            }
+
+            let t = runtime.Run (wf ())
+            while not f.Value do Thread.Sleep 1000
+            session.Chaos()
+            Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>
+            t.Status |> shouldEqual CloudProcessStatus.Faulted )
+
+    [<Test>]
     member __.``2. Fault Tolerance : persistedCloudFlow`` () =
         let runtime = session.Runtime
         let n = 1000000
