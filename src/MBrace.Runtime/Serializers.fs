@@ -108,7 +108,7 @@ type JsonDotNetSerializer() =
     [<NonSerialized>]
     let mutable localInstance : JsonSerializer option = None
 
-    member s.Serializer =
+    member private s.Serializer =
         match localInstance with
         | Some instance -> instance
         | None ->   
