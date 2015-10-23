@@ -229,4 +229,4 @@ and internal WorkerReporter private () =
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList
 
-        Record.PrettyPrint(template, ws, title, borders)
+        Record.PrettyPrint(template, ws, title, borders, parallelize = true)

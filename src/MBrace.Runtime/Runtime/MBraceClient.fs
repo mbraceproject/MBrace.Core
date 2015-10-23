@@ -152,10 +152,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     member __.Store : CloudStoreClient = storeClient
 
     /// Gets all available workers for the MBrace runtime.
-    member __.Workers : WorkerRef [] = 
-        let ws = workers.Value
-        ws |> Array.Parallel.iter (fun w -> ignore w.CpuUsage) // force value update using multicore
-        ws
+    member __.Workers : WorkerRef [] = workers.Value
 
     /// Gets or sets the default fault policy used by computations
     /// uploaded by this client instance.
