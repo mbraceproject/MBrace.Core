@@ -435,31 +435,33 @@ module CloudFlow =
     /// <returns>A persisted copy of given CloudFlow.</returns>
     let persist (storageLevel : StorageLevel) (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.OfCloudFlow(flow, storageLevel = storageLevel)
 
-    let inline private mkDescComparer (comparer: IComparer<'T>) = { new IComparer<'T> with member __.Compare(x,y) = -comparer.Compare(x,y) }
+    // keep inline to ensure efficient comparison is used
+    let inline private mkComparer<'K when 'K : comparison> = { new IComparer<'K> with member __.Compare(x,y) = compare x y }
+    let inline private mkDescendingComparer<'K when 'K : comparison> = { new IComparer<'K> with member __.Compare(x,y) = - compare x y }
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen None false projection takeCount flow
+    let inline sortBy<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Sort.sortByGen mkComparer<'Key> projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered using the given comparer for the keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline sortByUsing (projection : 'T -> 'Key) comparer (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen (Some comparer) false projection takeCount flow
+    let inline sortByUsing<'T, 'Key> (projection : 'T -> 'Key) (comparer : IComparer<'Key>) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Sort.sortByGen comparer projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered descending by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline sortByDescending (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen None true projection takeCount flow
+    let inline sortByDescending<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Sort.sortByGen mkDescendingComparer projection takeCount flow
 
     /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>

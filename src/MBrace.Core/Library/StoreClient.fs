@@ -10,6 +10,114 @@ open System.Runtime.Serialization
 open MBrace.Core
 open MBrace.Library
 
+/// Collection of Serialization utilities.
+[<Sealed; DataContract; StructuredFormatDisplay("{Id}")>]
+type SerializationClient (serializer : ISerializer, textSerializer : ITextSerializer option) =
+    [<DataMember(Name = "Serializer")>]
+    let serializer = serializer
+    [<DataMember(Name = "TextSerializer")>]
+    let textSerializer = textSerializer
+
+    let getTextSerializer () =
+        match serializer with
+        | :? ITextSerializer as ts -> ts
+        | _ ->
+            match textSerializer with
+            | Some ts -> ts
+            | None -> raise <| ResourceNotFoundException("ITextSerializer")
+
+    /// Creates a Serializer client by resolving the local execution context.
+    static member Create(resources : ResourceRegistry) = new SerializationClient(resources.Resolve(), resources.TryResolve())
+
+    member __.Id = serializer.Id
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
+    member __.Serializer = serializer
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
+    member __.TextSerializer = textSerializer
+    override __.ToString() = serializer.Id
+
+    /// <summary>
+    ///     Quickly computes the size of a serializable object graph in bytes.
+    /// </summary>
+    /// <param name="graph">Serializable object graph to be computed.</param>
+    member __.ComputeObjectSize<'T>(graph : 'T) : int64 = serializer.ComputeObjectSize(graph)
+
+    /// <summary>
+    ///     Creates an in-memory clone of supplied serializable object graph.
+    /// </summary>
+    /// <param name="graph">Serializable object graph to be cloned.</param>
+    member __.Clone<'T>(graph : 'T) : 'T = serializer.Clone(graph)
+
+    /// <summary>
+    ///     Serializes provided object graph to underlying write stream.
+    /// </summary>
+    /// <param name="stream">Stream to serialize object.</param>
+    /// <param name="graph">Object graph to be serialized.</param>
+    /// <param name="leaveOpen">Leave open stream after serialization. Defaults to false.</param>
+    member __.Serialize<'T>(stream : Stream, graph : 'T, ?leaveOpen : bool) : unit =
+        serializer.Serialize(stream, graph, defaultArg leaveOpen false)
+
+    /// <summary>
+    ///     Deserializes provided object graph from underlying read stream.
+    /// </summary>
+    /// <param name="stream">Stream to deserialize object from.</param>
+    /// <param name="leaveOpen">Leave open stream after deserialization. Defaults to false.</param>
+    member __.Deserialize<'T>(stream : Stream, ?leaveOpen : bool) : 'T =
+        serializer.Deserialize<'T>(stream, defaultArg leaveOpen false)
+
+    /// <summary>
+    ///     Serializes provided object graph to underlying text writer.
+    /// </summary>
+    /// <param name="target">Target text writer.</param>
+    /// <param name="graph">Object graph to be serialized.</param>
+    /// <param name="leaveOpen">Leave open writer after serialization. Defaults to false.</param>
+    member __.TextSerialize<'T>(target : TextWriter, graph : 'T, ?leaveOpen : bool) : unit =
+        getTextSerializer().TextSerialize(target, graph, defaultArg leaveOpen false) 
+
+    /// <summary>
+    ///     Deserializes object graph from underlying text reader.
+    /// </summary>
+    /// <param name="source">Source text reader.</param>
+    /// <param name="leaveOpen">Leave open writer after deserialization. Defaults to false.</param>
+    member __.TextDeserialize<'T>(source : TextReader, ?leaveOpen : bool) : LocalCloud<'T> =
+        getTextSerializer().TextDeserialize(source, defaultArg leaveOpen false)
+
+    /// <summary>
+    ///     Serializes provided object graph to byte array.
+    /// </summary>
+    /// <param name="graph">Object graph to be serialized.</param>
+    member __.Pickle<'T>(graph : 'T) : byte [] =
+        use mem = new MemoryStream()
+        do serializer.Serialize(mem, graph, true)
+        mem.ToArray()
+
+    /// <summary>
+    ///     Deserializes object from given byte array pickle.
+    /// </summary>
+    /// <param name="pickle">Input serialization bytes.</param>
+    member __.UnPickle<'T>(pickle : byte[]) : 'T =
+        use mem = new MemoryStream(pickle)
+        serializer.Deserialize<'T>(mem, true)
+
+    /// <summary>
+    ///     Serializes provided object graph to string.
+    /// </summary>
+    /// <param name="graph">Graph to be serialized.</param>
+    member __.PickleToString<'T>(graph : 'T) : string =
+        let serializer = getTextSerializer()
+        use sw = new StringWriter()
+        serializer.TextSerialize(sw, graph, true)
+        sw.ToString()
+
+    /// <summary>
+    ///     Deserializes object from given string pickle.
+    /// </summary>
+    /// <param name="pickle">Input serialization string.</param>
+    member __.UnPickleOfString<'T>(pickle : string) : 'T =
+        let serializer = getTextSerializer()
+        use sr = new StringReader(pickle)
+        serializer.TextDeserialize<'T>(sr, true)
+
 /// Collection of CloudValue operations.
 [<Sealed; DataContract; StructuredFormatDisplay("{Id}")>]
 type CloudValueClient (provider : ICloudValueProvider) =
@@ -801,12 +909,15 @@ type CloudFileSystem (fileStore : ICloudFileStore, ?serializer : ISerializer) =
 /// NonSerializable global store client object
 [<AutoSerializable(false)>]
 type CloudStoreClient (resources : ResourceRegistry) =
+    let serializer = lazy(SerializationClient.Create resources)
     let fileSystem = lazy(CloudFileSystem.Create resources)
     let catom = lazy(CloudAtomClient.Create resources)
     let cqueue = lazy(CloudQueueClient.Create resources)
     let cvalue = lazy(CloudValueClient.Create resources)
     let cdict = lazy(CloudDictionaryClient.Create resources)
 
+    /// Gets the default cluster serializer client instance
+    member __.Serializer = serializer.Value
     /// Gets the default CloudFileSystem client instance
     member __.CloudFileSystem = fileSystem.Value
     /// Gets the default CloudAtom client instance
@@ -824,6 +935,12 @@ open MBrace.Core.Internals
 
 /// API for cloud store operations
 type CloudStore private () =
+
+    /// Gets the default Serialization client instace from the execution context
+    static member Serializer = local {
+        let! resources = Cloud.GetResourceRegistry()
+        return SerializationClient.Create resources
+    }
 
     /// Gets the default CloudFileSystem client instance from the execution context
     static member FileSystem = local {

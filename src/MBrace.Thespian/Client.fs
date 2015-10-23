@@ -39,6 +39,8 @@ type FileSystemStore = MBrace.Runtime.Store.FileSystemStore
 type BinarySerializer = MBrace.Runtime.VagabondFsPicklerBinarySerializer
 /// FsPickler Json Serializer implementation
 type JsonSerializer = MBrace.Runtime.VagabondFsPicklerJsonSerializer
+/// Json.Net Serializer implementation
+type JsonDotNetSerializer = MBrace.Runtime.JsonDotNetSerializer
 
 /// Defines a client object used for administering MBrace worker processes.
 [<AutoSerializable(false); StructuredFormatDisplay("{Uri}")>]

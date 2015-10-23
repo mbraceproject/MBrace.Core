@@ -101,6 +101,7 @@ type ClusterState =
             yield new ActorQueueProvider(resourceFactory) :> ICloudQueueProvider
             yield new ActorDictionaryProvider(resourceFactory) :> ICloudDictionaryProvider
             yield serializer :> ISerializer
+            yield new VagabondFsPicklerJsonSerializer() :> ITextSerializer
             yield cloudValueProvider :> ICloudValueProvider
             match miscResources with Some r -> yield! r | None -> ()
             yield fileStore.WithDefaultDirectory userDataDirectory

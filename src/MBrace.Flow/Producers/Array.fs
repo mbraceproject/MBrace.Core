@@ -1,4 +1,4 @@
-﻿namespace MBrace.Flow
+﻿namespace MBrace.Flow.Internals
 
 open Nessos.Streams
 
@@ -11,7 +11,7 @@ open MBrace.Flow.Internals
 
 #nowarn "444"
 
-type internal Array =
+type Array =
 
     /// <summary>Wraps array as a CloudFlow.</summary>
     /// <param name="source">The input array.</param>

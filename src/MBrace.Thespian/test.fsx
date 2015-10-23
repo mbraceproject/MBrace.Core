@@ -19,8 +19,6 @@ ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thes
 let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug)
 cluster.AttachLogger(new ConsoleLogger())
 
-
-
 let workers = cluster.Workers
 
 cloud { return 42 } |> cluster.Run

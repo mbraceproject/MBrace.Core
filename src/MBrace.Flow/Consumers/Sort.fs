@@ -13,6 +13,7 @@ open Nessos.Streams.Internals
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Flow
+open MBrace.Flow.Internals
 
 #nowarn "444"
 
@@ -21,12 +22,11 @@ module Sort =
     /// <summary>
     ///     Generic comparer CloudFlow combinator
     /// </summary>
-    /// <param name="comparer">Optional custom comparer.</param>
-    /// <param name="descending">Specify if comparison should be descending</param>
+    /// <param name="comparer">Custom comparer.</param>
     /// <param name="projection">Projection function</param>
     /// <param name="takeCount">Top number of elements to keep in sorting</param>
     /// <param name="source">Source CloudFlow</param>
-    let inline sortByGen (comparer : IComparer<'Key> option) (descending : bool) (projection : 'T -> 'Key) (takeCount : int) (source : CloudFlow<'T>) : CloudFlow<'T> =
+    let sortByGen (comparer : IComparer<'Key>) (projection : 'T -> 'Key) (takeCount : int) (source : CloudFlow<'T>) : CloudFlow<'T> =
         let sortByComp () = cloud {
             let collectorF = local {
                 let results = new List<List<'T>>()
@@ -52,9 +52,7 @@ module Sort =
                                     keys.[counter] <- projection value
                                     values.[counter] <- value
 
-                            match comparer with
-                            | None -> Sort.parallelSort Environment.ProcessorCount descending keys values
-                            | Some cmp -> Sort.parallelSortWithComparer Environment.ProcessorCount cmp keys values
+                            Sort.parallelSortWithComparer Environment.ProcessorCount comparer keys values
 
                             keys.Take(takeCount).ToArray(), values.Take(takeCount).ToArray()
                     }
@@ -69,9 +67,7 @@ module Sort =
             let! keys, values = source.WithEvaluators collectorF local.Return combine
 
             // finally, merge the sorted results
-            match comparer with
-            | None -> Sort.parallelSort Environment.ProcessorCount descending keys values
-            | Some cmp -> Sort.parallelSortWithComparer Environment.ProcessorCount cmp keys values
+            Sort.parallelSortWithComparer Environment.ProcessorCount comparer keys values
 
             let sortedValues = values.Take(takeCount).ToArray()
             return Array.ToCloudFlow(sortedValues, ?degreeOfParallelism = source.DegreeOfParallelism)
