@@ -64,7 +64,7 @@ type ClusterState =
         let workItemsDirectory = defaultArg workItemsDirectory "mbrace-data"
         let cacheDirectory = defaultArg cacheDirectory "cloudValue"
 
-        let serializer = new VagabondFsPicklerBinarySerializer()
+        let serializer = new FsPicklerBinarySerializer()
         let cloudValueStore = fileStore.WithDefaultDirectory cacheDirectory
         let mkCacheInstance () = Config.ObjectCache
         let mkLocalCachingFileStore () = (Config.FileSystemStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
@@ -101,7 +101,7 @@ type ClusterState =
             yield new ActorQueueProvider(resourceFactory) :> ICloudQueueProvider
             yield new ActorDictionaryProvider(resourceFactory) :> ICloudDictionaryProvider
             yield serializer :> ISerializer
-            yield new VagabondFsPicklerJsonSerializer() :> ITextSerializer
+            yield new FsPicklerJsonSerializer() :> ITextSerializer
             yield cloudValueProvider :> ICloudValueProvider
             match miscResources with Some r -> yield! r | None -> ()
             yield fileStore.WithDefaultDirectory userDataDirectory

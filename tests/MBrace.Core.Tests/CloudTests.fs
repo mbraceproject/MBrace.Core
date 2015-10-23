@@ -784,6 +784,32 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         |> shouldEqual 2000
 
     [<Test>]
+    member t.``4. Clone Object`` () =
+        cloud {
+            let a = [1 .. 100]
+            let! b = Serializer.Clone a
+            return b |> shouldEqual a
+        } |> runOnCloud |> ignore
+
+    [<Test>]
+    member t.``4. Binary Serialize Object`` () =
+        cloud {
+            let a = [1 .. 100]
+            let! bytes = Serializer.Pickle a
+            let! b = Serializer.UnPickle<int list> bytes
+            return b |> shouldEqual a
+        } |> runOnCloud |> ignore
+
+    [<Test>]
+    member t.``4. Text Serialize Object`` () =
+        cloud {
+            let a = [1 .. 100]
+            let! text = Serializer.PickleToString a
+            let! b = Serializer.UnPickleOfString<int list> text
+            return b |> shouldEqual a
+        } |> runOnCloud |> ignore
+
+    [<Test>]
     member __.``4. IsTargetWorkerSupported`` () =
         Cloud.IsTargetedWorkerSupported |> runOnCloud |> Choice.shouldEqual __.IsTargetWorkerSupported
 

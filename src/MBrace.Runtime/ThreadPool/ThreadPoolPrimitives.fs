@@ -94,22 +94,3 @@ type ThreadPoolProcess<'T> internal (task : Task<'T>, ct : ICloudCancellationTok
         member __.CancellationToken = ct
         member __.Result = task.CorrectResult
         member __.ResultBoxed = task.CorrectResult :> obj
-
-
-/// FsPickler Binary serializer for use by thread pool runtimes
-type ThreadPoolFsPicklerBinarySerializer() =
-    inherit FsPicklerStoreSerializer ()
-    override __.Id = "In-Memory FsPickler Binary Serializer"
-    override __.CreateSerializer () = FsPickler.CreateBinarySerializer() :> _
-
-/// FsPickler Xml serializer for use by thread pool runtimes
-type ThreadPoolFsPicklerXmlSerializer() =
-    inherit FsPicklerStoreSerializer ()
-    override __.Id = "In-Memory FsPickler Xml Serializer"
-    override __.CreateSerializer () = FsPickler.CreateXmlSerializer() :> _
-
-/// FsPickler Json serializer for use by thread pool runtimes
-type ThreadPoolFsPicklerJsonSerializer() =
-    inherit FsPicklerStoreSerializer ()
-    override __.Id = "In-Memory FsPickler Json Serializer"
-    override __.CreateSerializer () = FsPickler.CreateJsonSerializer() :> _

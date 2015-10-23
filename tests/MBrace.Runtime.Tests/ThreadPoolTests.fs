@@ -135,7 +135,7 @@ type ``InMemory CloudFlow tests`` () =
     inherit ``CloudFlow tests`` ()
 
     let fsStore = FileSystemStore.CreateRandomLocal()
-    let serializer = new ThreadPoolFsPicklerBinarySerializer()
+    let serializer = new FsPicklerBinarySerializer(useVagabond = false)
     let imem = ThreadPoolRuntime.Create(fileStore = fsStore, serializer = serializer, memoryEmulation = MemoryEmulation.Copied)
 
     override __.Run(workflow : Cloud<'T>) = imem.RunSynchronously workflow

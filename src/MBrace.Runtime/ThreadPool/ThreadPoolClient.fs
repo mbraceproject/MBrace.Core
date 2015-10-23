@@ -9,6 +9,14 @@ open MBrace.ThreadPool.Internals
 
 /// Local file system CloudFilestore implementation
 type FileSystemStore = MBrace.Runtime.Store.FileSystemStore
+/// FsPickler Binary Serializer implementation
+type FsPicklerBinarySerializer = MBrace.Runtime.FsPicklerBinarySerializer
+/// FsPickler Xml Serializer implementation
+type FsPicklerXmlSerializer = MBrace.Runtime.FsPicklerXmlSerializer
+/// FsPickler Json Serializer implementation
+type FsPicklerJsonSerializer = MBrace.Runtime.FsPicklerJsonSerializer
+/// Json.Net Serializer implementation
+type JsonDotNetSerializer = MBrace.Runtime.JsonDotNetSerializer
 
 #nowarn "444"
 
@@ -132,6 +140,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Memory semantics used for parallelism. Defaults to shared memory.</param>
     /// <param name="fileStore">Cloud file store to be used. Defaults to random local FileSystemStore location.</param>
     /// <param name="serializer">Default serializer implementations. Defaults to FsPickler binary serializer.</param>
+    /// <param name="textSerializer">Default text-based serializer implementations. Defaults to FsPickler json serializer.</param>
     /// <param name="valueProvider">CloudValue provider instance. Defaults to in-memory implementation.</param>
     /// <param name="atomProvider">Cloud atom provider instance. Defaults to in-memory atoms.</param>
     /// <param name="queueProvider">Cloud queue provider instance. Defaults to in-memory queues.</param>
@@ -141,6 +150,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
                             ?memoryEmulation : MemoryEmulation,
                             ?fileStore : ICloudFileStore,
                             ?serializer : ISerializer,
+                            ?textSerializer : ITextSerializer,
                             ?valueProvider : ICloudValueProvider,
                             ?atomProvider : ICloudAtomProvider,
                             ?queueProvider : ICloudQueueProvider,
@@ -149,7 +159,15 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
 
         let memoryEmulation = match memoryEmulation with Some m -> m | None -> MemoryEmulation.Shared
         let fileStore = match fileStore with Some fs -> fs | None -> FileSystemStore.CreateRandomLocal() :> _
-        let serializer = match serializer with Some s -> s | None -> new ThreadPoolFsPicklerBinarySerializer() :> _
+        let serializer = match serializer with Some s -> s | None -> new FsPicklerBinarySerializer(useVagabond = false) :> _
+        let textSerializer = 
+            match textSerializer with
+            | Some t -> t
+            | None ->
+                match serializer with
+                | :? ITextSerializer as ts -> ts
+                | _ -> new FsPicklerJsonSerializer(useVagabond = false) :> _
+
         let valueProvider = match valueProvider with Some vp -> vp | None -> new ThreadPoolValueProvider() :> _
         let atomProvider = match atomProvider with Some ap -> ap | None -> new ThreadPoolAtomProvider(memoryEmulation) :> _
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new ThreadPoolDictionaryProvider(memoryEmulation) :> _
@@ -158,6 +176,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
 
         let resources = resource {
             yield serializer
+            yield textSerializer
             yield fileStore
             yield valueProvider
             yield atomProvider

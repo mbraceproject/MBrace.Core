@@ -3,6 +3,7 @@
 open System
 open System.IO
 open System.Runtime.Serialization
+open System.Runtime.Serialization.Formatters.Binary
 open System.Collections.Concurrent
 
 open Nessos.FsPickler
@@ -62,40 +63,46 @@ type FsPicklerStoreTextSerializer internal () =
         member s.TextDeserialize<'T>(source: TextReader, leaveOpen: bool): 'T = s.TextSerializer.Deserialize<'T>(source, leaveOpen = leaveOpen)
         member s.TextSerialize<'T>(target: TextWriter, value: 'T, leaveOpen: bool): unit = s.TextSerializer.Serialize<'T>(target, value, leaveOpen = leaveOpen)
 
-/// Serializable binary FsPickler implementation of ISerializer that targets
-/// the underlying Vagabond registry
+/// FsPickler.Binary implementation of ISerializer
 [<Sealed; AutoSerializable(true)>]
-type VagabondFsPicklerBinarySerializer () =
+type FsPicklerBinarySerializer (?useVagabond : bool) =
     inherit FsPicklerStoreSerializer()
-    do ignore VagabondRegistry.Instance
+    let useVagabond = defaultArg useVagabond true
+    do if useVagabond then ignore VagabondRegistry.Instance
 
     override __.Id = "Vagabond FsPickler binary serializer"
     override __.CreateSerializer () = 
-        VagabondRegistry.Instance.Serializer :> _
+        if useVagabond then
+            VagabondRegistry.Instance.Serializer :> _
+        else
+            FsPickler.CreateBinarySerializer() :> _
 
 
-/// Serializable xml FsPickler implementation of ISerializer that targets
-/// the underlying Vagabond registry
+/// FsPickler.Xml implementation of ISerializer
 [<Sealed; AutoSerializable(true)>]
-type VagabondFsPicklerXmlSerializer (?indent : bool) =
+type FsPicklerXmlSerializer (?indent : bool, ?useVagabond : bool) =
     inherit FsPicklerStoreTextSerializer()
-    do ignore VagabondRegistry.Instance
+    let useVagabond = defaultArg useVagabond true
+    do if useVagabond then ignore VagabondRegistry.Instance
 
     override __.Id = "Vagabond FsPickler xml serializer"
     override __.CreateSerializer () = 
-        FsPickler.CreateXmlSerializer(typeConverter = VagabondRegistry.Instance.TypeConverter, ?indent = indent) :> _
+        let tyConv = if useVagabond then Some VagabondRegistry.Instance.TypeConverter else None
+        FsPickler.CreateXmlSerializer(?typeConverter = tyConv, ?indent = indent) :> _
 
-/// Serializable json FsPickler implementation of ISerializer that targets
-/// the underlying Vagabond registry
+/// FsPickler.Json implementation of ISerializer
 [<Sealed; AutoSerializable(true)>]
-type VagabondFsPicklerJsonSerializer (?omitHeader : bool, ?indent : bool) =
+type FsPicklerJsonSerializer (?omitHeader : bool, ?indent : bool, ?useVagabond : bool) =
     inherit FsPicklerStoreTextSerializer()
+    let useVagabond = defaultArg useVagabond true
+    do if useVagabond then ignore VagabondRegistry.Instance
 
     override __.Id = "Vagabond FsPickler json serializer"
     override __.CreateSerializer () = 
-        FsPickler.CreateJsonSerializer(typeConverter = VagabondRegistry.Instance.TypeConverter, ?indent = indent, ?omitHeader = omitHeader) :> _
+        let tyConv = if useVagabond then Some VagabondRegistry.Instance.TypeConverter else None
+        FsPickler.CreateJsonSerializer(?typeConverter = tyConv, ?indent = indent, ?omitHeader = omitHeader) :> _
 
-/// Json.Net ISerializer implementation
+/// Json.Net implementation of ISerializer
 [<Sealed; AutoSerializable(true)>]
 type JsonDotNetSerializer() =
     [<NonSerialized>]

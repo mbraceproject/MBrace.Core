@@ -569,7 +569,7 @@ and [<Sealed; DataContract>] StoreCloudValueProvider private (config : LocalStor
 
         ignore VagabondRegistry.Instance
         let id = sprintf "%s:%s/%s" mainStore.Name mainStore.Id mainStore.DefaultDirectory
-        let serializer = match serializer with Some s -> s | None -> new VagabondFsPicklerBinarySerializer() :> ISerializer
+        let serializer = match serializer with Some s -> s | None -> new FsPicklerBinarySerializer() :> ISerializer
         let encapsulationThreshold = defaultArg encapsulationThreshold (32L * 1024L)
         let compressionLevel = defaultArg compressionLevel CompressionLevel.NoCompression
         FsPickler.EnsureSerializable ((cacheFactory, localFileStore))

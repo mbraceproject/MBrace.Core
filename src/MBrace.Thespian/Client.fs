@@ -36,9 +36,11 @@ type CloudProcess<'T> = MBrace.Runtime.CloudProcess<'T>
 /// Simple ICloudFileStore implementation using a local or shared File System.
 type FileSystemStore = MBrace.Runtime.Store.FileSystemStore
 /// FsPickler Binary Serializer implementation
-type BinarySerializer = MBrace.Runtime.VagabondFsPicklerBinarySerializer
+type FsPicklerBinarySerializer = MBrace.Runtime.FsPicklerBinarySerializer
+/// FsPickler Xml Serializer implementation
+type FsPicklerXmlSerializer = MBrace.Runtime.FsPicklerXmlSerializer
 /// FsPickler Json Serializer implementation
-type JsonSerializer = MBrace.Runtime.VagabondFsPicklerJsonSerializer
+type FsPicklerJsonSerializer = MBrace.Runtime.FsPicklerJsonSerializer
 /// Json.Net Serializer implementation
 type JsonDotNetSerializer = MBrace.Runtime.JsonDotNetSerializer
 
