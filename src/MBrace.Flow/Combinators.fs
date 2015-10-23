@@ -66,8 +66,8 @@ type CloudFlow =
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                    let toCloudSeq (path : string) = PersistedSequence.OfCloudFile(path, ?deserializer = deserializer)
-                    let! cseqs = Local.Sequential.map toCloudSeq paths
+                    let toCloudSeq (path : string) = PersistedSequence.OfCloudFile(path, ?deserializer = deserializer, forceEvaluation = false, resolveEtag = false, ensureFileExists = false)
+                    let! cseqs = Local.Parallel.map toCloudSeq paths
                     let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<'T>) |> CloudCollection.Concat
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                     let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)
@@ -172,13 +172,14 @@ type CloudFlow =
     /// </summary>
     /// <param name="paths">Paths to input cloud files.</param>
     /// <param name="encoding">Optional encoding.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
     static member OfCloudFileByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                let toLineReader (path : string) = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding)
-                let! cseqs = Local.Sequential.map toLineReader paths
+                let toLineReader (path : string) = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, forceEvaluation = false, resolveEtag = false, ensureFileExists = false)
+                let! cseqs = Local.Parallel.map toLineReader paths
                 let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<string>) |> CloudCollection.Concat
                 let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                 let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)
@@ -211,7 +212,7 @@ type CloudFlow =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
-                let! cseq = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, force = false)
+                let! cseq = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, forceEvaluation = false, ensureFileExists = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
@@ -222,12 +223,11 @@ type CloudFlow =
     /// </summary>
     /// <param name="url">Url path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
-    /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
-    static member OfHttpFileByLine (url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+    static member OfHttpFileByLine (url : string, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
-                let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists) |> Cloud.OfAsync
+                let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ensureThatFileExists = false) |> Cloud.OfAsync
                 let collectionStream = CloudFlow.OfCloudCollection httpCollection
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
@@ -238,14 +238,13 @@ type CloudFlow =
     /// </summary>
     /// <param name="url">Url paths to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
-    /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
-    static member OfHttpFileByLine (urls : seq<string>, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+    static member OfHttpFileByLine (urls : seq<string>, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! httpCollections = 
                     urls
-                    |> Seq.map (fun uri ->  CloudCollection.OfHttpFile(uri, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists))
+                    |> Seq.map (fun uri ->  CloudCollection.OfHttpFile(uri, ?encoding = encoding, ensureThatFileExists = false))
                     |> Async.Parallel
                     |> Cloud.OfAsync
 

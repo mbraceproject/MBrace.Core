@@ -1,3 +1,6 @@
+#### 0.15.3-beta
+* PersistedSequence performance improvements.
+
 #### 0.15.2-beta
 * WorkerRef pretty printing performance improvements.
 
