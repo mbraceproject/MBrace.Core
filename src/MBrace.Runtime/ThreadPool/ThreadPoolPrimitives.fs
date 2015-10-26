@@ -67,6 +67,8 @@ type ThreadPoolProcess<'T> internal (task : Task<'T>, ct : ICloudCancellationTok
     member __.LocalTask = task
     interface ICloudProcess<'T> with
         member __.Id = sprintf "System.Threading.Task %d" task.Id
+        member __.WaitAsync(?timeoutMilliseconds:int) =
+            Async.WithTimeout(Async.AwaitTaskCorrect task |> Async.Ignore, ?timeoutMilliseconds = timeoutMilliseconds)
         member __.AwaitResultAsync(?timeoutMilliseconds:int) =
             Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
 

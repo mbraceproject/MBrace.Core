@@ -759,6 +759,31 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
             } |> runOnCloud |> Choice.shouldFailwith<_, SerializationException>
 
+    [<Test>]
+    member __.``3. CloudProcess: WhenAny`` () =
+        let delayFactor = delayFactor
+        cloud {
+            let! ct = Cloud.CancellationToken
+            let mkSleeper n = cloud { let! _ = Cloud.Sleep (n * delayFactor) in return n }
+            let! procA = Cloud.CreateProcess(mkSleeper 1, cancellationToken = ct)
+            let! procB = Cloud.CreateProcess(mkSleeper 2, cancellationToken = ct)
+            let! procC = Cloud.CreateProcess(mkSleeper 3, cancellationToken = ct)
+            let! result = Cloud.WhenAny(procA, procB, procC)
+            return result.Result, procA.IsCompleted, procB.IsCompleted, procC.IsCompleted
+        } |> runOnCloud |> Choice.shouldEqual (1, true, false, false)
+
+    [<Test>]
+    member __.``3. CloudProcess: WhenAll`` () =
+        let delayFactor = delayFactor
+        cloud {
+            let! ct = Cloud.CancellationToken
+            let mkSleeper n = cloud { let! _ = Cloud.Sleep (n * delayFactor) in return n }
+            let! procA = Cloud.CreateProcess(mkSleeper 1, cancellationToken = ct)
+            let! procB = Cloud.CreateProcess(mkSleeper 2, cancellationToken = ct)
+            let! procC = Cloud.CreateProcess(mkSleeper 3, cancellationToken = ct)
+            do! Cloud.WhenAll(procA, procB, procC)
+            return [|procA ; procB ; procC|] |> Array.forall (fun p -> p.IsCompleted)
+        } |> runOnCloud |> Choice.shouldEqual true
 
     //
     //  4. Misc tests

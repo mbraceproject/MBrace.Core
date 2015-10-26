@@ -1,5 +1,6 @@
 ﻿namespace MBrace.Core
 
+open System
 open System.Threading.Tasks
 
 open MBrace.Core.Internals
@@ -251,8 +252,29 @@ type Cloud =
     /// <param name="cloudProcess">Cloud process to be awaited.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
     static member AwaitProcess(cloudProcess : ICloudProcess<'T>, ?timeoutMilliseconds:int) : LocalCloud<'T> = local {
-        return! cloudProcess.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
+        return! Cloud.OfAsync <| cloudProcess.AwaitResultAsync(?timeoutMilliseconds = timeoutMilliseconds)
     }
+
+    /// <summary>
+    ///     Asynchronously waits until one of the given processes completes.
+    /// </summary>
+    /// <param name="processes">Input processes.</param>
+    static member WhenAny([<ParamArray>] processes : ICloudProcess []) : LocalCloud<ICloudProcess> =
+        CloudProcessHelpers.WhenAny processes |> Cloud.OfAsync
+
+    /// <summary>
+    ///     Asynchronously waits until one of the given processes completes.
+    /// </summary>
+    /// <param name="processes">Input processes.</param>
+    static member WhenAny([<ParamArray>] processes : ICloudProcess<'T> []) : LocalCloud<ICloudProcess<'T>> =
+        CloudProcessHelpers.WhenAny processes |> Cloud.OfAsync
+
+    /// <summary>
+    ///     Asynchronously waits until all of the given processes complete.
+    /// </summary>
+    /// <param name="processes">Input processes.</param>
+    static member WhenAll([<ParamArray>] processes : ICloudProcess []) : LocalCloud<unit> =
+        CloudProcessHelpers.WhenAll processes |> Cloud.OfAsync
 
     /// <summary>
     ///     Start cloud computation as child process. Returns a cloud computation that queries the result.
@@ -264,7 +286,7 @@ type Cloud =
         let! cancellationToken = Cloud.CancellationToken
         let! cloudProcess = runtime.ScheduleCreateProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
         let stackTraceSig = sprintf "Cloud.StartChild(Cloud<%s> computation)" typeof<'T>.Name
-        return Local.WithAppendedStackTrace stackTraceSig (local { return! cloudProcess.AwaitResult() })
+        return Local.WithAppendedStackTrace stackTraceSig (local { return! Cloud.OfAsync <| cloudProcess.AwaitResultAsync() })
     }
 
     /// <summary>

@@ -65,3 +65,10 @@ let pflow =
 
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.Run
+
+
+cloud {
+    let! p1 = Cloud.CreateProcess(cloud { let! _ = Cloud.Sleep 10000 in return 1 })
+    let! p2 = Cloud.CreateProcess(cloud { let! _ = Cloud.Sleep 20000 in return 2 })
+    return! Cloud.WhenAny(p1, p2)
+} |> cluster.Run

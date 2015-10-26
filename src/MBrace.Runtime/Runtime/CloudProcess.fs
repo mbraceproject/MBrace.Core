@@ -64,6 +64,13 @@ type CloudProcess internal () =
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
     abstract AwaitResultBoxed : ?timeoutMilliseconds:int -> Async<obj>
+
+    /// <summary>
+    ///     Asynchronously waits until process has completed
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    abstract WaitAsync : ?timeoutMilliseconds:int -> Async<unit>
+
     /// <summary>
     ///     Return the result if available or None if not available.
     /// </summary>
@@ -130,6 +137,9 @@ type CloudProcess internal () =
 
         member x.AwaitResultBoxedAsync(?timeoutMilliseconds: int): Async<obj> = 
             x.AwaitResultBoxed(?timeoutMilliseconds = timeoutMilliseconds)
+
+        member x.WaitAsync (?timeoutMilliseconds: int) = 
+            x.WaitAsync(?timeoutMilliseconds = timeoutMilliseconds)
     
         member x.CancellationToken = x.CancellationToken
         member x.IsCanceled: bool = 
@@ -212,6 +222,11 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     /// Synchronously awaits cloud process result 
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member __.Result : 'T = __.AwaitResult() |> Async.RunSync
+
+    override __.WaitAsync (?timeoutMilliseconds:int) : Async<unit> = async {
+        let timeoutMilliseconds = defaultArg timeoutMilliseconds Timeout.Infinite
+        do! Async.WithTimeout(async { return! entry.WaitAsync() }, timeoutMilliseconds)
+    }
 
     override __.AwaitResultBoxed (?timeoutMilliseconds:int) = async {
         let! r = __.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)

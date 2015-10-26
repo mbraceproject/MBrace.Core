@@ -3,21 +3,10 @@
 open System
 open System.Diagnostics
 open System.Runtime.CompilerServices
+open System.Threading.Tasks
 open System.ComponentModel
 
 open MBrace.Core.Internals
-
-/// Specifies memory semantics in InMemory MBrace execution
-type MemoryEmulation =
-    /// Freely share values across MBrace workflows; async semantics.
-    | Shared                = 1
-
-    /// Freely share values across MBrace workflows but
-    /// emulate serialization errors by checking that they are serializable.
-    | EnsureSerializable    = 2
-
-    /// Values copied when passed across worfklows; full distribution semantics.
-    | Copied                = 4
 
 /// Enumeration specifying the execution status for a CloudProcess
 type CloudProcessStatus =
@@ -36,23 +25,6 @@ type CloudProcessStatus =
     /// Process has been cancelled by the user.
     | Canceled              = 64
 
-
-/// Denotes a reference to a worker node in the cluster.
-type IWorkerRef =
-    inherit IComparable
-    /// Worker type identifier
-    abstract Type : string
-    /// Worker unique identifier
-    abstract Id : string
-    /// Worker processor count
-    abstract ProcessorCount : int
-    /// Gets the max CPU clock speed in MHz
-    abstract MaxCpuClock : float
-    /// Hostname of worker machine
-    abstract Hostname : string
-    /// Worker Process Id
-    abstract ProcessId : int
-
 /// Denotes a cloud process that is being executed in the cluster.
 type ICloudProcess =
     /// Unique cloud process identifier
@@ -70,6 +42,11 @@ type ICloudProcess =
     /// Synchronously gets the cloud process result, blocking until it completes.
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract ResultBoxed : obj
+    /// <summary>
+    ///     Asynchronously waits for the cloud process to complete.
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
+    abstract WaitAsync : ?timeoutMilliseconds:int -> Async<unit>
     /// <summary>
     ///     Awaits cloud process for completion, returning its eventual result.
     /// </summary>
@@ -92,6 +69,38 @@ type ICloudProcess<'T> =
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract Result : 'T
 
+/// Cloud Process helper methods
+type CloudProcessHelpers =
+
+    /// <summary>
+    ///     Asynchronously waits until one of the given processes completes.
+    /// </summary>
+    /// <param name="processes">Input processes.</param>
+    static member WhenAny([<ParamArray>] processes : ICloudProcess []) : Async<ICloudProcess> = async {
+        let await (p : ICloudProcess) = Async.StartAsTask(async { let! _ = p.WaitAsync() in return p })
+        let awaited = processes |> Seq.map await |> Task.WhenAny
+        return! awaited.ContinueWith(fun (t:Task<Task<_>>) -> t.Result.Result) |> Async.AwaitTaskCorrect
+    }
+
+    /// <summary>
+    ///     Asynchronously waits until one of the given processes completes.
+    /// </summary>
+    /// <param name="processes">Input processes.</param>
+    static member WhenAny([<ParamArray>] processes : ICloudProcess<'T> []) : Async<ICloudProcess<'T>> = async {
+        let! awaited = CloudProcessHelpers.WhenAny(processes |> Array.map unbox<ICloudProcess>)
+        return awaited :?> ICloudProcess<'T>
+    }
+
+    /// <summary>
+    ///     Asynchronously waits until all of the given processes complete.
+    /// </summary>
+    /// <param name="processes">Input processes.</param>
+    static member WhenAll([<ParamArray>] processes : ICloudProcess []) : Async<unit> = async {
+        let await (p : ICloudProcess) = Async.StartAsTask(async { let! _ = p.WaitAsync() in return p })
+        let awaited = processes |> Seq.map await |> Task.WhenAll
+        let! _ = Async.AwaitTaskCorrect awaited
+        return ()
+    }
 
 [<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
 type CloudProcessExtensions =
@@ -105,6 +114,11 @@ type CloudProcessExtensions =
     [<Extension>]
     static member TryGetResult(this : ICloudProcess<'T>) : 'T option = 
         this.TryGetResultAsync() |> Async.RunSync
+
+    /// Waits for the cloud process to complete.
+    [<Extension>]
+    static member Wait(this : ICloudProcess) : unit =
+        this.WaitAsync() |> Async.RunSync
 
     /// <summary>
     ///     Awaits cloud process for completion, returning its eventual result.
@@ -121,38 +135,3 @@ type CloudProcessExtensions =
     [<Extension>]
     static member AwaitResult(this : ICloudProcess<'T>, ?timeoutMilliseconds : int) : LocalCloud<'T> = 
         this.AwaitResultAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal
-
-namespace MBrace.Core.Internals
-
-open System
-open MBrace.Core
-
-module WorkerRef =
-
-    /// <summary>
-    ///     Partitions a set of inputs to workers.
-    /// </summary>
-    /// <param name="workers">Workers to be partition work to.</param>
-    /// <param name="inputs">Input work.</param>
-    let partition (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
-        if workers = null || workers.Length = 0 then invalidArg "workers" "must be non-empty."
-        inputs
-        |> Array.splitByPartitionCount workers.Length
-        |> Seq.mapi (fun i p -> (workers.[i],p))
-        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
-        |> Seq.toArray
-    
-    /// <summary>
-    ///     Partitions a set of inputs according to a weighted set of workers.
-    /// </summary>
-    /// <param name="weight">Weight function.</param>
-    /// <param name="workers">Input workers.</param>
-    /// <param name="inputs">Input array to be partitioned.</param>
-    let partitionWeighted (weight : IWorkerRef -> int) (workers : IWorkerRef []) (inputs: 'T[]) : (IWorkerRef * 'T []) [] =
-        if workers = null then raise <| new ArgumentNullException("workers")
-        let weights = workers |> Array.map weight
-        inputs
-        |> Array.splitWeighted weights
-        |> Seq.mapi (fun i p -> (workers.[i],p))
-        |> Seq.filter (fun (_,p) -> not <| Array.isEmpty p)
-        |> Seq.toArray
