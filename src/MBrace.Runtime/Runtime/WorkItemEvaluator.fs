@@ -55,7 +55,8 @@ module WorkItemEvaluator =
             // always throw a fault exception if dead worker
             logger.Logf LogLevel.Info "Work item %O originally assigned to dead worker '%s'." workItem.Id w.Id
             let e = new FaultException(sprintf "Could not communicate with target worker '%O'." w)
-            workItem.FaultCont ctx (ExceptionDispatchInfo.Capture e)
+            let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
+            workItem.FaultCont ctx edi
 
         | FaultDeclaredByWorker(faultCount, latestError, w) ->
             logger.Logf LogLevel.Info "Work item %O faulted %d times while executed in worker '%O'." workItem.Id faultCount w
@@ -66,7 +67,8 @@ module WorkItemEvaluator =
 
             match (try workItem.FaultPolicy.GetFaultRecoveryAction (faultCount, faultException) with e -> ThrowException e) with
             | ThrowException e ->
-                workItem.FaultCont ctx (ExceptionDispatchInfo.Capture e)
+                let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
+                workItem.FaultCont ctx edi
 
             | Retry timeout ->
                 do! Async.Sleep (int timeout.TotalMilliseconds)
@@ -79,7 +81,8 @@ module WorkItemEvaluator =
                 // always throw a fault exception if targeted worker cannot be reached
                 logger.Logf LogLevel.Info "Work item %O originally assigned to dead worker '%s'." workItem.Id tw.Id
                 let e = new FaultException(sprintf "Could not communicate with target worker '%O'." tw)
-                workItem.FaultCont ctx (ExceptionDispatchInfo.Capture e)
+                let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
+                workItem.FaultCont ctx edi
 
             | _ ->
                 logger.Logf LogLevel.Info "Work item %O faulted %d times while being processed by nonresponsive worker '%O'." workItem.Id faultCount latestWorker
@@ -87,7 +90,9 @@ module WorkItemEvaluator =
                 let msg = sprintf "Work item '%O' was being processed by worker '%O' which has died." workItem.Id latestWorker
                 let e = new FaultException(msg) :> exn
                 match (try workItem.FaultPolicy.GetFaultRecoveryAction(faultCount, e) with e -> ThrowException e) with
-                | ThrowException e -> workItem.FaultCont ctx (ExceptionDispatchInfo.Capture e)
+                | ThrowException e -> 
+                    let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
+                    workItem.FaultCont ctx edi
                 | Retry timeout ->
                     do! Async.Sleep (int timeout.TotalMilliseconds)
                     let faultData = { NumberOfFaults = faultCount ; FaultException = e }
@@ -97,7 +102,7 @@ module WorkItemEvaluator =
             // no faults, proceed normally  
             do workItem.StartWorkItem ctx
 
-        return! WorkItemExecutionMonitor.AwaitCompletion jem
+        do! WorkItemExecutionMonitor.AwaitCompletion jem
     }
     
     /// <summary>
@@ -127,7 +132,7 @@ module WorkItemEvaluator =
             // trigger root cloud process as faulted without consulting fault policy.
             logger.Logf LogLevel.Error "Failed to deserialize work item '%O':\n%O" workItemLease.Id e
             let e = new FaultException(sprintf "Failed to deserialize work item '%O'." workItemLease.Id, e)
-            let edi = ExceptionDispatchInfo.Capture e
+            let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
             do! workItemLease.Process.DeclareStatus CloudProcessStatus.Faulted
             let! _ = workItemLease.Process.TrySetResult(CloudProcessResult.Exception edi, currentWorker)
             do! workItemLease.DeclareCompleted()
@@ -160,7 +165,8 @@ module WorkItemEvaluator =
 
             | Choice2Of2 e ->
                 logger.Logf LogLevel.Error "Faulted work item '%O' after %O\n%O" workItem.Id sw.Elapsed e
-                do! workItemLease.DeclareFaulted (ExceptionDispatchInfo.Capture e)
+                let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
+                do! workItemLease.DeclareFaulted edi
                 // declare work item faulted to cloud process manager
                 do! workItemLease.Process.IncrementFaultedWorkItemCount ()
     }

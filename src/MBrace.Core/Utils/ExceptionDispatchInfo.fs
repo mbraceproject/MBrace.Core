@@ -8,7 +8,7 @@ open System.Reflection
 /// Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
 /// that is serializable and permits symbolic appending to stacktrace
 [<Sealed; AutoSerializable(true)>]
-type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) =
+type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string, isFaultException : bool) =
 
     [<Literal>]
     static let separator = "--- End of stack trace from previous location where exception was thrown ---"
@@ -36,13 +36,17 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
         | null -> false
         | f -> f.SetValue(e, trace) ; true
 
+    /// Gets whether ExceptionDispatchInfo encapsulates a fault exception
+    member __.IsFaultException = isFaultException
+
     /// <summary>
     ///     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
     /// </summary>
     /// <param name="exn">Captured exception</param>
-    static member Capture(exn : exn) =
+    /// <param name="isFaultException">Specifies whether exception if fault exception.</param>
+    static member Capture(exn : exn, ?isFaultException : bool) =
         if exn = null then invalidArg "exn" "argument cannot be null."
-        new ExceptionDispatchInfo(exn, exn.StackTrace)
+        new ExceptionDispatchInfo(exn, exn.StackTrace, defaultArg isFaultException false)
 
     /// <summary>
     ///     Returns contained exception with restored stacktrace state.
@@ -75,13 +79,13 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
     /// </summary>
     /// <param name="line">Line to be appended.</param>
-    member __.AppendToStackTrace(line : string) = 
+    member __.AppendToStackTrace(line : string) : ExceptionDispatchInfo = 
         let newTrace =
             if String.IsNullOrWhiteSpace sourceStackTrace then line
             else
                 sourceStackTrace + Environment.NewLine + line
 
-        new ExceptionDispatchInfo(sourceExn, newTrace)
+        new ExceptionDispatchInfo(sourceExn, newTrace, isFaultException)
 
     /// <summary>
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.

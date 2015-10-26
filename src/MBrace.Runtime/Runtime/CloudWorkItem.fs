@@ -78,14 +78,11 @@ type CloudWorkItem =
     /// <param name="ccont">Cancellation continuation.</param>
     /// <param name="workflow">Workflow to be executed in work item.</param>
     /// <param name="target">Declared target worker reference for computation to be executed.</param>
-    /// <param name="fcont">Fault continuation. Defaults to exception continuation if not specified.</param>
     static member Create (procEntry : ICloudProcessEntry, token : ICloudCancellationToken, faultPolicy : FaultPolicy, 
                             scont : ExecutionContext -> 'T -> unit, 
                             econt : ExecutionContext -> ExceptionDispatchInfo -> unit,
                             ccont : ExecutionContext -> OperationCanceledException -> unit,
-                            workItemType : CloudWorkItemType, workflow : Cloud<'T>, 
-                            ?fcont : ExecutionContext -> ExceptionDispatchInfo -> unit,
-                            ?target : IWorkerId) =
+                            workItemType : CloudWorkItemType, workflow : Cloud<'T>, ?target : IWorkerId) =
 
         let workItem = Guid.NewGuid()
         let runWorkItem ctx =
@@ -99,7 +96,7 @@ type CloudWorkItem =
             WorkItemType = workItemType
             StartWorkItem = runWorkItem
             FaultPolicy = faultPolicy
-            FaultCont = defaultArg fcont econt
+            FaultCont = econt
             CancellationToken = token
             TargetWorker = target
         }
