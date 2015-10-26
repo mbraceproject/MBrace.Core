@@ -1,3 +1,8 @@
+#### 0.16.0-beta
+* Add support for text-based serializers in MBrace.Core
+* Expose text-based serializer APIs in MBrace.Core
+* Add CloudProcess.Wait, .WaitAny and .WaitAll methods. 
+
 #### 0.15.3-beta
 * PersistedSequence performance improvements.
 
