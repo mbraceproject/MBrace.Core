@@ -4,14 +4,13 @@ open System
 open System.Runtime.Serialization
 
 /// Exception indicating fault in MBrace runtime
-[<AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true)>]
 type FaultException =
     inherit Exception
 
-    new() = { inherit Exception() }
     new(message : string) = { inherit Exception(message)}
     new(message : string, innerException : exn) = { inherit Exception(message, innerException) }
-    new (sI : SerializationInfo, sC : StreamingContext) = { inherit Exception(sI, sC) }
+    private new(sI : SerializationInfo, sC : StreamingContext) = { inherit Exception(sI, sC) }
 
 /// Specifies the recovery action that should happen
 /// in the event of an MBrace fault.
