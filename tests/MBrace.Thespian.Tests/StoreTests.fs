@@ -20,12 +20,12 @@ type ``MBrace Thespian FileStore Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop()
 
-    override __.FileStore = session.Runtime.GetResource<ICloudFileStore>()
-    override __.Serializer = session.Runtime.GetResource<ISerializer>()
+    override __.FileStore = session.Cluster.GetResource<ICloudFileStore>()
+    override __.Serializer = session.Cluster.GetResource<ISerializer>()
     override __.IsCaseSensitive = platformId = System.PlatformID.Unix
 
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
+    override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
 
 
 type ``MBrace Thespian CloudValue Tests`` () =
@@ -39,8 +39,8 @@ type ``MBrace Thespian CloudValue Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
+    override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
     override __.IsSupportedLevel _ = true
 
 
@@ -56,8 +56,8 @@ type ``MBrace Thespian Atom Tests`` () =
     member __.Fini () = session.Stop ()
 
     override __.IsSupportedNamedLookup = false
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
+    override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
 
 #if DEBUG
     override __.Repeats = 10
@@ -76,8 +76,8 @@ type ``MBrace Thespian Queue Tests`` () =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop ()
 
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
+    override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
     override __.IsSupportedNamedLookup = false
 
 type ``MBrace Thespian Dictionary Tests`` () =
@@ -93,5 +93,5 @@ type ``MBrace Thespian Dictionary Tests`` () =
 
     override __.IsInMemoryFixture = false
     override __.IsSupportedNamedLookup = false
-    override __.Run (workflow : Cloud<'T>) = session.Runtime.Run workflow
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally workflow
+    override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow

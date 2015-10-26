@@ -34,24 +34,24 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     override __.IsTargetWorkerSupported = true
 
     override __.Run (workflow : Cloud<'T>) = 
-        session.Runtime.RunAsync (workflow)
+        session.Cluster.RunAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
     override __.Run (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
-            let runtime = session.Runtime
+            let runtime = session.Cluster
             let cts = runtime.CreateCancellationTokenSource()
             try return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
             finally cts.Cancel()
         } |> Async.RunSync
 
     override __.RunWithLogs(workflow : Cloud<unit>) =
-        let job = session.Runtime.CreateProcess(workflow)
+        let job = session.Cluster.CreateProcess(workflow)
         do job.Result
         job.GetLogs () |> Array.map CloudLogEntry.Format
 
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally(workflow)
 
     override __.FsCheckMaxTests = 10
     override __.UsesSerialization = true
@@ -70,7 +70,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     let repeat f = repeat 10 f
 
-    let runOnCloud (wf : Cloud<'T>) = session.Runtime.Run wf
+    let runOnCloud (wf : Cloud<'T>) = session.Cluster.Run wf
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -80,7 +80,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     [<Test>]
     member __.``1. Runtime : Get worker count`` () =
-        runOnCloud (Cloud.GetWorkerCount()) |> shouldEqual (session.Runtime.Workers.Length)
+        runOnCloud (Cloud.GetWorkerCount()) |> shouldEqual (session.Cluster.Workers.Length)
 
     [<Test>]
     member __.``1. Runtime : Get current worker`` () =
@@ -96,7 +96,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     [<Test>]
     member __.``1. Runtime : Worker Log Observable`` () =
-        let cluster = session.Runtime
+        let cluster = session.Cluster
         let worker = cluster.Workers.[0]
         let ra = new ResizeArray<SystemLogEntry>()
         use d = worker.SystemLogs.Subscribe ra.Add
@@ -106,7 +106,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     [<Test>]
     member __.``1. Runtime : Cluster Log Observable`` () =
-        let cluster = session.Runtime
+        let cluster = session.Cluster
         let ra = new ResizeArray<SystemLogEntry>()
         use d = cluster.SystemLogs.Subscribe ra.Add
         cluster.Run(Cloud.ParallelEverywhere(cloud { return 42 }) |> Cloud.Ignore)
@@ -127,7 +127,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
-        let job = session.Runtime.CreateProcess(workflow)
+        let job = session.Cluster.CreateProcess(workflow)
         use d = job.Logs.Subscribe(fun e -> ra.Add(e))
         do job.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
@@ -135,12 +135,12 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     [<Test>]
     member __.``1. Runtime : Additional Resources`` () =
         let workflow = cloud { return! Cloud.GetResource<int> () }
-        session.Runtime.Run(workflow, additionalResources = resource { yield 42 }) |> shouldEqual 42
+        session.Cluster.Run(workflow, additionalResources = resource { yield 42 }) |> shouldEqual 42
 
     [<Test>]
     member __.``2. Fault Tolerance : map/reduce`` () =
         repeat (fun () ->
-            let runtime = session.Runtime
+            let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
             let t = runtime.CreateProcess(cloud {
                 do! f.ForceAsync true
@@ -154,7 +154,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     [<Test>]
     member __.``2. Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
-            let runtime = session.Runtime
+            let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
             let t = runtime.CreateProcess(cloud {
                 do! f.ForceAsync true
@@ -167,7 +167,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     [<Test>]
     member __.``2. Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
-            let runtime = session.Runtime
+            let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
             let t = runtime.CreateProcess(cloud {
                 return! 
@@ -184,7 +184,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     [<Test>]
     member __.``2. Fault Tolerance : targeted workers`` () =
         repeat(fun () ->
-            let runtime = session.Runtime
+            let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
             let wf () = cloud {
                 let! current = Cloud.CurrentWorker
@@ -201,26 +201,28 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : test process status`` () =
-        repeat(fun () ->
-            let runtime = session.Runtime
+    member __.``2. Fault Tolerance : faulted process status`` () =
+        repeat (fun () ->
+            let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
             let wf () = cloud {
-                return! 
-                    Cloud.CreateProcess(cloud { 
-                        do! f.ForceAsync true 
-                        do! Cloud.Sleep 60000 })
+                let worker () = cloud {
+                    do! f.ForceAsync true 
+                    do! Cloud.Sleep 60000
+                }
+
+                return! Cloud.ParallelEverywhere(worker())
             }
 
-            let t = runtime.Run (wf ())
+            let t = runtime.CreateProcess (wf (), faultPolicy = FaultPolicy.NoRetry)
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>
-            t.Status |> shouldEqual CloudProcessStatus.Faulted )
+            t.Status |> shouldEqual CloudProcessStatus.Faulted)
 
     [<Test>]
     member __.``2. Fault Tolerance : persistedCloudFlow`` () =
-        let runtime = session.Runtime
+        let runtime = session.Cluster
         let n = 1000000
         let wf () = cloud {
             let data = [|1..n|]
@@ -238,10 +240,10 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     [<Test>]
     member __.``2. Fault Tolerance : fault data`` () =
-        session.Runtime.Run(Cloud.TryGetFaultData()) |> shouldBe Option.isNone
+        session.Cluster.Run(Cloud.TryGetFaultData()) |> shouldBe Option.isNone
 
         repeat(fun () ->
-            let runtime = session.Runtime
+            let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
             let t = 
                 runtime.CreateProcess(
@@ -258,7 +260,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     [<Test>]
     member __.``2. Fault Tolerance : protected parallel workflows`` () =
         repeat(fun () ->
-            let runtime = session.Runtime
+            let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
             let task i = cloud {
                 do! f.ForceAsync true

@@ -29,14 +29,14 @@ type RuntimeSession(workerCount : int) =
             state |> Option.iter (fun r -> r.KillAllWorkers())
             state <- None)
 
-    member __.Runtime =
+    member __.Cluster =
         match state with
         | None -> invalidOp "MBrace runtime not initialized."
         | Some r -> r
 
     member __.Chaos() =
         lock lockObj (fun () ->
-            let runtime = __.Runtime
+            let runtime = __.Cluster
             runtime.KillAllWorkers()
             while runtime.Workers.Length <> 0 do Thread.Sleep 200
             runtime.AttachNewLocalWorkers workerCount
