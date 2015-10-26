@@ -195,7 +195,7 @@ namespace MBrace.Flow.CSharp
         /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
         /// <param name="flow">The input CloudFlow.</param>
         /// <returns>The result PersistedCloudFlow.</returns>    
-        public static Cloud<PersistedCloudFlow<TSource>> cache<TSource>(this CloudFlow<TSource> flow)
+        public static Cloud<PersistedCloudFlow<TSource>> Cache<TSource>(this CloudFlow<TSource> flow)
         {
             return CloudFlowModule.cache(flow);
         }
