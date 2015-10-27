@@ -28,7 +28,7 @@ namespace MBrace.Flow.CSharp
         /// <summary>Constructs a CloudFlow of lines from a collection of text files.</summary>
         /// <param name="paths">Paths to input cloud files.</param>
         /// <returns>The result CloudFlow.</returns>
-        public static CloudFlow<string> OfCloudFileByLine<TResult>(IEnumerable<string> paths)
+        public static CloudFlow<string> OfCloudFileByLine(IEnumerable<string> paths)
         {
             return MBrace.Flow.CloudFlow.OfCloudFileByLine(paths, null, null);
         }
@@ -36,7 +36,7 @@ namespace MBrace.Flow.CSharp
         /// <summary>Constructs a CloudFlow of lines from a single large text file.</summary>
         /// <param name="path">The path to the text file.</param>
         /// <returns>The result CloudFlow.</returns>
-        public static CloudFlow<string> OfCloudFileByLine<TResult>(string path)
+        public static CloudFlow<string> OfCloudFileByLine(string path)
         {
             return MBrace.Flow.CloudFlow.OfCloudFileByLine(path, null);
         }
@@ -44,7 +44,7 @@ namespace MBrace.Flow.CSharp
         /// <summary>Constructs a CloudFlow of lines from a collection of HTTP text files.</summary>
         /// <param name="paths">Paths to input cloud files.</param>
         /// <returns>The result CloudFlow.</returns>
-        public static CloudFlow<string> OfHTTPFileByLine<TResult>(IEnumerable<string> paths)
+        public static CloudFlow<string> OfHTTPFileByLine(IEnumerable<string> paths)
         {
             return MBrace.Flow.CloudFlow.OfHttpFileByLine(paths, null);
         }
@@ -52,7 +52,7 @@ namespace MBrace.Flow.CSharp
         /// <summary>Constructs a CloudFlow of lines from a single large HTTP text file.</summary>
         /// <param name="path">The path to the text file.</param>
         /// <returns>The result CloudFlow.</returns>
-        public static CloudFlow<string> OfHTTPFileByLine<TResult>(string path)
+        public static CloudFlow<string> OfHTTPFileByLine(string path)
         {
             return MBrace.Flow.CloudFlow.OfHttpFileByLine(path, null);
         }
