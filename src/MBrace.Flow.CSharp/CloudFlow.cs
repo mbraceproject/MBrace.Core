@@ -93,6 +93,29 @@ namespace MBrace.Flow.CSharp
             return CloudFlowModule.withDegreeOfParallelism(degreeOfParallelism, flow);
         }
 
+        /// <summary> Returns the elements of a CloudFlow up to a specified count. </summary>
+        /// <param name="n">The maximum number of items to take.</param>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <returns>The resulting CloudFlow.</returns>
+        public static CloudFlow<TSource> Take<TSource>(this CloudFlow<TSource> flow, int n)
+        {
+            return CloudFlowModule.take(n, flow);
+        }
+
+        /// <summary>Applies a key-generating function to each element of the input flow and yields a flow of unique keys and a sequence of all elements that have each key.</summary>
+        /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+        /// <param name="source">The input flow.</param>
+        /// <returns>A flow of tuples where each tuple contains the unique key and a sequence of all the elements that match the key.</returns>
+        /// <remarks>
+        ///     Note: This combinator may be very expensive; for example if the group sizes are expected to be large.
+        ///     If you intend to perform an aggregate operation, such as sum or average,
+        ///     you are advised to use CloudFlow.foldBy or CloudFlow.countBy, for much better performance.
+        /// </remarks>
+        public static CloudFlow<Tuple<TKey, IEnumerable<TSource>>> GroupBy<TSource, TKey>(this CloudFlow<TSource> flow, Func<TSource, TKey> projection)
+        {
+            return CloudFlowModule.groupBy(projection.ToFSharpFunc(), flow);
+        }
+
         /// <summary>Applies a function to each element of the CloudFlow, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
         /// <param name="folder">A function that updates the state with each element from the CloudFlow.</param>
         /// <param name="combiner">A function that combines partial states into a new state.</param>
