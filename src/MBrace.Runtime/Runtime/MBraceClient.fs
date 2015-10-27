@@ -42,7 +42,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     ///     Creates a fresh cloud cancellation token source for use in the MBrace cluster.
     /// </summary>
     /// <param name="parents">Parent cancellation token sources. New cancellation token will be canceled if any of the parents is canceled.</param>
-    member c.CreateCancellationTokenSource (?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
+    member c.CreateCancellationTokenSource ([<O;D(null)>] ?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
         async {
             let parents = parents |> Option.map Seq.toArray
             let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, ?parents = parents, elevate = true)
@@ -59,9 +59,9 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member c.CreateProcessAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, 
-                                    ?faultPolicy : FaultPolicy, ?target : IWorkerRef, 
-                                    ?additionalResources : ResourceRegistry, ?taskName : string) : Async<CloudProcess<'T>> = async {
+    member c.CreateProcessAsync(workflow : Cloud<'T>, [<O;D(null)>] ?cancellationToken : ICloudCancellationToken, 
+                                    [<O;D(null)>] ?faultPolicy : FaultPolicy, [<O;D(null)>] ?target : IWorkerRef, 
+                                    [<O;D(null)>] ?additionalResources : ResourceRegistry, [<O;D(null)>] ?taskName : string) : Async<CloudProcess<'T>> = async {
         let faultPolicy = defaultArg faultPolicy defaultFaultPolicy
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
@@ -79,7 +79,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, 
+    member __.CreateProcess(workflow : Cloud<'T>, [<O;D(null)>] ?cancellationToken : ICloudCancellationToken, [<O;D(null)>] ?faultPolicy : FaultPolicy, 
                                 ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
         __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
                                     ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
@@ -95,7 +95,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?additionalResources : ResourceRegistry, ?target : IWorkerRef, ?taskName : string) : Async<'T> = async {
+    member __.RunAsync(workflow : Cloud<'T>, [<O;D(null)>] ?cancellationToken : ICloudCancellationToken, [<O;D(null)>] ?faultPolicy : FaultPolicy, [<O;D(null)>] ?additionalResources : ResourceRegistry, [<O;D(null)>] ?target : IWorkerRef, [<O;D(null)>] ?taskName : string) : Async<'T> = async {
         let! cloudProcess = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName)
         return! cloudProcess.AwaitResult()
     }
@@ -110,8 +110,9 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="target">Target worker to initialize computation.</param>
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
-    member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : 'T =
+    member __.Run(workflow : Cloud<'T>, [<O;D(null)>] ?cancellationToken : ICloudCancellationToken, [<O;D(null)>] ?faultPolicy : FaultPolicy, [<O;D(null)>] ?target : IWorkerRef, [<O;D(null)>] ?additionalResources : ResourceRegistry, [<O;D(null)>] ?taskName : string) : 'T =
         __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
+
 
     /// Gets a collection of all running or completed cloud processes that exist in the current MBrace runtime.
     member __.GetAllProcesses () : CloudProcess [] = taskManagerClient.GetAllProcesses() |> Async.RunSync
@@ -175,7 +176,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// </summary>
     /// <param name="workflow">Cloud computation to execute.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunLocallyAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation) : Async<'T> =
+    member __.RunLocallyAsync(workflow : Cloud<'T>, [<O;D(null)>] ?memoryEmulation : MemoryEmulation) : Async<'T> =
         imem.ToAsync(workflow, ?memoryEmulation = memoryEmulation)
 
     /// <summary>
@@ -185,7 +186,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="workflow">Cloud computation to execute.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="memoryEmulation">Specify memory emulation semantics for local parallelism. Defaults to shared memory.</param>
-    member __.RunLocally(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation) : 'T = 
+    member __.RunLocally(workflow : Cloud<'T>, [<O;D(null)>] ?cancellationToken : ICloudCancellationToken, [<O;D(null)>] ?memoryEmulation : MemoryEmulation) : 'T = 
         imem.RunSynchronously(workflow, ?cancellationToken = cancellationToken, ?memoryEmulation = memoryEmulation)
 
     /// <summary>
@@ -206,7 +207,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="worker">Specific worker to fetch logs for. Defaults to all workers.</param>
     /// <param name="logLevel">Maximum log level to display. Defaults to LogLevel.Info.</param>
     /// <param name="filter">User-specified log filtering function.</param>
-    member __.GetSystemLogsAsync(?worker : IWorkerRef, ?logLevel : LogLevel, ?filter : SystemLogEntry -> bool) = async {
+    member __.GetSystemLogsAsync([<O;D(null)>] ?worker : IWorkerRef, [<O;D(null)>] ?logLevel : LogLevel, [<O;D(null)>] ?filter : SystemLogEntry -> bool) = async {
         match worker with
         | Some(:? WorkerRef as w) -> return! w.GetSystemLogsAsync(?logLevel = logLevel, ?filter = filter)
         | Some _ -> return raise <| invalidArg "worker" "Invalid WorkerRef argument."
@@ -223,7 +224,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="worker">Specific worker to fetch logs for. Defaults to all workers.</param>
     /// <param name="logLevel">Maximum log level to display. Defaults to LogLevel.Info.</param>
     /// <param name="filter">User-specified log filtering function.</param>
-    member __.GetSystemLogs(?worker : IWorkerRef, ?logLevel : LogLevel, ?filter : SystemLogEntry -> bool) : SystemLogEntry[] =
+    member __.GetSystemLogs([<O;D(null)>] ?worker : IWorkerRef, [<O;D(null)>] ?logLevel : LogLevel, [<O;D(null)>] ?filter : SystemLogEntry -> bool) : SystemLogEntry[] =
         __.GetSystemLogsAsync(?worker = worker, ?logLevel = logLevel, ?filter = filter) |> Async.RunSync
 
     /// <summary>
@@ -232,7 +233,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="worker">Specific worker to fetch logs for. Defaults to all workers.</param>
     /// <param name="logLevel">Maximum log level to display. Defaults to LogLevel.Info.</param>
     /// <param name="filter">User-specified log filtering function.</param>
-    member __.ShowSystemLogs(?worker : IWorkerRef, ?logLevel : LogLevel, ?filter : SystemLogEntry -> bool) : unit =
+    member __.ShowSystemLogs([<O;D(null)>] ?worker : IWorkerRef, [<O;D(null)>] ?logLevel : LogLevel, [<O;D(null)>] ?filter : SystemLogEntry -> bool) : unit =
         match worker with
         | Some(:? WorkerRef as w) -> w.ShowSystemLogs(?logLevel = logLevel, ?filter = filter)
         | Some _ -> invalidArg "worker" "Invalid WorkerRef argument."

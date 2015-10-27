@@ -22,6 +22,8 @@ open MBrace.Runtime.Utils.Retry
 open Nessos.FsPickler.Hashing
 
 #nowarn "444"
+type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
+type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
 
 [<AutoOpen>]
 module Utils =
