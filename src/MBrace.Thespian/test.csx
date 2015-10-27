@@ -23,9 +23,12 @@ using MBrace.Flow.CSharp;
 ThespianWorker.LocalExecutable = "../../bin/mbrace.thespian.worker.exe";
 var cluster = ThespianCluster.InitOnCurrentMachine(4);
 
-var flow = CloudFlow.OfArray(new[] { 1, 2, 3 })
-                    .Select(x => x + 1)
-                    .Where(x => x % 2 == 0)
+var url = "http://publicdata.landregistry.gov.uk/market-trend-data/price-paid-data/a/pp-2015.csv";
+var flow = CloudFlow.OfHTTPFileByLine(url)
+                    .Select(line => line.Split(new[] { ',' }))
+                    .Select(arr => new { TransactionId = arr[0], Price = arr[1], City = arr[12] })
+                    .Where(housePrice => housePrice.City.Contains("LONDON"))
+                    .Take(10)
                     .ToArray();
 
 
