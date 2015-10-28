@@ -35,7 +35,7 @@ module private StoreCloudValueImpl =
         | Encapsulated of value:obj * hash:HashResult
         | VagabondValue of field:FieldInfo * hash:HashResult
         | Cached of level:StorageLevel * hash:HashResult
-    with
+    
         /// Gets the FsPickler hashcode of the cached value
         member c.Hash =
             match c with
@@ -68,7 +68,7 @@ module private StoreCloudValueImpl =
     type CachedValue = 
         | Pickled of StorageLevel * byte []
         | Reified of StorageLevel * obj
-    with
+    
         member inline cv.Level =
             match cv with
             | Pickled (l,_) -> l
@@ -99,7 +99,7 @@ module private StoreCloudValueImpl =
             /// Element count if persisted array
             Count : int
         }
-    with
+    
         static member FromValue(value : 'T, hash : HashResult, level : StorageLevel) =
             {
                 Type = getReflectedType value
@@ -141,7 +141,7 @@ module private StoreCloudValueImpl =
             /// Local in-memory cache
             LocalCache : InMemoryCache
         }
-    with
+    
         member c.UsesCompression = c.Global.CompressionLevel <> CompressionLevel.NoCompression
 
         static member Init(config : StoreCloudValueConfiguration) =

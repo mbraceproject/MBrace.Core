@@ -15,7 +15,7 @@ type ExecutionContext =
         /// Runtime cloud resource resolver
         Resources : ResourceRegistry
     }
-with
+
     /// <summary>
     ///     Initializes an empty execution context.  
     /// </summary>
