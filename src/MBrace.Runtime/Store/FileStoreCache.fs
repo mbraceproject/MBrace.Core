@@ -87,7 +87,7 @@ type FileStoreCache private (sourceStore : ICloudFileStore, localCacheStore : IC
                         | Some stream ->
                             use stream = stream
                             let cachedFileName = getCachedFileName path tag
-                            let! _ = localCacheStore.CopyOfStream(stream, cachedFileName)
+                            let! _ = localCacheStore.UploadFromStream(cachedFileName, stream)
                             let _ = cacheEvent.TriggerAsTask path
                             return! localCacheStore.BeginRead cachedFileName
 

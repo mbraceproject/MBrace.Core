@@ -3,6 +3,9 @@
 #nowarn "444"
 
 open System
+open System.Diagnostics
+open System.Runtime.CompilerServices
+open System.ComponentModel
 
 open MBrace.Core.Internals
 
@@ -54,9 +57,10 @@ type ICloudValue =
     /// in the local execution context.
     abstract IsCachedLocally : bool
     /// Gets the boxed payload of the CloudValue.
-    abstract GetBoxedValue : unit -> obj
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    abstract ValueBoxed : obj
     /// Asynchronously gets the boxed payload of the CloudValue.
-    abstract GetBoxedValueAsync : unit -> Async<obj>
+    abstract GetValueBoxedAsync : unit -> Async<obj>
     /// Casts CloudValue to specified type, if applicable.
     abstract Cast<'S> : unit -> CloudValue<'S>
 
@@ -65,8 +69,9 @@ type ICloudValue =
 and CloudValue<'T> =
     inherit ICloudValue
     /// Gets the payload of the CloudValue.
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     abstract Value : 'T
-    /// Asynchronously gets the boxed payload of the CloudValue.
+    /// Asynchronously gets the payload of the CloudValue.
     abstract GetValueAsync : unit -> Async<'T>
 
 /// Serializable entity that represents an immutable 
@@ -76,6 +81,17 @@ type CloudArray<'T> =
     inherit ICloudCollection<'T>
     /// Array element count
     abstract Length : int
+
+[<Extension; EditorBrowsable(EditorBrowsableState.Never)>]
+type CloudValueExtensions =
+
+    /// Asynchronously gets the boxed payload of the CloudValue.
+    [<Extension>]
+    static member GetValueBoxed(this : ICloudValue) = Async.RunSync <| this.GetValueBoxedAsync()
+    /// Asynchronously gets the payload of the CloudValue.
+    [<Extension>]
+    static member GetValue(this : CloudValue<'T>) = Async.RunSync <| this.GetValueAsync()
+    
 
 namespace MBrace.Core.Internals
 
@@ -158,7 +174,7 @@ type CloudValue =
     ///     CloudValue implementation.
     /// </summary>
     /// <param name="storageLevel">Storage level to be checked.</param>
-    static member IsSupportedStorageLevel (storageLevel : StorageLevel) : Local<bool> = local {
+    static member IsSupportedStorageLevel (storageLevel : StorageLevel) : LocalCloud<bool> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         return provider.IsSupportedStorageLevel storageLevel    
     }
@@ -168,10 +184,10 @@ type CloudValue =
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValue.</param>
-    static member New<'T>(value : 'T, ?storageLevel : StorageLevel) : Local<CloudValue<'T>> = local {
+    static member New<'T>(value : 'T, ?storageLevel : StorageLevel) : LocalCloud<CloudValue<'T>> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
-        return! provider.CreateCloudValue(value, storageLevel)
+        return! Cloud.OfAsync <| provider.CreateCloudValue(value, storageLevel)
     }
 
     /// <summary>
@@ -179,7 +195,7 @@ type CloudValue =
     /// </summary>
     /// <param name="values">Input set of values.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValues.</param>
-    static member NewArray<'T>(values : seq<'T>, ?storageLevel : StorageLevel) : Local<CloudArray<'T>> = local {
+    static member NewArray<'T>(values : seq<'T>, ?storageLevel : StorageLevel) : LocalCloud<CloudArray<'T>> = local {
         let! cval = CloudValue.New(Seq.toArray values, ?storageLevel = storageLevel)
         return cval :?> CloudArray<'T>
     }
@@ -190,10 +206,10 @@ type CloudValue =
     /// <param name="values">Input set of values.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValues.</param>
-    static member NewArrayPartitioned<'T>(values : seq<'T>, partitionThreshold : int64, ?storageLevel : StorageLevel) : Local<CloudArray<'T> []> = local {
+    static member NewArrayPartitioned<'T>(values : seq<'T>, partitionThreshold : int64, ?storageLevel : StorageLevel) : LocalCloud<CloudArray<'T> []> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
-        return! provider.CreateCloudArrayPartitioned(values, partitionThreshold, storageLevel)
+        return! Cloud.OfAsync <| provider.CreateCloudArrayPartitioned(values, partitionThreshold, storageLevel)
     }
 
     /// <summary>
@@ -207,31 +223,31 @@ type CloudValue =
     ///     Retrieves a CloudValue instance by provided id.
     /// </summary>
     /// <param name="id">CloudValue identifier.</param>
-    static member TryGetValueById(id : string) : Local<ICloudValue option> = local {
+    static member TryGetValueById(id : string) : LocalCloud<ICloudValue option> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
-        return! provider.TryGetCloudValueById(id)
+        return! Cloud.OfAsync <| provider.TryGetCloudValueById(id)
     }
 
     /// <summary>
     ///     Fetches all existing CloudValue from underlying store.
     /// </summary>
-    static member GetAllValues() : Local<ICloudValue []> = local {
+    static member GetAllValues() : LocalCloud<ICloudValue []> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
-        return! provider.GetAllCloudValues()
+        return! Cloud.OfAsync <| provider.GetAllCloudValues()
     }
 
     /// <summary>
     ///     Dereferences a cloud value.
     /// </summary>
     /// <param name="value">CloudValue instance.</param>
-    static member Read(value : CloudValue<'T>) : Local<'T> = local {
-        return! value.GetValueAsync()
+    static member Read(value : CloudValue<'T>) : LocalCloud<'T> = local {
+        return! Cloud.OfAsync <| value.GetValueAsync()
     }
 
     /// <summary>
     ///     Deletes the provided CloudValue from store.
     /// </summary>
     /// <param name="atom">Atom instance to be deleted.</param>
-    static member Delete (value : ICloudValue) : Local<unit> = local {
-        return! value.Dispose()
+    static member Delete (value : ICloudValue) : LocalCloud<unit> = local {
+        return! Cloud.OfAsync <| value.Dispose()
     }

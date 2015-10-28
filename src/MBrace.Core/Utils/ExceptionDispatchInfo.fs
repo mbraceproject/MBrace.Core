@@ -2,15 +2,13 @@
 
 open System
 open System.Reflection
-open System.Threading
-open System.Threading.Tasks
 
 #nowarn "444"
 
 /// Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
 /// that is serializable and permits symbolic appending to stacktrace
 [<Sealed; AutoSerializable(true)>]
-type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) =
+type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string, isFaultException : bool) =
 
     [<Literal>]
     static let separator = "--- End of stack trace from previous location where exception was thrown ---"
@@ -38,13 +36,17 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
         | null -> false
         | f -> f.SetValue(e, trace) ; true
 
+    /// Gets whether ExceptionDispatchInfo encapsulates a fault exception
+    member __.IsFaultException = isFaultException
+
     /// <summary>
     ///     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
     /// </summary>
     /// <param name="exn">Captured exception</param>
-    static member Capture(exn : exn) =
+    /// <param name="isFaultException">Specifies whether exception if fault exception.</param>
+    static member Capture(exn : exn, ?isFaultException : bool) =
         if exn = null then invalidArg "exn" "argument cannot be null."
-        new ExceptionDispatchInfo(exn, exn.StackTrace)
+        new ExceptionDispatchInfo(exn, exn.StackTrace, defaultArg isFaultException false)
 
     /// <summary>
     ///     Returns contained exception with restored stacktrace state.
@@ -77,13 +79,13 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string) 
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
     /// </summary>
     /// <param name="line">Line to be appended.</param>
-    member __.AppendToStackTrace(line : string) = 
+    member __.AppendToStackTrace(line : string) : ExceptionDispatchInfo = 
         let newTrace =
             if String.IsNullOrWhiteSpace sourceStackTrace then line
             else
                 sourceStackTrace + Environment.NewLine + line
 
-        new ExceptionDispatchInfo(sourceExn, newTrace)
+        new ExceptionDispatchInfo(sourceExn, newTrace, isFaultException)
 
     /// <summary>
     ///     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
@@ -111,69 +113,3 @@ module ExceptionDispatchInfo =
     /// <param name="exn">Input exception.</param>
     let inline raiseWithCurrentStackTrace useSeparator (exn : 'exn) =
         let edi = ExceptionDispatchInfo.Capture exn in raise useSeparator edi
-
-[<AutoOpen>]
-module ExceptionDispatchInfoUtils =
-
-    type Async =
-
-        /// <summary>
-        ///     Efficiently reraise exception, without losing its existing stacktrace.
-        /// </summary>
-        /// <param name="e"></param>
-        static member Raise<'T> (e : exn) : Async<'T> = Async.FromContinuations(fun (_,ec,_) -> ec e)
-
-        /// <summary>
-        ///     Runs the asynchronous computation and awaits its result.
-        ///     Preserves original stacktrace for any exception raised.
-        /// </summary>
-        /// <param name="workflow">Workflow to be run.</param>
-        /// <param name="cancellationToken">Optional cancellation token.</param>
-        static member RunSync(workflow : Async<'T>, ?cancellationToken : CancellationToken) =
-            let tcs = new TaskCompletionSource<Choice<'T,exn,OperationCanceledException>>()
-            let inline commit f r = tcs.SetResult(f r)
-            Trampoline.QueueWorkItem(fun () ->
-                Async.StartWithContinuations(workflow, 
-                    commit Choice1Of3, commit Choice2Of3, commit Choice3Of3, 
-                    ?cancellationToken = cancellationToken))
-
-            match tcs.Task.Result with
-            | Choice1Of3 t -> t
-            | Choice2Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
-            | Choice3Of3 e -> ExceptionDispatchInfo.raiseWithCurrentStackTrace false e
-
-
-    type Task<'T> with
-
-        /// Returns the inner exception of the faulted task.
-        member t.InnerException =
-            let e = t.Exception
-            if e.InnerExceptions.Count = 1 then e.InnerExceptions.[0]
-            else
-                e :> exn
-
-        /// <summary>
-        ///     Returns Some result if completed, None if pending, exception if faulted.
-        /// </summary>
-        member t.TryGetResult () =
-            match t.Status with
-            | TaskStatus.RanToCompletion -> Some t.Result
-            | TaskStatus.Faulted -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true t.InnerException
-            | TaskStatus.Canceled -> raise <| new OperationCanceledException()
-            | _ -> None
-
-        /// Returns the task result
-        member t.GetResult () =
-            try t.Result
-            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 ->
-                raise ae.InnerExceptions.[0]
-
-        /// Asynchronously awaits task completion
-        member t.AwaitResultAsync() = async {
-            let! _ = Async.AwaitTask t |> Async.Catch
-            match t.Status with
-            | TaskStatus.RanToCompletion -> return t.Result
-            | TaskStatus.Faulted -> return! Async.Raise t.InnerException
-            | TaskStatus.Canceled -> return raise <| new InvalidOperationException()
-            | _ -> return invalidOp "internal error"
-        }

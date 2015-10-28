@@ -64,6 +64,13 @@ type CloudProcess internal () =
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
     abstract AwaitResultBoxed : ?timeoutMilliseconds:int -> Async<obj>
+
+    /// <summary>
+    ///     Asynchronously waits until process has completed
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    abstract WaitAsync : ?timeoutMilliseconds:int -> Async<unit>
+
     /// <summary>
     ///     Return the result if available or None if not available.
     /// </summary>
@@ -128,8 +135,11 @@ type CloudProcess internal () =
     interface ICloudProcess with
         member x.Id: string = x.Id
 
-        member x.AwaitResultBoxed(?timeoutMilliseconds: int): Async<obj> = 
+        member x.AwaitResultBoxedAsync(?timeoutMilliseconds: int): Async<obj> = 
             x.AwaitResultBoxed(?timeoutMilliseconds = timeoutMilliseconds)
+
+        member x.WaitAsync (?timeoutMilliseconds: int) = 
+            x.WaitAsync(?timeoutMilliseconds = timeoutMilliseconds)
     
         member x.CancellationToken = x.CancellationToken
         member x.IsCanceled: bool = 
@@ -150,7 +160,7 @@ type CloudProcess internal () =
         [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
         member x.ResultBoxed: obj = x.ResultBoxed
         member x.Status: CloudProcessStatus = x.Status
-        member x.TryGetResultBoxed(): Async<obj option> = x.TryGetResultBoxed()
+        member x.TryGetResultBoxedAsync(): Async<obj option> = x.TryGetResultBoxed()
 
     /// Gets a printed report on the current process status
     abstract GetInfo : unit -> string 
@@ -213,6 +223,11 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member __.Result : 'T = __.AwaitResult() |> Async.RunSync
 
+    override __.WaitAsync (?timeoutMilliseconds:int) : Async<unit> = async {
+        let timeoutMilliseconds = defaultArg timeoutMilliseconds Timeout.Infinite
+        do! Async.WithTimeout(async { return! entry.WaitAsync() }, timeoutMilliseconds)
+    }
+
     override __.AwaitResultBoxed (?timeoutMilliseconds:int) = async {
         let! r = __.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
         return box r
@@ -259,7 +274,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
         for e in filtered do Console.WriteLine(CloudLogEntry.Format(e, showDate = true))
 
     interface ICloudProcess<'T> with
-        member x.AwaitResult(timeoutMilliseconds: int option): Async<'T> =
+        member x.AwaitResultAsync(timeoutMilliseconds: int option): Async<'T> =
             x.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
         
         member x.CancellationToken: ICloudCancellationToken = 
@@ -267,7 +282,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
         
         member x.Result: 'T = x.Result
         member x.Status: CloudProcessStatus = cell.Value.State.Status
-        member x.TryGetResult(): Async<'T option> = x.TryGetResult()
+        member x.TryGetResultAsync(): Async<'T option> = x.TryGetResult()
 
 /// Cloud Process client object
 and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRuntimeManager) =
@@ -331,7 +346,11 @@ and [<AutoSerializable(false)>] internal CloudProcessManagerClient(runtime : IRu
     /// Gets a printed report of all currently executing processes
     member pm.FormatProcessesAsync() : Async<string> = async {
         let! entries = runtime.ProcessManager.GetAllProcesses()
-        let! data = entries |> Seq.map CloudProcessData.OfCloudProcessEntry |> Async.Parallel
+        let mkProc (e : ICloudProcessEntry) = async {
+            let! proc = CloudProcessData.OfCloudProcessEntry e
+            return proc
+        }
+        let! data = entries |> Seq.map mkProc |> Async.Parallel
         return CloudProcessReporter.Report(data, "Processes", borders = false)
     }
 
@@ -366,4 +385,4 @@ and private CloudProcessReporter private () =
                  |> Seq.sortBy (fun p -> p.StartTime)
                  |> Seq.toList
 
-        sprintf "%s\nWork items : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
+        sprintf "%s\nWork items : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders, parallelize = true)

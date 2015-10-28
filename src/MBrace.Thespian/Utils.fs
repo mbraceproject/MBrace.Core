@@ -9,6 +9,9 @@ open Nessos.Thespian.Remote.TcpProtocol
 
 open MBrace.Runtime
 
+type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
+type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
+
 /// Actor publication utilities
 type Actor private () =
 

@@ -109,11 +109,11 @@ type private ThreadPoolValue<'T> (hash : HashResult, provider : ThreadPoolValueP
 
         member x.Type: Type = typeof<'T>
         member x.ReflectedType : Type = getReflectedType <| getPayload().RawValue
-        member x.GetBoxedValueAsync(): Async<obj> = async { return getPayload().Value }
+        member x.GetValueBoxedAsync(): Async<obj> = async { return getPayload().Value }
         member x.GetValueAsync(): Async<'T> = async { return getPayload().Value :?> 'T }
         member x.IsCachedLocally: bool = not <| provider.IsDisposed hash
         member x.Value: 'T = getPayload().Value :?> 'T
-        member x.GetBoxedValue () : obj = getPayload().Value
+        member x.ValueBoxed: obj = getPayload().Value
         member x.Cast<'S> () = ThreadPoolValue<'S>.Create(hash, getPayload(), provider) :> CloudValue<'S>
         member x.Dispose() = async { provider.Dispose hash }
 
@@ -140,9 +140,9 @@ and [<AutoSerializable(false); Sealed; CloneableOnly>]
         member x.IsKnownCount: bool = checkDisposed () ; true
         member x.IsKnownSize: bool = checkDisposed () ; true
         member x.IsMaterialized: bool = checkDisposed () ; true
-        member x.GetCount(): Async<int64> =  async { return (getPayload().RawValue :?> 'T[]).LongLength }
-        member x.GetSize(): Async<int64> = async { let _ = checkDisposed () in return hash.Length }
-        member x.ToEnumerable(): Async<seq<'T>> = async { return getPayload().Value :?> seq<'T> }
+        member x.GetCountAsync(): Async<int64> =  async { return (getPayload().RawValue :?> 'T[]).LongLength }
+        member x.GetSizeAsync(): Async<int64> = async { let _ = checkDisposed () in return hash.Length }
+        member x.GetEnumerableAsync(): Async<seq<'T>> = async { return getPayload().Value :?> seq<'T> }
 
 /// Provides an In-Memory CloudValue implementation
 and [<Sealed; AutoSerializable(false)>] 
@@ -225,7 +225,7 @@ type private ThreadPoolAtom<'T> internal (id : string, container : string, initi
         member x.Value = getAtom().Value.Value
         member x.GetValueAsync() = async { return getAtom().Value.Value }
 
-        member x.Transact(updater : 'T -> 'R * 'T, _) = async { 
+        member x.TransactAsync(updater : 'T -> 'R * 'T, _) = async { 
             let transacter (ct : EmulatedValue<'T>) : EmulatedValue<'T> * 'R =
                 let r,t' = updater ct.Value
                 clone t', r
@@ -233,7 +233,7 @@ type private ThreadPoolAtom<'T> internal (id : string, container : string, initi
             return getAtom().Transact transacter
         }
 
-        member x.Force(value:'T) = async { 
+        member x.ForceAsync(value:'T) = async { 
             return getAtom().Force(clone value)
         }
 
@@ -274,18 +274,18 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
     interface CloudQueue<'T> with
         member x.Id: string = id
 
-        member x.Count: Async<int64> = async {
+        member x.GetCountAsync() : Async<int64> = async {
             checkDisposed()
             return int64 mbox.CurrentQueueLength
         }
         
-        member x.Dequeue(?timeout: int): Async<'T> = async {
+        member x.DequeueAsync(?timeout: int): Async<'T> = async {
             checkDisposed()
             let! ev = mbox.Receive(?timeout = timeout)
             return ev.Value
         }
 
-        member x.DequeueBatch(maxItems : int) : Async<'T []> = async {
+        member x.DequeueBatchAsync(maxItems : int) : Async<'T []> = async {
             let acc = new ResizeArray<'T> ()
             let rec aux () = async {
                 if acc.Count < maxItems then
@@ -305,17 +305,17 @@ type private ThreadPoolQueue<'T> internal (id : string, memoryEmulation : Memory
             isDisposed <- true
         }
         
-        member x.Enqueue(message: 'T): Async<unit> = async {
+        member x.EnqueueAsync(message: 'T): Async<unit> = async {
             checkDisposed()
             return mbox.Post (clone message)
         }
         
-        member x.EnqueueBatch(messages: seq<'T>): Async<unit> = async {
+        member x.EnqueueBatchAsync(messages: seq<'T>): Async<unit> = async {
             checkDisposed()
             do for m in messages do mbox.Post (clone m)
         }
         
-        member x.TryDequeue(): Async<'T option> = async {
+        member x.TryDequeueAsync(): Async<'T option> = async {
             checkDisposed()
             let! result = mbox.TryReceive(timeout = 0)
             return result |> Option.map (fun r -> r.Value)
@@ -359,13 +359,13 @@ type private InMemoryDictionary<'T> internal (id : string, memoryEmulation : Mem
         member x.GetEnumerator() = checkDisposed() ; toEnum().GetEnumerator()
     
     interface CloudDictionary<'T> with
-        member x.Add(key : string, value : 'T) : Async<unit> =
+        member x.ForceAddAsync(key : string, value : 'T) : Async<unit> =
             async { let _ = checkDisposed() in return dict.[key] <- clone value }
 
-        member x.TryAdd(key: string, value: 'T): Async<bool> = 
+        member x.TryAddAsync(key: string, value: 'T): Async<bool> = 
             async { let _ = checkDisposed() in return dict.TryAdd(key, clone value) }
                     
-        member x.Transact(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
+        member x.TransactAsync(key: string, transacter: 'T option -> 'R * 'T, _): Async<'R> = async {
             checkDisposed()
             let result = ref Unchecked.defaultof<'R>
             let updater (curr : EmulatedValue<'T> option) =
@@ -378,30 +378,30 @@ type private InMemoryDictionary<'T> internal (id : string, memoryEmulation : Mem
             return result.Value
         }
                     
-        member x.ContainsKey(key: string): Async<bool> = 
+        member x.ContainsKeyAsync(key: string): Async<bool> = 
             async { let _ = checkDisposed() in return dict.ContainsKey key }
 
         member x.IsKnownCount = checkDisposed(); true
         member x.IsKnownSize = checkDisposed(); true
         member x.IsMaterialized = checkDisposed(); true
                     
-        member x.GetCount(): Async<int64> = 
+        member x.GetCountAsync(): Async<int64> = 
             async { let _ = checkDisposed() in return int64 dict.Count }
 
-        member x.GetSize(): Async<int64> = 
+        member x.GetSizeAsync(): Async<int64> = 
             async { let _ = checkDisposed() in return int64 dict.Count }
                     
         member x.Dispose(): Async<unit> = async { isDisposed <- true }
 
         member x.Id: string = id
                     
-        member x.Remove(key: string): Async<bool> = 
+        member x.RemoveAsync(key: string): Async<bool> = 
             async { let _ = checkDisposed() in return dict.TryRemove key |> fst }
                     
-        member x.ToEnumerable(): Async<seq<KeyValuePair<string, 'T>>> = 
+        member x.GetEnumerableAsync(): Async<seq<KeyValuePair<string, 'T>>> = 
             async { let _ = checkDisposed() in return toEnum() }
                     
-        member x.TryFind(key: string): Async<'T option> = 
+        member x.TryFindAsync(key: string): Async<'T option> = 
             async { let _ = checkDisposed() in return let ok,v = dict.TryGetValue key in if ok then Some v.Value else None }
 
 /// Defines an in-memory dictionary factory using ConcurrentDictionary

@@ -1,3 +1,44 @@
+#### 0.16.0-beta
+* Add support for text-based serializers in MBrace.Core
+* Expose text-based serializer APIs in MBrace.Core
+* Add CloudProcess.Wait, .WaitAny and .WaitAll methods. 
+
+#### 0.15.3-beta
+* PersistedSequence performance improvements.
+
+#### 0.15.2-beta
+* WorkerRef pretty printing performance improvements.
+
+#### 0.15.1-beta
+* ICloudCollection performance fixes and improvements.
+
+#### 0.15.0-beta
+* CloudFlow performance fixes and improvements.
+
+#### 0.14.1-beta
+* Misc bugfixes and improvements.
+
+#### 0.14.0-beta
+* Add CloudFile.UploadFromStream and CloudFile.DownloadToStream methods.
+* Add ICloudFileStore.Upload and .Download methods.
+* Fix CloudFlow sortBy issue.
+* Rename CloudLocal<T> to LocalCloud<T>.
+
+#### 0.13.2-beta
+* Misc improvements and bugfixes
+
+#### 0.13.1-beta
+* Clean up MBrace.Core Async extensions
+
+#### 0.13.0-beta
+* Rename Local<'T> workflows to CloudLocal<'T>.
+* Refactor store primitive APIs to only use asynchronous and synchronous methods.
+* Make async bindings to cloud builders optional.
+* Remove all CloudFlow.*Local combinators.
+* Implement CloudFlow.peek.
+* Refactor StoreClient objects and make them serializable.
+* MBrace.Core bugfixes and improvements.
+
 #### 0.12.2-beta
 * Add support for forced local FSharp.Core binding redirects.
 

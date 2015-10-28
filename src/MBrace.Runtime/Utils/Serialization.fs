@@ -84,8 +84,7 @@ module FsPicklerExtensions =
                 if maxConcurrentContinuations |> Option.exists (fun cc -> cc < taskQueue.Count) then
                     // concurrent continuation limit has been reached,
                     // asynchronously wait until first task in queue has completed
-                    let t = taskQueue.Dequeue()
-                    let! result = t.AwaitResultAsync() // might raise excepton, but we are ok with this
+                    let! result = taskQueue.Dequeue() // might raise excepton, but we are ok with this
                     results.Add result
 
                 // no restrictions, apply current chunk to continuation 
@@ -94,7 +93,7 @@ module FsPicklerExtensions =
                 taskQueue.Enqueue task
 
             for t in taskQueue do
-                let! result = t.AwaitResultAsync()
+                let! result = t
                 results.Add result
 
             return results.ToArray()

@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Flow
 
 open System
+open System.IO
 open System.Threading
 open System.Text
 open System.Collections.Concurrent
@@ -42,7 +43,7 @@ type CloudFlow =
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
     /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
-    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : Local<PersistedCloudFlow<'T>> =
+    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : LocalCloud<PersistedCloudFlow<'T>> =
         PersistedCloudFlow.OfCloudArrays cloudArrays
 
     /// <summary>
@@ -62,11 +63,11 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                    let toCloudSeq (path : string) = PersistedSequence.OfCloudFile(path, ?deserializer = deserializer)
-                    let! cseqs = Local.Sequential.map toCloudSeq paths
+                    let toCloudSeq (path : string) = PersistedSequence.OfCloudFile(path, ?deserializer = deserializer, forceEvaluation = false, resolveEtag = false, ensureFileExists = false)
+                    let! cseqs = Local.Parallel.map toCloudSeq paths
                     let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<'T>) |> CloudCollection.Concat
                     let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                     let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)
@@ -83,7 +84,7 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, serializer : ISerializer, ?sizeThresholdPerCore : int64) =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let deserializer (stream : System.IO.Stream) = serializer.SeqDeserialize(stream, leaveOpen = false)
                     let filesFlow = CloudFlow.OfCloudFiles(paths, deserializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -100,7 +101,7 @@ type CloudFlow =
     static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     let deserializer (stream : System.IO.Stream) =
                         let sr =
@@ -124,7 +125,7 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, ?deserializer = deserializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -141,7 +142,7 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, serializer : ISerializer, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, serializer = serializer, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -158,7 +159,7 @@ type CloudFlow =
     static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFiles(paths, deserializer = deserializer, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -171,13 +172,14 @@ type CloudFlow =
     /// </summary>
     /// <param name="paths">Paths to input cloud files.</param>
     /// <param name="encoding">Optional encoding.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
     static member OfCloudFileByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let sizeThresholdPerCore = defaultArg sizeThresholdPerCore (1024L * 1024L * 256L)
-                let toLineReader (path : string) = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding)
-                let! cseqs = Local.Sequential.map toLineReader paths
+                let toLineReader (path : string) = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, forceEvaluation = false, resolveEtag = false, ensureFileExists = false)
+                let! cseqs = Local.Parallel.map toLineReader paths
                 let collection = cseqs |> Seq.map (fun f -> f :> ICloudCollection<string>) |> CloudCollection.Concat
                 let threshold () = int64 Environment.ProcessorCount * sizeThresholdPerCore
                 let collectionFlow = CloudFlow.OfCloudCollection(collection, sizeThresholdPerWorker = threshold)
@@ -193,7 +195,7 @@ type CloudFlow =
     static member OfCloudDirectoryByLine (dirPath : string, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! files = CloudFile.Enumerate dirPath
                 let paths = files |> Array.map (fun f -> f.Path)
                 let flow = CloudFlow.OfCloudFileByLine(paths, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
@@ -209,8 +211,8 @@ type CloudFlow =
     static member OfCloudFileByLine (path : string, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let! cseq = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, force = false)
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
+                let! cseq = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, forceEvaluation = false, ensureFileExists = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
@@ -221,12 +223,11 @@ type CloudFlow =
     /// </summary>
     /// <param name="url">Url path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
-    /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
-    static member OfHttpFileByLine (url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+    static member OfHttpFileByLine (url : string, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
-                let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists)
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
+                let! httpCollection = CloudCollection.OfHttpFile(url, ?encoding = encoding, ensureThatFileExists = false) |> Cloud.OfAsync
                 let collectionStream = CloudFlow.OfCloudCollection httpCollection
                 return! collectionStream.WithEvaluators collectorf projection combiner
             }
@@ -237,15 +238,15 @@ type CloudFlow =
     /// </summary>
     /// <param name="url">Url paths to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
-    /// <param name="ensureThatFileExists">Ensure that file exists before beginnging the computation. Defaults to false.</param>
-    static member OfHttpFileByLine (urls : seq<string>, ?encoding : Encoding, ?ensureThatFileExists : bool) : CloudFlow<string> =
+    static member OfHttpFileByLine (urls : seq<string>, ?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<string, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 let! httpCollections = 
                     urls
-                    |> Seq.map (fun uri ->  CloudCollection.OfHttpFile(uri, ?encoding = encoding, ?ensureThatFileExists = ensureThatFileExists))
+                    |> Seq.map (fun uri ->  CloudCollection.OfHttpFile(uri, ?encoding = encoding, ensureThatFileExists = false))
                     |> Async.Parallel
+                    |> Cloud.OfAsync
 
                 let collection = CloudCollection.Concat httpCollections
                 let collectionStream = CloudFlow.OfCloudCollection collection
@@ -263,11 +264,8 @@ type CloudFlow =
 /// Provides basic operations on CloudFlows.
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module CloudFlow =
-    open System.IO
 
     let private cloudFlowStaticId = mkUUID()
-
-    let inline private run ctx a = Cloud.RunSynchronously(a, ctx.Resources,ctx.CancellationToken)
 
     //#region Intermediate functions
 
@@ -276,56 +274,35 @@ module CloudFlow =
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline map (f : 'T -> 'R) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.mapGen (fun _ x -> f x) flow
+        Transformers.map f flow
 
-    /// <summary>Transforms each element of the input CloudFlow using a locally executing cloud function.</summary>
-    /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
+    /// <summary>Enables the insertion of a monadic side-effect in a distributed flow. Output remains the same.</summary>
+    /// <param name="f">A locally executing cloud function that performs side effect on input flow elements.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
-    let mapLocal (f : 'T -> Local<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.mapGen (fun ctx x -> f x |> run ctx) flow
+    let peek (f : 'T -> LocalCloud<unit>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Transformers.peek f flow
 
     /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements.</summary>
     /// <param name="f">A function to transform items from the input CloudFlow.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline collect (f : 'T -> #seq<'R>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.collectGen (fun _ x -> f x) flow
-
-    /// <summary>Transforms each element of the input CloudFlow to a new sequence and flattens its elements using a locally executing cloud function.</summary>
-    /// <param name="f">A locally executing cloud function to transform items from the input CloudFlow.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let collectLocal (f : 'T -> Local<#seq<'R>>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.collectGen (fun ctx x -> f x |> run ctx) flow
+        Transformers.collect f flow
 
     /// <summary>Filters the elements of the input CloudFlow.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline filter (predicate : 'T -> bool) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Transformers.filterGen (fun _ x -> predicate x) flow
-
-    /// <summary>Filters the elements of the input CloudFlow using a locally executing cloud function.</summary>
-    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let filterLocal (predicate : 'T -> Local<bool>) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Transformers.filterGen (fun ctx x -> predicate x |> run ctx) flow
+        Transformers.filter predicate flow
 
     /// <summary>Applies the given chooser function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
     /// <param name="predicate">A function to transform items of type 'T into options of type 'R.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>The result CloudFlow.</returns>
     let inline choose (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.chooseGen (fun _ x -> chooser x) flow
-
-    /// <summary>Applies the given locally executing cloud function to each element of the input CloudFlow and returns a CloudFlow yielding each element where the function returns Some value</summary>
-    /// <param name="chooser">A locally executing cloud function to transform items of type 'T into options of type 'R.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let inline chooseLocal (chooser : 'T -> Local<'R option>) (flow : CloudFlow<'T>) : CloudFlow<'R> =
-        Transformers.chooseGen (fun ctx x -> chooser x |> run ctx) flow
+        Transformers.choose chooser flow
 
     /// <summary>Returns a cloud flow with a new degree of parallelism.</summary>
     /// <param name="degreeOfParallelism">The degree of parallelism.</param>
@@ -337,20 +314,8 @@ module CloudFlow =
         else
             { new CloudFlow<'T> with
                     member self.DegreeOfParallelism = Some degreeOfParallelism
-                    member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) combiner =
+                    member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) combiner =
                         flow.WithEvaluators collectorf projection combiner }
-
-    /// <summary>Applies a locally executing cloud function to each element of the CloudFlow, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
-    /// <param name="folder">A locally executing cloud function that updates the state with each element from the CloudFlow.</param>
-    /// <param name="combiner">A locally executing cloud function that combines partial states into a new state.</param>
-    /// <param name="state">A locally executing cloud function that produces the initial state.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The final result.</returns>
-    let foldLocal (folder : 'State -> 'T -> Local<'State>) 
-                    (combiner : 'State -> 'State -> Local<'State>)
-                    (state : unit -> Local<'State>) (flow : CloudFlow<'T>) : Cloud<'State> =
-
-        Fold.foldGen (fun ctx x y -> run ctx (folder x y)) (fun ctx x y -> run ctx (combiner x y)) (fun ctx -> run ctx (state ())) flow
 
     /// <summary>Applies a function to each element of the CloudFlow, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0)...) iN.</summary>
     /// <param name="folder">A function that updates the state with each element from the CloudFlow.</param>
@@ -362,20 +327,7 @@ module CloudFlow =
                     (combiner : 'State -> 'State -> 'State)
                     (state : unit -> 'State) (flow : CloudFlow<'T>) : Cloud<'State> =
 
-        Fold.foldGen (fun _ x y -> folder x y) (fun _ x y -> combiner x y) (fun _ -> state ()) flow
-
-    /// <summary>Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and the result of the threading an accumulator. The folder, combiner and state are locally executing cloud functions.</summary>
-    /// <param name="projection">A function to transform items from the input CloudFlow to keys.</param>
-    /// <param name="folder">A locally executing cloud function that updates the state with each element from the CloudFlow.</param>
-    /// <param name="combiner">A locally executing cloud function that combines partial states into a new state.</param>
-    /// <param name="state">A locally executing cloud function that produces the initial state.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The final result.</returns>
-    let inline foldByLocal (projection : 'T -> Local<'Key>)
-                    (folder : 'State -> 'T -> Local<'State>)
-                    (combiner : 'State -> 'State -> Local<'State>)
-                    (state : unit -> Local<'State>) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> =
-        Fold.foldByGen (fun ctx x -> projection x |> run ctx) (fun ctx x y -> folder x y |> run ctx) (fun ctx s1 s2 -> combiner s1 s2 |> run ctx) (fun ctx -> state () |> run ctx) flow
+        Fold.fold folder combiner state flow
 
     /// <summary>Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and the result of the threading an accumulator.</summary>
     /// <param name="projection">A function to transform items from the input CloudFlow to keys.</param>
@@ -389,7 +341,7 @@ module CloudFlow =
                       (combiner : 'State -> 'State -> 'State)
                       (state : unit -> 'State) (flow : CloudFlow<'T>) : CloudFlow<'Key * 'State> =
 
-        Fold.foldByGen (fun _ x -> projection x) (fun _ x y -> folder x y) (fun _ s1 s2 -> combiner s1 s2) (fun _ -> state ()) flow
+        Fold.foldBy projection folder combiner state flow
 
     /// <summary>
     /// Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and their number of occurrences in the original sequence.
@@ -397,27 +349,13 @@ module CloudFlow =
     /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     let inline countBy (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
-        Fold.foldByGen (fun _ctx x -> projection x) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ctx -> 0L) flow
-
-    /// <summary>
-    /// Applies a key-generating function to each element of a CloudFlow and return a CloudFlow yielding unique keys and their number of occurrences in the original sequence.
-    /// </summary>
-    /// <param name="projection">A function that maps items from the input CloudFlow to keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    let countByLocal (projection : 'T -> Local<'Key>) (flow : CloudFlow<'T>) : CloudFlow<'Key * int64> =
-        Fold.foldByGen (fun ctx x -> projection x |> run ctx) (fun _ctx state _ -> state + 1L) (fun _ctx x y -> x + y) (fun _ -> 0L) flow
+        Fold.foldBy projection (fun state _ -> state + 1L) (fun x y -> x + y) (fun () -> 0L) flow
 
     /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
     /// <param name="flow">The input CloudFlow.</param>
     /// <returns>Nothing.</returns>
     let inline iter (action: 'T -> unit) (flow : CloudFlow< 'T >) : Cloud< unit > =
         fold (fun () x -> action x) (fun () () -> ()) (fun () -> ()) flow
-
-    /// <summary>Runs the action on each element. The actions are not necessarily performed in order.</summary>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>Nothing.</returns>
-    let iterLocal (action: 'T -> Local<unit>) (flow : CloudFlow< 'T >) : Cloud< unit > =
-        foldLocal (fun () x -> action x) (fun () () -> local { return () }) (fun () -> local { return () }) flow
 
     /// <summary>Returns the sum of the elements.</summary>
     /// <param name="flow">The input CloudFlow.</param>
@@ -435,14 +373,6 @@ module CloudFlow =
             when ^S : (static member ( + ) : ^S * ^S -> ^S)
             and  ^S : (static member Zero : ^S) =
         fold (fun s x -> s + projection x) (+) (fun () -> LanguagePrimitives.GenericZero) flow
-
-    /// <summary>Applies a key-generating locally executing cloud function to each element of a CloudFlow and return the sum of the keys.</summary>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <returns>The sum of the keys.</returns>
-    let inline sumByLocal (projection : 'T -> Local< ^Key>) (flow : CloudFlow< 'T >) : Cloud< ^Key>
-            when ^Key : (static member ( + ) : ^Key * ^Key -> ^Key)
-            and  ^Key : (static member Zero : ^Key) =
-        Fold.foldGen (fun ctx s x -> s + run ctx (projection x)) (fun _ctx x y -> x + y) (fun _ctx -> LanguagePrimitives.GenericZero) flow
 
     /// <summary>Returns the total number of elements of the CloudFlow.</summary>
     /// <param name="flow">The input CloudFlow.</param>
@@ -478,12 +408,11 @@ module CloudFlow =
                     { new Collector<string, CloudFileInfo []> with
                         member self.DegreeOfParallelism = flow.DegreeOfParallelism
                         member self.Iterator() =
-                            let path = store.Combine(dirPath, sprintf "Part-%s-%d.txt" cloudFlowStaticId results.Count)
+                            let path = store.Combine(dirPath, sprintf "Part-%s-%s.txt" cloudFlowStaticId (mkUUID ()))
                             let stream = store.BeginWrite(path) |> Async.RunSync
                             let writer = new StreamWriter(stream)
                             results.Add((path, writer))
-                            {   Index = ref -1;
-                                Func = (fun line -> writer.WriteLine(line));
+                            {   Func = (fun line -> writer.WriteLine(line));
                                 Cts = cts }
                         member self.Result =
                             results |> Seq.iter (fun (_, writer) -> writer.Dispose())
@@ -506,73 +435,40 @@ module CloudFlow =
     /// <returns>A persisted copy of given CloudFlow.</returns>
     let persist (storageLevel : StorageLevel) (flow : CloudFlow<'T>) : Cloud<PersistedCloudFlow<'T>> = PersistedCloudFlow.OfCloudFlow(flow, storageLevel = storageLevel)
 
-    let inline private mkDescComparer (comparer: IComparer<'T>) = { new IComparer<'T> with member __.Compare(x,y) = -comparer.Compare(x,y) }
+    // keep inline to ensure efficient comparison is used
+    let inline private mkComparer<'K when 'K : comparison> = { new IComparer<'K> with member __.Compare(x,y) = compare x y }
+    let inline private mkDescendingComparer<'K when 'K : comparison> = { new IComparer<'K> with member __.Compare(x,y) = - compare x y }
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline sortBy (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = _PrivateFastGenericComparerTable<'Key>.ValueCanBeNullIfDefaultSemantics
-        Sort.sortByGen comparer (fun _ctx x -> projection x) takeCount flow
+    let inline sortBy<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Sort.sortByGen mkComparer<'Key> projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered using the given comparer for the keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline sortByUsing (projection : 'T -> 'Key) comparer (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen comparer (fun _ctx x -> projection x) takeCount flow
+    let inline sortByUsing<'T, 'Key> (projection : 'T -> 'Key) (comparer : IComparer<'Key>) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Sort.sortByGen comparer projection takeCount flow
 
     /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered descending by keys.</summary>
     /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
     /// <param name="flow">The input CloudFlow.</param>
     /// <param name="takeCount">The number of elements to return.</param>
     /// <returns>The result CloudFlow.</returns>
-    let inline sortByDescending (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = mkDescComparer LanguagePrimitives.FastGenericComparer<'Key>
-        Sort.sortByGen comparer (fun _ctx x -> projection x) takeCount flow
-
-    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
-    /// <param name="projection">A locally executing cloud function to transform items of the input CloudFlow into comparable keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <param name="takeCount">The number of elements to return.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let sortByLocal (projection : 'T -> Local<'Key>) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = _PrivateFastGenericComparerTable<'Key>.ValueCanBeNullIfDefaultSemantics
-        Sort.sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount flow
-
-    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
-    /// <param name="projection">A locally executing cloud function to transform items of the input CloudFlow into comparable keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <param name="takeCount">The number of elements to return.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let sortByUsingLocal (projection : 'T -> Local<'Key>) comparer (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        Sort.sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount flow
-
-    /// <summary>Applies a key-generating locally executing cloud function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by descending keys.</summary>
-    /// <param name="projection">A locally executing cloud function to transform items of the input CloudFlow into comparable keys.</param>
-    /// <param name="flow">The input CloudFlow.</param>
-    /// <param name="takeCount">The number of elements to return.</param>
-    /// <returns>The result CloudFlow.</returns>
-    let sortByDescendingLocal (projection : 'T -> Local<'Key>) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
-        let comparer = mkDescComparer LanguagePrimitives.FastGenericComparer<'Key>
-        Sort.sortByGen comparer (fun ctx x -> projection x |> run ctx) takeCount flow
+    let inline sortByDescending<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (takeCount : int) (flow : CloudFlow<'T>) : CloudFlow<'T> =
+        Sort.sortByGen mkDescendingComparer projection takeCount flow
 
     /// <summary>Returns the first element for which the given function returns true. Returns None if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
     let inline tryFind (predicate : 'T -> bool) (flow : CloudFlow<'T>) : Cloud<'T option> =
-        NonDeterministic.tryFindGen (fun _ctx x -> predicate x) flow
-
-    /// <summary>Returns the first element for which the given locally executing cloud function returns true. Returns None if no such element exists.</summary>
-    /// <param name="predicate">A function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the predicate returns true, or None if every element evaluates to false.</returns>
-    let tryFindLocal (predicate : 'T -> Local<bool>) (flow : CloudFlow<'T>) : Cloud<'T option> =
-        NonDeterministic.tryFindGen (fun ctx x -> predicate x |> run ctx) flow
+        NonDeterministic.tryFind predicate flow
 
     /// <summary>Returns the first element for which the given function returns true. Raises KeyNotFoundException if no such element exists.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
@@ -588,33 +484,12 @@ module CloudFlow =
                 | None -> raise <| new KeyNotFoundException()
         }
 
-    /// <summary>Returns the first element for which the given locally executing cloud function returns true. Raises KeyNotFoundException if no such element exists.</summary>
-    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the predicate returns true.</returns>
-    /// <exception cref="System.KeyNotFoundException">Thrown if the predicate evaluates to false for all the elements of the cloud flow.</exception>
-    let findLocal (predicate : 'T -> Local<bool>) (flow : CloudFlow<'T>) : Cloud<'T> =
-        cloud {
-            let! result = tryFindLocal predicate flow
-            return
-                match result with
-                | Some value -> value
-                | None -> raise <| new KeyNotFoundException()
-        }
-
     /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.</summary>
     /// <param name="chooser">A function that transforms items into options.</param>
     /// <param name="flow">The input cloud flow.</param>
     /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
     let inline tryPick (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : Cloud<'R option> =
-        NonDeterministic.tryPickGen (fun _ctx x -> chooser x) flow
-
-    /// <summary>Applies the given locally executing cloud function to successive elements, returning the first result where the function returns a Some value.</summary>
-    /// <param name="chooser">A locally executing cloud function that transforms items into options.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the chooser returns Some, or None if every element evaluates to None.</returns>
-    let tryPickLocal (chooser : 'T -> Local<'R option>) (flow : CloudFlow<'T>) : Cloud<'R option> =
-        NonDeterministic.tryPickGen (fun ctx x -> chooser x |> run ctx) flow
+        NonDeterministic.tryPick chooser flow
 
     /// <summary>Applies the given function to successive elements, returning the first result where the function returns a Some value.
     /// Raises KeyNotFoundException when every item of the cloud flow evaluates to None when the given function is applied.</summary>
@@ -625,21 +500,6 @@ module CloudFlow =
     let inline pick (chooser : 'T -> 'R option) (flow : CloudFlow<'T>) : Cloud<'R> =
         cloud {
             let! result = tryPick chooser flow
-            return
-                match result with
-                | Some value -> value
-                | None -> raise <| new KeyNotFoundException()
-        }
-
-    /// <summary>Applies the given locally executing cloud function to successive elements, returning the first result where the function returns a Some value.
-    /// Raises KeyNotFoundException when every item of the cloud flow evaluates to None when the given function is applied.</summary>
-    /// <param name="chooser">A locally executing cloud function that transforms items into options.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>The first element for which the chooser returns Some, or raises KeyNotFoundException if every element evaluates to None.</returns>
-    /// <exception cref="System.KeyNotFoundException">Thrown if every item of the cloud flow evaluates to None when the given function is applied.</exception>
-    let pickLocal (chooser : 'T -> Local<'R option>) (flow : CloudFlow<'T>) : Cloud<'R> =
-        cloud {
-            let! result = tryPickLocal chooser flow
             return
                 match result with
                 | Some value -> value
@@ -659,20 +519,6 @@ module CloudFlow =
                 | None -> false
         }
 
-    /// <summary>Tests if any element of the flow satisfies the given locally executing cloud predicate.</summary>
-    /// <param name="predicate">A locally executing cloud function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>true if any element satisfies the predicate. Otherwise, returns false.</returns>
-    let existsLocal (predicate : 'T -> Local<bool>) (flow : CloudFlow<'T>) : Cloud<bool> =
-        cloud {
-            let! result = tryFindLocal predicate flow
-            return
-                match result with
-                | Some _ -> true
-                | None -> false
-        }
-
-
     /// <summary>Tests if all elements of the parallel flow satisfy the given predicate.</summary>
     /// <param name="predicate">A function to test each source element for a condition.</param>
     /// <param name="flow">The input cloud flow.</param>
@@ -680,17 +526,6 @@ module CloudFlow =
     let inline forall (predicate : 'T -> bool) (flow : CloudFlow<'T>) : Cloud<bool> =
         cloud {
             let! result = exists (fun x -> not <| predicate x) flow
-            return not result
-        }
-
-
-    /// <summary>Tests if all elements of the parallel flow satisfy the given predicate.</summary>
-    /// <param name="predicate">A function to test each source element for a condition.</param>
-    /// <param name="flow">The input cloud flow.</param>
-    /// <returns>true if all of the elements satisfies the predicate. Otherwise, returns false.</returns>
-    let forallLocal (predicate : 'T -> Local<bool>) (flow : CloudFlow<'T>) : Cloud<bool> =
-        cloud {
-            let! result = existsLocal (fun x -> local { let! v = predicate x in return not v }) flow
             return not result
         }
 
@@ -706,7 +541,7 @@ module CloudFlow =
     /// <returns>Nothing.</returns>
     let toCloudQueue (queue : CloudQueue<'T>) (flow : CloudFlow<'T>)  : Cloud<unit> =
         // TODO : use EnqueueBatch overload
-        flow |> iterLocal (fun v -> CloudQueue.Enqueue(queue, v))
+        flow |> iter queue.Enqueue
 
     /// <summary>
     ///     Returs true if the flow is empty and false otherwise.
@@ -725,7 +560,7 @@ module CloudFlow =
     let maxBy<'T, 'Key when 'Key : comparison> (projection: 'T -> 'Key) (flow: CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x ->
+                Fold.fold (fun state x ->
                                let kx = projection x
                                match state with
                                | None -> Some (ref x, ref kx)
@@ -734,7 +569,7 @@ module CloudFlow =
                                    k := kx
                                    state
                                | _ -> state)
-                        (fun _ left right ->
+                        (fun left right ->
                              match left, right with
                              | Some (_, k), Some (_, k') -> if !k' > !k then right else left
                              | None, _ -> right
@@ -755,7 +590,7 @@ module CloudFlow =
     let minBy<'T, 'Key when 'Key : comparison> (projection : 'T -> 'Key) (flow : CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x ->
+                Fold.fold (fun state x ->
                              let kx = projection x
                              match state with
                              | None -> Some (ref x, ref kx)
@@ -764,7 +599,7 @@ module CloudFlow =
                                  k := kx
                                  state
                              | _ -> state)
-                        (fun _ left right ->
+                        (fun left right ->
                              match left, right with
                              | Some (_, k), Some (_, k') -> if !k' > !k then left else right
                              | None, _ -> right
@@ -790,8 +625,8 @@ module CloudFlow =
     let reduce (reducer : 'T -> 'T -> 'T) (flow : CloudFlow<'T>) : Cloud<'T> =
         cloud {
             let! result =
-                Fold.foldGen (fun _ state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
-                        (fun _ left right ->
+                Fold.fold (fun state x -> match state with Some y -> y := reducer !y x; state | None -> Some (ref x))
+                        (fun left right ->
                          match left, right with
                          | Some y, Some x -> y := reducer !y !x; left
                          | None, Some _ -> right
@@ -890,13 +725,13 @@ module CloudFlow =
     /// <param name="secondSource">The second input flow.</param>
     /// <returns>A flow of tuples where each tuple contains the unique key and the sequences of all the elements that match the key.</returns>
     let inline groupJoinBy (firstProjection : 'T -> 'Key) (secondProjection : 'R -> 'Key) (secondSource : CloudFlow<'R>) (firstSource : CloudFlow<'T>) : CloudFlow<'Key * seq<'T> * seq<'R>> =
-        Fold.foldByGen2 
-               (fun _ x -> firstProjection x)
-               (fun _ x -> secondProjection x)
-               (fun _ ((xs : ResizeArray<'T>, _ : ResizeArray<'R>) as tuple) x -> xs.Add x; tuple)
-               (fun _ ((_ : ResizeArray<'T>, ys : ResizeArray<'R>) as tuple) y -> ys.Add y; tuple)
-               (fun _ (xs, ys) (xs', ys') -> ((xs.AddRange(xs'); xs), (ys.AddRange(ys'); ys)))
-               (fun _ -> (new ResizeArray<'T>(), new ResizeArray<'R>()))
+        Fold.foldBy2
+               firstProjection
+               secondProjection
+               (fun ((xs : ResizeArray<'T>, _ : ResizeArray<'R>) as tuple) x -> xs.Add x; tuple)
+               (fun ((_ : ResizeArray<'T>, ys : ResizeArray<'R>) as tuple) y -> ys.Add y; tuple)
+               (fun (xs, ys) (xs', ys') -> ((xs.AddRange(xs'); xs), (ys.AddRange(ys'); ys)))
+               (fun () -> (new ResizeArray<'T>(), new ResizeArray<'R>()))
                firstSource
                secondSource
         |> map (fun (k, (xs, ys)) -> k, xs :> seq<_>, ys :> seq<_>)

@@ -3,6 +3,7 @@
 open System
 
 open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Library
 
 open NUnit.Framework
@@ -28,7 +29,7 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
     member __.``Simple send/receive`` () =
         cloud {
             use! cq = CloudQueue.New<int> ()
-            let! _,value = CloudQueue.Enqueue(cq, 42) <||> CloudQueue.Dequeue cq
+            let! _,value = cloud { do! cq.EnqueueAsync 42 } <||> cloud { return! cq.DequeueAsync() }
             return value
         } |> runOnCloud |> shouldEqual 42
 
@@ -38,14 +39,14 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
             use! cq = CloudQueue.New<int option> ()
             let rec sender n = cloud {
                 if n = 0 then
-                    do! CloudQueue.Enqueue(cq, None)
+                    do! cq.EnqueueAsync None
                 else
-                    do! CloudQueue.Enqueue(cq, Some n)
+                    do! cq.EnqueueAsync(Some n)
                     return! sender (n-1)
             }
 
             let rec receiver c = cloud {
-                let! v = CloudQueue.Dequeue cq
+                let! v = cq.DequeueAsync()
                 match v with
                 | None -> return c
                 | Some i -> return! receiver (c + i)
@@ -60,34 +61,34 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
         let parallelismFactor = parallelismFactor
         cloud {
             use! cq = CloudQueue.New<int> ()
-            let sender n = cloud {
-                for i in [1 .. n] do
-                    do! CloudQueue.Enqueue(cq, i)
+            let sender n = local {
+                for i in 1 .. n do
+                    do! cq.EnqueueAsync i
             }
 
-            let rec receiver c n = cloud {
+            let rec receiver c n = local {
                 if n = 0 then return c
                 else
-                    let! i = CloudQueue.Dequeue cq
-                    return! receiver (c + 1) (n - 1)
+                    let! i = cq.DequeueAsync()
+                    return! receiver (c + i) (n - 1)
             }
 
             let senders = Seq.init parallelismFactor (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
             let! _,result = senders <||> receiver 0 (parallelismFactor * 10)
             return result
-        } |> runOnCloud |> shouldEqual (parallelismFactor * 10)
+        } |> runOnCloud |> shouldEqual (parallelismFactor * 55)
 
     [<Test>]
     member __.``Batch enqueue/dequeue`` () =
         let xs = [|1 .. 1000|]
         cloud {
             use! queue = CloudQueue.New<int>()
-            do! queue.EnqueueBatch xs
+            do! queue.EnqueueBatchAsync xs
             let gathered = new ResizeArray<int>()
             let rec dequeue count = cloud {
                 if count <= 0 then return ()
                 else
-                    let! dq = queue.DequeueBatch(maxItems = count)
+                    let! dq = queue.DequeueBatchAsync(maxItems = count)
                     gathered.AddRange dq
                     return! dequeue (count - dq.Length)
             }
@@ -100,8 +101,8 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedNamedLookup then
             cloud {
                 use! queue = CloudQueue.New<int> ()
-                do! queue.Enqueue 42
+                do! queue.EnqueueAsync 42
                 let! queue' = CloudQueue.New<int>(queue.Id)
-                let! x = queue'.Dequeue()
+                let! x = queue'.DequeueAsync()
                 return x
             } |> runOnCloud |> shouldEqual 42

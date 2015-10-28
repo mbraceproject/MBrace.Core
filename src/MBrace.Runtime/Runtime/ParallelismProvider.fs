@@ -49,8 +49,8 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
         member __.WithForcedLocalParallelismSetting (setting : bool) = 
             new ParallelismProvider(currentWorker, runtime, currentWorkItem, faultPolicy, logger, setting) :> IParallelismProvider
 
-        member __.ScheduleLocalParallel (computations : seq<Local<'T>>) = Combinators.Parallel(mkNestedCts false, MemoryEmulation.Shared, computations)
-        member __.ScheduleLocalChoice (computations : seq<Local<'T option>>) = Combinators.Choice(mkNestedCts false, MemoryEmulation.Shared, computations)
+        member __.ScheduleLocalParallel (computations : seq<LocalCloud<'T>>) = Combinators.Parallel(mkNestedCts false, MemoryEmulation.Shared, computations)
+        member __.ScheduleLocalChoice (computations : seq<LocalCloud<'T option>>) = Combinators.Choice(mkNestedCts false, MemoryEmulation.Shared, computations)
 
         member __.ScheduleParallel (computations : seq<#Cloud<'T> * IWorkerRef option>) = cloud {
             if isForcedLocalParallelism then
@@ -72,7 +72,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
             if isForcedLocalParallelism then
                 return invalidOp <| sprintf "cannot initialize cloud process when evaluating using local semantics."
             else
-                let! task = Combinators.runStartAsCloudProcess runtime (Some currentWorkItem.Process) currentWorkItem.Process.Info.Dependencies taskName faultPolicy cancellationToken currentWorkItem.Process.Info.AdditionalResources target workflow 
+                let! task = Cloud.OfAsync <| Combinators.runStartAsCloudProcess runtime (Some currentWorkItem.Process) currentWorkItem.Process.Info.Dependencies taskName faultPolicy cancellationToken currentWorkItem.Process.Info.AdditionalResources target workflow 
                 return task :> ICloudProcess<'T>
         }
 

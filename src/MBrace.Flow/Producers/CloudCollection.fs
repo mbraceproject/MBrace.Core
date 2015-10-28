@@ -24,23 +24,30 @@ type internal CloudCollection private () =
     static member ToCloudFlow (collection : ICloudCollection<'T>, ?weight : IWorkerRef -> int, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) = cloud {
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
                 // Performs flow reduction on given input partition in a single MBrace work item
                 let reducePartitionsInSingleWorkItem (partitions : ICloudCollection<'T> []) = local {
                     // further partition according to collection size threshold, if so specified.
                     let! partitionSlices = local {
                         match sizeThresholdPerWorker with
                         | None -> return [| partitions |]
-                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.GetSize()) (f ())
+                        | Some f -> return! partitions |> Partition.partitionBySize (fun p -> p.GetSizeAsync()) (f ()) |> Cloud.OfAsync
                     }
 
                     // compute a single partition
                     let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
                         let! collector = collectorf
-                        let! seqs = slice |> Seq.map (fun p -> p.ToEnumerable()) |> Async.Parallel
-                        let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
-                        let value = pStream.Apply (collector.ToParStreamCollector())
-                        return! projection value
+                        let! seqs = slice |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
+                        // Partial fix for performance issue when the number of slices is less than the number of cores
+                        match seqs with
+                        | [|col|] ->
+                            let pStream = col |> ParStream.ofSeq 
+                            let value = pStream.Apply (collector.ToParStreamCollector())
+                            return! projection value
+                        | _ ->
+                            let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
+                            let value = pStream.Apply (collector.ToParStreamCollector())
+                            return! projection value
                     }
 
                     // sequentially compute partitions
@@ -53,7 +60,26 @@ type internal CloudCollection private () =
                 match collection with
                 | :? ITargetedPartitionCollection<'T> as tpc when isTargetedWorkerSupported ->
                     // scheduling data is encapsulated in CloudCollection, partition according to this
-                    let! assignedPartitions = CloudCollection.ExtractTargetedCollections [|tpc|]
+                    let! assignedPartitions = CloudCollection.ExtractTargetedCollections [|tpc|] |> Cloud.OfAsync
+
+                    // reassign partitions according to the available workers
+                    let! assignedPartitions = local {
+                        let! workerRefs = Cloud.GetAvailableWorkers()
+                        let missingWorkerRefs = Set.difference (Set.ofArray (assignedPartitions |> Array.map fst))
+                                                               (Set.ofArray workerRefs) 
+                        let availableWorkerRefs = Set.difference (Set.ofArray workerRefs)
+                                                                 (Set.ofArray (assignedPartitions |> Array.map fst)) |> Set.toArray
+                        let result = 
+                            let availableCounter = ref 0
+                            [| for (w, cols) in assignedPartitions do 
+                                if Set.contains w missingWorkerRefs then
+                                    yield (availableWorkerRefs.[!availableCounter], cols)
+                                    incr availableCounter
+                                else
+                                    yield (w, cols) |]
+
+                        return result
+                    }
 
                     if Array.isEmpty assignedPartitions then return! combiner [||] else
                     let! results =
@@ -75,8 +101,8 @@ type internal CloudCollection private () =
                     | Some dp -> [| for i in 0 .. dp - 1 -> workers.[i % workers.Length] |]
 
 
-                let! partitions = CloudCollection.ExtractPartitions collection
-                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported, ?weight = weight)
+                let! partitions = CloudCollection.ExtractPartitions collection |> Cloud.OfAsync
+                let! partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargetedWorkerSupported, ?weight = weight) |> Cloud.OfAsync
                 if Array.isEmpty partitionss then return! combiner [||] else
                         
                 let! results =

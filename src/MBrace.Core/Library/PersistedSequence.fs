@@ -3,6 +3,7 @@
 open System
 open System.Collections
 open System.Collections.Generic
+open System.Diagnostics
 open System.Runtime.Serialization
 open System.Text
 open System.IO
@@ -36,11 +37,18 @@ type PersistedSequence<'T> =
         { store = store ; path = path ; etag = etag ; count = count ; deserializer = deserializer }
 
     member private c.GetEnumerableAsync() : Async<seq<'T>> = async {
-        let! streamOpt = c.store.ReadETag(c.path, c.etag)
-        return
-            match streamOpt with
-            | None -> raise <| new InvalidDataException(sprintf "CloudSequence: incorrect etag in file '%s'." c.path)
-            | Some stream -> c.deserializer stream
+        let! stream = async {
+            match c.etag with
+            | null -> return! c.store.BeginRead c.path
+            | etag ->
+                let! streamOpt = c.store.ReadETag(c.path, etag)
+                return
+                    match streamOpt with
+                    | None -> raise <| new InvalidDataException(sprintf "PersistedSequence: incorrect etag in file '%s'." c.path)
+                    | Some stream -> stream
+        }
+
+        return c.deserializer stream
     }
 
     interface IEnumerable<'T> with
@@ -53,9 +61,6 @@ type PersistedSequence<'T> =
         return Seq.toArray seq 
     }
 
-    /// Fetches all elements of the cloud sequence and returns them as a local array.
-    member c.ToArray () : 'T [] = c.ToArrayAsync() |> Async.RunSync
-
     /// Path to Cloud sequence in store.
     member c.Path = c.path
 
@@ -65,7 +70,7 @@ type PersistedSequence<'T> =
     /// ETag of persisted sequence instance.
     member c.ETag = c.etag
 
-    /// Asynchronously gets Cloud sequence element count
+    /// Asynchronously gets persisted sequence element count
     member c.GetCountAsync() = async {
         match c.count with
         | Some l -> return l
@@ -77,16 +82,26 @@ type PersistedSequence<'T> =
             return l
     }
 
-    /// Gets Cloud sequence element count
-    member c.Count = c.GetCountAsync() |> Async.RunSync
-
     /// Asynchronously gets underlying sequence size in bytes
     member c.GetSizeAsync() = async {
         return! c.store.GetFileSize c.path
     }
 
+    /// Gets persisted sequence element count
+    member c.GetCount() = Cloud.OfAsync <| c.GetCountAsync()
+
+    /// Gets underlying sequence size in bytes
+    member c.GetSize() = Cloud.OfAsync <| c.GetSizeAsync()
+
+    /// Gets Cloud sequence element count
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member c.Count = c.GetCountAsync() |> Async.RunSync
+
     /// Gets underlying sequence size in bytes
     member c.Size = c.GetSizeAsync() |> Async.RunSync
+
+    /// Fetches all elements of the cloud sequence and returns them as a local array.
+    member c.ToArray () : 'T [] = c.ToArrayAsync() |> Async.RunSync
 
     interface ICloudDisposable with
         member c.Dispose () = async {
@@ -97,11 +112,11 @@ type PersistedSequence<'T> =
         member c.IsKnownCount = Option.isSome c.count
         member c.IsKnownSize = true
         member c.IsMaterialized = false
-        member c.GetCount() = c.GetCountAsync()
-        member c.GetSize() = c.GetSizeAsync()
-        member c.ToEnumerable() = c.GetEnumerableAsync()
+        member c.GetCountAsync() = c.GetCountAsync()
+        member c.GetSizeAsync() = c.GetSizeAsync()
+        member c.GetEnumerableAsync() = c.GetEnumerableAsync()
 
-    override c.ToString() = sprintf "CloudSequence[%O] at %s" typeof<'T> c.path
+    override c.ToString() = sprintf "PersistedSequence[%O] at %s" typeof<'T> c.path
     member private c.StructuredFormatDisplay = c.ToString()  
 
 /// Partitionable implementation of cloud file line reader
@@ -123,19 +138,10 @@ type private TextSequenceByLine(store : ICloudFileStore, path : string, etag : E
                 let partitions = Array.splitWeightedRange weights 0L size
                 Array.map mkRangedSeq partitions
 
-            if size < 512L * 1024L then
-                // partition lines in-memory if file is particularly small.
-                let! count = (cs :> PersistedSequence<_>).GetCountAsync()
-                if count < int64 weights.Length then
-                    let! lines = (cs :> PersistedSequence<_>).ToArrayAsync()
-                    let liness = Array.splitWeighted weights lines
-                    return liness |> Array.map (fun lines -> new SequenceCollection<string>(lines) :> ICloudCollection<_>)
-                else
-                    return mkRangedSeqs weights
-            else
-                return mkRangedSeqs weights
+            return mkRangedSeqs weights
         }
 
+/// Persisted Sequence collection of APIs
 type PersistedSequence =
 
     /// <summary>
@@ -145,7 +151,7 @@ type PersistedSequence =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
-    static member New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?compress : bool) : Local<PersistedSequence<'T>> = local {
+    static member New(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?compress : bool) : LocalCloud<PersistedSequence<'T>> = local {
         let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let path = 
@@ -173,7 +179,7 @@ type PersistedSequence =
 
             return _serializer.SeqSerialize<'T>(stream, values, leaveOpen = false) |> int64
         }
-        let! etag, length = store.WriteETag(path, writer)
+        let! etag, length = Cloud.OfAsync <| store.WriteETag(path, writer)
         return new PersistedSequence<'T>(store, path, etag, Some length, deserializer)
     }
 
@@ -185,7 +191,7 @@ type PersistedSequence =
     /// <param name="maxPartitionSize">Maximum size in bytes per cloud sequence partition.</param>
     /// <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-    static member NewPartitioned(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer) : Local<PersistedSequence<'T> []> = local {
+    static member NewPartitioned(values : seq<'T>, maxPartitionSize : int64, ?directory : string, ?serializer : ISerializer) : LocalCloud<PersistedSequence<'T> []> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let directory = defaultArg directory store.DefaultDirectory
         let! _serializer = local {
@@ -195,7 +201,7 @@ type PersistedSequence =
         }
 
         let deserializer (stream : Stream) = _serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
-        return! async {
+        return! Cloud.OfAsync <| async {
             if maxPartitionSize <= 0L then return invalidArg "maxPartitionSize" "Must be greater that 0."
 
             let seqs = new ResizeArray<PersistedSequence<'T>>()
@@ -217,13 +223,18 @@ type PersistedSequence =
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided deserialization function.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided deserialization function.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to file.</param>
     /// <param name="deserializer">Sequence deserializer function.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?force : bool) : Local<PersistedSequence<'T>> = local {
+    /// <param name="ensureFileExists">Check that path exists in store. Defaults to true.</param>
+    /// <param name="forceEvaluation">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+    /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
+    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> seq<'T>, ?ensureFileExists : bool, ?forceEvaluation : bool, ?resolveEtag : bool) : LocalCloud<PersistedSequence<'T>> = local {
+        let ensureFileExists = defaultArg ensureFileExists true
+        let forceEvaluation = defaultArg forceEvaluation false
+        let resolveEtag = defaultArg resolveEtag false
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let! deserializer = local {
             match deserializer with
@@ -233,38 +244,52 @@ type PersistedSequence =
                 return fun s -> serializer.SeqDeserialize<'T>(s, leaveOpen = true)
         }
 
-        let! etag = store.TryGetETag path
-        match etag with
-        | None -> return raise <| new FileNotFoundException(path)
-        | Some et ->
-            let cseq = new PersistedSequence<'T>(store, path, et, None, deserializer)
-            if defaultArg force false then
-                let! _ = cseq.GetCountAsync() in ()
+        let! etag = Cloud.OfAsync <| async {
+            if resolveEtag then
+                let! etag = store.TryGetETag path
+                match etag with
+                | None -> return raise <| new FileNotFoundException(path)
+                | Some et -> return et
+            elif not forceEvaluation && ensureFileExists then
+                let! exists = store.FileExists path
+                if not exists then return raise <| new FileNotFoundException(path)
+                else
+                    return null        
+            else
+                return null
+        }
+        
+        let cseq = new PersistedSequence<'T>(store, path, etag, None, deserializer)
+        if forceEvaluation then let! _ = Cloud.OfAsync <| cseq.GetCountAsync() in ()
 
-            return cseq
+        return cseq
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided serializer implementation.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided serializer implementation.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to Cloud sequence.</param>
     /// <param name="serializer">Serializer implementation used for element deserialization.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?force : bool) : Local<PersistedSequence<'T>> = local {
+    /// <param name="ensureFileExists">Check that path exists in store. Defaults to true.</param>
+    /// <param name="forceEvaluation">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+    /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
+    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?ensureFileExists : bool, ?forceEvaluation : bool, ?resolveEtag : bool) : LocalCloud<PersistedSequence<'T>> = local {
         let deserializer stream = serializer.SeqDeserialize<'T>(stream, leaveOpen = false)
-        return! PersistedSequence.OfCloudFile<'T>(path, deserializer = deserializer, ?force = force)
+        return! PersistedSequence.OfCloudFile<'T>(path, deserializer = deserializer, ?ensureFileExists = ensureFileExists, ?forceEvaluation = forceEvaluation, ?resolveEtag = resolveEtag)
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided text deserialization function.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to file.</param>
     /// <param name="textDeserializer">Text deserializer function.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?encoding : Encoding, ?force : bool) : Local<PersistedSequence<'T>> = local {
+    /// <param name="ensureFileExists">Check that path exists in store. Defaults to true.</param>
+    /// <param name="forceEvaluation">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+    /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
+    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> seq<'T>, ?ensureFileExists : bool, ?encoding : Encoding, ?forceEvaluation : bool, ?resolveEtag : bool) : LocalCloud<PersistedSequence<'T>> = local {
         let deserializer (stream : Stream) =
             let sr = 
                 match encoding with
@@ -273,25 +298,39 @@ type PersistedSequence =
 
             textDeserializer sr 
         
-        return! PersistedSequence.OfCloudFile<'T>(path, deserializer, ?force = force)
+        return! PersistedSequence.OfCloudFile<'T>(path, deserializer, ?ensureFileExists = ensureFileExists, ?forceEvaluation = forceEvaluation, ?resolveEtag = resolveEtag)
     }
 
     /// <summary>
-    ///     Defines a CloudSequence from provided cloud file path with user-provided text deserialization function.
+    ///     Defines a PersistedSequence from provided cloud file path with user-provided text deserialization function.
     ///     This is a lazy operation unless the optional 'force' parameter is enabled.
     /// </summary>
     /// <param name="path">Path to file.</param>
     /// <param name="encoding">Text encoding. Defaults to UTF8.</param>
-    /// <param name="force">Check integrity by forcing deserialization on creation. Defaults to false.</param>
-    static member OfCloudFileByLine(path : string, ?encoding : Encoding, ?force : bool) : Local<PersistedSequence<string>> = local {
+    /// <param name="ensureFileExists">Check that path exists in store. Defaults to true.</param>
+    /// <param name="forceEvaluation">Check integrity by forcing deserialization on creation. Defaults to false.</param>
+    /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
+    static member OfCloudFileByLine(path : string, ?encoding : Encoding, ?ensureFileExists : bool, ?forceEvaluation : bool, ?resolveEtag : bool) : LocalCloud<PersistedSequence<string>> = local {
+        let ensureFileExists = defaultArg ensureFileExists true
+        let forceEvaluation = defaultArg forceEvaluation false
+        let resolveEtag = defaultArg resolveEtag false
         let! store = Cloud.GetResource<ICloudFileStore> ()
-        let! etag = store.TryGetETag path
-        match etag with
-        | None -> return raise <| new FileNotFoundException(path)
-        | Some et ->
-            let cseq = new TextSequenceByLine(store, path, et, ?encoding = encoding)
-            if defaultArg force false then
-                let! _ = cseq.GetCountAsync() in ()
+        let! etag = Cloud.OfAsync <| async {
+            if resolveEtag then
+                let! etag = store.TryGetETag path
+                match etag with
+                | None -> return raise <| new FileNotFoundException(path)
+                | Some et -> return et
+            elif not forceEvaluation && ensureFileExists then
+                let! exists = store.FileExists path
+                if not exists then return raise <| new FileNotFoundException(path)
+                else
+                    return null        
+            else
+                return null
+        }
 
-            return cseq :> PersistedSequence<string>
+        let cseq = new TextSequenceByLine(store, path, etag, ?encoding = encoding)
+        if forceEvaluation then let! _ = Cloud.OfAsync <| cseq.GetCountAsync() in ()
+        return cseq :> PersistedSequence<string>
     }

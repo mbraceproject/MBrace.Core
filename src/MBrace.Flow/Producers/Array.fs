@@ -1,4 +1,4 @@
-﻿namespace MBrace.Flow
+﻿namespace MBrace.Flow.Internals
 
 open Nessos.Streams
 
@@ -11,15 +11,15 @@ open MBrace.Flow.Internals
 
 #nowarn "444"
 
-type internal Array =
+type Array =
 
     /// <summary>Wraps array as a CloudFlow.</summary>
     /// <param name="source">The input array.</param>
     /// <returns>The result CloudFlow.</returns>
-    static member ToCloudFlow (source : 'T []) : CloudFlow<'T> =
+    static member ToCloudFlow (source : 'T [], ?degreeOfParallelism : int) : CloudFlow<'T> =
         { new CloudFlow<'T> with
-            member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : Local<Collector<'T, 'S>>) (projection : 'S -> Local<'R>) (combiner : 'R [] -> Local<'R>) =
+            member self.DegreeOfParallelism = degreeOfParallelism
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
                 cloud {
                     // local worker ParStream workflow
                     let createTask array = local {

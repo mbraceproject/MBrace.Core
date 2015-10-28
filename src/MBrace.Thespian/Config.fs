@@ -81,3 +81,9 @@ type Config private () =
     static member LocalMBraceUri = checkInitialized() ; sprintf "mbrace://%s:%d" TcpListenerPool.DefaultHostname _localTcpPort
     /// Hostname that the thespian instance is listening to
     static member HostName = checkInitialized() ; TcpListenerPool.DefaultHostname
+    /// Sets the System.Console title
+    static member SetConsoleTitle(?status : string) =
+        checkInitialized()
+        let pid = System.Diagnostics.Process.GetCurrentProcess().Id
+        let status = defaultArg status "Worker"
+        Console.Title <- sprintf "MBrace.Thespian %s [pid:%d, port:%d]" status pid Config.LocalTcpPort

@@ -55,7 +55,7 @@ type private StoreAssemblyUploader(store : ICloudFileStore, imem : ThreadPoolRun
     let tryGetCurrentMetadata (id : AssemblyId) = local {
         try 
             let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath getFullPath id)
-            let! md = c.GetValueAsync()
+            let! md = Cloud.OfAsync <| c.GetValueAsync()
             return Some md
 
         with :? FileNotFoundException -> return None
@@ -186,7 +186,7 @@ type private StoreAssemblyDownloader(store : ICloudFileStore, imem : ThreadPoolR
         member x.ReadMetadata(id: AssemblyId): Async<VagabondMetadata> = 
             local {
                 let! c = PersistedValue.OfCloudFile<VagabondMetadata>(getStoreMetadataPath getFullPath id)
-                return! c.GetValueAsync()
+                return! Cloud.OfAsync <| c.GetValueAsync()
             } |> imem.ToAsync
 
         member x.GetPersistedDataDependencyReader(id : AssemblyId, dd : DataDependencyInfo, hash : HashResult): Async<Stream> = async {

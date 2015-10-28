@@ -62,7 +62,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
             match clone with
             | Choice1Of2 (comp, cont) -> 
                 let cont' = Continuation.map (fun t -> [| t |]) cont
-                Cloud.StartWithContinuations(comp, cont', ctx)
+                Cloud.StartImmediateWithContinuations(comp, cont', ctx)
 
             | Choice2Of2 e ->
                 let msg = sprintf "Cloud.Parallel<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
@@ -187,7 +187,7 @@ let runChoice (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
         | Choice1Of2 [| (comp, None) |] -> 
             let clone = try FsPickler.Clone ((comp, cont)) |> Choice1Of2 with e -> Choice2Of2 e
             match clone with
-            | Choice1Of2 (comp, cont) -> Cloud.StartWithContinuations(comp, cont, ctx)
+            | Choice1Of2 (comp, cont) -> Cloud.StartImmediateWithContinuations(comp, cont, ctx)
             | Choice2Of2 e ->
                 let msg = sprintf "Cloud.Choice<%s> workflow uses non-serializable closures." Type.prettyPrint<'T>
                 let se = new SerializationException(msg, e)
@@ -327,29 +327,38 @@ let runStartAsCloudProcess (runtime : IRuntimeManager) (parentProc : ICloudProce
 
         let! tcs = runtime.ProcessManager.StartProcess taskInfo
 
-        let setResult ctx (result : CloudProcessResult) status = 
+        let setResult ctx (result : CloudProcessResult) = 
             async {
                 let currentWorker = ctx.Resources.Resolve<IWorkerId> ()
                 match ensureSerializable result with
                 | Some e ->
                     let msg = sprintf "Could not serialize result for task '%s' of type '%s'." tcs.Id Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
-                    let! _ = tcs.TrySetResult(Exception (ExceptionDispatchInfo.Capture se), currentWorker)
                     do! tcs.DeclareStatus CloudProcessStatus.Faulted
+                    let! _ = tcs.TrySetResult(Exception (ExceptionDispatchInfo.Capture se), currentWorker)
+                    ()
+
                 | None ->
-                    let! _ = tcs.TrySetResult(result, currentWorker)
+                    let status =
+                        match result with
+                        | Completed _ -> CloudProcessStatus.Completed
+                        | Cancelled _ -> CloudProcessStatus.Canceled
+                        | Exception edi when edi.IsFaultException -> CloudProcessStatus.Faulted
+                        | Exception _ -> CloudProcessStatus.UserException
+
                     do! tcs.DeclareStatus status
+                    let! _ = tcs.TrySetResult(result, currentWorker)
+                    ()
 
                 cts.Cancel()
                 WorkItemExecutionMonitor.TriggerCompletion ctx
             } |> WorkItemExecutionMonitor.ProtectAsync ctx
 
-        let scont ctx t = setResult ctx (Completed t) CloudProcessStatus.Completed
-        let econt ctx e = setResult ctx (Exception e) CloudProcessStatus.UserException
-        let ccont ctx c = setResult ctx (Cancelled c) CloudProcessStatus.Canceled
-        let fcont ctx e = setResult ctx (Exception e) CloudProcessStatus.Faulted
+        let scont ctx t = setResult ctx (Completed t)
+        let econt ctx e = setResult ctx (Exception e)
+        let ccont ctx c = setResult ctx (Cancelled c)
 
-        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.ProcessRoot, computation, fcont = fcont, ?target = target)
+        let workItem = CloudWorkItem.Create (tcs, cts, faultPolicy, scont, econt, ccont, CloudWorkItemType.ProcessRoot, computation, ?target = target)
         do! runtime.WorkItemQueue.Enqueue(workItem, isClientSideEnqueue = Option.isNone parentProc)
         runtime.SystemLogger.Logf LogLevel.Info "Posted CloudProcess<%s> '%s'." tcs.Info.ReturnTypeName tcs.Id
         return new CloudProcess<'T>(tcs, runtime)

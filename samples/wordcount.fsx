@@ -5,14 +5,14 @@
 #r "MBrace.Runtime.dll"
 #r "MBrace.Thespian.dll"
 #r "MBrace.Flow.dll"
-#r "Streams.Core.dll"
+#r "Streams.dll"
 
 open MBrace.Core
 open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-MBraceWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../bin/mbrace.thespian.worker.exe"
+ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../bin/mbrace.thespian.worker.exe"
 
 (* WordCount Example using CloudFlow *)
 
@@ -46,26 +46,25 @@ let splitWords =
 let normalize (word : string) = word.Trim().ToLower()
 
 /// Checks if provided word qualifies as noise
-let isNoiseWord (word : string) = word.Length < 3 || noiseWords.Contains(word)
+let isNoiseWord (word : string) = word.Length <= 3 || noiseWords.Contains(word)
 
 /// Computes and caches words across the MBrace cluster
-let getWords (urls : seq<string>) =
+let downloadAndCacheTextFiles (urls : seq<string>) =
     CloudFlow.OfHttpFileByLine urls
-    |> CloudFlow.collect (fun line -> splitWords line)
-    |> CloudFlow.map normalize
     |> CloudFlow.cache
 
 /// Computes the word count using the input cloud flow
-let getWordCount (count : int) (words : CloudFlow<string>) =
-    words
-    |> CloudFlow.collect (fun line -> splitWords line |> Seq.map normalize)
-    |> CloudFlow.filter isNoiseWord
+let computeWordcount (count : int) (lines : CloudFlow<string>) =
+    lines
+    |> CloudFlow.collect splitWords
+    |> CloudFlow.map normalize
+    |> CloudFlow.filter (not << isNoiseWord)
     |> CloudFlow.countBy id
     |> CloudFlow.sortBy (fun (_,c) -> -c) count
     |> CloudFlow.toArray
 
 /// initialize a local cluster of 4 workers
-let cluster = MBraceCluster.InitOnCurrentMachine(workerCount = 4, logger = new ConsoleLogger())
+let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 4, logger = new ConsoleLogger())
 
 /// input data set
 let testUrls = 
@@ -78,6 +77,10 @@ let testUrls =
         "http://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt" 
     |]
              
-let words = getWords testUrls |> cluster.Run
+// download and cache text across cluster worker nodes
+let cachedText = downloadAndCacheTextFiles testUrls |> cluster.Run
 
-let wordCount = getWordCount 10 words |> cluster.Run
+// perform the wordcount computation
+let wordCount = computeWordcount 100 cachedText |> cluster.Run
+
+cluster.ShowProcesses()

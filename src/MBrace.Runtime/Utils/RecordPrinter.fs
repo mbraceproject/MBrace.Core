@@ -37,11 +37,17 @@ type Record =
     /// <param name="table">Row Inputs.</param>
     /// <param name="title">Record title.</param>
     /// <param name="useBorders">Render ascii borders. Defaults to false.</param>
-    static member PrettyPrint (template : Field<'Record> list, table : 'Record list list, ?title : string, ?useBorders) : string =
+    /// <param name="useBorders">Parallelize record field extraction. Defaults to false.</param>
+    static member PrettyPrint (template : Field<'Record> list, table : 'Record list list, ?title : string, ?useBorders : bool, ?parallelize : bool) : string =
         let useBorders = defaultArg useBorders false
+        let parallelize = defaultArg parallelize false
         let header = template |> List.map (fun f -> f.Label, f.Label, f.Align) : UntypedRecord
         let getLine (r : 'Record) = template |> List.map (fun f -> f.Label, f.Getter r, f.Align)
-        let untypedTable = List.map (List.map getLine) table : UntypedRecord list list
+        let untypedTable = 
+            if parallelize then
+                table |> List.toArray |> Array.Parallel.map (List.toArray >> Array.Parallel.map getLine >> Array.toList) |> Array.toList
+            else
+                List.map (List.map getLine) table : UntypedRecord list list
 
         let padding = 2
         let margin = 1
@@ -147,7 +153,7 @@ type Record =
 
         } |> String.concat ""
 
-    /// pretty print with no grouping
+
     /// <summary>
     ///     Pretty print a collection of ungrouped records.
     /// </summary>
@@ -155,5 +161,6 @@ type Record =
     /// <param name="table">Row Inputs.</param>
     /// <param name="title">Record title.</param>
     /// <param name="useBorders">Render ascii borders. Defaults to false.</param>
-    static member PrettyPrint(template : Field<'Record> list, inputs : 'Record list, ?title, ?useBorders) =
-        Record.PrettyPrint(template, [inputs], ?title = title, ?useBorders = useBorders)
+    /// <param name="useBorders">Parallelize record field extraction. Defaults to false.</param>
+    static member PrettyPrint(template : Field<'Record> list, inputs : 'Record list, ?title, ?useBorders : bool, ?parallelize : bool) =
+        Record.PrettyPrint(template, [inputs], ?title = title, ?useBorders = useBorders, ?parallelize = parallelize)

@@ -63,26 +63,22 @@ type ConsoleCloudLogger() =
 
 /// Cloud process implementation that wraps around System.Threading.Task for inmemory runtimes
 [<AutoSerializable(false); CloneableOnly>]
-type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
+type ThreadPoolProcess<'T> internal (task : Task<'T>, ct : ICloudCancellationToken) =
     member __.LocalTask = task
     interface ICloudProcess<'T> with
         member __.Id = sprintf "System.Threading.Task %d" task.Id
-        member __.AwaitResult(?timeoutMilliseconds:int) = async {
-            try return! Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
-            with :? AggregateException as e -> return! Async.Raise (e.InnerExceptions.[0])
+        member __.WaitAsync(?timeoutMilliseconds:int) =
+            Async.WithTimeout(Async.AwaitTaskCorrect task |> Async.Ignore, ?timeoutMilliseconds = timeoutMilliseconds)
+        member __.AwaitResultAsync(?timeoutMilliseconds:int) =
+            Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
+
+        member __.AwaitResultBoxedAsync(?timeoutMilliseconds:int) : Async<obj> = async {
+            let! r = Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
+            return r :> obj
         }
 
-        member __.AwaitResultBoxed(?timeoutMilliseconds:int) : Async<obj> = async {
-            try 
-                let! r = Async.WithTimeout(Async.AwaitTaskCorrect task, ?timeoutMilliseconds = timeoutMilliseconds)
-                return r :> obj
-
-            with :? AggregateException as e -> 
-                return! Async.Raise (e.InnerExceptions.[0])
-        }
-
-        member __.TryGetResult () = async { return task.TryGetResult() }
-        member __.TryGetResultBoxed () = async { return task.TryGetResult() |> Option.map box }
+        member __.TryGetResultAsync () = async { return task.TryGetResult() }
+        member __.TryGetResultBoxedAsync () = async { return task.TryGetResult() |> Option.map box }
         member __.Status = 
             match task.Status with
             | TaskStatus.Created -> CloudProcessStatus.Created
@@ -98,24 +94,5 @@ type ThreadPoolTask<'T> internal (task : Task<'T>, ct : ICloudCancellationToken)
         member __.IsFaulted = task.IsFaulted
         member __.IsCanceled = task.IsCanceled
         member __.CancellationToken = ct
-        member __.Result = task.GetResult()
-        member __.ResultBoxed = task.GetResult() :> obj
-
-
-/// FsPickler Binary serializer for use by thread pool runtimes
-type ThreadPoolFsPicklerBinarySerializer() =
-    inherit FsPicklerStoreSerializer ()
-    override __.Id = "In-Memory FsPickler Binary Serializer"
-    override __.CreateSerializer () = FsPickler.CreateBinarySerializer() :> _
-
-/// FsPickler Xml serializer for use by thread pool runtimes
-type ThreadPoolFsPicklerXmlSerializer() =
-    inherit FsPicklerStoreSerializer ()
-    override __.Id = "In-Memory FsPickler Xml Serializer"
-    override __.CreateSerializer () = FsPickler.CreateXmlSerializer() :> _
-
-/// FsPickler Json serializer for use by thread pool runtimes
-type ThreadPoolFsPicklerJsonSerializer() =
-    inherit FsPicklerStoreSerializer ()
-    override __.Id = "In-Memory FsPickler Json Serializer"
-    override __.CreateSerializer () = FsPickler.CreateJsonSerializer() :> _
+        member __.Result = task.CorrectResult
+        member __.ResultBoxed = task.CorrectResult :> obj

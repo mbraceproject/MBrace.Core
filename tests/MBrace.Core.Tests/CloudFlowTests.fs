@@ -1,17 +1,24 @@
 ﻿namespace MBrace.Core.Tests
 
-#nowarn "0444" // Disable mbrace warnings
 open System
+open System.Threading
 open System.Linq
 open System.Collections.Generic
 open System.Net
+open System.Text
 open System.IO
+
 open FsCheck
+
 open NUnit.Framework
+
+open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Flow
 open MBrace.Flow.Internals
-open MBrace.Core
-open System.Text
+
+
+#nowarn "0444" // Disable mbrace warnings
 
 // Helper type
 type Separator = N | R | RN
@@ -74,13 +81,18 @@ type ``CloudFlow tests`` () as self =
 
         lineCount
 
+    /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
+    /// Evaluate workflow in the local test process
     abstract RunLocally : Cloud<'T> -> 'T
+    /// Run workflow in the runtime under test, returning logs created by the process.
+    abstract RunWithLogs : workflow:Cloud<unit> -> string []
     abstract IsSupportedStorageLevel : StorageLevel -> bool
     abstract FsCheckMaxNumberOfTests : int
     abstract FsCheckMaxNumberOfIOBoundTests : int
 
     // #region Flow persist tests
+
 
     [<Test>]
     member __.``1. PersistedCloudFlow : Simple StorageLevel.Disk`` () =
@@ -391,6 +403,18 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : peek`` () =
+        let f(xs : int[]) =
+            let wf = cloud {
+                let! ys = xs |> CloudFlow.OfArray |> CloudFlow.peek (Cloud.Logf "%d") |> CloudFlow.toArray
+                Assert.AreEqual(Array.sort ys, Array.sort xs)
+            }
+            let logs = __.RunWithLogs wf
+            logs.Length |> shouldEqual xs.Length
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : filter`` () =
         let f(xs : int[]) =
             let x = xs |> CloudFlow.OfArray |> CloudFlow.filter (fun n -> n % 2 = 0) |> CloudFlow.toArray |> runOnCloud
@@ -692,6 +716,23 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : verify multicore utilization`` () = 
+        let f(count : int) = 
+            let path = CloudPath.GetRandomFileName() |> runOnCurrentProcess
+            let cf = CloudFile.WriteAllLines(path, [|1.. ((abs count + 10) * 1000)|] |> Array.map string) |> runOnCurrentProcess
+            let r = cf.Path
+                    |> CloudFlow.OfCloudFileByLine
+                    |> CloudFlow.map (fun _ -> Thread.CurrentThread.ManagedThreadId)
+                    |> CloudFlow.toArray
+                    |> runOnCurrentProcess
+                    |> Seq.distinct 
+                    |> Seq.length
+            r > 1
+            
+        try Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfIOBoundTests)
+        with e -> Assert.Inconclusive(sprintf "Test failed with %O" e)
+
+    [<Test>]
     member __.``2. CloudFlow : tryFind`` () =
         let f(xs : int[]) =
             let x = xs |> CloudFlow.OfArray |> CloudFlow.tryFind (fun n -> n = 0) |> runOnCloud
@@ -759,7 +800,7 @@ type ``CloudFlow tests`` () as self =
                         Cloud.Choice [
                             cloud { 
                                 for i in [|1..1000|] do
-                                    do! CloudQueue.Enqueue(queue, i)
+                                    do! queue.EnqueueAsync i
                                     do! Cloud.Sleep(100)
                                 return None
                             };
@@ -791,7 +832,7 @@ type ``CloudFlow tests`` () as self =
                 cloud {
                     let list = ResizeArray<int>()
                     for x in xs do 
-                        let! v = CloudQueue.Dequeue(queue)
+                        let! v = queue.DequeueAsync()
                         list.Add(v)
                     return list
                 } |> runOnCloud

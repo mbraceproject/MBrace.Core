@@ -7,6 +7,7 @@ open System.Runtime.Serialization
 open NUnit.Framework
 
 open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Core.Internals
 open MBrace.Library
 open MBrace.Library.CloudCollectionUtils
@@ -87,9 +88,9 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let parallelismFactor = parallelismFactor
         let c = CloudAtom.New 0 |> runOnCurrentProcess
         cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = c.Transact(fun i -> (), i + 1) }
+            use foo = { new ICloudDisposable with member __.Dispose () = c.TransactAsync(fun i -> (), i + 1) }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Increment c) |> Cloud.Parallel
-            return! CloudAtom.Read c
+            return! c.GetValueAsync()
         } |> runOnCloud |> Choice.shouldEqual parallelismFactor
 
         c.Value |> shouldEqual (parallelismFactor + 1)
@@ -150,7 +151,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     return ()
 
                 do! Cloud.Sleep 500
-                return! CloudAtom.Read atom
+                return! atom.GetValueAsync()
             } |> runOnCloud |> Choice.shouldEqual 1)
 
     [<Test>]
@@ -171,7 +172,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     let! _ = Array.init 20 worker |> Cloud.Parallel
                     return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
                 with :? InvalidOperationException ->
-                    return! CloudAtom.Read counter
+                    return! counter.GetValueAsync()
             } |> runOnCloud |> Choice.shouldEqual 0)
 
     [<Test>]
@@ -194,7 +195,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
                 with :? InvalidOperationException ->
                     do! Cloud.Sleep delayFactor
-                    return! CloudAtom.Read counter
+                    return! counter.GetValueAsync()
 
             } |> runOnCloud |> Choice.shouldEqual 0)
             
@@ -622,7 +623,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     let! workers = Cloud.GetAvailableWorkers()
                     let! counter = CloudAtom.New 0
                     let! _ = Cloud.ChoiceEverywhere (cloud { let! _ = CloudAtom.Increment counter in return Option<int>.None })
-                    let! value = CloudAtom.Read counter
+                    let! value = counter.GetValueAsync()
                     return value = workers.Length
                 } |> runOnCloud |> Choice.shouldEqual true)
 
@@ -660,11 +661,11 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 let tworkflow = cloud {
                     do! Cloud.Sleep delayFactor
                     let! _ = CloudAtom.Increment count
-                    return! CloudAtom.Read count
+                    return! count.GetValueAsync()
                 }
 
                 let! cloudProcess = Cloud.CreateProcess(tworkflow)
-                let! value = CloudAtom.Read count
+                let! value = count.GetValueAsync()
                 value |> shouldEqual 0
                 return! Cloud.AwaitProcess cloudProcess
             } |> runOnCloud |> Choice.shouldEqual 1)
@@ -682,7 +683,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 }
 
                 let! cloudProcess = Cloud.CreateProcess(tworkflow)
-                let! value = CloudAtom.Read count
+                let! value = count.GetValueAsync()
                 value |> shouldEqual 0
                 do! Cloud.Sleep (delayFactor / 10)
                 // ensure no exception is raised in parent workflow
@@ -707,7 +708,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 }
                 let! job = Cloud.CreateProcess(tworkflow, cancellationToken = cts.Token)
                 do! Cloud.Sleep (delayFactor / 3)
-                let! value = CloudAtom.Read count
+                let! value = count.GetValueAsync()
                 value |> shouldEqual 1
                 cts.Cancel()
                 return! Cloud.AwaitProcess job
@@ -758,6 +759,31 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
             } |> runOnCloud |> Choice.shouldFailwith<_, SerializationException>
 
+    [<Test>]
+    member __.``3. CloudProcess: WhenAny`` () =
+        let delayFactor = delayFactor
+        cloud {
+            let! ct = Cloud.CancellationToken
+            let mkSleeper n = cloud { let! _ = Cloud.Sleep (n * delayFactor) in return n }
+            let! procA = Cloud.CreateProcess(mkSleeper 1, cancellationToken = ct)
+            let! procB = Cloud.CreateProcess(mkSleeper 2, cancellationToken = ct)
+            let! procC = Cloud.CreateProcess(mkSleeper 3, cancellationToken = ct)
+            let! result = Cloud.WhenAny(procA, procB, procC)
+            return result.Result, procA.IsCompleted, procB.IsCompleted, procC.IsCompleted
+        } |> runOnCloud |> Choice.shouldEqual (1, true, false, false)
+
+    [<Test>]
+    member __.``3. CloudProcess: WhenAll`` () =
+        let delayFactor = delayFactor
+        cloud {
+            let! ct = Cloud.CancellationToken
+            let mkSleeper n = cloud { let! _ = Cloud.Sleep (n * delayFactor) in return n }
+            let! procA = Cloud.CreateProcess(mkSleeper 1, cancellationToken = ct)
+            let! procB = Cloud.CreateProcess(mkSleeper 2, cancellationToken = ct)
+            let! procC = Cloud.CreateProcess(mkSleeper 3, cancellationToken = ct)
+            do! Cloud.WhenAll(procA, procB, procC)
+            return [|procA ; procB ; procC|] |> Array.forall (fun p -> p.IsCompleted)
+        } |> runOnCloud |> Choice.shouldEqual true
 
     //
     //  4. Misc tests
@@ -781,6 +807,32 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         |> Seq.filter (fun m -> m.Contains "user cloud message") 
         |> Seq.length 
         |> shouldEqual 2000
+
+    [<Test>]
+    member t.``4. Clone Object`` () =
+        cloud {
+            let a = [1 .. 100]
+            let! b = Serializer.Clone a
+            return b |> shouldEqual a
+        } |> runOnCloud |> ignore
+
+    [<Test>]
+    member t.``4. Binary Serialize Object`` () =
+        cloud {
+            let a = [1 .. 100]
+            let! bytes = Serializer.Pickle a
+            let! b = Serializer.UnPickle<int list> bytes
+            return b |> shouldEqual a
+        } |> runOnCloud |> ignore
+
+    [<Test>]
+    member t.``4. Text Serialize Object`` () =
+        cloud {
+            let a = [1 .. 100]
+            let! text = Serializer.PickleToString a
+            let! b = Serializer.UnPickleOfString<int list> text
+            return b |> shouldEqual a
+        } |> runOnCloud |> ignore
 
     [<Test>]
     member __.``4. IsTargetWorkerSupported`` () =
