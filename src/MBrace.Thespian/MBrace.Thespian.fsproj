@@ -80,7 +80,6 @@
     <Compile Include="Worker\Main.fs" />
     <Compile Include="Client.fs" />
     <None Include="test.fsx" />
-    <None Include="test.csx" />
     <None Include="paket.references" />
     <None Include="paket.template" />
   </ItemGroup>

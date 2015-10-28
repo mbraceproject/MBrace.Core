@@ -1,7 +1,7 @@
 redirects: on
 source https://nuget.org/api/v2
 
-nuget FSharp.Core ~> 4.0.0.0
+nuget FSharp.Core >= 3.0
 nuget FsPickler ~> 1.5.0
 nuget FsPickler.Json ~> 1.5.0
 nuget Argu ~> 1.0

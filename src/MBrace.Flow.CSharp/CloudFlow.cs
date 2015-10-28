@@ -149,6 +149,16 @@ namespace MBrace.Flow.CSharp
             return CloudFlowModule.sortBy(projection.ToFSharpFunc(), takeCount, flow);
         }
 
+        /// <summary>Applies a key-generating function to each element of the input CloudFlow and yields the CloudFlow of the given length, ordered by keys.</summary>
+        /// <param name="projection">A function to transform items of the input CloudFlow into comparable keys.</param>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <param name="takeCount">The number of elements to return.</param>
+        /// <returns>The result CloudFlow.</returns>   
+        public static CloudFlow<TSource> OrderByDescending<TSource, TKey>(this CloudFlow<TSource> flow, Func<TSource, TKey> projection, int takeCount) where TKey : IComparable<TKey>
+        {
+            return CloudFlowModule.sortByDescending(projection.ToFSharpFunc(), takeCount, flow);
+        }
+
         /// <summary>Returns the sum of the elements.</summary>
         /// <param name="flow">The input CloudFlow.</param>
         /// <returns>The sum of the elements.</returns>

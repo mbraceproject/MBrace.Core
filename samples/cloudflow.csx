@@ -1,4 +1,4 @@
-﻿#r "../../bin/FSharp.Core.dll"
+﻿#r "../../packages/FSharp.Core/lib/net40/FSharp.Core.dll"
 #r "../../bin/FsPickler.dll"
 #r "../../bin/Vagabond.dll"
 #r "../../bin/Argu.dll"
@@ -25,15 +25,11 @@ var cluster = ThespianCluster.InitOnCurrentMachine(4);
 
 var url = "http://publicdata.landregistry.gov.uk/market-trend-data/price-paid-data/a/pp-2015.csv";
 var flow = CloudFlow.OfHTTPFileByLine(url)
-                    .Select(line => line.Split(new[] { ',' }))
+                    .Select(line => line.Split(','))
                     .Select(arr => new { TransactionId = arr[0], Price = arr[1], City = arr[12] })
-                    .Where(housePrice => housePrice.City.Contains("LONDON"))
-                    .Take(10)
+                    .Where(trans => trans.City.Contains("LONDON"))
+                    .OrderByDescending(trans => trans.Price, 100)
                     .ToArray();
 
 
-var result = cluster.Run(flow);
-
-
-
-
+var proc = cluster.CreateProcess(flow);

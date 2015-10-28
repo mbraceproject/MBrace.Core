@@ -80,7 +80,7 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     /// <param name="additionalResources">Additional per-cloud process MBrace resources that can be appended to the computation state.</param>
     /// <param name="taskName">User-specified process name.</param>
     member __.CreateProcess(workflow : Cloud<'T>, [<O;D(null)>] ?cancellationToken : ICloudCancellationToken, [<O;D(null)>] ?faultPolicy : FaultPolicy, 
-                                ?target : IWorkerRef, ?additionalResources : ResourceRegistry, ?taskName : string) : CloudProcess<'T> =
+                                [<O;D(null)>] ?target : IWorkerRef, [<O;D(null)>] ?additionalResources : ResourceRegistry, [<O;D(null)>] ?taskName : string) : CloudProcess<'T> =
         __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy, 
                                     ?target = target, ?additionalResources = additionalResources, ?taskName = taskName) |> Async.RunSync
 
