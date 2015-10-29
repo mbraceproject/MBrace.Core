@@ -128,7 +128,7 @@ type TopicQueue<'Topic, 'T when 'Topic : comparison> =
         GlobalQueue : ImmutableQueue<'T>
         TopicQueues : Map<'Topic, ImmutableQueue<'T>>
     }
-with
+
     /// Creates an empty queue
     static member Empty : TopicQueue<'Topic, 'T> = { GlobalQueue = ImmutableQueue.Empty ; TopicQueues = Map.empty }
 

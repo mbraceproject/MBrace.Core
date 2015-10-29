@@ -27,7 +27,7 @@ type PerformanceInfo =
         /// Network download in bytes
         NetworkUsageDown    : Nullable<double>
     } 
-with
+
     /// Creates an empty performance info object
     static member Empty =
         {

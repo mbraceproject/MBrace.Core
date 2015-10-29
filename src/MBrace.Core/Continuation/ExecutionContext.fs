@@ -15,7 +15,7 @@ type ExecutionContext =
         /// Runtime cloud resource resolver
         Resources : ResourceRegistry
     }
-with
+
     /// <summary>
     ///     Initializes an empty execution context.  
     /// </summary>
@@ -93,3 +93,4 @@ module Continuation =
             Exception = tcont.Exception
             Cancellation = tcont.Cancellation
         }
+        

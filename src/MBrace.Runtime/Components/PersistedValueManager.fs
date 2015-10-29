@@ -20,7 +20,7 @@ open MBrace.Runtime.Utils
 type PickleOrFile<'T> =
     | EncapsulatedPickle of byte []
     | Persisted of PersistedValue<'T>
-with
+
     /// Gets the value size in bytes
     member fp.Size =
         match fp with

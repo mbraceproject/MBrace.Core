@@ -35,7 +35,7 @@ module Utils =
     type Exn<'T> =
         | Success of 'T
         | Error of exn
-    with
+    
         /// evaluate, re-raising the exception if failed
         member inline e.Value =
             match e with

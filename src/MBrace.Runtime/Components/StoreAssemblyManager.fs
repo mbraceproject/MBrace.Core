@@ -211,7 +211,7 @@ type StoreAssemblyManagerConfiguration =
         /// Assemblies ignored by Vagabond
         IgnoredAssemblies : Set<AssemblyId>
     }
-with
+
     /// <summary>
     ///     Creates a Vagabond StoreAssemblyManager using given paramaters.
     /// </summary>
