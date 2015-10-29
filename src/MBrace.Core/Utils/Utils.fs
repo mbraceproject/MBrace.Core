@@ -296,7 +296,7 @@ module Utils =
 
 // Thanks to http://blogs.msdn.com/b/jaredpar/archive/2010/07/27/converting-system-func-lt-t1-tn-gt-to-fsharpfunc-lt-t-tresult-gt.aspx
 [<Extension>]
-type internal FSharpFuncUtil = 
+type public FSharpFuncUtil = 
 
     [<Extension>] 
     static member ToFSharpFunc<'a,'b> (func:System.Converter<'a,'b>) = fun x -> func.Invoke(x)
