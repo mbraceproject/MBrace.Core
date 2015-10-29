@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.FSharp.Core;
 using MBrace.Core.Internals;
+using static MBrace.Core.Internals.Utils;
 using MBrace.Flow.Internals;
 using System.IO;
 using MBrace.Core;
