@@ -7,7 +7,10 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.CompilerServices
 
-[<AutoOpen>]
+[<assembly: Extension>]
+do()
+
+[<AutoOpen; Extension>]
 module Utils =
 
     /// creates new string identifier
