@@ -700,15 +700,17 @@ module CloudFlow =
         averageBy id source
 
 
-    /// <summary>Applies a key-generating function to each element of the input flow and yields a flow of unique keys and a sequence of all elements that have each key.</summary>
-    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
-    /// <param name="source">The input flow.</param>
-    /// <returns>A flow of tuples where each tuple contains the unique key and a sequence of all the elements that match the key.</returns>
+    /// <summary>
+    ///     Applies a key-generating function to each element of the input flow and yields a flow of unique keys and a sequence of all elements that have each key.
     /// <remarks>
     ///     Note: This combinator may be very expensive; for example if the group sizes are expected to be large.
     ///     If you intend to perform an aggregate operation, such as sum or average,
     ///     you are advised to use CloudFlow.foldBy or CloudFlow.countBy, for much better performance.
     /// </remarks>
+    /// </summary>
+    /// <param name="projection">A function to transform items of the input flow into comparable keys.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>A flow of tuples where each tuple contains the unique key and a sequence of all the elements that match the key.</returns>
     let inline groupBy (projection : 'T -> 'Key) (source : CloudFlow<'T>) : CloudFlow<'Key * seq<'T>> =
         foldBy projection
                (fun (xs : ResizeArray<'T>) x -> xs.Add x; xs)
