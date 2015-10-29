@@ -8,7 +8,6 @@ using MBrace.Core.Internals;
 using MBrace.Flow.Internals;
 using System.IO;
 using MBrace.Core;
-using static MBrace.Core.Internals.Utils.FSharpFuncUtil;
 
 namespace MBrace.Flow.CSharp
 {
