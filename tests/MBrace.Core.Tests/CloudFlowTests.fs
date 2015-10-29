@@ -537,6 +537,42 @@ type ``CloudFlow tests`` () as self =
         Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
+    member __.``2. CloudFlow : averageByKey`` () =
+        let f(xs : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.averageByKey id float
+                |> CloudFlow.toArray
+                |> runOnCloud
+            let y =
+                xs
+                |> Seq.groupBy id
+                |> Seq.map (fun (k, xs) -> k, Seq.averageBy float xs)
+                |> Seq.toArray
+            (x |> Array.sortBy fst |> Array.map (fun (k,v) -> (k,int (v * 10.0)))) = (y |> Array.sortBy fst |> Array.map (fun (k,v) -> (k,int (v * 10.0))))
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
+    member __.``2. CloudFlow : sumByKey`` () =
+        let f(xs : int[]) =
+            let x =
+                xs
+                |> CloudFlow.OfArray
+                |> CloudFlow.sumByKey id id
+                |> CloudFlow.toArray
+                |> runOnCloud
+            let y =
+                xs
+                |> Seq.groupBy id
+                |> Seq.map (fun (k, xs) -> k, Seq.sumBy id xs)
+                |> Seq.toArray
+            (x |> Array.sortBy fst) = (y |> Array.sortBy fst)
+
+        Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
+
+    [<Test>]
     member __.``2. CloudFlow : groupJoinBy`` () =
         let f(xs : int[], ys : int[]) =
             let x =
