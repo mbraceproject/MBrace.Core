@@ -25,6 +25,9 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
     [<DataMember(Name = "Partitions")>]
     let partitions = partitions
 
+    [<DataMember(Name = "DegreeOfParallelism")>]
+    let degreeOfParallelism = partitions |> Seq.groupBySequential fst |> Seq.length
+
     /// Number of partitions in the vector.
     member __.PartitionCount = partitions.Length
 
@@ -67,16 +70,16 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
         member cv.IsKnownSize = true
         member cv.IsKnownCount = true
         member cv.IsMaterialized = false
-        member cv.GetSize(): Async<int64> = async { return cv.Size }
-        member cv.GetCount(): Async<int64> = async { return cv.Count }
+        member cv.GetSizeAsync(): Async<int64> = async { return cv.Size }
+        member cv.GetCountAsync(): Async<int64> = async { return cv.Count }
         member cv.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun (_,p) -> p :> ICloudCollection<'T>) }
         member cv.GetTargetedPartitions() :Async<(IWorkerRef * ICloudCollection<'T>) []> = async { return partitions |> Array.map (fun (w,ca) -> w, ca :> _) }
         member cv.PartitionCount: Async<int> = async { return partitions.Length }
-        member cv.ToEnumerable() = async { return cv.ToEnumerable() }
+        member cv.GetEnumerableAsync() = async { return cv.ToEnumerable() }
 
     interface CloudFlow<'T> with
-        member cv.DegreeOfParallelism = None
-        member cv.WithEvaluators(collectorf : Local<Collector<'T,'S>>) (projection: 'S -> Local<'R>) (combiner: 'R [] -> Local<'R>): Cloud<'R> = cloud {
+        member cv.DegreeOfParallelism = Some degreeOfParallelism
+        member cv.WithEvaluators(collectorf : LocalCloud<Collector<'T,'S>>) (projection: 'S -> LocalCloud<'R>) (combiner: 'R [] -> LocalCloud<'R>): Cloud<'R> = cloud {
             let flow = CloudCollection.ToCloudFlow(cv)
             return! flow.WithEvaluators collectorf projection combiner
         }
@@ -108,18 +111,18 @@ and PersistedCloudFlow private () =
     /// <param name="elems">Input sequence.</param>
     /// <param name="elems">Storage level used for caching.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes. Defaults to 1GiB.</param>
-    static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?partitionThreshold : int64) : Local<PersistedCloudFlow<'T>> = local {
+    static member internal New(elems : seq<'T>, ?storageLevel : StorageLevel, ?targetWorker : IWorkerRef, ?partitionThreshold : int64) : LocalCloud<PersistedCloudFlow<'T>> = local {
         let partitionThreshold = defaultArg partitionThreshold defaultTreshold
-        let! currentWorker = Cloud.CurrentWorker
+        let! targetWorker = match targetWorker with None -> Cloud.CurrentWorker | Some w -> local { return w }
         let! partitions = CloudValue.NewArrayPartitioned(elems, ?storageLevel = storageLevel, partitionThreshold = partitionThreshold)
-        return new PersistedCloudFlow<'T>(partitions |> Array.map (fun p -> (currentWorker,p)))
+        return new PersistedCloudFlow<'T>(partitions |> Array.map (fun p -> (targetWorker,p)))
     }
 
     /// <summary>
     ///     Creates a CloudFlow from a collection of provided cloud sequences.
     /// </summary>
     /// <param name="cloudArrays">Cloud sequences to be evaluated.</param>
-    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : Local<PersistedCloudFlow<'T>> = local {
+    static member OfCloudArrays (cloudArrays : seq<#CloudArray<'T>>) : LocalCloud<PersistedCloudFlow<'T>> = local {
         let! workers = Cloud.GetAvailableWorkers()
         let partitions = cloudArrays |> Seq.mapi (fun i ca -> workers.[i % workers.Length], ca :> CloudArray<'T>) |> Seq.toArray
         return new PersistedCloudFlow<'T>(Seq.toArray partitions)
@@ -160,8 +163,7 @@ and PersistedCloudFlow private () =
                     member self.Iterator() = 
                         let list = new List<'T>()
                         results.Add(list)
-                        {   Index = ref -1; 
-                            Func = (fun value -> list.Add(value));
+                        {   Func = (fun value -> list.Add(value));
                             Cts = cts }
                     member self.Result = ResizeArray.concat results }
             }

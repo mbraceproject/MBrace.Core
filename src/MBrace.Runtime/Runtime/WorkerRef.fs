@@ -24,7 +24,7 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     let initWorkerStateReader () =
         let rm = RuntimeManagerRegistry.Resolve runtimeId
         let getId = async { return! rm.WorkerManager.TryGetWorkerState workerId }
-        CacheAtom.Create(getId, intervalMilliseconds = 100, keepLastResultOnError = true)
+        CacheAtom.Create(getId, intervalMilliseconds = 500, keepLastResultOnError = true)
 
     let [<IgnoreDataMember>] mutable cvalue = initWorkerStateReader()
     let [<IgnoreDataMember>] mutable logPoller : ILogPoller<SystemLogEntry> option = None
@@ -204,16 +204,16 @@ and internal WorkerReporter private () =
 
         [ Field.create "Id" Left (fun w -> w.Id)
           Field.create "Status" Left (fun p -> string p.Status)
-          Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CpuUsage) p.ProcessorCount)
+          Field.create "% CPU / Cores" Right (fun p -> sprintf "%s / %d" (double_printer p.CpuUsage) p.ProcessorCount)
           Field.create "CPU Clock" Left (fun p -> sprintf "%s MHz" (double_printer p.MaxCpuClock))
-          Field.create "% Memory / Total(MB)" Center (fun p ->
+          Field.create "% Memory / Total(MB)" Right (fun p ->
                 let memPerc = 100. *? p.MemoryUsage ?/? p.TotalMemory |> double_printer
                 sprintf "%s / %s" memPerc <| double_printer p.TotalMemory
             )
-          Field.create "Network(ul/dl : KB/s)" Center (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUsageUp <| double_printer n.NetworkUsageDown)
-          Field.create "Work items" Center (fun p -> sprintf "%d / %d" p.ActiveWorkItems p.MaxWorkItemCount)
-          Field.create "Hostname" Left (fun p -> p.Hostname)
-          Field.create "Task Id" Right (fun p -> p.ProcessId)
+          Field.create "Network(ul/dl : KB/s)" Right (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUsageUp <| double_printer n.NetworkUsageDown)
+          Field.create "Work items" Right (fun p -> sprintf "%d / %d" p.ActiveWorkItems p.MaxWorkItemCount)
+          Field.create "Hostname" Left (fun p -> sprintf "%s" p.Hostname)
+          Field.create "PID" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> let d = p.InitializationTime in d.LocalDateTime) 
           Field.create "Latest Heartbeat" Left (fun p -> let d = p.LastHeartbeat in d.LocalDateTime)
         ]
@@ -229,4 +229,4 @@ and internal WorkerReporter private () =
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList
 
-        Record.PrettyPrint(template, ws, title, borders)
+        Record.PrettyPrint(template, ws, title, borders, parallelize = true)

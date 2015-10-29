@@ -53,7 +53,8 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                 let! workItem = Async.Catch <| runtime.WorkItemQueue.TryDequeue workerId
                 match workItem with
                 | Choice2Of2 e ->
-                    let status = QueueFault (ExceptionDispatchInfo.Capture e)
+                    let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
+                    let status = QueueFault edi
                     do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
                     logger.Logf LogLevel.Info "Worker Work item Queue fault:\n%O" e
                     do! Async.Sleep errorInterval
@@ -94,7 +95,8 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                                     do! workItemEvaluator.Evaluate (assemblies, workItemToken)
                                 with e ->
                                     do! workItemToken.Process.IncrementFaultedWorkItemCount()
-                                    do! workItemToken.DeclareFaulted(ExceptionDispatchInfo.Capture e)
+                                    let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
+                                    do! workItemToken.DeclareFaulted edi
                                     logger.Logf LogLevel.Error "Work item '%O' faulted at initialization:\n%A" workItemToken.Id e
                                     return ()
                             finally

@@ -5,6 +5,7 @@ open System.Collections
 open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
+open System.Runtime.CompilerServices
 
 [<AutoOpen>]
 module Utils =
@@ -26,8 +27,6 @@ module Utils =
                 Async.StartWithContinuations(body, sc', ec', cc, ct))
         }
 
-        static member AwaitTask(task : Task) = Async.AwaitTask(task.ContinueWith ignore)
-
     /// Resource that can be disposed of asynchronouslys
     type IAsyncDisposable =
         /// Asynchronously disposes of resource.
@@ -36,12 +35,6 @@ module Utils =
     type AsyncBuilder with
         member __.Using<'T, 'U when 'T :> IAsyncDisposable>(value : 'T, bindF : 'T -> Async<'U>) : Async<'U> =
             Async.TryFinally(async { return! bindF value }, async { return! value.Dispose() })
-
-    type AsyncBuilder with
-        member ab.Bind(t : Task<'T>, cont : 'T -> Async<'S>) = ab.Bind(Async.AwaitTask t, cont)
-        member ab.Bind(t : Task, cont : unit -> Async<'S>) =
-            let t0 = t.ContinueWith ignore
-            ab.Bind(Async.AwaitTask t0, cont)
 
     [<RequireQualifiedAccess>]
     module Array =
@@ -296,3 +289,29 @@ module Utils =
         let inline bind (f : 'T -> 'S) (input : ValueOrException<'T>) =
             if input.IsValue then protect f input.Value
             else ValueOrException<'S>.NewException(input.Exception)
+
+
+    // Thanks to http://blogs.msdn.com/b/jaredpar/archive/2010/07/27/converting-system-func-lt-t1-tn-gt-to-fsharpfunc-lt-t-tresult-gt.aspx
+    [<Extension>]
+    type public FSharpFuncUtil = 
+
+        [<Extension>] 
+        static member ToFSharpFunc<'a,'b> (func:System.Converter<'a,'b>) = fun x -> func.Invoke(x)
+
+        [<Extension>] 
+        static member ToFSharpFunc<'a,'b> (func:System.Func<'a,'b>) = fun x -> func.Invoke(x)
+
+        [<Extension>] 
+        static member ToFSharpFunc<'a> (func:System.Func<'a>) = fun () -> func.Invoke()
+
+        [<Extension>] 
+        static member ToFSharpFunc<'a,'b,'c> (func:System.Func<'a,'b,'c>) = fun x y -> func.Invoke(x,y)
+
+        [<Extension>] 
+        static member ToFSharpFunc<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) = fun x y z -> func.Invoke(x,y,z)
+
+        static member Create<'a,'b> (func:System.Func<'a,'b>) = FSharpFuncUtil.ToFSharpFunc func
+
+        static member Create<'a,'b,'c> (func:System.Func<'a,'b,'c>) = FSharpFuncUtil.ToFSharpFunc func
+
+        static member Create<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) = FSharpFuncUtil.ToFSharpFunc func

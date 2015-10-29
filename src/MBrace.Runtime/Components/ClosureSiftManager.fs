@@ -235,7 +235,7 @@ type ClosureSiftManager private (cloudValueProvider : ICloudValueProvider, siftT
                 | CloudValue cv ->
                     do append info.Hash
                     logger.Logf LogLevel.Debug "Loading sifted value of type '%s' and size %s using CloudValue." info.Name <| getHumanReadableByteSize info.Hash.Length
-                    let! value = cv.GetBoxedValueAsync()
+                    let! value = cv.GetValueBoxedAsync()
                     return info, value
             }
 

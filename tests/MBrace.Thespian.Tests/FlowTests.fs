@@ -23,6 +23,11 @@ type ``MBrace Thespian Flow Tests`` () =
       
     override __.FsCheckMaxNumberOfTests = 10  
     override __.FsCheckMaxNumberOfIOBoundTests = 10
-    override __.IsSupportedStorageLevel level = session.Runtime.GetResource<ICloudValueProvider>().IsSupportedStorageLevel level
-    override __.Run(expr : Cloud<'T>) : 'T = session.Runtime.Run(expr, faultPolicy = FaultPolicy.NoRetry)
-    override __.RunLocally(expr : Cloud<'T>) : 'T = session.Runtime.RunLocally(expr)
+    override __.IsSupportedStorageLevel level = session.Cluster.GetResource<ICloudValueProvider>().IsSupportedStorageLevel level
+    override __.Run(expr : Cloud<'T>) : 'T = session.Cluster.Run(expr, faultPolicy = FaultPolicy.NoRetry)
+    override __.RunLocally(expr : Cloud<'T>) : 'T = session.Cluster.RunLocally(expr)
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let job = session.Cluster.CreateProcess(workflow)
+        do job.Result
+        System.Threading.Thread.Sleep 1000
+        job.GetLogs () |> Array.map CloudLogEntry.Format

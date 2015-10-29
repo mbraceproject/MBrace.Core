@@ -4,7 +4,7 @@
 #r "MBrace.Runtime.dll"
 #r "MBrace.Thespian.dll"
 #r "MBrace.Flow.dll"
-#r "Streams.Core.dll"
+#r "Streams.dll"
 
 open System
 open MBrace.Core
@@ -18,8 +18,6 @@ ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thes
 
 let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug)
 cluster.AttachLogger(new ConsoleLogger())
-
-
 
 let workers = cluster.Workers
 
@@ -67,3 +65,10 @@ let pflow =
 
 pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.Run
+
+
+cloud {
+    let! p1 = Cloud.CreateProcess(cloud { let! _ = Cloud.Sleep 10000 in return 1 })
+    let! p2 = Cloud.CreateProcess(cloud { let! _ = Cloud.Sleep 20000 in return 2 })
+    return! Cloud.WhenAny(p1, p2)
+} |> cluster.Run

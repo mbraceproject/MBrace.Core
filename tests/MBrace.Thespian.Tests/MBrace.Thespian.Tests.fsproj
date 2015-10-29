@@ -67,9 +67,19 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\MBrace.Flow.CSharp\MBrace.Flow.CSharp.csproj">
+      <Name>MBrace.Flow.CSharp</Name>
+      <Project>{0d500b73-4cee-409a-aefa-3a6c11368f10}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Flow\MBrace.Flow.fsproj">
       <Name>MBrace.Flow</Name>
       <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MBrace.CSharp.Tests\MBrace.CSharp.Tests.csproj">
+      <Name>MBrace.CSharp.Tests</Name>
+      <Project>{902bed62-cd5f-4e1d-bc70-b1d83722084b}</Project>
       <Private>True</Private>
     </ProjectReference>
     <Reference Include="FSharp.Data.TypeProviders" />
@@ -325,8 +335,8 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6')">
       <ItemGroup>
-        <Reference Include="Streams.Core">
-          <HintPath>..\..\packages\Streams\lib\net45\Streams.Core.dll</HintPath>
+        <Reference Include="Streams">
+          <HintPath>..\..\packages\Streams\lib\net45\Streams.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

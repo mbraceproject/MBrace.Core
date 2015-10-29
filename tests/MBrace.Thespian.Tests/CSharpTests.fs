@@ -2,33 +2,33 @@
 
 open NUnit.Framework
 
+
 open MBrace.Core
-//open MBrace.CSharp.Tests
-//
-//type ``MBrace Thespian CSharp Tests`` () =
-//    inherit ``SimpleTests`` ()
-//
-//    let session = new RuntimeSession(nodes = 4)
-//
-//    [<TestFixtureSetUp>]
-//    member __.Init () = session.Start()
-//
-//    [<TestFixtureTearDown>]
-//    member __.Fini () = session.Stop()
-//
-//    override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
-//
-//type ``MBrace Thespian CloudStream CSharp Tests`` () =
-//    inherit CloudStreamsTests()
-//
-//    let session = new RuntimeSession(nodes = 4)
-//
-//    [<TestFixtureSetUp>]
-//    member __.Init () = session.Start()
-//
-//    [<TestFixtureTearDown>]
-//    member __.Fini () = session.Stop()
-//
-//    override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
-//    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
-//    override __.MaxNumberOfTests = 10
+open MBrace.Core.Internals
+open MBrace.Core.Tests
+open MBrace.Thespian
+open MBrace.Flow.CSharp.Tests
+
+
+
+type ``MBrace Thespian CloudFlow CSharp Tests`` () =
+    inherit CloudFlowTests()
+
+    let session = new RuntimeSession(workerCount = 4)
+
+    [<TestFixtureSetUp>]
+    member __.Init () = session.Start()
+
+    [<TestFixtureTearDown>]
+    member __.Fini () = session.Stop()
+      
+    override __.FsCheckMaxNumberOfTests = 10  
+    override __.FsCheckMaxNumberOfIOBoundTests = 10
+    
+    override __.Run(expr : Cloud<'T>) : 'T = session.Cluster.Run(expr, faultPolicy = FaultPolicy.NoRetry)
+    override __.RunLocally(expr : Cloud<'T>) : 'T = session.Cluster.RunLocally(expr)
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let job = session.Cluster.CreateProcess(workflow)
+        do job.Result
+        System.Threading.Thread.Sleep 1000
+        job.GetLogs () |> Array.map CloudLogEntry.Format

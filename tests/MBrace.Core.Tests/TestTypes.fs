@@ -34,7 +34,7 @@ module CloudTree =
     }
 
     let rec getBranchCount (tree : TreeRef<int>) = cloud {
-        let! value = tree.GetValueAsync()
+        let! value = Cloud.OfAsync <| tree.GetValueAsync()
         match value with
         | Leaf -> return 0
         | Branch(_,l,r) ->
@@ -51,8 +51,8 @@ module WordCount =
         mapReduceAlgorithm mapF reduceF 0 inputs
 
     // naive, binary recursive mapreduce implementation
-    let rec mapReduceRec (mapF : 'T -> Local<'S>) 
-                            (reduceF : 'S -> 'S -> Local<'S>) 
+    let rec mapReduceRec (mapF : 'T -> LocalCloud<'S>) 
+                            (reduceF : 'S -> 'S -> LocalCloud<'S>) 
                             (id : 'S) (inputs : 'T []) =
         cloud {
             match inputs with

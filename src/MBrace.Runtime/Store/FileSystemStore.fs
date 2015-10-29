@@ -172,7 +172,7 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
         member __.BeginWrite(path : string) = async {
             let path = normalize path
             initDir <| Path.GetDirectoryName path
-            return retry fileAccessRetryPolicy (fun () -> new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream)
+            return! retryAsync fileAccessRetryPolicy <| async { return  new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None) :> Stream }
         }
 
         member __.BeginRead(path : string) = async {
@@ -180,16 +180,27 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
             with :? DirectoryNotFoundException -> return raise <| new FileNotFoundException(path)
         }
 
-        member self.CopyOfStream(source : Stream, target : string) = async {
+        member self.UploadFromStream(target : string, source : Stream) = async {
             let target = normalize target
             initDir <| Path.GetDirectoryName target
             use! fs = retryAsync fileAccessRetryPolicy <| async { return new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None) }
             do! source.CopyToAsync fs
         }
 
-        member self.CopyToStream(source : string, target : Stream) = async {
+        member self.DownloadToStream(source : string, target : Stream) = async {
             use! fs = (self :> ICloudFileStore).BeginRead source
             do! fs.CopyToAsync target
+        }
+
+        member self.DownloadToLocalFile(source : string, target : string) = async {
+            let source = normalize source
+            do! retryAsync fileAccessRetryPolicy <| async { File.Copy(source, target, overwrite = true) }
+        }
+
+        member self.UploadFromLocalFile(source : string, target : string) = async {
+            let target = normalize target
+            initDir <| Path.GetDirectoryName target
+            do! retryAsync fileAccessRetryPolicy <| async { File.Copy(source, target, overwrite = true) }
         }
 
         member __.TryGetETag (path : string) = async {
@@ -202,7 +213,7 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
         member __.WriteETag(path : string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = async {
             let path = normalize path
             initDir <| Path.GetDirectoryName path
-            use fs = retry fileAccessRetryPolicy (fun () -> new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+            use! fs = retryAsync fileAccessRetryPolicy <| async { return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None) }
             let! r = writer fs
             // flush to disk before closing stream to ensure etag is correct
             if fs.CanWrite then fs.Flush(flushToDisk = true)
@@ -211,7 +222,7 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
 
         member __.ReadETag(path : string, etag : ETag) = async {
             let path = normalize path
-            let fs = retry fileAccessRetryPolicy (fun () -> new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            let! fs = retryAsync fileAccessRetryPolicy <| async { return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read) }
             if etag = getETag path then
                 return Some(fs :> Stream)
             else

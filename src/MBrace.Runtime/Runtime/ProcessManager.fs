@@ -89,6 +89,9 @@ type ICloudProcessEntry =
     /// </summary>
     abstract AwaitResult : unit -> Async<CloudProcessResult>
 
+    /// Asynchronously awaits until cloud process has completed
+    abstract WaitAsync : unit -> Async<unit>
+
     /// <summary>
     ///     Asynchronously checks if cloud process result has been set.
     ///     Returns None if result has not been set.

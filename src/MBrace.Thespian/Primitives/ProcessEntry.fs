@@ -101,6 +101,22 @@ type ActorProcessEntry private (localStateF : LocalStateFactory, source : ActorR
 
             return! awaiter()
         }
+
+        member x.WaitAsync(): Async<unit> = async {
+            let rec awaiter () = async {
+                let! state = source <!- GetState
+                match state.Status with
+                | CloudProcessStatus.Completed 
+                | CloudProcessStatus.UserException 
+                | CloudProcessStatus.Faulted 
+                | CloudProcessStatus.Canceled -> return ()
+                | _ ->
+                    do! Async.Sleep 200
+                    return! awaiter ()
+            }
+
+            return! awaiter()
+        }
         
         member x.IncrementCompletedWorkItemCount(): Async<unit> = async {
             return! source.AsyncPost IncrementCompletedWorkItemCount

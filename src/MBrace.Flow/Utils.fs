@@ -13,14 +13,11 @@ open MBrace.Flow
 [<AutoOpen>]
 module Utils =
 
-    type Async with
-        static member AwaitTask(t : Task) = Async.AwaitTask(t.ContinueWith(ignore, TaskContinuationOptions.None))
-
     type Collector<'T, 'R> with
         /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
         member collector.ToParStreamCollector () =
-            { new Nessos.Streams.Collector<'T, 'R> with
-                member self.DegreeOfParallelism = match collector.DegreeOfParallelism with Some n -> n | None -> Environment.ProcessorCount
+            { new Nessos.Streams.ParCollector<'T, 'R> with
+                member self.DegreeOfParallelism = Environment.ProcessorCount
                 member self.Iterator() = collector.Iterator()
                 member self.Result = collector.Result }
 
@@ -78,6 +75,7 @@ module Utils =
         elif size <= 512L * 1024L * 1024L then sprintf "%.2f MiB" (decimal size / decimal (1024L * 1024L))
         elif size <= 512L * 1024L * 1024L * 1024L then sprintf "%.2f GiB" (decimal size / decimal (1024L * 1024L * 1024L))
         else sprintf "%.2f TiB" (decimal size / decimal (1024L * 1024L * 1024L * 1024L))
+        
 
     module Partition =
 
@@ -106,31 +104,49 @@ module Utils =
                 |> Seq.toArray
         }
 
+    module Collection =
+        let map (f : 'T -> 'S) (collection : ICollection<'T>) : ICollection<'S> =
+            let mapped = Seq.map f collection
+            { new ICollection<'S> with
+                  member x.Count: int = collection.Count
+                  member x.GetEnumerator(): IEnumerator = 
+                      (mapped :> IEnumerable).GetEnumerator() : IEnumerator
+                  member x.GetEnumerator(): IEnumerator<'S> = 
+                      mapped.GetEnumerator()
+                  member x.IsReadOnly: bool = true
+                  member x.Add(_: 'S): unit = 
+                      raise (System.NotSupportedException())
+                  member x.Remove(item: 'S): bool = 
+                      raise (System.NotSupportedException())
+                  member x.Clear(): unit = 
+                      raise (System.NotSupportedException())
+                  member x.Contains(item: 'S): bool = 
+                      raise (System.NotSupportedException())
+                  member x.CopyTo(array: 'S [], arrayIndex: int): unit = 
+                      raise (System.NotSupportedException())
+            }
 
-// Taken from FSharp.Core
-//
-// The CLI implementation of mscorlib optimizes array sorting
-// when the comparer is either null or precisely
-// reference-equals to System.Collections.Generic.Comparer<'T>.Default.
-// This is an indication that a "fast" array sorting helper can be used.
-//
-// This type is only public because of the excessive inlining used in this file
-type _PrivateFastGenericComparerTable<'T when 'T : comparison>() = 
+        let splitByPartitionCount (partitionCount : int) (collection : ICollection<'T>) : seq<'T []> =
+            if partitionCount <= 0 then 
+                if collection.Count = 0 then Seq.empty
+                else raise <| ArgumentOutOfRangeException("partitionCount")
+            else
 
-    static let fCanBeNull : System.Collections.Generic.IComparer<'T>  = 
-        match typeof<'T> with 
-        | ty when ty.Equals(typeof<byte>)       -> null    
-        | ty when ty.Equals(typeof<char>)       -> null    
-        | ty when ty.Equals(typeof<sbyte>)      -> null     
-        | ty when ty.Equals(typeof<int16>)      -> null    
-        | ty when ty.Equals(typeof<int32>)      -> null    
-        | ty when ty.Equals(typeof<int64>)      -> null    
-        | ty when ty.Equals(typeof<uint16>)     -> null    
-        | ty when ty.Equals(typeof<uint32>)     -> null    
-        | ty when ty.Equals(typeof<uint64>)     -> null    
-        | ty when ty.Equals(typeof<float>)      -> null    
-        | ty when ty.Equals(typeof<float32>)    -> null    
-        | ty when ty.Equals(typeof<decimal>)    -> null    
-        | _ -> LanguagePrimitives.FastGenericComparer<'T>
+            let N = collection.Count
+            let div = N / partitionCount
+            let rem = N % partitionCount
+            let mutable p = 0
+            let mutable i = 0
+            let results = new ResizeArray<'T []> ()
+            let acc = new ResizeArray<'T> ()
+            for t in collection do
+                acc.Add t
+                if i + 1 = div + (if p < rem then 1 else 0) then
+                    results.Add (acc.ToArray())
+                    acc.Clear()
+                    p <- p + 1
+                    i <- 0
+                else
+                    i <- i + 1
 
-    static member ValueCanBeNullIfDefaultSemantics : System.Collections.Generic.IComparer<'T> = fCanBeNull
+            results :> _

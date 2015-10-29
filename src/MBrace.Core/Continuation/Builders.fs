@@ -15,7 +15,7 @@ module internal BuilderImpl =
     // Implementation of expression builder combinators over Body<'T>
 
     let inline mkCloud body = new Cloud<'T>(body)
-    let inline mkLocal body = new Local<'T>(body)
+    let inline mkLocal body = new LocalCloud<'T>(body)
 
     let inline capture (e : 'exn) = ExceptionDispatchInfo.Capture e
     let inline extract (edi : ExceptionDispatchInfo) = edi.Reify(false, false)
@@ -54,21 +54,33 @@ module internal BuilderImpl =
     let zero : Body<unit> = ret ()
 
     let inline raiseM e : Body<'T> = fun ctx cont -> if ctx.IsCancellationRequested then cont.Cancel ctx else cont.Exception ctx (capture e)
+
+    let inline fromContinuations (body : Body<'T>) : Body<'T> =
+        fun ctx cont ->
+            if ctx.IsCancellationRequested then cont.Cancel ctx
+            elif Trampoline.IsBindThresholdReached(isContinuationExposed = true) then
+                Trampoline.QueueWorkItem(fun () -> body ctx cont)
+            else
+                body ctx cont
+        
     let inline ofAsync (asyncWorkflow : Async<'T>) : Body<'T> = 
         fun ctx cont ->
-            if ctx.IsCancellationRequested then cont.Cancel ctx else
-            Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken)
+            if ctx.IsCancellationRequested then cont.Cancel ctx
+            elif Trampoline.IsBindThresholdReached(isContinuationExposed = true) then
+                Trampoline.QueueWorkItem(fun () -> Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken))
+            else
+                Async.StartWithContinuations(asyncWorkflow, cont.Success ctx, capture >> cont.Exception ctx, cont.Cancellation ctx, ctx.CancellationToken.LocalToken)
 
     let inline delay (f : unit -> #Cloud<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
-        if ctx.IsCancellationRequested then cont.Cancel ctx else
-        if Trampoline.IsBindThresholdReached() then 
+        if ctx.IsCancellationRequested then cont.Cancel ctx
+        elif Trampoline.IsBindThresholdReached false then 
             Trampoline.QueueWorkItem (fun () -> cont.ContinueWith2(ctx, ValueOrException.protect f ()))
         else
             cont.ContinueWith2(ctx, ValueOrException.protect f ())
     
     let inline delay' (f : unit -> Body<'T>) (ctx : ExecutionContext) (cont : Continuation<'T>) =
-        if ctx.IsCancellationRequested then cont.Cancel ctx else
-        if Trampoline.IsBindThresholdReached() then 
+        if ctx.IsCancellationRequested then cont.Cancel ctx
+        elif Trampoline.IsBindThresholdReached false then 
             Trampoline.QueueWorkItem (fun () -> cont.ContinueWith2(ctx, ValueOrException.protect f ()))
         else
             cont.ContinueWith2(ctx, ValueOrException.protect f ())
@@ -96,7 +108,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx t ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect g t))
                         else
                             cont.ContinueWith2(ctx, ValueOrException.protect g t)
@@ -104,7 +116,7 @@ module internal BuilderImpl =
                 Exception = 
                     fun ctx e -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Exception ctx e)
                         else
                             cont.Exception ctx e
@@ -112,7 +124,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
@@ -124,7 +136,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx t ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect g t))
                         else
                             cont.ContinueWith2(ctx, ValueOrException.protect g t)
@@ -132,7 +144,7 @@ module internal BuilderImpl =
                 Exception = 
                     fun ctx e -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Exception ctx e)
                         else
                             cont.Exception ctx e
@@ -140,7 +152,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
@@ -152,7 +164,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx _ ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> g ctx cont)
                         else
                             g ctx cont
@@ -160,7 +172,7 @@ module internal BuilderImpl =
                 Exception = 
                     fun ctx e -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Exception ctx e)
                         else
                             cont.Exception ctx e
@@ -168,7 +180,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
@@ -180,7 +192,7 @@ module internal BuilderImpl =
                 Success = 
                     fun ctx t -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.Success ctx t)
                         else
                             cont.Success ctx t
@@ -188,7 +200,7 @@ module internal BuilderImpl =
                 Exception =
                     fun ctx edi ->
                         if ctx.IsCancellationRequested then cont.Cancel ctx
-                        elif Trampoline.IsBindThresholdReached() then
+                        elif Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> cont.ContinueWith2(ctx, ValueOrException.protect handler (extract edi)))
                         else
                             cont.ContinueWith2(ctx, ValueOrException.protect handler (extract edi))
@@ -196,7 +208,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> wf ctx cont')
             else
                 wf ctx cont'
@@ -211,7 +223,7 @@ module internal BuilderImpl =
                     fun ctx t -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx else
                         let cont' = Continuation.map (fun () -> t) cont
-                        if Trampoline.IsBindThresholdReached() then
+                        if Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
                         else
                             finalizer ctx cont'
@@ -220,7 +232,7 @@ module internal BuilderImpl =
                     fun ctx edi -> 
                         if ctx.IsCancellationRequested then cont.Cancel ctx else
                         let cont' = Continuation.failwith (fun () -> (extract edi)) cont
-                        if Trampoline.IsBindThresholdReached() then
+                        if Trampoline.IsBindThresholdReached false then
                             Trampoline.QueueWorkItem(fun () -> finalizer ctx cont')
                         else
                             finalizer ctx cont'
@@ -228,7 +240,7 @@ module internal BuilderImpl =
                 Cancellation = cont.Cancellation
             }
 
-            if Trampoline.IsBindThresholdReached() then 
+            if Trampoline.IsBindThresholdReached false then 
                 Trampoline.QueueWorkItem (fun () -> f ctx cont')
             else
                 f ctx cont'
@@ -315,10 +327,8 @@ module Builders =
         member __.Zero () : Cloud<unit> = czero
         member __.Delay (f : unit -> Cloud<'T>) : Cloud<'T> = mkCloud <| mkExplicitDelay f
         member __.ReturnFrom (c : Cloud<'T>) : Cloud<'T> = c
-        member __.ReturnFrom (c : Async<'T>) : Cloud<'T> = mkCloud <| ofAsync c
         member __.Combine(f : Cloud<unit>, g : Cloud<'T>) : Cloud<'T> = mkCloud <| combine f.Body g.Body
         member __.Bind (f : Cloud<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = mkCloud <| bind f.Body g
-        member __.Bind (f : Async<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> = mkCloud <| bind (ofAsync f) g
 
         member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Cloud<'U>) : Cloud<'U> = 
             mkCloud <| usingICloudDisposable value bindF
@@ -344,40 +354,38 @@ module Builders =
         member __.While(pred : unit -> bool, body : Cloud<unit>) : Cloud<unit> = mkCloud <| whileM pred body.Body
 
     /// Represents a workflow builder used to specify single-machine cloud computations. 
-    type LocalBuilder () =
-        let lzero : Local<unit> = mkLocal zero
-        member __.Return (t : 'T) : Local<'T> = mkLocal <| ret t
-        member __.Zero () : Local<unit> = lzero
-        member __.Delay (f : unit -> Local<'T>) : Local<'T> = mkLocal <| mkExplicitDelay f
-        member __.ReturnFrom (c : Local<'T>) : Local<'T> = c
-        member __.ReturnFrom (c : Async<'T>) : Local<'T> = mkLocal (ofAsync c)
-        member __.Combine(f : Local<unit>, g : Local<'T>) : Local<'T> = mkLocal <| combine f.Body g.Body
-        member __.Bind (f : Local<'T>, g : 'T -> Local<'S>) : Local<'S> = mkLocal <| bind f.Body g
-        member __.Bind (f : Async<'T>, g : 'T -> Local<'S>) : Local<'S> = mkLocal <| bind (ofAsync f) g
+    type CloudLocalBuilder () =
+        let lzero : LocalCloud<unit> = mkLocal zero
+        member __.Return (t : 'T) : LocalCloud<'T> = mkLocal <| ret t
+        member __.Zero () : LocalCloud<unit> = lzero
+        member __.Delay (f : unit -> LocalCloud<'T>) : LocalCloud<'T> = mkLocal <| mkExplicitDelay f
+        member __.ReturnFrom (c : LocalCloud<'T>) : LocalCloud<'T> = c
+        member __.Combine(f : LocalCloud<unit>, g : LocalCloud<'T>) : LocalCloud<'T> = mkLocal <| combine f.Body g.Body
+        member __.Bind (f : LocalCloud<'T>, g : 'T -> LocalCloud<'S>) : LocalCloud<'S> = mkLocal <| bind f.Body g
 
-        member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> Local<'U>) : Local<'U> = 
+        member __.Using<'T, 'U, 'p when 'T :> IDisposable>(value : 'T, bindF : 'T -> LocalCloud<'U>) : LocalCloud<'U> = 
             mkLocal <| usingIDisposable value bindF
-        member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> Local<'U>) : Local<'U> = 
+        member __.Using<'T, 'U when 'T :> ICloudDisposable>(value : 'T, bindF : 'T -> LocalCloud<'U>) : LocalCloud<'U> = 
             mkLocal <| usingICloudDisposable value bindF
 
-        member __.TryWith(f : Local<'T>, handler : exn -> Local<'T>) : Local<'T> = mkLocal <| tryWith f.Body handler
-        member __.TryFinally(f : Local<'T>, finalizer : unit -> unit) : Local<'T> = 
+        member __.TryWith(f : LocalCloud<'T>, handler : exn -> LocalCloud<'T>) : LocalCloud<'T> = mkLocal <| tryWith f.Body handler
+        member __.TryFinally(f : LocalCloud<'T>, finalizer : unit -> unit) : LocalCloud<'T> = 
             mkLocal <| tryFinally f.Body (retFunc finalizer)
 
-        member __.For(ts : seq<'T>, body : 'T -> Local<unit>) : Local<unit> = 
+        member __.For(ts : seq<'T>, body : 'T -> LocalCloud<unit>) : LocalCloud<unit> = 
             match ts with
             | :? ('T []) as ts -> mkLocal <| forArray body ts
             | :? ('T list) as ts -> mkLocal <| forList body ts
             | _ -> mkLocal <| forSeq body ts
 
-        member __.While(pred : unit -> bool, body : Local<unit>) : Local<unit> = mkLocal <| whileM pred body.Body
+        member __.While(pred : unit -> bool, body : LocalCloud<unit>) : LocalCloud<unit> = mkLocal <| whileM pred body.Body
 
 
     /// A workflow builder used to specify single-machine cloud computations. The
     /// computation runs to completion as a locally executing in-memory 
     /// computation. The computation may access concurrent shared memory and 
     /// unserializable resources.  
-    let local = new LocalBuilder ()
+    let local = new CloudLocalBuilder ()
 
     /// A workflow builder used to specify distributed cloud computations. Constituent parts of the computation
     /// may be serialized, scheduled and may migrate between different distributed 
@@ -385,3 +393,21 @@ module Builders =
     /// replace by a more constrained "local" workflow.  
     let cloud = new CloudBuilder ()
 
+
+/// Collection of MBrace builder extensions for seamlessly
+/// composing MBrace with asynchronous workflows
+module BuilderAsyncExtensions =
+
+    type CloudLocalBuilder with
+        member __.Bind(f : Async<'T>, g : 'T -> LocalCloud<'S>) : LocalCloud<'S> =
+            mkLocal <| bind (ofAsync f) g
+
+        member __.ReturnFrom(f : Async<'T>) : LocalCloud<'T> =
+            mkLocal <| ofAsync f    
+    
+    type CloudBuilder with
+        member __.Bind(f : Async<'T>, g : 'T -> Cloud<'S>) : Cloud<'S> =
+            mkCloud <| bind (ofAsync f) g
+
+        member __.ReturnFrom(f : Async<'T>) : Cloud<'T> =
+            mkCloud <| ofAsync f

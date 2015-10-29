@@ -3,6 +3,7 @@
 open System
 
 open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Library
 
 open NUnit.Framework
@@ -30,10 +31,10 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
     member __.``Add/remove`` () =
         cloud {
             use! dict = CloudDictionary.New<int> ()
-            let! _ = dict.Add("key", 42)
-            let! contains = dict.ContainsKey "key"
+            let! _ = dict.ForceAddAsync("key", 42)
+            let! contains = dict.ContainsKeyAsync "key"
             contains |> shouldEqual true
-            return! dict.TryFind "key"
+            return! dict.TryFindAsync "key"
         } |> runOnCloud |> shouldEqual (Some 42)
 
     [<Test>]
@@ -41,9 +42,9 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         cloud {
             use! dict = CloudDictionary.New<int> ()
             for i in [1 .. 100] do
-                do! dict.Add(string i, i) |> Async.Ignore
+                do! dict.ForceAddAsync(string i, i)
 
-            let! values = dict.ToEnumerable()
+            let! values = Cloud.OfAsync <| dict.GetEnumerableAsync()
             return values |> Seq.map (fun kv -> kv.Value) |> Seq.sum
         } |> runOnCloud |> shouldEqual 5050
 
@@ -52,11 +53,11 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         let parallelismFactor = parallelismFactor
         cloud {
             use! dict = CloudDictionary.New<int> ()
-            let add i = local { return! dict.Add(string i, i) }
+            let add i = local { return! dict.ForceAddAsync(string i, i) }
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> add i ] |> Cloud.Ignore
 
-            return! dict.GetCount()
+            return! dict.GetCountAsync() |> Cloud.OfAsync
         } |> runOnCloud |> shouldEqual (int64 parallelismFactor)
 
     [<Test>]
@@ -65,12 +66,12 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         cloud {
             use! dict = CloudDictionary.New<int> ()
             let incr i = local {
-                let! _ = CloudDictionary.AddOrUpdate "key" (function None -> i | Some c -> c + i) dict
+                let! _ = dict.AddOrUpdateAsync ("key", function None -> i | Some c -> c + i)
                 return ()
             }
 
             do! Cloud.Parallel [ for i in 1 .. parallelismFactor -> incr i ] |> Cloud.Ignore
-            return! dict.TryFind "key"
+            return! dict.TryFindAsync "key"
         } |> runOnCloud |> shouldEqual (Some (Array.sum [|1 .. parallelismFactor|]))
 
     [<Test>]
@@ -78,7 +79,7 @@ type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
         if __.IsSupportedNamedLookup then
             cloud {
                 use! dict = CloudDictionary.New<int> ()
-                do! dict.Add("testKey", 42)
+                do! dict.ForceAddAsync("testKey", 42)
                 let! dict' = CloudDictionary.GetById<int>(dict.Id)
-                return! dict'.TryFind "testKey"
+                return! dict'.TryFindAsync "testKey"
             } |> runOnCloud |> shouldEqual (Some 42)

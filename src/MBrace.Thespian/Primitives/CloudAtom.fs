@@ -79,11 +79,11 @@ module private ActorAtom =
 
             member __.Dispose() = async { return! source <!- Dispose }
 
-            member __.Force(value : 'T) = async {
+            member __.ForceAsync(value : 'T) = async {
                 return! source <!- fun ch -> ForceValue(pickle value, ch) 
             }
 
-            member __.Transact(f : 'T -> 'R * 'T, ?maxRetries) : Async<'R> = async {
+            member __.TransactAsync(f : 'T -> 'R * 'T, ?maxRetries) : Async<'R> = async {
                 if maxRetries |> Option.exists (fun i -> i < 0) then
                     invalidArg "maxRetries" "must be non-negative."
 

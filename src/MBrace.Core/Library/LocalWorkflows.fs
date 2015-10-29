@@ -15,7 +15,7 @@ module Sequential =
     /// </summary>
     /// <param name="mapper">Mapper function.</param>
     /// <param name="source">Source sequence.</param>
-    let map (mapper : 'T -> Local<'S>) (source : seq<'T>) : Local<'S []> = local {
+    let map (mapper : 'T -> LocalCloud<'S>) (source : seq<'T>) : LocalCloud<'S []> = local {
         let results = new ResizeArray<'S> ()
         for t in source do
             let! s = mapper t
@@ -29,7 +29,7 @@ module Sequential =
     /// </summary>
     /// <param name="predicate">Predicate function.</param>
     /// <param name="source">Input sequence.</param>
-    let filter (predicate : 'T -> Local<bool>) (source : seq<'T>) : Local<'T []> = local {
+    let filter (predicate : 'T -> LocalCloud<bool>) (source : seq<'T>) : LocalCloud<'T []> = local {
         let results = new ResizeArray<'T> ()
         for t in source do
             let! r = predicate t
@@ -43,7 +43,7 @@ module Sequential =
     /// </summary>
     /// <param name="chooser">Choice function.</param>
     /// <param name="source">Input sequence.</param>
-    let choose (chooser : 'T -> Local<'S option>) (source : seq<'T>) : Local<'S []> = local {
+    let choose (chooser : 'T -> LocalCloud<'S option>) (source : seq<'T>) : LocalCloud<'S []> = local {
         let results = new ResizeArray<'S> ()
         for t in source do
             let! r = chooser t
@@ -58,7 +58,7 @@ module Sequential =
     /// <param name="folder">Folding function.</param>
     /// <param name="state">Initial state.</param>
     /// <param name="source">Input data.</param>
-    let fold (folder : 'State -> 'T -> Local<'State>) (state : 'State) (source : seq<'T>) : Local<'State> = local {
+    let fold (folder : 'State -> 'T -> LocalCloud<'State>) (state : 'State) (source : seq<'T>) : LocalCloud<'State> = local {
         let state = ref state
         for t in source do
             let! state' = folder !state t
@@ -72,7 +72,7 @@ module Sequential =
     /// </summary>
     /// <param name="collector">Collector function.</param>
     /// <param name="source">Source data.</param>
-    let collect (collector : 'T -> Local<#seq<'S>>) (source : seq<'T>) : Local<'S []> = local {
+    let collect (collector : 'T -> LocalCloud<#seq<'S>>) (source : seq<'T>) : LocalCloud<'S []> = local {
         let ra = new ResizeArray<'S> ()
         for t in source do
             let! ss = collector t
@@ -86,7 +86,7 @@ module Sequential =
     /// </summary>
     /// <param name="collector">Collector function.</param>
     /// <param name="source">Source data.</param>
-    let lazyCollect (collector : 'T -> Local<#seq<'S>>) (source : seq<'T>) : Local<seq<'S>> = local {
+    let lazyCollect (collector : 'T -> LocalCloud<#seq<'S>>) (source : seq<'T>) : LocalCloud<seq<'S>> = local {
         let! ctx = Cloud.GetExecutionContext()
         return seq {
             for t in source do yield! Cloud.RunSynchronously(collector t, ctx.Resources, ctx.CancellationToken)
@@ -98,7 +98,7 @@ module Sequential =
     /// </summary>
     /// <param name="predicate">Predicate function.</param>
     /// <param name="source">Input sequence.</param>
-    let tryFind (predicate : 'T -> Local<bool>) (source : seq<'T>) : Local<'T option> = local {
+    let tryFind (predicate : 'T -> LocalCloud<bool>) (source : seq<'T>) : LocalCloud<'T option> = local {
         use e = source.GetEnumerator()
         let rec aux () = local {
             if e.MoveNext() then
@@ -118,7 +118,7 @@ module Sequential =
     /// </summary>
     /// <param name="chooser">Choice function.</param>
     /// <param name="source">Input sequence.</param>
-    let tryPick (chooser : 'T -> Local<'S option>) (source : seq<'T>) : Local<'S option> = local {
+    let tryPick (chooser : 'T -> LocalCloud<'S option>) (source : seq<'T>) : LocalCloud<'S option> = local {
         use e = source.GetEnumerator()
         let rec aux () = local {
             if e.MoveNext() then
@@ -138,7 +138,7 @@ module Sequential =
     /// </summary>
     /// <param name="body">Iterator body.</param>
     /// <param name="source">Input sequence.</param>
-    let iter (body : 'T -> Local<unit>) (source : seq<'T>) : Local<unit> = local {
+    let iter (body : 'T -> LocalCloud<unit>) (source : seq<'T>) : LocalCloud<unit> = local {
         for t in source do do! body t
     }
 
@@ -152,7 +152,7 @@ module Parallel =
     /// </summary>
     /// <param name="mapper">Mapper function.</param>
     /// <param name="source">Source sequence.</param>
-    let map (mapper : 'T -> Local<'S>) (source : seq<'T>) : Local<'S []> = local {
+    let map (mapper : 'T -> LocalCloud<'S>) (source : seq<'T>) : LocalCloud<'S []> = local {
         return! source |> Seq.map (fun t -> local { return! mapper t }) |> Local.Parallel
     }
 
@@ -161,7 +161,7 @@ module Parallel =
     /// </summary>
     /// <param name="predicate">Predicate function.</param>
     /// <param name="source">Input sequence.</param>
-    let filter (predicate : 'T -> Local<bool>) (source : seq<'T>) : Local<'T []> = local {
+    let filter (predicate : 'T -> LocalCloud<bool>) (source : seq<'T>) : LocalCloud<'T []> = local {
         let! results = 
             source
             |> Seq.map (fun t -> local { let! result = predicate t in return if result then Some t else None })
@@ -175,7 +175,7 @@ module Parallel =
     /// </summary>
     /// <param name="chooser">Choice function.</param>
     /// <param name="source">Input sequence.</param>
-    let choose (chooser : 'T -> Local<'S option>) (source : seq<'T>) : Local<'S []> = local {
+    let choose (chooser : 'T -> LocalCloud<'S option>) (source : seq<'T>) : LocalCloud<'S []> = local {
         let! results = map chooser source
         return Array.choose id results
     }
@@ -185,7 +185,7 @@ module Parallel =
     /// </summary>
     /// <param name="collector">Collector function.</param>
     /// <param name="source">Source data.</param>
-    let collect (collector : 'T -> Local<#seq<'S>>) (source : seq<'T>) : Local<'S []> = local {
+    let collect (collector : 'T -> LocalCloud<#seq<'S>>) (source : seq<'T>) : LocalCloud<'S []> = local {
         let! results = map (fun t -> local { let! rs = collector t in return Seq.toArray rs }) source
         return Array.concat results
     }
@@ -195,7 +195,7 @@ module Parallel =
     /// </summary>
     /// <param name="predicate">Predicate function.</param>
     /// <param name="source">Input sequence.</param>
-    let tryFind (predicate : 'T -> Local<bool>) (source : seq<'T>) : Local<'T option> = local {
+    let tryFind (predicate : 'T -> LocalCloud<bool>) (source : seq<'T>) : LocalCloud<'T option> = local {
         let finder (t : 'T) = local { let! r = predicate t in return if r then Some t else None }
         return! source |> Seq.map finder |> Local.Choice
     }
@@ -205,7 +205,7 @@ module Parallel =
     /// </summary>
     /// <param name="chooser">Choice function.</param>
     /// <param name="source">Input sequence.</param>
-    let tryPick (chooser : 'T -> Local<'S option>) (source : seq<'T>) : Local<'S option> = local {
+    let tryPick (chooser : 'T -> LocalCloud<'S option>) (source : seq<'T>) : LocalCloud<'S option> = local {
         return! source |> Seq.map chooser |> Local.Choice
     }
 
@@ -214,7 +214,7 @@ module Parallel =
     /// </summary>
     /// <param name="body">Iterator body.</param>
     /// <param name="source">Input sequence.</param>
-    let iter (body : 'T -> Local<unit>) (source : seq<'T>) : Local<unit> = local {
+    let iter (body : 'T -> LocalCloud<unit>) (source : seq<'T>) : LocalCloud<unit> = local {
         let! _ = source |> Seq.map (fun t -> local { return! body t }) |> Local.Parallel
         return ()
     }
