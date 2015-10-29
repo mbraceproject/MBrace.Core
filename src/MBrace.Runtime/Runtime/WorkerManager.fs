@@ -25,7 +25,7 @@ type WorkerExecutionStatus =
     | QueueFault of ExceptionDispatchInfo
     /// Worker declared dead by cluster
     | WorkerDeath
-with
+
     override s.ToString() =
         match s with
         | Running -> "Running"

@@ -158,7 +158,7 @@ type private QueueState =
         Queue : WorkItemQueueTopic
         LastCleanup : DateTimeOffset
     }
-with
+
     static member Empty = { Queue = WorkItemQueueTopic.Empty ; LastCleanup = DateTimeOffset.Now }
 
 and private WorkItemQueueTopic = TopicQueue<IWorkerId, PickledWorkItem * CloudWorkItemFaultInfo>
