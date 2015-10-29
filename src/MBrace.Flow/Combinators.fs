@@ -882,6 +882,30 @@ module CloudFlow =
                source
         |> map (fun (k, xs) -> k, xs :> seq<_>)
 
+    /// <summary>Applies a key-generating function to each element of the input flow and computes the average of the projections in each group.</summary>
+    /// <param name="keyProjection">A function to transform items of the input flow into a key.</param>
+    /// <param name="valueProjection">A function to transform items of the input flow into a value.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>A CloudFlow of pairs, each with a key and computed average.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline averageByKey (keyProjection: 'T -> 'Key) (valueProjection: 'T -> 'Value) (source: CloudFlow<'T>) : CloudFlow<'Key * 'Value> =
+        source 
+        |> foldBy 
+            keyProjection  
+            (fun (count, sum)  row -> (count + 1, sum + valueProjection row)) 
+            (fun (count,sum) (count2,sum2) -> (count + count2, sum + sum2))
+            (fun () -> (0,LanguagePrimitives.GenericZero<'Value>))
+        |> map (fun (key, (count,sum)) -> (key, LanguagePrimitives.DivideByInt sum count))
+
+    /// <summary>Applies a key-generating function to each element of the input flow and computes the sum of the projections in each group.</summary>
+    /// <param name="keyProjection">A function to transform items of the input flow into a key.</param>
+    /// <param name="valueProjection">A function to transform items of the input flow into a value.</param>
+    /// <param name="source">The input flow.</param>
+    /// <returns>A CloudFlow of pairs, each with a key and computed sum.</returns>
+    /// <exception cref="System.ArgumentException">Thrown if the input flow is empty.</exception>
+    let inline sumByKey (keyProjection: 'T -> 'Key) (valueProjection: 'T -> 'Value)  (source: CloudFlow<'T>) : CloudFlow<'Key * 'Value> =
+        source |> foldBy keyProjection  (fun sum  row -> (sum + valueProjection row)) (+) (fun () -> LanguagePrimitives.GenericZero<'Value>)
+
 
     /// <summary>Applies a key-generating functions to each element of the flows and yields a flow of unique keys and sequences of all elements that have each key.</summary>
     /// <param name="firstProjection">A function to transform items of the first flow into comparable keys.</param>
