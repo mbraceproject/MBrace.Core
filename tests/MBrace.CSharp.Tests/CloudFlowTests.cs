@@ -35,255 +35,113 @@ namespace MBrace.Flow.CSharp.Tests
         abstract public int FsCheckMaxNumberOfIOBoundTests { get; }
 
         [Test]
-        public void OfArray()
+        public void OfArray_ToArray()
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
                 {
-                    var x = CloudFlow.OfArray(xs).Select(i => i + 1).ToArray();
-                    var y = xs.Select(i => i + 1).ToArray();
+                    var x = CloudFlow.OfArray(xs).ToArray();
+                    var y = xs.ToArray();
                     return this.Run(x).SequenceEqual(y);
                 }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
         }
 
-        //[Test]
-        //public void OfCloudArray()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var ca = this.Run(PersistedCloudFlow.New(xs, 100));
-        //        var x = ca.AsCloudFlow().Select(i => i + 1).ToArray();
-        //        var y = xs.Select(i => i + 1).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
+        [Test]
+        public void Select()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).Select(v => v * 2).ToArray();
+                var y = xs.Select(v => v * 2).ToArray();
+                return this.Run(x).SequenceEqual(y);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
 
-        //[Test]
-        //public void ToCloudArray()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => i + 1).ToCloudVector();
-        //        var y = xs.Select(i => i + 1).ToArray();
-        //        var r = this.RunLocally(this.Run(x).ToEnumerable());
-        //        return r.SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
-
-        //[Test]
-        //public void Cache()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var ca = this.Run(PersistedCloudFlow.New(xs, 1024L));
-        //        this.Run(PersistedCloudFlow.Cache(ca));
-        //        var x = ca.AsCloudFlow().Select(i => i + 1).ToArray();
-        //        var y = xs.Select(i => i + 1).ToArray();
-        //        var z = ca.AsCloudFlow().Select(i => i + 1).ToArray();
-        //        return this.Run(x).SequenceEqual(y) &&
-        //               this.Run(z).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
-
-        //[Test]
-        //public void OfCloudFilesWithReadAllText()
-        //{
-        //    FSharpFunc<string[], bool>.FromConverter(xs =>
-        //    {
-        //        var cfiles =
-        //            this.Run(xs.Select(text => MBrace.CloudFile.WriteAllText(text, null, null)));
-
-        //        var x =
-        //            this.Run(cfiles
-        //                .AsCloudFlow<string>(CloudFileReader.ReadAllText)
-        //                .ToArray());
-        //        var y = cfiles.Select(f => this.RunLocally(CloudFile.ReadAllText(f, null)));
-
-        //        var s1 = new HashSet<string>(x);
-        //        var s2 = new HashSet<string>(y);
-        //        return s1.SetEquals(s2);
-        //    }).QuickThrowOnFail(10);
-        //}
-
-        //[Test]
-        //public void OfCloudFilesWithReadLines()
-        //{
-        //    FSharpFunc<string[][], bool>.FromConverter(xs =>
-        //    {
-        //        var cfiles =
-        //            this.Run(xs.Select(text => MBrace.CloudFile.WriteAllLines(text, null, null)));
-
-        //        var x =
-        //            this.Run(cfiles
-        //                .AsCloudFlow(CloudFileReader.ReadLines)
-        //                .SelectMany(l => l.AsStream())
-        //                .ToArray());
-        //        var y = cfiles.Select(f => this.RunLocally(CloudFile.ReadAllLines(f,null)))
-        //                .SelectMany(id => id);
-
-        //        var s1 = new HashSet<string>(x);
-        //        var s2 = new HashSet<string>(y);
-        //        return s1.SetEquals(s2);
-        //    }).QuickThrowOnFail(10);
-        //}
-
-        //[Test]
-        //public void OfCloudFilesWithReadAllLines()
-        //{
-        //    FSharpFunc<string[][], bool>.FromConverter(xs =>
-        //    {
-        //        var cfiles =
-        //            this.Run(xs.Select(text => MBrace.CloudFile.WriteAllLines(text, null, null)));
-
-        //        var x =
-        //            this.Run(cfiles
-        //                .AsCloudFlow(CloudFileReader.ReadAllLines)
-        //                .SelectMany(l => l.AsStream())
-        //                .ToArray());
-
-        //        var y = cfiles.Select(f => this.RunLocally(CloudFile.ReadAllLines(f, null)))
-        //                .SelectMany(id => id);
-
-        //        var s1 = new HashSet<string>(x);
-        //        var s2 = new HashSet<string>(y);
-        //        return s1.SetEquals(s2);
-        //    }).QuickThrowOnFail(10);
-        //}
-
-        //[Test]
-        //public void Select()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => i + 1).ToArray();
-        //        var y = xs.AsParallel().Select(i => i + 1).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
-
-        //[Test]
-        //public void Where()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Where(i => i % 2 == 0).ToArray();
-        //        var y = xs.AsParallel().Where(i => i % 2 == 0).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
-
-        //[Test]
-        //public void SelectMany()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().SelectMany<int, int>(i => xs.AsStream()).ToArray();
-        //        var y = xs.AsParallel().SelectMany(i => xs).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
+        [Test]
+        public void Where()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).Where(v => v % 2 == 0).ToArray();
+                var y = xs.Where(v => v % 2 == 0).ToArray();
+                return this.Run(x).SequenceEqual(y);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
 
 
-        //[Test]
-        //public void Aggregate()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => i + 1).Aggregate(() => 0, (acc, i) => acc + i, (left, right) => left + right);
-        //        var y = xs.AsParallel().Select(i => i + 1).Aggregate(() => 0, (acc, i) => acc + i, (left, right) => left + right, i => i);
-        //        return this.Run(x) == y;
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
+        [Test]
+        public void SelectMany()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).SelectMany(v => Enumerable.Range(1, 1000)).ToArray();
+                var y = xs.SelectMany(v => Enumerable.Range(1, 1000)).ToArray();
+                return this.Run(x).SequenceEqual(y);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
+
+        [Test]
+        public void Count()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).Where(v => v % 2 == 0).Count();
+                var y = xs.Where(v => v % 2 == 0).Count();
+                return this.Run(x) == y;
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
+
+        [Test]
+        public void Sum()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).Select(v => v * 2).Sum();
+                var y = xs.Select(v => v * 2).Sum();
+                return this.Run(x) == y;
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
+
+        [Test]
+        public void Take()
+        {
+            FSharpFunc<Tuple<int[], int>, bool>.FromConverter(t =>
+            {
+                var xs = t.Item1;
+                var n = Math.Abs(t.Item2);
+                var x = CloudFlow.OfArray(xs).Take(n).ToArray();
+                var y = xs.Take(n).ToArray();
+                return this.Run(x).SequenceEqual(y);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
 
 
-        //[Test]
-        //public void Sum()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => i + 1).Sum();
-        //        var y = xs.AsParallel().Select(i => i + 1).Sum();
-        //        return this.Run(x) == y;
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
+        [Test]
+        public void OrderBy()
+        {
+            FSharpFunc<Tuple<int[], int>, bool>.FromConverter(t =>
+            {
+                var xs = t.Item1;
+                var n = Math.Abs(t.Item2);
+                var x = CloudFlow.OfArray(xs).OrderBy(v => v, n).ToArray();
+                var y = xs.OrderBy(v => v).Take(n).ToArray();
+                return this.Run(x).SequenceEqual(y);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
 
-        //[Test]
-        //public void Count()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => i + 1).Count();
-        //        var y = xs.AsParallel().Select(i => i + 1).Count();
-        //        return this.Run(x) == y;
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
+        [Test]
+        public void OrderByDescending()
+        {
+            FSharpFunc<Tuple<int[], int>, bool>.FromConverter(t =>
+            {
+                var xs = t.Item1;
+                var n = Math.Abs(t.Item2);
+                var x = CloudFlow.OfArray(xs).OrderByDescending(v => v, n).ToArray();
+                var y = xs.OrderByDescending(v => v).Take(n).ToArray();
+                return this.Run(x).SequenceEqual(y);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
 
-        //[Test]
-        //public void OrderBy()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => i + 1).OrderBy(i => i, 10).ToArray();
-        //        var y = xs.AsParallel().Select(i => i + 1).OrderBy(i => i).Take(10).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
 
-        //[Test]
-        //public void CustomObject1()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => new Custom1 { Name = i.ToString(), Age = i }).ToArray();
-        //        var y = xs.AsParallel().Select(i => new Custom1 { Name = i.ToString(), Age = i }).ToArray();
-        //        return this.Run(x).Zip(y, (l, r) => l.Name == r.Name && l.Age == r.Age).All(b => b == true);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
 
-        //[Test]
-        //public void CustomObject2()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => new Custom2 { Name = i.ToString(), Age = i }).ToArray();
-        //        var y = xs.AsParallel().Select(i => new Custom2 { Name = i.ToString(), Age = i }).ToArray();
-        //        return this.Run(x).Zip(y, (l, r) => l.Name == r.Name && l.Age == r.Age).All(b => b == true);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
-
-        //[Test]
-        //public void AnonymousType()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = xs.AsCloudFlow().Select(i => new { Value = i }).ToArray();
-        //        var y = xs.AsParallel().Select(i => new { Value = i }).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
-
-        //[Test]
-        //public void CapturedVariable()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var ys = Enumerable.Range(1, 10).ToArray();
-        //        var x = xs.AsCloudFlow().SelectMany<int, int>(_ => ys.AsStream()).ToArray();
-        //        var y = xs.AsParallel().SelectMany<int, int>(_ => ys).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
-
-        //[Test]
-        //public void ComprehensionSyntax()
-        //{
-        //    FSharpFunc<int[], bool>.FromConverter(xs =>
-        //    {
-        //        var x = (from x1 in xs.AsCloudFlow()
-        //                 select x1 * x1).ToArray();
-        //        var y = (from x2 in xs.AsParallel()
-        //                 select x2 * x2).ToArray();
-        //        return this.Run(x).SequenceEqual(y);
-        //    }).QuickThrowOnFail(this.MaxNumberOfTests);
-        //}
     }
 }
