@@ -141,7 +141,62 @@ namespace MBrace.Flow.CSharp.Tests
             }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
         }
 
+        [Test]
+        public void CountBy()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).CountBy(v => v).ToArray();
+                var y = xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, (long)v.Count())).ToArray();
+                return new HashSet<Tuple<int, long>>(this.Run(x)).SetEquals(new HashSet<Tuple<int, long>>(y));
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
 
+        [Test]
+        public void GroupBy()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).GroupBy(v => v).Select(t => Tuple.Create(t.Item1, t.Item2.Count())).ToArray();
+                var y = xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Count())).ToArray();
+                return new HashSet<Tuple<int, int>>(this.Run(x)).SetEquals(new HashSet<Tuple<int, int>>(y));
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
+
+        [Test]
+        public void Aggregate()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).Select(v => v * 2).Aggregate(() => 0, (acc, v) => acc + v, (l, r) => l + r);
+                var y = xs.Select(v => v * 2).Aggregate(0, (acc, v) => acc + v);
+                return this.Run(x) == y;
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
+
+        [Test]
+        public void AggregateBy()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var x = CloudFlow.OfArray(xs).AggregateBy(v => v, () => 0, (acc, v) => acc + v, (l, r) => l + r).ToArray();
+                var y = xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Sum())).ToArray();
+                return new HashSet<Tuple<int, int>>(this.Run(x)).SetEquals(new HashSet<Tuple<int, int>>(y));
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
+
+        [Test]
+        public void Cache()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var flow = this.Run(CloudFlow.OfArray(xs).Cache());
+                var x = this.Run(flow.Select(v => v * 2).ToArray());
+                var count = this.Run(Cloud.GetWorkerCount());
+                var y = xs.Select(v => v * 2).ToArray();
+                return x.SequenceEqual(y);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
 
     }
 }
