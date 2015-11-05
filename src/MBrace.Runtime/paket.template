@@ -13,7 +13,7 @@ summary
     MBrace runtime core library containing the foundations
     for implementing distributed runtimes that support cloud workflows.
 licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
-projecturl http://www.m-brace.net/
+projecturl http://www.mbrace.io/
 iconurl https://avatars2.githubusercontent.com/u/9674757
 tags
     F#, cloud, mapreduce, distributed
