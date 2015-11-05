@@ -61,5 +61,5 @@ type ``Local FileSystemStore CloudFlow Tests`` () =
         logTester.GetLogs()
 
     override __.IsSupportedStorageLevel level = cloudValueProvider.IsSupportedStorageLevel level
-    override __.FsCheckMaxNumberOfTests = if isAppVeyorInstance then 20 else 100
-    override __.FsCheckMaxNumberOfIOBoundTests = if isAppVeyorInstance then 5 else 30
+    override __.FsCheckMaxNumberOfTests = if isCIInstance then 20 else 100
+    override __.FsCheckMaxNumberOfIOBoundTests = if isCIInstance then 5 else 30

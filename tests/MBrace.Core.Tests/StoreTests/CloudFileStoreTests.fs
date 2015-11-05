@@ -459,7 +459,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
         // AppVeyor has performance bottleneck when doing concurrent IO; reduce number of tests
         let testedPartitionCounts = 
-            if isAppVeyorInstance then [|20|]
+            if isCIInstance then [|20|]
             else [|1;5;10;50;100;250;500;750;1000;2000|]
 
         for pc in testedPartitionCounts do

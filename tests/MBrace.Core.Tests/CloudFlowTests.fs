@@ -371,7 +371,7 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``2. CloudFlow : OfHttpFileByLine single input`` () =
-        if not isAppVeyorInstance then
+        if not isCIInstance then
             for url in testUrls do
                 let lineCount = getHttpFileLineCount url
 
@@ -384,7 +384,7 @@ type ``CloudFlow tests`` () as self =
 
     [<Test>]
     member __.``2. CloudFlow : OfHttpFileByLine multiple inputs`` () =
-        if not isAppVeyorInstance then
+        if not isCIInstance then
             let lineCount = testUrls |> Array.Parallel.map getHttpFileLineCount |> Array.sum
 
             let flowLength =
