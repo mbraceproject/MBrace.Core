@@ -21,7 +21,7 @@ module ``Collection Partitioning Tests`` =
         500
 #else
         // for whatever reason there is significant delay when running in AppVeyor
-        if isAppVeyorInstance then 10 else 100
+        if isCIInstance then 10 else 100
 #endif
 
     let run c = Async.RunSync c

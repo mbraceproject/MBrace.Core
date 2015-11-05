@@ -18,6 +18,7 @@ module Utils =
     let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
     let isAppVeyorInstance = System.Environment.GetEnvironmentVariable("APPVEYOR") <> null
     let isTravisInstance = System.Environment.GetEnvironmentVariable("TRAVIS") <> null
+    let isCIInstance = isAppVeyorInstance || isTravisInstance
 
     /// detect platform id, properly giving MacOSX if so.
     let platformId = 
