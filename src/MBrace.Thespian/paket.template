@@ -10,7 +10,7 @@ summary
     Provides a simple MBrace cluster implementation over Thespian (https://github.com/nessos/Thespian).
 	Release intended for educational purposes, should NOT be used in production.
 licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
-projecturl http://www.m-brace.net/
+projecturl http://www.mbrace.io/
 iconurl https://avatars2.githubusercontent.com/u/9674757
 tags
     F#, cloud, mapreduce, distributed

@@ -6,7 +6,7 @@
 This repository contains core libraries and runtime foundation components 
 for the MBrace cloud programming model and frameworks.
 
-For a first introduction to MBrace please refer to the main website at [m-brace.net](http://www.m-brace.net/).
+For a first introduction to MBrace please refer to the main website at [mbrace.io](http://www.mbrace.io/).
 If you have any questions regarding MBrace don't hesitate to create an issue or ask one of the [maintainers](#maintainers). 
 You can also follow the official MBrace twitter account [@mbracethecloud](https://twitter.com/mbracethecloud).
 
@@ -78,7 +78,7 @@ If you would like to get involved, here are a few places you could have a look a
   * MBrace Libraries: we are looking for data scientists and domain experts who can help us develop specialized libraries that run on top of MBrace.Core. Examples include [Machine Learning](https://spark.apache.org/docs/1.1.0/mllib-guide.html) and [Graph analytics](http://spark.apache.org/graphx/) libraries.
   * MBrace Runtimes: help MBrace grow by extending support to your favorite cloud service. It could be AWS, YARN/HDFS or your private infrastructure.
   * C# Support: As of MBrace 1.0, development of [MBrace.CSharp](#mbrace.csharp) has been suspended. We are looking for working C# developers interested in extending MBrace support to C# and testing deployments using the upcoming C# Interactive.
-  * Documentation & Code Samples: help improve MBrace documentation and coding samples. See the [MBrace.StarterKit](https://github.com/mbraceproject/MBrace.StarterKit) for current coding samples and the [mbrace-docs](https://github.com/mbraceproject/mbrace-docs) repo for documentation and the [m-brace.net](http://www.m-brace.net/) website.
+  * Documentation & Code Samples: help improve MBrace documentation and coding samples. See the [MBrace.StarterKit](https://github.com/mbraceproject/MBrace.StarterKit) for current coding samples and the [mbrace-docs](https://github.com/mbraceproject/mbrace-docs) repo for documentation and the [mbrace.io](http://www.mbrace.io/) website.
 
 ## License
 

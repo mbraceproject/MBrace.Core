@@ -11,7 +11,7 @@ summary
     A collection of abstract NUnit-based test suites for evaluating
     MBrace runtime implementations.
 licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
-projecturl http://www.m-brace.net/
+projecturl http://www.mbrace.io/
 iconurl https://avatars2.githubusercontent.com/u/9674757
 tags
     F#, cloud, mapreduce, distributed
