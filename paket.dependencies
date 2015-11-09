@@ -21,3 +21,4 @@ nuget FAKE
 nuget MathNet.Numerics ~> 3.7.0
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
+nuget System.Runtime.Loader

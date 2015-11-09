@@ -1,4 +1,5 @@
 ﻿#r "../../packages/FSharp.Core/lib/net40/FSharp.Core.dll"
+#r "../../packages/System.Runtime.Loader/lib/DNXCore50/System.Runtime.Loader.dll"
 #r "../../bin/FsPickler.dll"
 #r "../../bin/Vagabond.dll"
 #r "../../bin/Argu.dll"
