@@ -103,7 +103,7 @@ type ``CloudFlow tests`` () as self =
             persisted.StorageLevel |> shouldEqual StorageLevel.Disk
             persisted.PartitionCount |> shouldEqual workers
             persisted |> CloudFlow.toArray |> runOnCloud |> shouldEqual inputs
-            persisted |> Seq.toArray |> shouldEqual inputs
+            persisted.ToEnumerable() |> Seq.toArray |> shouldEqual inputs
 
     [<Test>]
     member __.``1. PersistedCloudFlow : Randomized StorageLevel.Disk`` () =
@@ -111,7 +111,7 @@ type ``CloudFlow tests`` () as self =
             let f(xs : int[]) =            
                 let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
                 let y = xs |> Seq.map ((+)1) |> Seq.toArray
-                Assert.AreEqual(y, x |> Seq.toArray)
+                Assert.AreEqual(y, x.ToEnumerable() |> Seq.toArray)
             Check.QuickThrowOnFail(f, self.FsCheckMaxNumberOfTests)
 
     [<Test>]
@@ -172,7 +172,7 @@ type ``CloudFlow tests`` () as self =
         for i = 0 to mergedPartitions.Length - 1 do
             mergedPartitions.[i].Id |> shouldEqual (partitions.[i % persisted.PartitionCount].Id)
 
-        merged
+        merged.ToEnumerable()
         |> Seq.toArray
         |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
 
@@ -183,7 +183,7 @@ type ``CloudFlow tests`` () as self =
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runOnCloud
         let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
         merged |> Cloud.Dispose |> runOnCloud
-        shouldfail(fun () -> persisted |> Seq.iter ignore)
+        shouldfail(fun () -> persisted.ToEnumerable() |> Seq.iter ignore)
 
     // #region Streams tests
 
