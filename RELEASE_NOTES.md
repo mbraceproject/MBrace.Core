@@ -1,3 +1,7 @@
+#### 1.0.0
+* MBrace.Core 1.0 release.
+* C# interop improvements.
+
 #### 0.16.0-beta
 * Add support for text-based serializers in MBrace.Core
 * Expose text-based serializer APIs in MBrace.Core
