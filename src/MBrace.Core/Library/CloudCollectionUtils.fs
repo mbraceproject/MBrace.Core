@@ -32,7 +32,10 @@ type SequenceCollection<'T> (seq : seq<'T>) =
 
     [<DataMember(Name = "Sequence")>]
     let seq = seq
+
+    /// Gets the underlying IEnumerable
     member __.Sequence = seq
+
     interface seq<'T> with
         member x.GetEnumerator() = seq.GetEnumerator() :> IEnumerator
         member x.GetEnumerator() = seq.GetEnumerator()
@@ -54,10 +57,6 @@ type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
     /// Gets constituent partitions of concatenated collection
     member __.Partitions = partitions
 
-    interface seq<'T> with
-        member x.GetEnumerator() = Seq.concat(partitions).GetEnumerator() :> IEnumerator
-        member x.GetEnumerator() = Seq.concat(partitions).GetEnumerator()
-
     interface IPartitionedCollection<'T> with
         member x.IsKnownSize = partitions |> Array.forall (fun p -> p.IsKnownSize)
         member x.IsKnownCount = partitions |> Array.forall (fun p -> p.IsKnownCount)
@@ -74,7 +73,13 @@ type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
 
         member x.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions }
         member x.PartitionCount: Async<int> = async { return partitions.Length }
-        member x.GetEnumerableAsync(): Async<seq<'T>> = async { return Seq.concat partitions }
+        member x.GetEnumerableAsync(): Async<seq<'T>> = async { 
+            return seq {
+                for p in partitions do
+                    let pseq = p.GetEnumerableAsync() |> Async.RunSync
+                    yield! pseq
+            }
+        }
 
 
 /// Partitionable HTTP line reader implementation

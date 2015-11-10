@@ -57,31 +57,24 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
 
     /// Gets an enumerable for all elements in the PersistedCloudFlow
     member __.ToEnumerable() : seq<'T> =
-        match partitions with
-        | [||] -> Seq.empty
-        | [| (_,p) |] -> p.Value :> seq<'T>
-        | _ -> partitions |> Seq.collect snd
+        seq { for _,p in partitions do yield! p }
 
     /// Gets a TargetedPartitionCollection
-    member self.ToTargetedPartitionCollection() : ITargetedPartitionCollection<'T> = 
-        { new ITargetedPartitionCollection<'T> with
-                member __.IsKnownSize = true
-                member __.IsKnownCount = true
-                member __.IsMaterialized = false
-                member __.GetSizeAsync(): Async<int64> = async { return self.Size }
-                member __.GetCountAsync(): Async<int64> = async { return self.Count }
-                member __.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun (_,p) -> p :> ICloudCollection<'T>) }
-                member __.GetTargetedPartitions() :Async<(IWorkerRef * ICloudCollection<'T>) []> = async { return partitions |> Array.map (fun (w,ca) -> w, ca :> _) }
-                member __.PartitionCount: Async<int> = async { return partitions.Length }
-                member __.GetEnumerableAsync() = async { return self.ToEnumerable() } 
-            interface seq<'T> with
-                member __.GetEnumerator() = self.ToEnumerable().GetEnumerator() :> IEnumerator
-                member __.GetEnumerator() = self.ToEnumerable().GetEnumerator() } 
+    interface ITargetedPartitionCollection<'T> with
+        member __.IsKnownSize = true
+        member __.IsKnownCount = true
+        member __.IsMaterialized = false
+        member __.GetSizeAsync(): Async<int64> = async { return __.Size }
+        member __.GetCountAsync(): Async<int64> = async { return __.Count }
+        member __.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun (_,p) -> p :> ICloudCollection<'T>) }
+        member __.GetTargetedPartitions() :Async<(IWorkerRef * ICloudCollection<'T>) []> = async { return partitions |> Array.map (fun (w,ca) -> w, ca :> _) }
+        member __.PartitionCount: Async<int> = async { return partitions.Length }
+        member __.GetEnumerableAsync() = async { return __.ToEnumerable() } 
 
     interface CloudFlow<'T> with
         member cv.DegreeOfParallelism = Some degreeOfParallelism
         member cv.WithEvaluators(collectorf : LocalCloud<Collector<'T,'S>>) (projection: 'S -> LocalCloud<'R>) (combiner: 'R [] -> LocalCloud<'R>): Cloud<'R> = cloud {
-            let flow = CloudCollection.ToCloudFlow(cv.ToTargetedPartitionCollection())
+            let flow = CloudCollection.ToCloudFlow(cv)
             return! flow.WithEvaluators collectorf projection combiner
         }
 
