@@ -21,7 +21,7 @@ namespace MBrace.Flow.CSharp
         /// <returns>The result CloudFlow.</returns>
         public static CloudFlow<TSource> OfArray<TSource>(TSource[] source)
         {
-            return Internals.Array.ToCloudFlow(source, null);
+            return Internals.Array.ToCloudFlow(source, Option.None<int>());
         }
 
         /// <summary>Constructs a CloudFlow of lines from a collection of text files.</summary>
@@ -29,7 +29,7 @@ namespace MBrace.Flow.CSharp
         /// <returns>The result CloudFlow.</returns>
         public static CloudFlow<string> OfCloudFileByLine(IEnumerable<string> paths)
         {
-            return MBrace.Flow.CloudFlow.OfCloudFileByLine(paths, null, null);
+            return MBrace.Flow.CloudFlow.OfCloudFileByLine(paths, Option.None<Encoding>(), Option.None<long>());
         }
 
         /// <summary>Constructs a CloudFlow of lines from a single large text file.</summary>
@@ -37,7 +37,7 @@ namespace MBrace.Flow.CSharp
         /// <returns>The result CloudFlow.</returns>
         public static CloudFlow<string> OfCloudFileByLine(string path)
         {
-            return MBrace.Flow.CloudFlow.OfCloudFileByLine(path, null);
+            return MBrace.Flow.CloudFlow.OfCloudFileByLine(path, Option.None<Encoding>());
         }
 
         /// <summary>Constructs a CloudFlow of lines from a collection of HTTP text files.</summary>
@@ -45,7 +45,7 @@ namespace MBrace.Flow.CSharp
         /// <returns>The result CloudFlow.</returns>
         public static CloudFlow<string> OfHTTPFileByLine(IEnumerable<string> paths)
         {
-            return MBrace.Flow.CloudFlow.OfHttpFileByLine(paths, null);
+            return MBrace.Flow.CloudFlow.OfHttpFileByLine(paths, Option.None<Encoding>());
         }
 
         /// <summary>Constructs a CloudFlow of lines from a single large HTTP text file.</summary>
@@ -53,7 +53,7 @@ namespace MBrace.Flow.CSharp
         /// <returns>The result CloudFlow.</returns>
         public static CloudFlow<string> OfHTTPFileByLine(string path)
         {
-            return MBrace.Flow.CloudFlow.OfHttpFileByLine(path, null);
+            return MBrace.Flow.CloudFlow.OfHttpFileByLine(path, Option.None<Encoding>());
         }
 
         /// <summary>Transforms each element of the input CloudFlow.</summary>
