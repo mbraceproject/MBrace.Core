@@ -86,7 +86,7 @@ type Cloud =
     /// </summary>
     /// <param name="task">Awaited task.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
-    static member AwaitTask(task : Task<'T>, ?timeoutMilliseconds : int) : LocalCloud<'T> =
+    static member AwaitTask(task : Task<'T>, [<O;D(null:obj)>]?timeoutMilliseconds : int) : LocalCloud<'T> =
         Local.FromContinuations(fun ctx cont ->
             let task = match timeoutMilliseconds with None -> task | Some ms -> task.WithTimeout ms
             let onCompletion (t : Task<'T>) =
@@ -239,11 +239,13 @@ type Cloud =
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
     /// <param name="cancellationToken">Specify cancellation token for the cloud process. Defaults to no cancellation token.</param>
-    /// <param name="procName">Optional user-specified name for the cloud process.</param>
-    static member CreateProcess(computation : Cloud<'T>, ?faultPolicy : FaultPolicy, ?target : IWorkerRef, ?cancellationToken:ICloudCancellationToken, ?procName:string) : Cloud<ICloudProcess<'T>> = cloud {
+    /// <param name="processName">Optional user-specified name for the cloud process.</param>
+    static member CreateProcess(computation : Cloud<'T>, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?target : IWorkerRef, 
+                                    [<O;D(null:obj)>]?cancellationToken:ICloudCancellationToken, [<O;D(null:obj)>]?processName:string) : Cloud<ICloudProcess<'T>> = cloud {
+
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let faultPolicy = defaultArg faultPolicy runtime.FaultPolicy
-        return! runtime.ScheduleCreateProcess(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = procName)
+        return! runtime.ScheduleCreateProcess(computation, faultPolicy, ?cancellationToken = cancellationToken, ?target = target, ?procName = processName)
     }
 
     /// <summary>
@@ -251,7 +253,7 @@ type Cloud =
     /// </summary>
     /// <param name="cloudProcess">Cloud process to be awaited.</param>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite</param>
-    static member AwaitProcess(cloudProcess : ICloudProcess<'T>, ?timeoutMilliseconds:int) : LocalCloud<'T> = local {
+    static member AwaitProcess(cloudProcess : ICloudProcess<'T>, [<O;D(null:obj)>]?timeoutMilliseconds:int) : LocalCloud<'T> = local {
         return! Cloud.OfAsync <| cloudProcess.AwaitResultAsync(?timeoutMilliseconds = timeoutMilliseconds)
     }
 
@@ -281,7 +283,7 @@ type Cloud =
     /// </summary>
     /// <param name="computation">Computation to be executed.</param>
     /// <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
-    static member StartChild(workflow : Cloud<'T>, ?target : IWorkerRef) : Cloud<LocalCloud<'T>> = cloud {
+    static member StartChild(workflow : Cloud<'T>, [<O;D(null:obj)>]?target : IWorkerRef) : Cloud<LocalCloud<'T>> = cloud {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let! cancellationToken = Cloud.CancellationToken
         let! cloudProcess = runtime.ScheduleCreateProcess(workflow, runtime.FaultPolicy, cancellationToken, ?target = target)
@@ -385,7 +387,7 @@ type Cloud =
     ///     Creates a linked cloud cancellation token source.
     /// </summary>
     /// <param name="parent">Parent cancellation token. Defaults to the current process cancellation token.</param>
-    static member CreateLinkedCancellationTokenSource(?parent : ICloudCancellationToken) = local {
+    static member CreateLinkedCancellationTokenSource([<O;D(null:obj)>]?parent : ICloudCancellationToken) = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
         let! currentCt = Cloud.CancellationToken
         let parent = defaultArg parent currentCt

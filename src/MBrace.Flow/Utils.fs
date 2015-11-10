@@ -13,6 +13,9 @@ open MBrace.Flow
 [<AutoOpen>]
 module Utils =
 
+    type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
+    type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
+
     type Collector<'T, 'R> with
         /// Converts MBrace.Flow.Collector to Nessos.Streams.Collector
         member collector.ToParStreamCollector () =

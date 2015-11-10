@@ -5,6 +5,7 @@ open System.Threading
 open MBrace.Core
 open MBrace.Core.Internals
 
+open MBrace.Runtime.Utils
 open MBrace.ThreadPool.Internals
 
 /// Local file system CloudFilestore implementation
@@ -50,7 +51,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     ///     Creates a fresh thread pool cancellation token.
     /// </summary>
     /// <param name="canceled">Create as canceled token. Defaults to false.</param>
-    static member CreateCancellationToken(?canceled:bool) =
+    static member CreateCancellationToken([<O;D(null:obj)>]?canceled:bool) =
         new ThreadPoolCancellationToken(new CancellationToken(canceled = defaultArg canceled false))
     
     /// <summary>
@@ -74,7 +75,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
-    member r.ToAsync(workflow : Cloud<'T>, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : Async<'T> =
+    member r.ToAsync(workflow : Cloud<'T>, [<O;D(null:obj)>]?memoryEmulation : MemoryEmulation, [<O;D(null:obj)>]?logger : ICloudLogger, [<O;D(null:obj)>]?resources : ResourceRegistry) : Async<'T> =
         let memoryEmulation = defaultArg memoryEmulation _memoryEmulation
         let resources = buildResources memoryEmulation logger resources
         Combinators.ToAsync(workflow, memoryEmulation, resources)
@@ -88,7 +89,9 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
-    member r.RunSynchronously(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : 'T =
+    member r.RunSynchronously(workflow : Cloud<'T>, [<O;D(null:obj)>]?cancellationToken : ICloudCancellationToken, [<O;D(null:obj)>]?memoryEmulation : MemoryEmulation, 
+                                [<O;D(null:obj)>]?logger : ICloudLogger, [<O;D(null:obj)>]?resources : ResourceRegistry) : 'T =
+
         let memoryEmulation = defaultArg memoryEmulation _memoryEmulation
         let resources = buildResources memoryEmulation logger resources
         Combinators.RunSynchronously(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
@@ -102,7 +105,9 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
-    member r.RunSynchronously(workflow : Cloud<'T>, cancellationToken : CancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : 'T =
+    member r.RunSynchronously(workflow : Cloud<'T>, cancellationToken : CancellationToken, [<O;D(null:obj)>]?memoryEmulation : MemoryEmulation,
+                                [<O;D(null:obj)>]?logger : ICloudLogger, [<O;D(null:obj)>]?resources : ResourceRegistry) : 'T =
+
         let ct = new ThreadPoolCancellationToken(cancellationToken)
         r.RunSynchronously(workflow, ct, ?memoryEmulation = memoryEmulation, ?logger = logger, ?resources = resources)
 
@@ -115,7 +120,9 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
-    member r.StartAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : ThreadPoolProcess<'T> =
+    member r.StartAsTask(workflow : Cloud<'T>, [<O;D(null:obj)>]?cancellationToken : ICloudCancellationToken, [<O;D(null:obj)>]?memoryEmulation : MemoryEmulation, 
+                            [<O;D(null:obj)>]?logger : ICloudLogger, [<O;D(null:obj)>]?resources : ResourceRegistry) : ThreadPoolProcess<'T> =
+
         let memoryEmulation = defaultArg memoryEmulation _memoryEmulation
         let resources = buildResources memoryEmulation logger resources
         Combinators.StartAsTask(workflow, memoryEmulation, resources, ?cancellationToken = cancellationToken)
@@ -129,7 +136,9 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="memoryEmulation">Specify memory emulation semantics during local parallel execution.</param>
     /// <param name="logger">Cloud logger implementation used in computation.</param>
     /// <param name="resources">Additional user-supplied resources for computation.</param>
-    member r.StartAsTask(workflow : Cloud<'T>, cancellationToken : CancellationToken, ?memoryEmulation : MemoryEmulation, ?logger : ICloudLogger, ?resources : ResourceRegistry) : ThreadPoolProcess<'T> =
+    member r.StartAsTask(workflow : Cloud<'T>, cancellationToken : CancellationToken, [<O;D(null:obj)>]?memoryEmulation : MemoryEmulation, 
+                            [<O;D(null:obj)>]?logger : ICloudLogger, [<O;D(null:obj)>]?resources : ResourceRegistry) : ThreadPoolProcess<'T> =
+
         let ct = new ThreadPoolCancellationToken(cancellationToken)
         r.StartAsTask(workflow, ct, ?memoryEmulation = memoryEmulation, ?logger = logger, ?resources = resources)
 
@@ -146,16 +155,16 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
     /// <param name="queueProvider">Cloud queue provider instance. Defaults to in-memory queues.</param>
     /// <param name="dictionaryProvider">Cloud dictionary configuration. Defaults to in-memory dictionary.</param>
     /// <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
-    static member Create(?logger : ICloudLogger,
-                            ?memoryEmulation : MemoryEmulation,
-                            ?fileStore : ICloudFileStore,
-                            ?serializer : ISerializer,
-                            ?textSerializer : ITextSerializer,
-                            ?valueProvider : ICloudValueProvider,
-                            ?atomProvider : ICloudAtomProvider,
-                            ?queueProvider : ICloudQueueProvider,
-                            ?dictionaryProvider : ICloudDictionaryProvider,
-                            ?resources : ResourceRegistry) : ThreadPoolRuntime =
+    static member Create([<O;D(null:obj)>]?logger : ICloudLogger,
+                            [<O;D(null:obj)>]?memoryEmulation : MemoryEmulation,
+                            [<O;D(null:obj)>]?fileStore : ICloudFileStore,
+                            [<O;D(null:obj)>]?serializer : ISerializer,
+                            [<O;D(null:obj)>]?textSerializer : ITextSerializer,
+                            [<O;D(null:obj)>]?valueProvider : ICloudValueProvider,
+                            [<O;D(null:obj)>]?atomProvider : ICloudAtomProvider,
+                            [<O;D(null:obj)>]?queueProvider : ICloudQueueProvider,
+                            [<O;D(null:obj)>]?dictionaryProvider : ICloudDictionaryProvider,
+                            [<O;D(null:obj)>]?resources : ResourceRegistry) : ThreadPoolRuntime =
 
         let memoryEmulation = match memoryEmulation with Some m -> m | None -> MemoryEmulation.Shared
         let fileStore = match fileStore with Some fs -> fs | None -> FileSystemStore.CreateRandomLocal() :> _

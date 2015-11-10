@@ -185,7 +185,7 @@ type CloudValue =
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValue.</param>
-    static member New<'T>(value : 'T, ?storageLevel : StorageLevel) : LocalCloud<CloudValue<'T>> = local {
+    static member New<'T>(value : 'T, [<O;D(null:obj)>]?storageLevel : StorageLevel) : LocalCloud<CloudValue<'T>> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
         return! Cloud.OfAsync <| provider.CreateCloudValue(value, storageLevel)
@@ -196,7 +196,7 @@ type CloudValue =
     /// </summary>
     /// <param name="values">Input set of values.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValues.</param>
-    static member NewArray<'T>(values : seq<'T>, ?storageLevel : StorageLevel) : LocalCloud<CloudArray<'T>> = local {
+    static member NewArray<'T>(values : seq<'T>, [<O;D(null:obj)>]?storageLevel : StorageLevel) : LocalCloud<CloudArray<'T>> = local {
         let! cval = CloudValue.New(Seq.toArray values, ?storageLevel = storageLevel)
         return cval :?> CloudArray<'T>
     }
@@ -207,7 +207,7 @@ type CloudValue =
     /// <param name="values">Input set of values.</param>
     /// <param name="partitionThreshold">Partition threshold in bytes.</param>
     /// <param name="storageLevel">StorageLevel to be used for CloudValues.</param>
-    static member NewArrayPartitioned<'T>(values : seq<'T>, partitionThreshold : int64, ?storageLevel : StorageLevel) : LocalCloud<CloudArray<'T> []> = local {
+    static member NewArrayPartitioned<'T>(values : seq<'T>, partitionThreshold : int64, [<O;D(null:obj)>]?storageLevel : StorageLevel) : LocalCloud<CloudArray<'T> []> = local {
         let! provider = Cloud.GetResource<ICloudValueProvider> ()
         let storageLevel = defaultArg storageLevel provider.DefaultStorageLevel
         return! Cloud.OfAsync <| provider.CreateCloudArrayPartitioned(values, partitionThreshold, storageLevel)

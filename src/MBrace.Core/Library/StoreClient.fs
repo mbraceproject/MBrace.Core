@@ -54,7 +54,7 @@ type SerializationClient (serializer : ISerializer, textSerializer : ITextSerial
     /// <param name="stream">Stream to serialize object.</param>
     /// <param name="graph">Object graph to be serialized.</param>
     /// <param name="leaveOpen">Leave open stream after serialization. Defaults to false.</param>
-    member __.Serialize<'T>(stream : Stream, graph : 'T, ?leaveOpen : bool) : unit =
+    member __.Serialize<'T>(stream : Stream, graph : 'T, [<O;D(null:obj)>]?leaveOpen : bool) : unit =
         serializer.Serialize(stream, graph, defaultArg leaveOpen false)
 
     /// <summary>
@@ -62,7 +62,7 @@ type SerializationClient (serializer : ISerializer, textSerializer : ITextSerial
     /// </summary>
     /// <param name="stream">Stream to deserialize object from.</param>
     /// <param name="leaveOpen">Leave open stream after deserialization. Defaults to false.</param>
-    member __.Deserialize<'T>(stream : Stream, ?leaveOpen : bool) : 'T =
+    member __.Deserialize<'T>(stream : Stream, [<O;D(null:obj)>]?leaveOpen : bool) : 'T =
         serializer.Deserialize<'T>(stream, defaultArg leaveOpen false)
 
     /// <summary>
@@ -71,7 +71,7 @@ type SerializationClient (serializer : ISerializer, textSerializer : ITextSerial
     /// <param name="target">Target text writer.</param>
     /// <param name="graph">Object graph to be serialized.</param>
     /// <param name="leaveOpen">Leave open writer after serialization. Defaults to false.</param>
-    member __.TextSerialize<'T>(target : TextWriter, graph : 'T, ?leaveOpen : bool) : unit =
+    member __.TextSerialize<'T>(target : TextWriter, graph : 'T, [<O;D(null:obj)>]?leaveOpen : bool) : unit =
         getTextSerializer().TextSerialize(target, graph, defaultArg leaveOpen false) 
 
     /// <summary>
@@ -79,7 +79,7 @@ type SerializationClient (serializer : ISerializer, textSerializer : ITextSerial
     /// </summary>
     /// <param name="source">Source text reader.</param>
     /// <param name="leaveOpen">Leave open writer after deserialization. Defaults to false.</param>
-    member __.TextDeserialize<'T>(source : TextReader, ?leaveOpen : bool) : LocalCloud<'T> =
+    member __.TextDeserialize<'T>(source : TextReader, [<O;D(null:obj)>]?leaveOpen : bool) : LocalCloud<'T> =
         getTextSerializer().TextDeserialize(source, defaultArg leaveOpen false)
 
     /// <summary>
@@ -144,7 +144,7 @@ type CloudValueClient (provider : ICloudValueProvider) =
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
     /// <param name="storageLevel">StorageLevel used for cloud value. Defaults to runtime default.</param>
-    member __.NewAsync(value : 'T, ?storageLevel : StorageLevel) : Async<CloudValue<'T>> = 
+    member __.NewAsync(value : 'T, [<O;D(null:obj)>]?storageLevel : StorageLevel) : Async<CloudValue<'T>> = 
         CloudValue.New(value, ?storageLevel = storageLevel) |> toAsync
 
     /// <summary>
@@ -152,7 +152,7 @@ type CloudValueClient (provider : ICloudValueProvider) =
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
     /// <param name="storageLevel">StorageLevel used for cloud value. Defaults to runtime default.</param>
-    member __.New(value : 'T, ?storageLevel : StorageLevel) : CloudValue<'T> = 
+    member __.New(value : 'T, [<O;D(null:obj)>]?storageLevel : StorageLevel) : CloudValue<'T> = 
         CloudValue.New(value, ?storageLevel = storageLevel) |> toSync
 
     /// <summary>
@@ -160,7 +160,7 @@ type CloudValueClient (provider : ICloudValueProvider) =
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
     /// <param name="storageLevel">StorageLevel used for cloud value. Defaults to runtime default.</param>
-    member __.NewArrayAsync(values : seq<'T>, ?storageLevel : StorageLevel) : Async<CloudArray<'T>> = 
+    member __.NewArrayAsync(values : seq<'T>, [<O;D(null:obj)>]?storageLevel : StorageLevel) : Async<CloudArray<'T>> = 
         CloudValue.NewArray(values, ?storageLevel = storageLevel) |> toAsync
 
     /// <summary>
@@ -168,7 +168,7 @@ type CloudValueClient (provider : ICloudValueProvider) =
     /// </summary>
     /// <param name="value">Payload for CloudValue.</param>
     /// <param name="storageLevel">StorageLevel used for cloud value. Defaults to runtime default.</param>
-    member __.NewArray(values : seq<'T>, ?storageLevel : StorageLevel) : CloudArray<'T> = 
+    member __.NewArray(values : seq<'T>, [<O;D(null:obj)>]?storageLevel : StorageLevel) : CloudArray<'T> = 
         CloudValue.NewArray(values, ?storageLevel = storageLevel) |> toSync
 
     /// <summary>
@@ -213,7 +213,7 @@ type CloudAtomClient (provider : ICloudAtomProvider) =
     /// <param name="initial">Initial value.</param>
     /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
     /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
-    member c.CreateAsync<'T>(initial : 'T, ?atomId : string, ?container : string) : Async<CloudAtom<'T>> =
+    member c.CreateAsync<'T>(initial : 'T, [<O;D(null:obj)>]?atomId : string, [<O;D(null:obj)>]?container : string) : Async<CloudAtom<'T>> =
         CloudAtom.New(initial, ?atomId = atomId, ?container = container) |> toAsync
 
     /// <summary>
@@ -222,7 +222,7 @@ type CloudAtomClient (provider : ICloudAtomProvider) =
     /// <param name="initial">Initial value.</param>
     /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
     /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
-    member c.Create<'T>(initial : 'T, ?atomId : string, ?container : string) : CloudAtom<'T> =
+    member c.Create<'T>(initial : 'T, [<O;D(null:obj)>]?atomId : string, [<O;D(null:obj)>]?container : string) : CloudAtom<'T> =
         CloudAtom.New(initial, ?atomId = atomId, ?container = container) |> toSync
 
     /// <summary>
@@ -230,7 +230,7 @@ type CloudAtomClient (provider : ICloudAtomProvider) =
     /// </summary>
     /// <param name="atomId">CloudAtom unique entity identifier.</param>
     /// <param name="container">Cloud atom container. Defaults to process container.</param>
-    member c.GetByIdAsync<'T>(atomId : string, ?container : string) : Async<CloudAtom<'T>> =
+    member c.GetByIdAsync<'T>(atomId : string, [<O;D(null:obj)>]?container : string) : Async<CloudAtom<'T>> =
         CloudAtom.GetById(atomId, ?container = container) |> toAsync
 
     /// <summary>
@@ -238,7 +238,7 @@ type CloudAtomClient (provider : ICloudAtomProvider) =
     /// </summary>
     /// <param name="atomId">CloudAtom unique entity identifier.</param>
     /// <param name="container">Cloud atom container. Defaults to process container.</param>
-    member c.GetById<'T>(atomId : string, ?container : string) : CloudAtom<'T> =
+    member c.GetById<'T>(atomId : string, [<O;D(null:obj)>]?container : string) : CloudAtom<'T> =
         CloudAtom.GetById(atomId, ?container = container) |> toSync
 
     /// <summary>
@@ -302,14 +302,14 @@ type CloudQueueClient (provider : ICloudQueueProvider) =
     ///     Creates a new queue instance.
     /// </summary>
     /// <param name="queueId">Cloud queue identifier. Defaults to randomly generated name.</param>
-    member c.CreateAsync<'T>(?queueId : string) : Async<CloudQueue<'T>> = 
+    member c.CreateAsync<'T>([<O;D(null:obj)>]?queueId : string) : Async<CloudQueue<'T>> = 
         CloudQueue.New<'T>(?queueId = queueId) |> toAsync
 
     /// <summary>
     ///     Creates a new queue instance.
     /// </summary>
     /// <param name="queueId">Cloud queue identifier. Defaults to randomly generated name.</param>
-    member c.Create<'T>(?queueId : string) : CloudQueue<'T> = 
+    member c.Create<'T>([<O;D(null:obj)>]?queueId : string) : CloudQueue<'T> = 
         CloudQueue.New<'T>(?queueId = queueId) |> toSync
 
     /// <summary>
@@ -352,14 +352,14 @@ type CloudDictionaryClient (provider : ICloudDictionaryProvider) =
     ///     Asynchronously creates a new CloudDictionary instance.
     /// </summary>
     /// <param name="dictionaryId">CloudDictionary unique identifier. Defaults to randomly generated name.</param>
-    member __.NewAsync<'T> (?dictionaryId : string) : Async<CloudDictionary<'T>> = 
+    member __.NewAsync<'T> ([<O;D(null:obj)>]?dictionaryId : string) : Async<CloudDictionary<'T>> = 
         CloudDictionary.New<'T> (?dictionaryId = dictionaryId) |> toAsync
 
     /// <summary>
     ///    Creates a new CloudDictionary instance.
     /// </summary>
     /// <param name="dictionaryId">CloudDictionary unique identifier. Defaults to randomly generated name.</param>
-    member __.New<'T> (?dictionaryId : string) : CloudDictionary<'T> =
+    member __.New<'T> ([<O;D(null:obj)>]?dictionaryId : string) : CloudDictionary<'T> =
         CloudDictionary.New<'T> (?dictionaryId = dictionaryId) |> toSync
 
     /// <summary>
@@ -432,7 +432,7 @@ type CloudPathClient internal (fileStore : ICloudFileStore, resources : Resource
     ///     Creates a uniquely defined file path for given container.
     /// </summary>
     /// <param name="container">Path to containing directory. Defaults to process directory.</param>
-    member __.GetRandomFilePath(?container:string) : string = CloudPath.GetRandomFileName(?container = container) |> run
+    member __.GetRandomFilePath([<O;D(null:obj)>]?container:string) : string = CloudPath.GetRandomFileName(?container = container) |> run
 
 
 /// Collection of file store operations
@@ -474,7 +474,7 @@ type CloudDirectoryClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="dirPath">Path to directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member c.DeleteAsync(dirPath : string, ?recursiveDelete : bool) : Async<unit> =
+    member c.DeleteAsync(dirPath : string, [<O;D(null:obj)>]?recursiveDelete : bool) : Async<unit> =
         CloudDirectory.Delete(dirPath, ?recursiveDelete = recursiveDelete) |> toAsync
 
     /// <summary>
@@ -482,7 +482,7 @@ type CloudDirectoryClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="dirPath">Path to directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    member c.Delete(dirPath : string, ?recursiveDelete : bool) : unit = 
+    member c.Delete(dirPath : string, [<O;D(null:obj)>]?recursiveDelete : bool) : unit = 
         CloudDirectory.Delete(dirPath, ?recursiveDelete = recursiveDelete) |> run
 
     /// <summary>
@@ -581,7 +581,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="inputStream">The stream to read from. Assumes that the stream is already at the correct position for reading.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member c.UploadFromStreamAsync(path : string, stream : Stream, ?overwrite : bool) : Async<CloudFileInfo> =
+    member c.UploadFromStreamAsync(path : string, stream : Stream, [<O;D(null:obj)>]?overwrite : bool) : Async<CloudFileInfo> =
         CloudFile.UploadFromStream(path, stream, ?overwrite = overwrite) |> toAsync
 
     /// <summary>
@@ -590,7 +590,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="inputStream">The stream to read from. Assumes that the stream is already at the correct position for reading.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
-    member c.UploadFromStream(path : string, stream : Stream, ?overwrite : bool) : CloudFileInfo =
+    member c.UploadFromStream(path : string, stream : Stream, [<O;D(null:obj)>]?overwrite : bool) : CloudFileInfo =
         CloudFile.UploadFromStream(path, stream, ?overwrite = overwrite) |> toSync
 
     /// <summary>
@@ -633,7 +633,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to file.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.WriteAllLinesAsync(path : string, lines : seq<string>, ?encoding : Encoding) : Async<CloudFileInfo> = 
+    member c.WriteAllLinesAsync(path : string, lines : seq<string>, [<O;D(null:obj)>]?encoding : Encoding) : Async<CloudFileInfo> = 
         CloudFile.WriteAllLines(path, lines, ?encoding = encoding) |> toAsync
 
     /// <summary>
@@ -642,7 +642,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to CloudFile.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : CloudFileInfo = 
+    member c.WriteAllLines(path : string, lines : seq<string>, [<O;D(null:obj)>]?encoding : Encoding) : CloudFileInfo = 
         CloudFile.WriteAllLines(path, lines, ?encoding = encoding) |> toSync
 
 
@@ -651,7 +651,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLinesAsync(path : string, ?encoding : Encoding) : Async<string seq> =
+    member c.ReadLinesAsync(path : string, [<O;D(null:obj)>]?encoding : Encoding) : Async<string seq> =
         CloudFile.ReadLines(path, ?encoding = encoding) |> toAsync
 
     /// <summary>
@@ -659,7 +659,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="file">Input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadLines(path : string, ?encoding : Encoding) : seq<string> =
+    member c.ReadLines(path : string, [<O;D(null:obj)>]?encoding : Encoding) : seq<string> =
         CloudFile.ReadLines(path, ?encoding = encoding) |> toSync
 
     /// <summary>
@@ -667,7 +667,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllLinesAsync(path : string, ?encoding : Encoding) : Async<string []> =
+    member c.ReadAllLinesAsync(path : string, [<O;D(null:obj)>]?encoding : Encoding) : Async<string []> =
         CloudFile.ReadAllLines(path, ?encoding = encoding) |> toAsync
 
     /// <summary>
@@ -675,7 +675,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllLines(path : string, ?encoding : Encoding) : string [] =
+    member c.ReadAllLines(path : string, [<O;D(null:obj)>]?encoding : Encoding) : string [] =
         CloudFile.ReadAllLines(path, ?encoding = encoding) |> toSync
 
 
@@ -685,7 +685,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    member __.WriteAllTextAsync(path : string, text : string, ?encoding : Encoding) : Async<CloudFileInfo> = 
+    member __.WriteAllTextAsync(path : string, text : string, [<O;D(null:obj)>]?encoding : Encoding) : Async<CloudFileInfo> = 
         CloudFile.WriteAllText(path, text, ?encoding = encoding) |> toAsync
 
     /// <summary>
@@ -694,7 +694,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    member __.WriteAllText(path : string, text : string, ?encoding : Encoding) : CloudFileInfo = 
+    member __.WriteAllText(path : string, text : string, [<O;D(null:obj)>]?encoding : Encoding) : CloudFileInfo = 
         CloudFile.WriteAllText(path, text, ?encoding = encoding) |> toSync
 
 
@@ -703,7 +703,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member __.ReadAllTextAsync(path : string, ?encoding : Encoding) : Async<string> =
+    member __.ReadAllTextAsync(path : string, [<O;D(null:obj)>]?encoding : Encoding) : Async<string> =
         CloudFile.ReadAllText(path, ?encoding = encoding) |> toAsync
 
     /// <summary>
@@ -711,7 +711,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// </summary>
     /// <param name="path">Path to input file.</param>
     /// <param name="encoding">Text encoding.</param>
-    member c.ReadAllText(path : string, ?encoding : Encoding) : string =
+    member c.ReadAllText(path : string, [<O;D(null:obj)>]?encoding : Encoding) : string =
         CloudFile.ReadAllText(path, ?encoding = encoding) |> toSync
 
     /// <summary>
@@ -752,7 +752,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
-    member __.UploadAsync(sourcePath : string, targetPath : string, ?overwrite : bool, ?compress : bool) : Async<CloudFileInfo> =
+    member __.UploadAsync(sourcePath : string, targetPath : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?compress : bool) : Async<CloudFileInfo> =
         CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?compress = compress) |> toAsync
 
     /// <summary>
@@ -762,7 +762,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
-    member __.Upload(sourcePath : string, targetPath : string, ?overwrite : bool, ?compress : bool) : CloudFileInfo =
+    member __.Upload(sourcePath : string, targetPath : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?compress : bool) : CloudFileInfo =
         CloudFile.Upload(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?compress = compress) |> toSync
 
     /// <summary>
@@ -772,7 +772,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
-    member __.UploadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?compress : bool) : Async<CloudFileInfo []> =
+    member __.UploadAsync(sourcePaths : seq<string>, targetDirectory : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?compress : bool) : Async<CloudFileInfo []> =
         CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?compress = compress) |> toAsync
 
     /// <summary>
@@ -782,7 +782,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
-    member __.Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?compress : bool) : CloudFileInfo [] = 
+    member __.Upload(sourcePaths : seq<string>, targetDirectory : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?compress : bool) : CloudFileInfo [] = 
         CloudFile.Upload(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?compress = compress) |> toSync
 
     /// <summary>
@@ -792,7 +792,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetPath">Path to target file in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
-    member __.DownloadAsync(sourcePath : string, targetPath : string, ?overwrite : bool, ?decompress : bool) : Async<unit> =
+    member __.DownloadAsync(sourcePath : string, targetPath : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?decompress : bool) : Async<unit> =
         CloudFile.Download(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?decompress = decompress) |> toAsync
 
     /// <summary>
@@ -802,7 +802,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetPath">Path to target file in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
-    member __.Download(sourcePath : string, targetPath : string, ?overwrite : bool, ?decompress : bool) : unit =
+    member __.Download(sourcePath : string, targetPath : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?decompress : bool) : unit =
         CloudFile.Download(sourcePath, targetPath = targetPath, ?overwrite = overwrite, ?decompress = decompress) |> toSync
 
     /// <summary>
@@ -812,7 +812,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
-    member __.DownloadAsync(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?decompress : bool) : Async<string []> =
+    member __.DownloadAsync(sourcePaths : seq<string>, targetDirectory : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?decompress : bool) : Async<string []> =
         CloudFile.Download(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?decompress = decompress) |> toAsync
 
     /// <summary>
@@ -822,7 +822,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
-    member __.Download(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?decompress : bool) : string [] =
+    member __.Download(sourcePaths : seq<string>, targetDirectory : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?decompress : bool) : string [] =
         CloudFile.Download(sourcePaths, targetDirectory = targetDirectory, ?overwrite = overwrite, ?decompress = decompress) |> toSync
 
     /// <summary>
@@ -832,7 +832,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to persist file. Defaults to randomly generated path.</param>
     /// <param name="serializer">Serializer to be used. Defaults to execution context serializer.</param>
     /// <param name="compress">Compress serialization. Defaults to false.</param>
-    member __.PersistAsync(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : Async<PersistedValue<'T>> =
+    member __.PersistAsync(value : 'T, [<O;D(null:obj)>]?path : string, [<O;D(null:obj)>]?serializer : ISerializer, [<O;D(null:obj)>]?compress : bool) : Async<PersistedValue<'T>> =
         PersistedValue.New(value, ?path = path, ?serializer = serializer, ?compress = compress) |> toAsync
 
     /// <summary>
@@ -842,7 +842,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to persist file. Defaults to randomly generated path.</param>
     /// <param name="serializer">Serializer to be used. Defaults to execution context serializer.</param>
     /// <param name="compress">Compress serialization. Defaults to false.</param>
-    member __.Persist(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : PersistedValue<'T> =
+    member __.Persist(value : 'T, [<O;D(null:obj)>]?path : string, [<O;D(null:obj)>]?serializer : ISerializer, [<O;D(null:obj)>]?compress : bool) : PersistedValue<'T> =
         PersistedValue.New(value, ?path = path, ?serializer = serializer, ?compress = compress) |> toSync
 
     /// <summary>
@@ -852,7 +852,7 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
-    member __.PersistSequenceAsync(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?compress : bool) : Async<PersistedSequence<'T>> =
+    member __.PersistSequenceAsync(values : seq<'T>, [<O;D(null:obj)>]?path : string, [<O;D(null:obj)>]?serializer : ISerializer, [<O;D(null:obj)>]?compress : bool) : Async<PersistedSequence<'T>> =
         PersistedSequence.New(values, ?path = path, ?serializer = serializer, ?compress = compress) |> toAsync
 
     /// <summary>
@@ -862,12 +862,12 @@ type CloudFileClient internal (resources : ResourceRegistry) =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
     /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
-    member __.PersistSequence(values : seq<'T>, ?path : string, ?serializer : ISerializer, ?compress : bool) : PersistedSequence<'T> =
+    member __.PersistSequence(values : seq<'T>, [<O;D(null:obj)>]?path : string, [<O;D(null:obj)>]?serializer : ISerializer, [<O;D(null:obj)>]?compress : bool) : PersistedSequence<'T> =
         PersistedSequence.New(values, ?path = path, ?serializer = serializer, ?compress = compress) |> toSync
 
 /// Serializable CloudFileSystem instance object
 [<Sealed; DataContract; StructuredFormatDisplay("{Id}")>]
-type CloudFileSystem (fileStore : ICloudFileStore, ?serializer : ISerializer) =
+type CloudFileSystem (fileStore : ICloudFileStore, [<O;D(null:obj)>]?serializer : ISerializer) =
     [<DataMember(Name = "CloudFileStore")>]
     let fileStore = fileStore
     [<DataMember(Name = "Serializer")>]

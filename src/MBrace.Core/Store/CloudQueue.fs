@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Core
 
-open MBrace.Core
+open MBrace.Core.Internals
 
 /// Distributed Queue abstraction
 type CloudQueue<'T> =
@@ -28,7 +28,7 @@ type CloudQueue<'T> =
     ///     Asynchronously dequeues a message from the queue.
     /// </summary>
     /// <param name="timeout">Timeout in milliseconds. Defaults to no timeout.</param>
-    abstract DequeueAsync : ?timeout:int -> Async<'T>
+    abstract DequeueAsync : [<O;D(null:obj)>]?timeout:int -> Async<'T>
 
     /// <summary>
     ///     Asynchronously dequeues a batch of messages from the queue.
@@ -89,7 +89,7 @@ type CloudQueue =
     ///     Creates a new queue instance.
     /// </summary>
     /// <param name="queueId">Unique queue identifier. Defaults to randomly generated queue name.</param>
-    static member New<'T>(?queueId : string) = local {
+    static member New<'T>([<O;D(null:obj)>]?queueId : string) = local {
         let! provider = Cloud.GetResource<ICloudQueueProvider> ()
         let queueId = match queueId with Some qi -> qi | None -> provider.GetRandomQueueName()
         return! Cloud.OfAsync <| provider.CreateQueue<'T> queueId
@@ -140,7 +140,7 @@ type CloudQueueExtensions =
     /// </summary>
     /// <param name="timeout">Timeout in milliseconds.</param>
     [<Extension>]
-    static member Dequeue<'T> (this : CloudQueue<'T>, ?timeout : int) : 'T =
+    static member Dequeue<'T> (this : CloudQueue<'T>, [<O;D(null:obj)>]?timeout : int) : 'T =
         Async.RunSync <| this.DequeueAsync (?timeout = timeout)
 
     /// <summary>

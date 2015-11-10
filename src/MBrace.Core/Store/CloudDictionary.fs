@@ -39,7 +39,7 @@ type CloudDictionary<'T> =
     /// <param name="key">Key to be transacted.</param>
     /// <param name="transacter">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries. Defaults to infinite.</param>
-    abstract TransactAsync : key:string * transacter:('T option -> 'R * 'T) * ?maxRetries:int -> Async<'R>
+    abstract TransactAsync : key:string * transacter:('T option -> 'R * 'T) * [<O;D(null:obj)>]?maxRetries:int -> Async<'R>
 
     /// <summary>
     ///     Removes entry of supplied key from dictionary.
@@ -118,7 +118,7 @@ type CloudDictionary =
     ///     Creates a new CloudDictionary instance.
     /// </summary>
     /// <param name="dictionaryId">CloudDictionary unique identifier. Defaults to randomly generated name.</param>
-    static member New<'T>(?dictionaryId : string) = local {
+    static member New<'T>([<O;D(null:obj)>]?dictionaryId : string) = local {
         let! provider = Cloud.GetResource<ICloudDictionaryProvider>()
         let dictionaryId = match dictionaryId with None -> provider.GetRandomDictionaryId() | Some did -> did
         return! Cloud.OfAsync <| provider.CreateDictionary<'T> dictionaryId
@@ -171,7 +171,7 @@ type CloudDictionaryExtensions =
     /// <param name="updater">Updater function.</param>
     /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member AddOrUpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, ?maxRetries : int) : Async<'T> = async {
+    static member AddOrUpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, [<O;D(null:obj)>]?maxRetries : int) : Async<'T> = async {
         let transacter (curr : 'T option) = let t = updater curr in t, t
         return! this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
     }
@@ -184,7 +184,7 @@ type CloudDictionaryExtensions =
     /// <param name="updater">Entry updater function.</param>
     /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member UpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, ?maxRetries : int) : Async<'T> = async {
+    static member UpdateAsync (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, [<O;D(null:obj)>]?maxRetries : int) : Async<'T> = async {
         let transacter (curr : 'T option) =
             match curr with
             | None -> invalidOp <| sprintf "No value of key '%s' was found in dictionary." key
@@ -200,7 +200,7 @@ type CloudDictionaryExtensions =
     /// <param name="transacter">Transaction funtion.</param>
     /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member Transact (this : CloudDictionary<'T>, key : string, transacter : 'T option -> 'R * 'T, ?maxRetries : int) : 'R =
+    static member Transact (this : CloudDictionary<'T>, key : string, transacter : 'T option -> 'R * 'T, [<O;D(null:obj)>]?maxRetries : int) : 'R =
         Async.RunSync <| this.TransactAsync(key, transacter, ?maxRetries = maxRetries)
 
     /// <summary>
@@ -211,7 +211,7 @@ type CloudDictionaryExtensions =
     /// <param name="updater">Updater function.</param>
     /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member AddOrUpdate (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, ?maxRetries : int) : 'T =
+    static member AddOrUpdate (this : CloudDictionary<'T>, key : string, updater : 'T option -> 'T, [<O;D(null:obj)>]?maxRetries : int) : 'T =
         Async.RunSync <| CloudDictionaryExtensions.AddOrUpdateAsync(this, key, updater, ?maxRetries = maxRetries)
 
     /// <summary>
@@ -222,7 +222,7 @@ type CloudDictionaryExtensions =
     /// <param name="updater">Entry updater function.</param>
     /// <param name="maxRetries">Maximum number of retries in optimistic concurrency. Defaults to infinite retries.</param>
     [<Extension>]
-    static member Update (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, ?maxRetries : int) : 'T =
+    static member Update (this : CloudDictionary<'T>, key : string, updater : 'T -> 'T, [<O;D(null:obj)>]?maxRetries : int) : 'T =
         Async.RunSync <| CloudDictionaryExtensions.UpdateAsync(this, key, updater, ?maxRetries = maxRetries)
 
     /// <summary>

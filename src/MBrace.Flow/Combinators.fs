@@ -36,7 +36,7 @@ type CloudFlow =
     /// </summary>
     /// <param name="collection">Input cloud collection.</param>
     /// <param name="sizeThresholdPerWorker">Restricts concurrent processing of collection partitions up to specified size per worker.</param>
-    static member OfCloudCollection (collection : ICloudCollection<'T>, ?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
+    static member OfCloudCollection (collection : ICloudCollection<'T>, [<O;D(null:obj)>]?sizeThresholdPerWorker:unit -> int64) : CloudFlow<'T> =
         CloudCollection.ToCloudFlow(collection, ?sizeThresholdPerWorker = sizeThresholdPerWorker)
 
     /// <summary>
@@ -60,7 +60,7 @@ type CloudFlow =
     /// <param name="paths">Cloud file input paths.</param>
     /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudFiles (paths : seq<string>, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudFiles (paths : seq<string>, [<O;D(null:obj)>]?deserializer : System.IO.Stream -> seq<'T>, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
@@ -81,7 +81,7 @@ type CloudFlow =
     /// <param name="paths">Cloud file input paths.</param>
     /// <param name="serializer">Element deserialization function for cloud files.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudFiles (paths : seq<string>, serializer : ISerializer, ?sizeThresholdPerCore : int64) =
+    static member OfCloudFiles (paths : seq<string>, serializer : ISerializer, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
@@ -98,7 +98,7 @@ type CloudFlow =
     /// <param name="paths">Cloud file input paths.</param>
     /// <param name="deserializer">A function to transform the contents of a CloudFile to a stream of elements.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) =
@@ -122,7 +122,7 @@ type CloudFlow =
     /// <param name="dirPath">Input CloudDirectory.</param>
     /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudDirectory (dirPath : string, ?deserializer : System.IO.Stream -> seq<'T>, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudDirectory (dirPath : string, [<O;D(null:obj)>]?deserializer : System.IO.Stream -> seq<'T>, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
@@ -139,7 +139,7 @@ type CloudFlow =
     /// <param name="dirPath">Input CloudDirectory.</param>
     /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudDirectory (dirPath : string, serializer : ISerializer, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudDirectory (dirPath : string, serializer : ISerializer, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
@@ -156,7 +156,7 @@ type CloudFlow =
     /// <param name="dirPath">Cloud file input paths.</param>
     /// <param name="deserializer">A function to transform the contents of a CloudFile to a stream of elements.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<'T> =
+    static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<'T, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
@@ -173,7 +173,7 @@ type CloudFlow =
     /// <param name="paths">Paths to input cloud files.</param>
     /// <param name="encoding">Optional encoding.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
-    static member OfCloudFileByLine (paths : seq<string>, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
+    static member OfCloudFileByLine (paths : seq<string>, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
@@ -192,7 +192,7 @@ type CloudFlow =
     /// </summary>
     /// <param name="dirPath">Paths to input cloud files.</param>
     /// <param name="encoding">Optional encoding.</param>
-    static member OfCloudDirectoryByLine (dirPath : string, ?encoding : Encoding, ?sizeThresholdPerCore : int64) : CloudFlow<string> =
+    static member OfCloudDirectoryByLine (dirPath : string, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
@@ -208,7 +208,7 @@ type CloudFlow =
     /// </summary>
     /// <param name="url">The path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
-    static member OfCloudFileByLine (path : string, ?encoding : Encoding) : CloudFlow<string> =
+    static member OfCloudFileByLine (path : string, [<O;D(null:obj)>]?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
@@ -223,7 +223,7 @@ type CloudFlow =
     /// </summary>
     /// <param name="url">Url path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
-    static member OfHttpFileByLine (url : string, ?encoding : Encoding) : CloudFlow<string> =
+    static member OfHttpFileByLine (url : string, [<O;D(null:obj)>]?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
@@ -238,7 +238,7 @@ type CloudFlow =
     /// </summary>
     /// <param name="url">Url paths to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
-    static member OfHttpFileByLine (urls : seq<string>, ?encoding : Encoding) : CloudFlow<string> =
+    static member OfHttpFileByLine (urls : seq<string>, [<O;D(null:obj)>]?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
             member self.DegreeOfParallelism = None
             member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {

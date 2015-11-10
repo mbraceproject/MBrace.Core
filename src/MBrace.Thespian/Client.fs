@@ -254,7 +254,7 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     ///     Spawns provided count of new local worker processes and subscibes them to the cluster.
     /// </summary>
     /// <param name="count">Number of workers to be spawned and appended.</param>
-    member __.AttachNewLocalWorkers (workerCount : int, [<O;D(null)>] ?logLevel : LogLevel) =
+    member __.AttachNewLocalWorkers (workerCount : int, [<O;D(null:obj)>] ?logLevel : LogLevel) =
         let _ = initWorkers logLevel workerCount state |> Async.RunSync
         ()
 
@@ -300,8 +300,8 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     /// <param name="resources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logger">Logger implementation to attach on client by default. Defaults to no logging.</param>
     /// <param name="logLevel">Sets the log level for the cluster. Defaults to LogLevel.Info.</param>
-    static member InitOnCurrentMachine(workerCount : int, [<O;D(null)>] ?hostClusterStateOnCurrentProcess : bool, [<O;D(null)>] ?fileStore : ICloudFileStore, [<O;D(null)>] ?faultPolicy : FaultPolicy,
-                                        [<O;D(null)>] ?resources : ResourceRegistry, [<O;D(null)>] ?logger : ISystemLogger, [<O;D(null)>] ?logLevel : LogLevel) : ThespianCluster =
+    static member InitOnCurrentMachine(workerCount : int, [<O;D(null:obj)>] ?hostClusterStateOnCurrentProcess : bool, [<O;D(null:obj)>] ?fileStore : ICloudFileStore, [<O;D(null:obj)>] ?faultPolicy : FaultPolicy,
+                                        [<O;D(null:obj)>] ?resources : ResourceRegistry, [<O;D(null:obj)>] ?logger : ISystemLogger, [<O;D(null:obj)>] ?logLevel : LogLevel) : ThespianCluster =
 
         if workerCount < 0 then invalidArg "workerCount" "must be non-negative."
         let hostClusterStateOnCurrentProcess = defaultArg hostClusterStateOnCurrentProcess true
@@ -326,8 +326,8 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     /// <param name="miscResources">Additional resources to be appended to the MBrace execution context.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
-    static member InitOnWorker(target : ThespianWorker, [<O;D(null)>] ?fileStore : ICloudFileStore, [<O;D(null)>] ?faultPolicy : FaultPolicy,
-                                    [<O;D(null)>] ?miscResources : ResourceRegistry, [<O;D(null)>] ?logLevel : LogLevel) : ThespianCluster =
+    static member InitOnWorker(target : ThespianWorker, [<O;D(null:obj)>] ?fileStore : ICloudFileStore, [<O;D(null:obj)>] ?faultPolicy : FaultPolicy,
+                                    [<O;D(null:obj)>] ?miscResources : ResourceRegistry, [<O;D(null:obj)>] ?logLevel : LogLevel) : ThespianCluster =
 
         let fileStore = match fileStore with Some c -> c | None -> getDefaultStore ()
         let state = target.InitAsClusterMasterNode(fileStore, ?miscResources = miscResources) |> Async.RunSync
@@ -339,7 +339,7 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     /// <param name="worker">Worker instance to extract runtime state from.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
-    static member Connect(worker : ThespianWorker, [<O;D(null)>] ?logLevel : LogLevel, [<O;D(null)>] ?faultPolicy : FaultPolicy) : ThespianCluster =
+    static member Connect(worker : ThespianWorker, [<O;D(null:obj)>] ?logLevel : LogLevel, [<O;D(null:obj)>] ?faultPolicy : FaultPolicy) : ThespianCluster =
         match worker.RuntimeState with
         | None -> invalidOp "Worker '%s' is not part of an active cluster." worker.Uri
         | Some state -> new ThespianCluster(state, logLevel, faultPolicy)
@@ -350,7 +350,7 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     /// <param name="uri">MBrace uri to connect to.</param>
     /// <param name="logLevel">Sets the log level for the client instance. Defaults to LogLevel.Info.</param>
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
-    static member Connect(uri : string, [<O;D(null)>] ?logLevel : LogLevel, [<O;D(null)>] ?faultPolicy : FaultPolicy) : ThespianCluster = 
+    static member Connect(uri : string, [<O;D(null:obj)>] ?logLevel : LogLevel, [<O;D(null:obj)>] ?faultPolicy : FaultPolicy) : ThespianCluster = 
         ThespianCluster.Connect(ThespianWorker.Connect uri, ?logLevel = logLevel, ?faultPolicy = faultPolicy)
 
 [<AutoOpen>]

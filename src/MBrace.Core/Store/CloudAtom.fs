@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Core
 
 open System.Diagnostics
+open MBrace.Core.Internals
 
 /// Represents a distributed, atomically updatable value reference
 type CloudAtom<'T> =
@@ -24,7 +25,7 @@ type CloudAtom<'T> =
     /// </summary>
     /// <param name="updater">Value transaction function.</param>
     /// <param name="maxRetries">Maximum retries under optimistic semantics. Defaults to infinite.</param>
-    abstract TransactAsync : transaction:('T -> 'R * 'T) * ?maxRetries:int -> Async<'R>
+    abstract TransactAsync : transaction:('T -> 'R * 'T) * [<O;D(null:obj)>]?maxRetries:int -> Async<'R>
 
     /// <summary>
     ///      Forces a value on atom.
@@ -105,7 +106,7 @@ type CloudAtom =
     /// <param name="initial">Initial value.</param>
     /// <param name="atomId">Cloud atom unique entity identifier. Defaults to randomly generated identifier.</param>
     /// <param name="container">Cloud atom unique entity identifier. Defaults to process container.</param>
-    static member New<'T>(initial : 'T, ?atomId : string, ?container : string) : LocalCloud<CloudAtom<'T>> = local {
+    static member New<'T>(initial : 'T, [<O;D(null:obj)>]?atomId : string, [<O;D(null:obj)>]?container : string) : LocalCloud<CloudAtom<'T>> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         let container = defaultArg container provider.DefaultContainer
         let atomId = match atomId with None -> provider.GetRandomAtomIdentifier() | Some id -> id
@@ -117,7 +118,7 @@ type CloudAtom =
     /// </summary>
     /// <param name="atomId">CloudAtom unique entity identifier.</param>
     /// <param name="container">Cloud atom container. Defaults to process container.</param>
-    static member GetById<'T>(atomId : string, ?container : string) : LocalCloud<CloudAtom<'T>> = local {
+    static member GetById<'T>(atomId : string, [<O;D(null:obj)>]?container : string) : LocalCloud<CloudAtom<'T>> = local {
         let! provider = Cloud.GetResource<ICloudAtomProvider> ()
         let container = defaultArg container provider.DefaultContainer
         return! Cloud.OfAsync <| provider.GetAtomById<'T>(container, atomId)
@@ -187,7 +188,7 @@ type CloudAtomExtensions =
     /// <param name="updater">value updating function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     [<Extension>]
-    static member UpdateAsync (this : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int) : Async<unit> = async {
+    static member UpdateAsync (this : CloudAtom<'T>, updater : 'T -> 'T, [<O;D(null:obj)>]?maxRetries : int) : Async<unit> = async {
         return! this.TransactAsync((fun t -> (), updater t), ?maxRetries = maxRetries)
     }
 
@@ -197,7 +198,7 @@ type CloudAtomExtensions =
     /// <param name="transacter">Transaction function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     [<Extension>]
-    static member Transact (this : CloudAtom<'T>, transacter : 'T -> 'R * 'T, ?maxRetries : int) : 'R =
+    static member Transact (this : CloudAtom<'T>, transacter : 'T -> 'R * 'T, [<O;D(null:obj)>]?maxRetries : int) : 'R =
         this.TransactAsync(transacter, ?maxRetries = maxRetries) |> Async.RunSync
 
     /// <summary>
@@ -206,7 +207,7 @@ type CloudAtomExtensions =
     /// <param name="updater">value updating function.</param>
     /// <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
     [<Extension>]
-    static member Update (this : CloudAtom<'T>, updater : 'T -> 'T, ?maxRetries : int) : unit =
+    static member Update (this : CloudAtom<'T>, updater : 'T -> 'T, [<O;D(null:obj)>]?maxRetries : int) : unit =
         this.TransactAsync((fun t -> (), updater t), ?maxRetries = maxRetries) |> Async.RunSync
 
     /// <summary>

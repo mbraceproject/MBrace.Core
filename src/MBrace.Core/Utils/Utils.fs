@@ -13,6 +13,9 @@ do()
 [<AutoOpen; Extension>]
 module Utils =
 
+    type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
+    type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
+
     /// creates new string identifier
     let mkUUID () : string = let g = Guid.NewGuid() in g.ToString()
 

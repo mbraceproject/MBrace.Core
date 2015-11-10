@@ -84,7 +84,7 @@ type ConcatenatedCollection<'T> (partitions : ICloudCollection<'T> []) =
 
 /// Partitionable HTTP line reader implementation
 [<Sealed; DataContract>]
-type HTTPTextCollection internal (url : string, ?encoding : Encoding, ?range: (int64 * int64)) =
+type HTTPTextCollection internal (url : string, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?range: (int64 * int64)) =
     
     [<DataMember(Name = "URL")>]
     let url = url
@@ -157,7 +157,7 @@ type CloudCollection private () =
     /// <param name="url">Url to HTTP resource.</param>
     /// <param name="encoding">Text encoding used for http resource.</param>
     /// <param name="ensureThatFileExists">Ensure that file exists before returning the collection. Defaults to false.</param>
-    static member OfHttpFile(url : string, ?encoding : Encoding, ?ensureThatFileExists : bool) = async {
+    static member OfHttpFile(url : string, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?ensureThatFileExists : bool) = async {
         if defaultArg ensureThatFileExists false then
             // sanity check; ensure that file exists
             let webRequest = WebRequest.Create(url)
@@ -219,7 +219,7 @@ type CloudCollection private () =
     /// <param name="workers">Workers to partition among.</param>
     /// <param name="isTargetedWorkerEnabled">Enable targeted (i.e. weighted) worker support. Defaults to true.</param>
     /// <param name="weight">Worker weight function. Default to processor count map.</param>
-    static member PartitionBySize (collections : ICloudCollection<'T> [], workers : IWorkerRef [], ?isTargetedWorkerEnabled : bool, ?weight : IWorkerRef -> int) = async {
+    static member PartitionBySize (collections : ICloudCollection<'T> [], workers : IWorkerRef [], [<O;D(null:obj)>]?isTargetedWorkerEnabled : bool, [<O;D(null:obj)>]?weight : IWorkerRef -> int) = async {
         let weight = defaultArg weight (fun w -> w.ProcessorCount)
         let isTargetedWorkerEnabled = defaultArg isTargetedWorkerEnabled true
 

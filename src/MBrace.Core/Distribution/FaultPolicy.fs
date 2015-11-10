@@ -3,6 +3,8 @@
 open System
 open System.Runtime.Serialization
 
+open MBrace.Core.Internals
+
 /// Exception indicating fault in MBrace runtime
 [<Sealed; AutoSerializable(true)>]
 type FaultException =
@@ -62,7 +64,7 @@ type FaultPolicy () =
     ///     Forever re-attempt faulted computations.
     /// </summary>
     /// <param name="delay">Delay before each retry. Defaults to zero.</param>
-    static member InfiniteRetries (?delay : TimeSpan) = 
+    static member InfiniteRetries ([<O;D(null:obj)>]?delay : TimeSpan) = 
         let delay = defaultArg delay TimeSpan.Zero
         { new FaultPolicy() with 
             member __.Id = sprintf "InfiniteRetries (delay: %O)" delay
@@ -73,7 +75,7 @@ type FaultPolicy () =
     /// </summary>
     /// <param name="maxRetries">Maximum number of retries.</param>
     /// <param name="delay">Delay before each retry. Defaults to zero.</param>
-    static member WithMaxRetries(maxRetries : int, ?delay : TimeSpan) =
+    static member WithMaxRetries(maxRetries : int, [<O;D(null:obj)>]?delay : TimeSpan) =
         if maxRetries < 0 then invalidArg "maxRetries" "must be non-negative."
         let delay = defaultArg delay TimeSpan.Zero
         { new FaultPolicy() with 
@@ -88,7 +90,7 @@ type FaultPolicy () =
     /// </summary>
     /// <param name="maxRetries">Maximum number of retries.</param>
     /// <param name="initialDelay">Initial delay. Defaults to 50ms</param>
-    static member WithExponentialDelay(maxRetries : int, ?initialDelay : TimeSpan) =
+    static member WithExponentialDelay(maxRetries : int, [<O;D(null:obj)>]?initialDelay : TimeSpan) =
         let initialDelay = defaultArg initialDelay <| TimeSpan.FromMilliseconds 50.
         { new FaultPolicy() with
             member __.Id = sprintf "WithExponentialDelay (maxRetries: %d, initialDelay: %O)" maxRetries initialDelay

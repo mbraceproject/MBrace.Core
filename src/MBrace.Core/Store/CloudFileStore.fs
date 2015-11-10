@@ -408,7 +408,7 @@ type CloudPath =
     ///     Creates a uniquely defined file path for given container.
     /// </summary>
     /// <param name="container">Path to containing directory. Defaults to process directory.</param>
-    static member GetRandomFileName(?container : string) : LocalCloud<string> = local {
+    static member GetRandomFileName([<O;D(null:obj)>]?container : string) : LocalCloud<string> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let container = match container with Some c -> c | None -> store.DefaultDirectory
         return store.GetRandomFilePath(container)
@@ -456,7 +456,7 @@ type CloudDirectory =
     /// </summary>
     /// <param name="dirPath">Directory to be deleted.</param>
     /// <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
-    static member Delete(dirPath : string, ?recursiveDelete : bool) : LocalCloud<unit> = local {
+    static member Delete(dirPath : string, [<O;D(null:obj)>]?recursiveDelete : bool) : LocalCloud<unit> = local {
         let recursiveDelete = defaultArg recursiveDelete false
         let! store = Cloud.GetResource<ICloudFileStore> ()
         return! Cloud.OfAsync <| store.DeleteDirectory(dirPath, recursiveDelete = recursiveDelete)
@@ -526,7 +526,7 @@ type CloudFile =
     /// </summary>
     /// <param name="path">Path to cloud file.</param>
     /// <param name="verify">Verify that file exists before returning. Defaults to true.</param>
-    static member GetInfo(path : string, ?verify:bool) : LocalCloud<CloudFileInfo> = local {
+    static member GetInfo(path : string, [<O;D(null:obj)>]?verify:bool) : LocalCloud<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         if defaultArg verify true then
             let! exists = Cloud.OfAsync <| store.FileExists path
@@ -573,7 +573,7 @@ type CloudFile =
     /// <param name="path">Path to new cloud file.</param>
     /// <param name="lines">Lines to be written.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member WriteAllLines(path : string, lines : seq<string>, ?encoding : Encoding) : LocalCloud<CloudFileInfo> = local {
+    static member WriteAllLines(path : string, lines : seq<string>, [<O;D(null:obj)>]?encoding : Encoding) : LocalCloud<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
         use! stream = Cloud.OfAsync <| store.BeginWrite path
         use sw = 
@@ -590,7 +590,7 @@ type CloudFile =
     /// </summary>
     /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadLines(path : string, ?encoding : Encoding) : LocalCloud<seq<string>> = local {
+    static member ReadLines(path : string, [<O;D(null:obj)>]?encoding : Encoding) : LocalCloud<seq<string>> = local {
         let! store = Cloud.GetResource<ICloudFileStore> ()
         let store = store
         let mkEnumerator () =
@@ -606,7 +606,7 @@ type CloudFile =
     /// </summary>
     /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadAllLines(path : string, ?encoding : Encoding) : LocalCloud<string []> = local {
+    static member ReadAllLines(path : string, [<O;D(null:obj)>]?encoding : Encoding) : LocalCloud<string []> = local {
         use! stream = CloudFile.BeginRead path
         let lines = TextReaders.ReadLines(stream, ?encoding = encoding)
         return Seq.toArray lines
@@ -618,7 +618,7 @@ type CloudFile =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="text">Input text.</param>
     /// <param name="encoding">Output encoding.</param>
-    static member WriteAllText(path : string, text : string, ?encoding : Encoding) : LocalCloud<CloudFileInfo> = local {
+    static member WriteAllText(path : string, text : string, [<O;D(null:obj)>]?encoding : Encoding) : LocalCloud<CloudFileInfo> = local {
         let! store = Cloud.GetResource<ICloudFileStore>()
         use! stream = Cloud.OfAsync <| store.BeginWrite path
         use sw = 
@@ -635,7 +635,7 @@ type CloudFile =
     /// </summary>
     /// <param name="path">Path to Path to cloud file.</param>
     /// <param name="encoding">Text encoding.</param>
-    static member ReadAllText(path : string, ?encoding : Encoding) = local {
+    static member ReadAllText(path : string, [<O;D(null:obj)>]?encoding : Encoding) = local {
         use! stream = CloudFile.BeginRead path
         use sr = 
             match encoding with
@@ -663,7 +663,7 @@ type CloudFile =
     /// <param name="path">Path to Cloud file.</param>
     /// <param name="inputStream">The stream to read from. Assumes that the stream is already at the correct position for reading.</param>
     /// <param name="overwrite">Overwrite the target file if it exists. Defaults to false.</param>
-    static member UploadFromStream(path : string, stream : Stream, ?overwrite : bool) : LocalCloud<CloudFileInfo> = local {
+    static member UploadFromStream(path : string, stream : Stream, [<O;D(null:obj)>]?overwrite : bool) : LocalCloud<CloudFileInfo> = local {
         let overwrite = defaultArg overwrite false
         let! store = Cloud.GetResource<ICloudFileStore>()
         if not overwrite then
@@ -702,7 +702,7 @@ type CloudFile =
     /// <param name="targetPath">Path to target file in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
-    static member Upload(sourcePath : string, targetPath : string, ?overwrite : bool, ?compress : bool) : LocalCloud<CloudFileInfo> = local {
+    static member Upload(sourcePath : string, targetPath : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?compress : bool) : LocalCloud<CloudFileInfo> = local {
         let overwrite = defaultArg overwrite false
         let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore>()
@@ -728,7 +728,7 @@ type CloudFile =
     /// <param name="targetDirectory">Containing directory in cloud store.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="compress">Compress file as uploaded using GzipStream. Defaults to false.</param>
-    static member Upload(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?compress : bool) : LocalCloud<CloudFileInfo []> = local {
+    static member Upload(sourcePaths : seq<string>, targetDirectory : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?compress : bool) : LocalCloud<CloudFileInfo []> = local {
         let sourcePaths = Seq.toArray sourcePaths
         match sourcePaths |> Array.tryFind (not << File.Exists) with
         | Some notFound -> raise <| new FileNotFoundException(notFound)
@@ -755,7 +755,7 @@ type CloudFile =
     /// <param name="targetPath">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
-    static member Download(sourcePath : string, targetPath : string, ?overwrite : bool, ?decompress : bool) : LocalCloud<unit> = local {
+    static member Download(sourcePath : string, targetPath : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?decompress : bool) : LocalCloud<unit> = local {
         let overwrite = defaultArg overwrite false
         let decompress = defaultArg decompress false
         let targetPath = Path.GetFullPath targetPath
@@ -778,7 +778,7 @@ type CloudFile =
     /// <param name="targetDirectory">Path to target directory in local disk.</param>
     /// <param name="overwrite">Enables overwriting of target file if it exists. Defaults to false.</param>
     /// <param name="decompress">Decompress file as downloaded using GzipStream. Defaults to false.</param>
-    static member Download(sourcePaths : seq<string>, targetDirectory : string, ?overwrite : bool, ?decompress : bool) : LocalCloud<string []> = local {
+    static member Download(sourcePaths : seq<string>, targetDirectory : string, [<O;D(null:obj)>]?overwrite : bool, [<O;D(null:obj)>]?decompress : bool) : LocalCloud<string []> = local {
         let download (path : string) = local {
             let localFile = Path.Combine(targetDirectory, Path.GetFileName path)
             do! CloudFile.Download(path, localFile, ?overwrite = overwrite, ?decompress = decompress)

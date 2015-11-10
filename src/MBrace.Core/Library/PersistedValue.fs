@@ -87,7 +87,7 @@ type PersistedValue =
     /// <param name="path">Path to persist cloud value in File Store. Defaults to a random file name.</param>
     /// <param name="serializer">Serializer used for object serialization. Defaults to runtime serializer.</param>
     /// <param name="compress">Compress value as uploaded using GzipStream. Defaults to false.</param>
-    static member New(value : 'T, ?path : string, ?serializer : ISerializer, ?compress : bool) : LocalCloud<PersistedValue<'T>> = local {
+    static member New(value : 'T, [<O;D(null:obj)>]?path : string, [<O;D(null:obj)>]?serializer : ISerializer, [<O;D(null:obj)>]?compress : bool) : LocalCloud<PersistedValue<'T>> = local {
         let compress = defaultArg compress false
         let! store = Cloud.GetResource<ICloudFileStore>()
         let path = 
@@ -129,7 +129,7 @@ type PersistedValue =
     /// <param name="ensureFileExists">Check that path exists in store. Defaults to true.</param>
     /// <param name="forceEvaluation">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, ?deserializer : Stream -> 'T, ?ensureFileExists : bool, ?forceEvaluation : bool, ?resolveEtag : bool) : LocalCloud<PersistedValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, [<O;D(null:obj)>]?deserializer : Stream -> 'T, [<O;D(null:obj)>]?ensureFileExists : bool, [<O;D(null:obj)>]?forceEvaluation : bool, ?resolveEtag : bool) : LocalCloud<PersistedValue<'T>> = local {
         let ensureFileExists = defaultArg ensureFileExists true
         let forceEvaluation = defaultArg forceEvaluation false
         let resolveEtag = defaultArg resolveEtag false
@@ -170,7 +170,7 @@ type PersistedValue =
     /// <param name="ensureFileExists">Check that path exists in store. Defaults to true.</param>
     /// <param name="forceEvaluation">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, serializer : ISerializer, ?ensureFileExists : bool, ?forceEvaluation : bool, ?resolveEtag : bool) = local {
+    static member OfCloudFile<'T>(path : string, serializer : ISerializer, [<O;D(null:obj)>]?ensureFileExists : bool, [<O;D(null:obj)>]?forceEvaluation : bool, [<O;D(null:obj)>]?resolveEtag : bool) = local {
         let deserializer stream = serializer.Deserialize<'T>(stream, leaveOpen = false)
         return! PersistedValue.OfCloudFile<'T>(path, deserializer = deserializer, ?ensureFileExists = ensureFileExists, ?forceEvaluation = forceEvaluation, ?resolveEtag = resolveEtag)
     }
@@ -185,7 +185,9 @@ type PersistedValue =
     /// <param name="ensureFileExists">Check that path exists in store. Defaults to true.</param>
     /// <param name="forceEvaluation">Check integrity by forcing deserialization on creation. Defaults to false.</param>
     /// <param name="resolveEtag">Determine the CloudFile ETag and pass it to the PersistedSequence. Defaults to false.</param>
-    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, ?encoding : Encoding, ?ensureFileExists : bool, ?forceEvaluation : bool, ?resolveEtag : bool) : LocalCloud<PersistedValue<'T>> = local {
+    static member OfCloudFile<'T>(path : string, textDeserializer : StreamReader -> 'T, [<O;D(null:obj)>]?encoding : Encoding, 
+                                    [<O;D(null:obj)>]?ensureFileExists : bool, [<O;D(null:obj)>]?forceEvaluation : bool, [<O;D(null:obj)>]?resolveEtag : bool) : LocalCloud<PersistedValue<'T>> = local {
+
         let deserializer (stream : Stream) =
             let sr =
                 match encoding with

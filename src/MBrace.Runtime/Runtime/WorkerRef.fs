@@ -93,7 +93,7 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     /// </summary>
     /// <param name="logLevel">Maximum log level to display. Defaults to LogLevel.Info.</param>
     /// <param name="filter">User-specified log entry filtering function.</param>
-    member __.GetSystemLogsAsync(?logLevel : LogLevel, ?filter : SystemLogEntry -> bool) = async {
+    member __.GetSystemLogsAsync([<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?filter : SystemLogEntry -> bool) = async {
         let filter = defaultArg filter (fun _ -> true)
         let logLevel = defaultArg logLevel LogLevel.Info
         let! logs = runtime.RuntimeSystemLogManager.GetWorkerLogs(workerId)
@@ -105,7 +105,7 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     /// </summary>
     /// <param name="logLevel">Maximum log level to display. Defaults to LogLevel.Info.</param>
     /// <param name="filter">User-specified log entry filtering function.</param>
-    member __.GetSystemLogs(?logLevel : LogLevel, ?filter : SystemLogEntry -> bool) = 
+    member __.GetSystemLogs([<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?filter : SystemLogEntry -> bool) = 
         __.GetSystemLogsAsync(?logLevel = logLevel, ?filter = filter) |> Async.RunSync
 
     /// Asynchronously clears system logs for current worker from store.
@@ -121,7 +121,7 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     /// </summary>
     /// <param name="logLevel">Maximum log level to display. Defaults to LogLevel.Info.</param>
     /// <param name="filter">User-specified log entry filtering function.</param>
-    member __.ShowSystemLogs(?logLevel : LogLevel, ?filter : SystemLogEntry -> bool) = 
+    member __.ShowSystemLogs([<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?filter : SystemLogEntry -> bool) = 
         let logLevel = defaultArg logLevel LogLevel.Info
         let filter = defaultArg filter (fun _ -> true)
         runtime.RuntimeSystemLogManager.GetWorkerLogs workerId

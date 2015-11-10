@@ -46,12 +46,12 @@ type ICloudProcess =
     ///     Asynchronously waits for the cloud process to complete.
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
-    abstract WaitAsync : ?timeoutMilliseconds:int -> Async<unit>
+    abstract WaitAsync : [<O;D(null:obj)>]?timeoutMilliseconds:int -> Async<unit>
     /// <summary>
     ///     Awaits cloud process for completion, returning its eventual result.
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
-    abstract AwaitResultBoxedAsync : ?timeoutMilliseconds:int -> Async<obj>
+    abstract AwaitResultBoxedAsync : [<O;D(null:obj)>]?timeoutMilliseconds:int -> Async<obj>
     /// Returns the cloud process result if completed or None if still pending.
     abstract TryGetResultBoxedAsync : unit -> Async<obj option>
 
@@ -62,7 +62,7 @@ type ICloudProcess<'T> =
     ///     Awaits cloud process for completion, returning its eventual result.
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
-    abstract AwaitResultAsync : ?timeoutMilliseconds:int -> Async<'T>
+    abstract AwaitResultAsync : [<O;D(null:obj)>]?timeoutMilliseconds:int -> Async<'T>
     /// Returns the cloud process result if completed or None if still pending.
     abstract TryGetResultAsync : unit -> Async<'T option>
     /// Synchronously gets the cloud process result, blocking until it completes.
@@ -125,7 +125,7 @@ type CloudProcessExtensions =
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
     [<Extension>]
-    static member AwaitResultBoxed(this : ICloudProcess, ?timeoutMilliseconds) : LocalCloud<obj> = 
+    static member AwaitResultBoxed(this : ICloudProcess, [<O;D(null:obj)>]?timeoutMilliseconds : int) : LocalCloud<obj> = 
         this.AwaitResultBoxedAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal
 
     /// <summary>
@@ -133,5 +133,5 @@ type CloudProcessExtensions =
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Default to infinite timeout.</param>
     [<Extension>]
-    static member AwaitResult(this : ICloudProcess<'T>, ?timeoutMilliseconds : int) : LocalCloud<'T> = 
+    static member AwaitResult(this : ICloudProcess<'T>, [<O;D(null:obj)>]?timeoutMilliseconds : int) : LocalCloud<'T> = 
         this.AwaitResultAsync(?timeoutMilliseconds = timeoutMilliseconds) |> ofAsync |> mkLocal

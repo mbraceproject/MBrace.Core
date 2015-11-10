@@ -122,7 +122,7 @@ type Serializer private () =
     /// <param name="stream">Stream to serialize object.</param>
     /// <param name="graph">Object graph to be serialized.</param>
     /// <param name="leaveOpen">Leave open stream after serialization. Defaults to false.</param>
-    static member Serialize<'T>(stream : Stream, graph : 'T, ?leaveOpen : bool) : LocalCloud<unit> = local {
+    static member Serialize<'T>(stream : Stream, graph : 'T, [<O;D(null:obj)>]?leaveOpen : bool) : LocalCloud<unit> = local {
         let leaveOpen = defaultArg leaveOpen false
         let! serializer = Cloud.GetResource<ISerializer> ()
         return serializer.Serialize(stream, graph, leaveOpen)
@@ -133,7 +133,7 @@ type Serializer private () =
     /// </summary>
     /// <param name="stream">Stream to deserialize object from.</param>
     /// <param name="leaveOpen">Leave open stream after deserialization. Defaults to false.</param>
-    static member Deserialize<'T>(stream : Stream, ?leaveOpen : bool) : LocalCloud<'T> = local {
+    static member Deserialize<'T>(stream : Stream, [<O;D(null:obj)>]?leaveOpen : bool) : LocalCloud<'T> = local {
         let leaveOpen = defaultArg leaveOpen false
         let! serializer = Cloud.GetResource<ISerializer> ()
         return serializer.Deserialize<'T>(stream, leaveOpen)
@@ -145,7 +145,7 @@ type Serializer private () =
     /// <param name="target">Target text writer.</param>
     /// <param name="graph">Object graph to be serialized.</param>
     /// <param name="leaveOpen">Leave open writer after serialization. Defaults to false.</param>
-    static member TextSerialize<'T>(target : TextWriter, graph : 'T, ?leaveOpen : bool) : LocalCloud<unit> = local {
+    static member TextSerialize<'T>(target : TextWriter, graph : 'T, [<O;D(null:obj)>]?leaveOpen : bool) : LocalCloud<unit> = local {
         let leaveOpen = defaultArg leaveOpen false
         let! ts = getTextSerializer()
         return ts.TextSerialize<'T>(target, graph, leaveOpen)
@@ -156,7 +156,7 @@ type Serializer private () =
     /// </summary>
     /// <param name="source">Source text reader.</param>
     /// <param name="leaveOpen">Leave open writer after deserialization. Defaults to false.</param>
-    static member TextDeserialize<'T>(source : TextReader, ?leaveOpen : bool) : LocalCloud<'T> = local {
+    static member TextDeserialize<'T>(source : TextReader, [<O;D(null:obj)>]?leaveOpen : bool) : LocalCloud<'T> = local {
         let leaveOpen = defaultArg leaveOpen false
         let! ts = getTextSerializer()
         return ts.TextDeserialize<'T>(source, leaveOpen)
