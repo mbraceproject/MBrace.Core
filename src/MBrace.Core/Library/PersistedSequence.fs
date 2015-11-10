@@ -51,10 +51,6 @@ type PersistedSequence<'T> =
         return c.deserializer stream
     }
 
-    interface IEnumerable<'T> with
-        member c.GetEnumerator(): IEnumerator = Async.RunSync(c.GetEnumerableAsync()).GetEnumerator() :> _
-        member c.GetEnumerator(): IEnumerator<'T> = Async.RunSync(c.GetEnumerableAsync()).GetEnumerator()
-
     /// Asynchronously fetches all elements of the cloud sequence and returns them as a local array.
     member c.ToArrayAsync () : Async<'T []> = async { 
         let! seq = c.GetEnumerableAsync()
@@ -107,6 +103,10 @@ type PersistedSequence<'T> =
         member c.Dispose () = async {
             return! c.store.DeleteFile c.path
         }
+
+    interface IEnumerable<'T> with
+        member c.GetEnumerator(): IEnumerator = Async.RunSync(c.GetEnumerableAsync()).GetEnumerator() :> _
+        member c.GetEnumerator(): IEnumerator<'T> = Async.RunSync(c.GetEnumerableAsync()).GetEnumerator()
 
     interface ICloudCollection<'T> with
         member c.IsKnownCount = Option.isSome c.count

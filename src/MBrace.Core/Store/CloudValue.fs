@@ -77,6 +77,7 @@ and CloudValue<'T> =
 /// Serializable entity that represents an immutable 
 /// array that has been cached by the MBrace runtime.
 type CloudArray<'T> =
+    inherit seq<'T>
     inherit CloudValue<'T []>
     inherit ICloudCollection<'T>
     /// Array element count
