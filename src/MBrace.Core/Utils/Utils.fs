@@ -297,6 +297,13 @@ module Utils =
             else ValueOrException<'S>.NewException(input.Exception)
 
 
+[<Extension>]
+type public Option = 
+    [<Extension>] 
+    static member Some<'a> (v : 'a) = Some v
+
+    static member None<'a>() : 'a option = None
+
 // Thanks to http://blogs.msdn.com/b/jaredpar/archive/2010/07/27/converting-system-func-lt-t1-tn-gt-to-fsharpfunc-lt-t-tresult-gt.aspx
 [<Extension>]
 type public FSharpFuncUtil = 
