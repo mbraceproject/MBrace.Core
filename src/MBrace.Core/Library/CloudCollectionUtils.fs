@@ -93,13 +93,13 @@ type HTTPTextCollection internal (url : string, [<O;D(null:obj)>]?encoding : Enc
     [<DataMember(Name = "Range")>]
     let range = range
     
-    let getSize () = async {
+    let getSize () = 
         match range with
-        | Some (s,e) -> return e - s + 1L
+        | Some (s,e) -> e - s + 1L
         | None ->
             use stream = new SeekableHTTPStream(url)
-            return! stream.GetLengthAsync()
-    }
+            stream.GetLength()
+    
 
     let toEnumerable () =
         let stream = new SeekableHTTPStream(url)
@@ -116,7 +116,7 @@ type HTTPTextCollection internal (url : string, [<O;D(null:obj)>]?encoding : Enc
         member c.IsKnownSize = true
         member c.IsMaterialized = false
         member c.GetCountAsync () = raise <| new NotSupportedException()
-        member c.GetSizeAsync () = getSize ()
+        member c.GetSizeAsync () = async { return getSize () }
         member c.GetEnumerableAsync() = async { return toEnumerable () }
 
     interface IPartitionableCollection<string> with
@@ -126,7 +126,7 @@ type HTTPTextCollection internal (url : string, [<O;D(null:obj)>]?encoding : Enc
             | Some _ -> return [|cs|]
             | None ->
 
-            let! size = getSize ()
+            let size = getSize ()
 
             let mkRangedSeqs (weights : int[]) =
                 let mkRangedSeq rangeOpt =

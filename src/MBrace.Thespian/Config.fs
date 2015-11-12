@@ -45,6 +45,7 @@ type Config private () =
             VagabondRegistry.Initialize(vagabondDir, isClientSession = isClient, forceLocalFSharpCore = true)
 
             let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
+            ServicePointManager.DefaultConnectionLimit <- 12 * Environment.ProcessorCount
             _objectCache <- InMemoryCache.Create()
 
             let fsStoreDirectory = Path.Combine(_workingDirectory, "store")
