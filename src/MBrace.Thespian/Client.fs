@@ -87,7 +87,7 @@ type ThespianWorker private (uri : string) =
     ///     Sends a kill signal to the worker process.
     /// </summary>
     /// <param name="signal">Process exit signal. Defaults to 1.</param>
-    member __.Kill(?signal : int) : unit = 
+    member __.Kill([<O;D(null:obj)>]?signal : int) : unit = 
         let signal = defaultArg signal 1
         protect(fun () -> aref <-- Kill signal)
 
@@ -122,7 +122,7 @@ type ThespianWorker private (uri : string) =
         | Some(_,state) -> Some state
 
     /// Initializes worker instance as master node in new cluster state.
-    member internal __.InitAsClusterMasterNode(storeConfig : ICloudFileStore, ?miscResources : ResourceRegistry) = async {
+    member internal __.InitAsClusterMasterNode(storeConfig : ICloudFileStore, [<O;D(null:obj)>]?miscResources : ResourceRegistry) = async {
         return! protectAsync (aref <!- fun ch -> InitMasterNode(storeConfig, miscResources, ch))
     }
 
@@ -165,9 +165,9 @@ type ThespianWorker private (uri : string) =
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
     /// <param name="heartbeatInterval">Specifies the default heartbeat interval emitted by the worker. Defaults to 500ms</param>
     /// <param name="heartbeatThreshold">Specifies the maximum time threshold of heartbeats after which the worker will be declared dead. Defaults to 10sec.</param>
-    static member SpawnAsync (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentWorkItems : int,
-                                    ?logLevel : LogLevel, ?logFiles : seq<string>, ?useAppDomainIsolation : bool, ?runAsBackground : bool,
-                                    ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
+    static member SpawnAsync ([<O;D(null:obj)>]?hostname : string, [<O;D(null:obj)>]?port : int, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxConcurrentWorkItems : int,
+                                [<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?logFiles : seq<string>, [<O;D(null:obj)>]?useAppDomainIsolation : bool, [<O;D(null:obj)>]?runAsBackground : bool,
+                                [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan) =
         async {
             let exe = ThespianWorker.LocalExecutable
             let logFiles = match logFiles with None -> [] | Some ls -> Seq.toList ls
@@ -195,9 +195,9 @@ type ThespianWorker private (uri : string) =
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
     /// <param name="heartbeatInterval">Specifies the default heartbeat interval emitted by the worker. Defaults to 500ms</param>
     /// <param name="heartbeatThreshold">Specifies the maximum time threshold of heartbeats after which the worker will be declared dead. Defaults to 10sec.</param>
-    static member Spawn (?hostname : string, ?port : int, ?workingDirectory : string, ?maxConcurrentWorkItems : int,
-                                ?logLevel : LogLevel, ?logFiles : seq<string>, ?useAppDomainIsolation : bool, ?runAsBackground : bool,
-                                ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
+    static member Spawn ([<O;D(null:obj)>]?hostname : string, [<O;D(null:obj)>]?port : int, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxConcurrentWorkItems : int,
+                            [<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?logFiles : seq<string>, [<O;D(null:obj)>]?useAppDomainIsolation : bool, [<O;D(null:obj)>]?runAsBackground : bool,
+                            [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan) =
 
         ThespianWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentWorkItems = maxConcurrentWorkItems, ?logLevel = logLevel, 
                                     ?logFiles = logFiles, ?runAsBackground = runAsBackground, ?useAppDomainIsolation = useAppDomainIsolation,
@@ -341,7 +341,7 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     static member Connect(worker : ThespianWorker, [<O;D(null:obj)>] ?logLevel : LogLevel, [<O;D(null:obj)>] ?faultPolicy : FaultPolicy) : ThespianCluster =
         match worker.RuntimeState with
-        | None -> invalidOp "Worker '%s' is not part of an active cluster." worker.Uri
+        | None -> invalidOp <| sprintf "Worker '%s' is not part of an active cluster." worker.Uri
         | Some state -> new ThespianCluster(state, logLevel, faultPolicy)
 
     /// <summary>
