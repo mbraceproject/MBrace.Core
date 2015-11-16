@@ -36,15 +36,28 @@ type internal CloudCollection private () =
 
                     // compute a single partition
                     let computePartitionSlice (slice : ICloudCollection<'T> []) = local {
-                        let! collector = collectorf
-                        let! seqs = slice |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
-                        // Partial fix for performance issue when the number of slices is less than the number of cores
-                        match seqs with
+                        match slice with
+                        | slice when slice |> Array.forall (function :? IPartitionableCollection<'T> -> true | _ -> false) ->
+                            let results = new ResizeArray<'R>()
+                            let parCols = slice |> Array.map (fun col -> col :?> IPartitionableCollection<'T>)
+                            for parCol in parCols do
+                                let! collector = collectorf
+                                let! partitions = parCol.GetPartitions([|1..Environment.ProcessorCount|] |> Array.map (fun _ -> 1)) |> Cloud.OfAsync
+                                let! seqs = partitions |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
+                                let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
+                                let value = pStream.Apply (collector.ToParStreamCollector())
+                                let! result = projection value
+                                results.Add(result)
+                            return! results.ToArray() |> combiner
                         | [|col|] ->
-                            let pStream = col |> ParStream.ofSeq 
+                            let! collector = collectorf
+                            let! seq = col.GetEnumerableAsync() |> Cloud.OfAsync
+                            let pStream = seq |> ParStream.ofSeq 
                             let value = pStream.Apply (collector.ToParStreamCollector())
                             return! projection value
                         | _ ->
+                            let! collector = collectorf
+                            let! seqs = slice |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
                             let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
                             let value = pStream.Apply (collector.ToParStreamCollector())
                             return! projection value
