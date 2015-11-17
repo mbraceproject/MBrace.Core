@@ -63,7 +63,6 @@ let pflow =
     |> CloudFlow.cache
     |> cluster.Run
 
-pflow |> Seq.length
 pflow |> CloudFlow.length |> cluster.Run
 
 

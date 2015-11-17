@@ -2,6 +2,7 @@
 
 #nowarn "0444"
 
+open System
 open System.IO
 open System.ComponentModel
 open System.Text
@@ -405,25 +406,10 @@ type CloudPathClient internal (fileStore : ICloudFileStore, resources : Resource
     member __.GetFileName(path : string) : string = fileStore.GetFileName path
 
     /// <summary>
-    ///     Combines two strings into one path.
-    /// </summary>
-    /// <param name="path1">First path.</param>
-    /// <param name="path2">Second path.</param>
-    member __.Combine(path1 : string, path2 : string) : string = fileStore.Combine [| path1 ; path2 |]
-
-    /// <summary>
-    ///     Combines three strings into one path.
-    /// </summary>
-    /// <param name="path1">First path.</param>
-    /// <param name="path2">Second path.</param>
-    /// <param name="path3">Third path.</param>
-    member __.Combine(path1 : string, path2 : string, path3 : string) : string = fileStore.Combine [| path1 ; path2 ; path3 |]
-
-    /// <summary>
     ///     Combines an array of paths into a path.
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
-    member __.Combine(paths : string []) : string = fileStore.Combine paths
+    member __.Combine([<ParamArray>] paths : string []) : string = fileStore.Combine paths
                    
     /// Generates a random, uniquely specified path to directory
     member __.GetRandomDirectoryName() : string = fileStore.GetRandomDirectoryName()
