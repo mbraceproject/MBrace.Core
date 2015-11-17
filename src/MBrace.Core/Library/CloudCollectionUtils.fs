@@ -135,7 +135,8 @@ type HTTPTextCollection internal (url : string, [<O;D(null:obj)>]?encoding : Enc
                         new HTTPTextCollection(url, ?encoding = encoding, ?range = rangeOpt) :> ICloudCollection<string>
                     | _ -> new SequenceCollection<string>([||]) :> _
 
-                let partitions = Array.splitWeightedRange weights 0L size
+                let (s, e) = match range with Some (s, e) -> (s, e + 1L) | None -> (0L, size)
+                let partitions = Array.splitWeightedRange weights s e
                 Array.map mkRangedSeq partitions
 
             return mkRangedSeqs weights

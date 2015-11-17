@@ -121,21 +121,27 @@ type PersistedSequence<'T> =
 
 /// Partitionable implementation of cloud file line reader
 [<Sealed; DataContract>]
-type private TextSequenceByLine(store : ICloudFileStore, path : string, etag : ETag, ?encoding : Encoding) =
-    inherit PersistedSequence<string>(store, path, etag, None, (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding, disposeStream = true)))
+type private TextSequenceByLine(store : ICloudFileStore, path : string, etag : ETag, ?encoding : Encoding, ?range: (int64 * int64)) =
+    inherit PersistedSequence<string>(store, path, etag, None, 
+            match range with
+            | Some (s, e) -> (fun stream -> TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding, disposeStream = true))
+            | None -> (fun stream -> TextReaders.ReadLines(stream, ?encoding = encoding, disposeStream = true)))
+
+    [<DataMember(Name = "Range")>]
+    let range = range
 
     interface IPartitionableCollection<string> with
         member cs.GetPartitions(weights : int []) = async {
             let! size = (cs :> PersistedSequence<_>).GetSizeAsync()
 
             let mkRangedSeqs (weights : int[]) =
-                let getDeserializer s e stream = TextReaders.ReadLinesRanged(stream, max (s - 1L) 0L, e, ?encoding = encoding, disposeStream = true)
                 let mkRangedSeq rangeOpt =
                     match rangeOpt with
-                    | Some(s,e) -> new PersistedSequence<string>(cs.Store, cs.Path, cs.ETag, None, (getDeserializer s e)) :> ICloudCollection<string>
+                    | Some(s,e) -> new TextSequenceByLine(cs.Store, cs.Path, cs.ETag, ?encoding = encoding, range = (s, e)) :> ICloudCollection<string>
                     | None -> new ConcatenatedCollection<string>([||]) :> _
 
-                let partitions = Array.splitWeightedRange weights 0L size
+                let (s, e) = match range with Some (s, e) -> (s, e + 1L) | None -> (0L, size)
+                let partitions =  Array.splitWeightedRange weights s e
                 Array.map mkRangedSeq partitions
 
             return mkRangedSeqs weights
