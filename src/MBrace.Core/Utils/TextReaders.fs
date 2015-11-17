@@ -113,7 +113,7 @@ type private RangedStreamLineEnumerator (stream : Stream, disposeStream : bool, 
             // include line if:
             //   1. is the first line of the starting segment of a stream.
             //   2. is any successive line that fits within the stream boundary.
-            elif beginPos = 0L || bytesRead > 0L then
+            elif (beginPos = 0L || bytesRead > 0L) && (endPos - beginPos) > 0L then
                 currentLine <- line
                 true
             else
