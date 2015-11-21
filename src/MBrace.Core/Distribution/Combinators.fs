@@ -97,6 +97,14 @@ type Cloud =
 
             let _ = task.ContinueWith(onCompletion, TaskContinuationOptions.None) in ())
 
+    /// <summary>
+    ///     Asynchronously awaits a System.Threading.Task for completion.
+    /// </summary>
+    /// <param name="task">Awaited task.</param>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    static member AwaitTask(task : Task, [<O;D(null:obj)>]?timeoutMilliseconds : int) : LocalCloud<unit> =
+        Cloud.AwaitTask(task.ContinueWith ignore, ?timeoutMilliseconds = timeoutMilliseconds)
+
     // region : runtime API
 
     /// <summary>
