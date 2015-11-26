@@ -300,6 +300,8 @@ namespace MBrace.Core.Internals.CSharpProxy
     type Option = 
         static member None<'T>() : 'T option = None
         static member Some<'T> (t : 'T) : 'T option = Some t
+        static member IsNone<'T> (topt : 'T option) : bool = Option.isNone topt
+        static member IsSome<'T> (topt : 'T option) : bool = Option.isSome topt
 
     /// C# friendly wrapper functions for F# lambdas
     type FSharpFunc =
@@ -309,6 +311,7 @@ namespace MBrace.Core.Internals.CSharpProxy
         static member Create<'a,'b> (func:System.Func<'a,'b>) : 'a -> 'b = fun x -> func.Invoke x
         static member Create<'a,'b,'c> (func:System.Func<'a,'b,'c>) : 'a -> 'b -> 'c = fun x y -> func.Invoke(x,y)
         static member Create<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) : 'a -> 'b -> 'c -> 'd = fun x y z -> func.Invoke(x,y,z)
+        static member Create<'a,'b,'c,'d,'e> (func:System.Func<'a,'b,'c,'d,'e>) : 'a -> 'b -> 'c -> 'd -> 'e = fun x y z w -> func.Invoke(x,y,z,w)
 
         static member Create(func:System.Action) : unit -> unit = fun () -> func.Invoke()
         static member Create<'a>(func:System.Action<'a>) : 'a -> unit = fun x -> func.Invoke x

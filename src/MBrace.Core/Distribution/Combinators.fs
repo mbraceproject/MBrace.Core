@@ -72,7 +72,7 @@ type Cloud =
     ///     Performs a cloud computations, discarding its result
     /// </summary>
     /// <param name="workflow"></param>
-    static member Ignore (workflow : #Cloud<'T>) : Cloud<unit> = cloud { let! _ = workflow in return () }
+    static member Ignore (workflow : Cloud<'T>) : Cloud<unit> = cloud { let! _ = workflow in return () }
 
     /// <summary>
     ///     Disposes of a distributed resource.
