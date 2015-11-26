@@ -299,11 +299,11 @@ namespace MBrace.Core.Internals.CSharpProxy
     /// C# friendly wrapper functions for F# option types
     type Option = 
         static member None<'T>() : 'T option = None
-        static member Some<'T> (t : 'T) = Some t
+        static member Some<'T> (t : 'T) : 'T option = Some t
 
     /// C# friendly wrapper functions for F# lambdas
     type FSharpFunc =
-        static member Create<'a,'b> (func:System.Converter<'a,'b>) = fun x -> func.Invoke(x)
+        static member Create<'a,'b> (func:System.Converter<'a,'b>) : 'a -> 'b = fun x -> func.Invoke(x)
 
         static member Create<'a> (func:System.Func<'a>) : unit -> 'a = fun () -> func.Invoke()
         static member Create<'a,'b> (func:System.Func<'a,'b>) : 'a -> 'b = fun x -> func.Invoke x
