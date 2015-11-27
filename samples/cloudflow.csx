@@ -8,48 +8,65 @@
 #r "../../bin/MBrace.Runtime.dll"
 #r "../../bin/MBrace.Thespian.dll"
 #r "../../bin/MBrace.Flow.dll"
-#r "../../bin/MBrace.Flow.CSharp.dll"
+#r "../../bin/MBrace.CSharp.dll"
 #r "../../bin/Streams.dll"
-
 
 // before running sample, don't forget to set binding redirects to FSharp.Core in InteractiveHost.exe
 
 using System;
+using System.Linq;
 using MBrace.Core;
-using MBrace.Core.Internals;
+using MBrace.Core.CSharp;
+using MBrace.Flow.CSharp;
 using MBrace.Library;
 using MBrace.Thespian;
-using MBrace.Flow.CSharp;
-
 
 ThespianWorker.LocalExecutable = "../../bin/mbrace.thespian.worker.exe";
 var cluster = ThespianCluster.InitOnCurrentMachine(4);
 
+// 1. Hello, World
+var getMachineName = CloudBuilder.FromFunc(() => "Hello, World");
+cluster.Run(getMachineName);
+
+cluster.ShowProcesses();
+
+// 2. Parallel workflow
+var inputs = Enumerable.Range(1, 10000000);
+var pworkflow =
+    CloudBuilder
+        .ParallelMap(inputs, x => (2 * x + 1) % 100)
+        .OnSuccess(xs => xs.Sum());
+
+cluster.Run(pworkflow);
+
+// 3. CloudFlow.CSharp tests
 var url = "http://publicdata.landregistry.gov.uk/market-trend-data/price-paid-data/a/pp-2015.csv";
-var flow = CloudFlow.OfHTTPFileByLine(url)
+
+string trim(string input) { return input.Trim(new char[] { '\"' }); }
+
+var cacheF = CloudFlow.OfHTTPFileByLine(url)
                     .Select(line => line.Split(','))
-                    .Select(arr => new { TransactionId = arr[0], Price = arr[1], City = arr[12] })
-                    .Where(trans => trans.City.Contains("LONDON"))
-                    .OrderByDescending(trans => trans.Price, 100)
-                    .ToArray();
+                    .Select(arr => new { TransactionId = Guid.Parse(trim(arr[0])), Price = Double.Parse(trim(arr[1])), City = trim(arr[12]) })
+                    .Cache();
 
+var cacheFlowProc = cluster.CreateProcess(cacheF); // Start caching process
 
-var proc = cluster.CreateProcess(flow);
+cacheFlowProc.ShowInfo();
 
+var cachedFlow = cacheFlowProc.Result; // get the cached CloudFlow
 
-// Vagabond tests
+var top10London =
+    cachedFlow
+        .Where(trans => trans.City.ToLower() == "london")
+        .OrderByDescending(trans => trans.Price, 10)
+        .ToArray();
 
-Cloud<T> delay<T>(System.Func<T> func)
-{
-    var c = Builders.cloud;
-    Func<Cloud<T>> func2 = () => c.Return(func.Invoke());
-    return c.Delay(func2.ToFSharpFunc());
-}
+cluster.Run(top10London);
 
-var x = 1;
-for (int i = 0; i < 10; i++)
-    x = cluster.Run(delay(() => x + x));
+var maxAverageCity =
+    cachedFlow
+        .GroupBy(trans => trans.City.ToLower())
+        .Select(gp => new { City = gp.Item1, Average = gp.Item2.Select(t => t.Price).Average() }) 
+        .MaxBy(city => city.Average);
 
-x;
-
-var f = CloudAtom.New(1)
+cluster.Run(maxAverageCity);

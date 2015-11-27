@@ -220,6 +220,26 @@ namespace MBrace.Flow.CSharp
             return CloudFlowModule.countBy(FSharpFunc.Create(projection), flow);
         }
 
+        /// <summary>
+        /// Locates the maximum element of the flow by given key.
+        /// </summary>
+        /// <param name="projection">A function that maps items from the input CloudFlow to comparable keys.</param>
+        /// <param name="flow">The input CloudFlow.</param>
+        public static Cloud<TSource> MaxBy<TSource, TKey>(this CloudFlow<TSource> flow, Func<TSource, TKey> projection)
+        {
+            return CloudFlowModule.maxBy(FSharpFunc.Create(projection), flow);
+        }
+
+        /// <summary>
+        /// Locates the minimum element of the flow by given key.
+        /// </summary>
+        /// <param name="projection">A function that maps items from the input CloudFlow to comparable keys.</param>
+        /// <param name="flow">The input CloudFlow.</param>
+        public static Cloud<TSource> MinBy<TSource, TKey>(this CloudFlow<TSource> flow, Func<TSource, TKey> projection)
+        {
+            return CloudFlowModule.minBy(FSharpFunc.Create(projection), flow);
+        }
+
         /// <summary>Creates an array from the given CloudFlow.</summary>
         /// <param name="flow">The input CloudFlow.</param>
         /// <returns>The result array.</returns>    
