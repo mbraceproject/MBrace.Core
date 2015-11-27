@@ -1,20 +1,15 @@
 ﻿using MBrace.Core;
-using MBrace.Flow;
 using MBrace.Core.Tests;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MBrace.Flow.CSharp;
 using Nessos.Streams.CSharp;
-using System.IO;
-using System.Runtime.CompilerServices;
 using FsCheck;
 using Microsoft.FSharp.Core;
 
-namespace MBrace.Flow.CSharp.Tests
+namespace MBrace.CSharp.Tests
 {
 
     internal static class CheckExtensions

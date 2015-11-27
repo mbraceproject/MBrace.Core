@@ -11,7 +11,7 @@ using System.IO;
 using MBrace.Core;
 using MBrace.Flow;
 
-namespace MBrace.CSharp.Flow
+namespace MBrace.Flow.CSharp
 {
     /// <summary>
     /// CloudFlow operations

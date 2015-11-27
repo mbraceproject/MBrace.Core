@@ -59,7 +59,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{42
 		resource\Mgrey.res = resource\Mgrey.res
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Core.CSharp", "src\MBrace.Core.CSharp\MBrace.Core.CSharp.csproj", "{23D6FA43-9413-4605-A021-73B36F6626D4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.CSharp", "src\MBrace.CSharp\MBrace.CSharp.csproj", "{23D6FA43-9413-4605-A021-73B36F6626D4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

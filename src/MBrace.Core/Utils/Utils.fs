@@ -296,13 +296,6 @@ module Utils =
 
 namespace MBrace.Core.Internals.CSharpProxy
 
-    /// C# friendly wrapper functions for F# option types
-    type Option = 
-        static member None<'T>() : 'T option = None
-        static member Some<'T> (t : 'T) : 'T option = Some t
-        static member IsNone<'T> (topt : 'T option) : bool = Option.isNone topt
-        static member IsSome<'T> (topt : 'T option) : bool = Option.isSome topt
-
     /// C# friendly wrapper functions for F# lambdas
     type FSharpFunc =
         static member Create<'a,'b> (func:System.Converter<'a,'b>) : 'a -> 'b = fun x -> func.Invoke(x)
