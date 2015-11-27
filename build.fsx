@@ -97,11 +97,10 @@ FinalTarget "CloseTestRunner" (fun _ ->
 
 Target "NuGet" (fun _ ->    
     Paket.Pack (fun p -> 
-        let isMBraceCsharp = File.ReadAllLines p.TemplateFile |> Array.exists((=)"id MBrace.CSharp")
         { p with 
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
-            Version = release.NugetVersion + if isMBraceCsharp then "-alpha" else ""
+            Version = release.NugetVersion
             ReleaseNotes = toLines release.Notes })
 )
 
