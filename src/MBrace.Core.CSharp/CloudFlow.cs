@@ -9,8 +9,9 @@ using MBrace.Core.Internals.CSharpProxy;
 using MBrace.Flow.Internals;
 using System.IO;
 using MBrace.Core;
+using MBrace.Flow;
 
-namespace MBrace.Flow.CSharp
+namespace MBrace.CSharp.Flow
 {
     /// <summary>
     /// CloudFlow operations
@@ -225,6 +226,15 @@ namespace MBrace.Flow.CSharp
         public static Cloud<TSource[]> ToArray<TSource>(this CloudFlow<TSource> flow)
         {
             return CloudFlowModule.toArray(flow);
+        }
+
+        /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <param name="storageLevel">Desired storage level for the persisted CloudFlow.</param>
+        /// <returns>The result PersistedCloudFlow.</returns>    
+        public static Cloud<PersistedCloudFlow<TSource>> Persist<TSource>(this CloudFlow<TSource> flow, StorageLevel storageLevel)
+        {
+            return CloudFlowModule.persist(storageLevel, flow);
         }
 
         /// <summary>Creates a PersistedCloudFlow from the given CloudFlow.</summary>

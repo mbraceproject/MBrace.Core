@@ -51,3 +51,5 @@ for (int i = 0; i < 10; i++)
     x = cluster.Run(delay(() => x + x));
 
 x;
+
+var f = CloudAtom.New(1)
