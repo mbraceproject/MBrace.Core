@@ -75,9 +75,7 @@ Target "Build" (fun _ ->
 let testAssemblies = 
     [
         yield "bin/MBrace.Core.Tests.dll"
-//        yield "bin/MBrace.CSharp.Tests.dll"
         yield "bin/MBrace.Runtime.Tests.dll"
-//        yield "bin/MBrace.Flow.CSharp.Tests.dll"
         if not ignoreClusterTests then yield "bin/MBrace.Thespian.Tests.dll"
     ]
 
@@ -99,10 +97,11 @@ FinalTarget "CloseTestRunner" (fun _ ->
 
 Target "NuGet" (fun _ ->    
     Paket.Pack (fun p -> 
+        let isMBraceCsharp = File.ReadAllLines p.TemplateFile |> Array.exists((=)"id MBrace.CSharp")
         { p with 
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
-            Version = release.NugetVersion
+            Version = release.NugetVersion + if isMBraceCsharp then "-alpha" else ""
             ReleaseNotes = toLines release.Notes })
 )
 

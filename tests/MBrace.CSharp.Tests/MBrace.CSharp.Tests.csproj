@@ -51,7 +51,6 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="paket.references" />
-    <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
