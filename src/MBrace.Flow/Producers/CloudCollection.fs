@@ -39,12 +39,13 @@ type internal CloudCollection private () =
                         match slice with
                         | slice when slice |> Array.forall (function :? IPartitionableCollection<'T> -> true | _ -> false) ->
                             let results = new ResizeArray<'R>()
+                            let n = Environment.ProcessorCount * 2
                             let parCols = slice |> Array.map (fun col -> col :?> IPartitionableCollection<'T>)
                             for parCol in parCols do
                                 let! collector = collectorf
-                                let! partitions = parCol.GetPartitions([|1..Environment.ProcessorCount|] |> Array.map (fun _ -> 1)) |> Cloud.OfAsync
+                                let! partitions = parCol.GetPartitions([|1..n|] |> Array.map (fun _ -> 1)) |> Cloud.OfAsync
                                 let! seqs = partitions |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
-                                let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq
+                                let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq |> ParStream.withDegreeOfParallelism n
                                 let value = pStream.Apply (collector.ToParStreamCollector())
                                 let! result = projection value
                                 results.Add(result)
