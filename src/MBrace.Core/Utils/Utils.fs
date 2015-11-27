@@ -7,10 +7,7 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.CompilerServices
 
-[<assembly: Extension>]
-do()
-
-[<AutoOpen; Extension>]
+[<AutoOpen>]
 module Utils =
 
     type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
@@ -297,34 +294,27 @@ module Utils =
             else ValueOrException<'S>.NewException(input.Exception)
 
 
-[<Extension>]
-type public Option = 
-    [<Extension>] 
-    static member Some<'a> (v : 'a) = Some v
+namespace MBrace.Core.Internals.CSharpProxy
 
-    static member None<'a>() : 'a option = None
+    /// C# friendly wrapper functions for F# option types
+    type Option = 
+        static member None<'T>() : 'T option = None
+        static member Some<'T> (t : 'T) : 'T option = Some t
+        static member IsNone<'T> (topt : 'T option) : bool = Option.isNone topt
+        static member IsSome<'T> (topt : 'T option) : bool = Option.isSome topt
 
-// Thanks to http://blogs.msdn.com/b/jaredpar/archive/2010/07/27/converting-system-func-lt-t1-tn-gt-to-fsharpfunc-lt-t-tresult-gt.aspx
-[<Extension>]
-type public FSharpFuncUtil = 
+    /// C# friendly wrapper functions for F# lambdas
+    type FSharpFunc =
+        static member Create<'a,'b> (func:System.Converter<'a,'b>) : 'a -> 'b = fun x -> func.Invoke(x)
 
-    [<Extension>] 
-    static member ToFSharpFunc<'a,'b> (func:System.Converter<'a,'b>) = fun x -> func.Invoke(x)
+        static member Create<'a> (func:System.Func<'a>) : unit -> 'a = fun () -> func.Invoke()
+        static member Create<'a,'b> (func:System.Func<'a,'b>) : 'a -> 'b = fun x -> func.Invoke x
+        static member Create<'a,'b,'c> (func:System.Func<'a,'b,'c>) : 'a -> 'b -> 'c = fun x y -> func.Invoke(x,y)
+        static member Create<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) : 'a -> 'b -> 'c -> 'd = fun x y z -> func.Invoke(x,y,z)
+        static member Create<'a,'b,'c,'d,'e> (func:System.Func<'a,'b,'c,'d,'e>) : 'a -> 'b -> 'c -> 'd -> 'e = fun x y z w -> func.Invoke(x,y,z,w)
 
-    [<Extension>] 
-    static member ToFSharpFunc<'a,'b> (func:System.Func<'a,'b>) = fun x -> func.Invoke(x)
-
-    [<Extension>] 
-    static member ToFSharpFunc<'a> (func:System.Func<'a>) = fun () -> func.Invoke()
-
-    [<Extension>] 
-    static member ToFSharpFunc<'a,'b,'c> (func:System.Func<'a,'b,'c>) = fun x y -> func.Invoke(x,y)
-
-    [<Extension>] 
-    static member ToFSharpFunc<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) = fun x y z -> func.Invoke(x,y,z)
-
-    static member Create<'a,'b> (func:System.Func<'a,'b>) = FSharpFuncUtil.ToFSharpFunc func
-
-    static member Create<'a,'b,'c> (func:System.Func<'a,'b,'c>) = FSharpFuncUtil.ToFSharpFunc func
-
-    static member Create<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) = FSharpFuncUtil.ToFSharpFunc func
+        static member Create(func:System.Action) : unit -> unit = fun () -> func.Invoke()
+        static member Create<'a>(func:System.Action<'a>) : 'a -> unit = fun x -> func.Invoke x
+        static member Create<'a,'b>(func:System.Action<'a,'b>) : 'a -> 'b -> unit = fun x y -> func.Invoke(x,y)
+        static member Create<'a,'b,'c>(func:System.Action<'a,'b,'c>) : 'a -> 'b -> 'c -> unit = fun x y z -> func.Invoke(x,y,z)
+        static member Create<'a,'b,'c,'d>(func:System.Action<'a,'b,'c,'d>) : 'a -> 'b -> 'c -> 'd -> unit = fun x y z w -> func.Invoke(x,y,z,w)

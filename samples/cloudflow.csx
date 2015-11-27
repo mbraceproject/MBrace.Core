@@ -16,6 +16,7 @@
 
 using System;
 using MBrace.Core;
+using MBrace.Core.Internals;
 using MBrace.Library;
 using MBrace.Thespian;
 using MBrace.Flow.CSharp;
@@ -34,3 +35,19 @@ var flow = CloudFlow.OfHTTPFileByLine(url)
 
 
 var proc = cluster.CreateProcess(flow);
+
+
+// Vagabond tests
+
+Cloud<T> delay<T>(System.Func<T> func)
+{
+    var c = Builders.cloud;
+    Func<Cloud<T>> func2 = () => c.Return(func.Invoke());
+    return c.Delay(func2.ToFSharpFunc());
+}
+
+var x = 1;
+for (int i = 0; i < 10; i++)
+    x = cluster.Run(delay(() => x + x));
+
+x;
