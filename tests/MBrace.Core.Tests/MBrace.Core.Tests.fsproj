@@ -72,7 +72,6 @@
     <Compile Include="CloudFlowTests.fs" />
     <Content Include="App.config" />
     <Content Include="paket.references" />
-    <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
