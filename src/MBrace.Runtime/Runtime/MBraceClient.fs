@@ -66,6 +66,9 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
         let dependencies = runtime.AssemblyManager.ComputeDependencies((workflow, faultPolicy))
         let assemblyIds = dependencies |> Array.map (fun d -> d.Id)
         do! runtime.AssemblyManager.UploadAssemblies(dependencies)
+        if workers.Value.Length = 0 then
+            runtime.SystemLogger.Logf LogLevel.Warning "No worker instances currently associated with cluster. Computation may never complete."
+
         return! Combinators.runStartAsCloudProcess runtime None assemblyIds taskName faultPolicy cancellationToken additionalResources target workflow
     }
 
