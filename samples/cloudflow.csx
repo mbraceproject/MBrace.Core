@@ -22,7 +22,8 @@ using MBrace.Library;
 using MBrace.Thespian;
 
 ThespianWorker.LocalExecutable = "../../bin/mbrace.thespian.worker.exe";
-var cluster = ThespianCluster.InitOnCurrentMachine(4);
+var logger = (MBrace.Runtime.ISystemLogger)new MBrace.Runtime.ConsoleLogger();
+var cluster = ThespianCluster.InitOnCurrentMachine(workerCount: 4, logger: logger.ToOption());
 
 // 1. Hello, World
 var getMachineName = CloudBuilder.FromFunc(() => "Hello, World");

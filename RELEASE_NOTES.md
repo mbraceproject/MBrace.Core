@@ -1,3 +1,6 @@
+#### 1.0.2
+* Improve C# interactive support.
+
 #### 1.0.1
 * CloudFlow performance improvements.
 * Improve C# interactive support.
