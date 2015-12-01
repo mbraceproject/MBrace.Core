@@ -56,42 +56,6 @@
   </Target>
   -->
   <Import Project="..\..\.paket\paket.targets" />
-  <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="TestTypes.fs" />
-    <Compile Include="ContinuationTests.fs" />
-    <Compile Include="CollectionPartitionerTests.fs" />
-    <Compile Include="MiscTests.fs" />
-    <Compile Include="StoreTests\CloudFileStoreTests.fs" />
-    <Compile Include="StoreTests\CloudValueTests.fs" />
-    <Compile Include="StoreTests\CloudAtomTests.fs" />
-    <Compile Include="StoreTests\CloudQueueTests.fs" />
-    <Compile Include="StoreTests\CloudDictionaryTests.fs" />
-    <Compile Include="CloudTests.fs" />
-    <Compile Include="CloudFlowTests.fs" />
-    <Content Include="App.config" />
-    <Content Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
-      <Name>MBrace.Core</Name>
-      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Flow\MBrace.Flow.fsproj">
-      <Name>MBrace.Flow</Name>
-      <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
       <ItemGroup>
@@ -131,6 +95,41 @@
     </When>
   </Choose>
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="TestTypes.fs" />
+    <Compile Include="ContinuationTests.fs" />
+    <Compile Include="CollectionPartitionerTests.fs" />
+    <Compile Include="MiscTests.fs" />
+    <Compile Include="StoreTests\CloudFileStoreTests.fs" />
+    <Compile Include="StoreTests\CloudValueTests.fs" />
+    <Compile Include="StoreTests\CloudAtomTests.fs" />
+    <Compile Include="StoreTests\CloudQueueTests.fs" />
+    <Compile Include="StoreTests\CloudDictionaryTests.fs" />
+    <Compile Include="CloudTests.fs" />
+    <Compile Include="CloudFlowTests.fs" />
+    <Content Include="App.config" />
+    <Content Include="paket.references" />
+    <None Include="paket.template" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj">
+      <Name>MBrace.Core</Name>
+      <Project>{80182c04-6e3c-486a-b3bf-0e617a837105}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Flow\MBrace.Flow.fsproj">
+      <Name>MBrace.Flow</Name>
+      <Project>{bd5a351c-e049-4365-8f6f-bb8b13886b96}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <Reference Include="nunit.framework">
       <HintPath>..\..\packages\NUnit\lib\nunit.framework.dll</HintPath>
       <Private>True</Private>
