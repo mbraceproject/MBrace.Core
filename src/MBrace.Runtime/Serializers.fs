@@ -12,6 +12,7 @@ open Nessos.FsPickler.Json
 open Newtonsoft.Json
 
 open MBrace.Core.Internals
+open MBrace.Runtime.Utils
 
 /// Abstract FsPickler ISerializer implementation
 [<AbstractClass; AutoSerializable(true)>]
@@ -65,7 +66,7 @@ type FsPicklerStoreTextSerializer internal () =
 
 /// FsPickler.Binary implementation of ISerializer
 [<Sealed; AutoSerializable(true)>]
-type FsPicklerBinarySerializer (?useVagabond : bool) =
+type FsPicklerBinarySerializer ([<O;D(null:obj)>]?useVagabond : bool) =
     inherit FsPicklerStoreSerializer()
     let useVagabond = defaultArg useVagabond true
     do if useVagabond then ignore VagabondRegistry.Instance
@@ -80,7 +81,7 @@ type FsPicklerBinarySerializer (?useVagabond : bool) =
 
 /// FsPickler.Xml implementation of ISerializer
 [<Sealed; AutoSerializable(true)>]
-type FsPicklerXmlSerializer (?indent : bool, ?useVagabond : bool) =
+type FsPicklerXmlSerializer ([<O;D(null:obj)>]?indent : bool, [<O;D(null:obj)>]?useVagabond : bool) =
     inherit FsPicklerStoreTextSerializer()
     let useVagabond = defaultArg useVagabond true
     do if useVagabond then ignore VagabondRegistry.Instance
@@ -92,7 +93,7 @@ type FsPicklerXmlSerializer (?indent : bool, ?useVagabond : bool) =
 
 /// FsPickler.Json implementation of ISerializer
 [<Sealed; AutoSerializable(true)>]
-type FsPicklerJsonSerializer (?omitHeader : bool, ?indent : bool, ?useVagabond : bool) =
+type FsPicklerJsonSerializer ([<O;D(null:obj)>]?omitHeader : bool, [<O;D(null:obj)>]?indent : bool, [<O;D(null:obj)>]?useVagabond : bool) =
     inherit FsPicklerStoreTextSerializer()
     let useVagabond = defaultArg useVagabond true
     do if useVagabond then ignore VagabondRegistry.Instance

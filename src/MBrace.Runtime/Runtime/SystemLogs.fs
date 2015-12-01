@@ -188,7 +188,7 @@ type NullLogger () =
         member __.LogEntry _ = ()
 
 /// A logger that writes to the system console
-type ConsoleLogger (?showDate : bool, ?useColors : bool) =
+type ConsoleLogger ([<O;D(null:obj)>]?showDate : bool, [<O;D(null:obj)>]?useColors : bool) =
     let showDate = defaultArg showDate false
     let useColors = defaultArg useColors false
     interface ISystemLogger with
