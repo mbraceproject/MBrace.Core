@@ -316,6 +316,22 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         fun () -> self.FileStore.GetLastModifiedTime(dir, isDirectory = true) |> Async.RunSync
         |> shouldFailwith<_, DirectoryNotFoundException>
 
+    [<Test>]
+    member self.``1. FileStore : should support unicode file names.`` () = 
+        let fs = self.FileStore
+        let dir = fs.GetRandomDirectoryName()
+        let path = fs.Combine(dir, "ἱστοχῶρος.txt")
+        fs.FileExists(path) |> runSync |> shouldEqual false
+        do
+            let data = Array.init 1024 byte
+            use stream = self.FileStore.BeginWrite path |> runSync
+            stream.Write(data, 0, data.Length)
+
+        fs.FileExists(path) |> runSync |> shouldEqual true
+        fs.GetFileSize(path) |> runSync |> shouldEqual 1024L
+        fs.DeleteFile(path) |> runSync
+        fs.FileExists(path) |> runSync |> shouldEqual false
+
     //
     //  Section 2. FileStore via MBrace runtime
     //
