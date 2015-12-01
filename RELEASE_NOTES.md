@@ -1,3 +1,8 @@
+#### 1.0.1
+* CloudFlow performance improvements.
+* Improve C# interactive support.
+* Add CloudFlow.averageByKey.
+
 #### 1.0.0
 * MBrace.Core 1.0 release.
 * C# interop improvements.

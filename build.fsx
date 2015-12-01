@@ -21,7 +21,8 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
 
-let gitHome = "https://github.com/mbraceproject"
+let gitOwner = "mbraceproject"
+let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Core"
 
 // Generate assembly info files with the right version & up-to-date information
@@ -107,6 +108,49 @@ Target "NuGet" (fun _ ->
 
 Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }))
 
+
+//// --------------------------------------------------------------------------------------
+//// Github Releases
+
+#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+open Octokit
+
+Target "ReleaseGitHub" (fun _ ->
+    let remote =
+        Git.CommandHelper.getGitResult "" "remote -v"
+        |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
+        |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + gitName))
+        |> function None -> gitHome + "/" + gitName | Some (s: string) -> s.Split().[0]
+
+    //StageAll ""
+    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
+    Branches.pushBranch "" remote (Information.getBranchName "")
+
+    Branches.tag "" release.NugetVersion
+    Branches.pushTag "" remote release.NugetVersion
+
+    let client =
+        match Environment.GetEnvironmentVariable "OctokitToken" with
+        | null -> 
+            let user =
+                match getBuildParam "github-user" with
+                | s when not (String.IsNullOrWhiteSpace s) -> s
+                | _ -> getUserInput "Username: "
+            let pw =
+                match getBuildParam "github-pw" with
+                | s when not (String.IsNullOrWhiteSpace s) -> s
+                | _ -> getUserPassword "Password: "
+
+            createClient user pw
+        | token -> createClientWithToken token
+
+    // release on github
+    client
+    |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
+    |> releaseDraft
+    |> Async.RunSynchronously
+)
+
 // --------------------------------------------------------------------------------------
 // documentation
 
@@ -122,7 +166,7 @@ Target "ReleaseDocs" (fun _ ->
     fullclean tempDocsDir
     CopyRecursive "docs/output" tempDocsDir true |> tracefn "%A"
     StageAll tempDocsDir
-    Commit tempDocsDir (sprintf "Update generated documentation for version %s" release.NugetVersion)
+    Git.Commit.Commit tempDocsDir (sprintf "Update generated documentation for version %s" release.NugetVersion)
     Branches.push tempDocsDir
 )
 
@@ -144,6 +188,7 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "PrepareRelease"
   ==> "NuGet"
   ==> "NuGetPush"
+  ==> "ReleaseGitHub"
   ==> "Release"
 
 //// start build
