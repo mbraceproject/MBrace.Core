@@ -268,7 +268,7 @@ type CloudDirectoryInfo =
     /// </summary>
     /// <param name="store">Serializable CloudFileStore implementation.</param>
     /// <param name="path">Path to directory.</param>
-    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
+    new (store : ICloudFileStore, path : string) = { store = store ; path = store.GetFullPath path }
 
     /// Gets a unique store identifier
     member d.StoreId = d.store.Id
