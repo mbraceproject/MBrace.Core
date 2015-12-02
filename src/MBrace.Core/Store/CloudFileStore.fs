@@ -304,7 +304,7 @@ type CloudFileInfo =
     /// </summary>
     /// <param name="store">Serializable CloudFileStore implementation.</param>
     /// <param name="path">Path to file.</param>
-    new (store : ICloudFileStore, path : string) = { store = store ; path = path }
+    new (store : ICloudFileStore, path : string) = { store = store ; path = store.GetFullPath path }
     
     /// Path to cloud file
     member f.Path = f.path
