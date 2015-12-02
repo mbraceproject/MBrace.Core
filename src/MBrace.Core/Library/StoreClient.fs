@@ -406,6 +406,12 @@ type CloudPathClient internal (fileStore : ICloudFileStore, resources : Resource
     member __.GetFileName(path : string) : string = fileStore.GetFileName path
 
     /// <summary>
+    ///     Gets the full path of supplied input.
+    /// </summary>
+    /// <param name="path">Input path.</param>
+    member __.GetFullPath(path : string) : string = fileStore.GetFullPath path
+
+    /// <summary>
     ///     Combines an array of paths into a path.
     /// </summary>
     /// <param name="paths">Strings to be combined.</param>
