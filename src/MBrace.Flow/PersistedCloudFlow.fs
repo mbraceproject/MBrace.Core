@@ -53,7 +53,7 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
     /// Computes the size (in bytes) of the PersistedCloudFlow
     member __.Size: int64 = partitions |> Array.sumBy (fun (_,p) -> p.Size)
     /// Computes the element count of the PersistedCloudFlow
-    member __.Count: int64 = partitions |> Array.sumBy (fun (_,p) -> int64 p.Length)
+    member __.GetElementCount() : int64 = partitions |> Array.sumBy (fun (_,p) -> int64 p.Length)
 
     /// Gets an enumerable for all elements in the PersistedCloudFlow
     member __.ToEnumerable() : seq<'T> =
@@ -64,8 +64,8 @@ type PersistedCloudFlow<'T> internal (partitions : (IWorkerRef * CloudArray<'T>)
         member __.IsKnownSize = true
         member __.IsKnownCount = true
         member __.IsMaterialized = false
-        member __.GetSizeAsync(): Async<int64> = async { return __.Size }
-        member __.GetCountAsync(): Async<int64> = async { return __.Count }
+        member __.GetSizeAsync(): Async<int64> = async { return __.Size } // TODO : make async
+        member __.GetCountAsync(): Async<int64> = async { return __.GetElementCount() } // TODO : make async
         member __.GetPartitions(): Async<ICloudCollection<'T> []> = async { return partitions |> Array.map (fun (_,p) -> p :> ICloudCollection<'T>) }
         member __.GetTargetedPartitions() :Async<(IWorkerRef * ICloudCollection<'T>) []> = async { return partitions |> Array.map (fun (w,ca) -> w, ca :> _) }
         member __.PartitionCount: Async<int> = async { return partitions.Length }
