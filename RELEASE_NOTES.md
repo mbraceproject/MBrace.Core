@@ -1,3 +1,9 @@
+#### 1.0.4
+* Update Vagabond dependencies.
+
+#### 1.0.3
+* Minor FileSystem fixes.
+
 #### 1.0.2
 * Improve C# interactive support.
 
