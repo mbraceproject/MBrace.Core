@@ -59,6 +59,7 @@ Target "Clean" (fun _ ->
 
 let configuration = environVarOrDefault "Configuration" "Release"
 let ignoreClusterTests = environVarOrDefault "IgnoreClusterTests" "false" |> Boolean.Parse
+let includeCSharpLib = environVarOrDefault "IncludeCSharpLib" "false" |> Boolean.Parse
 
 Target "Build" (fun _ ->
     // Build the rest of the project
@@ -102,7 +103,7 @@ Target "NuGet" (fun _ ->
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
             Version = release.NugetVersion
-            ExcludedTemplates = ["MBrace.CSharp"]
+            ExcludedTemplates = if includeCSharpLib then [] else ["MBrace.CSharp"]
             ReleaseNotes = toLines release.Notes })
 )
 
