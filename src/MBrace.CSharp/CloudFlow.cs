@@ -23,7 +23,7 @@ namespace MBrace.Flow.CSharp
         /// <returns>The result CloudFlow.</returns>
         public static CloudFlow<TSource> OfArray<TSource>(TSource[] source)
         {
-            return CloudFlow.OfArray(source);
+            return MBrace.Flow.CloudFlow.OfArray(source);
         }
 
         /// <summary>Constructs a CloudFlow of lines from a collection of text files.</summary>
