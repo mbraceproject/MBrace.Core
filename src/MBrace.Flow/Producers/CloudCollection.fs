@@ -78,21 +78,22 @@ type internal CloudCollection private () =
 
                     // reassign partitions according to the available workers
                     let! assignedPartitions = local {
-                        let! workerRefs = Cloud.GetAvailableWorkers()
-                        let missingWorkerRefs = Set.difference (Set.ofArray (assignedPartitions |> Array.map fst))
-                                                               (Set.ofArray workerRefs) 
-                        let availableWorkerRefs = Set.difference (Set.ofArray workerRefs)
-                                                                 (Set.ofArray (assignedPartitions |> Array.map fst)) |> Set.toArray
-                        let result = 
+                        let! availableWorkers = Cloud.GetAvailableWorkers()
+                        let availableWorkerSet = Set.ofArray availableWorkers
+                        // sort available workers by assigned partition count
+                        let partitionCount = assignedPartitions |> Seq.map (fun (w,ps) -> w,ps.Length) |> Map.ofSeq
+                        let sortedAvailableWorkers = availableWorkers |> Array.sortBy (fun w -> defaultArg (partitionCount.TryFind w) 0)
+
+                        let reassigned = 
                             let availableCounter = ref 0
                             [| for (w, cols) in assignedPartitions do 
-                                if Set.contains w missingWorkerRefs then
-                                    yield (availableWorkerRefs.[!availableCounter], cols)
-                                    incr availableCounter
+                                if not <| availableWorkerSet.Contains w then
+                                    yield (sortedAvailableWorkers.[!availableCounter], cols)
+                                    availableCounter := (!availableCounter + 1) % sortedAvailableWorkers.Length
                                 else
                                     yield (w, cols) |]
 
-                        return result
+                        return reassigned
                     }
 
                     if Array.isEmpty assignedPartitions then return! combiner [||] else
