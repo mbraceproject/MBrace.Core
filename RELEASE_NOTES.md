@@ -1,3 +1,6 @@
+#### 1.0.5
+* CloudFlow bugfix.
+
 #### 1.0.4
 * Update Vagabond dependencies.
 
