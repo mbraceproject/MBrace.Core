@@ -29,8 +29,7 @@ let gitName = "MBrace.Core"
 Target "AssemblyInfo" (fun _ ->
     let attributes =
         [ 
-            Attribute.Title project
-            Attribute.Product project
+            Attribute.Product "MBrace"
             Attribute.Company "Nessos Information Technologies"
             Attribute.Copyright "\169 Nessos Information Technologies."
             Attribute.Trademark "MBrace"

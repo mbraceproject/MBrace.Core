@@ -1,3 +1,6 @@
+#### 1.0.6
+* Fix packaging issue.
+
 #### 1.0.5
 * CloudFlow bugfix.
 
