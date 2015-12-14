@@ -130,7 +130,7 @@ namespace MBrace.Core.CSharp
         /// <param name="items">Items to iterate through.</param>
         /// <param name="body">Iteration body</param>
         /// <returns>Sequentially iterating cloud workflow.</returns>
-        public static Cloud<unit> ForEach<T,S>(IEnumerable<T> items, Func<T,Cloud<S>> body)
+        public static Cloud<unit> ForEach<T,S>(this IEnumerable<T> items, Func<T,Cloud<S>> body)
         {
             Func<T, Cloud<unit>> f = (t => Core.Cloud.Ignore(body.Invoke(t)));
             return Builders.cloud.For(items, f.ToFSharpFunc());
@@ -145,7 +145,7 @@ namespace MBrace.Core.CSharp
         /// <param name="items">Items to iterate through.</param>
         /// <param name="body">Iteration body</param>
         /// <returns>Sequentially iterating cloud workflow.</returns>
-        public static LocalCloud<unit> ForEach<T, S>(IEnumerable<T> items, Func<T, LocalCloud<S>> body)
+        public static LocalCloud<unit> ForEach<T, S>(this IEnumerable<T> items, Func<T, LocalCloud<S>> body)
         {
             Func<T, LocalCloud<unit>> f = (t => Local.Ignore(body.Invoke(t)));
             return Builders.local.For(items, f.ToFSharpFunc());
@@ -589,7 +589,7 @@ namespace MBrace.Core.CSharp
         /// <param name="workflow">This workflow.</param>
         /// <param name="then">Computation to combine with.</param>
         /// <returns>Combined cloud workflow.</returns>
-        public static Cloud<S> Then<T,S>(this Cloud<T> workflow, Cloud<S> then)
+        public static Cloud<S> Bind<T,S>(this Cloud<T> workflow, Cloud<S> then)
         {
             return Builders.cloud.Combine(Core.Cloud.Ignore(workflow), then);
         }
@@ -601,7 +601,7 @@ namespace MBrace.Core.CSharp
         /// <typeparam name="S"></typeparam>
         /// <param name="workflow">This workflow.</param>
         /// <param name="then">Computation to combine with.</param>
-        public static LocalCloud<S> Then<T, S>(this LocalCloud<T> workflow, LocalCloud<S> then)
+        public static LocalCloud<S> Bind<T, S>(this LocalCloud<T> workflow, LocalCloud<S> then)
         {
             return Builders.local.Combine(Local.Ignore(workflow), then);
         }
@@ -617,7 +617,7 @@ namespace MBrace.Core.CSharp
         /// <typeparam name="T">Return type.</typeparam>
         /// <param name="children">Collection of child workflows.</param>
         /// <returns>A workflow that executes the children in parallel.</returns>
-        public static Cloud<T[]> Parallel<T>(IEnumerable<Cloud<T>> children)
+        public static Cloud<T[]> Parallel<T>(this IEnumerable<Cloud<T>> children)
         {
             return Core.Cloud.Parallel<Cloud<T>, T>(children);
         }
@@ -629,7 +629,7 @@ namespace MBrace.Core.CSharp
         /// <param name="items">Items to be iterated.</param>
         /// <param name="body">Body to be executed.</param>
         /// <returns>A cloud workflow that performs parallel for iteration.</returns>
-        public static Cloud<Unit> ParallelForEach<T>(IEnumerable<T> items, Func<T, LocalCloud<unit>> body)
+        public static Cloud<Unit> ParallelForEach<T>(this IEnumerable<T> items, Func<T, LocalCloud<unit>> body)
         {
             return Library.Cloud.Balanced.iterLocal<T>(body.ToFSharpFunc(), items);
         }
@@ -642,7 +642,7 @@ namespace MBrace.Core.CSharp
         /// <param name="items">Input element sequence.</param>
         /// <param name="mapper">Mapping function.</param>
         /// <returns>A cloud workflow that performs parallel mapping operation.</returns>
-        public static Cloud<R[]> ParallelMap<T,R>(IEnumerable<T> items, Func<T,R> mapper)
+        public static Cloud<R[]> ParallelMap<T, R>(this IEnumerable<T> items, Func<T, R> mapper)
         {
             return Library.Cloud.Balanced.map(mapper.ToFSharpFunc(), items);
         }
@@ -650,14 +650,14 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Defines a parallel map/reduce workflow using supplied arguments.
         /// </summary>
+        /// <param name="inputs">Input elements.</param>
         /// <typeparam name="T">Input element type.</typeparam>
         /// <typeparam name="R">Result type.</typeparam>
         /// <param name="mapper">Mapper function.</param>
         /// <param name="reducer">Reducer function.</param>
         /// <param name="init">Result initializer element.</param>
-        /// <param name="inputs">Input elements.</param>
         /// <returns></returns>
-        public static Cloud<R> MapReduce<T,R>(Func<T,R> mapper, Func<R,R,R> reducer, R init, IEnumerable<T> inputs)
+        public static Cloud<R> MapReduce<T,R>(this IEnumerable<T> inputs, Func<T,R> mapper, Func<R,R,R> reducer, R init)
         {
             return Library.Cloud.Balanced.mapReduce(mapper.ToFSharpFunc(), reducer.ToFSharpFunc(), init, inputs);
         }
@@ -669,7 +669,7 @@ namespace MBrace.Core.CSharp
         /// <typeparam name="T"></typeparam>
         /// <param name="children">Children computations.</param>
         /// <returns>A workflow that executes the children in parallel nondeterminism.</returns>
-        public static Cloud<FSharpOption<T>> Choice<T>(IEnumerable<Cloud<FSharpOption<T>>> children)
+        public static Cloud<FSharpOption<T>> Choice<T>(this IEnumerable<Cloud<FSharpOption<T>>> children)
         {
             return Core.Cloud.Choice<Cloud<FSharpOption<T>>, T>(children);
         }
@@ -681,22 +681,19 @@ namespace MBrace.Core.CSharp
         /// <typeparam name="T"></typeparam>
         /// <param name="children">Children computations.</param>
         /// <returns>A workflow that executes the children in parallel nondeterminism.</returns>
-        public static Cloud<T> Choice<T>(IEnumerable<Cloud<T>> children)
+        public static Cloud<T> Choice<T>(this IEnumerable<Cloud<T>> children)
         {
-            var choice = CloudBuilder.Delay(() =>
-                {
-                    var children2 = children.Select(c => c.OnSuccess(t => t.ToOption()));
-                    return Core.Cloud.Choice<Cloud<FSharpOption<T>>, T>(children2);
-                });
+            return children
+                    .Select(c => c.OnSuccess(t => t.ToOption()))
+                    .Choice()
+                    .OnSuccess(t =>
+                        {
+                            T result;
+                            if (!t.TryGetValue(out result))
+                                throw new ArgumentException("Input is empty", "children");
 
-            return choice.OnSuccess(t => 
-                {
-                    T result;
-                    if (!t.TryGetValue(out result))
-                        throw new ArgumentException("Input is empty", "children");
-
-                    return result;
-                });
+                            return result;
+                        });
         }
 
         #endregion

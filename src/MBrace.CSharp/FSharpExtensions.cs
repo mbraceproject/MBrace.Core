@@ -107,6 +107,23 @@ namespace MBrace.Core.CSharp
         }
 
         /// <summary>
+        ///     Gets value if populated or the supplied default value if empty.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="optional">Optional value to be checked.</param>
+        /// <param name="defaultValue">Default value to be used if optional value empty.</param>
+        /// <returns></returns>
+        public static T GetValueOrDefault<T>(this FSharpOption<T> optional, T defaultValue)
+        {
+            if (Option.IsSome(optional))
+            {
+                return optional.Value;
+            }
+
+            return defaultValue;
+        }
+
+        /// <summary>
         ///     Wraps delegate to an F# function
         /// </summary>
         /// <typeparam name="T">Return type.</typeparam>

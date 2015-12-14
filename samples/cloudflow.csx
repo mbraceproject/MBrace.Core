@@ -32,10 +32,9 @@ cluster.Run(getMachineName);
 cluster.ShowProcesses();
 
 // 2. Parallel workflow
-var inputs = Enumerable.Range(1, 10000000);
 var pworkflow =
-    CloudBuilder
-        .ParallelMap(inputs, x => (2 * x + 1) % 100)
+    Enumerable.Range(1, 10000000)
+        .ParallelMap(x => (2 * x + 1) % 100)
         .OnSuccess(xs => xs.Sum());
 
 cluster.Run(pworkflow);
