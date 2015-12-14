@@ -98,6 +98,30 @@ namespace MBrace.Core.CSharp
         }
 
         /// <summary>
+        ///     Wraps computation workflow builder function
+        ///     to a cloud computation that delays builder execution in the cloud.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="func">Cloud workflow builder function to be delayed.</param>
+        /// <returns></returns>
+        public static LocalCloud<T> Delay<T>(Func<LocalCloud<T>> func)
+        {
+            return Builders.local.Delay(FSharpFunc.Create(func));
+        }
+
+        /// <summary>
+        ///     Wraps computation workflow builder function
+        ///     to a cloud computation that delays builder execution in the cloud.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="func">Cloud workflow builder function to be delayed.</param>
+        /// <returns></returns>
+        public static Cloud<T> Delay<T>(Func<Cloud<T>> func)
+        {
+            return Builders.cloud.Delay(FSharpFunc.Create(func));
+        }
+
+        /// <summary>
         ///     Creates a cloud workflow that sequentially iterates through
         ///     a collection of items using supplied body.
         /// </summary>
@@ -659,8 +683,12 @@ namespace MBrace.Core.CSharp
         /// <returns>A workflow that executes the children in parallel nondeterminism.</returns>
         public static Cloud<T> Choice<T>(IEnumerable<Cloud<T>> children)
         {
-            var children2 = children.Select(c => c.OnSuccess(t => t.ToOption()));
-            var choice = Core.Cloud.Choice<Cloud<FSharpOption<T>>, T>(children2);
+            var choice = CloudBuilder.Delay(() =>
+                {
+                    var children2 = children.Select(c => c.OnSuccess(t => t.ToOption()));
+                    return Core.Cloud.Choice<Cloud<FSharpOption<T>>, T>(children2);
+                });
+
             return choice.OnSuccess(t => 
                 {
                     T result;
