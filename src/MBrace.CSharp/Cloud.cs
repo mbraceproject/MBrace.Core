@@ -227,6 +227,32 @@ namespace MBrace.Core.CSharp
         }
 
         /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflowA">This workflow.</param>
+        /// <param name="workflowB">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<Tuple<T, S>> Combine<T, S>(this Cloud<T> workflowA, Cloud<S> workflowB)
+        {
+            return workflowA.Bind(t => workflowB.OnSuccess(s => new Tuple<T, S>(t, s)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflowA">This workflow.</param>
+        /// <param name="workflowB">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<Tuple<T,S>> Combine<T,S>(this LocalCloud<T> workflowA, LocalCloud<S> workflowB)
+        {
+            return workflowA.Bind(t => workflowB.OnSuccess(s => new Tuple<T, S>(t, s)));
+        }
+
+        /// <summary>
         ///     Catches exception with supplied handler lambda.
         /// </summary>
         /// <typeparam name="T"></typeparam>
