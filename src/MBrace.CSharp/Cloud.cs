@@ -645,7 +645,8 @@ namespace MBrace.Core.CSharp
         /// <returns>A workflow that executes the children in parallel.</returns>
         public static Cloud<T[]> Parallel<T>(this IEnumerable<Cloud<T>> children)
         {
-            return Core.Cloud.Parallel<Cloud<T>, T>(children);
+            var children2 = children.ToArray(); // interim solution for serialization errors
+            return Core.Cloud.Parallel<Cloud<T>, T>(children2);
         }
 
         /// <summary>
@@ -697,6 +698,7 @@ namespace MBrace.Core.CSharp
         /// <returns>A workflow that executes the children in parallel nondeterminism.</returns>
         public static Cloud<FSharpOption<T>> Choice<T>(this IEnumerable<Cloud<FSharpOption<T>>> children)
         {
+            var children2 = children.ToArray(); // interim solution for serialization errors
             return Core.Cloud.Choice<Cloud<FSharpOption<T>>, T>(children);
         }
 
@@ -709,7 +711,8 @@ namespace MBrace.Core.CSharp
         /// <returns>A workflow that executes the children in parallel nondeterminism.</returns>
         public static Cloud<T> Choice<T>(this IEnumerable<Cloud<T>> children)
         {
-            return children
+            var children2 = children.ToArray(); // interim solution for serialization errors
+            return children2
                     .Select(c => c.OnSuccess(t => t.ToOption()))
                     .Choice()
                     .OnSuccess(t =>
