@@ -76,7 +76,7 @@ NUGET
     Thespian (0.1.8-alpha)
       FsPickler (>= 1.7.0)
     Unquote (3.1.0)
-    Vagabond (0.12.4)
+    Vagabond (0.12.5)
       FsPickler (>= 1.7.0 < 1.8.0)
       Mono.Cecil (>= 0.9.6.1 < 0.9.7.0)
 GITHUB

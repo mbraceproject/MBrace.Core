@@ -1,3 +1,6 @@
+#### 1.0.8
+* Update Vagabond to latest version.
+
 #### 1.0.7
 * Update FsPickler to latest version.
 
