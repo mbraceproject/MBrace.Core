@@ -28,6 +28,31 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
+        public void Simple_Cloud_Composition()
+        {
+            var workflowA = CloudBuilder.FromFunc(() => 25);
+            var workflowB = CloudBuilder.FromFunc(() => 17);
+            var combined =
+                CloudBuilder
+                    .Combine(workflowA, workflowB)
+                    .OnSuccess((x, y) => x + y)
+                    .OnSuccess(x => Assert.AreEqual(42, x));
+
+            this.Run(combined);
+        }
+
+
+        //[Test]
+        //public void Simple_Exception_Handling()
+        //{
+        //    var workflow = CloudBuilder
+        //        .FromFunc(() => 0)
+        //        .OnSuccess(i => 25 / i)
+
+        //    //this.Run(combined);
+        //}
+
+        [Test]
         public void Simple_Parallel_Workflow()
         {
             var expected = Enumerable.Range(1, 100).Select(x => x * x).Sum();

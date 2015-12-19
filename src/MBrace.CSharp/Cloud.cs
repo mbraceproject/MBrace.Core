@@ -122,36 +122,6 @@ namespace MBrace.Core.CSharp
         }
 
         /// <summary>
-        ///     Creates a cloud workflow that sequentially iterates through
-        ///     a collection of items using supplied body.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="S"></typeparam>
-        /// <param name="items">Items to iterate through.</param>
-        /// <param name="body">Iteration body</param>
-        /// <returns>Sequentially iterating cloud workflow.</returns>
-        public static Cloud<unit> ForEach<T,S>(this IEnumerable<T> items, Func<T,Cloud<S>> body)
-        {
-            Func<T, Cloud<unit>> f = (t => Core.Cloud.Ignore(body.Invoke(t)));
-            return Builders.cloud.For(items, f.ToFSharpFunc());
-        }
-
-        /// <summary>
-        ///     Creates a cloud workflow that sequentially iterates through
-        ///     a collection of items using supplied body.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="S"></typeparam>
-        /// <param name="items">Items to iterate through.</param>
-        /// <param name="body">Iteration body</param>
-        /// <returns>Sequentially iterating cloud workflow.</returns>
-        public static LocalCloud<unit> ForEach<T, S>(this IEnumerable<T> items, Func<T, LocalCloud<S>> body)
-        {
-            Func<T, LocalCloud<unit>> f = (t => Local.Ignore(body.Invoke(t)));
-            return Builders.local.For(items, f.ToFSharpFunc());
-        }
-
-        /// <summary>
         ///     Defines a cloud workflow that writes given formatted string to cluster logs.
         /// </summary>
         /// <param name="format">String format.</param>
@@ -204,6 +174,20 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<S> Bind<T1,T2,S>(this Cloud<Tuple<T1, T2>> workflow, Func<T1, T2, Cloud<S>> cont)
+        {
+            return CloudBuilder.Bind(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="S"></typeparam>
         /// <param name="workflow">This workflow.</param>
@@ -224,6 +208,20 @@ namespace MBrace.Core.CSharp
         public static LocalCloud<S> Bind<S>(this LocalCloud<unit> workflow, Func<LocalCloud<S>> cont)
         {
             return Builders.local.Bind(workflow, FSharpFunc.Create(cont));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<S> Bind<T1, T2, S>(this LocalCloud<Tuple<T1, T2>> workflow, Func<T1, T2, LocalCloud<S>> cont)
+        {
+            return CloudBuilder.Bind(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
         }
 
         /// <summary>
@@ -306,6 +304,20 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<S> OnSuccess<T1, T2, S>(this Cloud<Tuple<T1,T2>> workflow, Func<T1, T2, S> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="S"></typeparam>
         /// <param name="workflow">This workflow.</param>
@@ -331,6 +343,20 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<S> OnSuccess<T1, T2, S>(this LocalCloud<Tuple<T1, T2>> workflow, Func<T1, T2, S> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="workflow">This workflow.</param>
         /// <param name="cont">Result continuation.</param>
@@ -338,6 +364,19 @@ namespace MBrace.Core.CSharp
         public static Cloud<Unit> OnSuccess<T>(this Cloud<T> workflow, Action<T> cont)
         {
             return CloudBuilder.Bind(workflow, CloudBuilder.FromFunc(cont));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<Unit> OnSuccess<T1,T2>(this Cloud<Tuple<T1,T2>> workflow, Action<T1,T2> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
         }
 
         /// <summary>
@@ -361,6 +400,19 @@ namespace MBrace.Core.CSharp
         public static LocalCloud<Unit> OnSuccess<T>(this LocalCloud<T> workflow, Action<T> cont)
         {
             return CloudBuilder.Bind(workflow, CloudBuilder.FromFunc(cont));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<Unit> OnSuccess<T1, T2>(this LocalCloud<Tuple<T1, T2>> workflow, Action<T1, T2> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
         }
 
         /// <summary>
@@ -443,6 +495,21 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Specifies set of actions to perform on completion of a cloud workflow.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static Cloud<S> OnComplete<T1,T2, S>(this Cloud<Tuple<T1,T2>> workflow, Func<T1,T2, S> onSuccess, Func<Exception, S> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2>, S>(workflow, (t => onSuccess.Invoke(t.Item1, t.Item2)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="S"></typeparam>
         /// <param name="workflow">This workflow.</param>
@@ -484,6 +551,21 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Specifies set of actions to perform on completion of a cloud workflow.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static LocalCloud<S> OnComplete<T1, T2, S>(this LocalCloud<Tuple<T1, T2>> workflow, Func<T1, T2, S> onSuccess, Func<Exception, S> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2>, S>(workflow, (t => onSuccess.Invoke(t.Item1, t.Item2)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="workflow">This workflow.</param>
         /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
@@ -507,6 +589,20 @@ namespace MBrace.Core.CSharp
 
                 return null;
             });
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static Cloud<Unit> OnComplete<T1, T2>(this Cloud<Tuple<T1, T2>> workflow, Action<T1, T2> onSuccess, Action<Exception> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2)), onFailure);
         }
 
         /// <summary>
@@ -559,6 +655,20 @@ namespace MBrace.Core.CSharp
         public static LocalCloud<Unit> OnComplete(this LocalCloud<unit> workflow, Action onSuccess, Action<Exception> onFailure)
         {
             return workflow.OnComplete(((Unit u) => onSuccess.Invoke()), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static LocalCloud<Unit> OnComplete<T1,T2>(this LocalCloud<Tuple<T1, T2>> workflow, Action<T1,T2> onSuccess, Action<Exception> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2)), onFailure);
         }
 
         /// <summary>
@@ -658,7 +768,8 @@ namespace MBrace.Core.CSharp
         /// <returns>A cloud workflow that performs parallel for iteration.</returns>
         public static Cloud<Unit> ParallelForEach<T>(this IEnumerable<T> items, Func<T, LocalCloud<unit>> body)
         {
-            return Library.Cloud.Balanced.iterLocal<T>(body.ToFSharpFunc(), items);
+            var items2 = items.ToArray(); // interim solution for serialization errors
+            return Library.Cloud.Balanced.iterLocal<T>(body.ToFSharpFunc(), items2);
         }
 
         /// <summary>
@@ -671,7 +782,8 @@ namespace MBrace.Core.CSharp
         /// <returns>A cloud workflow that performs parallel mapping operation.</returns>
         public static Cloud<R[]> ParallelMap<T, R>(this IEnumerable<T> items, Func<T, R> mapper)
         {
-            return Library.Cloud.Balanced.map(mapper.ToFSharpFunc(), items);
+            var items2 = items.ToArray(); // interim solution for serialization errors
+            return Library.Cloud.Balanced.map(mapper.ToFSharpFunc(), items2);
         }
 
         /// <summary>
@@ -686,7 +798,8 @@ namespace MBrace.Core.CSharp
         /// <returns></returns>
         public static Cloud<R> MapReduce<T,R>(this IEnumerable<T> inputs, Func<T,R> mapper, Func<R,R,R> reducer, R init)
         {
-            return Library.Cloud.Balanced.mapReduce(mapper.ToFSharpFunc(), reducer.ToFSharpFunc(), init, inputs);
+            var inputs2 = inputs.ToArray(); // interim solution for serialization errors
+            return Library.Cloud.Balanced.mapReduce(mapper.ToFSharpFunc(), reducer.ToFSharpFunc(), init, inputs2);
         }
 
         /// <summary>
@@ -711,8 +824,7 @@ namespace MBrace.Core.CSharp
         /// <returns>A workflow that executes the children in parallel nondeterminism.</returns>
         public static Cloud<T> Choice<T>(this IEnumerable<Cloud<T>> children)
         {
-            var children2 = children.ToArray(); // interim solution for serialization errors
-            return children2
+            return children
                     .Select(c => c.OnSuccess(t => t.ToOption()))
                     .Choice()
                     .OnSuccess(t =>
