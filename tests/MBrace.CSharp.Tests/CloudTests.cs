@@ -54,6 +54,23 @@ namespace MBrace.CSharp.Tests
             this.Run(workflow);
         }
 
+        private Cloud<int> Fibonacci(int n)
+        {
+            if (n <= 1) return CloudBuilder.FromValue(n);
+
+            return CloudBuilder
+                .Parallel(Fibonacci(n - 2), Fibonacci(n - 1))
+                .OnSuccess(fs => fs.Sum());
+        }
+
+        [Test]
+        public void Simple_Recursive_Workflow()
+        {
+            var workflow = Fibonacci(10).OnSuccess(i => Assert.AreEqual(55, i));
+
+            this.Run(workflow);
+        }
+
         [Test]
         public void Simple_Parallel_Workflow()
         {

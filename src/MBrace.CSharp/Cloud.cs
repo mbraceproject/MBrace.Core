@@ -1,11 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.FSharp.Core;
-using MBrace.Core;
-using MBrace.Library;
 using MBrace.Core.Internals.CSharpProxy;
 
 using unit = Microsoft.FSharp.Core.Unit;
@@ -814,6 +810,18 @@ namespace MBrace.Core.CSharp
         #region Parallel Combinators
 
         /// <summary>
+        ///     Runs supplied cloud workflow as a forked cloud process,
+        ///     returning a serializable handle to that process.
+        /// </summary>
+        /// <typeparam name="T">Return type of the cloud process.</typeparam>
+        /// <param name="workflow">Workflow to be forked.</param>
+        /// <returns>A cloud process for tracking progress of forked execution.</returns>
+        public static Cloud<ICloudProcess<T>> CreateProcess<T>(this Cloud<T> workflow)
+        {
+            return Cloud.CreateProcess(workflow);
+        }
+
+        /// <summary>
         ///     Composes a collection of workflows into a single parallel
         ///     fork/join workflow.
         /// </summary>
@@ -824,6 +832,31 @@ namespace MBrace.Core.CSharp
         {
             var children2 = children.ToArray(); // interim solution for serialization errors
             return Core.Cloud.Parallel<Cloud<T>, T>(children2);
+        }
+
+        /// <summary>
+        ///     Composes a collection of workflows into a single parallel
+        ///     fork/join workflow.
+        /// </summary>
+        /// <typeparam name="T">Return type.</typeparam>
+        /// <param name="children">Collection of child workflows.</param>
+        /// <returns>A workflow that executes the children in parallel.</returns>
+        public static Cloud<T[]> Parallel<T>(params Cloud<T>[] children)
+        {
+            return Core.Cloud.Parallel<Cloud<T>, T>(children);
+        }
+
+        /// <summary>
+        ///     Composes a pair of workflows into one that executes both in parallel
+        /// </summary>
+        /// <typeparam name="T">Left return type.</typeparam>
+        /// <typeparam name="S">Right return type.</typeparam>
+        /// <param name="left">Left cloud workflow.</param>
+        /// <param name="right">Right cloud workflow.</param>
+        /// <returns></returns>
+        public static Cloud<Tuple<T,S>> ParallelCombine<T,S>(this Cloud<T> left, Cloud<S> right)
+        {
+            return Core.Cloud.Parallel<T, S>(left, right);
         }
 
         /// <summary>
@@ -879,6 +912,18 @@ namespace MBrace.Core.CSharp
         public static Cloud<FSharpOption<T>> Choice<T>(this IEnumerable<Cloud<FSharpOption<T>>> children)
         {
             var children2 = children.ToArray(); // interim solution for serialization errors
+            return Core.Cloud.Choice<Cloud<FSharpOption<T>>, T>(children2);
+        }
+
+        /// <summary>
+        ///     Performs nondeterministic parallel computation with supplied children.
+        ///     First computation to complete will cause the parent to complete.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="children">Children computations.</param>
+        /// <returns>A workflow that executes the children in parallel nondeterminism.</returns>
+        public static Cloud<FSharpOption<T>> Choice<T>(params Cloud<FSharpOption<T>>[] children)
+        {
             return Core.Cloud.Choice<Cloud<FSharpOption<T>>, T>(children);
         }
 
