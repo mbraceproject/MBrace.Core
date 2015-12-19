@@ -102,7 +102,7 @@ Target "NuGet" (fun _ ->
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
             Version = release.NugetVersion
-            ExcludedTemplates = if includeCSharpLib then [] else ["MBrace.CSharp"]
+            SpecificVersions = ["MBrace.CSharp", release.NugetVersion + "-alpha"]
             ReleaseNotes = toLines release.Notes })
 )
 
