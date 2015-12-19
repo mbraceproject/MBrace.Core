@@ -264,6 +264,25 @@ namespace MBrace.Core.CSharp
         }
 
         /// <summary>
+        ///     Catches exception with of given type with supplied handler lambda.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="Exception">Exception type to match against.</typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="handler">Exception handler lambda.</param>
+        /// <returns>A cloud workflow that catches workflow using compensation lambda.</returns>
+        public static Cloud<T> Catch<T, Exception>(this Cloud<T> workflow, Func<Exception, Cloud<T>> handler) where Exception : System.Exception
+        {
+            return CloudBuilder.Catch<T>(workflow, (exn =>
+            {
+                if (exn is Exception)
+                    return handler.Invoke((Exception)exn);
+
+                return CloudBuilder.Throw<T>(exn);
+            }));
+        }
+
+        /// <summary>
         ///     Catches exception with supplied handler lambda.
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -274,6 +293,26 @@ namespace MBrace.Core.CSharp
         {
             var l = Builders.local;
             return l.TryWith(workflow, FSharpFunc.Create(handler));
+        }
+
+
+        /// <summary>
+        ///     Catches exception with supplied handler lambda.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="Exception"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="handler">Exception handler lambda.</param>
+        /// <returns>A cloud workflow that catches workflow using compensation lambda.</returns>
+        public static LocalCloud<T> Catch<T, Exception>(this LocalCloud<T> workflow, Func<Exception, LocalCloud<T>> handler) where Exception : System.Exception
+        {
+            return CloudBuilder.Catch<T>(workflow, (exn =>
+            {
+                if (exn is Exception)
+                    return handler.Invoke((Exception)exn);
+
+                return CloudBuilder.Throw<T>(exn);
+            }));
         }
 
         /// <summary>
@@ -440,6 +479,20 @@ namespace MBrace.Core.CSharp
         }
 
         /// <summary>
+        ///     Catches exception of given type with supplied handler lambda.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="Exception">Exception type to catch</typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="handler">Exception handler lambda.</param>
+        /// <returns>A cloud workflow that catches workflow using compensation lambda.</returns>
+        public static Cloud<T> OnFailure<T, Exception>(this Cloud<T> workflow, Func<Exception, T> handler) where Exception : System.Exception
+        {
+            var f = (Func<Exception, Cloud<T>>)CloudBuilder.FromFunc(handler);
+            return CloudBuilder.Catch<T, Exception>(workflow, f);
+        }
+
+        /// <summary>
         ///     Catches exception with supplied handler lambda.
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -449,6 +502,20 @@ namespace MBrace.Core.CSharp
         public static LocalCloud<T> OnFailure<T>(this LocalCloud<T> workflow, Func<Exception, T> handler)
         {
             return CloudBuilder.Catch(workflow, CloudBuilder.FromFunc(handler));
+        }
+
+        /// <summary>
+        ///     Catches exception of given type with supplied handler lambda.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="Exception">Exception type to catch</typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="handler">Exception handler lambda.</param>
+        /// <returns>A cloud workflow that catches workflow using compensation lambda.</returns>
+        public static LocalCloud<T> OnFailure<T, Exception>(this LocalCloud<T> workflow, Func<Exception, T> handler) where Exception : System.Exception
+        {
+            var f = (Func<Exception, LocalCloud<T>>)CloudBuilder.FromFunc(handler);
+            return CloudBuilder.Catch<T, Exception>(workflow, f);
         }
 
         /// <summary>

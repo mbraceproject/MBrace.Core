@@ -42,15 +42,17 @@ namespace MBrace.CSharp.Tests
         }
 
 
-        //[Test]
-        //public void Simple_Exception_Handling()
-        //{
-        //    var workflow = CloudBuilder
-        //        .FromFunc(() => 0)
-        //        .OnSuccess(i => 25 / i)
+        [Test]
+        public void Simple_Exception_Handling()
+        {
+            var workflow = CloudBuilder
+                .FromFunc(() => 0)
+                .OnSuccess(i => 25 / i)
+                .OnFailure<int, System.DivideByZeroException>(exn => -1)
+                .OnSuccess(x => Assert.AreEqual(-1, x));
 
-        //    //this.Run(combined);
-        //}
+            this.Run(workflow);
+        }
 
         [Test]
         public void Simple_Parallel_Workflow()
@@ -72,7 +74,7 @@ namespace MBrace.CSharp.Tests
             var workflow =
                 Enumerable
                     .Range(1, 10)
-                    .Select(x => Cloud.Sleep(5000 * x).OnSuccess(() => x))
+                    .Select(x => CloudBuilder.Sleep(10000 * x).OnSuccess(() => x))
                     .Choice()
                     .OnSuccess(x => Assert.AreEqual(1, x));
 
