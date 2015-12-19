@@ -1,3 +1,8 @@
+#### 1.0.9
+* Add tuple overloads to MBrace.CSharp callback methods.
+* Add variadic Parallel and Choice overloads to MBrace.CSharp.
+* Add typed Catch/OnFailure overloads to MBrace.CSharp.
+
 #### 1.0.8
 * Update Vagabond to latest version.
 
