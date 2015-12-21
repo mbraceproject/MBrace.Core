@@ -182,6 +182,7 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
         let dictionaryProvider = match dictionaryProvider with Some dp -> dp | None -> new ThreadPoolDictionaryProvider(memoryEmulation) :> _
         let queueProvider = match queueProvider with Some qp -> qp | None -> new ThreadPoolQueueProvider(memoryEmulation) :> _
         let logger = match logger with Some l -> l | None -> { new ICloudLogger with member __.Log _ = () }
+        do System.Net.ServicePointManager.DefaultConnectionLimit <- 12 * System.Environment.ProcessorCount
 
         let resources = resource {
             yield serializer
