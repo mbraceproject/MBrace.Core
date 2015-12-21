@@ -43,12 +43,21 @@ type internal CloudCollection private () =
                             let parCols = slice |> Array.map (fun col -> col :?> IPartitionableCollection<'T>)
                             for parCol in parCols do
                                 let! collector = collectorf
-                                let! partitions = parCol.GetPartitions([|1..n|] |> Array.map (fun _ -> 1)) |> Cloud.OfAsync
-                                let! seqs = partitions |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
-                                let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq |> ParStream.withDegreeOfParallelism n
-                                let value = pStream.Apply (collector.ToParStreamCollector())
-                                let! result = projection value
-                                results.Add(result)
+                                let! size = Cloud.OfAsync(parCol.GetSizeAsync())
+                                // if the size is small enough collect and run in memory
+                                if size <= 4096L then
+                                    let! seq = parCol.GetEnumerableAsync() |> Cloud.OfAsync
+                                    let pStream = seq |> Array.ofSeq |> ParStream.ofArray 
+                                    let value = pStream.Apply (collector.ToParStreamCollector())
+                                    let! result = projection value
+                                    results.Add(result)
+                                else
+                                    let! partitions = parCol.GetPartitions([|1..n|] |> Array.map (fun _ -> 1)) |> Cloud.OfAsync
+                                    let! seqs = partitions |> Seq.map (fun p -> p.GetEnumerableAsync()) |> Async.Parallel |> Cloud.OfAsync
+                                    let pStream = seqs |> ParStream.ofArray |> ParStream.collect Stream.ofSeq |> ParStream.withDegreeOfParallelism n
+                                    let value = pStream.Apply (collector.ToParStreamCollector())
+                                    let! result = projection value
+                                    results.Add(result)
                             return! results.ToArray() |> combiner
                         | [|col|] ->
                             let! collector = collectorf
