@@ -1155,31 +1155,6 @@ namespace MBrace.Core.CSharp
             return Local.Ignore(workflow);
         }
 
-        /// <summary>
-        ///     Combines cloud workflow with a subsequent computation.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="S"></typeparam>
-        /// <param name="workflow">This workflow.</param>
-        /// <param name="then">Computation to combine with.</param>
-        /// <returns>Combined cloud workflow.</returns>
-        public static Cloud<S> Bind<T,S>(this Cloud<T> workflow, Cloud<S> then)
-        {
-            return Builders.cloud.Combine(Core.Cloud.Ignore(workflow), then);
-        }
-
-        /// <summary>
-        ///     Combines cloud workflow with a subsequent computation.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="S"></typeparam>
-        /// <param name="workflow">This workflow.</param>
-        /// <param name="then">Computation to combine with.</param>
-        public static LocalCloud<S> Bind<T, S>(this LocalCloud<T> workflow, LocalCloud<S> then)
-        {
-            return Builders.local.Combine(Local.Ignore(workflow), then);
-        }
-
         #endregion
 
         #region Local Parallel Combinators
