@@ -97,6 +97,17 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
+        public void Average()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var expected = xs.Average();
+                var actual = this.Run(CloudFlow.OfArray(xs).Average());
+                return expected == actual;
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+        }
+
+        [Test]
         public void Take()
         {
             FSharpFunc<Tuple<int[], int>, bool>.FromConverter(t =>

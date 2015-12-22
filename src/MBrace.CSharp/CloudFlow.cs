@@ -2,15 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.FSharp.Core;
 using MBrace.Core.Internals;
 using MBrace.Core.Internals.CSharpProxy;
-using MBrace.Flow.Internals;
 using System.IO;
 using MBrace.Core;
 using MBrace.Core.CSharp;
-using MBrace.Flow;
 
 namespace MBrace.Flow.CSharp
 {
@@ -20,8 +17,6 @@ namespace MBrace.Flow.CSharp
     public static class CloudFlow
     {
         #region "Producers"
-
-        private const long sizeThresholdPerCore = 1024 * 1024 * 256;
 
         /// <summary>Wraps array as a CloudFlow.</summary>
         /// <param name="source">The input array.</param>
@@ -63,11 +58,10 @@ namespace MBrace.Flow.CSharp
         /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed computation on deserialized cloud file contents.</returns>
-        public static CloudFlow<TSource> OfCloudFiles<TSource>(IEnumerable<string> paths, Func<System.IO.Stream, IEnumerable<TSource>> deserializer = null, 
-                                                                        long sizeThresholdPerCore = sizeThresholdPerCore)
+        public static CloudFlow<TSource> OfCloudFiles<TSource>(IEnumerable<string> paths, Func<System.IO.Stream, IEnumerable<TSource>> deserializer = null, long? sizeThresholdPerCore = null)
         {
             return MBrace.Flow.CloudFlow.OfCloudFiles(paths, deserializer: Option.FromNullable(deserializer).Select(FSharpFunc.Create), 
-                                                                sizeThresholdPerCore: sizeThresholdPerCore.ToOption());
+                                                                sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));
         }
 
         /// <summary>
@@ -78,9 +72,9 @@ namespace MBrace.Flow.CSharp
         /// <param name="serializer">Element deserialization function for cloud files.</param>
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed computation on deserialized cloud file contents.</returns>
-        public static CloudFlow<TSource> OfCloudFiles<TSource>(IEnumerable<string> paths, ISerializer serializer, long sizeThresholdPerCore = sizeThresholdPerCore)
+        public static CloudFlow<TSource> OfCloudFiles<TSource>(IEnumerable<string> paths, ISerializer serializer, long? sizeThresholdPerCore = null)
         {
-            return MBrace.Flow.CloudFlow.OfCloudFiles<TSource>(paths, serializer: serializer, sizeThresholdPerCore: sizeThresholdPerCore.ToOption());
+            return MBrace.Flow.CloudFlow.OfCloudFiles<TSource>(paths, serializer: serializer, sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));
         }
 
         /// <summary>
@@ -93,10 +87,10 @@ namespace MBrace.Flow.CSharp
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed computation on deserialized cloud file contents.</returns>
         public static CloudFlow<TSource> OfCloudFiles<TSource>(IEnumerable<string> paths, Func<TextReader, IEnumerable<TSource>> deserializer, 
-                                                                        Encoding encoding = null, long sizeThresholdPerCore = sizeThresholdPerCore)
+                                                                        Encoding encoding = null, long? sizeThresholdPerCore = null)
         {
-            return MBrace.Flow.CloudFlow.OfCloudFiles<TSource>(paths, FSharpFunc.Create(deserializer), encoding: Option.FromNullable(encoding), 
-                                                                    sizeThresholdPerCore: sizeThresholdPerCore.ToOption());
+            return MBrace.Flow.CloudFlow.OfCloudFiles<TSource>(paths, FSharpFunc.Create(deserializer), encoding: Option.FromNullable(encoding),
+                                                                    sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));
         }
 
         /// <summary>
@@ -108,10 +102,10 @@ namespace MBrace.Flow.CSharp
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed computation on deserialized cloud file contents.</returns>
         public static CloudFlow<TSource> OfCloudDirectory<TSource>(string directoryPath, Func<System.IO.Stream, IEnumerable<TSource>> deserializer = null, 
-                                                                        long sizeThresholdPerCore = sizeThresholdPerCore)
+                                                                        long? sizeThresholdPerCore = null)
         {
             return MBrace.Flow.CloudFlow.OfCloudDirectory<TSource>(directoryPath, deserializer: Option.FromNullable(deserializer).Select(FSharpFunc.Create),
-                                                                        sizeThresholdPerCore: sizeThresholdPerCore.ToOption());
+                                                                        sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));
         }
 
         /// <summary>
@@ -122,9 +116,9 @@ namespace MBrace.Flow.CSharp
         /// <param name="serializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed computation on deserialized cloud file contents.</returns>
-        public static CloudFlow<TSource> OfCloudDirectory<TSource>(string directoryPath, ISerializer serializer, long sizeThresholdPerCore = sizeThresholdPerCore)
+        public static CloudFlow<TSource> OfCloudDirectory<TSource>(string directoryPath, ISerializer serializer, long? sizeThresholdPerCore = null)
         {
-            return MBrace.Flow.CloudFlow.OfCloudDirectory<TSource>(directoryPath, serializer, sizeThresholdPerCore: sizeThresholdPerCore.ToOption());
+            return MBrace.Flow.CloudFlow.OfCloudDirectory<TSource>(directoryPath, serializer, sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));
         }
 
         /// <summary>
@@ -137,10 +131,10 @@ namespace MBrace.Flow.CSharp
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed computation on deserialized cloud file contents.</returns>
         public static CloudFlow<TSource> OfCloudDirectory<TSource>(string directoryPath, Func<TextReader, IEnumerable<TSource>> deserializer,
-                                                                        Encoding encoding = null, long sizeThresholdPerCore = sizeThresholdPerCore)
+                                                                        Encoding encoding = null, long? sizeThresholdPerCore = null)
         {
             return MBrace.Flow.CloudFlow.OfCloudDirectory<TSource>(directoryPath, FSharpFunc.Create(deserializer), encoding: Option.FromNullable(encoding),
-                                                                    sizeThresholdPerCore: sizeThresholdPerCore.ToOption());
+                                                                    sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));
         }
 
 
@@ -152,9 +146,9 @@ namespace MBrace.Flow.CSharp
         /// <param name="encoding">Optional encoding.</param>
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed processing on cloud text files by line.</returns>
-        public static CloudFlow<string> OfCloudFileByLine(IEnumerable<string> paths, Encoding encoding = null, long sizeThresholdPerCore = sizeThresholdPerCore)
+        public static CloudFlow<string> OfCloudFileByLine(IEnumerable<string> paths, Encoding encoding = null, long? sizeThresholdPerCore = null)
         {
-            return MBrace.Flow.CloudFlow.OfCloudFileByLine(paths, encoding: encoding.ToOption(), sizeThresholdPerCore: sizeThresholdPerCore.ToOption());
+            return MBrace.Flow.CloudFlow.OfCloudFileByLine(paths, encoding: encoding.ToOption(), sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));
         }
 
         /// <summary>
@@ -349,9 +343,25 @@ namespace MBrace.Flow.CSharp
         /// <summary>Returns the sum of the elements.</summary>
         /// <param name="flow">The input CloudFlow.</param>
         /// <returns>The sum of the elements.</returns>
+        public static Cloud<int> Sum(this CloudFlow<int?> flow)
+        {
+            return flow.Select(value => value.GetValueOrDefault(0)).Sum();
+        }
+
+        /// <summary>Returns the sum of the elements.</summary>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <returns>The sum of the elements.</returns>
         public static Cloud<long> Sum(this CloudFlow<long> flow)
         {
             return CloudFlowModule.sum(flow);
+        }
+
+        /// <summary>Returns the sum of the elements.</summary>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <returns>The sum of the elements.</returns>
+        public static Cloud<long> Sum(this CloudFlow<long?> flow)
+        {
+            return flow.Select(value => value.GetValueOrDefault(0)).Sum();
         }
 
         /// <summary>Returns the sum of the elements.</summary>
@@ -365,9 +375,25 @@ namespace MBrace.Flow.CSharp
         /// <summary>Returns the sum of the elements.</summary>
         /// <param name="flow">The input CloudFlow.</param>
         /// <returns>The sum of the elements.</returns>
+        public static Cloud<float> Sum(this CloudFlow<float?> flow)
+        {
+            return flow.Select(value => value.GetValueOrDefault(0)).Sum();
+        }
+
+        /// <summary>Returns the sum of the elements.</summary>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <returns>The sum of the elements.</returns>
         public static Cloud<double> Sum(this CloudFlow<double> flow)
         {
             return CloudFlowModule.sum(flow);
+        }
+
+        /// <summary>Returns the sum of the elements.</summary>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <returns>The sum of the elements.</returns>
+        public static Cloud<double> Sum(this CloudFlow<double?> flow)
+        {
+            return flow.Select(value => value.GetValueOrDefault(0)).Sum();
         }
 
         /// <summary>Returns the sum of the elements.</summary>
@@ -378,12 +404,88 @@ namespace MBrace.Flow.CSharp
             return CloudFlowModule.sum(flow);
         }
 
+        /// <summary>Returns the sum of the elements.</summary>
+        /// <param name="flow">The input CloudFlow.</param>
+        /// <returns>The sum of the elements.</returns>
+        public static Cloud<decimal> Sum(this CloudFlow<decimal?> flow)
+        {
+            return flow.Select(value => value.GetValueOrDefault(0)).Sum();
+        }
+
+        /// <summary>
+        ///     Computes the average of a flow of numbers.
+        /// </summary>
+        /// <param name="flow">Input CloudFlow.</param>
+        /// <returns>A cloud computation that computes the average of suplied workflow.</returns>
+        public static Cloud<double> Average(this CloudFlow<int> flow)
+        {
+            return flow.Select(i => (double)i).Average();
+        }
+
+        /// <summary>
+        ///     Computes the average of a flow of numbers.
+        /// </summary>
+        /// <param name="flow">Input CloudFlow.</param>
+        /// <returns>A cloud computation that computes the average of suplied workflow.</returns>
+        public static Cloud<double> Average(this CloudFlow<long> flow)
+        {
+            return flow.Select(i => (double)i).Average();
+        }
+
+        /// <summary>
+        ///     Computes the average of a flow of numbers.
+        /// </summary>
+        /// <param name="flow">Input CloudFlow.</param>
+        /// <returns>A cloud computation that computes the average of suplied workflow.</returns>
+        public static Cloud<double> Average(this CloudFlow<double> flow)
+        {
+            return CloudFlowModule.average(flow);
+        }
+
+        /// <summary>
+        ///     Computes the average of a flow of numbers.
+        /// </summary>
+        /// <param name="flow">Input CloudFlow.</param>
+        /// <returns>A cloud computation that computes the average of suplied workflow.</returns>
+        public static Cloud<float> Average(this CloudFlow<float> flow)
+        {
+            return CloudFlowModule.average(flow);
+        }
+
+        /// <summary>
+        ///     Computes the average of a flow of numbers.
+        /// </summary>
+        /// <param name="flow">Input CloudFlow.</param>
+        /// <returns>A cloud computation that computes the average of suplied workflow.</returns>
+        public static Cloud<decimal> Average(this CloudFlow<decimal> flow)
+        {
+            return CloudFlowModule.average(flow);
+        }
+
+        /// <summary>
+        ///     Averages the elements of given cloud flow by applying key and value projections.
+        /// </summary>
+        /// <typeparam name="TSource">Source element type.</typeparam>
+        /// <typeparam name="TKey">Element key type.</typeparam>
+        /// <param name="flow">Input CloudFlow.</param>
+        /// <param name="keyProjection">Element key projection.</param>
+        /// <param name="valueProjection">Averaged value projection.</param>
+        /// <returns>A flow of computed averages, distinguished by key.</returns>
+        public static CloudFlow<KeyValuePair<TKey, double>> AverageByKey<TSource, TKey>(this CloudFlow<TSource> flow, Func<TSource, TKey> keyProjection, Func<TSource, double> valueProjection)
+        {
+            return CloudFlowModule
+                .averageByKey(keyProjection.ToFSharpFunc(), valueProjection.ToFSharpFunc(), flow)
+                .Select(result => new KeyValuePair<TKey, double>(result.Item1, result.Item2));
+        }
+
         /// <summary>Returns the total number of elements of the CloudFlow.</summary>
         /// <param name="flow">The input CloudFlow.</param>
+        /// <param name="predicate">Optional inclusive element predicate.</param>
         /// <returns>The total number of elements.</returns>
-        public static Cloud<long> Count<TSource>(this CloudFlow<TSource> flow)
+        public static Cloud<long> Count<TSource>(this CloudFlow<TSource> flow, Func<TSource, bool> predicate = null)
         {
-            return CloudFlowModule.length(flow);
+            if (predicate == null) return CloudFlowModule.length(flow);
+            return flow.Where(predicate).Count();
         }
 
         /// <summary>
