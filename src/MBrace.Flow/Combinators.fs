@@ -97,6 +97,7 @@ type CloudFlow =
     /// </summary>
     /// <param name="paths">Cloud file input paths.</param>
     /// <param name="deserializer">A function to transform the contents of a CloudFile to a stream of elements.</param>
+    /// <param name="encoding">Text encoding used by the underlying text files.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
     static member OfCloudFiles (paths : seq<string>, deserializer : System.IO.TextReader -> seq<'T>, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
@@ -137,7 +138,7 @@ type CloudFlow =
     ///      Constructs a CloudFlow of all files in provided cloud directory using the given serializer implementation.
     /// </summary>
     /// <param name="dirPath">Input CloudDirectory.</param>
-    /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
+    /// <param name="serializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
     static member OfCloudDirectory (dirPath : string, serializer : ISerializer, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
@@ -155,6 +156,7 @@ type CloudFlow =
     /// </summary>
     /// <param name="dirPath">Cloud file input paths.</param>
     /// <param name="deserializer">A function to transform the contents of a CloudFile to a stream of elements.</param>
+    /// <param name="encoding">Text encoding used by the underlying text files.</param>
     /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
     static member OfCloudDirectory (dirPath : string, deserializer : System.IO.TextReader -> seq<'T>, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<'T> =
         { new CloudFlow<'T> with
@@ -188,25 +190,9 @@ type CloudFlow =
         }
 
     /// <summary>
-    ///     Constructs a text CloudFlow by line from all files in supplied CloudDirectory.
-    /// </summary>
-    /// <param name="dirPath">Paths to input cloud files.</param>
-    /// <param name="encoding">Optional encoding.</param>
-    static member OfCloudDirectoryByLine (dirPath : string, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<string> =
-        { new CloudFlow<string> with
-            member self.DegreeOfParallelism = None
-            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
-                let! files = CloudFile.Enumerate dirPath
-                let paths = files |> Array.map (fun f -> f.Path)
-                let flow = CloudFlow.OfCloudFileByLine(paths, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
-                return! flow.WithEvaluators collectorf projection combiner
-            }
-        }
-
-    /// <summary>
     ///     Constructs a CloudFlow of lines from a single large text file.
     /// </summary>
-    /// <param name="url">The path to the text file.</param>
+    /// <param name="path">The path to the text file.</param>
     /// <param name="encoding">Optional encoding.</param>
     static member OfCloudFileByLine (path : string, [<O;D(null:obj)>]?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
@@ -215,6 +201,23 @@ type CloudFlow =
                 let! cseq = PersistedSequence.OfCloudFileByLine(path, ?encoding = encoding, forceEvaluation = false, ensureFileExists = false)
                 let collectionStream = CloudFlow.OfCloudCollection cseq
                 return! collectionStream.WithEvaluators collectorf projection combiner
+            }
+        }
+
+    /// <summary>
+    ///     Constructs a text CloudFlow by line from all files in supplied CloudDirectory.
+    /// </summary>
+    /// <param name="dirPath">Paths to input cloud files.</param>
+    /// <param name="encoding">Optional encoding.</param>
+    /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
+    static member OfCloudDirectoryByLine (dirPath : string, [<O;D(null:obj)>]?encoding : Encoding, [<O;D(null:obj)>]?sizeThresholdPerCore : int64) : CloudFlow<string> =
+        { new CloudFlow<string> with
+            member self.DegreeOfParallelism = None
+            member self.WithEvaluators<'S, 'R> (collectorf : LocalCloud<Collector<string, 'S>>) (projection : 'S -> LocalCloud<'R>) (combiner : 'R [] -> LocalCloud<'R>) = cloud {
+                let! files = CloudFile.Enumerate dirPath
+                let paths = files |> Array.map (fun f -> f.Path)
+                let flow = CloudFlow.OfCloudFileByLine(paths, ?encoding = encoding, ?sizeThresholdPerCore = sizeThresholdPerCore)
+                return! flow.WithEvaluators collectorf projection combiner
             }
         }
 
@@ -236,7 +239,7 @@ type CloudFlow =
     /// <summary>
     ///     Constructs a CloudFlow of lines from a collection of HTTP text files.
     /// </summary>
-    /// <param name="url">Url paths to the text file.</param>
+    /// <param name="url">Url paths to the text files.</param>
     /// <param name="encoding">Optional encoding.</param>
     static member OfHttpFileByLine (urls : seq<string>, [<O;D(null:obj)>]?encoding : Encoding) : CloudFlow<string> =
         { new CloudFlow<string> with
@@ -254,12 +257,12 @@ type CloudFlow =
             }
         }
 
-    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudQueue</summary>
-    /// <param name="channel">the ReceivePort of a CloudQueue.</param>
-    /// <param name="degreeOfParallelism">The number of concurrently receiving tasks</param>
-    /// <returns>The result CloudFlow.</returns>
-    static member OfCloudQueue (channel : CloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
-        CloudQueue.ToCloudFlow(channel, degreeOfParallelism)
+    /// <summary>Creates a CloudFlow from the ReceivePort of a CloudQueue.</summary>
+    /// <param name="queue">the ReceivePort of a CloudQueue.</param>
+    /// <param name="degreeOfParallelism">The number of concurrently receiving tasks.</param>
+    /// <returns>A CloudFlow that distributively performs operations on received messages from queue.</returns>
+    static member OfCloudQueue (queue : CloudQueue<'T>, degreeOfParallelism : int) : CloudFlow<'T> =
+        CloudQueue.ToCloudFlow(queue, degreeOfParallelism)
 
 /// Provides basic operations on CloudFlows.
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]

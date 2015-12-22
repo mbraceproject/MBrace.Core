@@ -137,6 +137,17 @@ namespace MBrace.CSharp.Tests
         }
 
         [Test]
+        public void Distinct()
+        {
+            FSharpFunc<int[], bool>.FromConverter(xs =>
+            {
+                var expected = xs.Distinct();
+                var actual = this.Run(CloudFlow.OfArray(xs).Distinct().ToArray());
+                return actual.SequenceEqual(expected);
+            });
+        }
+
+        [Test]
         public void CountBy()
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
@@ -152,9 +163,15 @@ namespace MBrace.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var x = CloudFlow.OfArray(xs).GroupBy(v => v).Select(t => Tuple.Create(t.Item1, t.Item2.Count())).ToArray();
-                var y = xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Count())).ToArray();
-                return new HashSet<Tuple<int, int>>(this.Run(x)).SetEquals(new HashSet<Tuple<int, int>>(y));
+                var flow = CloudFlow
+                    .OfArray(xs)
+                    .GroupBy(v => v)
+                    .Select(kv => Tuple.Create(kv.Key, kv.Value.Sum()))
+                    .ToArray();
+
+                var expected = new HashSet<Tuple<int,int>>(xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Sum())).ToArray());
+                var actual = new HashSet<Tuple<int, int>>(this.Run(flow));
+                return actual.SetEquals(expected);
             }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
         }
 
@@ -174,9 +191,15 @@ namespace MBrace.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
-                var x = CloudFlow.OfArray(xs).AggregateBy(v => v, () => 0, (acc, v) => acc + v, (l, r) => l + r).ToArray();
-                var y = xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Sum())).ToArray();
-                return new HashSet<Tuple<int, int>>(this.Run(x)).SetEquals(new HashSet<Tuple<int, int>>(y));
+                var flow = CloudFlow
+                    .OfArray(xs)
+                    .AggregateBy(v => v, () => 0, (acc, v) => acc + v, (l, r) => l + r)
+                    .Select(kv => Tuple.Create(kv.Key, kv.Value))
+                    .ToArray();
+
+                var expected = new HashSet<Tuple<int,int>>(xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Sum())).ToArray());
+                var actual = new HashSet<Tuple<int, int>>(this.Run(flow));
+                return expected.SetEquals(actual);
             }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
         }
 

@@ -69,6 +69,45 @@ namespace MBrace.Core.CSharp
         {
             return OptionModule.GetValue<T>(optional);
         }
+
+        /// <summary>
+        ///     Converts a value that could potentially be null to an F# option container.
+        ///     The return value could either be 'None' or 'Some' which contains a non-null value.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value">Input value that is nullable.</param>
+        /// <returns>An F# option representation of the nullable value.</returns>
+        public static FSharpOption<T> FromNullable<T>(T value)
+        {
+            if (value == null) return FSharpOption<T>.None;
+            return FSharpOption<T>.Some(value);
+        }
+
+        /// <summary>
+        ///     Converts a nullable type into an F# option container.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value">Input nullable value.</param>
+        /// <returns>An F# option representation of the nullable value.</returns>
+        public static FSharpOption<T> FromNullable<T>(T? value) where T : struct
+        {
+            if (value == null) return FSharpOption<T>.None;
+            return FSharpOption<T>.Some(value.Value);
+        }
+
+        /// <summary>
+        ///     Performs mapping operation on potential payload of optional container.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="input">Input optional value.</param>
+        /// <param name="mapper">Value payload transformer function.</param>
+        /// <returns>An optional with updated payload.</returns>
+        public static FSharpOption<S> Select<T,S>(this FSharpOption<T> input, Func<T,S> mapper)
+        {
+            if (Option.IsNone(input)) return Option.None<S>();
+            return Option.Some<S>(mapper.Invoke(input.Value));
+        }
     }
 
     /// <summary>
