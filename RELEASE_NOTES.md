@@ -1,3 +1,8 @@
+#### 1.0.10
+* Add tuple overloads to MBrace.CSharp callback methods.
+* Add missing CloudFlow operators in MBrace.CSharp.
+* Add local parallelism primitives.
+
 #### 1.0.9
 * Add tuple overloads to MBrace.CSharp callback methods.
 * Add variadic Parallel and Choice overloads to MBrace.CSharp.
