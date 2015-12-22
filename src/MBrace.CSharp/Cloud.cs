@@ -1234,7 +1234,17 @@ namespace MBrace.Core.CSharp
         /// <returns>A workflow that executes the children in parallel in the current process.</returns>
         public static LocalCloud<T> LocalChoice<T>(this IEnumerable<LocalCloud<T>> children)
         {
-            return children.Select(ch => ch.OnSuccess(t => t.ToOption())).LocalChoice().OnSuccess(t => t.Value);
+            return children
+                .Select(ch => ch.OnSuccess(t => t.ToOption()))
+                .LocalChoice()
+                .OnSuccess(t =>
+                    {
+                        T result;
+                        if (!t.TryGetValue(out result))
+                            throw new ArgumentException("Input is empty", "children");
+
+                        return result;
+                    });
         }
 
         /// <summary>

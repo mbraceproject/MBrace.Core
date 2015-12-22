@@ -18,11 +18,10 @@ namespace MBrace.CSharp.Tests
         [Test]
         public void Simple_Cloud_Workflow()
         {
-            var workflow =
-                CloudBuilder
-                    .FromValue(21)
-                    .OnSuccess(x => x * 2)
-                    .OnSuccess(x => Assert.AreEqual(42, x));
+            var workflow = CloudBuilder
+                .FromValue(21)
+                .OnSuccess(x => x * 2)
+                .OnSuccess(x => Assert.AreEqual(42, x));
 
             this.Run(workflow);
         }
@@ -32,11 +31,10 @@ namespace MBrace.CSharp.Tests
         {
             var workflowA = CloudBuilder.FromFunc(() => 25);
             var workflowB = CloudBuilder.FromFunc(() => 17);
-            var combined =
-                CloudBuilder
-                    .Combine(workflowA, workflowB)
-                    .OnSuccess((x, y) => x + y)
-                    .OnSuccess(x => Assert.AreEqual(42, x));
+            var combined = CloudBuilder
+                .Combine(workflowA, workflowB)
+                .OnSuccess((x, y) => x + y)
+                .OnSuccess(x => Assert.AreEqual(42, x));
 
             this.Run(combined);
         }
@@ -120,12 +118,11 @@ namespace MBrace.CSharp.Tests
         public void Simple_Parallel_Workflow()
         {
             var expected = Enumerable.Range(1, 100).Select(x => x * x).Sum();
-            var workflow =
-                Enumerable
-                    .Range(1, 100)
-                    .Select(x => CloudBuilder.FromFunc(() => x * x))
-                    .Parallel()
-                    .OnSuccess(results => results.Sum());
+            var workflow = Enumerable
+                .Range(1, 100)
+                .Select(x => CloudBuilder.FromFunc(() => x * x))
+                .Parallel()
+                .OnSuccess(results => results.Sum());
 
             this.Run(workflow);
         }
@@ -133,12 +130,11 @@ namespace MBrace.CSharp.Tests
         [Test]
         public void Simple_Choice_Workflow()
         {
-            var workflow =
-                Enumerable
-                    .Range(1, 10)
-                    .Select(x => CloudBuilder.Sleep(10000 * x).OnSuccess(() => x))
-                    .Choice()
-                    .OnSuccess(x => Assert.AreEqual(1, x));
+            var workflow = Enumerable
+                .Range(1, 10)
+                .Select(x => CloudBuilder.Sleep(10000 * x).OnSuccess(() => x))
+                .Choice()
+                .OnSuccess(x => Assert.AreEqual(1, x));
 
             this.Run(workflow);
         }
@@ -147,10 +143,10 @@ namespace MBrace.CSharp.Tests
         public void Simple_Parallel_ForEach()
         {
             var N = 1000;
-            var workflow =
-                Enumerable.Range(1, N)
-                    .ParallelForEach(x => CloudBuilder.Log("I'm log entry #{0}", x))
-                    .Bind(CloudBuilder.Sleep(5000));
+            var workflow = Enumerable
+                .Range(1, N)
+                .ParallelForEach(x => CloudBuilder.Log("I'm log entry #{0}", x))
+                .Bind(() => CloudBuilder.Sleep(5000));
 
             var logs = this.RunWithLogs(workflow);
             Assert.AreEqual(N, logs.Length);
@@ -161,11 +157,10 @@ namespace MBrace.CSharp.Tests
         {
             var inputs = Enumerable.Range(1, 1000);
             var expected = inputs.Select(x => x * x).Sum();
-            var workflow =
-                inputs
-                    .ParallelMap(i => i * i)
-                    .OnSuccess(xs => xs.Sum())
-                    .OnSuccess(sum => Assert.AreEqual(expected, sum));
+            var workflow = inputs
+                .ParallelMap(i => i * i)
+                .OnSuccess(xs => xs.Sum())
+                .OnSuccess(sum => Assert.AreEqual(expected, sum));
 
             this.Run(workflow);
         }
