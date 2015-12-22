@@ -58,7 +58,7 @@ namespace MBrace.Flow.CSharp
         /// <param name="deserializer">Element deserialization function for cloud files. Defaults to runtime serializer.</param>
         /// <param name="sizeThresholdPerCore">Restricts concurrent processing of collection partitions up to specified size per core. Defaults to 256MiB.</param>
         /// <returns>A CloudFlow that performs distributed computation on deserialized cloud file contents.</returns>
-        public static CloudFlow<TSource> OfCloudFiles<TSource>(IEnumerable<string> paths, Func<System.IO.Stream, IEnumerable<TSource>> deserializer = null, long? sizeThresholdPerCore = null)
+        public static CloudFlow<TSource> OfCloudFiles<TSource>(IEnumerable<string> paths, Func<Stream, IEnumerable<TSource>> deserializer = null, long? sizeThresholdPerCore = null)
         {
             return MBrace.Flow.CloudFlow.OfCloudFiles(paths, deserializer: Option.FromNullable(deserializer).Select(FSharpFunc.Create), 
                                                                 sizeThresholdPerCore: Option.FromNullable(sizeThresholdPerCore));

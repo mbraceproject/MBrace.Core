@@ -101,6 +101,7 @@ namespace MBrace.CSharp.Tests
         {
             FSharpFunc<int[], bool>.FromConverter(xs =>
             {
+                if (xs.Length == 0) return true;
                 var expected = xs.Average();
                 var actual = this.Run(CloudFlow.OfArray(xs).Average());
                 return expected == actual;
