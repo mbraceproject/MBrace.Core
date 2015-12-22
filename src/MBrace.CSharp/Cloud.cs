@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.FSharp.Core;
 using MBrace.Core.Internals.CSharpProxy;
 
@@ -184,6 +185,37 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<S> Bind<T1, T2, T3, S>(this Cloud<Tuple<T1, T2, T3>> workflow, Func<T1, T2, T3, Cloud<S>> cont)
+        {
+            return CloudBuilder.Bind(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<S> Bind<T1, T2, T3, T4, S>(this Cloud<Tuple<T1, T2, T3, T4>> workflow, Func<T1, T2, T3, T4, Cloud<S>> cont)
+        {
+            return CloudBuilder.Bind(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="S"></typeparam>
         /// <param name="workflow">This workflow.</param>
@@ -207,7 +239,7 @@ namespace MBrace.Core.CSharp
         }
 
         /// <summary>
-        ///     Binds result of provided workflow to supplied continuation lambda.
+        ///     Sequentually composes collection of supplied workflows, returning a tuple containing the results.
         /// </summary>
         /// <typeparam name="T1"></typeparam>
         /// <typeparam name="T2"></typeparam>
@@ -223,27 +255,122 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
         /// <typeparam name="S"></typeparam>
-        /// <param name="workflowA">This workflow.</param>
-        /// <param name="workflowB">Result continuation.</param>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
         /// <returns>A cloud workflow composed of the two.</returns>
-        public static Cloud<Tuple<T, S>> Combine<T, S>(this Cloud<T> workflowA, Cloud<S> workflowB)
+        public static LocalCloud<S> Bind<T1, T2, T3, S>(this LocalCloud<Tuple<T1, T2, T3>> workflow, Func<T1, T2, T3, LocalCloud<S>> cont)
         {
-            return workflowA.Bind(t => workflowB.OnSuccess(s => new Tuple<T, S>(t, s)));
+            return CloudBuilder.Bind(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)));
         }
 
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
         /// <typeparam name="S"></typeparam>
-        /// <param name="workflowA">This workflow.</param>
-        /// <param name="workflowB">Result continuation.</param>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
         /// <returns>A cloud workflow composed of the two.</returns>
-        public static LocalCloud<Tuple<T,S>> Combine<T,S>(this LocalCloud<T> workflowA, LocalCloud<S> workflowB)
+        public static LocalCloud<S> Bind<T1, T2, T3, T4, S>(this LocalCloud<Tuple<T1, T2, T3, T4>> workflow, Func<T1, T2, T3, T4, LocalCloud<S>> cont)
         {
-            return workflowA.Bind(t => workflowB.OnSuccess(s => new Tuple<T, S>(t, s)));
+            return CloudBuilder.Bind(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)));
+        }
+
+        /// <summary>
+        ///     Sequentually composes collection of supplied workflows, returning a tuple containing the results.
+        /// </summary>
+        /// <typeparam name="T1">First return type.</typeparam>
+        /// <typeparam name="T2">Second return type.</typeparam>
+        /// <param name="workflow1">First workflow.</param>
+        /// <param name="workflow2">Second workflow.</param>
+        /// <returns>A composed cloud workflow returning a tuple of results.</returns>
+        public static Cloud<Tuple<T1, T2>> Combine<T1, T2>(this Cloud<T1> workflow1, Cloud<T2> workflow2)
+        {
+            return workflow1.Bind(t1 => workflow2.OnSuccess(t2 => new Tuple<T1, T2>(t1, t2)));
+        }
+
+        /// <summary>
+        ///     Sequentually composes collection of supplied workflows, returning a tuple containing the results.
+        /// </summary>
+        /// <typeparam name="T1">First return type.</typeparam>
+        /// <typeparam name="T2">Second return type.</typeparam>
+        /// <typeparam name="T3">Third return type.</typeparam>
+        /// <param name="workflow1">This workflow.</param>
+        /// <param name="workflow2">Second workflow.</param>
+        /// <param name="workflow3">Third workflow.</param>
+        /// <returns>A composed cloud workflow returning a tuple of results.</returns>
+        public static Cloud<Tuple<T1, T2, T3>> Combine<T1, T2, T3>(this Cloud<T1> workflow1, Cloud<T2> workflow2, Cloud<T3> workflow3)
+        {
+            return workflow1.Bind(t1 => workflow2.Bind(t2 => workflow3.OnSuccess(t3 => new Tuple<T1, T2, T3>(t1, t2, t3))));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1">First return type.</typeparam>
+        /// <typeparam name="T2">Second return type.</typeparam>
+        /// <typeparam name="T3">Third return type.</typeparam>
+        /// <typeparam name="T4">Fourth return type.</typeparam>
+        /// <param name="workflow1">This workflow.</param>
+        /// <param name="workflow2">Second workflow.</param>
+        /// <param name="workflow3">Third workflow.</param>
+        /// <param name="workflow4">Fourth workflow.</param>
+        /// <returns>A composed cloud workflow returning a tuple of results.</returns>
+        public static Cloud<Tuple<T1, T2, T3, T4>> Combine<T1, T2, T3, T4>(this Cloud<T1> workflow1, Cloud<T2> workflow2, Cloud<T3> workflow3, Cloud<T4> workflow4)
+        {
+            return workflow1.Bind(t1 => workflow2.Bind(t2 => workflow3.Bind(t3 => workflow4.OnSuccess(t4 => new Tuple<T1, T2, T3, T4>(t1, t2, t3, t4)))));
+        }
+
+        /// <summary>
+        ///      Sequentually composes collection of supplied workflows, returning a tuple containing the results.
+        /// </summary>
+        /// <typeparam name="T1">First return type.</typeparam>
+        /// <typeparam name="T2">Second return type.</typeparam>
+        /// <param name="workflow1">This workflow.</param>
+        /// <param name="workflow2">Second workflow.</param>
+        /// <returns>A composed cloud workflow returning a tuple of results.</returns>
+        public static LocalCloud<Tuple<T1,T2>> Combine<T1,T2>(this LocalCloud<T1> workflow1, LocalCloud<T2> workflow2)
+        {
+            return workflow1.Bind(t1 => workflow2.OnSuccess(t2 => new Tuple<T1, T2>(t1, t2)));
+        }
+
+        /// <summary>
+        ///     Sequentually composes collection of supplied workflows, returning a tuple containing the results.
+        /// </summary>
+        /// <typeparam name="T1">First return type.</typeparam>
+        /// <typeparam name="T2">Second return type.</typeparam>
+        /// <typeparam name="T3">Third return type.</typeparam>
+        /// <param name="workflow1">This workflow.</param>
+        /// <param name="workflow2">Second workflow.</param>
+        /// <param name="workflow3">Third workflow.</param>
+        /// <returns>A composed cloud workflow returning a tuple of results.</returns>
+        public static LocalCloud<Tuple<T1, T2, T3>> Combine<T1, T2, T3>(this LocalCloud<T1> workflow1, LocalCloud<T2> workflow2, LocalCloud<T3> workflow3)
+        {
+            return workflow1.Bind(t1 => workflow2.Bind(t2 => workflow3.OnSuccess(t3 => new Tuple<T1, T2, T3>(t1, t2, t3))));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1">First return type.</typeparam>
+        /// <typeparam name="T2">Second return type.</typeparam>
+        /// <typeparam name="T3">Third return type.</typeparam>
+        /// <typeparam name="T4">Fourth return type.</typeparam>
+        /// <param name="workflow1">This workflow.</param>
+        /// <param name="workflow2">Second workflow.</param>
+        /// <param name="workflow3">Third workflow.</param>
+        /// <param name="workflow4">Fourth workflow.</param>
+        /// <returns>A composed cloud workflow returning a tuple of results.</returns>
+        public static LocalCloud<Tuple<T1, T2, T3, T4>> Combine<T1, T2, T3, T4>(this LocalCloud<T1> workflow1, LocalCloud<T2> workflow2, LocalCloud<T3> workflow3, LocalCloud<T4> workflow4)
+        {
+            return workflow1.Bind(t1 => workflow2.Bind(t2 => workflow3.Bind(t3 => workflow4.OnSuccess(t4 => new Tuple<T1, T2, T3, T4>(t1, t2, t3, t4)))));
         }
 
         /// <summary>
@@ -353,6 +480,37 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<S> OnSuccess<T1, T2, T3, S>(this Cloud<Tuple<T1, T2, T3>> workflow, Func<T1, T2, T3, S> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<S> OnSuccess<T1, T2, T3, T4, S>(this Cloud<Tuple<T1, T2, T3, T4>> workflow, Func<T1, T2, T3, T4, S> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="S"></typeparam>
         /// <param name="workflow">This workflow.</param>
@@ -392,6 +550,37 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Binds result of provided workflow to supplied continuation lambda.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<S> OnSuccess<T1, T2, T3, S>(this LocalCloud<Tuple<T1, T2, T3>> workflow, Func<T1, T2, T3, S> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<S> OnSuccess<T1, T2, T3, T4, S>(this LocalCloud<Tuple<T1, T2, T3, T4>> workflow, Func<T1, T2, T3, T4, S> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="workflow">This workflow.</param>
         /// <param name="cont">Result continuation.</param>
@@ -412,6 +601,35 @@ namespace MBrace.Core.CSharp
         public static Cloud<Unit> OnSuccess<T1,T2>(this Cloud<Tuple<T1,T2>> workflow, Action<T1,T2> cont)
         {
             return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<Unit> OnSuccess<T1, T2, T3>(this Cloud<Tuple<T1, T2, T3>> workflow, Action<T1, T2, T3> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static Cloud<Unit> OnSuccess<T1, T2, T3, T4>(this Cloud<Tuple<T1, T2, T3, T4>> workflow, Action<T1, T2, T3, T4> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)));
         }
 
         /// <summary>
@@ -448,6 +666,35 @@ namespace MBrace.Core.CSharp
         public static LocalCloud<Unit> OnSuccess<T1, T2>(this LocalCloud<Tuple<T1, T2>> workflow, Action<T1, T2> cont)
         {
             return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<Unit> OnSuccess<T1, T2, T3>(this LocalCloud<Tuple<T1, T2, T3>> workflow, Action<T1, T2, T3> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)));
+        }
+
+        /// <summary>
+        ///     Binds result of provided workflow to supplied continuation lambda.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="cont">Result continuation.</param>
+        /// <returns>A cloud workflow composed of the two.</returns>
+        public static LocalCloud<Unit> OnSuccess<T1, T2, T3, T4>(this LocalCloud<Tuple<T1, T2, T3, T4>> workflow, Action<T1, T2, T3, T4> cont)
+        {
+            return CloudBuilder.OnSuccess(workflow, (tuple => cont.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)));
         }
 
         /// <summary>
@@ -573,6 +820,39 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Specifies set of actions to perform on completion of a cloud workflow.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static Cloud<S> OnComplete<T1, T2, T3, S>(this Cloud<Tuple<T1, T2, T3>> workflow, Func<T1, T2, T3, S> onSuccess, Func<Exception, S> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3>, S>(workflow, (t => onSuccess.Invoke(t.Item1, t.Item2, t.Item3)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static Cloud<S> OnComplete<T1, T2, T3, T4, S>(this Cloud<Tuple<T1, T2, T3, T4>> workflow, Func<T1, T2, T3, T4, S> onSuccess, Func<Exception, S> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3, T4>, S>(workflow, (t => onSuccess.Invoke(t.Item1, t.Item2, t.Item3, t.Item4)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="S"></typeparam>
         /// <param name="workflow">This workflow.</param>
@@ -629,6 +909,39 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Specifies set of actions to perform on completion of a cloud workflow.
         /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static LocalCloud<S> OnComplete<T1, T2, T3, S>(this LocalCloud<Tuple<T1, T2, T3>> workflow, Func<T1, T2, T3, S> onSuccess, Func<Exception, S> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3>, S>(workflow, (t => onSuccess.Invoke(t.Item1, t.Item2, t.Item3)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static LocalCloud<S> OnComplete<T1, T2, T3, T4, S>(this LocalCloud<Tuple<T1, T2, T3, T4>> workflow, Func<T1, T2, T3, T4, S> onSuccess, Func<Exception, S> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3, T4>, S>(workflow, (t => onSuccess.Invoke(t.Item1, t.Item2, t.Item3, t.Item4)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="workflow">This workflow.</param>
         /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
@@ -666,6 +979,37 @@ namespace MBrace.Core.CSharp
         public static Cloud<Unit> OnComplete<T1, T2>(this Cloud<Tuple<T1, T2>> workflow, Action<T1, T2> onSuccess, Action<Exception> onFailure)
         {
             return CloudBuilder.OnComplete<Tuple<T1, T2>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static Cloud<Unit> OnComplete<T1, T2, T3>(this Cloud<Tuple<T1, T2, T3>> workflow, Action<T1, T2, T3> onSuccess, Action<Exception> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static Cloud<Unit> OnComplete<T1, T2, T3, T4>(this Cloud<Tuple<T1, T2, T3, T4>> workflow, Action<T1, T2, T3, T4> onSuccess, Action<Exception> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3, T4>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)), onFailure);
         }
 
         /// <summary>
@@ -732,6 +1076,37 @@ namespace MBrace.Core.CSharp
         public static LocalCloud<Unit> OnComplete<T1,T2>(this LocalCloud<Tuple<T1, T2>> workflow, Action<T1,T2> onSuccess, Action<Exception> onFailure)
         {
             return CloudBuilder.OnComplete<Tuple<T1, T2>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static LocalCloud<Unit> OnComplete<T1, T2, T3>(this LocalCloud<Tuple<T1, T2, T3>> workflow, Action<T1, T2, T3> onSuccess, Action<Exception> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2, tuple.Item3)), onFailure);
+        }
+
+        /// <summary>
+        ///     Specifies set of actions to perform on completion of a cloud workflow.
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <typeparam name="T3"></typeparam>
+        /// <typeparam name="T4"></typeparam>
+        /// <param name="workflow">This workflow.</param>
+        /// <param name="onSuccess">Action to perform on success of cloud workflow.</param>
+        /// <param name="onFailure">Action to perform on failure of cloud workflow.</param>
+        /// <returns></returns>
+        public static LocalCloud<Unit> OnComplete<T1, T2, T3, T4>(this LocalCloud<Tuple<T1, T2, T3, T4>> workflow, Action<T1, T2, T3, T4> onSuccess, Action<Exception> onFailure)
+        {
+            return CloudBuilder.OnComplete<Tuple<T1, T2, T3, T4>>(workflow, (tuple => onSuccess.Invoke(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4)), onFailure);
         }
 
         /// <summary>
@@ -807,7 +1182,102 @@ namespace MBrace.Core.CSharp
 
         #endregion
 
-        #region Parallel Combinators
+        #region Local Parallel Combinators
+
+        /// <summary>
+        ///     Forks a local cloud workflow as a locally executing System.Threading.Task
+        /// </summary>
+        /// <typeparam name="T">Return type of the task.</typeparam>
+        /// <param name="workflow">Workflow to be forked.</param>
+        /// <param name="options">Task creation options.</param>
+        /// <returns>A cloud process for tracking progress of forked execution.</returns>
+        public static LocalCloud<Task<T>> StartAsTask<T>(this LocalCloud<T> workflow, TaskCreationOptions? options = null)
+        {
+            return MBrace.Core.Internals.Cloud.GetExecutionContext()
+                .OnSuccess(ctx => MBrace.Core.Internals.Cloud.StartAsTask<T>(workflow, ctx.Resources.ToOption(), ctx.CancellationToken.ToOption(), Option.FromNullable(options)));
+        }
+
+        /// <summary>
+        ///     Composes a collection of local workflows into a single
+        ///     local parallel fork/join workflow. Computations are scheduled
+        ///     using the local thread pool.
+        /// </summary>
+        /// <typeparam name="T">Child computation return type.</typeparam>
+        /// <param name="children">Collection of child workflows to be executed.</param>
+        /// <returns>A workflow that executes the children in parallel in the current process.</returns>
+        public static LocalCloud<T[]> LocalParallel<T>(this IEnumerable<LocalCloud<T>> children)
+        {
+            return Core.Local.Parallel(children);
+        }
+
+        /// <summary>
+        ///     Composes a collection of local workflows into a single
+        ///     local parallel fork/join workflow. Computations are scheduled
+        ///     using the local thread pool.
+        /// </summary>
+        /// <typeparam name="T">Child computation return type.</typeparam>
+        /// <param name="children">Collection of child workflows to be executed.</param>
+        /// <returns>A workflow that executes the children in parallel in the current process.</returns>
+        public static LocalCloud<T[]> LocalParallel<T>(params LocalCloud<T>[] children)
+        {
+            return Core.Local.Parallel(children);
+        }
+
+        /// <summary>
+        ///     Composes a collection of local non-deterministic workflows into a single
+        ///     a parallel nondeterministic computation. Computations are schedules using the
+        ///     local thread pool.
+        /// </summary>
+        /// <typeparam name="T">Child computation return type.</typeparam>
+        /// <param name="children">Collection of local child workflows to be executed.</param>
+        /// <returns>A workflow that executes the children in parallel in the current process.</returns>
+        public static LocalCloud<FSharpOption<T>> LocalChoice<T>(this IEnumerable<LocalCloud<FSharpOption<T>>> children)
+        {
+            return Core.Local.Choice(children);
+        }
+
+        /// <summary>
+        ///     Composes a collection of local non-deterministic workflows into a single
+        ///     a parallel nondeterministic computation. Computations are schedules using the
+        ///     local thread pool.
+        /// </summary>
+        /// <typeparam name="T">Child computation return type.</typeparam>
+        /// <param name="children">Collection of local child workflows to be executed.</param>
+        /// <returns>A workflow that executes the children in parallel in the current process.</returns>
+        public static LocalCloud<FSharpOption<T>> LocalChoice<T>(params LocalCloud<FSharpOption<T>>[] children)
+        {
+            return Core.Local.Choice(children);
+        }
+
+        /// <summary>
+        ///     Composes a collection of local non-deterministic workflows into a single
+        ///     a parallel nondeterministic computation. Computations are schedules using the
+        ///     local thread pool.
+        /// </summary>
+        /// <typeparam name="T">Child computation return type.</typeparam>
+        /// <param name="children">Collection of local child workflows to be executed.</param>
+        /// <returns>A workflow that executes the children in parallel in the current process.</returns>
+        public static LocalCloud<T> LocalChoice<T>(this IEnumerable<LocalCloud<T>> children)
+        {
+            return children.Select(ch => ch.OnSuccess(t => t.ToOption())).LocalChoice().OnSuccess(t => t.Value);
+        }
+
+        /// <summary>
+        ///     Composes a collection of local non-deterministic workflows into a single
+        ///     a parallel nondeterministic computation. Computations are schedules using the
+        ///     local thread pool.
+        /// </summary>
+        /// <typeparam name="T">Child computation return type.</typeparam>
+        /// <param name="children">Collection of local child workflows to be executed.</param>
+        /// <returns>A workflow that executes the children in parallel in the current process.</returns>
+        public static LocalCloud<T> LocalChoice<T>(params LocalCloud<T>[] children)
+        {
+            return children.LocalChoice();
+        }
+
+        #endregion
+
+        #region Distributed Parallel Combinators
 
         /// <summary>
         ///     Runs supplied cloud workflow as a forked cloud process,
@@ -815,10 +1285,16 @@ namespace MBrace.Core.CSharp
         /// </summary>
         /// <typeparam name="T">Return type of the cloud process.</typeparam>
         /// <param name="workflow">Workflow to be forked.</param>
+        /// <param name="faultPolicy">Fault policy to be used by the process.</param>
+        /// <param name="target">Target worker identifier to execute the process in.</param>
+        /// <param name="cancellationToken">Cancellation token to be used for the process.</param>
+        /// <param name="processName">Human-readable process description.</param>
         /// <returns>A cloud process for tracking progress of forked execution.</returns>
-        public static Cloud<ICloudProcess<T>> CreateProcess<T>(this Cloud<T> workflow)
+        public static Cloud<ICloudProcess<T>> CreateProcess<T>(this Cloud<T> workflow, FaultPolicy faultPolicy = null, IWorkerRef target = null,
+                                                                    ICloudCancellationToken cancellationToken = null, string processName = null)
         {
-            return Cloud.CreateProcess(workflow);
+            return Cloud.CreateProcess(workflow, Option.FromNullable(faultPolicy), Option.FromNullable(target), 
+                                                Option.FromNullable(cancellationToken), Option.FromNullable(processName));
         }
 
         /// <summary>
@@ -849,14 +1325,14 @@ namespace MBrace.Core.CSharp
         /// <summary>
         ///     Composes a pair of workflows into one that executes both in parallel
         /// </summary>
-        /// <typeparam name="T">Left return type.</typeparam>
-        /// <typeparam name="S">Right return type.</typeparam>
+        /// <typeparam name="T1">Left return type.</typeparam>
+        /// <typeparam name="T2">Right return type.</typeparam>
         /// <param name="left">Left cloud workflow.</param>
         /// <param name="right">Right cloud workflow.</param>
         /// <returns></returns>
-        public static Cloud<Tuple<T,S>> ParallelCombine<T,S>(this Cloud<T> left, Cloud<S> right)
+        public static Cloud<Tuple<T1,T2>> ParallelCombine<T1,T2>(this Cloud<T1> left, Cloud<T2> right)
         {
-            return Core.Cloud.Parallel<T, S>(left, right);
+            return Core.Cloud.Parallel<T1, T2>(left, right);
         }
 
         /// <summary>

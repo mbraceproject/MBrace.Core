@@ -54,6 +54,51 @@ namespace MBrace.CSharp.Tests
             this.Run(workflow);
         }
 
+        [Test]
+        public void Simple_Create_Task()
+        {
+            var child = CloudBuilder.Sleep(1000).OnSuccess(() => 42);
+            var parent = CloudBuilder
+                .StartAsTask(child)
+                .OnSuccess(task => task.Result)
+                .OnSuccess(result => Assert.AreEqual(42, result));
+
+            this.Run(parent);
+        }
+
+        [Test]
+        public void Simple_Local_Parallel()
+        {
+            var child1 = CloudBuilder.Sleep(1000).OnSuccess(() => 15);
+            var child2 = CloudBuilder.Sleep(1000).OnSuccess(() => 27);
+            var parent = CloudBuilder
+                .LocalParallel(child1, child2)
+                .OnSuccess(results => results.Sum())
+                .OnSuccess(sum => Assert.AreEqual(42, sum));
+
+            this.Run(parent);
+        }
+
+        [Test]
+        public void Simple_Local_Choice()
+        {
+            var child1 = CloudBuilder.Sleep(1000).OnSuccess(() => 1);
+            var child2 = CloudBuilder.Sleep(3000).OnSuccess(() => 2);
+            var parent = CloudBuilder
+                .LocalChoice(child1, child2)
+                .OnSuccess(result => Assert.AreEqual(1, result));
+
+            this.Run(parent);
+        }
+
+        [Test]
+        public void Simple_Create_Cloud_Process()
+        {
+            var child = CloudBuilder.Sleep(1000).OnSuccess(() => 42);
+            var parent = this.Run(CloudBuilder.CreateProcess(child));
+            Assert.AreEqual(42, parent.Result);
+        }
+
         private Cloud<int> Fibonacci(int n)
         {
             if (n <= 1) return CloudBuilder.FromValue(n);
