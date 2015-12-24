@@ -39,5 +39,5 @@ type RuntimeSession(workerCount : int) =
             let runtime = __.Cluster
             runtime.KillAllWorkers()
             while runtime.Workers.Length <> 0 do Thread.Sleep 200
-            runtime.AttachNewLocalWorkers workerCount
+            runtime.AttachNewLocalWorkers(workerCount, quiet = false)
             while runtime.Workers.Length <> workerCount do Thread.Sleep 200) 
