@@ -23,6 +23,7 @@ module internal WorkerConfiguration =
         | [<AltCommandLine("-w")>] Working_Directory of string
         | [<AltCommandLine("-H")>] Hostname of string
         | [<AltCommandLine("-p")>] Port of int
+        | [<AltCommandLine("-q")>] Quiet
         | [<AltCommandLine("-l")>] Log_Level of int
         | [<AltCommandLine("-j")>] Max_Concurrent_Work_Items of int
         | [<AltCommandLine("-i")>] Use_AppDomain_Isolation of bool
@@ -36,6 +37,7 @@ module internal WorkerConfiguration =
                 | Working_Directory _ -> "Sets a working directory for worker caching. Defaults to system temp folder."
                 | Parent_Actor _ -> "Parent actor to reply with node manager."
                 | Port _ -> "Port for thespian to listen to. Defaults to self-assigned."
+                | Quiet -> "Suppress logging to stdout."
                 | Hostname _ -> "Hostname or IP address to listen to. Defaults to domain name."
                 | Log_Level _ -> "Specify the log level: 0 none, 1 critical, 2 error, 3 warning, 4 info, 5 debug."
                 | Max_Concurrent_Work_Items _ -> "Maximum number of concurrent MBrace work items. Defaults to 20."
@@ -61,6 +63,7 @@ module internal WorkerConfiguration =
             Port : int option
             LogLevel : LogLevel option
             LogFiles : string list
+            Quiet : bool
             MaxConcurrentWorkItems : int option
             UseAppDomainIsolation : bool option
             HeartbeatInterval : TimeSpan option
@@ -80,6 +83,7 @@ module internal WorkerConfiguration =
                 Port = results.TryPostProcessResult(<@ Port @>, fun p -> if p <= 0 || p >= int UInt16.MaxValue then failwithf "port number out of range" else p)
                 LogFiles = results.GetResults <@ Log_File @>
                 LogLevel = results.TryPostProcessResult(<@ Log_Level @>, fun l -> if l < 0 || l > 5 then failwith "invalid log level" else enum l)
+                Quiet = results.Contains <@ Quiet @>
                 MaxConcurrentWorkItems = results.TryPostProcessResult(<@ Max_Concurrent_Work_Items @>, fun j -> if j <= 0 || j > 1000 then failwith "max concurrent work items out of range" else j)
                 UseAppDomainIsolation = results.TryGetResult(<@ Use_AppDomain_Isolation @>)
                 HeartbeatInterval = results.TryPostProcessResult(<@ Heartbeat_Interval @>, fun s -> if s > 0. then TimeSpan.FromSeconds s else failwith "must be positive.")
@@ -94,6 +98,7 @@ module internal WorkerConfiguration =
                 match config.Hostname with Some h -> yield Hostname h | None -> ()
                 match config.Port with Some p -> yield Port p | None -> ()
                 for l in config.LogFiles -> Log_File l
+                if config.Quiet then yield Quiet
                 match config.LogLevel with Some l -> yield Log_Level(int l) | None -> ()
                 match config.MaxConcurrentWorkItems with Some j -> yield Max_Concurrent_Work_Items j | None -> ()
                 match config.UseAppDomainIsolation with Some i -> yield Use_AppDomain_Isolation i | None -> ()

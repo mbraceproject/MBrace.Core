@@ -27,7 +27,9 @@ let main (args : string []) =
             do Config.Initialize(populateDirs = true, isClient = false, ?workingDirectory = config.WorkingDirectory, ?hostname = config.Hostname, ?port = config.Port)
             Config.SetConsoleTitle()
 
-            let _ = logger.AttachLogger (new ConsoleLogger(useColors = true))
+            if not config.Quiet then
+                ignore <| logger.AttachLogger (new ConsoleLogger(useColors = true))
+
             for file in config.LogFiles do
                 let path = Path.Combine(Config.WorkingDirectory, file)
                 let fl = FileSystemLogger.Create(path, showDate = true, append = true)

@@ -163,11 +163,12 @@ type ThespianWorker private (uri : string) =
     /// <param name="logFiles">Paths to text logfiles written to by worker process.</param>
     /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud work items. Defaults to true.</param>
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
+    /// <param name="quiet">Suppress logging to stdout in stdout. Defaults to false.</param>
     /// <param name="heartbeatInterval">Specifies the default heartbeat interval emitted by the worker. Defaults to 500ms</param>
     /// <param name="heartbeatThreshold">Specifies the maximum time threshold of heartbeats after which the worker will be declared dead. Defaults to 10sec.</param>
     static member SpawnAsync ([<O;D(null:obj)>]?hostname : string, [<O;D(null:obj)>]?port : int, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxConcurrentWorkItems : int,
                                 [<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?logFiles : seq<string>, [<O;D(null:obj)>]?useAppDomainIsolation : bool, [<O;D(null:obj)>]?runAsBackground : bool,
-                                [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan) =
+                                [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan) =
         async {
             let exe = ThespianWorker.LocalExecutable
             let logFiles = match logFiles with None -> [] | Some ls -> Seq.toList ls
@@ -175,7 +176,7 @@ type ThespianWorker private (uri : string) =
             let config = 
                 { MaxConcurrentWorkItems = maxConcurrentWorkItems ; UseAppDomainIsolation = useAppDomainIsolation ;
                     Hostname = hostname ; Port = port ; WorkingDirectory = workingDirectory ;
-                    LogLevel = logLevel ; LogFiles = logFiles ; Parent = None ;
+                    LogLevel = logLevel ; LogFiles = logFiles ; Parent = None ; Quiet = defaultArg quiet false ;
                     HeartbeatInterval = heartbeatInterval ; HeartbeatThreshold = heartbeatThreshold }
 
             let! ref = spawnAsync exe runAsBackground config
@@ -193,15 +194,16 @@ type ThespianWorker private (uri : string) =
     /// <param name="logFiles">Paths to text logfiles written to by worker process.</param>
     /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud work items. Defaults to true.</param>
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
+    /// <param name="quiet">Suppress logging to stdout in stdout. Defaults to false.</param>
     /// <param name="heartbeatInterval">Specifies the default heartbeat interval emitted by the worker. Defaults to 500ms</param>
     /// <param name="heartbeatThreshold">Specifies the maximum time threshold of heartbeats after which the worker will be declared dead. Defaults to 10sec.</param>
     static member Spawn ([<O;D(null:obj)>]?hostname : string, [<O;D(null:obj)>]?port : int, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxConcurrentWorkItems : int,
                             [<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?logFiles : seq<string>, [<O;D(null:obj)>]?useAppDomainIsolation : bool, [<O;D(null:obj)>]?runAsBackground : bool,
-                            [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan) =
+                            [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan) =
 
         ThespianWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentWorkItems = maxConcurrentWorkItems, ?logLevel = logLevel, 
                                     ?logFiles = logFiles, ?runAsBackground = runAsBackground, ?useAppDomainIsolation = useAppDomainIsolation,
-                                    ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
+                                    ?quiet = quiet, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
         |> Async.RunSync
 
 

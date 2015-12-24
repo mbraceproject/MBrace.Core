@@ -23,6 +23,7 @@ open MBrace.Runtime.Store
 type Config private () =
 
     static let _isInitialized = ref false
+    static let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
     static let mutable _objectCache = Unchecked.defaultof<InMemoryCache>
     static let mutable _localFileStore = Unchecked.defaultof<FileSystemStore>
     static let mutable _workingDirectory = Unchecked.defaultof<string>
@@ -66,6 +67,8 @@ type Config private () =
             _localTcpPort <- listeners.[0].LocalEndPoint.Port
             _isInitialized := true)
 
+    /// True if running on mono
+    static member RunsOnMono = runsOnMono
     /// FsPickler serializer instance used by MBrace.Thespian
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
     /// Working directory used by the instance
