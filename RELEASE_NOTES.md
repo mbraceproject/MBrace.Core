@@ -1,3 +1,9 @@
+#### 1.0.12
+* Thespian improvements for Unix environments.
+
+#### 1.0.11
+* Thespian improvements for Unix environments.
+
 #### 1.0.10
 * Add tuple overloads to MBrace.CSharp callback methods.
 * Add missing CloudFlow operators in MBrace.CSharp.
