@@ -163,7 +163,7 @@ type ThespianWorker private (uri : string) =
     /// <param name="logFiles">Paths to text logfiles written to by worker process.</param>
     /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud work items. Defaults to true.</param>
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
-    /// <param name="quiet">Suppress logging to stdout in stdout. Defaults to false.</param>
+    /// <param name="quiet">Suppress logging to stdout. Defaults to false.</param>
     /// <param name="heartbeatInterval">Specifies the default heartbeat interval emitted by the worker. Defaults to 500ms</param>
     /// <param name="heartbeatThreshold">Specifies the maximum time threshold of heartbeats after which the worker will be declared dead. Defaults to 10sec.</param>
     static member SpawnAsync ([<O;D(null:obj)>]?hostname : string, [<O;D(null:obj)>]?port : int, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxConcurrentWorkItems : int,
@@ -194,7 +194,7 @@ type ThespianWorker private (uri : string) =
     /// <param name="logFiles">Paths to text logfiles written to by worker process.</param>
     /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud work items. Defaults to true.</param>
     /// <param name="runAsBackground">Run as background process. Defaults to false.</param>
-    /// <param name="quiet">Suppress logging to stdout in stdout. Defaults to false.</param>
+    /// <param name="quiet">Suppress logging to stdout. Defaults to false.</param>
     /// <param name="heartbeatInterval">Specifies the default heartbeat interval emitted by the worker. Defaults to 500ms</param>
     /// <param name="heartbeatThreshold">Specifies the maximum time threshold of heartbeats after which the worker will be declared dead. Defaults to 10sec.</param>
     static member Spawn ([<O;D(null:obj)>]?hostname : string, [<O;D(null:obj)>]?port : int, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxConcurrentWorkItems : int,
@@ -213,11 +213,12 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     inherit MBraceClient(manager, defaultArg defaultFaultPolicy FaultPolicy.NoRetry)
 
     static do Config.Initialize(isClient = true, populateDirs = true)
-    static let initWorkers logLevel (count : int) (target : ClusterState) = async {
+    static let initWorkers logLevel quiet (count : int) (target : ClusterState) = async {
         if count < 0 then invalidArg "workerCount" "must be non-negative."
+        let quiet = defaultArg quiet Config.IsUnix
         let exe = ThespianWorker.LocalExecutable
         let attachNewWorker _ = async {
-            let! (node : ThespianWorker) = ThespianWorker.SpawnAsync(?logLevel = logLevel)
+            let! (node : ThespianWorker) = ThespianWorker.SpawnAsync(?logLevel = logLevel, quiet = quiet)
             do! node.SubscribeToCluster(target)
         }
 
@@ -256,8 +257,9 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     ///     Spawns provided count of new local worker processes and subscibes them to the cluster.
     /// </summary>
     /// <param name="count">Number of workers to be spawned and appended.</param>
-    member __.AttachNewLocalWorkers (workerCount : int, [<O;D(null:obj)>] ?logLevel : LogLevel) =
-        let _ = initWorkers logLevel workerCount state |> Async.RunSync
+    /// <param name="quiet">Suppress logging to stdout. Defaults to false.</param>
+    member __.AttachNewLocalWorkers (workerCount : int, [<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?quiet : bool) =
+        let _ = initWorkers logLevel quiet workerCount state |> Async.RunSync
         ()
 
     /// <summary>
@@ -300,10 +302,11 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     /// <param name="fileStore">File store configuration to be used for cluster. Defaults to file system store in the temp folder.</param>
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     /// <param name="resources">Additional resources to be appended to the MBrace execution context.</param>
+    /// <param name="quiet">Suppress logging to stdout. Defaults to false.</param>
     /// <param name="logger">Logger implementation to attach on client by default. Defaults to no logging.</param>
     /// <param name="logLevel">Sets the log level for the cluster. Defaults to LogLevel.Info.</param>
     static member InitOnCurrentMachine(workerCount : int, [<O;D(null:obj)>] ?hostClusterStateOnCurrentProcess : bool, [<O;D(null:obj)>] ?fileStore : ICloudFileStore, [<O;D(null:obj)>] ?faultPolicy : FaultPolicy,
-                                        [<O;D(null:obj)>] ?resources : ResourceRegistry, [<O;D(null:obj)>] ?logger : ISystemLogger, [<O;D(null:obj)>] ?logLevel : LogLevel) : ThespianCluster =
+                                        [<O;D(null:obj)>] ?resources : ResourceRegistry, [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>] ?logger : ISystemLogger, [<O;D(null:obj)>] ?logLevel : LogLevel) : ThespianCluster =
 
         if workerCount < 0 then invalidArg "workerCount" "must be non-negative."
         let hostClusterStateOnCurrentProcess = defaultArg hostClusterStateOnCurrentProcess true
@@ -315,7 +318,7 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
                 let master = ThespianWorker.Spawn(?logLevel = logLevel)
                 master.InitAsClusterMasterNode(fileStore, ?miscResources = resources) |> Async.RunSync
 
-        let _ = initWorkers logLevel workerCount state |> Async.RunSync
+        let _ = initWorkers logLevel quiet workerCount state |> Async.RunSync
         let cluster = new ThespianCluster(state, logLevel, faultPolicy)
         logger |> Option.iter (fun l -> cluster.AttachLogger l |> ignore)
         cluster

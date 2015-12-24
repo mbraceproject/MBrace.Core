@@ -69,6 +69,8 @@ type Config private () =
 
     /// True if running on mono
     static member RunsOnMono = runsOnMono
+    /// True if is unix system
+    static member IsUnix = Environment.OSVersion.Platform = PlatformID.Unix
     /// FsPickler serializer instance used by MBrace.Thespian
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
     /// Working directory used by the instance
