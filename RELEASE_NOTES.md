@@ -1,3 +1,6 @@
+#### 1.0.13
+* Fix packaging issue.
+
 #### 1.0.12
 * Thespian improvements for Unix environments.
 

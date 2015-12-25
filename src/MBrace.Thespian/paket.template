@@ -30,12 +30,22 @@ files
 	../../packages/FSharp.Core/lib/net40/FSharp.Core.optdata ==> tools
 	../../packages/FSharp.Core/lib/net40/FSharp.Core.sigdata ==> tools
     ../../bin/FsPickler.dll ==> tools
+	../../bin/FsPickler.pdb ==> tools
+	../../bin/FsPickler.xml ==> tools
     ../../bin/FsPickler.Json.dll ==> tools
+	../../bin/FsPickler.Json.pdb ==> tools
+	../../bin/FsPickler.Json.xml ==> tools
 	../../bin/Mono.Cecil.dll ==> tools
 	../../bin/Vagabond.AssemblyParser.dll ==> tools
 	../../bin/Vagabond.dll ==> tools
+	../../bin/Vagabond.pdb ==> tools
+	../../bin/Vagabond.xml ==> tools
 	../../bin/Argu.dll ==> tools
+	../../bin/Argu.pdb ==> tools
+	../../bin/Argu.xml ==> tools
 	../../bin/Thespian.dll ==> tools
+	../../bin/Thespian.pdb ==> tools
+	../../bin/Thespian.xml ==> tools
     ../../bin/MBrace.Core.dll ==> tools
 	../../bin/MBrace.Core.pdb ==> tools
 	../../bin/MBrace.Core.xml ==> tools
