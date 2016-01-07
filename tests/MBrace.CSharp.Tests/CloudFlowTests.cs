@@ -115,9 +115,8 @@ namespace MBrace.CSharp.Tests
             {
                 var xs = t.Item1;
                 var n = Math.Abs(t.Item2);
-                var x = CloudFlow.OfArray(xs).Take(n).ToArray();
-                var y = xs.Take(n).ToArray();
-                return this.Run(x).SequenceEqual(y);
+                var x = this.Run(CloudFlow.OfArray(xs).Take(n).ToArray());
+                return Math.Min(xs.Length, n) == x.Length;
             }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
         }
 
