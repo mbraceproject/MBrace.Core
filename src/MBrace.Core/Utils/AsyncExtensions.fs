@@ -107,11 +107,13 @@ type Async =
     ///     in a System.AggregateException.
     /// </summary>
     /// <param name="task">Task to be awaited.</param>
-    static member AwaitTaskCorrect(task : Task<'T>) : Async<'T> = async {
-        try return! Async.AwaitTask task
-        with :? AggregateException as ae when ae.InnerExceptions.Count = 1 ->   
-            return! Async.Raise ae.InnerExceptions.[0]
-    }
+    static member AwaitTaskCorrect(task : Task<'T>) : Async<'T> =
+        Async.FromContinuations(fun (sc,ec,cc) ->
+            task.ContinueWith(fun (t : Task<'T>) -> 
+                if task.IsFaulted then ec t.InnerException 
+                elif task.IsCanceled then cc(new OperationCanceledException())
+                else sc t.Result)
+            |> ignore)
 
     /// <summary>
     ///     Gets the result of given task so that in the event of exception
@@ -120,7 +122,12 @@ type Async =
     /// </summary>
     /// <param name="task">Task to be awaited.</param>
     static member AwaitTaskCorrect(task : Task) : Async<unit> =
-        Async.AwaitTaskCorrect(task.ContinueWith(ignore, TaskContinuationOptions.None))
+        Async.FromContinuations(fun (sc,ec,cc) ->
+            task.ContinueWith(fun (t : Task) -> 
+                if task.IsFaulted then ec t.InnerException 
+                elif task.IsCanceled then cc(new OperationCanceledException())
+                else sc ())
+            |> ignore)
         
     /// <summary>
     ///     Runs provided workflow with timeout.

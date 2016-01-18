@@ -1,3 +1,6 @@
+#### 1.0.15
+* Minor bugfix.
+
 #### 1.0.14
 * Add SourceLink to packages.
 
