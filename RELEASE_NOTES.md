@@ -1,3 +1,6 @@
+#### 1.0.14
+* Add SourceLink to packages.
+
 #### 1.0.13
 * Fix packaging issue.
 
