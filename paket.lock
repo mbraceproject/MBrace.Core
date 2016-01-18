@@ -1,16 +1,16 @@
 REDIRECTS: ON
 NUGET
-  remote: https://nuget.org/api/v2
+  remote: https://www.nuget.org/api/v2
   specs:
     Argu (1.1.3)
-    FAKE (4.11.0)
+    FAKE (4.14.8)
     FsCheck (2.2.4)
       FSharp.Core (>= 3.1.2.5)
     FSharp.Compiler.Service (1.3.1.2)
     FSharp.Core (4.0.0.1)
-    FsPickler (1.7.0)
-    FsPickler.Json (1.7.0)
-      FsPickler (1.7.0)
+    FsPickler (1.7.1)
+    FsPickler.Json (1.7.1)
+      FsPickler (1.7.1)
       Newtonsoft.Json (>= 6.0.5)
     FsUnit (1.4.1)
       FSharp.Core (>= 3.1.2.5)
@@ -29,12 +29,13 @@ NUGET
       Microsoft.Bcl (>= 1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
     Mono.Cecil (0.9.6.1)
-    Newtonsoft.Json (7.0.1)
+    Newtonsoft.Json (8.0.2)
     NuGet.CommandLine (3.3.0)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
     Octokit (0.17.0)
       Microsoft.Net.Http
+    SourceLink.Fake (1.1.0)
     Streams (0.4.1)
     Streams.CSharp (0.4.1)
       Streams (0.4.1)
@@ -82,5 +83,5 @@ NUGET
 GITHUB
   remote: fsharp/FAKE
   specs:
-    modules/Octokit/Octokit.fsx (821e264e79dbe73a5e67f00defd60265646b37b9)
+    modules/Octokit/Octokit.fsx (7d3362bb4077bfa4a4c337213e7ff9d28b4c45c8)
       Octokit

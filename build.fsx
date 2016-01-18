@@ -4,9 +4,11 @@
 
 #I "packages/FAKE/tools"
 #r "packages/FAKE/tools/FakeLib.dll"
+#load "packages/SourceLink.Fake/tools/SourceLink.fsx"
 
 open Fake
 open Fake.Git
+open SourceLink
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
 
@@ -24,6 +26,7 @@ let nugetVersion = release.NugetVersion
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Core"
+let gitRaw = "https://raw.github.com/" + gitOwner
 
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->
@@ -115,6 +118,15 @@ Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }
 #load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
+Target "SourceLink" (fun _ ->
+    let baseUrl = sprintf "%s/%s/{0}/%%var2%%" gitRaw project
+    [ yield! !! "src/**/*.??proj" ; yield! !! "tests/MBrace.Core.Tests/*.??proj" ]
+    |> Seq.iter (fun projFile ->
+        let proj = VsProj.LoadRelease projFile
+        SourceLink.Index proj.CompilesNotLinked proj.OutputFilePdb __SOURCE_DIRECTORY__ baseUrl
+    )
+)
+
 Target "ReleaseGitHub" (fun _ ->
     let remote =
         Git.CommandHelper.getGitResult "" "remote -v"
@@ -186,6 +198,7 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Build"
   ==> "PrepareRelease"
+  ==> "SourceLink"
   ==> "NuGet"
   ==> "NuGetPush"
   ==> "ReleaseGitHub"
