@@ -161,10 +161,3 @@ type Async =
         match timeoutMilliseconds with
         | None -> tcs.Task |> Async.AwaitTaskCorrect
         | Some t -> Async.WithTimeout(tcs.Task |> Async.AwaitTaskCorrect, t)
-
-/// AsyncBuilder Task extensions
-type AsyncBuilder with
-    member inline b.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = b.Bind(Async.AwaitTaskCorrect f, g)
-    member inline b.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> = b.Bind(Async.AwaitTaskCorrect f, g)
-    member inline b.ReturnFrom(f : Task<'T>) : Async<'T> = b.ReturnFrom(Async.AwaitTaskCorrect f)
-    member inline b.ReturnFrom(f : Task) : Async<unit> = b.ReturnFrom(Async.AwaitTaskCorrect f)

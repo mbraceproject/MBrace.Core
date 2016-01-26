@@ -184,12 +184,12 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
             let target = normalize target
             initDir <| Path.GetDirectoryName target
             use! fs = retryAsync fileAccessRetryPolicy <| async { return new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None) }
-            do! source.CopyToAsync fs
+            do! source.CopyToAsync fs |> Async.AwaitTaskCorrect
         }
 
         member self.DownloadToStream(source : string, target : Stream) = async {
             use! fs = (self :> ICloudFileStore).BeginRead source
-            do! fs.CopyToAsync target
+            do! fs.CopyToAsync target |> Async.AwaitTaskCorrect
         }
 
         member self.DownloadToLocalFile(source : string, target : string) = async {
