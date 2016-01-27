@@ -1,4 +1,4 @@
-﻿type project
+type project
 id MBrace.Runtime
 description
     MBrace runtime core library containing the foundations
@@ -15,6 +15,7 @@ summary
 licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
 projecturl http://www.mbrace.io/
 iconurl https://avatars2.githubusercontent.com/u/9674757
+include-pdbs true
 tags
     F#, cloud, mapreduce, distributed
 dependencies

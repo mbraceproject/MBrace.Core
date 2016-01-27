@@ -1,4 +1,4 @@
-﻿type project
+type project
 id MBrace.Thespian
 description
     Provides a simple MBrace cluster implementation over Nessos.Thespian.
@@ -12,6 +12,7 @@ summary
 licenseurl https://github.com/mbraceproject/MBrace.Core/blob/master/License.md
 projecturl http://www.mbrace.io/
 iconurl https://avatars2.githubusercontent.com/u/9674757
+include-pdbs true
 tags
     F#, cloud, mapreduce, distributed
 references

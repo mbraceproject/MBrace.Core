@@ -1,3 +1,9 @@
+#### 1.0.17
+* Fix packaging issue.
+
+#### 1.0.16
+* Remove AsyncBuilder Task overloads
+
 #### 1.0.15
 * Minor bugfix.
 
