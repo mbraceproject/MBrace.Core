@@ -1,3 +1,6 @@
+#### 1.0.18
+* Update FsPickler version.
+
 #### 1.0.17
 * Fix packaging issue.
 
