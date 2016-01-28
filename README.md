@@ -30,7 +30,7 @@ CloudFlow.OfHttpFileByLine "http://my.server.local/large.txt"
 ```
 It is written on top of the [Nessos.Streams](http://nessos.github.io/Streams) library, a fast streaming library inspired by [Java 8 Streams](http://www.oracle.com/technetwork/articles/java/ma14-java-se-8-streams-2177646.html).
 
-### MBrace.CSharp
+### MBrace.CSharp [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.CSharp.svg?style=flat)](https://www.nuget.org/packages/MBrace.CSharp/)
 
 [MBrace.CSharp](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.CSharp) contains C# friendly wrapper APIs for the MBrace core programming model. Development currently suspended.
 
