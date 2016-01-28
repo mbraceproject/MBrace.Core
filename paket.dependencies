@@ -5,11 +5,11 @@ nuget FSharp.Core >= 3.0
 nuget FsPickler ~> 1.8.0
 nuget FsPickler.Json ~> 1.8.0
 nuget Argu ~> 1.0
-nuget Vagabond ~> 0.12.5
+nuget Vagabond ~> 0.12.7
 nuget FsUnit >= 1.3.0.1
 nuget NUnit ~> 2.6
 nuget NUnit.Runners ~> 2.6
-nuget Thespian ~> 0.1.9-alpha
+nuget Thespian ~> 0.1.10-alpha
 nuget FSharp.Core
 nuget FsCheck >= 2.0.1
 nuget Unquote >= 2.2.2

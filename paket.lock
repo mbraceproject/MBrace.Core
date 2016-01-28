@@ -74,10 +74,10 @@ NUGET
     System.Threading.Tasks (4.0.10) - framework: dnxcore50
       System.Runtime (>= 4.0.0) - framework: dnxcore50
     TaskParallelLibrary (1.0.2856) - framework: net35
-    Thespian (0.1.9-alpha)
+    Thespian (0.1.10-alpha)
       FsPickler (>= 1.8.0)
     Unquote (3.1.1)
-    Vagabond (0.12.6)
+    Vagabond (0.12.7)
       FsPickler (>= 1.8.0 < 1.9.0)
       Mono.Cecil (>= 0.9.6.1 < 0.9.7)
 GITHUB
