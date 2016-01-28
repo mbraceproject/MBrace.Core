@@ -103,7 +103,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
                         if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                             logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s child #%d failed to serialize result." Type.prettyPrint<'T> parallelWorkflowId i
                             childCts.Cancel()
-                            let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
+                            let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result '%A'." Type.prettyPrint<'T> t
                             let se = new SerializationException(msg, e)
                             cont.Exception (withCancellationToken currentCts ctx) (ExceptionDispatchInfo.Capture se)
 
@@ -124,14 +124,14 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
                             WorkItemExecutionMonitor.TriggerCompletion ctx
                 } |> WorkItemExecutionMonitor.ProtectAsync ctx
 
-            let onException i ctx e =
+            let onException i ctx (edi : ExceptionDispatchInfo) =
                 async {
                     let logger = ctx.Resources.Resolve<IRuntimeManager>().SystemLogger
-                    match ensureSerializable e with
+                    match ensureSerializable edi with
                     | Some e ->
                         let! latchCount = cancellationLatch.Increment()
                         if latchCount = 1L then // is first work item to request workflow cancellation, grant access
-                            logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s child #%d failed to serialize result." Type.prettyPrint<'T> parallelWorkflowId i
+                            logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s child #%d failed to serialize exception: %O." Type.prettyPrint<'T> parallelWorkflowId i (edi.Reify(false, false))
                             childCts.Cancel()
                             let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
                             let se = new SerializationException(msg, e)
@@ -145,7 +145,7 @@ let runParallel (runtime : IRuntimeManager) (parentProc : ICloudProcessEntry)
                         if latchCount = 1L then // is first work item to request workflow cancellation, grant access
                             logger.Logf LogLevel.Debug "Cloud.Parallel<%s> workflow %s child #%d has raised an exception." Type.prettyPrint<'T> parallelWorkflowId i
                             childCts.Cancel()
-                            cont.Exception (withCancellationToken currentCts ctx) e
+                            cont.Exception (withCancellationToken currentCts ctx) edi
                         else // cancellation already triggered by different party, declare work item completed.
                             WorkItemExecutionMonitor.TriggerCompletion ctx
                 } |> WorkItemExecutionMonitor.ProtectAsync ctx

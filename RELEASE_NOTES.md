@@ -1,3 +1,6 @@
+#### 1.0.19
+* Improve serialization error reporting.
+
 #### 1.0.18
 * Update FsPickler version.
 

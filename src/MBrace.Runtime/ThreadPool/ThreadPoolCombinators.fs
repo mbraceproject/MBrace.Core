@@ -119,7 +119,7 @@ type Combinators private () =
                         | Choice2Of2 e ->
                             if exceptionLatch.Increment() = 1 then
                                 innerCts.Cancel()
-                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
+                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result '%A'." Type.prettyPrint<'T> t
                                 let se = new SerializationException(msg, e)
                                 cont.Exception (revertCtx ctx) (ExceptionDispatchInfo.Capture se)
 
@@ -133,7 +133,7 @@ type Combinators private () =
                         | Choice2Of2 e ->
                             if exceptionLatch.Increment() = 1 then
                                 innerCts.Cancel()
-                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize result." Type.prettyPrint<'T> 
+                                let msg = sprintf "Cloud.Parallel<%s> workflow failed to serialize exception: %O." Type.prettyPrint<'T> (edi.Reify(false, false))
                                 let se = new SerializationException(msg, e)
                                 cont.Exception (revertCtx ctx) (ExceptionDispatchInfo.Capture se)
 
@@ -242,7 +242,7 @@ type Combinators private () =
                 match cloneProtected memoryEmulation result with
                 | Choice1Of2 result -> cont result |> ignore
                 | Choice2Of2 e ->
-                    let msg = sprintf "Could not serialize result for task of type '%s'." Type.prettyPrint<'T>
+                    let msg = sprintf "Could not serialize result '%A' for task of type '%s'." result Type.prettyPrint<'T>
                     let se = new SerializationException(msg, e)
                     ignore <| tcs.LocalProcessCompletionSource.TrySetException se
 
