@@ -459,7 +459,7 @@ type CloudDirectory =
     }
 
 /// Contains static methods used for performing
-/// directory operations in the cloud store.
+/// file operations in the cloud store.
 type CloudFile =
 
     /// <summary>
