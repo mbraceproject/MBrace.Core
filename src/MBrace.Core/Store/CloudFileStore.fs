@@ -289,7 +289,7 @@ type CloudDirectoryInfo =
     member private r.StructuredFormatDisplay = r.ToString()
 
 /// Serializable reference to a file in the cloud store
-/// that can be used for accessing contained subdirectories and files.
+/// that can be used for accessing properties of files.
 [<DataContract; Sealed; StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type CloudFileInfo =
 
