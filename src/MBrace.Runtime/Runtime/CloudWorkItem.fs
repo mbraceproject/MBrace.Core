@@ -65,7 +65,7 @@ type CloudWorkItem =
         /// Work item Fault continuation
         FaultCont : ExecutionContext -> ExceptionDispatchInfo -> unit
         /// Distributed cancellation token source bound to work item
-        CancellationToken : ICloudCancellationToken
+        CancellationToken : CloudCancellationToken
     }
     /// <summary>
     ///     Create a cloud work item out of given cloud workflow and continuations.
@@ -78,7 +78,7 @@ type CloudWorkItem =
     /// <param name="ccont">Cancellation continuation.</param>
     /// <param name="workflow">Workflow to be executed in work item.</param>
     /// <param name="target">Declared target worker reference for computation to be executed.</param>
-    static member Create (procEntry : ICloudProcessEntry, token : ICloudCancellationToken, faultPolicy : FaultPolicy, 
+    static member Create (procEntry : ICloudProcessEntry, token : CloudCancellationToken, faultPolicy : FaultPolicy, 
                             scont : ExecutionContext -> 'T -> unit, 
                             econt : ExecutionContext -> ExceptionDispatchInfo -> unit,
                             ccont : ExecutionContext -> OperationCanceledException -> unit,

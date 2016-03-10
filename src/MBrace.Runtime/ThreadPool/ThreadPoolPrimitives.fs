@@ -45,8 +45,8 @@ type ThreadPoolCancellationTokenSource (cts : CancellationTokenSource) =
     /// <summary>
     ///     Creates a local linked cancellation token source from provided parent tokens
     /// </summary>
-    /// <param name="parents">Parent cancellation tokens.</param>
-    static member CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken []) =
+    /// <param name="parents">Linked parent cancellation tokens.</param>
+    static member CreateCancellationTokenSource([<ParamArray>] parents : ICloudCancellationToken []) =
         let ltokens = parents |> Array.map (fun t -> t.LocalToken)
         let lcts =
             if Array.isEmpty ltokens then new CancellationTokenSource()

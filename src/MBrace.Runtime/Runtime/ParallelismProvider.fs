@@ -42,7 +42,7 @@ type ParallelismProvider private (currentWorker : WorkerRef, runtime : IRuntimeM
         member __.WithFaultPolicy (newPolicy : FaultPolicy) =
             new ParallelismProvider(currentWorker, runtime, currentWorkItem, newPolicy, logger, isForcedLocalParallelism) :> IParallelismProvider
 
-        member __.CreateLinkedCancellationTokenSource(parents : ICloudCancellationToken[]) = mkCts false parents
+        member __.CreateCancellationTokenSource(parents : ICloudCancellationToken[]) = mkCts false parents
 
         member __.IsTargetedWorkerSupported = true
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism

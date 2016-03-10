@@ -162,7 +162,8 @@ and PersistedCloudFlow private () =
                     member self.Result = ResizeArray.concat results }
             }
 
-            use! cts = Cloud.CreateLinkedCancellationTokenSource()
+            let! ct = Cloud.CancellationToken
+            use! cts = Cloud.CreateCancellationTokenSource(ct)
             let createVector (ts : seq<'T>) = PersistedCloudFlow.New(ts, storageLevel = storageLevel, ?partitionThreshold = partitionThreshold)
             return! flow.WithEvaluators (collectorf cts.Token) createVector (fun result -> local { return PersistedCloudFlow.Concat result })
     }

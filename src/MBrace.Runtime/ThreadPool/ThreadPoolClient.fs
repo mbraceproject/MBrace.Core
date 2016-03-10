@@ -1,5 +1,6 @@
 ﻿namespace MBrace.ThreadPool
 
+open System
 open System.Threading
 
 open MBrace.Core
@@ -37,15 +38,12 @@ type ThreadPoolRuntime private (resources : ResourceRegistry, _logger : ICloudLo
         let dp = ThreadPoolParallelismProvider.Create(logger, memoryEmulation)
         resources.Register<IParallelismProvider> dp
 
-    /// Creates a new thread pool cancellation token source instance.
-    static member CreateCancellationTokenSource() = new ThreadPoolCancellationTokenSource() :> ICloudCancellationTokenSource
-
     /// <summary>
     ///     Creates a thread pool cancellation token source linked to a collection of parent tokens.
     /// </summary>
-    /// <param name="parents">Parent cancellation tokens.</param>
-    static member CreateLinkedCancellationTokenSource(parents : seq<#ICloudCancellationToken>) =
-        ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource(parents |> Seq.map unbox |> Seq.toArray)
+    /// <param name="parents">Linked parent cancellation tokens.</param>
+    static member CreateCancellationTokenSource([<ParamArray>]parents : ICloudCancellationToken[]) =
+        ThreadPoolCancellationTokenSource.CreateCancellationTokenSource(parents)
 
     /// <summary>
     ///     Creates a fresh thread pool cancellation token.

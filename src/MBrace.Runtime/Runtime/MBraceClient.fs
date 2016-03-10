@@ -1,5 +1,6 @@
 ﻿namespace MBrace.Runtime
 
+open System
 open System.Diagnostics
 
 open MBrace.Core
@@ -42,10 +43,9 @@ type MBraceClient (runtime : IRuntimeManager, defaultFaultPolicy : FaultPolicy) 
     ///     Creates a fresh cloud cancellation token source for use in the MBrace cluster.
     /// </summary>
     /// <param name="parents">Parent cancellation token sources. New cancellation token will be canceled if any of the parents is canceled.</param>
-    member c.CreateCancellationTokenSource ([<O;D(null:obj)>] ?parents : seq<ICloudCancellationToken>) : ICloudCancellationTokenSource =
+    member c.CreateCancellationTokenSource ([<ParamArray>]parents : ICloudCancellationToken[]) : ICloudCancellationTokenSource =
         async {
-            let parents = parents |> Option.map Seq.toArray
-            let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, ?parents = parents, elevate = true)
+            let! dcts = CloudCancellationToken.Create(runtime.CancellationEntryFactory, parents = parents, elevate = true)
             return dcts :> ICloudCancellationTokenSource
         } |> Async.RunSync
 

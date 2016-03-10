@@ -32,7 +32,8 @@ module NonDeterministic =
                             !resultRef }
             }
 
-        use! cts = Cloud.CreateLinkedCancellationTokenSource()
+        let! ct = Cloud.CancellationToken
+        use! cts = Cloud.CreateCancellationTokenSource(ct)
         return! flow.WithEvaluators (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
     }
 
@@ -50,6 +51,7 @@ module NonDeterministic =
                         !resultRef }
         }
 
-        use! cts = Cloud.CreateLinkedCancellationTokenSource()
+        let! ct = Cloud.CancellationToken
+        use! cts = Cloud.CreateCancellationTokenSource(ct)
         return! flow.WithEvaluators (collectorf cts) (fun v -> local { return v }) (fun result -> local { return Array.tryPick id result })
     }

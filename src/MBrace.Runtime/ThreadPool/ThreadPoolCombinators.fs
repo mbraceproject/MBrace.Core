@@ -40,7 +40,7 @@ type private ThreadPoolProcessCompletionSource<'T> (?cancellationToken : ICloudC
     let cts =
         match cancellationToken with
         | None -> ThreadPoolCancellationTokenSource()
-        | Some ct -> ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [|ct|]
+        | Some ct -> ThreadPoolCancellationTokenSource.CreateCancellationTokenSource(ct)
 
     let task = new ThreadPoolProcess<'T>(tcs.Task, cts.Token)
 

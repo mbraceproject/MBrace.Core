@@ -54,12 +54,12 @@ type private LocalCancellationTokenManager () =
 [<NoEquality; NoComparison>]
 type private CloudCancellationTokenState =
     | Canceled
-    | Localized of parents:CloudCancellationToken []
+    | Localized of parents:CloudCancellationToken [] * factory:ICancellationEntryFactory
     | Distributed of token:ICancellationEntry
 
 /// Distributed ICloudCancellationToken[Source] implementation
 and [<Sealed; DataContract; NoEquality; NoComparison>]
-    CloudCancellationToken private (source : ICancellationEntryFactory, state : CloudCancellationTokenState) =
+    CloudCancellationToken private (state : CloudCancellationTokenState) =
 
     static let manager = new LocalCancellationTokenManager ()
 
@@ -69,8 +69,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
     // This can happen either 1) upon creation 2) manually or 3) automatically on first serialization of the object
     // This is to minimize communication for local-only cancellation tokens that can still acquire potentially global visibility.
 
-    [<DataMember(Name = "Source")>]
-    let source = source
     [<DataMember(Name = "State")>]
     let mutable state = state
 
@@ -78,8 +76,8 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
     [<IgnoreDataMember>]
     let localCancellationTokenSource =
         match state with
-        | Localized [||] -> new CancellationTokenSource()
-        | Localized parents -> CancellationTokenSource.CreateLinkedTokenSource (parents |> Array.map (fun p -> p.LocalToken))
+        | Localized ([||],_) -> new CancellationTokenSource()
+        | Localized (parents,_) -> CancellationTokenSource.CreateLinkedTokenSource (parents |> Array.map (fun p -> p.LocalToken))
         | _ -> null
 
     // local cancellation token instace for source    
@@ -114,12 +112,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
                 match state with
                 | Canceled -> None
                 | Localized _ when localCancellationTokenSource.IsCancellationRequested -> None
-                | Localized [||] ->
-                    let token = source.CreateCancellationEntry() |> Async.RunSync
-                    state <- Distributed token ; localToken <- None ; 
-                    Some token
-
-                | Localized parents ->
+                | Localized (parents, factory) ->
                     // elevate parents to distributed source
                     let elevatedParents = parents |> Array.Parallel.map (fun p -> p.TryElevateToDistributed()) |> Array.choose id
 
@@ -127,7 +120,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
                         state <- Canceled ; None
                     else
                         // create token entity using for current cts
-                        match source.TryCreateLinkedCancellationEntry elevatedParents |> Async.RunSync with
+                        match factory.TryCreateCancellationEntry elevatedParents |> Async.RunSync with
                         | None -> state <- Canceled ; None
                         | Some id -> state <- Distributed id ; localToken <- None ; Some id
 
@@ -139,6 +132,12 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
 
     /// Elevates cancellation token to global scope. Returns true if succesful, false if already canceled.
     member __.ElevateToGlobal () = __.TryElevateToDistributed() |> Option.isSome
+
+    /// Gets the corresponding cancellation entry, if applicable
+    member __.CancellationEntry = 
+        match state with
+        | Distributed e -> Some e
+        | _ -> None
 
     /// Elevated cancellation token id
     member __.GlobalId =
@@ -182,10 +181,15 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
 
         match parents with
         | [||] when elevate ->
-            let! token = source.CreateCancellationEntry()
-            return new CloudCancellationToken(source, Distributed token)
+            let! token = source.TryCreateCancellationEntry [||]
+            let state = match token with None -> Canceled | Some e -> Distributed e
+            return new CloudCancellationToken(state)
         | _ ->
-            let dcts = new CloudCancellationToken(source, Localized(parents))
+            let dcts = new CloudCancellationToken(Localized(parents, source))
             if elevate then dcts.TryElevateToDistributed() |> ignore
             return dcts
     }
+
+    /// Wraps a CancellationEntry instance into a new CloudCancellationToken
+    static member FromEntry(entry : ICancellationEntry) =
+        new CloudCancellationToken(Distributed entry)

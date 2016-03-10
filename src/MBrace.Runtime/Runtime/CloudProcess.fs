@@ -245,7 +245,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
     override __.ExecutionTime = cell.Value.ExecutionTime
     override __.CompletionTime = cell.Value.CompletionTime
 
-    override __.CancellationToken = entry.Info.CancellationTokenSource.Token
+    override __.CancellationToken = entry.Info.CancellationTokenSource :> ICloudCancellationToken
     /// Active number of work items related to the process.
     override __.ActiveWorkItems = cell.Value.State.ActiveWorkItemCount
     override __.CompletedWorkItems = cell.Value.State.CompletedWorkItemCount
@@ -278,7 +278,7 @@ and [<Sealed; DataContract; NoEquality; NoComparison>] CloudProcess<'T> internal
             x.AwaitResult(?timeoutMilliseconds = timeoutMilliseconds)
         
         member x.CancellationToken: ICloudCancellationToken = 
-            entry.Info.CancellationTokenSource.Token
+            entry.Info.CancellationTokenSource :> _
         
         member x.Result: 'T = x.Result
         member x.Status: CloudProcessStatus = cell.Value.State.Status

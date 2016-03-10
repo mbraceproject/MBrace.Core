@@ -26,8 +26,8 @@ type IParallelismProvider =
     /// <summary>
     ///     Creates a linked cancellation token source given collection of cloud cancellation tokens.
     /// </summary>
-    /// <param name="parents">Parent cancellation tokens.</param>
-    abstract CreateLinkedCancellationTokenSource : parents:ICloudCancellationToken[] -> Async<ICloudCancellationTokenSource>
+    /// <param name="parents">Linked parent cancellation tokens.</param>
+    abstract CreateCancellationTokenSource : parents:ICloudCancellationToken[] -> Async<ICloudCancellationTokenSource>
 
     /// <summary>
     ///     Creates a new scheduler instance with updated fault policy.

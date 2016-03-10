@@ -47,7 +47,7 @@ type ThreadPoolWorker private () =
 type ThreadPoolParallelismProvider private (processId : string, memoryEmulation : MemoryEmulation, logger : ICloudLogger, faultPolicy : FaultPolicy) =
 
     static let mkNestedCts (ct : ICloudCancellationToken) = 
-        ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource [| ct |] :> ICloudCancellationTokenSource
+        ThreadPoolCancellationTokenSource.CreateCancellationTokenSource(ct) :> ICloudCancellationTokenSource
 
     /// <summary>
     ///     Creates a new threadpool runtime instance.
@@ -59,8 +59,8 @@ type ThreadPoolParallelismProvider private (processId : string, memoryEmulation 
         new ThreadPoolParallelismProvider(processId, memoryEmulation, logger, FaultPolicy.NoRetry)
         
     interface IParallelismProvider with
-        member __.CreateLinkedCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
-            return ThreadPoolCancellationTokenSource.CreateLinkedCancellationTokenSource parents :> _
+        member __.CreateCancellationTokenSource (parents : ICloudCancellationToken[]) = async {
+            return ThreadPoolCancellationTokenSource.CreateCancellationTokenSource parents :> _
         }
 
         member __.CloudProcessId = sprintf "In-Memory MBrace computation %s" processId

@@ -384,41 +384,13 @@ type Cloud =
         let revert (runtime : IParallelismProvider) = runtime.WithFaultPolicy currentPolicy
         return! Cloud.WithNestedResource(workflow, update, revert)
     }
-
-    /// Creates a new cloud cancellation token source
-    static member CreateCancellationTokenSource () = local {
-        let! runtime = Cloud.GetResource<IParallelismProvider> ()
-        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [||]
-    }
-
     /// <summary>
-    ///     Creates a linked cloud cancellation token source.
+    ///     Creates a new cloud cancellation token source
     /// </summary>
-    /// <param name="parent">Parent cancellation token. Defaults to the current process cancellation token.</param>
-    static member CreateLinkedCancellationTokenSource([<O;D(null:obj)>]?parent : ICloudCancellationToken) = local {
+    /// <param name="parent">Linked parent cancellation tokens.</param>
+    static member CreateCancellationTokenSource ([<ParamArray>]parents : ICloudCancellationToken[]) = local {
         let! runtime = Cloud.GetResource<IParallelismProvider> ()
-        let! currentCt = Cloud.CancellationToken
-        let parent = defaultArg parent currentCt
-        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [| parent |]
-    }
-
-    /// <summary>
-    ///     Creates a linked cloud cancellation token source.
-    /// </summary>
-    /// <param name="token1">First parent cancellation token.</param>
-    /// <param name="token2">Second parent cancellation token.</param>s
-    static member CreateLinkedCancellationTokenSource(token1 : ICloudCancellationToken, token2 : ICloudCancellationToken) = local {
-        let! runtime = Cloud.GetResource<IParallelismProvider> ()
-        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource [|token1 ; token2|]
-    }
-
-    /// <summary>
-    ///     Creates a linked cloud cancellation token source.
-    /// </summary>
-    /// <param name="tokens">Parent cancellation tokens.</param>
-    static member CreateLinkedCancellationTokenSource(tokens : seq<ICloudCancellationToken>) = local {
-        let! runtime = Cloud.GetResource<IParallelismProvider> ()
-        return! Cloud.OfAsync <| runtime.CreateLinkedCancellationTokenSource (Seq.toArray tokens)
+        return! Cloud.OfAsync <| runtime.CreateCancellationTokenSource parents
     }
 
 

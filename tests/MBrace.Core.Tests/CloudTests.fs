@@ -863,7 +863,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            let! cts0 = Cloud.CreateLinkedCancellationTokenSource(cts.Token)
+            let! cts0 = Cloud.CreateCancellationTokenSource(cts.Token)
             cts.Token.IsCancellationRequested |> shouldEqual false
             cts0.Token.IsCancellationRequested |> shouldEqual false
             do cts.Cancel()
@@ -877,7 +877,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            let! cts0 = Cloud.CreateLinkedCancellationTokenSource(cts.Token)
+            let! cts0 = Cloud.CreateCancellationTokenSource(cts.Token)
             cts.Token.IsCancellationRequested |> shouldEqual false
             cts0.Token.IsCancellationRequested |> shouldEqual false
             do cts0.Cancel()
@@ -891,7 +891,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            let! cts0, cts1 = Cloud.CreateLinkedCancellationTokenSource() <||> Cloud.CreateLinkedCancellationTokenSource()
+            let! cts0, cts1 = Cloud.CreateCancellationTokenSource(cts.Token) <||> Cloud.CreateCancellationTokenSource(cts.Token)
             cts.Cancel()
             do! Cloud.Sleep delayFactor
             cts0.Token.IsCancellationRequested |> shouldEqual true
@@ -903,7 +903,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
-            let mkNested () = Cloud.CreateLinkedCancellationTokenSource() <||> Cloud.CreateLinkedCancellationTokenSource()
+            let mkNested () = Cloud.CreateCancellationTokenSource(cts.Token) <||> Cloud.CreateCancellationTokenSource(cts.Token)
             let! (cts0, cts1), (cts2, cts3) = mkNested () <||> mkNested ()
             cts.Cancel()
             do! Cloud.Sleep delayFactor

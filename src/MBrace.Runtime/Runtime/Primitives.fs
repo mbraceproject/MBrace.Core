@@ -15,15 +15,13 @@ type ICancellationEntry =
 
 /// Defines a serializable cancellation entry manager with global visibility.
 type ICancellationEntryFactory =
-    /// Asynchronously creates a cancellation entry with no parents.
-    abstract CreateCancellationEntry : unit -> Async<ICancellationEntry>
 
     /// <summary>
-    ///     Asynchronously creates a cancellation entry provided parents. 
-    ///     Returns 'None' if all parents have been cancelled.
+    ///     Asynchronously creates a cancellation entry using provided parent entries. 
+    ///     Returns 'None' if any of the parents are already canceled and child was not created.
     /// </summary>
     /// <param name="parents">Cancellation entry parents.</param>
-    abstract TryCreateLinkedCancellationEntry : parents:ICancellationEntry[] -> Async<ICancellationEntry option>
+    abstract TryCreateCancellationEntry : parents:ICancellationEntry[] -> Async<ICancellationEntry option>
 
 /// Defines a distributed counter entity.
 type ICloudCounter =

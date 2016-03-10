@@ -34,7 +34,7 @@ type CloudProcessInfo =
         /// User-specified cloud process name
         Name : string option
         /// Cancellation token source for cloud process
-        CancellationTokenSource : ICloudCancellationTokenSource
+        CancellationTokenSource : CloudCancellationToken
         /// Vagabond dependencies for computation
         Dependencies : AssemblyId []
         /// Additional user-supplied resources for cloud process.

@@ -75,10 +75,7 @@ and [<Sealed; AutoSerializable(true)>] ActorCancellationEntry private (id : stri
 [<Sealed; AutoSerializable(true)>]
 type ActorCancellationEntryFactory(factory : ResourceFactory) =
     interface ICancellationEntryFactory with
-        member x.CreateCancellationEntry() =
-            factory.RequestResource (fun () -> ActorCancellationEntry.Create() :> _)
-        
-        member x.TryCreateLinkedCancellationEntry(parents: ICancellationEntry []) = async {
+        member x.TryCreateCancellationEntry(parents: ICancellationEntry []) = async {
             let parents = parents |> Array.map unbox<ActorCancellationEntry>
             let! e = factory.RequestResource(fun () -> ActorCancellationEntry.Create())
             let! results =
