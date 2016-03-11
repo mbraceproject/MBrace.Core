@@ -144,9 +144,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
         | Distributed id -> Some id.UUID
         | _ -> None
 
-    /// System.Threading.Token for distributed cancellation token
-    member __.LocalToken = getLocalToken()
-
     /// Cancel cancellation token
     member __.Cancel() =
         if (let t = __.LocalToken in t.IsCancellationRequested) then ()
@@ -156,6 +153,11 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
                 | Canceled _ -> ()
                 | Localized _ -> localCancellationTokenSource.Cancel()
                 | Distributed token -> token.Cancel() |> Async.RunSync)
+
+    member x.IsCancellationRequested = let t = getLocalToken() in t.IsCancellationRequested
+
+    /// System.Threading.Token for distributed cancellation token
+    member __.LocalToken = getLocalToken()
 
     interface ICloudCancellationToken with
         member x.IsCancellationRequested: bool = let t = getLocalToken() in t.IsCancellationRequested
@@ -192,3 +194,6 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
     /// Wraps a CancellationEntry instance into a new CloudCancellationToken
     static member FromEntry(entry : ICancellationEntry) =
         new CloudCancellationToken(Distributed entry)
+
+    /// Creates a CancellationEntry that has been canceled.
+    static member Canceled = new CloudCancellationToken(Canceled)
