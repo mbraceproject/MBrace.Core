@@ -111,18 +111,17 @@ and [<Sealed; DataContract; NoEquality; NoComparison>]
             lock state (fun () ->
                 match state with
                 | Canceled -> None
-                | Localized _ when localCancellationTokenSource.IsCancellationRequested -> None
+                | Localized _ when localCancellationTokenSource.IsCancellationRequested -> 
+                    state <- Canceled ; None
+
                 | Localized (parents, factory) ->
                     // elevate parents to distributed source
                     let elevatedParents = parents |> Array.Parallel.map (fun p -> p.TryElevateToDistributed()) |> Array.choose id
 
-                    if Array.isEmpty elevatedParents then
-                        state <- Canceled ; None
-                    else
-                        // create token entity using for current cts
-                        match factory.TryCreateCancellationEntry elevatedParents |> Async.RunSync with
-                        | None -> state <- Canceled ; None
-                        | Some id -> state <- Distributed id ; localToken <- None ; Some id
+                    // create token entity using for current cts
+                    match factory.TryCreateCancellationEntry elevatedParents |> Async.RunSync with
+                    | None -> state <- Canceled ; None
+                    | Some id -> state <- Distributed id ; localToken <- None ; Some id
 
                 | Distributed token -> Some token)
 
