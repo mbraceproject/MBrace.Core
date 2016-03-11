@@ -49,8 +49,8 @@ module private StoreLoggerUtils =
 type StoreJsonLogWriter<'LogEntry> internal (store : ICloudFileStore, nextLogFilePath : unit -> string, ?minInterval : int, ?maxInterval : int, ?minEntries : int, ?sysLogger : ISystemLogger) =
 
     let minInterval = defaultArg minInterval 100
-    let maxInterval = defaultArg maxInterval 1000
-    let minEntries  = defaultArg minEntries 5
+    let maxInterval = max (defaultArg maxInterval 1000) minInterval
+    let minEntries  = defaultArg minEntries 100
     let sysLogger = match sysLogger with Some l -> l | None -> new NullLogger() :> _
 
     do if minInterval < 0 || maxInterval < minInterval then invalidArg "interval" "invalid intervals."
@@ -192,9 +192,9 @@ type StoreJsonLogger =
     /// </summary>
     /// <param name="store">Underlying store to persist logs.</param>
     /// <param name="nextLogFilePath">User supplied, stateful function which returns successive log file paths.</param>
-    /// <param name="minInterval">Minimum persist interval. Defaults to 100ms.</param>
-    /// <param name="maxInterval">Maximum persist interval. Log entries guaranteed to be persisted within this interval. Defaults to 1000ms.</param>
-    /// <param name="minEntries">Minimum number of entries to persist, if not reached max persist interval. Defaults to 5.</param>
+    /// <param name="minInterval">Minimum persist interval. Defaults to 1000ms.</param>
+    /// <param name="maxInterval">Maximum persist interval. Log entries guaranteed to be persisted within this interval. Defaults to 5000ms.</param>
+    /// <param name="minEntries">Minimum number of entries to persist, if not reached max persist interval. Defaults to 100.</param>
     /// <param name="sysLogger">System logger used for logging errors of the writer itself. Defaults to no logging.</param>
     static member CreateJsonLogWriter<'LogEntry>(store : ICloudFileStore, nextLogFilePath : unit -> string, 
                                                     ?minInterval : int, ?maxInterval : int, ?minEntries : int, ?sysLogger : ISystemLogger) =
@@ -305,7 +305,8 @@ type DefaultStoreSystemLogSchema(store : ICloudFileStore, ?logDirectoryPrefix : 
 
 /// Tools for writing worker system logs to store.
 [<Sealed; AutoSerializable(false)>]
-type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileStore) =
+type StoreSystemLogManager private (schema : ISystemLogStoreSchema, store : ICloudFileStore,
+                                    ?minInterval : int, ?maxInterval : int, ?minEntries : int) =
 
     let clearWorkerLogs(workerId : IWorkerId) = async {
         let! logFiles = schema.GetWorkerLogFiles workerId
@@ -318,7 +319,11 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
     /// <param name="workerId">Worker identifier.</param>
     member x.CreateLogWriter(workerId : IWorkerId) = async {
         do! clearWorkerLogs workerId
-        let writer = StoreJsonLogger.CreateJsonLogWriter(store, fun () -> schema.GetLogFilePath workerId)
+        let writer = StoreJsonLogger.CreateJsonLogWriter(store, (fun () -> schema.GetLogFilePath workerId), 
+                                                            ?minInterval = minInterval,
+                                                            ?maxInterval = maxInterval,
+                                                            ?minEntries = minEntries)
+
         return new StoreSystemLogWriter(workerId.Id, writer) :> IRemoteSystemLogger
     }
 
@@ -356,6 +361,21 @@ type StoreSystemLogManager(schema : ISystemLogStoreSchema, store : ICloudFileSto
             let! logFiles = schema.GetLogFiles()
             do! logFiles |> Seq.map (fun f -> store.DeleteFile f) |> Async.Parallel |> Async.Ignore
         }
+
+
+    /// <summary>
+    ///     Creates a new store log manager instance with supplied store and container parameters.
+    /// </summary>
+    /// <param name="store">Underlying store for cloud log manager.</param>
+    /// <param name="schema">System log store schema.</param>
+    /// <param name="minInterval">Minimum persist interval. Defaults to 100ms.</param>
+    /// <param name="maxInterval">Maximum persist interval. Log entries guaranteed to be persisted within this interval. Defaults to 1000ms.</param>
+    /// <param name="minEntries">Minimum number of entries to persist, if not reached max persist interval. Defaults to 100.</param>
+    static member Create(schema : ISystemLogStoreSchema, store : ICloudFileStore,
+                                    ?minInterval : int, ?maxInterval : int, ?minEntries : int) =
+
+        new StoreSystemLogManager(schema, store, ?minInterval = minInterval, ?maxInterval = maxInterval,
+                                    ?minEntries = minEntries)
 
 
 
@@ -416,7 +436,8 @@ type DefaultStoreCloudLogSchema(store : ICloudFileStore) =
 
 /// Cloud log manager implementation that uses the underlying cloud store for persisting and reading log entries.
 [<Sealed; AutoSerializable(false)>]
-type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogStoreSchema, ?sysLogger : ISystemLogger) =
+type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogStoreSchema, ?sysLogger : ISystemLogger,
+                                    ?minInterval : int, ?maxInterval : int, ?minEntries : int) =
 
     /// <summary>
     ///     Creates a new store log manager instance with supplied store and container parameters.
@@ -424,12 +445,20 @@ type StoreCloudLogManager private (store : ICloudFileStore, schema : ICloudLogSt
     /// <param name="store">Underlying store for cloud log manager.</param>
     /// <param name="getContainerByTaskId">User-supplied container generation function.</param>
     /// <param name="sysLogger">System logger. Defaults to no logging.</param>
-    static member Create(store : ICloudFileStore, schema : ICloudLogStoreSchema, ?sysLogger : ISystemLogger) =
-        new StoreCloudLogManager(store, schema, ?sysLogger = sysLogger)
+    /// <param name="minInterval">Minimum persist interval. Defaults to 100ms.</param>
+    /// <param name="maxInterval">Maximum persist interval. Log entries guaranteed to be persisted within this interval. Defaults to 1000ms.</param>
+    /// <param name="minEntries">Minimum number of entries to persist, if not reached max persist interval. Defaults to 100.</param>
+    static member Create(store : ICloudFileStore, schema : ICloudLogStoreSchema, ?sysLogger : ISystemLogger,
+                            ?minInterval : int, ?maxInterval : int, ?minEntries : int) =
+
+        new StoreCloudLogManager(store, schema, ?sysLogger = sysLogger, ?minInterval = minInterval, 
+                                    ?maxInterval = maxInterval, ?minEntries = minEntries)
 
     interface ICloudLogManager with
         member x.CreateWorkItemLogger(worker: IWorkerId, workItem: CloudWorkItem): Async<ICloudWorkItemLogger> = async {
-            let writer = StoreJsonLogger.CreateJsonLogWriter<CloudLogEntry>(store, (fun () -> schema.GetLogFilePath workItem), ?sysLogger = sysLogger)
+            let writer = StoreJsonLogger.CreateJsonLogWriter<CloudLogEntry>(store, (fun () -> schema.GetLogFilePath workItem), 
+                                                                                ?sysLogger = sysLogger, ?minEntries = minEntries,
+                                                                                ?minInterval = minInterval, ?maxInterval = maxInterval)
             return new StoreCloudLogger(writer, workItem, worker.Id) :> _
         }
 

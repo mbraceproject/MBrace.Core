@@ -27,6 +27,7 @@ module internal WorkerConfiguration =
         | [<AltCommandLine("-l")>] Log_Level of int
         | [<AltCommandLine("-j")>] Max_Concurrent_Work_Items of int
         | [<AltCommandLine("-i")>] Use_AppDomain_Isolation of bool
+        | [<AltCommandLine("-li")>] Max_Log_Write_Interval of float
         | [<AltCommandLine("-L")>] Log_File of string
         | [<AltCommandLine("-b")>] Heartbeat_Interval of float
         | [<AltCommandLine("-t")>] Heartbeat_Threshold of float
@@ -41,6 +42,7 @@ module internal WorkerConfiguration =
                 | Hostname _ -> "Hostname or IP address to listen to. Defaults to domain name."
                 | Log_Level _ -> "Specify the log level: 0 none, 1 critical, 2 error, 3 warning, 4 info, 5 debug."
                 | Max_Concurrent_Work_Items _ -> "Maximum number of concurrent MBrace work items. Defaults to 20."
+                | Max_Log_Write_Interval _ -> "Interval in seconds in which log entries are to be persisted in global store."
                 | Use_AppDomain_Isolation _ -> "Enables or disables AppDomain isolation in worker node. Defaults to true."
                 | Heartbeat_Interval _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 0.5 seconds."
                 | Heartbeat_Threshold _ -> "Specify the maximum heartbeat threshold after which the worker should be declared dead. Defaults to 10 seconds."
@@ -64,6 +66,7 @@ module internal WorkerConfiguration =
             LogLevel : LogLevel option
             LogFiles : string list
             Quiet : bool
+            MaxLogWriteInterval : TimeSpan option
             MaxConcurrentWorkItems : int option
             UseAppDomainIsolation : bool option
             HeartbeatInterval : TimeSpan option
@@ -85,6 +88,7 @@ module internal WorkerConfiguration =
                 LogLevel = results.TryPostProcessResult(<@ Log_Level @>, fun l -> if l < 0 || l > 5 then failwith "invalid log level" else enum l)
                 Quiet = results.Contains <@ Quiet @>
                 MaxConcurrentWorkItems = results.TryPostProcessResult(<@ Max_Concurrent_Work_Items @>, fun j -> if j <= 0 || j > 1000 then failwith "max concurrent work items out of range" else j)
+                MaxLogWriteInterval = results.TryPostProcessResult(<@ Max_Log_Write_Interval @>, TimeSpan.FromSeconds)
                 UseAppDomainIsolation = results.TryGetResult(<@ Use_AppDomain_Isolation @>)
                 HeartbeatInterval = results.TryPostProcessResult(<@ Heartbeat_Interval @>, fun s -> if s > 0. then TimeSpan.FromSeconds s else failwith "must be positive.")
                 HeartbeatThreshold = results.TryPostProcessResult(<@ Heartbeat_Threshold @>, fun s -> if s > 0. then TimeSpan.FromSeconds s else failwith "must be positive.")
@@ -101,6 +105,7 @@ module internal WorkerConfiguration =
                 if config.Quiet then yield Quiet
                 match config.LogLevel with Some l -> yield Log_Level(int l) | None -> ()
                 match config.MaxConcurrentWorkItems with Some j -> yield Max_Concurrent_Work_Items j | None -> ()
+                match config.MaxLogWriteInterval with Some lwi -> yield Max_Log_Write_Interval lwi.TotalSeconds | None -> ()
                 match config.UseAppDomainIsolation with Some i -> yield Use_AppDomain_Isolation i | None -> ()
                 match config.Parent with Some p -> yield Parent_Actor p.Bytes | None -> ()
                 match config.HeartbeatInterval with Some i -> yield Heartbeat_Interval i.TotalSeconds | None -> ()

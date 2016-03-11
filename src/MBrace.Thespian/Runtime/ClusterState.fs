@@ -1,5 +1,6 @@
 ﻿namespace MBrace.Thespian.Runtime
 
+open System
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
@@ -56,7 +57,7 @@ type ClusterState =
     /// <param name="cacheDirectory">CloudValue cache directory used in store.</param>
     /// <param name="miscResources">Misc resources passed to cloud workflows.</param>
     static member Create(fileStore : ICloudFileStore, isWorkerHosted : bool, 
-                            ?userDataDirectory : string, ?workItemsDirectory : string, 
+                            ?userDataDirectory : string, ?workItemsDirectory : string, ?maxLogWriteInterval : TimeSpan,
                             ?assemblyDirectory : string, ?cacheDirectory : string, ?miscResources : ResourceRegistry) =
 
         let userDataDirectory = defaultArg userDataDirectory "userData"
@@ -79,8 +80,9 @@ type ClusterState =
             let siftManager = ClosureSiftManager.Create(siftConfig, logger)
             let sysLogSchema = new DefaultStoreSystemLogSchema(fileStore, getLogDirectorySuffix = fun w -> let u = System.Uri(w.Id) in sprintf "%s-%d" u.Host u.Port)
             let cloudLogSchema = new DefaultStoreCloudLogSchema(fileStore)
-            let storeSystemLogger = new StoreSystemLogManager(sysLogSchema, fileStore)
-            let storeCloudLogger = StoreCloudLogManager.Create(fileStore, cloudLogSchema, sysLogger = logger)
+            let maxLogWriteInterval = maxLogWriteInterval |> Option.map (fun i -> int i.TotalMilliseconds)
+            let storeSystemLogger = StoreSystemLogManager.Create(sysLogSchema, fileStore, ?maxInterval = maxLogWriteInterval, minInterval = 100, minEntries = 500)
+            let storeCloudLogger = StoreCloudLogManager.Create(fileStore, cloudLogSchema, sysLogger = logger, ?maxInterval = maxLogWriteInterval, minInterval = 100, minEntries = 500)
             {
                 Logger = logger
                 PersistedValueManager = persistedValueManager

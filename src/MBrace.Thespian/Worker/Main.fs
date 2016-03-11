@@ -13,6 +13,7 @@ let maxConcurrentWorkItems = 20
 let useAppDomainIsolation = true
 let heartbeatInterval = TimeSpan.FromSeconds 1.
 let heartbeatThreshold = TimeSpan.FromSeconds 30.
+let maxLogWriteInterval = TimeSpan.FromSeconds 2.
 
 let main (args : string []) =
     try
@@ -47,6 +48,7 @@ let main (args : string []) =
                     (defaultArg config.MaxConcurrentWorkItems maxConcurrentWorkItems)
                     (defaultArg config.HeartbeatInterval heartbeatInterval)
                     (defaultArg config.HeartbeatThreshold heartbeatThreshold)
+                    (defaultArg config.MaxLogWriteInterval maxLogWriteInterval)
                     logger
 
             replyToParent logger config (Success controller)

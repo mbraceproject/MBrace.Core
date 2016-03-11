@@ -61,8 +61,8 @@ module internal WorkerController =
     /// <param name="maxConcurrentWorkItems">Maximum number of concurrent MBrace work items running in worker.</param>
     /// <param name="logger">Underlying system logger used by actor.</param>
     let initController (useAppDomain : bool) (maxConcurrentWorkItems : int) 
-                        (heartbeatInterval : TimeSpan) (heartbeatThreshold : TimeSpan) 
-                        (logger : ISystemLogger) : ActorRef<WorkerControllerMsg> =
+                        (heartbeatInterval : TimeSpan) (heartbeatThreshold : TimeSpan)
+                        (maxLogWriteInterval : TimeSpan) (logger : ISystemLogger) : ActorRef<WorkerControllerMsg> =
 
         let behaviour (state : WorkerState) (message : WorkerControllerMsg) = async {
             match message with
@@ -120,7 +120,7 @@ module internal WorkerController =
                 | Idle ->
                     logger.LogInfo "Initializing a new MBrace cluster hosted by this worker instance."
                     let result = 
-                        try ClusterState.Create(store, isWorkerHosted = true, ?miscResources = resources) |> Choice1Of2
+                        try ClusterState.Create(store, isWorkerHosted = true, maxLogWriteInterval = maxLogWriteInterval, ?miscResources = resources) |> Choice1Of2
                         with e -> Choice2Of2 e
 
                     match result with
