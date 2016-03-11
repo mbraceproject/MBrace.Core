@@ -1,3 +1,7 @@
+#### 1.1.0
+* Refactor CancellationToken API.
+* Json Logger/FsPickler bugfix.
+
 #### 1.0.19
 * Improve serialization error reporting.
 
