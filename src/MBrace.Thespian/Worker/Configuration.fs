@@ -4,8 +4,8 @@ open System
 open System.IO
 open System.Diagnostics
 
+open Argu
 open Nessos.FsPickler
-open Nessos.Argu
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote

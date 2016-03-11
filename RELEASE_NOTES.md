@@ -1,3 +1,6 @@
+#### 1.1.1
+* Update to latest Argu.
+
 #### 1.1.0
 * Refactor CancellationToken API.
 * Json Logger/FsPickler bugfix.
