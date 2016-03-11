@@ -1,3 +1,6 @@
+#### 1.1.2
+* Add CloudCancellationToken.Canceled property.
+
 #### 1.1.1
 * Update to latest Argu.
 
