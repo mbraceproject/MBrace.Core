@@ -71,6 +71,15 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud |> Choice.shouldEqual (Seq.init parallelismFactor (fun i -> i + 1) |> Seq.sum)
 
     [<Test>]
+    member __.``1. Parallel : items should preserve order`` () =
+        let inputs = [|1 .. 10|]
+        inputs
+        |> Seq.map (fun i -> cloud { return i })
+        |> Cloud.Parallel
+        |> runOnCloud
+        |> Choice.shouldEqual inputs
+        
+    [<Test>]
     member __.``1. Parallel : random inputs`` () =
         let checker (ints:int[]) =
             if ints = null then () else
@@ -81,7 +90,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 return! Seq.init ints.Length f |> Cloud.Parallel
             } |> runOnCloud |> Choice.shouldEqual ints
 
-        Check.QuickThrowOnFail(checker, maxRuns = self.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
     member __.``1. Parallel : use binding`` () =
@@ -411,7 +420,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud 
             |> Choice.shouldBe (function Some r -> expected.Contains r | None -> Set.isEmpty expected)
 
-        Check.QuickThrowOnFail(checker, maxRuns = self.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
 
     [<Test>]
     member __.``2. Choice : all inputs 'None'`` () =
