@@ -19,6 +19,14 @@ ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thes
 let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug)
 cluster.AttachLogger(new ConsoleLogger())
 
+open System.IO
+
+let m = new MemoryStream([|1uy|])
+let cf = cluster.Store.CloudFileSystem.File.UploadFromStream("foo.txt", m)
+
+cf.Size
+
+
 let workers = cluster.Workers
 
 cloud { return 42 } |> cluster.Run

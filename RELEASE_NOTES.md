@@ -1,3 +1,6 @@
+### 1.1.3
+* Bugfix #163.
+
 #### 1.1.2
 * Add CloudCancellationToken.Canceled property.
 
