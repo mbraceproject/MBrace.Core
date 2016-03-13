@@ -336,6 +336,16 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     //  Section 2. FileStore via MBrace runtime
     //
 
+
+    [<Test>]
+    member __.``2. MBrace : relative file paths should always give same absolute`` () = 
+        cloud {
+            let path = Path.GetRandomFileName()
+            let! cf = CloudFile.WriteAllText(path, "text")
+            let! fullPath = CloudPath.GetFullPath path
+            cf.Path |> shouldEqual fullPath
+        } |> runOnCloud
+
     [<Test>]
     member __.``2. MBrace : PersistedValue - simple`` () = 
         let ref = runOnCloud <| PersistedValue.New 42

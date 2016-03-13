@@ -18,7 +18,7 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
     [<DataMember(Name = "RootPath")>]
     let rootPath = rootPath
 
-    let normalize (path : string) =
+    let normalize defaultDirectory (path : string) =
         if Path.IsPathRooted path then
             let nf = Path.GetFullPath path
             if nf.StartsWith rootPath then nf
@@ -26,10 +26,12 @@ type FileSystemStore private (rootPath : string, defaultDirectory : string) =
                 let msg = sprintf "invalid path '%O'." path
                 raise <| new FormatException(msg)
         else
-            Path.Combine(rootPath, path) |> Path.GetFullPath
+            Path.Combine(defaultDirectory, path) |> Path.GetFullPath
 
     [<DataMember(Name = "DefaultDirectory")>]
-    let defaultDirectory = normalize defaultDirectory
+    let defaultDirectory = normalize rootPath defaultDirectory
+
+    let normalize p = normalize defaultDirectory p
 
     // IOException will be signifies attempt to perform concurrent writes of file.
     // An exception to this rule is FileNotFoundException, which is a subtype of IOException.
