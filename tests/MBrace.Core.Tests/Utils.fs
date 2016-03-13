@@ -76,18 +76,54 @@ module Utils =
     let repeat (maxRepeats : int) (f : unit -> unit) : unit =
         for _ in 1 .. maxRepeats do f ()
 
-    type Check =
-        /// quick check methods with explicit type annotation
-        static member QuickThrowOnFail<'T> (f : 'T -> unit, ?maxRuns) = 
-            match maxRuns with
-            | None -> Check.QuickThrowOnFailure f
-            | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
+    type Check private () =
+        static let genSeq maxItems minSz maxSz (gen : Gen<'T>) =
+            let SizeInterval = float (maxSz - minSz) / float maxItems
+            let incr (currSize : int) = float currSize + SizeInterval |> round |> int
+            let rec aux i size rnd = seq {
+                if i < maxItems then
+                    let rnd0, rnd1 = Random.split rnd
+                    yield Gen.eval size rnd1 gen
+                    yield! aux (i + 1) (incr size) rnd0
+            }
+
+            aux 0 minSz (Random.newSeed())
+
+        static let checkNoShrink (config:Config) (f : 'T -> bool) =
+            for t in genSeq config.MaxTest config.StartSize config.EndSize Arb.from<'T>.Generator do
+                try 
+                    if f t then ()
+                    else
+                        failwithf "Falsified: %A" t
+
+                with e ->
+                    failwithf "Input %A resulted in exception: %O" t e
+
+        static let checkNoShrink2 config (f : 'T -> unit) = checkNoShrink config (fun t -> f t; true)
 
         /// quick check methods with explicit type annotation
-        static member QuickThrowOnFail<'T> (f : 'T -> bool, ?maxRuns) = 
-            match maxRuns with
-            | None -> Check.QuickThrowOnFailure f
-            | Some mxrs -> Check.One({ Config.QuickThrowOnFailure with MaxTest = mxrs }, f)
+        static member QuickThrowOnFail<'T> (f : 'T -> unit, ?maxRuns, ?shrink : bool) = 
+            let config = 
+                match maxRuns with 
+                | None -> Config.QuickThrowOnFailure
+                | Some mr -> { Config.QuickThrowOnFailure with MaxTest = mr }
+
+            if defaultArg shrink true then
+                Check.One(config, f)
+            else
+                checkNoShrink2 config f
+
+        /// quick check methods with explicit type annotation
+        static member QuickThrowOnFail<'T> (f : 'T -> bool, ?maxRuns, ?shrink) = 
+            let config = 
+                match maxRuns with 
+                | None -> Config.QuickThrowOnFailure
+                | Some mr -> { Config.QuickThrowOnFailure with MaxTest = mr }
+
+            if defaultArg shrink true then
+                Check.One(config, f)
+            else
+                checkNoShrink config f
 
     [<AutoSerializable(false)>]
     type private DisposableEnumerable<'T>(isDisposed : bool ref, ts : seq<'T>) =

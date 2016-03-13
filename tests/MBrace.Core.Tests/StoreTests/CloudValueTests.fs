@@ -227,7 +227,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 values |> Array.collect (fun vs -> vs.Value) |> shouldEqual [|1L .. size|]
             } |> runOnCloud
 
-        Check.QuickThrowOnFail(check, maxRuns = 20)
+        Check.QuickThrowOnFail(check, maxRuns = 20, shrink = false)
 
     [<Test>]
     member __.``CloudArray count`` () =

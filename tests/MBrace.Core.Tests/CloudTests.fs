@@ -90,7 +90,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 return! Seq.init ints.Length f |> Cloud.Parallel
             } |> runOnCloud |> Choice.shouldEqual ints
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : use binding`` () =
@@ -277,7 +277,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : Cloud.Balanced.filter`` () =
@@ -288,7 +288,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : Cloud.Balanced.choose`` () =
@@ -299,7 +299,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : Cloud.Balanced.fold`` () =
@@ -310,7 +310,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : Cloud.Balanced.collect`` () =
@@ -321,7 +321,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : Cloud.Balanced.groupBy`` () =
@@ -332,7 +332,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : Cloud.Balanced.foldBy`` () =
@@ -343,7 +343,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : Cloud.Balanced.foldByLocal`` () =
@@ -354,7 +354,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``1. Parallel : to all workers`` () =
@@ -420,7 +420,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud 
             |> Choice.shouldBe (function Some r -> expected.Contains r | None -> Set.isEmpty expected)
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``2. Choice : all inputs 'None'`` () =
@@ -589,7 +589,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldBe(function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``2. Choice : Cloud.Balanced.tryPick`` () =
@@ -600,7 +600,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldBe (function None -> Set.isEmpty expected | Some r -> expected.Contains r)
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``2. Choice : Cloud.Balanced.exists`` () =
@@ -611,7 +611,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``2. Choice : Cloud.Balanced.forall`` () =
@@ -622,7 +622,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             |> runOnCloud
             |> Choice.shouldEqual expected
 
-        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests)
+        Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
     member __.``2. Choice : to all workers`` () =

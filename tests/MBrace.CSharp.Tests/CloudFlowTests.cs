@@ -14,9 +14,9 @@ namespace MBrace.CSharp.Tests
 
     internal static class CheckExtensions
     {
-        internal static void QuickThrowOnFail<T>(this FSharpFunc<T, bool> test, int maxNb)
+        internal static void QuickThrowOnFail<T>(this FSharpFunc<T, bool> test, int maxNb, bool shrink)
         {
-            Utils.Check.QuickThrowOnFail(test, FSharpOption<int>.Some(maxNb));
+            Utils.Check.QuickThrowOnFail(test, FSharpOption<int>.Some(maxNb), FSharpOption<bool>.Some(shrink));
         }
     }
 
@@ -37,7 +37,7 @@ namespace MBrace.CSharp.Tests
                     var x = CloudFlow.OfArray(xs).ToArray();
                     var y = xs.ToArray();
                     return this.Run(x).SequenceEqual(y);
-                }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+                }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -48,7 +48,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).Select(v => v * 2).ToArray();
                 var y = xs.Select(v => v * 2).ToArray();
                 return this.Run(x).SequenceEqual(y);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -59,7 +59,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).Where(v => v % 2 == 0).ToArray();
                 var y = xs.Where(v => v % 2 == 0).ToArray();
                 return this.Run(x).SequenceEqual(y);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
 
@@ -71,7 +71,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).SelectMany(v => Enumerable.Range(1, 1000)).ToArray();
                 var y = xs.SelectMany(v => Enumerable.Range(1, 1000)).ToArray();
                 return this.Run(x).SequenceEqual(y);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -82,7 +82,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).Where(v => v % 2 == 0).Count();
                 var y = xs.Where(v => v % 2 == 0).Count();
                 return this.Run(x) == y;
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -93,7 +93,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).Select(v => v * 2).Sum();
                 var y = xs.Select(v => v * 2).Sum();
                 return this.Run(x) == y;
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -105,7 +105,7 @@ namespace MBrace.CSharp.Tests
                 var expected = xs.Average();
                 var actual = this.Run(CloudFlow.OfArray(xs).Average());
                 return expected == actual;
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -117,7 +117,7 @@ namespace MBrace.CSharp.Tests
                 var n = Math.Abs(t.Item2);
                 var x = this.Run(CloudFlow.OfArray(xs).Take(n).ToArray());
                 return Math.Min(xs.Length, n) == x.Length;
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
 
@@ -131,7 +131,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).OrderBy(v => v, n).ToArray();
                 var y = xs.OrderBy(v => v).Take(n).ToArray();
                 return this.Run(x).SequenceEqual(y);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -144,7 +144,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).OrderByDescending(v => v, n).ToArray();
                 var y = xs.OrderByDescending(v => v).Take(n).ToArray();
                 return this.Run(x).SequenceEqual(y);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -166,7 +166,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).CountBy(v => v).ToArray();
                 var y = xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, (long)v.Count())).ToArray();
                 return new HashSet<Tuple<int, long>>(this.Run(x)).SetEquals(new HashSet<Tuple<int, long>>(y));
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -183,7 +183,7 @@ namespace MBrace.CSharp.Tests
                 var expected = new HashSet<Tuple<int,int>>(xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Sum())).ToArray());
                 var actual = new HashSet<Tuple<int, int>>(this.Run(flow));
                 return actual.SetEquals(expected);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -194,7 +194,7 @@ namespace MBrace.CSharp.Tests
                 var x = CloudFlow.OfArray(xs).Select(v => v * 2).Aggregate(() => 0, (acc, v) => acc + v, (l, r) => l + r);
                 var y = xs.Select(v => v * 2).Aggregate(0, (acc, v) => acc + v);
                 return this.Run(x) == y;
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -211,7 +211,7 @@ namespace MBrace.CSharp.Tests
                 var expected = new HashSet<Tuple<int,int>>(xs.GroupBy(v => v).Select(v => Tuple.Create(v.Key, v.Sum())).ToArray());
                 var actual = new HashSet<Tuple<int, int>>(this.Run(flow));
                 return expected.SetEquals(actual);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
         [Test]
@@ -224,7 +224,7 @@ namespace MBrace.CSharp.Tests
                 var count = this.Run(Cloud.GetWorkerCount());
                 var y = xs.Select(v => v * 2).ToArray();
                 return x.SequenceEqual(y);
-            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests);
+            }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
 
     }
