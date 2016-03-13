@@ -1,3 +1,6 @@
+### 1.1.4
+* Fix packaging issues.
+
 ### 1.1.3
 * Bugfix #163.
 
