@@ -1,3 +1,6 @@
+### 1.1.5
+* Add StructuredFormatDisplay attribute to ExceptionDispatchInfo.
+
 ### 1.1.4
 * Fix packaging issues.
 

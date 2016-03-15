@@ -109,7 +109,7 @@ Target "NuGet" (fun _ ->
             ReleaseNotes = toLines release.Notes })
 )
 
-Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }))
+Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" ; TimeOut = TimeSpan.FromMinutes 30. }))
 
 
 //// --------------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ Target "SourceLink" (fun _ ->
     )
 )
 
-Target "ReleaseGitHub" (fun _ ->
+Target "ReleaseGithub" (fun _ ->
     let remote =
         Git.CommandHelper.getGitResult "" "remote -v"
         |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
@@ -201,7 +201,7 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "SourceLink"
   ==> "NuGet"
   ==> "NuGetPush"
-  ==> "ReleaseGitHub"
+  ==> "ReleaseGithub"
   ==> "Release"
 
 //// start build
