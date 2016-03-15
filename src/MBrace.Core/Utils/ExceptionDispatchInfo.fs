@@ -7,7 +7,7 @@ open System.Reflection
 
 /// Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
 /// that is serializable and permits symbolic appending to stacktrace
-[<Sealed; AutoSerializable(true)>]
+[<Sealed; AutoSerializable(true); StructuredFormatDisplay("{StructuredFormatDisplay}")>]
 type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string, isFaultException : bool) =
 
     [<Literal>]
@@ -93,6 +93,9 @@ type ExceptionDispatchInfo private (sourceExn : exn, sourceStackTrace : string, 
     /// <param name="line">Line to be appended.</param>
     member __.AppendToStackTrace(lines : seq<string>) = 
         __.AppendToStackTrace(String.concat Environment.NewLine lines)
+
+    override __.ToString() = sourceExn.ToString()
+    member private __.StructuredFormatDisplay = __.ToString()
 
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
