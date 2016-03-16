@@ -38,6 +38,11 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                 return None
         }
 
+        let declareStatus status = async {
+            try do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
+            with e -> logger.Logf LogLevel.Warning "Error updating worker status:\n%O" e
+        }
+
         match controlMessage with
         | None ->
             match status with
@@ -55,8 +60,8 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                 | Choice2Of2 e ->
                     let edi = ExceptionDispatchInfo.Capture(e, isFaultException = true)
                     let status = QueueFault edi
-                    do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
-                    logger.Logf LogLevel.Info "Worker Work item Queue fault:\n%O" e
+                    do! declareStatus status
+                    logger.Logf LogLevel.Warning "Worker Work item Queue fault:\n%O" e
                     do! Async.Sleep errorInterval
                     return! workerLoop status inbox
 
@@ -66,7 +71,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                         | QueueFault _ ->
                             let status = WorkerExecutionStatus.Running
                             logger.Log LogLevel.Info "Worker Work item Queue restored."
-                            do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
+                            do! declareStatus status
                             return status
 
                         | _ -> return status
@@ -80,10 +85,12 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                     | Some workItemToken ->
                         // Successfully dequeued work item, run it.
                         if workItemToken.WorkItemType = CloudWorkItemType.ProcessRoot then
-                            do! workItemToken.Process.DeclareStatus CloudProcessStatus.WaitingToRun
+                            try do! workItemToken.Process.DeclareStatus CloudProcessStatus.WaitingToRun
+                            with e -> logger.Logf LogLevel.Info "Error updating process status:\n%O" e
 
                         let jc = Interlocked.Increment &currentWorkItemCount
-                        do! runtime.WorkerManager.IncrementWorkItemCount workerId
+                        try do! runtime.WorkerManager.IncrementWorkItemCount workerId
+                        with e -> logger.Logf LogLevel.Info "Error incrementing worker count:\n%O" e
 
                         logger.Logf LogLevel.Info "Dequeued work item '%O'." workItemToken.Id
                         logger.Logf LogLevel.Info "Concurrent work item count increased to %d/%d." jc maxConcurrentWorkItems
@@ -127,7 +134,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
                 | Choice2Of2 _ -> logger.Logf LogLevel.Error "Timeout while waiting for active work items to complete."
 
                 let status = Stopped
-                do! runtime.WorkerManager.DeclareWorkerStatus(workerId, status)
+                do! declareStatus status
                 do rc.Reply (())
 
                 logger.Log LogLevel.Info "Worker stopped."
@@ -142,7 +149,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
             | Stopped ->
                 logger.Log LogLevel.Info "Starting Worker."
                 let status = WorkerExecutionStatus.Running
-                do! runtime.WorkerManager.DeclareWorkerStatus (workerId, status)
+                do! declareStatus status
                 do rc.Reply (())
                 return! workerLoop status inbox
             | _ ->
