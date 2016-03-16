@@ -1,3 +1,6 @@
+### 1.1.6
+* Add exception protections to WorkerAgent loop.
+
 ### 1.1.5
 * Add StructuredFormatDisplay attribute to ExceptionDispatchInfo.
 
