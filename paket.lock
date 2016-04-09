@@ -3,8 +3,8 @@ NUGET
   remote: https://www.nuget.org/api/v2
   specs:
     Argu (2.1)
-    FAKE (4.22.3)
-    FsCheck (2.2.4)
+    FAKE (4.23.6)
+    FsCheck (2.2.5)
       FSharp.Core (>= 3.1.2.5)
     FSharp.Compiler.Service (1.3.1.2)
     FSharp.Core (4.0.0.1)
@@ -22,10 +22,10 @@ NUGET
       MathNet.Numerics (3.7.1)
     MathNet.Numerics.MKL.Win-x64 (1.8.0)
       MathNet.Numerics (>= 2.4.0)
-    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
+    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40
       Microsoft.Bcl.Build (>= 1.0.14)
-    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
-    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40-full
+    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40
+    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40
       Microsoft.Bcl (>= 1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
     Mono.Cecil (0.9.6.1)
@@ -34,7 +34,7 @@ NUGET
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
     Octokit (0.19.0)
-      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
+      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40
     SourceLink.Fake (1.1.0)
     Streams (0.4.1)
     Streams.CSharp (0.4.1)
@@ -77,11 +77,11 @@ NUGET
     Thespian (0.1.10-alpha)
       FsPickler (>= 1.8.0)
     Unquote (3.1.1)
-    Vagabond (0.12.9)
+    Vagabond (0.12.10)
       FsPickler (>= 2.0.0 < 2.1.0)
       Mono.Cecil (>= 0.9.6.1 < 0.9.7)
 GITHUB
   remote: fsharp/FAKE
   specs:
-    modules/Octokit/Octokit.fsx (fa8d99c82c05e048e918a405a478b62db2e70c56)
+    modules/Octokit/Octokit.fsx (0eb56f740be4fbaeef6962897eb304009098620e)
       Octokit

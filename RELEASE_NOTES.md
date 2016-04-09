@@ -1,3 +1,6 @@
+### 1.1.7
+* Vagabond bugfix.
+
 ### 1.1.6
 * Add exception protections to WorkerAgent loop.
 
