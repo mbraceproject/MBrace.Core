@@ -1,3 +1,6 @@
+### 1.1.8
+* Fix packaging issue.
+
 ### 1.1.7
 * Vagabond bugfix.
 

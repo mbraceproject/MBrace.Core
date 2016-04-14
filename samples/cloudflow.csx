@@ -40,11 +40,11 @@ var pworkflow =
 cluster.Run(pworkflow);
 
 // 3. CloudFlow.CSharp tests
-var url = "http://publicdata.landregistry.gov.uk/market-trend-data/price-paid-data/a/pp-2015.csv";
+var url = "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2015.csv";
 
 string trim(string input) { return input.Trim(new char[] { '\"' }); }
 
-var cacheF = CloudFlow.OfHTTPFileByLine(url)
+var cacheF = CloudFlow.OfHttpFileByLine(url)
                     .Select(line => line.Split(','))
                     .Select(arr => new { TransactionId = Guid.Parse(trim(arr[0])), Price = Double.Parse(trim(arr[1])), City = trim(arr[12]) })
                     .Cache();
