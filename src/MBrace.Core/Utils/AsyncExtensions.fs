@@ -108,10 +108,10 @@ type Async =
     /// </summary>
     /// <param name="task">Task to be awaited.</param>
     static member AwaitTaskCorrect(task : Task<'T>) : Async<'T> =
-        Async.FromContinuations(fun (sc,ec,cc) ->
+        Async.FromContinuations(fun (sc,ec,_) ->
             task.ContinueWith(fun (t : Task<'T>) -> 
                 if task.IsFaulted then ec t.InnerException 
-                elif task.IsCanceled then cc(new OperationCanceledException())
+                elif task.IsCanceled then ec(new OperationCanceledException())
                 else sc t.Result)
             |> ignore)
 
@@ -122,10 +122,10 @@ type Async =
     /// </summary>
     /// <param name="task">Task to be awaited.</param>
     static member AwaitTaskCorrect(task : Task) : Async<unit> =
-        Async.FromContinuations(fun (sc,ec,cc) ->
+        Async.FromContinuations(fun (sc,ec,_) ->
             task.ContinueWith(fun (t : Task) -> 
                 if task.IsFaulted then ec t.InnerException 
-                elif task.IsCanceled then cc(new OperationCanceledException())
+                elif task.IsCanceled then ec(new OperationCanceledException())
                 else sc ())
             |> ignore)
         

@@ -12,6 +12,10 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 open MBrace.Flow.Fluent
+open MBrace.ThreadPool
+
+
+
 
 ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
 let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 4, logLevel = LogLevel.Debug, logger = new ConsoleLogger())

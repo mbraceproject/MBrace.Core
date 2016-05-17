@@ -538,6 +538,19 @@ module ``Continuation Tests`` =
 
 
     [<Test>]
+    let ``finally cancellation`` () =
+        let cell = ref false
+        let test (cts : ICloudCancellationTokenSource) = cloud {
+            try 
+                cts.Cancel()
+                do! Cloud.Sleep 1000
+            finally
+                cell := true }
+
+        runCts test |> Choice.shouldFailwith<_, OperationCanceledException>
+        !cell |> shouldEqual false
+
+    [<Test>]
     let ``runtime resources`` () =
         run(Cloud.GetWorkerCount()) |> Choice.shouldFailwith<_, ResourceNotFoundException>
 
