@@ -133,29 +133,24 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
         | _ -> None
     
     let networkSentUsage =
-        match currentPlatform.Value with
-        | Platform.Windows when currentRuntime.Value = Runtime.DesktopCLR &&
-                                PerformanceCounterCategory.Exists("Network Interface") ->
+        if PerformanceCounterCategory.Exists("Network Interface") then
             let inst = (new PerformanceCounterCategory("Network Interface")).GetInstanceNames()
             let pc = 
                 inst |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Sent/sec", nic))
             Seq.iter perfCounters.Add pc
-            Some(fun () -> pc |> Array.fold (fun sAcc s -> sAcc + s.NextValue () / 1024.f) 0.f) // KB/s
+            Some(fun () -> pc |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
 
-        | _ -> None
+        else None
     
     let networkReceivedUsage =
-        match currentPlatform.Value with
-        | Platform.Windows when currentRuntime.Value = Runtime.DesktopCLR &&
-                                PerformanceCounterCategory.Exists("Network Interface") ->
-
+        if PerformanceCounterCategory.Exists("Network Interface") then
             let inst = (new PerformanceCounterCategory("Network Interface")).GetInstanceNames()
             let pc = 
                 inst |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Received/sec",nic))
             Seq.iter perfCounters.Add pc
-            Some(fun () -> pc |> Array.fold (fun rAcc r -> rAcc + r.NextValue () / 1024.f ) 0.f) // KB/s
+            Some(fun () -> pc |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
 
-        | _ -> None
+        else None
 
     // View information
 
