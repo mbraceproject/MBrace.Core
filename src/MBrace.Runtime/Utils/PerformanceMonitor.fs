@@ -134,21 +134,27 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
     
     let networkSentUsage =
         if PerformanceCounterCategory.Exists("Network Interface") then
-            let inst = (new PerformanceCounterCategory("Network Interface")).GetInstanceNames()
-            let pc = 
-                inst |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Sent/sec", nic))
-            Seq.iter perfCounters.Add pc
-            Some(fun () -> pc |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
+            let category = new PerformanceCounterCategory("Network Interface")
+            let pcs =
+                category.GetInstanceNames()
+                |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Sent/sec", nic))
+
+            if pcs.Length = 0 then None else
+            perfCounters.AddRange pcs
+            Some(fun () -> pcs |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
 
         else None
     
     let networkReceivedUsage =
         if PerformanceCounterCategory.Exists("Network Interface") then
-            let inst = (new PerformanceCounterCategory("Network Interface")).GetInstanceNames()
-            let pc = 
-                inst |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Received/sec",nic))
-            Seq.iter perfCounters.Add pc
-            Some(fun () -> pc |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
+            let category = new PerformanceCounterCategory("Network Interface")
+            let pcs =
+                category.GetInstanceNames()
+                |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Received/sec", nic))
+
+            if pcs.Length = 0 then None else
+            perfCounters.AddRange pcs
+            Some(fun () -> pcs |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
 
         else None
 
