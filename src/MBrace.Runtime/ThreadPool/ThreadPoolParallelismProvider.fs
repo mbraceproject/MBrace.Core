@@ -20,7 +20,10 @@ type ThreadPoolWorker private () =
     static let singleton = new ThreadPoolWorker()
     let name = System.Net.Dns.GetHostName()
     let pid = System.Diagnostics.Process.GetCurrentProcess().Id
-    let cpuClockSpeed = PerformanceMonitor.PerformanceMonitor.TryGetCpuClockSpeed()
+    static let cpuClockSpeed = 
+        use perfMon = PerformanceMonitor.PerformanceMonitor.Start()
+        let counters = perfMon.GetCounters()
+        counters.MaxClockSpeed
 
     interface IWorkerRef with
         member __.Hostname = name
@@ -28,9 +31,8 @@ type ThreadPoolWorker private () =
         member __.Id = name
         member __.ProcessorCount = Environment.ProcessorCount
         member __.MaxCpuClock = 
-            match cpuClockSpeed with
-            | Some cpu -> cpu
-            | None -> raise <| NotImplementedException("Mono CPU clock speed not implemented.")
+            if cpuClockSpeed.HasValue then cpuClockSpeed.Value 
+            else raise <| NotImplementedException("Mono CPU clock speed not implemented.")
 
         member __.ProcessId = pid
         member __.CompareTo(other : obj) =

@@ -85,6 +85,10 @@ type WorkerRef private (runtime : IRuntimeManager, workerId : IWorkerId) =
     member __.LastHeartbeat = getState().LastHeartbeat
     /// Gets the initialization/subscription time of the worker process
     member __.InitializationTime = getState().InitializationTime
+    /// Gets the platform on which the current worker instance is running
+    member __.Platform = getState().PerformanceMetrics.Platform
+    /// Gets the .NET implementation on which the current worker instance is running
+    member __.Runtime = getState().PerformanceMetrics.Runtime
     /// Gets the worker execution status
     member __.Status = getState().ExecutionStatus
     
@@ -205,7 +209,7 @@ and internal WorkerReporter private () =
         [ Field.create "Id" Left (fun w -> w.Id)
           Field.create "Status" Left (fun p -> string p.Status)
           Field.create "% CPU / Cores" Right (fun p -> sprintf "%s / %d" (double_printer p.CpuUsage) p.ProcessorCount)
-          Field.create "CPU Clock" Left (fun p -> sprintf "%s MHz" (double_printer p.MaxCpuClock))
+          Field.create "CPU Clock" Left (fun p -> let c = p.MaxCpuClock in if c.HasValue then sprintf "%s MHz" (double_printer c) else "N/A")
           Field.create "% Memory / Total(MB)" Right (fun p ->
                 let memPerc = 100. *? p.MemoryUsage ?/? p.TotalMemory |> double_printer
                 sprintf "%s / %s" memPerc <| double_printer p.TotalMemory
@@ -214,6 +218,7 @@ and internal WorkerReporter private () =
           Field.create "Work items" Right (fun p -> sprintf "%d / %d" p.ActiveWorkItems p.MaxWorkItemCount)
           Field.create "Hostname" Left (fun p -> sprintf "%s" p.Hostname)
           Field.create "PID" Right (fun p -> p.ProcessId)
+          Field.create "Platform" Right (fun p -> sprintf "%A" p.Platform)
           Field.create "Initialization Time" Left (fun p -> let d = p.InitializationTime in d.LocalDateTime) 
           Field.create "Latest Heartbeat" Left (fun p -> let d = p.LastHeartbeat in d.LocalDateTime)
         ]
