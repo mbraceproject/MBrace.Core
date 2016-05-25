@@ -69,15 +69,12 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
 
     // Cpu Usage
     let cpuUsage =
-        match currentPlatform.Value with
-        | Platform.Windows when currentRuntime.Value = Runtime.DesktopCLR && 
-                                PerformanceCounterCategory.Exists("Processor") ->
-
+        if PerformanceCounterCategory.Exists("Processor") then
             let pc = new PerformanceCounter("Processor", "% Processor Time", "_Total", true)
             perfCounters.Add(pc)
             Some <| fun () -> pc.NextValue()
 
-        | _ -> None
+        else None
 
     // Average CPU usage polled over the past 1 second
     let cpuAvg = new RollingAverage(maxSamplesCount)
