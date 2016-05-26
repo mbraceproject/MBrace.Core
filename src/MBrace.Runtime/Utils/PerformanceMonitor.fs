@@ -111,6 +111,15 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                     Some(fun () -> result)
                 else None
 
+        | Platform.OSX ->
+            let exitCode,results = runCommand "sysctl" "hw.cpufrequency"
+            if exitCode <> 0 then None else
+                let m = Regex.Match(results, "hw.cpufrequency: ([0-9]+)")
+                if m.Success then
+                    let result = (float m.Groups.[1].Value) / 1e6 |> single
+                    Some(fun () -> result)
+                else None
+
         | _ -> None
     
     let totalMemory = 
