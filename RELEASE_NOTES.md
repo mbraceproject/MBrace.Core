@@ -1,3 +1,7 @@
+### 1.2.0
+* Improve cross platform performance monitoring.
+* Misc bugfixes.
+
 ### 1.1.8
 * Fix packaging issue.
 
