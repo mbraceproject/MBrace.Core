@@ -56,6 +56,10 @@ Refer to [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/mas
 
 [MBrace.Azure](http://github.com/mbraceproject/MBrace.Azure/) is an MBrace framework implementation on top of Azure PaaS components. Enables easy deployment of scalable MBrace clusters using worker roles. It also supports on-site cluster deployments using Azure storage/service bus components for communication.
 
+### MBrace.AWS [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.AWS.svg?style=flat)](https://www.nuget.org/packages/MBrace.AWS/)
+
+[MBrace.AWS](http://github.com/mbraceproject/MBrace.AWS/) is an MBrace framework implementation on top of AWS PaaS components. Enables easy deployment of scalable MBrace clusters using Elastic Beanstalk & Docker. It also supports on-site cluster deployments using AWS S3/DynamoDB/SQS components for communication.
+
 ## Building and Running unit tests
 
 Building MBrace Core requires Visual Studio 2015/F# 4.0. You can build the project either from Visual Studio or by running `build.cmd Build` if using cmd/powershell or `./build.sh Build` if using bash/sh.
