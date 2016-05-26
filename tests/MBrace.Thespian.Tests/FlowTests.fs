@@ -9,7 +9,7 @@ open MBrace.Core.Internals
 open MBrace.Core.Tests
 open MBrace.Thespian
 
-[<Category("CloudStreams.Cluster")>]
+[<Category("ThespianClusterTests")>]
 type ``MBrace Thespian Flow Tests`` () =
     inherit ``CloudFlow tests`` ()
 

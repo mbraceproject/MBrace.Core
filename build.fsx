@@ -61,6 +61,7 @@ Target "Clean" (fun _ ->
 
 let configuration = environVarOrDefault "Configuration" "Release"
 let ignoreClusterTests = environVarOrDefault "IgnoreClusterTests" "false" |> Boolean.Parse
+let ignoreVagabondTests = environVarOrDefault "IgnoreVagabondTests" "false" |> Boolean.Parse
 let includeCSharpLib = environVarOrDefault "IncludeCSharpLib" "false" |> Boolean.Parse
 
 Target "Build" (fun _ ->
@@ -80,13 +81,18 @@ let testAssemblies =
     [
         yield "bin/MBrace.Core.Tests.dll"
         yield "bin/MBrace.Runtime.Tests.dll"
-        if not ignoreClusterTests then yield "bin/MBrace.Thespian.Tests.dll"
+        yield "bin/MBrace.Thespian.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
     testAssemblies
     |> NUnit (fun p -> 
         { p with
+            ExcludeCategory = 
+                String.concat "," [ 
+                    if ignoreClusterTests then yield "ThespianClusterTests"
+                    if ignoreVagabondTests then yield "ThespianClusterTestsVagabond" ]
+
             DisableShadowCopy = true
             TimeOut = TimeSpan.FromMinutes 60.
             OutputFile = "TestResults.xml" })

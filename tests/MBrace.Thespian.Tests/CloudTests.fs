@@ -17,6 +17,7 @@ open MBrace.Thespian
 
 #nowarn "444"
 
+[<Category("ThespianClusterTests")>]
 type ``MBrace Thespian Cloud Tests`` () as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
@@ -63,7 +64,7 @@ type ``MBrace Thespian Cloud Tests`` () as self =
 #endif
 
 
-[<TestFixture>]
+[<TestFixture; Category("ThespianClusterTests")>]
 type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)

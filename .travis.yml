@@ -3,5 +3,5 @@ language: csharp
 install:
 
 
-script: 
-  - ./build.sh Default -ev Configuration Release -ef IgnoreClusterTests
+script:
+  - ./build.sh -ef IgnoreClusterTests

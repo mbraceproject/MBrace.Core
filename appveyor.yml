@@ -1,11 +1,7 @@
-version: 0.0.1.{build}
+init:
+  - git config --global core.autocrlf input
 
-configuration: Release
+build_script:
+  - cmd: build.cmd -ef IgnoreClusterTests
 
-test:
-  assemblies:
-    - MBrace.Core.Tests.dll
-    - MBrace.CSharp.Tests.dll
-    - MBrace.Runtime.Tests.dll
-    - MBrace.Flow.Tests.dll
-    - MBrace.Flow.CSharp.Tests.dll
+test: off

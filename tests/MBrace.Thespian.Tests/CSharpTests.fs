@@ -8,6 +8,7 @@ open MBrace.Core.Tests
 open MBrace.Thespian
 open MBrace.CSharp.Tests
 
+[<Category("ThespianClusterTests")>]
 type ``MBrace Thespian Cloud CSharp Tests`` () =
     inherit CloudTests()
 
@@ -27,6 +28,7 @@ type ``MBrace Thespian Cloud CSharp Tests`` () =
         System.Threading.Thread.Sleep 1000
         job.GetLogs () |> Array.map CloudLogEntry.Format
 
+[<Category("ThespianClusterTests")>]
 type ``MBrace Thespian CloudFlow CSharp Tests`` () =
     inherit CloudFlowTests()
 

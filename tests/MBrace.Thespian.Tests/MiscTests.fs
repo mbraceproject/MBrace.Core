@@ -10,7 +10,7 @@ open MBrace.Core
 open MBrace.Core.Tests
 open MBrace.Thespian
 
-[<TestFixture>]
+[<TestFixture; Category("ThespianClusterTests")>]
 module ``MBrace Thespian Misc Tests`` =
 
     [<TestFixtureSetUp>]

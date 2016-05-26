@@ -10,7 +10,7 @@ open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 
 open MBrace.Core.Tests
 
-[<TestFixture>]
+[<TestFixture; Category("ThespianClusterTestsVagabond")>]
 module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
     let clusterSize = 2
