@@ -70,12 +70,26 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
 
     // Cpu Usage
     let cpuUsage =
-        if PerformanceCounterCategory.Exists("Processor") then
+        match currentPlatform.Value with
+        | Platform.OSX when currentRuntime.Value = Runtime.Mono ->
+            // OSX/mono bug workaround https://bugzilla.xamarin.com/show_bug.cgi?id=41328
+            None
+            //let reader () =
+            //    let _,results = runCommand "ps" "-A -o %cpu"
+            //    let total =
+            //        results.Split([|Environment.NewLine|], StringSplitOptions.RemoveEmptyEntries) 
+            //        |> Array.sumBy (fun t -> let ok,d = Double.TryParse t in if ok then d else 0.)
+
+            //    single total
+
+            //Some reader
+
+        | _ when PerformanceCounterCategory.Exists("Processor") ->
             let pc = new PerformanceCounter("Processor", "% Processor Time", "_Total", true)
             perfCounters.Add(pc)
             Some <| fun () -> pc.NextValue()
 
-        else None
+        | _ -> None
 
     // Average CPU usage polled over the past 1 second
     let cpuAvg = new RollingAverage(maxSamplesCount)
@@ -155,7 +169,19 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
             Some <| (fun () -> totalMemory.Value() - pc.NextValue())
                 
 
-        | Platform.OSX -> None
+        | Platform.OSX ->
+            let pageR = new Regex("page size of ([0-9]+) bytes", RegexOptions.Compiled)
+            let entryR = new Regex("([\w ]+):\s+([0-9]+)\.", RegexOptions.Compiled)
+            let reader () =
+                let _,data = runCommand "vm_stat" ""
+                let pageSize = pageR.Match(data).Groups.[1].Value |> uint64
+                let d = new Dictionary<string, uint64>()
+                for m in entryR.Matches(data) do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
+                let usedBytes = pageSize * (d.["Pages active"] + d.["Pages wired down"])
+                single (usedBytes / (1024uL * 1024uL))
+
+            Some reader
+
         | Platform.Linux ->
             let regex = new Regex("(\w+):\s+([0-9\.]+) kB", RegexOptions.Compiled)
             let reader () =
@@ -171,6 +197,8 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
 
         | _ -> None
     
+
+    // mono bug: https://bugzilla.xamarin.com/show_bug.cgi?id=41323
     let networkSentUsage =
         if PerformanceCounterCategory.Exists("Network Interface") then
             let category = new PerformanceCounterCategory("Network Interface")
