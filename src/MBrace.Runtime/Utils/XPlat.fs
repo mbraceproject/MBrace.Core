@@ -19,19 +19,31 @@ type Runtime =
     | CoreCLR       = 2
     | Mono          = 4
 
+
+/// runs a simple command and returns exit code and stdout
+let runCommand (command : string) (args : string) : int * string =
+    let psi = new ProcessStartInfo(command, args)
+    psi.UseShellExecute <- false
+    psi.RedirectStandardOutput <- true
+    let proc = Process.Start(psi)
+    while not proc.HasExited do Thread.SpinWait 100
+    let code = proc.ExitCode
+    let output = proc.StandardOutput.ReadToEnd().Trim()
+    code, output
+
+/// runs a simple Bourne shell script and returns exit code and stdout
+let runBourneShellScript (script : string) =
+    runCommand "/bin/sh" <| sprintf "-c '%s'" script
+
 /// gets the platform for the current process
 let currentPlatform = lazy(
     match Environment.OSVersion.Platform with
     | PlatformID.MacOSX -> Platform.OSX
     | PlatformID.Unix ->
-        let psi = new ProcessStartInfo("uname")
-        psi.UseShellExecute <- false
-        psi.RedirectStandardOutput <- true
         try
-            let proc = Process.Start psi
-            while not proc.HasExited do Thread.SpinWait 100
-            if proc.ExitCode <> 0 then Platform.Other else
-            let output = proc.StandardOutput.ReadToEnd().Trim()
+            let exitCode, output = runCommand "uname" ""
+            if exitCode <> 0 then Platform.Other else
+
             // c.f. https://en.wikipedia.org/wiki/Uname#Examples
             match output with
             | "Linux" -> Platform.Linux

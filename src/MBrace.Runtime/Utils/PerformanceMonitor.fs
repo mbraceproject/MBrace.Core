@@ -5,6 +5,7 @@ open System.Net
 open System.Management
 open System.Diagnostics
 open System.Collections.Generic
+open System.Text.RegularExpressions
 open System.Threading
 
 open MBrace.Runtime.Utils
@@ -101,6 +102,15 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                 Some getCpuClockSpeed
             with _ -> None
 
+        | Platform.Linux ->
+            let exitCode,results = runCommand "lscpu" ""
+            if exitCode <> 0 then None else
+                let m = Regex.Match(results, "CPU max MHz:\s+([0-9\.]+)")
+                if m.Success then
+                    let result = single m.Groups.[1].Value
+                    Some(fun () -> result)
+                else None
+
         | _ -> None
     
     let totalMemory = 
@@ -115,6 +125,14 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                 let mb = totalBytes / uint64 (1 <<< 20) |> single // size in MB
                 Some(fun () -> mb)
             with _ -> None
+
+        | _ when PerformanceCounterCategory.Exists("Mono Memory") ->
+            let pc = new PerformanceCounter("Mono Memory", "Total Physical Memory")
+            perfCounters.Add(pc)
+            let totalBytes = pc.NextValue() |> uint64
+            let mb = totalBytes / uint64 (1 <<< 20) |> single
+            Some(fun () -> mb)
+
         | _ -> None
     
     let memoryUsage =
@@ -123,9 +141,24 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                                 PerformanceCounterCategory.Exists("Memory") && 
                                 totalMemory.IsSome ->
 
-            let pc = new PerformanceCounter("Memory", "Available Mbytes",true)
+            let pc = new PerformanceCounter("Memory", "Available Mbytes", true)
             perfCounters.Add(pc)
             Some <| (fun () -> totalMemory.Value() - pc.NextValue())
+                
+
+        | Platform.OSX -> None
+        | Platform.Linux ->
+            let regex = new Regex("(\w+):\s+([0-9\.]+) kB", RegexOptions.Compiled)
+            let reader () =
+                let data = System.IO.File.ReadAllText("/proc/meminfo")
+                let d = new Dictionary<string, uint64>()
+                let matches = regex.Matches(data)
+                for m in matches do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
+                // formula from http://serverfault.com/q/442813
+                let used = d.["MemTotal"] - d.["MemFree"] - d.["Buffers"] - d.["Cached"] - d.["SwapCached"]
+                single (used / 1024uL)
+
+            Some reader
 
         | _ -> None
     
