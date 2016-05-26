@@ -45,13 +45,6 @@ with
             Runtime = new Nullable<_>()
         }
 
-type private RollingAverage(size : int) =
-    let buf = Array.zeroCreate<float> size
-    let mutable i = 0
-    let mutable average = 0.
-    member __.Enqueue(t : float) = buf.[i] <- t ; i <- (i + 1) % size ; average <- Array.average buf
-    member __.Average = average
-
 /// Collects statistics on CPU, memory, network, etc.
 [<Sealed; AutoSerializable(false)>]
 type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, ?cancellationToken : CancellationToken) =
@@ -64,6 +57,19 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
         | None -> new CancellationTokenSource()
         | Some tok -> CancellationTokenSource.CreateLinkedTokenSource(tok)
 
+    // computes a rolling average by asynchronously sampling data source
+    let mkAveragePoller (src : unit -> single) : (unit -> single) =
+        let buf = Array.init maxSamplesCount (fun _ -> -1.)
+        let rec poll i = async {
+            buf.[i] <- try double(src()) with _ -> -1.
+            do! Async.Sleep updateInterval
+            return! poll ((i + 1) % buf.Length)
+        }
+
+        Async.Start(poll 0, cts.Token)
+
+        fun () -> buf |> Seq.filter (fun s -> s >= 0.) |> Seq.average |> single
+
     let perfCounters = new List<PerformanceCounter>()
 
     // Section: Performance counters 
@@ -73,30 +79,22 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
         match currentPlatform.Value with
         | Platform.OSX when currentRuntime.Value = Runtime.Mono ->
             // OSX/mono bug workaround https://bugzilla.xamarin.com/show_bug.cgi?id=41328
-            None
-            //let reader () =
-            //    let _,results = runCommand "ps" "-A -o %cpu"
-            //    let total =
-            //        results.Split([|Environment.NewLine|], StringSplitOptions.RemoveEmptyEntries) 
-            //        |> Array.sumBy (fun t -> let ok,d = Double.TryParse t in if ok then d else 0.)
+            let reader () =
+                let _,results = runCommand "ps" "-A -o %cpu"
+                let total =
+                    results.Split([|Environment.NewLine|], StringSplitOptions.RemoveEmptyEntries) 
+                    |> Array.sumBy (fun t -> let ok,d = Double.TryParse t in if ok then d else 0.)
 
-            //    single total
+                single total
 
-            //Some reader
+            Some reader
 
         | _ when PerformanceCounterCategory.Exists("Processor") ->
             let pc = new PerformanceCounter("Processor", "% Processor Time", "_Total", true)
             perfCounters.Add(pc)
-            Some <| fun () -> pc.NextValue()
+            (fun () -> pc.NextValue()) |> mkAveragePoller |> Some
 
         | _ -> None
-
-    // Average CPU usage polled over the past 1 second
-    let cpuAvg = new RollingAverage(maxSamplesCount)
-    let getCpuAvg =
-        match cpuUsage with
-        | None -> None
-        | Some _ -> Some (fun () -> single cpuAvg.Average)
 
     /// Max CPU frequency
     let cpuFrequency =
@@ -242,7 +240,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
 
     let newNodePerformanceInfo () : PerformanceInfo =
         {
-            CpuUsage            = getCpuAvg             |> getPerfValue
+            CpuUsage            = cpuUsage              |> getPerfValue
             MaxClockSpeed       = cpuFrequency          |> getPerfValue
             TotalMemory         = totalMemory           |> getPerfValue
             MemoryUsage         = memoryUsage           |> getPerfValue
@@ -251,20 +249,6 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
             Platform            = new Nullable<_>(currentPlatform.Value)
             Runtime             = new Nullable<_>(currentRuntime.Value)
         }
-
-    // polling loop behaviour
-    let rec poller () = async {
-        try 
-            // Add polling operations here
-            cpuUsage |> Option.iter (fun f -> f () |> double |> cpuAvg.Enqueue)
-
-        with _ -> ()
-
-        do! Async.Sleep updateInterval
-        return! poller ()
-    }
-
-    do Async.Start(poller(), cts.Token)
 
     /// <summary>
     ///     Starts a new performance monitor instance with supplied intervals.
