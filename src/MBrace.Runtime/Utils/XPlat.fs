@@ -61,3 +61,10 @@ let currentRuntime = lazy(
     else
         // TODO: CoreCLR support... 
         Runtime.DesktopCLR)
+
+/// Gets the home path for the current user
+let getHomePath () =
+    match currentPlatform.Value with
+    | Platform.Unix | Platform.Linux | Platform.BSD | Platform.OSX -> Environment.GetEnvironmentVariable "HOME"
+    | Platform.Windows -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
+    | _ -> invalidOp "could not retrieve home path"
