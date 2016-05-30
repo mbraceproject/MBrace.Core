@@ -41,7 +41,8 @@ let currentPlatform = lazy(
     | PlatformID.MacOSX -> Platform.OSX
     | PlatformID.Unix ->
         try
-            let exitCode, output = runCommand "uname" ""
+            let exitCode, output = runBourneShellScript "uname || /bin/uname" // account for docker containers
+                                                                              // which do not have '/bin' in $PATH
             if exitCode <> 0 then Platform.Other else
 
             // c.f. https://en.wikipedia.org/wiki/Uname#Examples
