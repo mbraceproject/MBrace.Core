@@ -123,7 +123,15 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                 if m.Success then
                     let result = single m.Groups.[1].Value
                     Some(fun () -> result)
-                else None
+                else
+                // docker images not reporting max MHz
+                let m = Regex.Match(results, "CPU MHz:\s+([0-9\.]+)")
+                if m.Success then
+                    let result = single m.Groups.[1].Value
+                    Some(fun () -> result)
+                else
+                    None
+
 
         | Platform.OSX ->
             let exitCode,results = runCommand "sysctl" "hw.cpufrequency"

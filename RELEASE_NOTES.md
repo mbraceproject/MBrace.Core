@@ -1,3 +1,6 @@
+### 1.2.3
+* Perfmon bugfix.
+
 ### 1.2.2
 * XPlat bugfix.
 
