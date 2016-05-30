@@ -1,3 +1,6 @@
+### 1.2.1
+* Perfmon bugfix.
+
 ### 1.2.0
 * Improve cross platform performance monitoring.
 * Misc bugfixes.
