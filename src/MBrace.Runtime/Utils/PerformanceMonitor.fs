@@ -68,7 +68,9 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
 
         Async.Start(poll 0, cts.Token)
 
-        fun () -> buf |> Seq.filter (fun s -> s >= 0.) |> Seq.average |> single
+        fun () ->
+            let values = buf |> Array.filter (fun s -> s >= 0.)
+            if values.Length = 0 then Single.NaN else Array.average values |> single
 
     let perfCounters = new List<PerformanceCounter>()
 
