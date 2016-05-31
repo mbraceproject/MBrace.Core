@@ -1,3 +1,6 @@
+### 1.2.4
+* Vagabond bugfix.
+
 ### 1.2.3
 * Perfmon bugfix.
 

@@ -3,8 +3,8 @@ NUGET
   remote: https://www.nuget.org/api/v2
   specs:
     Argu (2.1)
-    FAKE (4.25.4)
-    FsCheck (2.3)
+    FAKE (4.28)
+    FsCheck (2.4)
       FSharp.Core (>= 3.1.2.5)
     FSharp.Compiler.Service (1.3.1.2)
     FSharp.Core (4.0.0.1)
@@ -30,7 +30,7 @@ NUGET
       Microsoft.Bcl.Build (>= 1.0.14)
     Mono.Cecil (0.9.6.1)
     Newtonsoft.Json (8.0.3)
-    NuGet.CommandLine (3.3)
+    NuGet.CommandLine (3.4.3)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
     Octokit (0.19)
@@ -39,49 +39,34 @@ NUGET
     Streams (0.4.1)
     Streams.CSharp (0.4.1)
       Streams (0.4.1)
-    System.Globalization (4.0.10) - framework: dnxcore50
-      System.Runtime (>= 4.0) - framework: dnxcore50
-    System.IO (4.0.10) - framework: dnxcore50
-      System.Globalization (>= 4.0) - framework: dnxcore50
-      System.Runtime (>= 4.0.20) - framework: dnxcore50
-      System.Text.Encoding (>= 4.0) - framework: dnxcore50
-      System.Text.Encoding (>= 4.0.10) - framework: dnxcore50
-      System.Text.Encoding.Extensions (>= 4.0) - framework: dnxcore50
-      System.Threading (>= 4.0) - framework: dnxcore50
-      System.Threading.Tasks (>= 4.0) - framework: dnxcore50
-    System.Private.Uri (4.0) - framework: dnxcore50
-    System.Reflection (4.0.10) - framework: dnxcore50
-      System.IO (>= 4.0) - framework: dnxcore50
-      System.Reflection.Primitives (>= 4.0) - framework: dnxcore50
-      System.Runtime (>= 4.0.20) - framework: dnxcore50
-    System.Reflection.Primitives (4.0) - framework: dnxcore50
-      System.Runtime (>= 4.0) - framework: dnxcore50
-      System.Threading (>= 4.0) - framework: dnxcore50
-    System.Runtime (4.0.20) - framework: dnxcore50
-      System.Private.Uri (>= 4.0) - framework: dnxcore50
-    System.Runtime.Loader (4.0.0-beta-23516)
-      System.IO (>= 4.0) - framework: dnxcore50
-      System.Reflection (>= 4.0) - framework: dnxcore50
-      System.Runtime (>= 4.0) - framework: dnxcore50
-    System.Text.Encoding (4.0.10) - framework: dnxcore50
-      System.Runtime (>= 4.0) - framework: dnxcore50
-    System.Text.Encoding.Extensions (4.0.10) - framework: dnxcore50
-      System.Runtime (>= 4.0) - framework: dnxcore50
-      System.Text.Encoding (>= 4.0.10) - framework: dnxcore50
-    System.Threading (4.0.10) - framework: dnxcore50
-      System.Runtime (>= 4.0) - framework: dnxcore50
-      System.Threading.Tasks (>= 4.0) - framework: dnxcore50
-    System.Threading.Tasks (4.0.10) - framework: dnxcore50
-      System.Runtime (>= 4.0) - framework: dnxcore50
+    System.IO (4.1.0-rc2-24027) - framework: >= netstandard15
+      System.Runtime (>= 4.1.0-rc2-24027) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
+      System.Text.Encoding (>= 4.0.11-rc2-24027) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
+      System.Threading.Tasks (>= 4.0.11-rc2-24027) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
+    System.Reflection (4.1.0-rc2-24027) - framework: >= netstandard15
+      System.IO (>= 4.1.0-rc2-24027) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
+      System.Reflection.Primitives (>= 4.0.1-rc2-24027) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
+      System.Runtime (>= 4.1.0-rc2-24027) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
+    System.Reflection.Primitives (4.0.1-rc2-24027) - framework: >= netstandard15
+      System.Runtime (>= 4.1.0-rc2-24027) - framework: dnxcore50, >= netstandard10
+    System.Runtime (4.1.0-rc2-24027) - framework: >= netstandard15
+    System.Runtime.Loader (4.0.0-rc2-24027)
+      System.IO (>= 4.1.0-rc2-24027) - framework: >= netstandard15
+      System.Reflection (>= 4.1.0-rc2-24027) - framework: >= netstandard15
+      System.Runtime (>= 4.1.0-rc2-24027) - framework: >= netstandard15
+    System.Text.Encoding (4.0.11-rc2-24027) - framework: >= netstandard15
+      System.Runtime (>= 4.1.0-rc2-24027) - framework: dnxcore50, netstandard10, >= netstandard13
+    System.Threading.Tasks (4.0.11-rc2-24027) - framework: >= netstandard15
+      System.Runtime (>= 4.1.0-rc2-24027) - framework: dnxcore50, netstandard10, >= netstandard13
     TaskParallelLibrary (1.0.2856) - framework: net35
     Thespian (0.1.11-alpha)
       FsPickler (>= 2.1 < 3.0)
     Unquote (3.1.1)
-    Vagabond (0.12.11)
+    Vagabond (0.13)
       FsPickler (>= 2.1 < 3.0)
       Mono.Cecil (>= 0.9.6.1 < 0.9.7)
 GITHUB
   remote: fsharp/FAKE
   specs:
-    modules/Octokit/Octokit.fsx (3bf706bd6058733a1a034755741076b3953aaf09)
+    modules/Octokit/Octokit.fsx (60acb2f035cb39f2bd40a6c58a4de10d915da248)
       Octokit
