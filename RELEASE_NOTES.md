@@ -1,3 +1,6 @@
+### 1.2.6
+* Fix packaging issue
+
 ### 1.2.5
 * CloudProcess and CloudTask bugfixes
 
