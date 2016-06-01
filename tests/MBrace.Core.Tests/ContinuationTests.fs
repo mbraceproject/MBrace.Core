@@ -595,6 +595,18 @@ module ``Continuation Tests`` =
         let t = Cloud.StartAsTask(cloud { return 42 }, ResourceRegistry.Empty, new InMemoryCancellationToken())
         t.Result |> shouldEqual 42
 
+    [<Test>]
+    let ``await cancelled task`` () =
+        cloud {
+            let ct = new System.Threading.CancellationToken(canceled = true)
+            let task = Async.StartAsTask(Async.Sleep 5000, cancellationToken = ct)
+            try 
+                let! _ = Cloud.AwaitTask task
+                return false
+            with :? OperationCanceledException ->
+                return true
+        } |> run |> Choice.shouldEqual true
+
     //
     //  Sequential workflow tests
     //

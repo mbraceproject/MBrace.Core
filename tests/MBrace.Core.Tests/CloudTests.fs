@@ -12,6 +12,8 @@ open MBrace.Core.Internals
 open MBrace.Library
 open MBrace.Library.CloudCollectionUtils
 
+#nowarn "444"
+
 /// Suite for testing MBrace parallelism & distribution
 /// <param name="parallelismFactor">Maximum permitted parallel work items permitted in tests.</param>
 /// <param name="delayFactor">
@@ -746,6 +748,20 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 let! job = Cloud.CreateProcess(Cloud.Sleep (20 * delayFactor))
                 return! Cloud.AwaitProcess(job, timeoutMilliseconds = 1)
             } |> runOnCloud |> Choice.shouldFailwith<_, TimeoutException>)
+
+    [<Test>]
+    member __.``3. CloudProcess: await cancelled process`` () =
+        cloud {
+            let! cts = Cloud.CreateCancellationTokenSource()
+            cts.Cancel()
+            let! proc = Cloud.CreateProcess(Cloud.Sleep 5000, cancellationToken = cts.Token)
+            do! proc.WaitAsync()
+            try 
+                let! _ = proc.AwaitResult()
+                return false
+            with :? OperationCanceledException ->
+                return true
+        } |> runOnCloud |> Choice.shouldEqual true
 
     [<Test>]
     member __.``1. CloudProcess : nonserializable type`` () =

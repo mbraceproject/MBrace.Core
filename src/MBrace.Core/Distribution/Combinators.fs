@@ -92,7 +92,7 @@ type Cloud =
             let onCompletion (t : Task<'T>) =
                 match t.Status with
                 | TaskStatus.Faulted -> cont.Exception ctx (capture t.InnerException)
-                | TaskStatus.Canceled -> cont.Cancellation ctx (new System.OperationCanceledException())
+                | TaskStatus.Canceled -> cont.Exception ctx (capture (new TaskCanceledException(task)))
                 | _ -> cont.Success ctx t.Result
 
             let _ = task.ContinueWith(onCompletion, TaskContinuationOptions.None) in ())
