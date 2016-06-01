@@ -334,6 +334,21 @@ module ``Continuation Tests`` =
         } |> run |> Choice.shouldEqual (false, true)
 
     [<Test>]
+    let ``use bindings should perform null checks (ICloudDisposable)`` () =
+        cloud {
+            use d = Unchecked.defaultof<ICloudDisposable>
+            return ()
+        } |> run |> Choice.shouldEqual ()
+
+
+    [<Test>]
+    let ``use bindings should perform null checks (IDisposable)`` () =
+        cloud {
+            use d = Unchecked.defaultof<IDisposable>
+            return ()
+        } |> run |> Choice.shouldEqual ()
+
+    [<Test>]
     let ``use! binding (ICloudDisposable)`` () =
         cloud {
             let! r1, d = cloud {

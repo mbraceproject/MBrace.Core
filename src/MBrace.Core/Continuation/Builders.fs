@@ -245,10 +245,11 @@ module internal BuilderImpl =
             else
                 f ctx cont'
 
-    let inline dispose (d : ICloudDisposable) = ofAsync (async { return! d.Dispose() })
+    let inline dispose (d : ICloudDisposable) = 
+        ofAsync (async { if not <| obj.ReferenceEquals(d, null) then return! d.Dispose() })
 
     let inline usingIDisposable (t : #IDisposable) (g : #IDisposable -> #Cloud<'S>) : Body<'S> =
-        tryFinally (bind ((ret t)) g) (retFunc t.Dispose)
+        tryFinally (bind ((ret t)) g) (retFunc (fun () -> if not <| obj.ReferenceEquals(t, null) then t.Dispose()))
 
     let inline usingICloudDisposable (t : #ICloudDisposable) (g : #ICloudDisposable -> #Cloud<'S>) : Body<'S> =
         tryFinally (bind (ret t) g) (dispose t)
