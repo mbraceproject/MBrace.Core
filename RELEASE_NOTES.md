@@ -1,3 +1,6 @@
+### 1.2.5
+* CloudProcess and CloudTask bugfixes
+
 ### 1.2.4
 * Vagabond bugfix.
 
