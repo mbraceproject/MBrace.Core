@@ -95,6 +95,24 @@ module Utils =
                 if f i t then ra.Add t
 
             ra.ToArray()
+
+    type Environment with
+        /// <summary>
+        ///     Resolves an environment variable from the local machine.
+        ///     Variables are resolved using the following target order:
+        ///     Process, User and finally, Machine.
+        /// </summary>
+        /// <param name="variableName">Environment variable name.</param>
+        static member ResolveEnvironmentVariable(variableName : string) =
+            let aux found target =
+                if String.IsNullOrWhiteSpace found then 
+                    Environment.GetEnvironmentVariable(variableName, target)
+                else found
+
+            Array.fold aux null [|
+                EnvironmentVariableTarget.Process
+                EnvironmentVariableTarget.User
+                EnvironmentVariableTarget.Machine |]
     
     let hset (xs : 'T seq) = new System.Collections.Generic.HashSet<'T>(xs)
 
