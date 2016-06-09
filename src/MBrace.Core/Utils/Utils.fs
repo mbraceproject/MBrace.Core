@@ -298,17 +298,27 @@ namespace MBrace.Core.Internals.CSharpProxy
 
     /// C# friendly wrapper functions for F# lambdas
     type FSharpFunc =
-        static member Create<'a,'b> (func:System.Converter<'a,'b>) : 'a -> 'b = fun x -> func.Invoke(x)
-        static member Create<'a>(func:System.Predicate<'a>) : 'a -> bool = fun x -> func.Invoke(x)
+        static member Create<'a,'b> (func:System.Converter<'a,'b>) : 'a -> 'b = fun a -> func.Invoke(a)
+        static member Create<'a>(func:System.Predicate<'a>) : 'a -> bool = fun a -> func.Invoke(a)
 
         static member Create<'a> (func:System.Func<'a>) : unit -> 'a = fun () -> func.Invoke()
-        static member Create<'a,'b> (func:System.Func<'a,'b>) : 'a -> 'b = fun x -> func.Invoke x
-        static member Create<'a,'b,'c> (func:System.Func<'a,'b,'c>) : 'a -> 'b -> 'c = fun x y -> func.Invoke(x,y)
-        static member Create<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) : 'a -> 'b -> 'c -> 'd = fun x y z -> func.Invoke(x,y,z)
-        static member Create<'a,'b,'c,'d,'e> (func:System.Func<'a,'b,'c,'d,'e>) : 'a -> 'b -> 'c -> 'd -> 'e = fun x y z w -> func.Invoke(x,y,z,w)
+        static member Create<'a,'b> (func:System.Func<'a,'b>) : 'a -> 'b = fun a -> func.Invoke(a)
+        static member Create<'a,'b,'c> (func:System.Func<'a,'b,'c>) : 'a -> 'b -> 'c = fun a b -> func.Invoke(a,b)
+        static member Create<'a,'b,'c,'d> (func:System.Func<'a,'b,'c,'d>) : 'a -> 'b -> 'c -> 'd = fun a b c -> func.Invoke(a,b,c)
+        static member Create<'a,'b,'c,'d,'e> (func:System.Func<'a,'b,'c,'d,'e>) : 'a -> 'b -> 'c -> 'd -> 'e = fun a b c d -> func.Invoke(a,b,c,d)
+        static member Create<'a,'b,'c,'d,'e,'f> (func:System.Func<'a,'b,'c,'d,'e,'f>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f = fun a b c d e -> func.Invoke(a,b,c,d,e)
+        static member Create<'a,'b,'c,'d,'e,'f,'g> (func:System.Func<'a,'b,'c,'d,'e,'f,'g>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g = fun a b c d e f -> func.Invoke(a,b,c,d,e,f)
+        static member Create<'a,'b,'c,'d,'e,'f,'g,'h> (func:System.Func<'a,'b,'c,'d,'e,'f,'g,'h>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h = fun a b c d e f g -> func.Invoke(a,b,c,d,e,f,g)
+        static member Create<'a,'b,'c,'d,'e,'f,'g,'h,'i> (func:System.Func<'a,'b,'c,'d,'e,'f,'g,'h,'i>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> 'i = fun a b c d e f g h -> func.Invoke(a,b,c,d,e,f,g,h)
+        static member Create<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> (func:System.Func<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> 'i -> 'j = fun a b c d e f g h i -> func.Invoke(a,b,c,d,e,f,g,h,i)
+        static member Create<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j,'k> (func:System.Func<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j,'k>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> 'i -> 'j -> 'k = fun a b c d e f g h i j -> func.Invoke(a,b,c,d,e,f,g,h,i,j)
 
         static member Create(func:System.Action) : unit -> unit = fun () -> func.Invoke()
-        static member Create<'a>(func:System.Action<'a>) : 'a -> unit = fun x -> func.Invoke x
-        static member Create<'a,'b>(func:System.Action<'a,'b>) : 'a -> 'b -> unit = fun x y -> func.Invoke(x,y)
-        static member Create<'a,'b,'c>(func:System.Action<'a,'b,'c>) : 'a -> 'b -> 'c -> unit = fun x y z -> func.Invoke(x,y,z)
-        static member Create<'a,'b,'c,'d>(func:System.Action<'a,'b,'c,'d>) : 'a -> 'b -> 'c -> 'd -> unit = fun x y z w -> func.Invoke(x,y,z,w)
+        static member Create<'a>(func:System.Action<'a>) : 'a -> unit = fun a -> func.Invoke(a)
+        static member Create<'a,'b>(func:System.Action<'a,'b>) : 'a -> 'b -> unit = fun a b -> func.Invoke(a,b)
+        static member Create<'a,'b,'c>(func:System.Action<'a,'b,'c>) : 'a -> 'b -> 'c -> unit = fun a b c -> func.Invoke(a,b,c)
+        static member Create<'a,'b,'c,'d>(func:System.Action<'a,'b,'c,'d>) : 'a -> 'b -> 'c -> 'd -> unit = fun a b c d -> func.Invoke(a,b,c,d)
+        static member Create<'a,'b,'c,'d,'e>(func:System.Action<'a,'b,'c,'d,'e>) : 'a -> 'b -> 'c -> 'd -> 'e -> unit = fun a b c d e -> func.Invoke(a,b,c,d,e)
+        static member Create<'a,'b,'c,'d,'e,'f>(func:System.Action<'a,'b,'c,'d,'e,'f>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> unit = fun a b c d e f -> func.Invoke(a,b,c,d,e,f)
+        static member Create<'a,'b,'c,'d,'e,'f,'g>(func:System.Action<'a,'b,'c,'d,'e,'f,'g>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> unit = fun a b c d e f g -> func.Invoke(a,b,c,d,e,f,g)
+        static member Create<'a,'b,'c,'d,'e,'f,'g,'h>(func:System.Action<'a,'b,'c,'d,'e,'f,'g,'h>) : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> unit = fun a b c d e f g h -> func.Invoke(a,b,c,d,e,f,g,h)
