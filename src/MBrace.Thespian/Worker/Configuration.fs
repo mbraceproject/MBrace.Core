@@ -20,17 +20,17 @@ module internal WorkerConfiguration =
     /// CLI command line paramaters
     type Arguments =
         | [<NoAppSettings>][<Hidden>] Parent_Actor of byte []
-        | [<AltCommandLine("-w")>] Working_Directory of string
-        | [<AltCommandLine("-H")>] Hostname of string
-        | [<AltCommandLine("-p")>] Port of int
+        | [<AltCommandLine("-w")>] Working_Directory of path:string
+        | [<AltCommandLine("-H")>] Hostname of uri:string
+        | [<AltCommandLine("-p")>] Port of tcp_port:int
         | [<AltCommandLine("-q")>] Quiet
-        | [<AltCommandLine("-l")>] Log_Level of int
-        | [<AltCommandLine("-j")>] Max_Concurrent_Work_Items of int
-        | [<AltCommandLine("-i")>] Use_AppDomain_Isolation of bool
-        | [<AltCommandLine("-li")>] Max_Log_Write_Interval of float
-        | [<AltCommandLine("-L")>] Log_File of string
-        | [<AltCommandLine("-b")>] Heartbeat_Interval of float
-        | [<AltCommandLine("-t")>] Heartbeat_Threshold of float
+        | [<AltCommandLine("-l")>] Log_Level of level:int
+        | [<AltCommandLine("-j")>] Max_Concurrent_Work_Items of num:int
+        | [<AltCommandLine("-i")>] Use_AppDomain_Isolation of enable:bool
+        | [<AltCommandLine("-li")>] Max_Log_Write_Interval of seconds:float
+        | [<AltCommandLine("-L")>] Log_File of path:string
+        | [<AltCommandLine("-b")>] Heartbeat_Interval of seconds:float
+        | [<AltCommandLine("-t")>] Heartbeat_Threshold of seconds:float
 
         interface IArgParserTemplate with
             member a.Usage =
@@ -49,7 +49,7 @@ module internal WorkerConfiguration =
                 | Log_File _ -> "Specify a log file for node logging purposes."
 
     /// Argument parser instance object
-    let argParser = ArgumentParser.Create<Arguments>()
+    let argParser = ArgumentParser.Create<Arguments>(errorHandler = new ProcessExiter())
 
     /// Worker startup result; submitted to process that is spawning a child worker process.
     type WorkerStartupResult =
@@ -79,7 +79,7 @@ module internal WorkerConfiguration =
 
         /// Parse configuration object from command line
         static member Parse(?argv : string[]) =
-            let results = argParser.Parse(?inputs = argv, errorHandler = new ProcessExiter())
+            let results = argParser.Parse(?inputs = argv)
             {
                 WorkingDirectory = results.TryGetResult <@ Working_Directory @>
                 Hostname = results.TryGetResult <@ Hostname @>
@@ -110,7 +110,7 @@ module internal WorkerConfiguration =
                 match config.Parent with Some p -> yield Parent_Actor p.Bytes | None -> ()
                 match config.HeartbeatInterval with Some i -> yield Heartbeat_Interval i.TotalSeconds | None -> ()
                 match config.HeartbeatThreshold with Some i -> yield Heartbeat_Threshold i.TotalSeconds | None -> ()
-            ] |> argParser.PrintCommandLineFlat
+            ] |> argParser.PrintCommandLineArgumentsFlat
 
     /// Asynchronously spawns a worker process with supplied configuration
     let spawnAsync (nodeExecutable : string) (runAsBackground : bool) (config : WorkerConfiguration) = async {
