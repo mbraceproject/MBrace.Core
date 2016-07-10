@@ -32,7 +32,7 @@ It is written on top of the [Nessos.Streams](http://nessos.github.io/Streams) li
 
 ### MBrace.CSharp [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.CSharp.svg?style=flat)](https://www.nuget.org/packages/MBrace.CSharp/)
 
-[MBrace.CSharp](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.CSharp) contains C# friendly wrapper APIs for the MBrace core programming model. Development currently suspended.
+[MBrace.CSharp](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.CSharp) contains C# friendly wrapper APIs for the MBrace core programming model.
 
 ### MBrace.Runtime [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Runtime.svg?style=flat)](https://www.nuget.org/packages/MBrace.Runtime/)
 
