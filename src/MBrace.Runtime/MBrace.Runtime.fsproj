@@ -59,7 +59,6 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Vagabond.fs" />
     <Compile Include="Utils\Retry.fs" />
     <Compile Include="Utils\Utils.fs" />
     <Compile Include="Utils\XPlat.fs" />
@@ -69,18 +68,19 @@
     <Compile Include="Utils\TypePrinter.fs" />
     <Compile Include="Utils\RecordPrinter.fs" />
     <Compile Include="Utils\WorkItemExecutionMonitor.fs" />
-    <Compile Include="Utils\PerformanceMonitor.fs" />
     <Compile Include="Utils\InMemoryCache.fs" />
     <Compile Include="Utils\Serialization.fs" />
-    <Compile Include="Serializers.fs" />
     <Compile Include="Store\FileStoreCache.fs" />
     <Compile Include="Store\FileSystemStore.fs" />
-    <Compile Include="ThreadPool\ThreadPoolPrimitives.fs" />
-    <Compile Include="ThreadPool\ThreadPoolStore.fs" />
-    <Compile Include="ThreadPool\ThreadPoolCombinators.fs" />
-    <Compile Include="ThreadPool\ThreadPoolParallelismProvider.fs" />
-    <Compile Include="ThreadPool\ThreadPoolClient.fs" />
+    <Compile Include="Runtime\Vagabond.fs" />
+    <Compile Include="Runtime\Serializers.fs" />
     <Compile Include="Runtime\SystemLogs.fs" />
+    <Compile Include="Runtime\PerformanceMonitor.fs" />
+    <Compile Include="Runtime\ThreadPool\ThreadPoolPrimitives.fs" />
+    <Compile Include="Runtime\ThreadPool\ThreadPoolStore.fs" />
+    <Compile Include="Runtime\ThreadPool\ThreadPoolCombinators.fs" />
+    <Compile Include="Runtime\ThreadPool\ThreadPoolParallelismProvider.fs" />
+    <Compile Include="Runtime\ThreadPool\ThreadPoolClient.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\Primitives.fs" />
     <Compile Include="Runtime\CancellationToken.fs" />

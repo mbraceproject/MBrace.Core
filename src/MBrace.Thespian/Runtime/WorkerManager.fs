@@ -9,7 +9,6 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Utils.PerformanceMonitor
 
 /// Defines a unique idenfier for an MBrace.Thespian worker
 [<Sealed; AutoSerializable(true)>]

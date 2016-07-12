@@ -5,8 +5,6 @@ open System
 open MBrace.Core
 open MBrace.Core.Internals
 
-open MBrace.Runtime.Utils.PerformanceMonitor
-
 /// Runtime provided worker identifier
 /// must implement equality and comparison semantics
 type IWorkerId =

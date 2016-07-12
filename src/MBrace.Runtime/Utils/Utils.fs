@@ -526,53 +526,6 @@ module Utils =
             use m = new MemoryStream(pickle)
             s.Deserialize<'T>(m, leaveOpen = true)
 
-
-    // MarshalledAction: used for sending cross-AppDomain events
-
-    type private ActionProxy<'T>(action : 'T -> unit) =
-        inherit MarshalByRefObject()
-        override __.InitializeLifetimeService () = null
-        member __.Trigger(pickle : byte[]) =
-            try 
-                let t = VagabondRegistry.Instance.Serializer.UnPickle<'T>(pickle)
-                let _ = Async.StartAsTask(async { action t })
-                null
-            with e ->
-                VagabondRegistry.Instance.Serializer.Pickle e
-
-        member self.Disconnect() =
-            ignore <| System.Runtime.Remoting.RemotingServices.Disconnect self
-
-    /// Action that can be marshalled across AppDomains
-    [<Sealed; DataContract>]
-    type MarshaledAction<'T> internal (action : 'T -> unit) =
-        do VagabondRegistry.Instance |> ignore
-        [<IgnoreDataMember>]
-        let mutable proxy = new ActionProxy<'T>(action)
-        [<DataMember(Name = "ObjRef")>]
-        let objRef = System.Runtime.Remoting.RemotingServices.Marshal(proxy)
-        [<OnDeserialized>]
-        let _onDeserialized (_ : StreamingContext) =
-            proxy <- System.Runtime.Remoting.RemotingServices.Unmarshal objRef :?> ActionProxy<'T>
-
-        /// Invokes the marshaled action with supplied argument
-        member __.Invoke(t : 'T) =
-            let pickle = VagabondRegistry.Instance.Serializer.Pickle t
-            match proxy.Trigger pickle with
-            | null -> ()
-            | exnP -> raise <| VagabondRegistry.Instance.Serializer.UnPickle<exn> exnP
-
-        /// Disposes the marshaled action
-        member __.Dispose() = proxy.Disconnect()
-
-    and MarshaledAction =
-        /// <summary>
-        ///     Creates an action that can be serialized across AppDomains.
-        /// </summary>
-        /// <param name="action">Action to be marshalled.</param>
-        static member Create(action : 'T -> unit) = new MarshaledAction<_>(action)
-
-
     type Thread with
         /// <summary>
         ///     Computation that diverges on the current thread.

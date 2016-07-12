@@ -10,6 +10,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime.Utils
 
+open MBrace.Runtime
 open MBrace.ThreadPool
 
 #nowarn "444"
@@ -21,7 +22,7 @@ type ThreadPoolWorker private () =
     let name = System.Net.Dns.GetHostName()
     let pid = System.Diagnostics.Process.GetCurrentProcess().Id
     static let cpuClockSpeed = 
-        use perfMon = PerformanceMonitor.PerformanceMonitor.Start()
+        use perfMon = PerformanceMonitor.Start()
         let counters = perfMon.GetCounters()
         counters.MaxClockSpeed
 

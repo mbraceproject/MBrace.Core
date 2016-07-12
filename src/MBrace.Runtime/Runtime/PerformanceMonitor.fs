@@ -1,4 +1,4 @@
-﻿namespace MBrace.Runtime.Utils.PerformanceMonitor
+﻿namespace MBrace.Runtime
 
 open System
 open System.Net
