@@ -47,7 +47,9 @@ with
 
 /// Collects statistics on CPU, memory, network, etc.
 [<Sealed; AutoSerializable(false)>]
-type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, ?cancellationToken : CancellationToken) =
+type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
+                                    ?cancellationToken : CancellationToken, ?logger : ISystemLogger) =
+
     // Get a new counter value after 0.1 sec and keep the last 10 values
     let updateInterval = defaultArg updateInterval 100
     let maxSamplesCount = defaultArg maxSamplesCount 10
@@ -57,8 +59,14 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
         | None -> new CancellationTokenSource()
         | Some tok -> CancellationTokenSource.CreateLinkedTokenSource(tok)
 
+    let logger =
+        match logger with
+        | Some l -> l
+        | None -> new NullLogger() :> _
+
     // computes a rolling average by asynchronously sampling data source
-    let mkAveragePoller (src : unit -> single) : (unit -> single) =
+    // assumes values are all positive
+    let mkAveragePoller (src : unit -> double) : (unit -> double) =
         let buf = Array.init maxSamplesCount (fun _ -> -1.)
         let rec poll i = async {
             buf.[i] <- try double(src()) with _ -> -1.
@@ -69,15 +77,28 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
         Async.Start(poll 0, cts.Token)
 
         fun () ->
-            let values = buf |> Array.filter (fun s -> s >= 0.)
-            if values.Length = 0 then Single.NaN else Array.average values |> single
+            let mutable s, c = 0., 0
+            for v in buf do
+                if v >= 0. then c <- c + 1 ; s <- s + v
+
+            if c = 0 then Double.NaN else s / float c
+
+    static let mkPerfReader (pc : PerformanceCounter) =
+        fun () -> pc.NextValue() |> double
 
     let perfCounters = new List<PerformanceCounter>()
+
+    do if currentPlatform.Value = Platform.Windows then
+        try ignore(PerformanceCounterCategory.Exists "a")
+        with _ -> logger.Logf LogLevel.Warning "Error creating performance counters; corrupted counter cache. See also http://stackoverflow.com/a/18467730"
+
+    static let categoryExistsSafe category = 
+        try PerformanceCounterCategory.Exists category with _ -> false
 
     // Section: Performance counters 
 
     // Cpu Usage
-    let cpuUsage =
+    let getCpuUsage =
         match currentPlatform.Value with
         | Platform.OSX when currentRuntime.Value = Runtime.Mono ->
             // OSX/mono bug workaround https://bugzilla.xamarin.com/show_bug.cgi?id=41328
@@ -87,19 +108,29 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                     results.Split([|Environment.NewLine|], StringSplitOptions.RemoveEmptyEntries) 
                     |> Array.sumBy (fun t -> let ok,d = Double.TryParse t in if ok then d else 0.)
 
-                single total
+                total
 
-            Some reader
+            try
+                let _ = reader () in Some reader
+            with e -> 
+                logger.Logf LogLevel.Warning "Error generating CPU usage performance counter:%O" e
+                None
 
-        | _ when PerformanceCounterCategory.Exists("Processor") ->
-            let pc = new PerformanceCounter("Processor", "% Processor Time", "_Total", true)
-            perfCounters.Add(pc)
-            (fun () -> pc.NextValue()) |> mkAveragePoller |> Some
+        | _ when categoryExistsSafe "Processor" ->
+            try
+                let pc = new PerformanceCounter("Processor", "% Processor Time", "_Total", true)
+                let reader = mkPerfReader pc
+                let _ = reader ()
+                perfCounters.Add pc
+                reader |> mkAveragePoller |> Some
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating CPU usage performance counter:%O" e
+                None
 
         | _ -> None
 
     /// Max CPU frequency
-    let cpuFrequency =
+    let getCpuFrequency =
         match currentPlatform.Value with
         | Platform.Windows ->
             try
@@ -110,41 +141,51 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                                 |> Seq.head
 
                     let cpuFreq = qObj.["MaxClockSpeed"] :?> uint32
-                    single cpuFreq
+                    double cpuFreq
 
                 let _ = getCpuClockSpeed ()
                 Some getCpuClockSpeed
-            with _ -> None
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating CPU frequency performance counter:%O" e
+                None
 
         | Platform.Linux ->
-            let exitCode,results = runCommand "lscpu" ""
-            if exitCode <> 0 then None else
-                let m = Regex.Match(results, "CPU max MHz:\s+([0-9\.]+)")
-                if m.Success then
-                    let result = single m.Groups.[1].Value
-                    Some(fun () -> result)
-                else
-                // docker images not reporting max MHz
-                let m = Regex.Match(results, "CPU MHz:\s+([0-9\.]+)")
-                if m.Success then
-                    let result = single m.Groups.[1].Value
-                    Some(fun () -> result)
-                else
-                    None
+            try
+                let exitCode,results = runCommand "lscpu" ""
+                if exitCode <> 0 then None else
+                    let m = Regex.Match(results, "CPU max MHz:\s+([0-9\.]+)")
+                    if m.Success then
+                        let result = double m.Groups.[1].Value
+                        Some(fun () -> result)
+                    else
+                        // docker images not reporting max MHz
+                        let m = Regex.Match(results, "CPU MHz:\s+([0-9\.]+)")
+                        if m.Success then
+                            let result = double m.Groups.[1].Value
+                            Some(fun () -> result)
+                        else
+                            None
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating CPU frequency performance counter:%O" e
+                None
 
 
         | Platform.OSX ->
-            let exitCode,results = runCommand "sysctl" "hw.cpufrequency"
-            if exitCode <> 0 then None else
-                let m = Regex.Match(results, "hw.cpufrequency: ([0-9]+)")
-                if m.Success then
-                    let result = (float m.Groups.[1].Value) / 1e6 |> single
-                    Some(fun () -> result)
-                else None
+            try
+                let exitCode,results = runCommand "sysctl" "hw.cpufrequency"
+                if exitCode <> 0 then None else
+                    let m = Regex.Match(results, "hw.cpufrequency: ([0-9]+)")
+                    if m.Success then
+                        let result = (float m.Groups.[1].Value) / 1e6
+                        Some(fun () -> result)
+                    else None
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating CPU frequency performance counter:%O" e
+                None
 
         | _ -> None
     
-    let totalMemory = 
+    let getTotalMemory = 
         match currentPlatform.Value with
         | Platform.Windows ->
             try
@@ -153,28 +194,39 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                             |> Seq.cast<ManagementBaseObject> 
                             |> Seq.head
                 let totalBytes = qObj.["TotalPhysicalMemory"] :?> uint64
-                let mb = totalBytes / uint64 (1 <<< 20) |> single // size in MB
+                let mb = totalBytes / uint64 (1 <<< 20) |> double // size in MB
                 Some(fun () -> mb)
-            with _ -> None
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating total memory performance counter:%O" e
+                None
 
-        | _ when PerformanceCounterCategory.Exists("Mono Memory") ->
-            let pc = new PerformanceCounter("Mono Memory", "Total Physical Memory")
-            perfCounters.Add(pc)
-            let totalBytes = pc.NextValue() |> uint64
-            let mb = totalBytes / uint64 (1 <<< 20) |> single
-            Some(fun () -> mb)
+        | _ when categoryExistsSafe "Mono Memory" ->
+            try
+                let pc = new PerformanceCounter("Mono Memory", "Total Physical Memory")
+                perfCounters.Add(pc)
+                let totalBytes = pc.NextValue() |> uint64
+                let mb = totalBytes / uint64 (1 <<< 20) |> double
+                Some(fun () -> mb)
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating total memory performance counter:%O" e
+                None
 
         | _ -> None
     
-    let memoryUsage =
+    let getMemoryUsage =
         match currentPlatform.Value with
         | Platform.Windows when currentRuntime.Value = Runtime.DesktopCLR && 
-                                PerformanceCounterCategory.Exists("Memory") && 
-                                totalMemory.IsSome ->
-
-            let pc = new PerformanceCounter("Memory", "Available Mbytes", true)
-            perfCounters.Add(pc)
-            Some <| (fun () -> totalMemory.Value() - pc.NextValue())
+                                categoryExistsSafe "Memory" && 
+                                getTotalMemory.IsSome ->
+            try
+                let pc = new PerformanceCounter("Memory", "Available Mbytes", true)
+                let reader () = getTotalMemory.Value() - double (pc.NextValue())
+                let _ = reader ()
+                perfCounters.Add pc
+                Some reader
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating memory usage performance counter:%O" e
+                None
                 
 
         | Platform.OSX ->
@@ -186,9 +238,12 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                 let d = new Dictionary<string, uint64>()
                 for m in entryR.Matches(data) do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
                 let usedBytes = pageSize * (d.["Pages active"] + d.["Pages wired down"])
-                single (usedBytes / (1024uL * 1024uL))
+                double (usedBytes / (1024uL * 1024uL))
 
-            Some reader
+            try let _ = reader () in Some reader
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating memory usage performance counter:%O" e
+                None
 
         | Platform.Linux ->
             let regex = new Regex("(\w+):\s+([0-9\.]+) kB", RegexOptions.Compiled)
@@ -199,63 +254,78 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
                 for m in matches do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
                 // formula from http://serverfault.com/q/442813
                 let used = d.["MemTotal"] - d.["MemFree"] - d.["Buffers"] - d.["Cached"] - d.["SwapCached"]
-                single (used / 1024uL)
+                double (used / 1024uL)
 
-            Some reader
+            try let _ = reader () in Some reader
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating memory usage performance counter:%O" e
+                None
 
         | _ -> None
     
 
     // mono bug: https://bugzilla.xamarin.com/show_bug.cgi?id=41323
-    let networkSentUsage =
-        if PerformanceCounterCategory.Exists("Network Interface") then
-            let category = new PerformanceCounterCategory("Network Interface")
-            let pcs =
-                category.GetInstanceNames()
-                |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Sent/sec", nic))
+    let getNetworkSentUsage =
+        if categoryExistsSafe "Network Interface" then
+            try
+                let category = new PerformanceCounterCategory("Network Interface")
+                let pcs =
+                    category.GetInstanceNames()
+                    |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Sent/sec", nic))
 
-            if pcs.Length = 0 then None else
-            perfCounters.AddRange pcs
-            Some(fun () -> pcs |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
+                if pcs.Length = 0 then None else
+                let reader () = pcs |> Array.sumBy (fun c -> double (c.NextValue()) / 1024.) // KB/s
+                let _ = reader ()
+                perfCounters.AddRange pcs
+                Some reader
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating network sent performance counter:%O" e
+                None
 
         else None
     
-    let networkReceivedUsage =
-        if PerformanceCounterCategory.Exists("Network Interface") then
-            let category = new PerformanceCounterCategory("Network Interface")
-            let pcs =
-                category.GetInstanceNames()
-                |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Received/sec", nic))
+    let getNetworkReceivedUsage =
+        if categoryExistsSafe "Network Interface" then
+            try
+                let category = new PerformanceCounterCategory("Network Interface")
+                let pcs =
+                    category.GetInstanceNames()
+                    |> Array.map (fun nic -> new PerformanceCounter("Network Interface", "Bytes Received/sec", nic))
 
-            if pcs.Length = 0 then None else
-            perfCounters.AddRange pcs
-            Some(fun () -> pcs |> Array.sumBy (fun c -> c.NextValue () / 1024.f)) // KB/s
+                if pcs.Length = 0 then None else
+                let reader () = pcs |> Array.sumBy (fun c -> double(c.NextValue()) / 1024.) // KB/s
+                let _ = reader ()
+                perfCounters.AddRange pcs
+                Some reader
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating network received performance counter:%O" e
+                None
 
         else None
 
     // View information
 
     let monitored =
-        [   if cpuUsage.IsSome then  yield "%Cpu"
-            if cpuFrequency.IsSome then yield "Cpu Clock Speed"
-            if totalMemory.IsSome then yield "Total Memory"
-            if memoryUsage.IsSome then yield "Memory Used"
-            if networkSentUsage.IsSome then yield "Network (sent)"
-            if networkReceivedUsage.IsSome then yield "Network (received)" ]
+        [   if getCpuUsage.IsSome then  yield "%Cpu"
+            if getCpuFrequency.IsSome then yield "Cpu Clock Speed"
+            if getTotalMemory.IsSome then yield "Total Memory"
+            if getMemoryUsage.IsSome then yield "Memory Used"
+            if getNetworkSentUsage.IsSome then yield "Network (sent)"
+            if getNetworkReceivedUsage.IsSome then yield "Network (received)" ]
     
-    let getPerfValue (getterOpt : (unit -> single) option) : Nullable<double> =
+    let getPerfValue (getterOpt : (unit -> double) option) : Nullable<double> =
         match getterOpt with
-        | None -> Nullable<_>()
-        | Some getNext -> Nullable<_>(double <| getNext())
+        | None -> Nullable()
+        | Some getNext -> try Nullable(getNext()) with _ -> Nullable()
 
     let newNodePerformanceInfo () : PerformanceInfo =
         {
-            CpuUsage            = cpuUsage              |> getPerfValue
-            MaxClockSpeed       = cpuFrequency          |> getPerfValue
-            TotalMemory         = totalMemory           |> getPerfValue
-            MemoryUsage         = memoryUsage           |> getPerfValue
-            NetworkUsageUp      = networkSentUsage      |> getPerfValue
-            NetworkUsageDown    = networkReceivedUsage  |> getPerfValue
+            CpuUsage            = getCpuUsage               |> getPerfValue
+            MaxClockSpeed       = getCpuFrequency           |> getPerfValue
+            TotalMemory         = getTotalMemory            |> getPerfValue
+            MemoryUsage         = getMemoryUsage            |> getPerfValue
+            NetworkUsageUp      = getNetworkSentUsage       |> getPerfValue
+            NetworkUsageDown    = getNetworkReceivedUsage   |> getPerfValue
             Platform            = new Nullable<_>(currentPlatform.Value)
             Runtime             = new Nullable<_>(currentRuntime.Value)
         }
@@ -266,9 +336,10 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
     /// <param name="updateInterval">Polling interval in milliseconds. Defaults to 100.</param>
     /// <param name="maxSamplesCount">Max samples count. Defaults to 10.</param>
     /// <param name="cancellationToken">Cancellation token for the performance monitor.</param>
-    static member Start(?updateInterval : int, ?maxSamplesCount : int, ?cancellationToken) =
+    /// <param name="logger">Logger used by the perf monitor.</param>
+    static member Start(?updateInterval : int, ?maxSamplesCount : int, ?cancellationToken, ?logger) =
         new PerformanceMonitor(?updateInterval = updateInterval, ?maxSamplesCount = maxSamplesCount,
-                                ?cancellationToken = cancellationToken)
+                                ?cancellationToken = cancellationToken, ?logger = logger)
 
     member this.GetCounters () : PerformanceInfo =
         if cts.IsCancellationRequested then 
@@ -276,7 +347,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int, 
 
         newNodePerformanceInfo()
 
-    member this.MonitoredCategories : string seq = monitored :> _
+    member this.MonitoredCategories : string list = monitored
 
     interface System.IDisposable with
         member this.Dispose () = cts.Cancel()

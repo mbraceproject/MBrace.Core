@@ -166,7 +166,7 @@ type WorkerAgent private (runtime : IRuntimeManager, workerId : IWorkerId, workI
         match performanceMetricsInterval with
         | None -> None
         | Some pi ->
-            let perfmon = PerformanceMonitor.Start(cancellationToken = cts.Token)
+            let perfmon = PerformanceMonitor.Start(cancellationToken = cts.Token, logger = logger)
 
             let rec perfLoop () = async {
                 let perf = perfmon.GetCounters()
