@@ -2,9 +2,9 @@
 // FAKE build script 
 // --------------------------------------------------------------------------------------
 
-#I "packages/FAKE/tools"
-#r "packages/FAKE/tools/FakeLib.dll"
-#load "packages/SourceLink.Fake/tools/SourceLink.fsx"
+#I "packages/build/FAKE/tools"
+#r "packages/build/FAKE/tools/FakeLib.dll"
+#load "packages/build/SourceLink.Fake/tools/SourceLink.fsx"
 
 open Fake
 open Fake.Git
@@ -121,7 +121,7 @@ Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" ;
 //// --------------------------------------------------------------------------------------
 //// Github Releases
 
-#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
 Target "SourceLink" (fun _ ->

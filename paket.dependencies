@@ -7,20 +7,23 @@ nuget FsPickler ~> 2.1.0
 nuget FsPickler.Json ~> 2.1.0
 nuget Argu ~> 3.0
 nuget Vagabond ~> 0.13.0
-nuget FsUnit >= 1.3.0.1
 nuget NUnit ~> 2.6
 nuget NUnit.Runners ~> 2.6
 nuget Thespian ~> 0.1.11-alpha
 nuget FsCheck >= 2.0.1
-nuget Unquote >= 2.2.2
+nuget Unquote ~> 3.0
 nuget Streams ~> 0.4.0
 nuget Streams.CSharp ~> 0.4.0
-nuget NuGet.CommandLine
 nuget FSharp.Compiler.Service ~> 5.0
-nuget FAKE
-nuget SourceLink.Fake
 nuget MathNet.Numerics ~> 3.7.0
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
 nuget System.Runtime.Loader
-github fsharp/FAKE modules/Octokit/Octokit.fsx
+
+group Build
+  source https://nuget.org/api/v2
+
+  nuget FAKE
+  nuget SourceLink.Fake
+  nuget NuGet.CommandLine
+  github fsharp/FAKE modules/Octokit/Octokit.fsx
