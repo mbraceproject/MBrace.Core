@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Core.Tests
 
 open NUnit.Framework
+open Swensen.Unquote.Assertions
 
 open MBrace.Core
 open MBrace.Core.BuilderAsyncExtensions
@@ -10,10 +11,6 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.Run wf 
     let runOnCurrentProcess wf = self.RunLocally wf
-
-    let runProtected wf = 
-        try self.Run wf |> Choice1Of2
-        with e -> Choice2Of2 e
 
     let mutable counter = 0
     /// avoid caching interference in value creation
@@ -35,30 +32,30 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     member __.``Simple value creation`` () =
         let value = getUniqueValue()
         let cv = CloudValue.New value |> runOnCloud
-        cv.ReflectedType |> shouldEqual typeof<int list>
-        cv.Value |> shouldEqual value
+        test <@ cv.ReflectedType = typeof<int list> @>
+        test <@ cv.Value = value @>
 
     [<Test>]
     member __.``Null CloudValue`` () =
         let cv1 = CloudValue.New Option<int>.None |> runOnCloud
         let cv2 = CloudValue.New (()) |> runOnCloud
-        cv1.Id |> shouldEqual cv2.Id
-        cv1.ReflectedType |> shouldEqual typeof<obj>
-        cv2.ReflectedType |> shouldEqual typeof<obj>
+        test <@ cv1.Id = cv2.Id @>
+        test <@ cv1.ReflectedType = typeof<obj> @>
+        test <@ cv2.ReflectedType = typeof<obj> @>
         let cv = cv1.Cast<obj> ()
-        cv.Value |> shouldEqual null
+        test <@ cv.Value = null @>
 
     [<Test>]
     member __.``Invalid StorageLevel enumeration passed to CloudValue`` () =
-        fun () -> CloudValue.New(getUniqueValue(), enum 0) |> runOnCloud
-        |> shouldFailwith<_, System.ArgumentException>
+        raises<System.ArgumentException> 
+            <@ CloudValue.New(getUniqueValue(), enum 0) |> runOnCloud @>
 
     [<Test>]
     member __.``CloudValue of array should be CloudArray instance`` () =
         let cv = CloudValue.New [|1 .. 1000|] |> runOnCloud
         let ca = cv :?> CloudArray<int>
-        ca.ReflectedType |> shouldEqual typeof<int []>
-        ca.Length |> shouldEqual 1000
+        test <@ ca.ReflectedType = typeof<int []> @>
+        test <@ ca.Length = 1000 @>
 
     [<Test>]
     member __.``Simple value memory cached`` () =
@@ -66,11 +63,11 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let value = getUniqueValue()
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.Memory)
-                c.StorageLevel |> shouldEqual StorageLevel.Memory
-                c.IsCachedLocally |> shouldEqual true
+                test <@ c.StorageLevel = StorageLevel.Memory @>
+                test <@ c.IsCachedLocally = true @>
                 let! v1 = c.GetValueAsync()
                 let! v2 = c.GetValueAsync()
-                obj.ReferenceEquals(v1,v2) |> shouldEqual true
+                test <@ obj.ReferenceEquals(v1,v2) = true @>
             } |> runOnCloud
 
     [<Test>]
@@ -79,11 +76,11 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let value = getUniqueValue()
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemorySerialized)
-                c.StorageLevel |> shouldEqual StorageLevel.MemorySerialized
-                c.IsCachedLocally |> shouldEqual true
+                test <@ c.StorageLevel = StorageLevel.MemorySerialized @>
+                test <@ c.IsCachedLocally = true @>
                 let! v1 = c.GetValueAsync()
                 let! v2 = c.GetValueAsync()
-                obj.ReferenceEquals(v1,v2) |> shouldEqual false
+                test <@ obj.ReferenceEquals(v1,v2) = false @>
             } |> runOnCloud
 
     [<Test>]
@@ -92,11 +89,11 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let value = getUniqueValue()
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
-                c.StorageLevel |> shouldEqual StorageLevel.Disk
-                c.IsCachedLocally |> shouldEqual false
+                test <@ c.StorageLevel = StorageLevel.Disk @>
+                test <@ c.IsCachedLocally = false @>
                 let! v1 = c.GetValueAsync()
                 let! v2 = c.GetValueAsync()
-                obj.ReferenceEquals(v1,v2) |> shouldEqual false
+                test <@ obj.ReferenceEquals(v1,v2) = false @>
             } |> runOnCloud
 
     [<Test>]
@@ -105,12 +102,12 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let value = getUniqueValue()
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDisk)
-                c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDisk
+                test <@ c.StorageLevel = StorageLevel.MemoryAndDisk @>
                 let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
-                    obj.ReferenceEquals(v1,v2) |> shouldEqual true
-                    c.IsCachedLocally |> shouldEqual true
+                    test <@ obj.ReferenceEquals(v1,v2) = true @>
+                    test <@ c.IsCachedLocally = true @>
                 }
 
                 let! job = Cloud.CreateProcess(jobF())
@@ -123,12 +120,12 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let value = getUniqueValue()
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDiskSerialized)
-                c.StorageLevel |> shouldEqual StorageLevel.MemoryAndDiskSerialized
+                test <@ c.StorageLevel = StorageLevel.MemoryAndDiskSerialized @>
                 let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
-                    c.IsCachedLocally |> shouldEqual true
-                    obj.ReferenceEquals(v1,v2) |> shouldEqual false
+                    test <@ c.IsCachedLocally = true @>
+                    test <@ obj.ReferenceEquals(v1,v2) = false @>
                 }
 
                 let! job = Cloud.CreateProcess(jobF())
@@ -142,12 +139,12 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let value = getUniqueValue()
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
-                c.StorageLevel |> shouldEqual StorageLevel.Disk
+                test <@ c.StorageLevel = StorageLevel.Disk @>
                 let jobF () = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
-                    c.IsCachedLocally |> shouldEqual false
-                    obj.ReferenceEquals(v1,v2) |> shouldEqual false
+                    test <@ c.IsCachedLocally = false @>
+                    test <@ obj.ReferenceEquals(v1,v2) = false @>
                 }
 
                 let! job = Cloud.CreateProcess(jobF())
@@ -163,7 +160,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             }
 
             let! values = Cloud.Parallel [ for i in 1 .. parallelismFactor -> mkValue () ]
-            return values |> Seq.map (fun v -> v.Id) |> Seq.distinct |> Seq.length |> shouldEqual 1
+            let length = values |> Seq.map (fun v -> v.Id) |> Seq.distinct |> Seq.length 
+            test <@ length = 1 @>
         } |> runOnCloud
 
     [<Test>]
@@ -172,7 +170,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let value = [|for i in 1 .. 10000 -> sprintf "string %d" i|]
             use! cv1 = CloudValue.New value
             let! cv2 = CloudValue.New (box value)
-            cv2.Id |> shouldEqual cv1.Id
+            test <@ cv2.Id = cv1.Id @>
         } |> runOnCloud
 
     [<Test>]
@@ -181,14 +179,13 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             use! v1 = CloudValue.New [|1 .. 100|]
             let v2 = CloudValue.Cast<obj> v1
             let v3 = CloudValue.Cast<System.Array> v2
-            v2.Id |> shouldEqual v1.Id
-            v3.Id |> shouldEqual v1.Id
-            v1.ReflectedType |> shouldEqual typeof<int []>
-            v2.ReflectedType |> shouldEqual typeof<int []>
-            v3.ReflectedType |> shouldEqual typeof<int []>
+            test <@ v2.Id = v1.Id @>
+            test <@ v3.Id = v1.Id @>
+            test <@ v1.ReflectedType = typeof<int []> @>
+            test <@ v2.ReflectedType = typeof<int []> @>
+            test <@ v3.ReflectedType = typeof<int []> @>
 
-            fun () -> v1.Cast<int> ()
-            |> shouldFailwith<_, System.InvalidCastException>
+            raises<System.InvalidCastException> <@ v1.Cast<int> () @>
 
         } |> runOnCloud
 
@@ -202,7 +199,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             }
 
             use! ca = CloudValue.NewArray xs
-            ca.Length |> shouldEqual size
+            test <@ ca.Length = size @>
         } |> runOnCloud
 
     [<Test>]
@@ -211,9 +208,9 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let threshold = 10000
             let size = 10 * threshold
             let! values = CloudValue.NewArrayPartitioned(seq { 1 .. size }, partitionThreshold = int64 threshold)
-            values.Length |> shouldBe (fun l -> l >= 10 && l <= 50)
-            values |> Seq.sumBy (fun v -> v.Length) |> shouldEqual size
-            values |> Array.collect (fun vs -> vs.Value) |> shouldEqual [|1 .. size|]
+            test <@ values.Length >= 10 && values.Length <= 50 @>
+            test <@ values |> Seq.sumBy (fun v -> v.Length) = size @>
+            test <@ values |> Array.collect (fun vs -> vs.Value) = [|1 .. size|] @>
         } |> runOnCloud
 
     [<Test>]
@@ -223,8 +220,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let threshold = 1L + abs threshold
             cloud {
                 let! values = CloudValue.NewArrayPartitioned(seq { 1L .. size }, partitionThreshold = threshold)
-                values |> Array.sumBy (fun v -> int64 v.Length) |> shouldEqual size
-                values |> Array.collect (fun vs -> vs.Value) |> shouldEqual [|1L .. size|]
+                test <@ values |> Array.sumBy (fun v -> int64 v.Length) = size @>
+                test <@ values |> Array.collect (fun vs -> vs.Value) = [|1L .. size|] @>
             } |> runOnCloud
 
         Check.QuickThrowOnFail(check, maxRuns = 20, shrink = false)
@@ -239,7 +236,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let size = 10000
             let! value = CloudValue.New<obj>([|1 .. size|], storageLevel = level)
             let value' = value.Cast<int[]>() :?> CloudArray<int>
-            let! job = Cloud.CreateProcess(cloud { value'.Length |> shouldEqual size })
+            let! job = Cloud.CreateProcess(cloud { test <@ value'.Length = size @> })
             return! job.AwaitResult()
         } |> runOnCloud
 
@@ -247,16 +244,15 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Dispose CloudValue`` () =
         let value = getUniqueValue()
-        fun () ->
-            cloud {
-                let! cv = CloudValue.New value
-                do! CloudValue.Delete cv
-                do! Cloud.Sleep 2000
-                let! job = Cloud.CreateProcess(cloud { return! cv.GetValueAsync() })
-                return! job.AwaitResult()
-            } |> runOnCloud
+        let comp = cloud {
+            let! cv = CloudValue.New value
+            do! CloudValue.Delete cv
+            do! Cloud.Sleep 2000
+            let! job = Cloud.CreateProcess(cloud { return! cv.GetValueAsync() })
+            return! job.AwaitResult()
+        }
 
-        |> shouldFailwith<_,System.ObjectDisposedException>
+        raises<System.ObjectDisposedException> <@ runOnCloud comp @>
 
     [<Test>]
     member __.``Get CloudValue by Id`` () =
@@ -267,13 +263,12 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let! job = Cloud.CreateProcess(cloud {
                 let! cv' = CloudValue.TryGetValueById cv.Id
                 let cv' = CloudValue.Cast<int list> cv
-                cv'.Id |> shouldEqual cv.Id
+                test <@ cv'.Id = cv.Id @>
                 let! v' = cv'.GetValueAsync()
-                if isCacheable then cv'.IsCachedLocally |> shouldEqual true
-                if isCacheable then cv.IsCachedLocally |> shouldEqual true
+                if isCacheable then test <@ cv'.IsCachedLocally && cv.IsCachedLocally @>
                 let! v = cv.GetValueAsync()
-                if isCacheable then obj.ReferenceEquals(v,v') |> shouldEqual true
-                v' |> shouldEqual v
+                if isCacheable then test <@ obj.ReferenceEquals(v,v') = true @>
+                test <@ v' = v @>
             })
 
             return! job.AwaitResult()
@@ -282,7 +277,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
     [<Test>]
     member __.``Get Disposed CloudValue by Id`` () =
         let value = getUniqueValue()
-        cloud {
+        let comp = cloud {
             let! cv = CloudValue.New value
             let id = cv.Id
             do! CloudValue.Delete cv
@@ -292,7 +287,9 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             })
             return! job.AwaitResult()
 
-        } |> runOnCloud |> shouldEqual None
+        } 
+
+        test <@ runOnCloud comp = None @>
 
     [<Test>]
     member __.``Get All CloudValues`` () =
@@ -303,8 +300,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let! cv2 = CloudValue.New value'
             let! job = Cloud.CreateProcess(cloud {
                 let! allValues = CloudValue.GetAllValues()
-                allValues |> Array.exists (fun v -> v.Id = cv1.Id && cv1.Value = (v.Cast<int list>()).Value) |> shouldEqual true
-                allValues |> Array.exists (fun v -> v.Id = cv2.Id && cv2.Value = (v.Cast<int list>()).Value) |> shouldEqual true
+                test <@ allValues |> Array.exists (fun v -> v.Id = cv2.Id && cv2.Value = (v.Cast<int list>()).Value) @>
             })
             return! job.AwaitResult()
         } |> runOnCloud

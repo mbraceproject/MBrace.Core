@@ -8,6 +8,7 @@ open MBrace.Core.Tests
 open MBrace.CSharp.Tests
 
 open MBrace.Runtime
+open MBrace.Runtime.Utils.XPlat
 open MBrace.Runtime.Components
 open MBrace.ThreadPool
 
@@ -21,7 +22,11 @@ type ``Local FileSystemStore Tests`` () =
 
     override __.FileStore = fsStore :> _
     override __.Serializer = serializer :> _
-    override __.IsCaseSensitive = platformId = System.PlatformID.Unix
+    override __.IsCaseSensitive =
+        match currentPlatform.Value with
+        | Platform.BSD | Platform.Unix | Platform.Linux -> true
+        | _ -> false
+
     override __.Run(wf : Cloud<'T>) = imem.RunSynchronously wf
     override __.RunLocally(wf : Cloud<'T>) = imem.RunSynchronously wf
 

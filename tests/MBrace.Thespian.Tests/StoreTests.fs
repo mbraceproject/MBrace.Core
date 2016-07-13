@@ -7,6 +7,8 @@ open MBrace.Core.Internals
 open MBrace.Core.Tests
 open MBrace.Thespian
 
+open MBrace.Runtime.Utils.XPlat
+
 open NUnit.Framework
 
 [<Category("ThespianClusterTests")>]
@@ -23,7 +25,10 @@ type ``MBrace Thespian FileStore Tests`` () =
 
     override __.FileStore = session.Cluster.GetResource<ICloudFileStore>()
     override __.Serializer = session.Cluster.GetResource<ISerializer>()
-    override __.IsCaseSensitive = platformId = System.PlatformID.Unix
+    override __.IsCaseSensitive = 
+        match currentPlatform.Value with
+        | Platform.Linux | Platform.BSD | Platform.Unix -> true
+        | _ -> false
 
     override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow

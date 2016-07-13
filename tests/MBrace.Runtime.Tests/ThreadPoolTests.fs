@@ -4,6 +4,7 @@ open System.Collections.Concurrent
 open System.Threading
 
 open NUnit.Framework
+open Swensen.Unquote.Assertions
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -27,11 +28,10 @@ type ``ThreadPool Cloud Tests`` (memoryEmulation : MemoryEmulation) =
 
     member __.Runtime = imem
 
-    override __.Run(workflow : Cloud<'T>) = Choice.protect (fun () -> imem.RunSynchronously(workflow))
+    override __.Run(workflow : Cloud<'T>) = imem.RunSynchronously(workflow)
     override __.Run(workflow : ICloudCancellationTokenSource -> #Cloud<'T>) =
         let cts = ThreadPoolRuntime.CreateCancellationTokenSource()
-        Choice.protect(fun () ->
-            imem.RunSynchronously(workflow cts, cancellationToken = cts.Token))
+        imem.RunSynchronously(workflow cts, cancellationToken = cts.Token)
 
     override __.RunWithLogs(workflow : Cloud<unit>) =
         let logTester = new InMemoryLogTester()
@@ -55,11 +55,13 @@ type ``ThreadPool Cloud Tests (Shared)`` () =
     inherit ``ThreadPool Cloud Tests`` (MemoryEmulation.Shared)
 
     member __.``Memory Semantics`` () =
-        cloud {
+        let comp = cloud {
             let cell = ref 0
             let! results = Cloud.Parallel [ for i in 1 .. 10 -> cloud { ignore <| Interlocked.Increment cell } ]
             return !cell
-        } |> base.Runtime.RunSynchronously |> shouldEqual 10
+        } 
+        
+        test <@ base.Runtime.RunSynchronously comp = 10 @>
 
     member __.``Serialization Semantics`` () =
         cloud {
@@ -71,21 +73,25 @@ type ``ThreadPool Cloud Tests (EnsureSerializable)`` () =
     inherit ``ThreadPool Cloud Tests`` (MemoryEmulation.EnsureSerializable)
 
     member __.``Memory Semantics`` () =
-        cloud {
+        let comp = cloud {
             let cell = ref 0
             let! results = Cloud.Parallel [ for i in 1 .. 10 -> cloud { ignore <| Interlocked.Increment cell } ]
             return !cell
-        } |> base.Runtime.RunSynchronously |> shouldEqual 10
+        } 
+        
+        test <@ base.Runtime.RunSynchronously comp = 10 @>
 
 type ``ThreadPool Cloud Tests (Copied)`` () =
     inherit ``ThreadPool Cloud Tests`` (MemoryEmulation.Copied)
 
     member __.``Memory Semantics`` () =
-        cloud {
+        let comp = cloud {
             let cell = ref 0
             let! results = Cloud.Parallel [ for i in 1 .. 10 -> cloud { ignore <| Interlocked.Increment cell } ]
             return !cell
-        } |> base.Runtime.RunSynchronously |> shouldEqual 0
+        } 
+        
+        test <@ base.Runtime.RunSynchronously comp = 0 @>
 
 type ``InMemory CloudValue Tests`` () =
     inherit ``CloudValue Tests`` (parallelismFactor = 100)

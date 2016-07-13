@@ -7,6 +7,7 @@ open System.Reflection
 
 open Microsoft.FSharp.Reflection
 
+open Swensen.Unquote.Assertions
 open NUnit.Framework
 
 open MBrace.Core
@@ -58,12 +59,12 @@ module ``Runtime Utilities tests`` =
 
     [<Test>]
     let ``Generic collections active pattern`` () =
-        (|CollectionWithCount|_|) [|1 .. 100|] |> shouldBe (function Some (_,count) -> count = 100 | _ -> false)
-        (|CollectionWithCount|_|) (Array3D.zeroCreate<int> 5 5 5) |> shouldBe (function Some (_,count) -> count = 125 | _ -> false)
-        (|CollectionWithCount|_|) (dict [(1,1); (2,1)]) |> shouldBe (function Some (_,count) -> count = 2 | _ -> false)
-        (|CollectionWithCount|_|) (hset [1 .. 10]) |> shouldBe (function Some (_,count) -> count = 10 | _ -> false)
-        (|CollectionWithCount|_|) (let ht = new Hashtable() in ht.Add(1,1) ; ht) |> shouldBe (function Some (_,count) -> count = 1 | _ -> false)
-        (|CollectionWithCount|_|) (let d = new Dictionary<int,int>() in d.Add(1,1) ; d) |> shouldBe (function Some (_,count) -> count = 1 | _ -> false)
-        (|CollectionWithCount|_|) [1 .. 100] |> shouldBe (function Some (_,count) -> count = 100 | _ -> false)
-        (|CollectionWithCount|_|) (Map.ofList [(1,1)]) |> shouldBe (function Some (_,count) -> count = 1 | _ -> false)
-        (|CollectionWithCount|_|) (Set.ofList [1 .. 10]) |> shouldBe (function Some (_,count) -> count = 10 | _ -> false)
+        test <@ match (|CollectionWithCount|_|) [|1 .. 100|] with Some (_,count) -> count = 100 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) (Array3D.zeroCreate<int> 5 5 5) with Some (_,count) -> count = 125 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) (dict [(1,1); (2,1)]) with Some (_,count) -> count = 2 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) (hset [1 .. 10]) with Some (_,count) -> count = 10 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) (let ht = new Hashtable() in ht.Add(1,1) ; ht) with Some (_,count) -> count = 1 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) (let d = new Dictionary<int,int>() in d.Add(1,1) ; d) with Some (_,count) -> count = 1 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) [1 .. 100] with Some (_,count) -> count = 100 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) (Map.ofList [(1,1)]) with Some (_,count) -> count = 1 | _ -> false @>
+        test <@ match (|CollectionWithCount|_|) (Set.ofList [1 .. 10]) with Some (_,count) -> count = 10 | _ -> false @>

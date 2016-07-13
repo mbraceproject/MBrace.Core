@@ -8,9 +8,9 @@ open System.Net
 open System.Text
 open System.IO
 
-open FsCheck
-
 open NUnit.Framework
+open FsCheck
+open Swensen.Unquote.Assertions
 
 open MBrace.Core
 open MBrace.Core.BuilderAsyncExtensions
@@ -32,7 +32,7 @@ module ``CloudFlow Core property tests`` =
         let check (inputs : int[][]) =
             let tas = inputs |> Array.map (fun ts -> new ResizeArray<_>(ts))
             let expected = inputs |> Array.concat
-            ResizeArray.concat tas |> Seq.toArray |> shouldEqual expected
+            test <@ ResizeArray.concat tas |> Seq.toArray = expected @>
 
         Check.QuickThrowOnFail check
 
@@ -45,11 +45,11 @@ module ``CloudFlow Core property tests`` =
                 |> Partition.partitionBySize (fun i -> async { return abs i }) maxSize
                 |> Async.RunSynchronously
         
-            Array.concat partitions |> shouldEqual inputs
+            test <@ Array.concat partitions = inputs @>
 
             for p in partitions do
                 if Array.sum p > maxSize then
-                    Array.sum p.[0 .. p.Length - 2] |> shouldBe (fun s -> s <= maxSize)
+                    test <@ Array.sum p.[0 .. p.Length - 2] <= maxSize @>
 
         Check.QuickThrowOnFail check
 
@@ -99,10 +99,10 @@ type ``CloudFlow tests`` () as self =
             let inputs = [|1L .. 1000000L|]
             let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
             let workers = Cloud.GetWorkerCount() |> runOnCloud
-            persisted.StorageLevel |> shouldEqual StorageLevel.Disk
-            persisted.PartitionCount |> shouldEqual workers
-            persisted |> CloudFlow.toArray |> runOnCloud |> shouldEqual inputs
-            persisted.ToEnumerable() |> Seq.toArray |> shouldEqual inputs
+            test <@ persisted.StorageLevel = StorageLevel.Disk @>
+            test <@ persisted.PartitionCount = workers @>
+            test <@ persisted |> CloudFlow.toArray |> runOnCloud = inputs @>
+            test <@ persisted.ToEnumerable() |> Seq.toArray = inputs @>
 
     [<Test>]
     member __.``1. PersistedCloudFlow : Randomized StorageLevel.Disk`` () =
@@ -119,16 +119,16 @@ type ``CloudFlow tests`` () as self =
             let inputs = [|1L .. 1000000L|]
             let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runOnCloud
             let workers = Cloud.GetWorkerCount() |> runOnCloud
-            persisted.StorageLevel |> shouldEqual StorageLevel.Memory
-            persisted.PartitionCount |> shouldEqual workers
-            persisted |> CloudFlow.toArray |> runOnCloud |> shouldEqual inputs
+            test <@ persisted.StorageLevel = StorageLevel.Memory @>
+            test <@ persisted.PartitionCount = workers @>
+            test <@ persisted |> CloudFlow.toArray |> runOnCloud = inputs @>
 
     [<Test>]
     member __.``1. PersistedCloudFlow : disposal`` () =
         let inputs = [|1 .. 1000000|]
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
         persisted |> Cloud.Dispose |> runOnCloud
-        shouldfail(fun () -> persisted |> CloudFlow.length |> runOnCloud |> ignore)
+        raises <@ persisted |> CloudFlow.length |> runOnCloud @>
 
     [<Test>]
     member __.``1. PersistedCloudFlow : StorageLevel.Memory caching`` () =
@@ -158,22 +158,22 @@ type ``CloudFlow tests`` () as self =
         let N = 10
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runOnCloud
         let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
-        merged.PartitionCount |> shouldEqual (N * persisted.PartitionCount)
+        test <@ merged.PartitionCount = N * persisted.PartitionCount @>
         
         let partitions = persisted.GetPartitions() |> Array.map snd
         let mergedPartitions = merged.GetPartitions() |> Array.map snd
         
-        mergedPartitions
-        |> Seq.countBy (fun p -> p.Id)
-        |> Seq.forall (fun (_,n) -> n = N)
-        |> shouldEqual true
+        test 
+            <@
+                mergedPartitions
+                |> Seq.countBy (fun p -> p.Id)
+                |> Seq.forall (fun (_,n) -> n = N)
+            @>
 
         for i = 0 to mergedPartitions.Length - 1 do
-            mergedPartitions.[i].Id |> shouldEqual (partitions.[i % persisted.PartitionCount].Id)
+            test <@ mergedPartitions.[i].Id = partitions.[i % persisted.PartitionCount].Id @>
 
-        merged.ToEnumerable()
-        |> Seq.toArray
-        |> shouldEqual (Array.init N (fun _ -> inputs) |> Array.concat)
+        test <@ merged.ToEnumerable() |> Seq.toArray = (Array.init N (fun _ -> inputs) |> Array.concat) @>
 
     [<Test>]
     member __.``1. PersistedCloudFlow : merged disposal`` () =
@@ -182,7 +182,7 @@ type ``CloudFlow tests`` () as self =
         let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.MemoryAndDisk |> runOnCloud
         let merged = PersistedCloudFlow.Concat(Array.init N (fun _ -> persisted))
         merged |> Cloud.Dispose |> runOnCloud
-        shouldfail(fun () -> persisted.ToEnumerable() |> Seq.iter ignore)
+        raises <@ persisted.ToEnumerable() |> Seq.length @>
 
     // #region Streams tests
 
@@ -409,7 +409,7 @@ type ``CloudFlow tests`` () as self =
                 Assert.AreEqual(Array.sort ys, Array.sort xs)
             }
             let logs = __.RunWithLogs wf
-            logs.Length |> shouldEqual xs.Length
+            test <@ logs.Length = xs.Length @>
 
         Check.QuickThrowOnFail(f, maxRuns = __.FsCheckMaxNumberOfTests, shrink = false)
 

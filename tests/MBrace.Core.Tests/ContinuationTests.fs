@@ -296,7 +296,7 @@ module ``Continuation Tests`` =
                 
             })
 
-        raises<Tasks.TaskCanceledException> <@ runComp () @>
+        raises<OperationCanceledException> <@ runComp () @>
 
         test <@ !cell = 55 @>
 
@@ -603,7 +603,7 @@ module ``Continuation Tests`` =
                 return 1 + r
         }
 
-        raises<Tasks.TaskCanceledException> <@ runCts(diveRaise 100000) @>
+        raises<OperationCanceledException> <@ runCts(diveRaise 100000) @>
 
 
     [<Test>]

@@ -20,58 +20,6 @@ module Utils =
     let isTravisInstance = System.Environment.GetEnvironmentVariable("TRAVIS") <> null
     let isCIInstance = isAppVeyorInstance || isTravisInstance
 
-    /// detect platform id, properly giving MacOSX if so.
-    let platformId = 
-        match System.Environment.OSVersion.Platform with
-        | PlatformID.Unix when Directory.Exists("/Volumes") && Directory.Exists("/Applications") -> PlatformID.MacOSX
-        | p -> p
-
-    let shouldfail (f : unit -> 'T) =
-        let result = try let v = f () in Some v with _ -> None
-        match result with
-        | Some v -> raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
-        | None -> ()
-
-    let shouldFailwith<'T, 'Exn when 'Exn :> exn> (f : unit -> 'T) =
-        let result = try let v = f () in Some v with :? 'Exn -> None
-        match result with
-        | Some v -> raise <| new AssertionException(sprintf "expected exception but was value '%A'" v)
-        | None -> ()
-
-    /// type safe equality tester
-    let shouldEqual (expected : 'T) (input : 'T) = 
-        if expected = input then ()
-        else
-            raise <| new AssertionException(sprintf "expected '%A' but was '%A'." expected input)
-
-    let shouldBe (pred : 'T -> bool) (input : 'T) =
-        if pred input then ()
-        else
-            raise <| new AssertionException(sprintf "value '%A' does not match predicate." input)
-
-    [<RequireQualifiedAccess>]
-    module Choice =
-
-        let protect (f : unit -> 'T) =
-            try f () |> Choice1Of2 with e -> Choice2Of2 e
-
-        let shouldEqual (value : 'T) (input : Choice<'T, exn>) = 
-            match input with
-            | Choice1Of2 v' -> shouldEqual value v'
-            | Choice2Of2 e -> raise e
-
-        let shouldBe (pred : 'T -> bool) (input : Choice<'T, exn>) =
-            match input with
-            | Choice1Of2 t when pred t -> ()
-            | Choice1Of2 t -> raise <| new AssertionException(sprintf "value '%A' does not match predicate." t)
-            | Choice2Of2 e -> raise e
-
-        let shouldFailwith<'T, 'Exn when 'Exn :> exn> (input : Choice<'T, exn>) = 
-            match input with
-            | Choice1Of2 t -> raise <| new AssertionException(sprintf "Expected exception, but was value '%A'." t)
-            | Choice2Of2 (:? 'Exn) -> ()
-            | Choice2Of2 e -> raise e
-
     /// repeats computation (test) for a given number of times
     let repeat (maxRepeats : int) (f : unit -> unit) : unit =
         for _ in 1 .. maxRepeats do f ()

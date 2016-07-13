@@ -5,6 +5,7 @@ open System.IO
 open System.Threading
 
 open NUnit.Framework
+open Swensen.Unquote.Assertions
 
 open MBrace.Core
 open MBrace.Core.BuilderAsyncExtensions
@@ -36,14 +37,13 @@ type ``MBrace Thespian Cloud Tests`` () as self =
 
     override __.Run (workflow : Cloud<'T>) = 
         session.Cluster.RunAsync (workflow)
-        |> Async.Catch
         |> Async.RunSync
 
     override __.Run (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
             let runtime = session.Cluster
             let cts = runtime.CreateCancellationTokenSource()
-            try return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            try return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token)
             finally cts.Cancel()
         } |> Async.RunSync
 
@@ -81,19 +81,19 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     [<Test>]
     member __.``1. Runtime : Get worker count`` () =
-        runOnCloud (Cloud.GetWorkerCount()) |> shouldEqual (session.Cluster.Workers.Length)
+        test <@ runOnCloud (Cloud.GetWorkerCount()) = session.Cluster.Workers.Length @>
 
     [<Test>]
     member __.``1. Runtime : Get current worker`` () =
-        runOnCloud Cloud.CurrentWorker |> shouldBe (fun _ -> true)
+        runOnCloud Cloud.CurrentWorker |> ignore
 
     [<Test>]
     member __.``1. Runtime : Get process id`` () =
-        runOnCloud (Cloud.GetCloudProcessId()) |> shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetCloudProcessId()) |> ignore
 
     [<Test>]
     member __.``1. Runtime : Get work item id`` () =
-        runOnCloud (Cloud.GetWorkItemId()) |> shouldBe (fun _ -> true)
+        runOnCloud (Cloud.GetWorkItemId()) |> ignore
 
     [<Test>]
     member __.``1. Runtime : Worker Log Observable`` () =
@@ -103,7 +103,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         use d = worker.SystemLogs.Subscribe ra.Add
         cluster.Run(cloud { return () }, target = worker)
         System.Threading.Thread.Sleep 2000
-        ra.Count |> shouldBe (fun i -> i > 0)
+        test <@ ra.Count > 0 @>
 
     [<Test>]
     member __.``1. Runtime : Cluster Log Observable`` () =
@@ -112,7 +112,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         use d = cluster.SystemLogs.Subscribe ra.Add
         cluster.Run(Cloud.ParallelEverywhere(cloud { return 42 }) |> Cloud.Ignore)
         System.Threading.Thread.Sleep 2000
-        ra.Count |> shouldBe (fun i -> i >= cluster.Workers.Length)
+        test <@ ra.Count >= cluster.Workers.Length @>
 
     [<Test>]
     member __.``1. Runtime : CloudProcess Log Observable`` () =
@@ -131,12 +131,14 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         let job = session.Cluster.CreateProcess(workflow)
         use d = job.Logs.Subscribe(fun e -> ra.Add(e))
         do job.Result
-        ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
+        let length = ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length
+        test <@ length = 2000 @>
 
     [<Test>]
     member __.``1. Runtime : Additional Resources`` () =
         let workflow = cloud { return! Cloud.GetResource<int> () }
-        session.Cluster.Run(workflow, additionalResources = resource { yield 42 }) |> shouldEqual 42
+        let result = session.Cluster.Run(workflow, additionalResources = resource { yield 42 }) 
+        test <@ result = 42 @>
 
     [<Test>]
     member __.``2. Fault Tolerance : map/reduce`` () =
@@ -150,7 +152,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             while not f.Value do Thread.Sleep 1000
             do Thread.Sleep 1000
             session.Chaos()
-            t.Result |> shouldEqual 100)
+            test <@ t.Result = 100 @>)
 
     [<Test>]
     member __.``2. Fault Tolerance : Custom fault policy 1`` () =
@@ -163,7 +165,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             }, faultPolicy = FaultPolicy.NoRetry)
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
-            Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
+            raises<FaultException> <@ t.Result @>)
 
     [<Test>]
     member __.``2. Fault Tolerance : Custom fault policy 2`` () =
@@ -180,7 +182,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             })
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
-            Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
+            raises<FaultException> <@ t.Result @>)
 
     [<Test>]
     member __.``2. Fault Tolerance : targeted workers`` () =
@@ -199,7 +201,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let t = runtime.Run (wf ())
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
-            Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
+            raises<FaultException> <@ t.Result @>)
 
     [<Test>]
     member __.``2. Fault Tolerance : faulted process status`` () =
@@ -218,8 +220,8 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             let t = runtime.CreateProcess (wf (), faultPolicy = FaultPolicy.NoRetry)
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
-            Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>
-            t.Status |> shouldEqual CloudProcessStatus.Faulted)
+            raises<FaultException> <@ t.Result @>
+            test <@ t.Status = CloudProcessStatus.Faulted @>)
 
     [<Test>]
     member __.``2. Fault Tolerance : persistedCloudFlow`` () =
@@ -237,11 +239,12 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             flow
             |> CloudFlow.length
             |> runtime.Run
-        result |> shouldEqual (int64 n)
+        test <@ result = int64 n @>
 
     [<Test>]
     member __.``2. Fault Tolerance : fault data`` () =
-        session.Cluster.Run(Cloud.TryGetFaultData()) |> shouldBe Option.isNone
+        let faultData = session.Cluster.Run(Cloud.TryGetFaultData()) 
+        test <@ Option.isNone faultData @>
 
         repeat(fun () ->
             let runtime = session.Cluster
@@ -256,7 +259,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
-            t.Result |> shouldBe (function Some { NumberOfFaults = 1 } -> true | _ -> false))
+            test <@ match t.Result with Some { NumberOfFaults = 1 } -> true | _ -> false @>)
 
     [<Test>]
     member __.``2. Fault Tolerance : protected parallel workflows`` () =
@@ -276,6 +279,8 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
-            cloudProcess.Result 
-            |> Array.forall (function FaultException _ -> true | _ -> false)
-            |> shouldEqual true)
+            test 
+                <@
+                    cloudProcess.Result 
+                    |> Array.forall (function FaultException _ -> true | _ -> false)
+                @>)

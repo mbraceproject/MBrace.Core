@@ -6,6 +6,7 @@ open MBrace.Core
 open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Library
 
+open Swensen.Unquote.Assertions
 open NUnit.Framework
 
 [<TestFixture; AbstractClass>]
@@ -13,10 +14,6 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.Run wf 
     let runOnCurrentProcess wf = self.RunLocally wf
-
-    let runProtected wf = 
-        try self.Run wf |> Choice1Of2
-        with e -> Choice2Of2 e
 
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
@@ -30,8 +27,8 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
         cloud {
             use! cq = CloudQueue.New<int> ()
             let! _,value = cloud { do! cq.EnqueueAsync 42 } <||> cloud { return! cq.DequeueAsync() }
-            return value
-        } |> runOnCloud |> shouldEqual 42
+            return test <@ value = 42 @>
+        } |> runOnCloud
 
     [<Test>]
     member __.``Multiple send/receive`` () =
@@ -53,8 +50,8 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
             }
 
             let! _, result = sender 100 <||> receiver 0
-            return result
-        } |> runOnCloud |> shouldEqual 5050
+            return test <@ result = 5050 @>
+        } |> runOnCloud
 
     [<Test>]
     member __.``Multiple senders`` () =
@@ -75,8 +72,8 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
             let senders = Seq.init parallelismFactor (fun _ -> sender 10) |> Cloud.Parallel |> Cloud.Ignore
             let! _,result = senders <||> receiver 0 (parallelismFactor * 10)
-            return result
-        } |> runOnCloud |> shouldEqual (parallelismFactor * 55)
+            return test <@ result = parallelismFactor * 55 @>
+        } |> runOnCloud
 
     [<Test>]
     member __.``Batch enqueue/dequeue`` () =
@@ -93,8 +90,8 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
                     return! dequeue (count - dq.Length)
             }
             do! dequeue xs.Length
-            return gathered.ToArray()
-        } |> runOnCloud |> shouldEqual xs
+            return test <@ xs = gathered.ToArray() @>
+        } |> runOnCloud
 
     [<Test>]
     member __.``Lookup by name`` () =
@@ -104,5 +101,5 @@ type ``CloudQueue Tests`` (parallelismFactor : int) as self =
                 do! queue.EnqueueAsync 42
                 let! queue' = CloudQueue.New<int>(queue.Id)
                 let! x = queue'.DequeueAsync()
-                return x
-            } |> runOnCloud |> shouldEqual 42
+                return test <@ x = 42 @>
+            } |> runOnCloud

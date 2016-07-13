@@ -13,6 +13,8 @@ open MBrace.Core.Tests
 [<TestFixture; Category("ThespianClusterTestsVagabond")>]
 module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
+    type private IC = System.Collections.Immutable.IImmutableDictionary<int,int>
+
     let clusterSize = 2
 
     let is64BitProcess = IntPtr.Size = 8
@@ -105,6 +107,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                 "Thespian.dll"
                 "MBrace.Thespian.dll"
 
+                "../packages/System.Collections.Immutable/lib/portable-net45+win8+wp8+wpa81/System.Collections.Immutable.dll"
                 "../packages/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
                 "../packages/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
             ]

@@ -5,6 +5,7 @@ open System.IO
 open System.Threading
 
 open NUnit.Framework
+open Swensen.Unquote.Assertions
 
 open MBrace.Core
 open MBrace.Core.Tests
@@ -22,24 +23,16 @@ module ``MBrace Thespian Misc Tests`` =
         let worker = ThespianWorker.Spawn(hostname = "127.0.0.1", port = 36767)
         try
             let worker' = ThespianWorker.Connect "mbrace://127.0.0.1:36767"
-            worker'.IsIdle |> shouldEqual true
-            worker' |> shouldEqual worker
+            test <@ worker'.IsIdle = true @>
+            test <@ worker' = worker @>
         finally
             worker.Kill()
 
     [<Test>]
     let ``Management : connect to invalid URI.`` () =
-        fun () -> 
-            ThespianWorker.Connect "mbrace://127.0.0.1:80"
-        |> shouldFailwith<_, Exception>
-
-        fun () ->
-            ThespianWorker.Connect "http://127.0.0.1:80"
-        |> shouldFailwith<_, Exception>
-
-        fun () ->
-            ThespianWorker.Connect "garbage123"
-        |> shouldFailwith<_, Exception>
+        raises <@ ThespianWorker.Connect "mbrace://127.0.0.1:80" @>
+        raises <@ ThespianWorker.Connect "http://127.0.0.1:80" @>
+        raises <@ ThespianWorker.Connect "garbage123" @>
 
     [<Test>]
     let ``Management : run cluster hosted on worker node`` () =
@@ -53,13 +46,12 @@ module ``MBrace Thespian Misc Tests`` =
             cluster.AttachWorker worker1
             cluster.AttachWorker worker2
 
-            cluster.Run(Cloud.Parallel [for i in 1 .. 10 -> cloud { return i }])
-            |> shouldEqual [|1 .. 10|]
+            test <@ cluster.Run(Cloud.Parallel [for i in 1 .. 10 -> cloud { return i }]) = [|1 .. 10|] @>
 
-            cluster.Workers.Length |> shouldEqual 2
+            test <@ cluster.Workers.Length = 2 @>
 
             let cluster' = ThespianCluster.Connect(worker1.Uri)
-            cluster'.Workers.Length |> shouldEqual 2
+            test <@ cluster'.Workers.Length = 2 @>
 
         finally
             master.Kill() ; worker1.Kill() ; worker2.Kill()
@@ -69,8 +61,8 @@ module ``MBrace Thespian Misc Tests`` =
         let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 0, hostClusterStateOnCurrentProcess = false)
         try
             cluster.AttachNewLocalWorkers(3)
-            cluster.Workers |> Array.map (fun w -> w.WorkerManager) |> Array.length |> shouldEqual 3
-            cluster.MasterNode |> shouldBe Option.isSome
+            test <@ cluster.Workers |> Array.map (fun w -> w.WorkerManager) |> Array.length = 3 @>
+            test <@ cluster.MasterNode |> Option.isSome @>
         finally
            cluster.KillAllWorkers()
            cluster.MasterNode |> Option.iter (fun n -> n.Kill())

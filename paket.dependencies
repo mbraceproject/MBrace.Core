@@ -19,6 +19,8 @@ nuget MathNet.Numerics ~> 3.7.0
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
 nuget System.Runtime.Loader
+nuget System.Collections.Immutable ~> 1.2.0
+nuget System.Reflection.Metadata ~> 1.4.1 prerelease
 
 group Build
   source https://nuget.org/api/v2

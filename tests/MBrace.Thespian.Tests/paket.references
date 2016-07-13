@@ -3,4 +3,7 @@ FsCheck
 Vagabond
 Thespian
 FSharp.Compiler.Service
+Unquote
 Streams
+System.Collections.Immutable
+System.Reflection.Metadata
