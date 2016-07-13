@@ -1,7 +1,9 @@
 language: csharp
 
-install:
+sudo: false  # use the new container-based Travis infrastructure 
 
+install:
+  - ulimit -n 4096
 
 script:
   - ./build.sh -ef IgnoreClusterTests
