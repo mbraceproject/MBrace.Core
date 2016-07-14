@@ -94,7 +94,7 @@ Target "RunTests" (fun _ ->
                     if ignoreVagabondTests then yield "ThespianClusterTestsVagabond" ]
 
             DisableShadowCopy = true
-            TimeOut = TimeSpan.FromMinutes 60.
+            TimeOut = TimeSpan.FromMinutes 120.
             OutputFile = "TestResults.xml" })
 )
 

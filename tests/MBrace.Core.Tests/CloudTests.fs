@@ -1044,8 +1044,8 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         cloud {
             let! cts = cloud {
                 use! cts = Cloud.CreateCancellationTokenSource()
-                let f () = cloud { test <@ cts.Token.IsCancellationRequested = false @> }
-                do! Cloud.Parallel [ f() ; f() ] |> Cloud.Ignore
+                let task = cloud { test <@ cts.Token.IsCancellationRequested = false @> }
+                do! Cloud.Parallel [ task ; task ] |> Cloud.Ignore
                 test <@ cts.Token.IsCancellationRequested = false @>
                 return cts
             }

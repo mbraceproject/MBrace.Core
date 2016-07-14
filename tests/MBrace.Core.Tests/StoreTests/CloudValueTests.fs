@@ -103,14 +103,14 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDisk)
                 test <@ c.StorageLevel = StorageLevel.MemoryAndDisk @>
-                let jobF () = cloud {
+                let jobF = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
                     test <@ obj.ReferenceEquals(v1,v2) = true @>
                     test <@ c.IsCachedLocally = true @>
                 }
 
-                let! job = Cloud.CreateProcess(jobF())
+                let! job = Cloud.CreateProcess jobF
                 return! job.AwaitResult()
             } |> runOnCloud
 
@@ -121,14 +121,14 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.MemoryAndDiskSerialized)
                 test <@ c.StorageLevel = StorageLevel.MemoryAndDiskSerialized @>
-                let jobF () = cloud {
+                let jobF = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
                     test <@ c.IsCachedLocally = true @>
                     test <@ obj.ReferenceEquals(v1,v2) = false @>
                 }
 
-                let! job = Cloud.CreateProcess(jobF())
+                let! job = Cloud.CreateProcess jobF
                 return! job.AwaitResult()
 
             } |> runOnCloud
@@ -140,14 +140,14 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             cloud {
                 use! c = CloudValue.New(value, storageLevel = StorageLevel.Disk)
                 test <@ c.StorageLevel = StorageLevel.Disk @>
-                let jobF () = cloud {
+                let jobF = cloud {
                     let! v1 = c.GetValueAsync()
                     let! v2 = c.GetValueAsync()
                     test <@ c.IsCachedLocally = false @>
                     test <@ obj.ReferenceEquals(v1,v2) = false @>
                 }
 
-                let! job = Cloud.CreateProcess(jobF())
+                let! job = Cloud.CreateProcess jobF
                 return! job.AwaitResult()
             } |> runOnCloud
 
