@@ -10,7 +10,6 @@ open MBrace.Core.BuilderAsyncExtensions
 type ``CloudValue Tests`` (parallelismFactor : int) as self =
 
     let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunLocally wf
 
     let mutable counter = 0
     /// avoid caching interference in value creation
@@ -159,7 +158,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
                 return! CloudValue.New [|for i in 1 .. 1000 -> Some i |]
             }
 
-            let! values = Cloud.Parallel [ for i in 1 .. parallelismFactor -> mkValue () ]
+            let! values = Cloud.Parallel [ for _ in 1 .. parallelismFactor -> mkValue () ]
             let length = values |> Seq.map (fun v -> v.Id) |> Seq.distinct |> Seq.length 
             test <@ length = 1 @>
         } |> runOnCloud
@@ -195,7 +194,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let size = 100000
             let xs = seq { 
                 let r = new System.Random()
-                for i in 1 .. size -> r.Next()
+                for _ in 1 .. size -> r.Next()
             }
 
             use! ca = CloudValue.NewArray xs
@@ -262,7 +261,8 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let isCacheable = cv.StorageLevel.HasFlag StorageLevel.Memory
             let! job = Cloud.CreateProcess(cloud {
                 let! cv' = CloudValue.TryGetValueById cv.Id
-                let cv' = CloudValue.Cast<int list> cv
+                test <@ Option.isSome cv' @>
+                let cv' = CloudValue.Cast<int list> cv'.Value
                 test <@ cv'.Id = cv.Id @>
                 let! v' = cv'.GetValueAsync()
                 if isCacheable then test <@ cv'.IsCachedLocally && cv.IsCachedLocally @>
@@ -300,6 +300,7 @@ type ``CloudValue Tests`` (parallelismFactor : int) as self =
             let! cv2 = CloudValue.New value'
             let! job = Cloud.CreateProcess(cloud {
                 let! allValues = CloudValue.GetAllValues()
+                test <@ allValues |> Array.exists (fun v -> v.Id = cv1.Id && cv1.Value = (v.Cast<int list>()).Value) @>
                 test <@ allValues |> Array.exists (fun v -> v.Id = cv2.Id && cv2.Value = (v.Cast<int list>()).Value) @>
             })
             return! job.AwaitResult()

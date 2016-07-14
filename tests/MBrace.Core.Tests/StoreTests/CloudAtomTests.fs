@@ -15,7 +15,6 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
     static let nSequential = 100
 
     let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunLocally wf
 
     let repeat f = repeat self.Repeats f
 
@@ -35,7 +34,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
         let comp = cloud {
             use! atom = CloudAtom.New 0
             let updater _ = local {
-                for i in 1 .. nSequential do
+                for _ in 1 .. nSequential do
                     atom.Update((+) 1)
             }
 
@@ -53,7 +52,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
         let atom =
             local {
                 let! a = CloudAtom.New 0
-                for i in 1 .. nSequential do
+                for _ in 1 .. nSequential do
                     do! CloudAtom.Increment a |> Local.Ignore
 
                 return a
@@ -135,7 +134,7 @@ type ``CloudAtom Tests`` (parallelismFactor : int) as self =
         repeat(fun () ->
             let comp = cloud {
                 let! a = CloudAtom.New 0
-                do! cloud { use a = a in () }
+                do! cloud { use _a = a in () }
                 return! a.GetValueAsync()
             }
 

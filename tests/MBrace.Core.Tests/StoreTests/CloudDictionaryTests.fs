@@ -12,12 +12,7 @@ open Swensen.Unquote.Assertions
 [<TestFixture; AbstractClass>]
 type ``CloudDictionary Tests`` (parallelismFactor : int) as self =
 
-    let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunLocally wf
-
-    let runProtected wf = 
-        try self.Run wf |> Choice1Of2
-        with e -> Choice2Of2 e
+    let runOnCloud wf = self.Run wf
 
     /// Specifies if test is running in-memory
     abstract IsInMemoryFixture : bool

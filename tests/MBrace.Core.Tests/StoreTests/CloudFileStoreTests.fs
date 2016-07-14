@@ -34,6 +34,8 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     /// Evaluate workflow under local semantics in the test process
     abstract RunLocally : Cloud<'T> -> 'T
 
+    member __.ParallelismFactor = parallelismFactor
+
     //
     //  Section 1: Local raw fileStore tests
     //
@@ -551,7 +553,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         let comp = cloud {
             let! path = CloudPath.GetRandomFileName()
             let! file = CloudFile.WriteAllText(path, "lorem ipsum dolor")
-            do! cloud { use file = file in () }
+            do! cloud { use _file = file in () }
             return! CloudFile.ReadAllText file.Path
         } 
         
@@ -607,7 +609,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             let! dir = CloudDirectory.Create dirPath
             let! exists = CloudDirectory.Exists dir.Path
             test <@ exists = true @>
-            let write i = cloud {
+            let write _ = cloud {
                 let! path = CloudPath.GetRandomFileName dir.Path
                 let! _ = CloudFile.WriteAllText(path, "lorem ipsum dolor")
                 ()

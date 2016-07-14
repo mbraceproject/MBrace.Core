@@ -47,7 +47,7 @@ module WordCount =
     let run size mapReduceAlgorithm : Cloud<int> =
         let mapF (text : string) = local { return text.Split(' ').Length }
         let reduceF i i' = local { return i + i' }
-        let inputs = Array.init size (fun i -> "lorem ipsum dolor sit amet")
+        let inputs = Array.init size (fun _ -> "lorem ipsum dolor sit amet")
         mapReduceAlgorithm mapF reduceF 0 inputs
 
     // naive, binary recursive mapreduce implementation

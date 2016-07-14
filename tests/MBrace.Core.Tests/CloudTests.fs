@@ -103,7 +103,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         let parallelismFactor = parallelismFactor
         let c = CloudAtom.New 0 |> runOnCurrentProcess
         let comp = cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = c.TransactAsync(fun i -> (), i + 1) }
+            use _foo = { new ICloudDisposable with member __.Dispose () = c.TransactAsync(fun i -> (), i + 1) }
             let! _ = Seq.init parallelismFactor (fun _ -> CloudAtom.Increment c) |> Cloud.Parallel
             return! c.GetValueAsync()
         } 
@@ -117,7 +117,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             try
                 let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
                 return x + y
-            with :? InvalidOperationException as e ->
+            with :? InvalidOperationException ->
                 let! x,y = cloud { return 1 } <||> cloud { return 2 }
                 return x + y
         } 
@@ -128,7 +128,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member  __.``1. Parallel : finally`` () =
         let trigger = runOnCurrentProcess <| CloudAtom.New 0
         let comp = Cloud.TryFinally( cloud {
-            let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
+            let! _,_ = cloud { return 1 } <||> cloud { return invalidOp "failure" }
             return () }, CloudAtom.Increment trigger |> Local.Ignore)
 
         raises<InvalidOperationException> <@ runOnCloud comp @>
@@ -164,7 +164,6 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
     [<Test>]
     member __.``1. Parallel : exception contention`` () =
-        let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             // test that exception continuation was fired precisely once
@@ -264,7 +263,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     Interlocked.Increment counter |> ignore
                 }
 
-                let! results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.AsLocal
+                let! _results = Array.init 100 seqWorker |> Cloud.Parallel |> Cloud.AsLocal
                 return test <@ counter.Value = 100 @>
             } |> runOnCloud)
 
@@ -279,7 +278,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                     Interlocked.Increment counter |> ignore
                 }
 
-                let! results = Array.init 100 seqWorker |> Local.Parallel
+                let! _results = Array.init 100 seqWorker |> Local.Parallel
                 return test <@ counter.Value = 100 @>
             } |> runOnCloud)
 
@@ -417,7 +416,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             repeat(fun () ->
                 cloud {
                     let! thisWorker = Cloud.CurrentWorker
-                    let! results = Cloud.Parallel [ for i in 1 .. 20 -> (Cloud.CurrentWorker, thisWorker) ]
+                    let! results = Cloud.Parallel [ for _ in 1 .. 20 -> (Cloud.CurrentWorker, thisWorker) ]
                     return test <@ results |> Array.forall ((=) thisWorker) @>
                 } |> runOnCloud)
 
@@ -425,7 +424,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member __.``1. Parallel : nonserializable type`` () =
         if __.UsesSerialization then
             let comp = cloud { 
-                let! _ = Cloud.Parallel [ for i in 1 .. 5 -> cloud { return new System.Net.WebClient() } ]
+                let! _ = Cloud.Parallel [ for _ in 1 .. 5 -> cloud { return new System.Net.WebClient() } ]
                 return ()
             } 
 
@@ -435,7 +434,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     member __.``1. Parallel : nonserializable object`` () =
         if __.UsesSerialization then
             let comp = cloud { 
-                let! _ = Cloud.Parallel [ for i in 1 .. 5 -> cloud { return box (new System.Net.WebClient()) } ]
+                let! _ = Cloud.Parallel [ for _ in 1 .. 5 -> cloud { return box (new System.Net.WebClient()) } ]
                 return ()
             }
 
@@ -446,7 +445,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         if __.UsesSerialization then
             let comp = cloud { 
                 let client = new System.Net.WebClient()
-                let! _ = Cloud.Parallel [ for i in 1 .. 5 -> cloud { return box client } ]
+                let! _ = Cloud.Parallel [ for _ in 1 .. 5 -> cloud { return box client } ]
                 return ()
             }
 
@@ -712,7 +711,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             repeat(fun () ->
                 cloud {
                     let! thisWorker = Cloud.CurrentWorker
-                    let! results = Cloud.Choice [ for i in 1 .. 5 -> (cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
+                    let! results = Cloud.Choice [ for _ in 1 .. 5 -> (cloud { let! w = Cloud.CurrentWorker in return Some w }, thisWorker)]
                     return test <@ results.Value = thisWorker @>
                 } |> runOnCloud)
 
@@ -721,7 +720,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         if __.UsesSerialization then
             let comp = cloud { 
                 let client = new System.Net.WebClient()
-                let! _ = Cloud.Choice [ for i in 1 .. 5 -> cloud { return Some (box client) } ]
+                let! _ = Cloud.Choice [ for _ in 1 .. 5 -> cloud { return Some (box client) } ]
                 return ()
             } 
             
@@ -804,7 +803,6 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
     [<Test>]
     member __.``3. CloudProcess: to current worker`` () =
-        let delayFactor = delayFactor
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
                 cloud {
@@ -1059,7 +1057,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         // checks that non-serializable entities do not get accidentally captured in closures.
         cloud {
             let workflow = Cloud.Parallel[Cloud.FaultPolicy ; Cloud.FaultPolicy]
-            let! results = Cloud.WithFaultPolicy (FaultPolicy.WithExponentialDelay(maxRetries = 3)) workflow
+            let! _results = Cloud.WithFaultPolicy (FaultPolicy.WithExponentialDelay(maxRetries = 3)) workflow
             return ()
         } |> runOnCloud
 
@@ -1081,7 +1079,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 let! workerCount = Cloud.GetWorkerCount()
                 // warmup phase; ensure cloudvalue is replicated everywhere before running test
                 do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
-                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
+                let! hashCodes = Cloud.Parallel [for _ in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
                 let length =
                     hashCodes 
                     |> Seq.distinct 
@@ -1100,7 +1098,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 let! workerCount = Cloud.GetWorkerCount()
                 // warmup phase; ensure cloudvalue is replicated everywhere before running test
                 do! Cloud.ParallelEverywhere(cloud { return getRefHashCode smallContainer}) |> Cloud.Ignore
-                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode smallContainer, getRefHashCode smallContainer.[0] } ]
+                let! hashCodes = Cloud.Parallel [for _ in 1  .. 5 * workerCount -> cloud { return getRefHashCode smallContainer, getRefHashCode smallContainer.[0] } ]
                 let containerHashCodes, largeHashCodes = Array.unzip hashCodes
                 let containerHashCodeCount =
                     containerHashCodes
@@ -1122,12 +1120,12 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     [<Test>]
     member __.``5. Sifting of variably sized large value`` () =
         if __.IsSiftedWorkflowSupported then
-            let large = [for i in 1 .. 1000000 -> seq { for j in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
+            let large = [for i in 1 .. 1000000 -> seq { for _ in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
                 // warmup phase; ensure cloudvalue is replicated everywhere before running test
                 do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
-                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
+                let! hashCodes = Cloud.Parallel [for _ in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
 
                 let hashCodeCount =
                     hashCodes 
@@ -1143,12 +1141,12 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         if __.IsSiftedWorkflowSupported then
             // assumes sift threshold between ~ 500K and 20MB
             let mkSmall() = [|1 .. 100000|]
-            let large = [ for i in 1 .. 200 -> mkSmall() ]
+            let large = [ for _ in 1 .. 200 -> mkSmall() ]
             cloud {
                 let! workerCount = Cloud.GetWorkerCount()
                 // warmup phase; ensure cloudvalue is replicated everywhere before running test
                 do! Cloud.ParallelEverywhere(cloud { return getRefHashCode large}) |> Cloud.Ignore
-                let! hashCodes = Cloud.Parallel [for i in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
+                let! hashCodes = Cloud.Parallel [for _ in 1  .. 5 * workerCount -> cloud { return getRefHashCode large } ]
 
                 let hashCodeCount =
                     hashCodes 

@@ -602,7 +602,7 @@ type ``CloudFlow tests`` () as self =
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.groupJoinBy id id (CloudFlow.OfArray ys)
-                |> CloudFlow.collect (fun (k, xs, ys) -> xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (x, y))))
+                |> CloudFlow.collect (fun (_, xs, ys) -> xs |> Seq.collect (fun x -> ys |> Seq.map (fun y -> (x, y))))
                 |> CloudFlow.toArray
                 |> runOnCloud
             let y =
@@ -620,7 +620,7 @@ type ``CloudFlow tests`` () as self =
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.join id id (CloudFlow.OfArray ys)
-                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.map (fun (_, x, y) -> (x, y))
                 |> CloudFlow.toArray
                 |> runOnCloud
             let y =
@@ -638,7 +638,7 @@ type ``CloudFlow tests`` () as self =
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.leftOuterJoin id id (CloudFlow.OfArray ys)
-                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.map (fun (_, x, y) -> (x, y))
                 |> CloudFlow.toArray
                 |> runOnCloud
             let y =
@@ -656,7 +656,7 @@ type ``CloudFlow tests`` () as self =
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.rightOuterJoin id id (CloudFlow.OfArray ys)
-                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.map (fun (_, x, y) -> (x, y))
                 |> CloudFlow.toArray
                 |> runOnCloud
             let y =
@@ -674,7 +674,7 @@ type ``CloudFlow tests`` () as self =
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.fullOuterJoin id id (CloudFlow.OfArray ys)
-                |> CloudFlow.map (fun (k, x, y) -> (x, y))
+                |> CloudFlow.map (fun (_, x, y) -> (x, y))
                 |> CloudFlow.toArray
                 |> runOnCloud
             let left =
@@ -857,16 +857,17 @@ type ``CloudFlow tests`` () as self =
     member __.``2. CloudFlow : toCloudQueue`` () =
         let f(xs : int[]) =
             let queue = CloudQueue.New() |> runOnCloud
-            let x = 
+            let _ = 
                 xs
                 |> CloudFlow.OfArray
                 |> CloudFlow.map (fun v -> v + 1)
                 |> CloudFlow.toCloudQueue queue
                 |> runOnCloud
+
             let x = 
                 cloud {
                     let list = ResizeArray<int>()
-                    for x in xs do 
+                    for _ in xs do 
                         let! v = queue.DequeueAsync()
                         list.Add(v)
                     return list

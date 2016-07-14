@@ -267,7 +267,7 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``for loop on null inputs`` () =
         let comp = cloud {
-            for i in Unchecked.defaultof<int list> do
+            for _i in Unchecked.defaultof<int list> do
                 do! cloud { return () }
         } 
 
@@ -378,7 +378,7 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``use bindings should perform null checks (ICloudDisposable)`` () =
         cloud {
-            use d = Unchecked.defaultof<ICloudDisposable>
+            use _d = Unchecked.defaultof<ICloudDisposable>
             return ()
         } |> run
 
@@ -386,7 +386,7 @@ module ``Continuation Tests`` =
     [<Test>]
     let ``use bindings should perform null checks (IDisposable)`` () =
         cloud {
-            use d = Unchecked.defaultof<IDisposable>
+            use _d = Unchecked.defaultof<IDisposable>
             return ()
         } |> run
 
@@ -577,7 +577,7 @@ module ``Continuation Tests`` =
         let rec diveTo n = cloud {
             if n = 0 then return ()
             else
-                let! x = Cloud.OfAsync <| async { return n }
+                let! _ = Cloud.OfAsync <| async { return n }
                 return! diveTo (n-1)
         }
 

@@ -128,7 +128,7 @@ module ``Collection Partitioning Tests`` =
     [<Test>]
     let ``Partition collections that do not disclose size`` () =
         let tester (isTargeted : bool, partitions : uint16, workers : uint16) =
-            let partitions = [| for p in 0us .. partitions - 1us -> RangeCollection.Empty(discloseSize = false) :> ICloudCollection<int64> |]
+            let partitions = [| for _ in 0us .. partitions - 1us -> RangeCollection.Empty(discloseSize = false) :> ICloudCollection<int64> |]
             let workers = [| for w in 0us .. workers -> mkDummyWorker (string w) 4 |]
             let partitionss = CloudCollection.PartitionBySize(partitions, workers, isTargeted) |> run
             if partitions.Length > 0 then 

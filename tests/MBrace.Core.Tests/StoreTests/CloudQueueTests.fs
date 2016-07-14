@@ -12,8 +12,7 @@ open NUnit.Framework
 [<TestFixture; AbstractClass>]
 type ``CloudQueue Tests`` (parallelismFactor : int) as self =
 
-    let runOnCloud wf = self.Run wf 
-    let runOnCurrentProcess wf = self.RunLocally wf
+    let runOnCloud wf = self.Run wf
 
     /// Run workflow in the runtime under test
     abstract Run : Cloud<'T> -> 'T
