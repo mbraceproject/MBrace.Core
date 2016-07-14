@@ -144,7 +144,7 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
         }
         
         member x.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
-            let! heartbeatMon, heartbeatInterval = source <!- fun ch -> Subscribe(unbox id, info, ch)
+            let! _heartbeatMon, heartbeatInterval = source <!- fun ch -> Subscribe(unbox id, info, ch)
             stateF.Value.Logger.Logf LogLevel.Info "Subscribed to cluster with heartbeat interval %A" heartbeatInterval
             return new WorkerSubscriptionManager(x, id) :> IDisposable
         }
@@ -227,7 +227,6 @@ type WorkerManager private (stateF : LocalStateFactory, source : ActorRef<Worker
                     return state.Add(w, (info', hm))
 
             | GetAvailableWorkers rc ->
-                let x = Unchecked.defaultof<WorkerInfo>
                 let workers = state |> Seq.map (function KeyValue(_,(i,_)) -> i) |> Seq.toArray
                 do! rc.Reply workers
                 return state

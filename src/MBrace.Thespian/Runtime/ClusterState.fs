@@ -68,7 +68,7 @@ type ClusterState =
         let serializer = new FsPicklerBinarySerializer()
         let cloudValueStore = fileStore.WithDefaultDirectory cacheDirectory
         let mkCacheInstance () = Config.ObjectCache
-        let mkLocalCachingFileStore () = (Config.FileSystemStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
+//        let mkLocalCachingFileStore () = (Config.FileSystemStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
         let cloudValueProvider = StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, mkCacheInstance, (*mkLocalCachingFileStore,*) shadowPersistObjects = true)
         let persistedValueManager = PersistedValueManager.Create(fileStore.WithDefaultDirectory workItemsDirectory, serializer = serializer, persistThreshold = 512L * 1024L)
 
@@ -110,7 +110,7 @@ type ClusterState =
         }
 
         {
-            Id = RuntimeId.Create()
+            Id = id
             IsWorkerHosted = isWorkerHosted
             Uri = Config.LocalMBraceUri
             Serializer = serializer :> ISerializer

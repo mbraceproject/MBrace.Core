@@ -117,7 +117,7 @@ type ActorQueueProvider (factory : ResourceFactory) =
         member __.Id = id
         member x.GetRandomQueueName(): string = sprintf "actorQueue-%s" <| mkUUID()
 
-        member x.GetQueueById(queueId: string): Async<CloudQueue<'T>> = 
+        member x.GetQueueById(_queueId: string): Async<CloudQueue<'T>> = 
             raise (System.NotSupportedException("Named lookup not supported in Thespian queues"))
 
         member __.CreateQueue<'T> (container : string) = async {

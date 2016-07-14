@@ -30,7 +30,7 @@ module private ActorCloudDictionary =
     let init () =
         let behaviour (state : Map<string, Tag * byte[]>) (msg : CloudDictionaryMsg) = async {
             match msg with
-            | TryAdd(key, value, rc) when state.ContainsKey key ->
+            | TryAdd(key, _, rc) when state.ContainsKey key ->
                 do! rc.Reply None
                 return state
 
@@ -115,9 +115,9 @@ module private ActorCloudDictionary =
                     cell := r
                     let! tag' = source <!- fun ch -> TransactAdd(key, pickle value', tag, ch)
                     match tag' with
-                    | Some t -> return ()
+                    | Some _ -> return ()
                     | None ->
-                        match maxRetries with
+                        match retries with
                         | None -> return! tryUpdate None
                         | Some 0 -> return raise <| new OperationCanceledException("ran out of retries.")
                         | Some i -> return! tryUpdate (Some (i-1))
@@ -176,5 +176,5 @@ type ActorDictionaryProvider (factory : ResourceFactory) =
             return dict :> CloudDictionary<'T>
         }
 
-        member __.GetDictionaryById<'T> (dictId : string) : Async<CloudDictionary<'T>> =
+        member __.GetDictionaryById<'T> (_dictId : string) : Async<CloudDictionary<'T>> =
             raise (new NotSupportedException("Named CloudAtom lookup not supported in Thespian atoms."))

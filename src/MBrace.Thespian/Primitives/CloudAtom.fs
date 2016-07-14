@@ -24,7 +24,7 @@ module private ActorAtom =
     /// </summary>
     /// <param name="id"></param>
     /// <param name="initialValue"></param>
-    let init (id : string) (initialValue : byte[]) : ActorRef<AtomMsg> =
+    let init (_id : string) (initialValue : byte[]) : ActorRef<AtomMsg> =
         let behaviour (state : (uint64 * byte[]) option) (msg : AtomMsg) = async {
             match state with
             | None -> // object disposed
@@ -36,7 +36,7 @@ module private ActorAtom =
                 | Dispose rc -> do! rc.ReplyWithException e
                 return state
 
-            | Some ((tag, bytes) as s) ->
+            | Some ((tag, _) as s) ->
                 match msg with
                 | GetValue rc ->
                     do! rc.Reply s
@@ -96,7 +96,7 @@ module private ActorAtom =
                     let! success = source <!- fun ch -> TrySetValue(tag, pickle value', ch)
                     if success then return ()
                     else
-                        match maxRetries with
+                        match retries with
                         | None -> return! tryUpdate None
                         | Some 0 -> return raise <| new OperationCanceledException("ran out of retries.")
                         | Some i -> return! tryUpdate (Some (i-1))
@@ -114,7 +114,7 @@ type ActorAtomProvider (factory : ResourceFactory) =
     interface ICloudAtomProvider with
         member x.Name: string = "MBrace.Thespian Actor CloudAtom Provider"
         member x.Id = id
-        member x.IsSupportedValue(value: 'T): bool = true
+        member x.IsSupportedValue(_: 'T): bool = true
         member x.DefaultContainer = "<Default CloudAtom Container>"
         member x.WithDefaultContainer _ = x :> _
         member x.GetRandomContainerName () = "<Default CloudAtom Container>"

@@ -107,7 +107,7 @@ type ThespianWorker private (uri : string) =
     member __.IsMasterNode : bool =
         match state.Value with
         | None -> false
-        | Some(isMaster,_) -> true
+        | Some(isMaster,_) -> isMaster
 
     /// Gets whether worker process is subscribed (slave node) to an MBrace cluster state.
     member __.IsWorkerNode : bool =
@@ -192,7 +192,7 @@ type ThespianWorker private (uri : string) =
     /// <param name="port">Master TCP port used by the worker. Defaults to self-assigned.</param>
     /// <param name="workingDirectory">Working directory used by the worker. Defaults to system temp folder.</param>
     /// <param name="maxConcurrentWorkItems">Maximum number of concurrent work items executed if running as slave node. Defaults to 20.</param>
-/// <param name="maxLogWriteInterval">Maximum interval in which new log entries are to be persisted to store. Defaults to 1 seconds.</param>
+    /// <param name="maxLogWriteInterval">Maximum interval in which new log entries are to be persisted to store. Defaults to 1 seconds.</param>
     /// <param name="logLevel">Loglevel used by the worker process. Defaults to no log level.</param>
     /// <param name="logFiles">Paths to text logfiles written to by worker process.</param>
     /// <param name="useAppDomainIsolation">Use AppDomain isolation when executing cloud work items. Defaults to true.</param>
@@ -206,7 +206,7 @@ type ThespianWorker private (uri : string) =
                             [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan) =
 
         ThespianWorker.SpawnAsync(?hostname = hostname, ?port = port, ?maxConcurrentWorkItems = maxConcurrentWorkItems, ?logLevel = logLevel, 
-                                    ?maxLogWriteInterval = maxLogWriteInterval,
+                                    ?maxLogWriteInterval = maxLogWriteInterval, ?workingDirectory = workingDirectory,
                                     ?logFiles = logFiles, ?runAsBackground = runAsBackground, ?useAppDomainIsolation = useAppDomainIsolation,
                                     ?quiet = quiet, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
         |> Async.RunSync
@@ -221,7 +221,6 @@ type ThespianCluster private (state : ClusterState, manager : IRuntimeManager, d
     static let initWorkers logLevel quiet (count : int) (target : ClusterState) = async {
         if count < 0 then invalidArg "workerCount" "must be non-negative."
         let quiet = defaultArg quiet Config.IsUnix
-        let exe = ThespianWorker.LocalExecutable
         let attachNewWorker _ = async {
             let! (node : ThespianWorker) = ThespianWorker.SpawnAsync(?logLevel = logLevel, quiet = quiet)
             do! node.SubscribeToCluster(target)

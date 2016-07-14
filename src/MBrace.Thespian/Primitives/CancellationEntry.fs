@@ -41,7 +41,7 @@ and [<Sealed; AutoSerializable(true)>] ActorCancellationEntry private (id : stri
                 do! rc.Reply (Option.isNone state)
                 return state
             // has been cancelled, return false
-            | RegisterChild (child, rc), None ->
+            | RegisterChild (_, rc), None ->
                 do! rc.Reply false
                 return state
 

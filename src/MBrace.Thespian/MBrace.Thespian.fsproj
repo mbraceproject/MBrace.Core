@@ -23,6 +23,7 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Thespian.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,6 +34,7 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Thespian.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

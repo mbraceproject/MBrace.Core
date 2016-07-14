@@ -30,7 +30,7 @@ module private ActorResultAggregator =
     let create (logger : ISystemLogger) (aggregatorId : string) (typeName : string) (capacity : int) : ActorRef<ResultAggregatorMsg> =
         let behaviour (results : Map<int, ResultMessage<obj>>) msg = async {
             match msg with
-            | SetResult(i, value, _, rc) when i < 0 || i >= capacity ->
+            | SetResult(i, _, _, rc) when i < 0 || i >= capacity ->
                 let e = new IndexOutOfRangeException()
                 do! rc.ReplyWithException e
                 return results

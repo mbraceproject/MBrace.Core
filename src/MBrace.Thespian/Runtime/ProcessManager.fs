@@ -31,7 +31,7 @@ type CloudProcessManager private (ref : ActorRef<ProcessManagerMsg>) =
         }
 
         member x.ClearProcess(procId: string): Async<unit> = async {
-            let! found = ref <!- fun ch -> ClearProcess(procId, ch)
+            let! _ = ref <!- fun ch -> ClearProcess(procId, ch)
             return ()
         }
         
