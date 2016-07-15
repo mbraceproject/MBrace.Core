@@ -1,3 +1,8 @@
+### 1.3.0
+* MBrace.Runtime bugfixes
+* MBrace.Thespian bugfixes
+* Update to Argu 3.0
+
 ### 1.2.6
 * Fix packaging issue
 
