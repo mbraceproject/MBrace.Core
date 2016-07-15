@@ -38,7 +38,7 @@ NUGET
 GROUP Build
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.30.2)
+    FAKE (4.31.1)
     Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
       Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
@@ -51,5 +51,5 @@ NUGET
     SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (f35a5d927148ca1a5fe5bc6ae2c1a37e3b2b5923)
+    modules/Octokit/Octokit.fsx (40dd0ff66fc379474450f93fd1ba545f6cf6c121)
       Octokit (>= 0.20)

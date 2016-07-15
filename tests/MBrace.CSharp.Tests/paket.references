@@ -1,4 +1,4 @@
 ﻿Nunit
 FsCheck
-FSharp.Core
+FSharp.Core copy_local: false
 Streams.CSharp
