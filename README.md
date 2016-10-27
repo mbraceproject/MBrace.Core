@@ -12,7 +12,7 @@ You can also follow the official MBrace twitter account [@mbracethecloud](https:
 
 ## Repo Contents
 
-### MBrace.Core [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/)
+### MBrace.Core [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/) [![AppVeyor/Windows](https://ci.appveyor.com/api/projects/status/36o1p0fiaucy6d2l/branch/master?svg=true)](https://ci.appveyor.com/project/dsyme/mbrace-core/branch/master) [![Travis/Linux](https://travis-ci.org/mbraceproject/MBrace.Core.png?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core/branches)
 
 [MBrace.Core](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Core) is a standalone class library that contains the core MBrace programming model, used to author general-purpose, runtime-agnostic distributed computation. It is centered on the concept of *cloud workflows*, a composable, language-integrated API based on F# computation expressions. It can be used to author specialized cloud libraries like MBrace.Flow.
 
@@ -94,8 +94,3 @@ This project is subject to the [Apache Licence, Version 2.0](License.md).
   * [@nickpalladinos](https://twitter.com/nickpalladinos)
   * [@krontogiannis](https://twitter.com/krontogiannis)
 
-## Build Status
-
-Head (branch master), Build & Unit tests
-  * Windows/.NET [![Build status](https://ci.appveyor.com/api/projects/status/3yaglw86q7vnja7w/branch/master?svg=true)](https://ci.appveyor.com/project/nessos/mbrace-core/branch/master)
-  * Linux/Mono 4.2 [![Build Status](https://travis-ci.org/mbraceproject/MBrace.Core.png?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core/branches)
