@@ -10,8 +10,6 @@ For a first introduction to MBrace please refer to the main website at [mbrace.i
 If you have any questions regarding MBrace don't hesitate to create an issue or ask one of the [maintainers](#maintainers). 
 You can also follow the official MBrace twitter account [@mbracethecloud](https://twitter.com/mbracethecloud).
 
-## Repo Contents - Programming Models and Libraries
-
 ### MBrace.Core [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/) [![AppVeyor/Windows](https://ci.appveyor.com/api/projects/status/36o1p0fiaucy6d2l/branch/master?svg=true)](https://ci.appveyor.com/project/dsyme/mbrace-core/branch/master) [![Travis/Linux](https://travis-ci.org/mbraceproject/MBrace.Core.png?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core/branches)
 
 [MBrace.Core](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Core) is a standalone class library that contains the core MBrace programming model, used to author general-purpose, runtime-agnostic distributed computation. It is centered on the concept of *cloud workflows*, a composable, language-integrated API based on F# computation expressions. It can be used to author specialized cloud libraries like MBrace.Flow.
@@ -39,7 +37,7 @@ It is written on top of the [Nessos.Streams](http://nessos.github.io/Streams) li
 
 
 
-## Repo Contents - MBrace Implementations
+# MBrace Implementations
 
 
 ### MBrace.Runtime [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Runtime.svg?style=flat)](https://www.nuget.org/packages/MBrace.Runtime/)
