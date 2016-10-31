@@ -37,10 +37,23 @@ It is written on top of the [Nessos.Streams](http://nessos.github.io/Streams) li
 ### MBrace.Runtime [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Runtime.svg?style=flat)](https://www.nuget.org/packages/MBrace.Runtime/)
 
 [MBrace.Runtime](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Runtime) provides an extensive set of foundations and common components for quickly developing MBrace runtimes on top of [FsPickler](http://nessos.github.io/FsPickler)/[Vagabond](http://nessos.github.io/Vagabond). It removes the hassle of working with MBrace semantics and lets the runtime developer focus on providing cloud infrastructure implementations such as:
-  * Cloud file storage.
-  * Cloud table storage.
-  * Work item queue/scheduler.
+
+* Cloud file storage.
+* Cloud table storage.
+* Work item queue/scheduler.
+
 Refer to [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/master/samples/MBrace.Thespian) and [MBrace.Azure](https://github.com/mbraceproject/MBrace.Azure) for examples of MBrace runtimes that are implemented on top of MBrace.Runtime.
+
+We've done work that effectively decouples the runtime implementation of MBrace from any particular cloud vendor. Details such as use of Vagabond, cloud workflow execution semantics, serialization and caching are handled by MBrace.Runtime, which can be used to target any infrastructure that supplies the following resources:
+
+*	A distributed storage: e.g. S3, Blob Storage, HDFS, etc.;
+*	Distributed queues with fault tolerance;
+*	A small collection of simple synchronization primitives, typically implemented on top of a database; and
+*	Stateless worker instances that can talk to the above services.
+
+As a result, we have been able to quickly provide MBrace implementations for 3 different settings: standalone, Azure and AWS, all with relatively small codebases: 2900, 6800 and 6200 LoC respectively.
+
+Conceivably it is now possible to provide MBrace bindings for any cloud infrastructure that provides aforementioned resources, private or public. We believe there's space for collaboration here.
 
 ### MBrace.Tests [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Tests.svg?style=flat)](https://www.nuget.org/packages/MBrace.Tests/)
 
