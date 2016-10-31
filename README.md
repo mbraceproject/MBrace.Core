@@ -39,7 +39,7 @@ It is written on top of the [Nessos.Streams](http://nessos.github.io/Streams) li
 
 
 
-## Repo Contents - Cloud Vendor Implementations
+## Repo Contents - MBrace Implementations
 
 
 ### MBrace.Runtime [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Runtime.svg?style=flat)](https://www.nuget.org/packages/MBrace.Runtime/)
@@ -67,8 +67,6 @@ Conceivably it is now possible to provide MBrace bindings for any cloud infrastr
 
 [MBrace.Thespian](https://github.com/mbraceproject/MBrace.Core/tree/2ee52e8518e5a1450bf357495580d6b88e171477/src/MBrace.Thespian) is a simple MBrace cluster implementation on top of MBrace.Runtime and the [Thespian](http://nessos.github.io/Thespian) actor library. Not intended for production deployments, it is used for testing MBrace core development.
 
-## MBrace Implementations
-
 ### MBrace.Azure [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Azure.svg?style=flat)](https://www.nuget.org/packages/MBrace.Azure/)
 
 [MBrace.Azure](http://github.com/mbraceproject/MBrace.Azure/) is an MBrace framework implementation on top of Azure PaaS components. Enables easy deployment of scalable MBrace clusters using worker roles. It also supports on-site cluster deployments using Azure storage/service bus components for communication.
@@ -77,7 +75,7 @@ Conceivably it is now possible to provide MBrace bindings for any cloud infrastr
 
 [MBrace.AWS](http://github.com/mbraceproject/MBrace.AWS/) is an MBrace framework implementation on top of AWS PaaS components. Enables easy deployment of scalable MBrace clusters using Elastic Beanstalk & Docker. It also supports on-site cluster deployments using AWS S3/DynamoDB/SQS components for communication.
 
-## Building and Running unit tests
+## Building and Running unit tests for MBrace.Core
 
 Building MBrace Core requires Visual Studio 2015/F# 4.0. You can build the project either from Visual Studio or by running `build.cmd Build` if using cmd/powershell or `./build.sh Build` if using bash/sh.
 
@@ -96,10 +94,14 @@ When performing changes to MBrace.Core, MBrace.Flow or MBrace.Runtime it is esse
 
 The MBrace project is happy to accept quality contributions from the .NET community.
 If you would like to get involved, here are a few places you could have a look at:
-  * MBrace Libraries: we are looking for data scientists and domain experts who can help us develop specialized libraries that run on top of MBrace.Core. Examples include [Machine Learning](https://spark.apache.org/docs/1.1.0/mllib-guide.html) and [Graph analytics](http://spark.apache.org/graphx/) libraries.
-  * MBrace Runtimes: help MBrace grow by extending support to your favorite cloud service. It could be AWS, YARN/HDFS or your private infrastructure.
-  * C# Support: As of MBrace 1.0, development of [MBrace.CSharp](#mbrace.csharp) has been suspended. We are looking for working C# developers interested in extending MBrace support to C# and testing deployments using the upcoming C# Interactive.
-  * Documentation & Code Samples: help improve MBrace documentation and coding samples. See the [MBrace.StarterKit](https://github.com/mbraceproject/MBrace.StarterKit) for current coding samples and the [mbrace-docs](https://github.com/mbraceproject/mbrace-docs) repo for documentation and the [mbrace.io](http://www.mbrace.io/) website.
+
+* MBrace Libraries: we are looking for data scientists and domain experts who can help us develop specialized libraries that run on top of MBrace.Core. Examples include [Machine Learning](https://spark.apache.org/docs/1.1.0/mllib-guide.html) and [Graph analytics](http://spark.apache.org/graphx/) libraries.
+
+* MBrace Runtimes: help MBrace grow by extending support to your favorite cloud service. It could be AWS, YARN/HDFS or your private infrastructure.
+
+* C# Support: As of MBrace 1.0, development of [MBrace.CSharp](#mbrace.csharp) has been suspended. We are looking for working C# developers interested in extending MBrace support to C# and testing deployments using the upcoming C# Interactive.
+
+* Documentation & Code Samples: help improve MBrace documentation and coding samples. See the [MBrace.StarterKit](https://github.com/mbraceproject/MBrace.StarterKit) for current coding samples and the [mbrace-docs](https://github.com/mbraceproject/mbrace-docs) repo for documentation and the [mbrace.io](http://www.mbrace.io/) website.
 
 ## License
 
@@ -107,7 +109,10 @@ This project is subject to the [Apache Licence, Version 2.0](License.md).
 
 ## Maintainers
 
-  * [@eiriktsarpalis](https://twitter.com/eiriktsarpalis)
-  * [@nickpalladinos](https://twitter.com/nickpalladinos)
-  * [@krontogiannis](https://twitter.com/krontogiannis)
+
+* [@eiriktsarpalis](https://twitter.com/eiriktsarpalis)
+
+* [@nickpalladinos](https://twitter.com/nickpalladinos)
+
+* [@krontogiannis](https://twitter.com/krontogiannis)
 
