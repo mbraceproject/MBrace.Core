@@ -10,11 +10,14 @@ For a first introduction to MBrace please refer to the main website at [mbrace.i
 If you have any questions regarding MBrace don't hesitate to create an issue or ask one of the [maintainers](#maintainers). 
 You can also follow the official MBrace twitter account [@mbracethecloud](https://twitter.com/mbracethecloud).
 
-## Repo Contents
+## Repo Contents - Programming Models and Libraries
 
 ### MBrace.Core [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/) [![AppVeyor/Windows](https://ci.appveyor.com/api/projects/status/36o1p0fiaucy6d2l/branch/master?svg=true)](https://ci.appveyor.com/project/dsyme/mbrace-core/branch/master) [![Travis/Linux](https://travis-ci.org/mbraceproject/MBrace.Core.png?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core/branches)
 
 [MBrace.Core](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Core) is a standalone class library that contains the core MBrace programming model, used to author general-purpose, runtime-agnostic distributed computation. It is centered on the concept of *cloud workflows*, a composable, language-integrated API based on F# computation expressions. It can be used to author specialized cloud libraries like MBrace.Flow.
+
+[MBrace.Core.Tests](https://github.com/mbraceproject/MBrace.Core/tree/master/tests/MBrace.Core.Tests) defines a comprehensive suite of abstracted NUnit/FsCheck based tests for use by MBrace runtime implementations. Useful for verifying that an MBrace implementation is up to spec regarding distribution semantics, serialization and fault tolerance. See [MBrace.Thespian.Tests](https://github.com/mbraceproject/MBrace.Core/tree/master/tests/MBrace.Thespian.Tests) and [MBrace.Azure.Tests](https://github.com/mbraceproject/MBrace.Azure/tree/master/tests/MBrace.Azure.Tests) for samples that make use of the test suites.
+
 
 ### MBrace.Flow [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Flow.svg?style=flat)](https://www.nuget.org/packages/MBrace.Flow/)
 
@@ -33,6 +36,11 @@ It is written on top of the [Nessos.Streams](http://nessos.github.io/Streams) li
 ### MBrace.CSharp [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.CSharp.svg?style=flat)](https://www.nuget.org/packages/MBrace.CSharp/)
 
 [MBrace.CSharp](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.CSharp) contains C# friendly wrapper APIs for the MBrace core programming model.
+
+
+
+## Repo Contents - Cloud Vendor Implementations
+
 
 ### MBrace.Runtime [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Runtime.svg?style=flat)](https://www.nuget.org/packages/MBrace.Runtime/)
 
@@ -54,10 +62,6 @@ We've done work that effectively decouples the runtime implementation of MBrace 
 As a result, we have been able to quickly provide MBrace implementations for 3 different settings: standalone, Azure and AWS, all with relatively small codebases: 2900, 6800 and 6200 LoC respectively.
 
 Conceivably it is now possible to provide MBrace bindings for any cloud infrastructure that provides aforementioned resources, private or public. We believe there's space for collaboration here.
-
-### MBrace.Tests [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Tests.svg?style=flat)](https://www.nuget.org/packages/MBrace.Tests/)
-
-[MBrace.Tests](https://github.com/mbraceproject/MBrace.Core/tree/master/tests/MBrace.Core.Tests) defines a comprehensive suite of abstracted NUnit/FsCheck based tests for use by MBrace runtime implementations. Useful for verifying that an MBrace implementation is up to spec regarding distribution semantics, serialization and fault tolerance. See [MBrace.Thespian.Tests](https://github.com/mbraceproject/MBrace.Core/tree/master/tests/MBrace.Thespian.Tests) and [MBrace.Azure.Tests](https://github.com/mbraceproject/MBrace.Azure/tree/master/tests/MBrace.Azure.Tests) for samples that make use of the test suites.
 
 ### MBrace.Thespian [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Thespian.svg?style=flat)](https://www.nuget.org/packages/MBrace.Thespian/)
 
