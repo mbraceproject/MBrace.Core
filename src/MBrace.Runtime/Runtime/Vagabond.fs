@@ -5,7 +5,7 @@ open System.Collections.Concurrent
 open System.Reflection
 open System.IO
 
-open Nessos.Vagabond
+open MBrace.Vagabond
 
 open MBrace.Core.Internals
 

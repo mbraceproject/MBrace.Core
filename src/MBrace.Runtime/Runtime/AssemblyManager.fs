@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Runtime
 
-open Nessos.Vagabond
+open MBrace.Vagabond
 
 /// Defines a Vagabond assembly manager
 type IAssemblyManager =

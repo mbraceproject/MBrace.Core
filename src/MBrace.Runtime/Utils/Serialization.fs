@@ -7,8 +7,8 @@ open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Threading.Tasks
 
-open Nessos.FsPickler
-open Nessos.FsPickler.Json
+open MBrace.FsPickler
+open MBrace.FsPickler.Json
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -52,7 +52,7 @@ module FsPicklerExtensions =
         interface IDisposable with
             member x.Dispose(): unit = enumerator.Dispose()
 
-    type Nessos.FsPickler.FsPickler with
+    type MBrace.FsPickler.FsPickler with
 
         /// <summary>
         ///     Creates a typed object size counter instance.

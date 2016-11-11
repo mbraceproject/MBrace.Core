@@ -7,9 +7,9 @@ open System.IO.Compression
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 
-open Nessos.FsPickler
-open Nessos.FsPickler.Hashing
-open Nessos.Vagabond
+open MBrace.FsPickler
+open MBrace.FsPickler.Hashing
+open MBrace.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals

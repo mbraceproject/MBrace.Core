@@ -6,7 +6,7 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.Serialization
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core
 open MBrace.Core.Internals

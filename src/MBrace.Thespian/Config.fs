@@ -6,7 +6,7 @@ open System.Net
 open System.Reflection
 open System.Threading
 
-open Nessos.Vagabond
+open MBrace.Vagabond
 
 open Nessos.Thespian
 open Nessos.Thespian.Serialization

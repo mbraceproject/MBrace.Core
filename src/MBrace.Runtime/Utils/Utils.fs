@@ -19,7 +19,7 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils.Retry
 
-open Nessos.FsPickler.Hashing
+open MBrace.FsPickler.Hashing
 
 #nowarn "444"
 type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
@@ -29,6 +29,9 @@ type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueA
 module Utils =
 
     let runsOnMono = System.Type.GetType("Mono.Runtime") <> null
+
+    let inline raisef (exnCtor : string -> #exn) fmt = 
+        Printf.ksprintf (fun msg -> raise <| exnCtor msg) fmt
 
     /// Value or exception
     [<NoEquality; NoComparison>]

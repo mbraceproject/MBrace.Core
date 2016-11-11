@@ -3,7 +3,7 @@
 open System
 
 open Nessos.Thespian
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core
 open MBrace.Core.Internals

@@ -3,8 +3,8 @@
 open System
 open System.Threading.Tasks
 
-open Nessos.FsPickler
-open Nessos.Vagabond
+open MBrace.FsPickler
+open MBrace.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals

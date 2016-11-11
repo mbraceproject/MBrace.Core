@@ -5,7 +5,7 @@ open System.Threading
 
 open Microsoft.FSharp.Control
 
-open Nessos.Vagabond
+open MBrace.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals

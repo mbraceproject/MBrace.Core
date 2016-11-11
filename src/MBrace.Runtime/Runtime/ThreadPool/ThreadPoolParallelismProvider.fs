@@ -4,7 +4,7 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core
 open MBrace.Core.Internals

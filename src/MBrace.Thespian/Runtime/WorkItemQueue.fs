@@ -4,8 +4,8 @@ open System
 open System.Threading
 open System.Runtime.Serialization
 
-open Nessos.FsPickler
-open Nessos.Vagabond
+open MBrace.FsPickler
+open MBrace.Vagabond
 open Nessos.Thespian
 
 open MBrace.Core

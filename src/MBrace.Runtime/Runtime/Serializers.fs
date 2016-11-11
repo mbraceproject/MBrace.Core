@@ -6,8 +6,8 @@ open System.Runtime.Serialization
 open System.Runtime.Serialization.Formatters.Binary
 open System.Collections.Concurrent
 
-open Nessos.FsPickler
-open Nessos.FsPickler.Json
+open MBrace.FsPickler
+open MBrace.FsPickler.Json
 
 open Newtonsoft.Json
 

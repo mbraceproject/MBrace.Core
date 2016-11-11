@@ -7,8 +7,8 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Library
 
-open Nessos.Vagabond
-open Nessos.Vagabond.AppDomainPool
+open MBrace.Vagabond
+open MBrace.Vagabond.AppDomainPool
 
 open MBrace.Runtime.Utils
 

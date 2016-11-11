@@ -101,6 +101,7 @@
     <Compile Include="Components\StoreAssemblyManager.fs" />
     <Compile Include="Components\ClosureSiftManager.fs" />
     <Compile Include="Components\StoreJsonLogger.fs" />
+    <Compile Include="Components\ProcessMonitor.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
   </ItemGroup>

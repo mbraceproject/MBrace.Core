@@ -5,7 +5,7 @@ open System.IO
 open System.Diagnostics
 
 open Argu
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open Nessos.Thespian
 open Nessos.Thespian.Remote

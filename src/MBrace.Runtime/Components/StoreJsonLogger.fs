@@ -5,8 +5,8 @@ open System.Threading
 open System.IO
 open System.Runtime.Serialization
 
-open Nessos.FsPickler
-open Nessos.FsPickler.Json
+open MBrace.FsPickler
+open MBrace.FsPickler.Json
 
 open MBrace.Core
 open MBrace.Core.Internals

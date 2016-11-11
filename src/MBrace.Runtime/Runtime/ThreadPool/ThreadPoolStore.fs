@@ -7,8 +7,8 @@ open System.Runtime.Serialization
 open System.Threading
 open System.Threading.Tasks
 
-open Nessos.FsPickler
-open Nessos.FsPickler.Hashing
+open MBrace.FsPickler
+open MBrace.FsPickler.Hashing
 
 open MBrace.Core
 open MBrace.Core.Internals

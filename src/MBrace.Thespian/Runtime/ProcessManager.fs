@@ -2,9 +2,9 @@
 
 open System
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 open Nessos.Thespian
-open Nessos.Vagabond
+open MBrace.Vagabond
 
 open MBrace.Core
 open MBrace.Core.Internals

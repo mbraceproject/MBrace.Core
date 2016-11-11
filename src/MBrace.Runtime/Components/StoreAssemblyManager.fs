@@ -7,10 +7,10 @@ open System.Text.RegularExpressions
 open System.Runtime.Serialization
 open System.Reflection
 
-open Nessos.FsPickler.Hashing
+open MBrace.FsPickler.Hashing
 
-open Nessos.Vagabond
-open Nessos.Vagabond.AssemblyProtocols
+open MBrace.Vagabond
+open MBrace.Vagabond.AssemblyProtocols
 
 open MBrace.Core
 open MBrace.Core.Internals
