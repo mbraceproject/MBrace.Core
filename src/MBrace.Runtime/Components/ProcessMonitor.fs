@@ -9,17 +9,17 @@ open Microsoft.FSharp.Control
 type private ProcessMonitorMsg =
     | Stop of AsyncReplyChannel<exn option>
     | Start of AsyncReplyChannel<exn option>
-    | GetState of AsyncReplyChannel<Process option>
+    | GetState of AsyncReplyChannel<(TimeSpan list * Process) option>
     | Recover
 
 type ProcessMonitorRetryPolicy =
     abstract ShouldRetryAfter : lastProcDurations:TimeSpan list -> TimeSpan option
 
-/// Provides class for monitoring child processes;
-/// If the child process dies then it will be restarted by the parent
+/// Provides functionality for spawning and maintaining child processes.
+/// Will automatically restart a child process if it dies.
 [<AutoSerializable(false)>]
 type ProcessMonitor private (executable : string, arguments : string, workingDirectory : string, 
-                                retryPolicy : ProcessMonitorRetryPolicy, logger : ISystemLogger) =
+                                redirectOutput : bool, retryPolicy : ProcessMonitorRetryPolicy, logger : ISystemLogger) =
 
     static let errorf fmt = Printf.ksprintf (InvalidOperationException >> unbox<exn>) fmt
     static let getDuration(proc : Process) = let d = (proc.StartTime - DateTime.Now) in d.Duration()
@@ -33,6 +33,12 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
             psi.WorkingDirectory <- workingDirectory
             psi.UseShellExecute <- false
             psi.CreateNoWindow <- true
+            if redirectOutput then
+                psi.RedirectStandardInput <- true
+                psi.RedirectStandardError <- true
+                proc.OutputDataReceived.Subscribe(fun args -> Console.WriteLine args.Data) |> ignore
+                proc.ErrorDataReceived.Subscribe(fun args -> Console.Error.WriteLine args.Data) |> ignore
+
             proc.EnableRaisingEvents <- true
             if not <| proc.Start() then
                 Choice2Of2 <| errorf "Failed to start process '%s'" executable
@@ -44,7 +50,7 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
         let! msg = self.Receive()
         match msg, state with
         | GetState ch, state ->
-            state |> Option.map snd |> ch.Reply
+            ch.Reply state
             return! behaviour state self
 
         | Start ch, Some _ -> 
@@ -109,13 +115,18 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
         | Some e -> raise e
 
     member __.CurrentProcess =
-        actor.PostAndReply GetState
+        actor.PostAndReply GetState |> Option.map snd
+
+    member __.NumberOfRestarts =
+        actor.PostAndReply GetState 
+        |> Option.map (fun (ts,_) -> ts.Length)
 
     interface IDisposable with
         member __.Dispose() = __.Stop()
 
+    /// Creates a process monitor instance with supplied parameters
     static member Create(?executable:string, ?arguments:string, ?workingDirectory:string,
-                            ?retryPolicy:ProcessMonitorRetryPolicy, ?logger:ISystemLogger) =
+                            ?redirectStandardOutput:bool, ?retryPolicy:ProcessMonitorRetryPolicy, ?logger:ISystemLogger) =
 
         let executable =
             match executable with
@@ -124,6 +135,7 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
 
         let arguments = defaultArg arguments ""
         let workingDirectory = defaultArg workingDirectory Environment.CurrentDirectory
+        let redirectStandardOutput = defaultArg redirectStandardOutput true
         let retryPolicy =
             match retryPolicy with
             | Some rp -> rp
@@ -135,4 +147,4 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
                         else Some(TimeSpan.FromSeconds 10.) }
 
         let logger = defaultArg logger (NullLogger() :> _)
-        new ProcessMonitor(executable, arguments, workingDirectory, retryPolicy, logger)
+        new ProcessMonitor(executable, arguments, workingDirectory, redirectStandardOutput, retryPolicy, logger)

@@ -5,11 +5,15 @@ using System.Reflection;
 [assembly: AssemblyCompanyAttribute("Nessos Information Technologies")]
 [assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")]
 [assembly: AssemblyTrademarkAttribute("MBrace")]
-[assembly: AssemblyVersionAttribute("1.3.1")]
-[assembly: AssemblyFileVersionAttribute("1.3.1")]
+[assembly: AssemblyVersionAttribute("1.4.0")]
+[assembly: AssemblyFileVersionAttribute("1.4.0")]
 namespace System {
     internal static class AssemblyVersionInformation {
-        internal const string Version = "1.3.1";
-        internal const string InformationalVersion = "1.3.1";
+        internal const System.String AssemblyProduct = "MBrace";
+        internal const System.String AssemblyCompany = "Nessos Information Technologies";
+        internal const System.String AssemblyCopyright = "© Nessos Information Technologies.";
+        internal const System.String AssemblyTrademark = "MBrace";
+        internal const System.String AssemblyVersion = "1.4.0";
+        internal const System.String AssemblyFileVersion = "1.4.0";
     }
 }
