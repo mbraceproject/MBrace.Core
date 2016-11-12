@@ -104,19 +104,23 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
 
     let actor = MailboxProcessor.Start(behaviour None)
 
+    /// Starts the child process
     member __.Start() =
         match actor.PostAndReply Start with
         | None -> ()
         | Some e -> raise e
 
+    /// Stops the child process
     member __.Stop() =
         match actor.PostAndReply Stop with
         | None -> ()
         | Some e -> raise e
 
+    /// Gets the current child process, if available
     member __.CurrentProcess =
         actor.PostAndReply GetState |> Option.map snd
 
+    /// Number of faults and restarts associated with current process instance
     member __.NumberOfRestarts =
         actor.PostAndReply GetState 
         |> Option.map (fun (ts,_) -> ts.Length)
@@ -124,7 +128,15 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
     interface IDisposable with
         member __.Dispose() = __.Stop()
 
-    /// Creates a process monitor instance with supplied parameters
+    /// <summary>
+    ///     Creates a process monitoring instance with supplied parameters.
+    /// </summary>
+    /// <param name="executable">Path to executable that will be used to spawn monitored computation. Defaults to current process path.</param>
+    /// <param name="arguments">CLI params to use with child computation. Defaults to empty.</param>
+    /// <param name="workingDirectory">Working directory to be used by child. Default to current working directory.</param>
+    /// <param name="redirectStandardOutput">Redirect stdout and stderr. Defaults to true.</param>
+    /// <param name="retryPolicy">Retry policy on child process death.</param>
+    /// <param name="logger">Logger to be used by the monitor.</param>
     static member Create(?executable:string, ?arguments:string, ?workingDirectory:string,
                             ?redirectStandardOutput:bool, ?retryPolicy:ProcessMonitorRetryPolicy, ?logger:ISystemLogger) =
 
@@ -146,5 +158,5 @@ type ProcessMonitor private (executable : string, arguments : string, workingDir
                           (procDurations |> Seq.averageBy (fun d -> d.TotalSeconds)) < 10. then None
                         else Some(TimeSpan.FromSeconds 10.) }
 
-        let logger = defaultArg logger (NullLogger() :> _)
+        let logger = match logger with Some l -> l | None -> NullLogger() :> _
         new ProcessMonitor(executable, arguments, workingDirectory, redirectStandardOutput, retryPolicy, logger)
