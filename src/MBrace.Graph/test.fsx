@@ -53,6 +53,63 @@ let g =
     { Vertices = nodes |> CloudFlow.OfArray
       Edges = edges |> CloudFlow.OfArray }
 
-let res = CloudGraph.AggregateMessage<string, int, int> g (fun c -> c.SendToSrc c.Attr) (fun acc m -> acc + m)
+let res = 
+    CloudGraph.AggregateMessage<string, int, int> g (fun c -> cloud { return c.SendToSrc c.Attr }) 
+        (fun acc m -> acc + m)
 let a = res |> cluster.Run
+
 a.TryFind "1"
+
+let vertices : Node<int * int> [] = 
+    [| { Id = 1L
+         Attr = (7, -1) }
+       { Id = 2L
+         Attr = (3, -1) }
+       { Id = 3L
+         Attr = (2, -1) }
+       { Id = 4L
+         Attr = (6, -1) } |]
+
+let relationships : Edge<bool> [] = 
+    [| { SrcId = 1L
+         DstId = 2L
+         Attr = true }
+       { SrcId = 1L
+         DstId = 4L
+         Attr = true }
+       { SrcId = 2L
+         DstId = 4L
+         Attr = true }
+       { SrcId = 3L
+         DstId = 1L
+         Attr = true }
+       { SrcId = 3L
+         DstId = 4L
+         Attr = true } |]
+
+let graph = 
+    { Vertices = vertices |> CloudFlow.OfArray
+      Edges = relationships |> CloudFlow.OfArray }
+
+let initialMsg = 9999
+
+let vprog (vertexId : VertexId, value : int * int, message : int) : int * int =
+    if (message = initialMsg) then value
+    else (min message (fst value), fst value)
+
+let sendMsg (triplet : EdgeTriplet<int * int, bool>) : Cloud<(VertexId * int) seq> = 
+    cloud { 
+        let! sourceVertex = triplet.SrcAttr
+        let res = 
+            if (fst sourceVertex = snd sourceVertex) then Seq.empty
+            else seq { yield (triplet.DstId, fst sourceVertex) }
+        return res
+    }
+
+let mergeMsg (msg1 : int) (msg2 : int) : int = min msg1 msg2
+let minGraph = 
+    CloudGraph.Pregel graph initialMsg System.Int32.MaxValue EdgeDirection.Out vprog sendMsg mergeMsg |> cluster.Run
+
+minGraph.Vertices
+|> CloudFlow.toArray
+|> cluster.Run

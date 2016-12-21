@@ -14,6 +14,19 @@ type Edge<'a> =
       DstId : VertexId
       Attr : 'a }
 
+type EdgeDirection = 
+    | In
+    | Out
+    | Either
+    | Both
+
+type EdgeTriplet<'a, 'b> = 
+    { SrcId : VertexId
+      SrcAttr : Cloud<'a>
+      DstId : VertexId
+      DstAttr : Cloud<'a>
+      Attr : 'b }
+
 type EdgeContext<'a, 'b, 'c> = 
     { SrcId : VertexId
       SrcAttr : Cloud<'a>
@@ -28,14 +41,14 @@ type Graph<'a, 'b> =
       Edges : CloudFlow<Edge<'b>> }
 
 module CloudGraph = 
-    let inline AggregateMessage<'a, 'b, 'm> (g : Graph<'a, 'b>) (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
+    let inline AggregateMessage<'a, 'b, 'm> (graph : Graph<'a, 'b>) (sendMsg : EdgeContext<'a, 'b, 'm> -> Cloud<unit>) 
                (accMsg : 'm -> 'm -> 'm) = 
         let getAttr id = 
-            g.Vertices |> CloudFlow.pick (fun a -> 
-                              if a.Id = id then Some(a.Attr)
-                              else None)
+            graph.Vertices |> CloudFlow.pick (fun a -> 
+                                  if a.Id = id then Some(a.Attr)
+                                  else None)
         
-        let sentTo (dict:CloudDictionary<'m>) (id:VertexId) accMsg m = 
+        let sentTo (dict : CloudDictionary<'m>) (id : VertexId) accMsg m = 
             dict.AddOrUpdate(id.ToString(), 
                              (fun acc -> 
                              match acc with
@@ -45,7 +58,7 @@ module CloudGraph =
         
         cloud { 
             use! dict = CloudDictionary.New<'m>()
-            let! a = g.Edges
+            let! a = graph.Edges
                      |> CloudFlow.map (fun edge -> 
                             let ctx = 
                                 { SrcId = edge.SrcId
@@ -57,6 +70,66 @@ module CloudGraph =
                                   SendToDst = sentTo dict edge.DstId accMsg }
                             sendMsg ctx)
                      |> CloudFlow.toArray
-            a |> ignore
+            let! b = a |> Cloud.Parallel
+            b |> ignore
             return dict
+        }
+    
+    let inline Pregel<'a, 'b, 'm> (graph : Graph<'a, 'b>) (initialMsg : 'm) (maxIterations : int) 
+               (activeDirection : EdgeDirection) (vprog : VertexId * 'a * 'm -> 'a) 
+               (sendMsg : EdgeTriplet<'a, 'b> -> Cloud<(VertexId * 'm) seq>) (mergeMsg : 'm -> 'm -> 'm) = 
+        local {
+            let mutable g = 
+                { graph with Vertices = 
+                                 graph.Vertices |> CloudFlow.map (fun v -> 
+                                                       { Id = v.Id
+                                                         Attr = vprog (v.Id, v.Attr, initialMsg) }) }
+            let mutable messages = 
+                AggregateMessage g (fun ctx -> 
+                    cloud { 
+                        let! a = sendMsg { SrcId = ctx.SrcId
+                                           SrcAttr = ctx.SrcAttr
+                                           DstId = ctx.DstId
+                                           DstAttr = ctx.DstAttr
+                                           Attr = ctx.Attr }
+                        return a |> Seq.iter (fun (id, m) -> 
+                                        if ctx.SrcId = id then ctx.SendToSrc m
+                                        else ctx.SendToDst m)
+                    }) mergeMsg |> Cloud.AsLocal
+            
+            let! m = messages
+            let mutable i = 0
+            let mutable md = m
+            while md.GetCountAsync() |> Async.RunSynchronously > 0L && i < maxIterations do
+                let! vs = g.Vertices |> CloudFlow.map (fun v -> 
+                                                    match md.TryFind(v.Id.ToString()) with
+                                                    | Some m -> { v with Attr = vprog (v.Id, v.Attr, m) }
+                                                    | _ -> v)
+                                     |> CloudFlow.toArray
+                                     |> Cloud.AsLocal
+                g <- { g with Vertices = vs |> CloudFlow.OfArray }
+                messages <- AggregateMessage g (fun ctx -> 
+                                cloud { 
+                                    let b = md.TryFindAsync(ctx.SrcId.ToString()) |> Async.RunSynchronously
+                                    let c = md.TryFindAsync(ctx.DstId.ToString()) |> Async.RunSynchronously
+                                    let! a = match activeDirection, b, c with
+                                             | EdgeDirection.Both, Some _, Some _ 
+                                             | EdgeDirection.Either, Some _, _ 
+                                             | EdgeDirection.Either,  _,  Some _ 
+                                             | EdgeDirection.In, _, Some _ 
+                                             | EdgeDirection.Out, Some _, _ -> 
+                                                 sendMsg { SrcId = ctx.SrcId
+                                                           SrcAttr = ctx.SrcAttr
+                                                           DstId = ctx.DstId
+                                                           DstAttr = ctx.DstAttr
+                                                           Attr = ctx.Attr }
+                                             | _ -> cloud { return Seq.empty }
+                                    return a |> Seq.iter (fun (id, m) -> 
+                                                    if ctx.SrcId = id then ctx.SendToSrc m
+                                                    else ctx.SendToDst m)
+                                }) mergeMsg |> Cloud.AsLocal
+                let! m = messages
+                i <- i + 1
+                md <- m
+            return g
         }
