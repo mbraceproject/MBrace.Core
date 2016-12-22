@@ -80,8 +80,7 @@ module CloudGraph =
             let mutable messages = 
                 AggregateMessage g (fun ctx -> 
                     cloud { 
-                        let! a = sendMsg ctx
-                        return a
+                        return! sendMsg ctx
                     }) mergeMsg |> Cloud.AsLocal
             
             let! m = messages
@@ -92,22 +91,22 @@ module CloudGraph =
                                                     match md.TryFind(v.Id.ToString()) with
                                                     | Some m -> { v with Attr = vprog (v.Id, v.Attr, m) }
                                                     | _ -> v)
-                                     |> CloudFlow.toArray
+                                     |> CloudFlow.persist StorageLevel.Memory
                                      |> Cloud.AsLocal
-                g <- { g with Vertices = vs |> CloudFlow.OfArray }
+
+                g <- { g with Vertices = vs }
                 messages <- AggregateMessage g (fun ctx -> 
                                 cloud { 
                                     let b = md.TryFindAsync(ctx.SrcId.ToString()) |> Async.RunSynchronously
                                     let c = md.TryFindAsync(ctx.DstId.ToString()) |> Async.RunSynchronously
-                                    let! a = match activeDirection, b, c with
-                                             | EdgeDirection.Both, Some _, Some _ 
-                                             | EdgeDirection.Either, Some _, _ 
-                                             | EdgeDirection.Either,  _,  Some _ 
-                                             | EdgeDirection.In, _, Some _ 
-                                             | EdgeDirection.Out, Some _, _ -> 
-                                                 sendMsg ctx
-                                             | _ -> cloud { return () }
-                                    return a
+                                    return! match activeDirection, b, c with
+                                            | EdgeDirection.Both, Some _, Some _ 
+                                            | EdgeDirection.Either, Some _, _ 
+                                            | EdgeDirection.Either,  _,  Some _ 
+                                            | EdgeDirection.In, _, Some _ 
+                                            | EdgeDirection.Out, Some _, _ -> 
+                                                sendMsg ctx
+                                            | _ -> cloud { return () }
                                 }) mergeMsg |> Cloud.AsLocal
                 let! m = messages
                 i <- i + 1
