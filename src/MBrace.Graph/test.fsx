@@ -97,13 +97,12 @@ let vprog (vertexId : VertexId, value : int * int, message : int) : int * int =
     if (message = initialMsg) then value
     else (min message (fst value), fst value)
 
-let sendMsg (triplet : EdgeTriplet<int * int, bool>) : Cloud<(VertexId * int) seq> = 
+let sendMsg (ctx : EdgeContext<int * int, bool, int>) : Cloud<unit> = 
     cloud { 
-        let! sourceVertex = triplet.SrcAttr
-        let res = 
-            if (fst sourceVertex = snd sourceVertex) then Seq.empty
-            else seq { yield (triplet.DstId, fst sourceVertex) }
-        return res
+        let! sourceVertex = ctx.SrcAttr 
+        if (fst sourceVertex <> snd sourceVertex) then 
+            ctx.SendToDst (fst sourceVertex)
+        return ()
     }
 
 let mergeMsg (msg1 : int) (msg2 : int) : int = min msg1 msg2

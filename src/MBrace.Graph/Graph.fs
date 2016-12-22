@@ -20,13 +20,6 @@ type EdgeDirection =
     | Either
     | Both
 
-type EdgeTriplet<'a, 'b> = 
-    { SrcId : VertexId
-      SrcAttr : Cloud<'a>
-      DstId : VertexId
-      DstAttr : Cloud<'a>
-      Attr : 'b }
-
 type EdgeContext<'a, 'b, 'c> = 
     { SrcId : VertexId
       SrcAttr : Cloud<'a>
@@ -77,7 +70,7 @@ module CloudGraph =
     
     let inline Pregel<'a, 'b, 'm> (graph : Graph<'a, 'b>) (initialMsg : 'm) (maxIterations : int) 
                (activeDirection : EdgeDirection) (vprog : VertexId * 'a * 'm -> 'a) 
-               (sendMsg : EdgeTriplet<'a, 'b> -> Cloud<(VertexId * 'm) seq>) (mergeMsg : 'm -> 'm -> 'm) = 
+               (sendMsg : EdgeContext<'a, 'b, 'm> -> Cloud<unit>) (mergeMsg : 'm -> 'm -> 'm) = 
         local {
             let mutable g = 
                 { graph with Vertices = 
@@ -87,14 +80,8 @@ module CloudGraph =
             let mutable messages = 
                 AggregateMessage g (fun ctx -> 
                     cloud { 
-                        let! a = sendMsg { SrcId = ctx.SrcId
-                                           SrcAttr = ctx.SrcAttr
-                                           DstId = ctx.DstId
-                                           DstAttr = ctx.DstAttr
-                                           Attr = ctx.Attr }
-                        return a |> Seq.iter (fun (id, m) -> 
-                                        if ctx.SrcId = id then ctx.SendToSrc m
-                                        else ctx.SendToDst m)
+                        let! a = sendMsg ctx
+                        return a
                     }) mergeMsg |> Cloud.AsLocal
             
             let! m = messages
@@ -118,15 +105,9 @@ module CloudGraph =
                                              | EdgeDirection.Either,  _,  Some _ 
                                              | EdgeDirection.In, _, Some _ 
                                              | EdgeDirection.Out, Some _, _ -> 
-                                                 sendMsg { SrcId = ctx.SrcId
-                                                           SrcAttr = ctx.SrcAttr
-                                                           DstId = ctx.DstId
-                                                           DstAttr = ctx.DstAttr
-                                                           Attr = ctx.Attr }
-                                             | _ -> cloud { return Seq.empty }
-                                    return a |> Seq.iter (fun (id, m) -> 
-                                                    if ctx.SrcId = id then ctx.SendToSrc m
-                                                    else ctx.SendToDst m)
+                                                 sendMsg ctx
+                                             | _ -> cloud { return () }
+                                    return a
                                 }) mergeMsg |> Cloud.AsLocal
                 let! m = messages
                 i <- i + 1
