@@ -112,3 +112,22 @@ let minGraph =
 minGraph.Vertices
 |> CloudFlow.toArray
 |> cluster.Run
+
+let v = [| { Id = 1L ; Attr = "A" } ; { Id = 2L ; Attr = "B" } ; { Id = 3L ; Attr = "C" } ; { Id = 4L ; Attr = "D" } |]
+let e = [| { Edge.SrcId = 1L ; DstId = 2L ; Attr = "Link" }
+           { Edge.SrcId = 1L ; DstId = 3L ; Attr = "Link" }
+           { Edge.SrcId = 2L ; DstId = 3L ; Attr = "Link" }
+           { Edge.SrcId = 3L ; DstId = 1L ; Attr = "Link" }
+           { Edge.SrcId = 4L ; DstId = 3L ; Attr = "Link" } |]
+
+let graph = 
+    { Vertices = v |> CloudFlow.OfArray
+      Edges = e |> CloudFlow.OfArray }
+
+let ranked = graph |> CloudGraph.PageRank 0.0001 0.15 |> cluster.Run
+ranked.Vertices
+|> CloudFlow.toArray
+|> cluster.Run
+ranked.Edges
+|> CloudFlow.toArray
+|> cluster.Run
