@@ -127,12 +127,11 @@ module CloudGraph =
                     let b = md.TryFindAsync(ctx.SrcId.ToString()) |> Async.RunSynchronously
                     let c = md.TryFindAsync(ctx.DstId.ToString()) |> Async.RunSynchronously
                     return! match activeDirection, b, c with
-                            | EdgeDirection.Both, Some _, Some _ | EdgeDirection.Either, Some _, _ | EdgeDirection.Either, 
-                                                                                                     _, Some _ | EdgeDirection.In, 
-                                                                                                                 _, 
-                                                                                                                 Some _ | EdgeDirection.Out, 
-                                                                                                                          Some _, 
-                                                                                                                          _ -> 
+                            | EdgeDirection.Both, Some _, Some _ 
+                            | EdgeDirection.Either, Some _, _ 
+                            | EdgeDirection.Either, _, Some _ 
+                            | EdgeDirection.In, _, Some _ 
+                            | EdgeDirection.Out, Some _, _ -> 
                                 sendMsg ctx
                             | _ -> cloud { return () }
                 }
@@ -180,16 +179,17 @@ module CloudGraph =
     let inline MapTriplets<'a, 'b, 'c> (mapTriplets : EdgeTriplet<'a, 'b> -> Cloud<'c>) (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'c>> = 
         cloud { 
             let! edges = graph.Edges
-                         |> CloudFlow.map (fun e ->
+                         |> CloudFlow.map (fun e -> 
                                 cloud { 
-                                let! attr = mapTriplets { SrcId = e.SrcId
-                                                          SrcAttr = graph |> GetAttr e.SrcId
-                                                          DstId = e.DstId
-                                                          DstAttr = graph |> GetAttr e.DstId
-                                                          Attr = e.Attr }
-                                return { Edge.SrcId = e.SrcId
-                                         DstId = e.DstId
-                                         Attr = attr }})
+                                    let! attr = mapTriplets { SrcId = e.SrcId
+                                                              SrcAttr = graph |> GetAttr e.SrcId
+                                                              DstId = e.DstId
+                                                              DstAttr = graph |> GetAttr e.DstId
+                                                              Attr = e.Attr }
+                                    return { Edge.SrcId = e.SrcId
+                                             DstId = e.DstId
+                                             Attr = attr }
+                                })
                          |> CloudFlow.toArray
             let! edges = edges |> Cloud.Parallel
             return { Vertices = graph.Vertices
@@ -203,30 +203,26 @@ module CloudGraph =
                                               match deg with
                                               | Some x -> x
                                               | _ -> 0)
-            let! pagerankGraph = pagerankGraph |> MapTriplets (fun e -> cloud { let! scrAttr = e.SrcAttr
-                                                                                return 1.0 / float scrAttr })
-            let! pagerankGraph = pagerankGraph |> MapVertices (fun _ -> (0.0, 0.0))
-
-            let vertexProgram (id: VertexId) (attr: double * double) (msgSum: double): double * double =
+            let! pagerankGraph = pagerankGraph |> MapTriplets(fun e -> cloud { let! scrAttr = e.SrcAttr
+                                                                               return 1.0 / float scrAttr })
+            let! pagerankGraph = pagerankGraph |> MapVertices(fun _ -> (0.0, 0.0))
+            let vertexProgram (id : VertexId) (attr : double * double) (msgSum : double) : double * double = 
                 let (oldPR, lastDelta) = attr
                 let newPR = oldPR + (1.0 - resetProb) * msgSum
                 (newPR, newPR - oldPR)
-
-            let sendMessage (ctx: EdgeContext<double * double, double, double>) =
-                cloud {
-                let! srcAttr = ctx.SrcAttr
-                if snd srcAttr > tol then
-                    ctx.SendToDst (snd srcAttr * ctx.Attr) }
             
-            let messageCombiner (a: double) (b: double) : double = a + b
-
+            let sendMessage (ctx : EdgeContext<double * double, double, double>) = 
+                cloud { 
+                    let! srcAttr = ctx.SrcAttr
+                    if snd srcAttr > tol then ctx.SendToDst(snd srcAttr * ctx.Attr)
+                }
+            
+            let messageCombiner (a : double) (b : double) : double = a + b
             let initialMessage = resetProb / (1.0 - resetProb)
-
-            let vp (id: VertexId, attr: double * double, msgSum: double) =
-                vertexProgram id attr msgSum
-
-            let! prefelGraph = pagerankGraph |> Pregel initialMessage System.Int32.MaxValue EdgeDirection.Out vp sendMessage messageCombiner
-            let! res = prefelGraph |> MapVertices(fun { Id = vid ; Attr = attr } -> fst attr)
-
+            let vp (id : VertexId, attr : double * double, msgSum : double) = vertexProgram id attr msgSum
+            let! prefelGraph = pagerankGraph 
+                               |> Pregel initialMessage System.Int32.MaxValue EdgeDirection.Out vp sendMessage 
+                                      messageCombiner
+            let! res = prefelGraph |> MapVertices(fun { Id = vid; Attr = attr } -> fst attr)
             return res
         }
