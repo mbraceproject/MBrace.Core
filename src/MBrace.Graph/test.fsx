@@ -54,7 +54,7 @@ let g =
       Edges = edges |> CloudFlow.OfArray }
 
 let res = 
-    CloudGraph.AggregateMessage<string, int, int> g (fun c -> cloud { return c.SendToSrc c.Attr }) 
+    g |> CloudGraph.AggregateMessages<string, int, int> (fun c -> c.SendToSrc c.Attr) 
         (fun acc m -> acc + m)
 let a = res |> cluster.Run
 
@@ -97,17 +97,13 @@ let vprog (vertexId : VertexId, value : int * int, message : int) : int * int =
     if (message = initialMsg) then value
     else (min message (fst value), fst value)
 
-let sendMsg (ctx : EdgeContext<int * int, bool, int>) : Cloud<unit> = 
-    cloud { 
-        let! sourceVertex = ctx.SrcAttr 
-        if (fst sourceVertex <> snd sourceVertex) then 
-            ctx.SendToDst (fst sourceVertex)
-        return ()
-    }
+let sendMsg (ctx : EdgeContext<int * int, bool, int>) : unit = 
+    if (fst ctx.SrcAttr <> snd ctx.SrcAttr) then 
+        ctx.SendToDst (fst ctx.SrcAttr)
 
 let mergeMsg (msg1 : int) (msg2 : int) : int = min msg1 msg2
 let minGraph = 
-    CloudGraph.Pregel graph initialMsg System.Int32.MaxValue EdgeDirection.Out vprog sendMsg mergeMsg |> cluster.Run
+    graph |> CloudGraph.Pregel initialMsg System.Int32.MaxValue EdgeDirection.Out vprog sendMsg mergeMsg |> cluster.Run
 
 minGraph.Vertices
 |> CloudFlow.toArray

@@ -22,16 +22,16 @@ type EdgeDirection =
 
 type EdgeTriplet<'a, 'b> = 
     { SrcId : VertexId
-      SrcAttr : Cloud<'a>
+      SrcAttr : 'a
       DstId : VertexId
-      DstAttr : Cloud<'a>
+      DstAttr : 'a
       Attr : 'b }
 
 type EdgeContext<'a, 'b, 'c> = 
     { SrcId : VertexId
-      SrcAttr : Cloud<'a>
+      SrcAttr : 'a
       DstId : VertexId
-      DstAttr : Cloud<'a>
+      DstAttr : 'a
       Attr : 'b
       SendToSrc : 'c -> unit
       SendToDst : 'c -> unit }
@@ -40,13 +40,8 @@ type Graph<'a, 'b> =
     { Vertices : CloudFlow<Node<'a>>
       Edges : CloudFlow<Edge<'b>> }
 
-module CloudGraph = 
-    let inline GetAttr id graph = 
-        graph.Vertices |> CloudFlow.pick (fun a -> 
-                              if a.Id = id then Some(a.Attr)
-                              else None)
-    
-    let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> Cloud<unit>) 
+module CloudGraph =
+    let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
                (accMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : Cloud<CloudDictionary<'m>> = 
         let sentTo (dict : CloudDictionary<'m>) (id : VertexId) accMsg m = 
             dict.AddOrUpdate(id.ToString(), 
@@ -56,21 +51,22 @@ module CloudGraph =
                              | _ -> m))
             |> ignore
         cloud { 
-            use! dict = CloudDictionary.New<'m>()
-            let! a = graph.Edges
-                     |> CloudFlow.map (fun edge -> 
+            let! dict = CloudDictionary.New<'m>()
+            let! vDict = CloudDictionary.New<'a>()
+            do! graph.Vertices |> CloudFlow.iter (fun v -> vDict.TryAdd(v.Id.ToString(), v.Attr) |> ignore)
+            do! graph.Edges
+                     |> CloudFlow.iter (fun edge -> 
+                            let srcAttr = vDict.TryFind (edge.SrcId.ToString())
+                            let dstAttr = vDict.TryFind (edge.DstId.ToString())
                             let ctx = 
                                 { SrcId = edge.SrcId
-                                  SrcAttr = graph |> GetAttr edge.SrcId
+                                  SrcAttr = srcAttr.Value
                                   DstId = edge.DstId
-                                  DstAttr = graph |> GetAttr edge.DstId
+                                  DstAttr = dstAttr.Value
                                   Attr = edge.Attr
                                   SendToSrc = sentTo dict edge.SrcId accMsg
                                   SendToDst = sentTo dict edge.DstId accMsg }
                             sendMsg ctx)
-                     |> CloudFlow.toArray
-            let! b = a |> Cloud.Parallel
-            b |> ignore
             return dict
         }
     
@@ -104,7 +100,7 @@ module CloudGraph =
         }
     
     let inline Pregel<'a, 'b, 'm> (initialMsg : 'm) (maxIterations : int) (activeDirection : EdgeDirection) 
-               (vprog : VertexId * 'a * 'm -> 'a) (sendMsg : EdgeContext<'a, 'b, 'm> -> Cloud<unit>) 
+               (vprog : VertexId * 'a * 'm -> 'a) (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
                (mergeMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : LocalCloud<Graph<'a, 'b>> = 
         local { 
             let mutable g = 
@@ -115,26 +111,25 @@ module CloudGraph =
             
             let mutable messages = 
                 g
-                |> AggregateMessages (fun ctx -> cloud { return! sendMsg ctx }) mergeMsg
+                |> AggregateMessages (fun ctx -> sendMsg ctx) mergeMsg
                 |> Cloud.AsLocal
             
             let! m = messages
             let mutable i = 0
             let mutable md = m
             
-            let sendMsgForActive ctx = 
-                cloud { 
+            let sendMsgForActive ctx =  
                     let b = md.TryFindAsync(ctx.SrcId.ToString()) |> Async.RunSynchronously
                     let c = md.TryFindAsync(ctx.DstId.ToString()) |> Async.RunSynchronously
-                    return! match activeDirection, b, c with
-                            | EdgeDirection.Both, Some _, Some _ 
-                            | EdgeDirection.Either, Some _, _ 
-                            | EdgeDirection.Either, _, Some _ 
-                            | EdgeDirection.In, _, Some _ 
-                            | EdgeDirection.Out, Some _, _ -> 
-                                sendMsg ctx
-                            | _ -> cloud { return () }
-                }
+                    match activeDirection, b, c with
+                    | EdgeDirection.Both, Some _, Some _ 
+                    | EdgeDirection.Either, Some _, _ 
+                    | EdgeDirection.Either, _, Some _ 
+                    | EdgeDirection.In, _, Some _ 
+                    | EdgeDirection.Out, Some _, _ -> 
+                        sendMsg ctx
+                    | _ -> ()
+
             while md.GetCountAsync()
                   |> Async.RunSynchronously
                   > 0L
@@ -155,15 +150,13 @@ module CloudGraph =
     let inline Degrees (edgeDirection : EdgeDirection) (graph : Graph<'a, 'b>) = 
         match edgeDirection with
         | EdgeDirection.In -> 
-            graph |> AggregateMessages (fun ctx -> cloud { return ctx.SendToDst 1 }) (fun acc m -> acc + m)
+            graph |> AggregateMessages (fun ctx -> ctx.SendToDst 1) (fun acc m -> acc + m)
         | EdgeDirection.Out -> 
-            graph |> AggregateMessages (fun ctx -> cloud { return ctx.SendToSrc 1 }) (fun acc m -> acc + m)
+            graph |> AggregateMessages (fun ctx -> ctx.SendToSrc 1) (fun acc m -> acc + m)
         | _ -> 
             graph |> AggregateMessages (fun ctx -> 
-                         cloud { 
-                             return ctx.SendToSrc(1)
-                             ctx.SendToDst(1)
-                         }) (fun acc m -> acc + m)
+                         ctx.SendToSrc(1)
+                         ctx.SendToDst(1)) (fun acc m -> acc + m)
     
     let inline MapVertices<'a, 'b, 'c> (mapVertices : Node<'a> -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'c, 'b>> = 
         cloud { 
@@ -176,22 +169,23 @@ module CloudGraph =
                      Edges = graph.Edges }
         }
     
-    let inline MapTriplets<'a, 'b, 'c> (mapTriplets : EdgeTriplet<'a, 'b> -> Cloud<'c>) (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'c>> = 
-        cloud { 
+    let inline MapTriplets<'a, 'b, 'c> (mapTriplets : EdgeTriplet<'a, 'b> -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'c>> = 
+        cloud {
+            let! vDict = CloudDictionary.New<'a>()
+            do! graph.Vertices |> CloudFlow.iter (fun v -> vDict.TryAdd(v.Id.ToString(), v.Attr) |> ignore)
             let! edges = graph.Edges
                          |> CloudFlow.map (fun e -> 
-                                cloud { 
-                                    let! attr = mapTriplets { SrcId = e.SrcId
-                                                              SrcAttr = graph |> GetAttr e.SrcId
-                                                              DstId = e.DstId
-                                                              DstAttr = graph |> GetAttr e.DstId
-                                                              Attr = e.Attr }
-                                    return { Edge.SrcId = e.SrcId
-                                             DstId = e.DstId
-                                             Attr = attr }
-                                })
+                                    let srcAttr = vDict.TryFind (e.SrcId.ToString())
+                                    let dstAttr = vDict.TryFind (e.DstId.ToString())
+                                    let attr = mapTriplets { SrcId = e.SrcId
+                                                             SrcAttr = srcAttr.Value
+                                                             DstId = e.DstId
+                                                             DstAttr = dstAttr.Value
+                                                             Attr = e.Attr }
+                                    { Edge.SrcId = e.SrcId
+                                      DstId = e.DstId
+                                      Attr = attr })
                          |> CloudFlow.toArray
-            let! edges = edges |> Cloud.Parallel
             return { Vertices = graph.Vertices
                      Edges = edges |> CloudFlow.OfArray }
         }
@@ -203,8 +197,7 @@ module CloudGraph =
                                               match deg with
                                               | Some x -> x
                                               | _ -> 0)
-            let! pagerankGraph = pagerankGraph |> MapTriplets(fun e -> cloud { let! scrAttr = e.SrcAttr
-                                                                               return 1.0 / float scrAttr })
+            let! pagerankGraph = pagerankGraph |> MapTriplets(fun e -> 1.0 / float e.SrcAttr)
             let! pagerankGraph = pagerankGraph |> MapVertices(fun _ -> (0.0, 0.0))
             let vertexProgram (id : VertexId) (attr : double * double) (msgSum : double) : double * double = 
                 let (oldPR, lastDelta) = attr
@@ -212,10 +205,7 @@ module CloudGraph =
                 (newPR, newPR - oldPR)
             
             let sendMessage (ctx : EdgeContext<double * double, double, double>) = 
-                cloud { 
-                    let! srcAttr = ctx.SrcAttr
-                    if snd srcAttr > tol then ctx.SendToDst(snd srcAttr * ctx.Attr)
-                }
+                if snd ctx.SrcAttr > tol then ctx.SendToDst(snd ctx.SrcAttr * ctx.Attr)
             
             let messageCombiner (a : double) (b : double) : double = a + b
             let initialMessage = resetProb / (1.0 - resetProb)
