@@ -41,8 +41,8 @@ type Graph<'a, 'b> =
       Edges : CloudFlow<Edge<'b>> }
 
 module CloudGraph =
-    let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
-               (accMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : Cloud<CloudDictionary<'m>> = 
+    let inline internal aggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
+               (accMsg : 'm -> 'm -> 'm) (verticesDict : CloudDictionary<'a>) (edges : CloudFlow<Edge<'b>>) : Cloud<CloudDictionary<'m>> = 
         let sentTo (dict : CloudDictionary<'m>) (id : VertexId) accMsg m = 
             dict.AddOrUpdate(id.ToString(), 
                              (fun acc -> 
@@ -52,12 +52,10 @@ module CloudGraph =
             |> ignore
         cloud { 
             let! dict = CloudDictionary.New<'m>()
-            let! vDict = CloudDictionary.New<'a>()
-            do! graph.Vertices |> CloudFlow.iter (fun v -> vDict.TryAdd(v.Id.ToString(), v.Attr) |> ignore)
-            do! graph.Edges
+            do! edges
                      |> CloudFlow.iter (fun edge -> 
-                            let srcAttr = vDict.TryFind (edge.SrcId.ToString())
-                            let dstAttr = vDict.TryFind (edge.DstId.ToString())
+                            let srcAttr = verticesDict.TryFind (edge.SrcId.ToString())
+                            let dstAttr = verticesDict.TryFind (edge.DstId.ToString())
                             let ctx = 
                                 { SrcId = edge.SrcId
                                   SrcAttr = srcAttr.Value
@@ -69,17 +67,26 @@ module CloudGraph =
                             sendMsg ctx)
             return dict
         }
-    
-    let inline JoinVertices<'a, 'b, 'm> (dict : CloudDictionary<'m>) (vprog : VertexId * 'a * 'm -> 'a) 
-               (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'b>> = 
+
+    let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
+               (accMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : Cloud<CloudDictionary<'m>> = 
         cloud { 
-            let! vs = graph.Vertices
-                      |> CloudFlow.map (fun v -> 
-                             match dict.TryFind(v.Id.ToString()) with
-                             | Some m -> { v with Attr = vprog (v.Id, v.Attr, m) }
-                             | _ -> v)
-                      |> CloudFlow.persist StorageLevel.Memory
-            return { graph with Vertices = vs }
+            let! verticesDict = CloudDictionary.New<'a>()
+            do! graph.Vertices |> CloudFlow.iter (fun v -> verticesDict.TryAdd(v.Id.ToString(), v.Attr) |> ignore)
+            return! aggregateMessages sendMsg accMsg verticesDict graph.Edges
+        }
+    
+    let inline internal joinVertices<'a, 'm> (dict : CloudDictionary<'m>) (vprog : VertexId * 'a * 'm -> 'a) 
+               (vertices : CloudDictionary<'a>) : Cloud<CloudDictionary<'a>> = 
+        cloud {
+            let! verticesDict = CloudDictionary.New<'a>()
+            do! vertices
+                |> CloudFlow.OfCloudCollection
+                |> CloudFlow.iter (fun v -> 
+                       match dict.TryFind(v.Key) with
+                       | Some m -> verticesDict.TryAdd(v.Key, vprog (int64 v.Key, v.Value, m)) |> ignore
+                       | _ -> verticesDict.TryAdd(v.Key, v.Value) |> ignore)
+            return verticesDict
         }
     
     let inline OuterJoinVertices<'a, 'b, 'c, 'm> (dict : CloudDictionary<'m>) (vprog : VertexId * 'a * 'm option -> 'c) 
@@ -102,21 +109,17 @@ module CloudGraph =
     let inline Pregel<'a, 'b, 'm> (initialMsg : 'm) (maxIterations : int) (activeDirection : EdgeDirection) 
                (vprog : VertexId * 'a * 'm -> 'a) (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
                (mergeMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : LocalCloud<Graph<'a, 'b>> = 
-        local { 
-            let mutable g = 
-                { graph with Vertices = 
-                                 graph.Vertices |> CloudFlow.map (fun v -> 
-                                                       { Id = v.Id
-                                                         Attr = vprog (v.Id, v.Attr, initialMsg) }) }
+        local {            
+            let! verticesDict = CloudDictionary.New<'a>()
+            do! graph.Vertices |> CloudFlow.iter (fun v -> verticesDict.TryAdd(v.Id.ToString(), vprog (v.Id, v.Attr, initialMsg)) |> ignore) |> Cloud.AsLocal
+                
             
-            let mutable messages = 
-                g
-                |> AggregateMessages (fun ctx -> sendMsg ctx) mergeMsg
-                |> Cloud.AsLocal
-            
-            let! m = messages
+            let! m = graph.Edges
+                     |> aggregateMessages (fun ctx -> sendMsg ctx) mergeMsg verticesDict
+                     |> Cloud.AsLocal
             let mutable i = 0
             let mutable md = m
+            let mutable dict = verticesDict
             
             let sendMsgForActive ctx =  
                     let b = md.TryFindAsync(ctx.SrcId.ToString()) |> Async.RunSynchronously
@@ -134,17 +137,17 @@ module CloudGraph =
                   |> Async.RunSynchronously
                   > 0L
                   && i < maxIterations do
-                let! newGraph = g
-                                |> JoinVertices md vprog
-                                |> Cloud.AsLocal
-                g <- newGraph
-                messages <- g
-                            |> AggregateMessages sendMsgForActive mergeMsg
-                            |> Cloud.AsLocal
-                let! m = messages
+                let! newDict = dict
+                               |> joinVertices md vprog
+                               |> Cloud.AsLocal
+                dict <- newDict
+
+                let! m = graph.Edges
+                         |> aggregateMessages sendMsgForActive mergeMsg dict
+                         |> Cloud.AsLocal
                 i <- i + 1
                 md <- m
-            return g
+            return { graph with Vertices = dict |> CloudFlow.OfCloudCollection |> CloudFlow.map (fun v -> { Id = int64 v.Key ; Attr = v.Value })}
         }
     
     let inline Degrees (edgeDirection : EdgeDirection) (graph : Graph<'a, 'b>) = 
