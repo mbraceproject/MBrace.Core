@@ -40,7 +40,7 @@ type Graph<'a, 'b> =
     { Vertices : CloudFlow<Node<'a>>
       Edges : CloudFlow<Edge<'b>> }
 
-module CloudGraph =
+module CloudGraph = 
     let inline internal aggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
                (accMsg : 'm -> 'm -> 'm) (verticesDict : CloudDictionary<'a>) (edges : CloudFlow<Edge<'b>>) : Cloud<CloudDictionary<'m>> = 
         let sentTo (dict : CloudDictionary<'m>) (id : VertexId) accMsg m = 
@@ -52,24 +52,24 @@ module CloudGraph =
             |> ignore
         cloud { 
             let! dict = CloudDictionary.New<'m>()
-            do! edges
-                     |> CloudFlow.iter (fun edge -> 
-                            let srcAttr = verticesDict.TryFind (edge.SrcId.ToString())
-                            let dstAttr = verticesDict.TryFind (edge.DstId.ToString())
-                            let ctx = 
-                                { SrcId = edge.SrcId
-                                  SrcAttr = srcAttr.Value
-                                  DstId = edge.DstId
-                                  DstAttr = dstAttr.Value
-                                  Attr = edge.Attr
-                                  SendToSrc = sentTo dict edge.SrcId accMsg
-                                  SendToDst = sentTo dict edge.DstId accMsg }
-                            sendMsg ctx)
+            do! edges |> CloudFlow.iter (fun edge -> 
+                             let srcAttr = verticesDict.TryFind(edge.SrcId.ToString())
+                             let dstAttr = verticesDict.TryFind(edge.DstId.ToString())
+                             
+                             let ctx = 
+                                 { SrcId = edge.SrcId
+                                   SrcAttr = srcAttr.Value
+                                   DstId = edge.DstId
+                                   DstAttr = dstAttr.Value
+                                   Attr = edge.Attr
+                                   SendToSrc = sentTo dict edge.SrcId accMsg
+                                   SendToDst = sentTo dict edge.DstId accMsg }
+                             sendMsg ctx)
             return dict
         }
-
-    let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
-               (accMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : Cloud<CloudDictionary<'m>> = 
+    
+    let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) (accMsg : 'm -> 'm -> 'm) 
+               (graph : Graph<'a, 'b>) : Cloud<CloudDictionary<'m>> = 
         cloud { 
             let! verticesDict = CloudDictionary.New<'a>()
             do! graph.Vertices |> CloudFlow.iter (fun v -> verticesDict.TryAdd(v.Id.ToString(), v.Attr) |> ignore)
@@ -78,7 +78,7 @@ module CloudGraph =
     
     let inline internal joinVertices<'a, 'm> (dict : CloudDictionary<'m>) (vprog : VertexId * 'a * 'm -> 'a) 
                (vertices : CloudDictionary<'a>) : Cloud<CloudDictionary<'a>> = 
-        cloud {
+        cloud { 
             let! verticesDict = CloudDictionary.New<'a>()
             do! vertices
                 |> CloudFlow.OfCloudCollection
@@ -109,11 +109,12 @@ module CloudGraph =
     let inline Pregel<'a, 'b, 'm> (initialMsg : 'm) (maxIterations : int) (activeDirection : EdgeDirection) 
                (vprog : VertexId * 'a * 'm -> 'a) (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
                (mergeMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : LocalCloud<Graph<'a, 'b>> = 
-        local {            
+        local { 
             let! verticesDict = CloudDictionary.New<'a>()
-            do! graph.Vertices |> CloudFlow.iter (fun v -> verticesDict.TryAdd(v.Id.ToString(), vprog (v.Id, v.Attr, initialMsg)) |> ignore) |> Cloud.AsLocal
-                
-            
+            do! graph.Vertices
+                |> CloudFlow.iter 
+                       (fun v -> verticesDict.TryAdd(v.Id.ToString(), vprog (v.Id, v.Attr, initialMsg)) |> ignore)
+                |> Cloud.AsLocal
             let! m = graph.Edges
                      |> aggregateMessages (fun ctx -> sendMsg ctx) mergeMsg verticesDict
                      |> Cloud.AsLocal
@@ -121,18 +122,17 @@ module CloudGraph =
             let mutable md = m
             let mutable dict = verticesDict
             
-            let sendMsgForActive ctx =  
-                    let b = md.TryFindAsync(ctx.SrcId.ToString()) |> Async.RunSynchronously
-                    let c = md.TryFindAsync(ctx.DstId.ToString()) |> Async.RunSynchronously
-                    match activeDirection, b, c with
-                    | EdgeDirection.Both, Some _, Some _ 
-                    | EdgeDirection.Either, Some _, _ 
-                    | EdgeDirection.Either, _, Some _ 
-                    | EdgeDirection.In, _, Some _ 
-                    | EdgeDirection.Out, Some _, _ -> 
-                        sendMsg ctx
-                    | _ -> ()
-
+            let sendMsgForActive ctx = 
+                let b = md.TryFindAsync(ctx.SrcId.ToString()) |> Async.RunSynchronously
+                let c = md.TryFindAsync(ctx.DstId.ToString()) |> Async.RunSynchronously
+                match activeDirection, b, c with
+                | EdgeDirection.Both, Some _, Some _ 
+                | EdgeDirection.Either, Some _, _ 
+                | EdgeDirection.Either, _, Some _ 
+                | EdgeDirection.In, _, Some _ 
+                | EdgeDirection.Out, Some _, _ -> 
+                    sendMsg ctx
+                | _ -> ()
             while md.GetCountAsync()
                   |> Async.RunSynchronously
                   > 0L
@@ -141,21 +141,23 @@ module CloudGraph =
                                |> joinVertices md vprog
                                |> Cloud.AsLocal
                 dict <- newDict
-
                 let! m = graph.Edges
                          |> aggregateMessages sendMsgForActive mergeMsg dict
                          |> Cloud.AsLocal
                 i <- i + 1
                 md <- m
-            return { graph with Vertices = dict |> CloudFlow.OfCloudCollection |> CloudFlow.map (fun v -> { Id = int64 v.Key ; Attr = v.Value })}
+            return { graph with Vertices = 
+                                    dict
+                                    |> CloudFlow.OfCloudCollection
+                                    |> CloudFlow.map (fun v -> 
+                                           { Id = int64 v.Key
+                                             Attr = v.Value }) }
         }
     
     let inline Degrees (edgeDirection : EdgeDirection) (graph : Graph<'a, 'b>) = 
         match edgeDirection with
-        | EdgeDirection.In -> 
-            graph |> AggregateMessages (fun ctx -> ctx.SendToDst 1) (fun acc m -> acc + m)
-        | EdgeDirection.Out -> 
-            graph |> AggregateMessages (fun ctx -> ctx.SendToSrc 1) (fun acc m -> acc + m)
+        | EdgeDirection.In -> graph |> AggregateMessages (fun ctx -> ctx.SendToDst 1) (fun acc m -> acc + m)
+        | EdgeDirection.Out -> graph |> AggregateMessages (fun ctx -> ctx.SendToSrc 1) (fun acc m -> acc + m)
         | _ -> 
             graph |> AggregateMessages (fun ctx -> 
                          ctx.SendToSrc(1)
@@ -173,24 +175,26 @@ module CloudGraph =
         }
     
     let inline MapTriplets<'a, 'b, 'c> (mapTriplets : EdgeTriplet<'a, 'b> -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'c>> = 
-        cloud {
+        cloud { 
             let! vDict = CloudDictionary.New<'a>()
             do! graph.Vertices |> CloudFlow.iter (fun v -> vDict.TryAdd(v.Id.ToString(), v.Attr) |> ignore)
             let! edges = graph.Edges
                          |> CloudFlow.map (fun e -> 
-                                    let srcAttr = vDict.TryFind (e.SrcId.ToString())
-                                    let dstAttr = vDict.TryFind (e.DstId.ToString())
-                                    let attr = mapTriplets { SrcId = e.SrcId
-                                                             SrcAttr = srcAttr.Value
-                                                             DstId = e.DstId
-                                                             DstAttr = dstAttr.Value
-                                                             Attr = e.Attr }
-                                    { Edge.SrcId = e.SrcId
-                                      DstId = e.DstId
-                                      Attr = attr })
-                         |> CloudFlow.toArray
+                                let srcAttr = vDict.TryFind(e.SrcId.ToString())
+                                let dstAttr = vDict.TryFind(e.DstId.ToString())
+                                
+                                let attr = 
+                                    mapTriplets { SrcId = e.SrcId
+                                                  SrcAttr = srcAttr.Value
+                                                  DstId = e.DstId
+                                                  DstAttr = dstAttr.Value
+                                                  Attr = e.Attr }
+                                { Edge.SrcId = e.SrcId
+                                  DstId = e.DstId
+                                  Attr = attr })
+                          |> CloudFlow.persist StorageLevel.Memory
             return { Vertices = graph.Vertices
-                     Edges = edges |> CloudFlow.OfArray }
+                     Edges = edges }
         }
     
     let inline PageRank<'a, 'b> (tol : double) (resetProb : double) (graph : Graph<'a, 'b>) = 
@@ -213,9 +217,9 @@ module CloudGraph =
             let messageCombiner (a : double) (b : double) : double = a + b
             let initialMessage = resetProb / (1.0 - resetProb)
             let vp (id : VertexId, attr : double * double, msgSum : double) = vertexProgram id attr msgSum
-            let! prefelGraph = pagerankGraph 
+            let! pregelGraph = pagerankGraph 
                                |> Pregel initialMessage System.Int32.MaxValue EdgeDirection.Out vp sendMessage 
                                       messageCombiner
-            let! res = prefelGraph |> MapVertices(fun { Id = vid; Attr = attr } -> fst attr)
+            let! res = pregelGraph |> MapVertices(fun { Id = vid; Attr = attr } -> fst attr)
             return res
         }
