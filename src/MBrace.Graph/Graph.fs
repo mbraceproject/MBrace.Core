@@ -47,56 +47,61 @@ module CloudGraph =
         let joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId)
         
         let messages = 
-            joinTarget |> CloudFlow.collect (fun (_, dst, (_, src, edge)) -> 
-                              let messages = new System.Collections.Generic.List<VertexId * 'm>()
-                              
-                              let ctx = 
-                                  { SrcId = edge.SrcId
-                                    SrcAttr = src.Attr
-                                    DstId = edge.DstId
-                                    DstAttr = dst.Attr
-                                    Attr = edge.Attr
-                                    SendToSrc = fun m -> messages.Add(edge.SrcId, m)
-                                    SendToDst = fun m -> messages.Add(edge.DstId, m) }
-                              sendMsg ctx
-                              messages)
-                        |> CloudFlow.groupBy (fun (id, _) -> id)
-                        |> CloudFlow.map (fun (id, ms) -> id, ms |> Seq.map snd |> Seq.reduce accMsg)
+            joinTarget
+            |> CloudFlow.collect (fun (_, dst, (_, src, edge)) -> 
+                   let messages = new System.Collections.Generic.List<VertexId * 'm>()
+                   
+                   let ctx = 
+                       { SrcId = edge.SrcId
+                         SrcAttr = src.Attr
+                         DstId = edge.DstId
+                         DstAttr = dst.Attr
+                         Attr = edge.Attr
+                         SendToSrc = fun m -> messages.Add(edge.SrcId, m)
+                         SendToDst = fun m -> messages.Add(edge.DstId, m) }
+                   sendMsg ctx
+                   messages)
+            |> CloudFlow.groupBy (fun (id, _) -> id)
+            |> CloudFlow.map (fun (id, ms) -> 
+                   id, 
+                   ms
+                   |> Seq.map snd
+                   |> Seq.reduce accMsg)
         messages
     
     let inline OuterJoinVertices<'a, 'b, 'c, 'm> (messages : CloudFlow<VertexId * 'm>) 
-               (vprog : VertexId * 'a * 'm option -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'c, 'b>> =
-        cloud {
-        let! vs = 
-            (graph.Vertices, messages)
-            ||> CloudFlow.rightOuterJoin (fun (id, _) -> id) (fun a -> a.Id)
-            |> CloudFlow.map (fun (_, m, v) -> 
-                   match m with
-                   | Some(_, m) -> 
-                       { Id = v.Id
-                         Attr = vprog (v.Id, v.Attr, Some(m)) }
-                   | _ -> 
-                       { Id = v.Id
-                         Attr = vprog (v.Id, v.Attr, None) })
-            |> CloudFlow.persist StorageLevel.Memory
-        return { Vertices = vs
-                 Edges = graph.Edges } }
+               (vprog : VertexId * 'a * 'm option -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'c, 'b>> = 
+        cloud { 
+            let! vs = (graph.Vertices, messages)
+                      ||> CloudFlow.rightOuterJoin (fun (id, _) -> id) (fun a -> a.Id)
+                      |> CloudFlow.map (fun (_, m, v) -> 
+                             match m with
+                             | Some(_, m) -> 
+                                 { Id = v.Id
+                                   Attr = vprog (v.Id, v.Attr, Some(m)) }
+                             | _ -> 
+                                 { Id = v.Id
+                                   Attr = vprog (v.Id, v.Attr, None) })
+                      |> CloudFlow.persist StorageLevel.Memory
+            return { Vertices = vs
+                     Edges = graph.Edges }
+        }
     
     let inline Pregel<'a, 'b, 'm> (initialMsg : 'm) (maxIterations : int) (activeDirection : EdgeDirection) 
                (vprog : VertexId * 'a * 'm -> 'a) (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) 
                (mergeMsg : 'm -> 'm -> 'm) (graph : Graph<'a, 'b>) : LocalCloud<Graph<'a, 'b>> = 
-        local {
-            let! vs = graph.Vertices 
+        local { 
+            let! vs = graph.Vertices
                       |> CloudFlow.map (fun v -> 
-                                             { Id = v.Id
-                                               Attr = (false, vprog (v.Id, v.Attr, initialMsg)) })
+                             { Id = v.Id
+                               Attr = (false, vprog (v.Id, v.Attr, initialMsg)) })
                       |> CloudFlow.persist StorageLevel.Memory
                       |> Cloud.AsLocal
             let mutable newGraph = 
                 { Vertices = vs
                   Edges = graph.Edges }
             
-            let mutable md =
+            let mutable md = 
                 newGraph |> AggregateMessages (fun ctx -> 
                                 sendMsg { SrcId = ctx.SrcId
                                           SrcAttr = snd ctx.SrcAttr
@@ -108,10 +113,9 @@ module CloudGraph =
             
             let mutable i = 0
             let! mcs = md
-                       |> CloudFlow.countBy (fun _ -> 1)
-                       |> CloudFlow.toArray
+                       |> CloudFlow.sumBy (fun _ -> 1L)
                        |> Cloud.AsLocal
-            let mutable mc = if mcs.Length = 1 then snd mcs.[0] else 0L
+            let mutable mc = mcs
             
             let sendMsgForActive ctx = 
                 match activeDirection, fst ctx.SrcAttr, fst ctx.DstAttr with
@@ -129,21 +133,23 @@ module CloudGraph =
                               SendToDst = ctx.SendToDst }
                 | _ -> ()
             while mc > 0L && i < maxIterations do
-                let! g = newGraph 
-                         |> OuterJoinVertices md (fun (id, (_, attr), m) -> m.IsSome, if m.IsSome then vprog (id, attr, m.Value) else attr)
+                let! g = newGraph
+                         |> OuterJoinVertices md (fun (id, (_, attr), m) -> 
+                                m.IsSome, 
+                                if m.IsSome then vprog (id, attr, m.Value)
+                                else attr)
                          |> Cloud.AsLocal
                 newGraph <- g
                 i <- i + 1
                 md <- newGraph |> AggregateMessages sendMsgForActive mergeMsg
                 let! mcs = md
-                           |> CloudFlow.countBy (fun _ -> 1)
-                           |> CloudFlow.toArray
+                           |> CloudFlow.sumBy (fun _ -> 1L)
                            |> Cloud.AsLocal
-                mc <- if mcs.Length = 1 then snd mcs.[0] else 0L
-            let! vs = newGraph.Vertices 
+                mc <- mcs
+            let! vs = newGraph.Vertices
                       |> CloudFlow.map (fun n -> 
-                                                  { Id = n.Id
-                                                    Attr = snd n.Attr })
+                             { Id = n.Id
+                               Attr = snd n.Attr })
                       |> CloudFlow.persist StorageLevel.Memory
                       |> Cloud.AsLocal
             return { Vertices = vs
@@ -171,12 +177,11 @@ module CloudGraph =
         }
     
     let inline MapTriplets<'a, 'b, 'c> (mapTriplets : EdgeTriplet<'a, 'b> -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'c>> = 
-        cloud {
+        cloud { 
             let joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId)
             let joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId)
- 
             let! vs = joinTarget
-                      |> CloudFlow.map (fun (_, dst, (_, src, edge)) ->                              
+                      |> CloudFlow.map (fun (_, dst, (_, src, edge)) -> 
                              let attr = 
                                  mapTriplets { SrcId = edge.SrcId
                                                SrcAttr = src.Attr
@@ -194,12 +199,10 @@ module CloudGraph =
     let inline PageRank<'a, 'b> (tol : double) (resetProb : double) (graph : Graph<'a, 'b>) = 
         cloud { 
             let outDegrees = graph |> Degrees EdgeDirection.Out
-            
-            let! pagerankGraph = 
-                graph |> OuterJoinVertices outDegrees (fun (_, _, deg) -> 
-                             match deg with
-                             | Some x -> x
-                             | _ -> 0)
+            let! pagerankGraph = graph |> OuterJoinVertices outDegrees (fun (_, _, deg) -> 
+                                              match deg with
+                                              | Some x -> x
+                                              | _ -> 0)
             let! pagerankGraph = pagerankGraph |> MapTriplets(fun e -> 1.0 / float e.SrcAttr)
             let! pagerankGraph = pagerankGraph |> MapVertices(fun _ -> (0.0, 0.0))
             let vertexProgram (id : VertexId) (attr : double * double) (msgSum : double) : double * double = 
