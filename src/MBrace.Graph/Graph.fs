@@ -171,26 +171,24 @@ module CloudGraph =
         }
     
     let inline MapTriplets<'a, 'b, 'c> (mapTriplets : EdgeTriplet<'a, 'b> -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'c>> = 
-        cloud { 
-            let! vDict = CloudDictionary.New<'a>()
-            do! graph.Vertices |> CloudFlow.iter (fun v -> vDict.TryAdd(v.Id.ToString(), v.Attr) |> ignore)
-            let! edges = graph.Edges
-                         |> CloudFlow.map (fun e -> 
-                                let srcAttr = vDict.TryFind(e.SrcId.ToString())
-                                let dstAttr = vDict.TryFind(e.DstId.ToString())
-                                
-                                let attr = 
-                                    mapTriplets { SrcId = e.SrcId
-                                                  SrcAttr = srcAttr.Value
-                                                  DstId = e.DstId
-                                                  DstAttr = dstAttr.Value
-                                                  Attr = e.Attr }
-                                { Edge.SrcId = e.SrcId
-                                  DstId = e.DstId
-                                  Attr = attr })
-                         |> CloudFlow.persist StorageLevel.Memory
+        cloud {
+            let joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId)
+            let joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId)
+ 
+            let! vs = joinTarget
+                      |> CloudFlow.map (fun (_, dst, (_, src, edge)) ->                              
+                             let attr = 
+                                 mapTriplets { SrcId = edge.SrcId
+                                               SrcAttr = src.Attr
+                                               DstId = edge.DstId
+                                               DstAttr = dst.Attr
+                                               Attr = edge.Attr }
+                             { Edge.SrcId = edge.SrcId
+                               DstId = edge.DstId
+                               Attr = attr })
+                      |> CloudFlow.persist StorageLevel.Memory
             return { Vertices = graph.Vertices
-                     Edges = edges }
+                     Edges = vs }
         }
     
     let inline PageRank<'a, 'b> (tol : double) (resetProb : double) (graph : Graph<'a, 'b>) = 
