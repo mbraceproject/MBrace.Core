@@ -55,7 +55,7 @@ let g =
 
 let res = 
     g |> CloudGraph.AggregateMessages<string, int, int> (fun c -> c.SendToSrc c.Attr) 
-        (fun acc m -> acc + m)
+        (fun acc m -> acc + m) |> cluster.Run
 let a = res |> CloudFlow.toArray |> cluster.Run
 
 let vertices : Node<int * int> [] = 

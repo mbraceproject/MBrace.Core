@@ -42,32 +42,34 @@ type Graph<'a, 'b> =
 
 module CloudGraph = 
     let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) (accMsg : 'm -> 'm -> 'm) 
-               (graph : Graph<'a, 'b>) : CloudFlow<VertexId * 'm> = 
-        let joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId)
-        let joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId)
+               (graph : Graph<'a, 'b>) : Cloud<CloudFlow<VertexId * 'm>> =
+        cloud {
+            let joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId)
+            let joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId)
         
-        let messages = 
-            joinTarget
-            |> CloudFlow.collect (fun (_, dst, (_, src, edge)) -> 
-                   let messages = new System.Collections.Generic.List<VertexId * 'm>()
+            let! messages = 
+                joinTarget
+                |> CloudFlow.collect (fun (_, dst, (_, src, edge)) -> 
+                       let messages = new System.Collections.Generic.List<VertexId * 'm>()
                    
-                   let ctx = 
-                       { SrcId = edge.SrcId
-                         SrcAttr = src.Attr
-                         DstId = edge.DstId
-                         DstAttr = dst.Attr
-                         Attr = edge.Attr
-                         SendToSrc = fun m -> messages.Add(edge.SrcId, m)
-                         SendToDst = fun m -> messages.Add(edge.DstId, m) }
-                   sendMsg ctx
-                   messages)
-            |> CloudFlow.groupBy (fun (id, _) -> id)
-            |> CloudFlow.map (fun (id, ms) -> 
-                   id, 
-                   ms
-                   |> Seq.map snd
-                   |> Seq.reduce accMsg)
-        messages
+                       let ctx = 
+                           { SrcId = edge.SrcId
+                             SrcAttr = src.Attr
+                             DstId = edge.DstId
+                             DstAttr = dst.Attr
+                             Attr = edge.Attr
+                             SendToSrc = fun m -> messages.Add(edge.SrcId, m)
+                             SendToDst = fun m -> messages.Add(edge.DstId, m) }
+                       sendMsg ctx
+                       messages)
+                |> CloudFlow.groupBy (fun (id, _) -> id)
+                |> CloudFlow.map (fun (id, ms) -> 
+                       id, 
+                       ms
+                       |> Seq.map snd
+                       |> Seq.reduce accMsg)
+                |> CloudFlow.persist StorageLevel.Memory
+            return messages :> CloudFlow<VertexId * 'm> }
     
     let inline OuterJoinVertices<'a, 'b, 'c, 'm> (messages : CloudFlow<VertexId * 'm>) 
                (vprog : VertexId * 'a * 'm option -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'c, 'b>> = 
@@ -101,8 +103,9 @@ module CloudGraph =
                 { Vertices = vs
                   Edges = graph.Edges }
             
-            let mutable md = 
-                newGraph |> AggregateMessages (fun ctx -> 
+            let! messages =
+                newGraph 
+                |> AggregateMessages (fun ctx -> 
                                 sendMsg { SrcId = ctx.SrcId
                                           SrcAttr = snd ctx.SrcAttr
                                           DstId = ctx.DstId
@@ -110,6 +113,8 @@ module CloudGraph =
                                           Attr = ctx.Attr
                                           SendToSrc = ctx.SendToSrc
                                           SendToDst = ctx.SendToDst }) mergeMsg
+                |> Cloud.AsLocal
+            let mutable md = messages
             
             let mutable i = 0
             let! mcs = md
@@ -141,7 +146,8 @@ module CloudGraph =
                          |> Cloud.AsLocal
                 newGraph <- g
                 i <- i + 1
-                md <- newGraph |> AggregateMessages sendMsgForActive mergeMsg
+                let! messages = newGraph |> AggregateMessages sendMsgForActive mergeMsg |> Cloud.AsLocal
+                md <- messages
                 let! mcs = md
                            |> CloudFlow.sumBy (fun _ -> 1L)
                            |> Cloud.AsLocal
@@ -198,7 +204,7 @@ module CloudGraph =
     
     let inline PageRank<'a, 'b> (tol : double) (resetProb : double) (graph : Graph<'a, 'b>) = 
         cloud { 
-            let outDegrees = graph |> Degrees EdgeDirection.Out
+            let! outDegrees = graph |> Degrees EdgeDirection.Out
             let! pagerankGraph = graph |> OuterJoinVertices outDegrees (fun (_, _, deg) -> 
                                               match deg with
                                               | Some x -> x
