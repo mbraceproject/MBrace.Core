@@ -44,8 +44,8 @@ module CloudGraph =
     let inline AggregateMessages<'a, 'b, 'm> (sendMsg : EdgeContext<'a, 'b, 'm> -> unit) (accMsg : 'm -> 'm -> 'm) 
                (graph : Graph<'a, 'b>) : Cloud<CloudFlow<VertexId * 'm>> =
         cloud {
-            let joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId)
-            let joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId)
+            let! joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId) |> CloudFlow.persist StorageLevel.Memory
+            let! joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId) |> CloudFlow.persist StorageLevel.Memory
         
             let! messages = 
                 joinTarget
@@ -184,8 +184,8 @@ module CloudGraph =
     
     let inline MapTriplets<'a, 'b, 'c> (mapTriplets : EdgeTriplet<'a, 'b> -> 'c) (graph : Graph<'a, 'b>) : Cloud<Graph<'a, 'c>> = 
         cloud { 
-            let joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId)
-            let joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId)
+            let! joinSource = (graph.Edges, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun a -> a.SrcId) |> CloudFlow.persist StorageLevel.Memory
+            let! joinTarget = (joinSource, graph.Vertices) ||> CloudFlow.join (fun a -> a.Id) (fun (_, _, a) -> a.DstId) |> CloudFlow.persist StorageLevel.Memory
             let! vs = joinTarget
                       |> CloudFlow.map (fun (_, dst, (_, src, edge)) -> 
                              let attr = 
