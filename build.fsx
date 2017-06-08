@@ -196,6 +196,7 @@ Target "ReleaseDocs" (fun _ ->
 // Run all targets by default. Invoke 'build <Target>' to override
 
 Target "Default" DoNothing
+Target "RunTestsAndBuildNuget" DoNothing
 Target "Release" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
@@ -205,6 +206,9 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "Build"
   ==> "RunTests"
   ==> "Default"
+
+"NuGet" ==> "RunTestsAndBuildNuget"
+"RunTests" ==> "RunTestsAndBuildNuget"
 
 "Build"
   ==> "NuGet"
