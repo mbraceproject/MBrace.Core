@@ -201,7 +201,7 @@ Target "Help" (fun _ -> PrintTargets() )
 "Clean"
   ==> "AssemblyInfo"
   ==> "Build"
-  =?> ("RunTests", not isTravisBuild) // testing not yet enabled on travis, see https://github.com/mbraceproject/MBrace.Core/issues/176
+  ==> "RunTests"
   ==> "Default"
 
 "Build"
