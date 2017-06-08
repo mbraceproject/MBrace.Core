@@ -103,10 +103,10 @@ If you would like to get involved, here are a few places you could have a look a
 
 ### CI NuGet feeds
 
-Vagabond: https://ci.appveyor.com/nuget/vagabond-6odcsr0usg1g
-MBrace.Core: https://ci.appveyor.com/nuget/mbrace-core-gjo4016ri68g
-MBrace.Azure: https://ci.appveyor.com/nuget/mbrace-azure-jglidppatqhw
-MBrace.AWS: https://ci.appveyor.com/nuget/mbrace-aws-drjomsmfdib7
+* Vagabond: https://ci.appveyor.com/nuget/vagabond-6odcsr0usg1g
+* MBrace.Core: https://ci.appveyor.com/nuget/mbrace-core-gjo4016ri68g
+* MBrace.Azure: https://ci.appveyor.com/nuget/mbrace-azure-jglidppatqhw
+* MBrace.AWS: https://ci.appveyor.com/nuget/mbrace-aws-drjomsmfdib7
 
 
 ## License
