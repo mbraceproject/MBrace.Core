@@ -22,6 +22,8 @@ let project = "MBrace.Core"
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
+let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
+let isTravisBuild = buildServer = BuildServer.Travis
 
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
@@ -199,7 +201,7 @@ Target "Help" (fun _ -> PrintTargets() )
 "Clean"
   ==> "AssemblyInfo"
   ==> "Build"
-  ==> "RunTests"
+  =?> ("RunTests", not isTravisBuild) // testing not yet enabled on travis, see https://github.com/mbraceproject/MBrace.Core/issues/176
   ==> "Default"
 
 "Build"
