@@ -1,11 +1,8 @@
 REDIRECTS: ON
-FRAMEWORK: >= NET45
+FRAMEWORK: NET45
 NUGET
   remote: https://www.nuget.org/api/v2
-    Argu (3.7)
-      FSharp.Core (>= 4.0.1.7-alpha) - framework: >= net463
-      NETStandard.Library (>= 1.6) - framework: >= net463
-      System.Xml.XDocument (>= 4.0.11) - framework: >= net463
+    Argu (3.3)
     FsCheck (2.9)
       FSharp.Core (>= 4.1)
     FSharp.Compiler.Service (5.0)
@@ -21,73 +18,18 @@ NUGET
       MathNet.Numerics (3.7.1)
     MathNet.Numerics.MKL.Win-x64 (1.8)
       MathNet.Numerics (>= 2.4)
-    Microsoft.Win32.Primitives (4.3) - framework: >= net463
     Mono.Cecil (0.9.6.4)
-    NETStandard.Library (1.6.1) - framework: >= net463
-      Microsoft.Win32.Primitives (>= 4.3) - framework: >= net46
-      System.AppContext (>= 4.3) - framework: >= net46
-      System.Collections.Concurrent (>= 4.3)
-      System.Console (>= 4.3) - framework: >= net46
-      System.Diagnostics.Tracing (>= 4.3)
-      System.Globalization.Calendars (>= 4.3) - framework: >= net46
-      System.IO.Compression (>= 4.3)
-      System.IO.Compression.ZipFile (>= 4.3) - framework: >= net46
-      System.IO.FileSystem (>= 4.3) - framework: >= net46
-      System.IO.FileSystem.Primitives (>= 4.3) - framework: >= net46
-      System.Net.Http (>= 4.3)
-      System.Net.Sockets (>= 4.3) - framework: >= net46
-      System.Runtime.Handles (>= 4.3) - framework: >= net46
-      System.Runtime.InteropServices (>= 4.3)
-      System.Runtime.InteropServices.RuntimeInformation (>= 4.3)
-      System.Runtime.Numerics (>= 4.3)
-      System.Security.Cryptography.Algorithms (>= 4.3) - framework: >= net46
-      System.Security.Cryptography.Encoding (>= 4.3) - framework: >= net46
-      System.Security.Cryptography.Primitives (>= 4.3) - framework: >= net46
-      System.Security.Cryptography.X509Certificates (>= 4.3) - framework: >= net46
-      System.Threading.Timer (>= 4.3) - framework: >= net451
     Newtonsoft.Json (10.0.2)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
     Streams (0.4.1)
     Streams.CSharp (0.4.1)
       Streams (0.4.1)
-    System.AppContext (4.3) - framework: >= net463
-    System.Collections.Concurrent (4.3) - framework: >= net463
     System.Collections.Immutable (1.2)
-    System.Console (4.3) - framework: >= net463
-    System.Diagnostics.Tracing (4.3) - framework: >= net463
-    System.Globalization.Calendars (4.3) - framework: >= net463
-    System.IO (4.3) - framework: >= net463
-    System.IO.Compression (4.3) - framework: >= net463
-    System.IO.Compression.ZipFile (4.3) - framework: >= net463
-    System.IO.FileSystem (4.3) - framework: >= net463
-      System.IO.FileSystem.Primitives (>= 4.3) - framework: >= net46
-    System.IO.FileSystem.Primitives (4.3)
-    System.Net.Http (4.3.2) - framework: >= net463
-      System.Security.Cryptography.X509Certificates (>= 4.3) - framework: >= net46
-    System.Net.Sockets (4.3) - framework: >= net463
     System.Reflection.Metadata (1.4.1-beta-24430-01)
       System.Collections.Immutable (>= 1.2)
-    System.Runtime (4.3)
-    System.Runtime.Handles (4.3) - framework: >= net463
-    System.Runtime.InteropServices (4.3) - framework: >= net463
-      System.Runtime (>= 4.3) - framework: >= net462
-    System.Runtime.InteropServices.RuntimeInformation (4.3) - framework: >= net463
     System.Runtime.Loader (4.3)
-    System.Runtime.Numerics (4.3) - framework: >= net463
-    System.Security.Cryptography.Algorithms (4.3)
-      System.IO (>= 4.3) - framework: >= net463
-      System.Runtime (>= 4.3) - framework: >= net463
-      System.Security.Cryptography.Encoding (>= 4.3) - framework: >= net463
-      System.Security.Cryptography.Primitives (>= 4.3) - framework: net46, net461, >= net463
-    System.Security.Cryptography.Encoding (4.3)
-    System.Security.Cryptography.Primitives (4.3)
-    System.Security.Cryptography.X509Certificates (4.3)
-      System.Security.Cryptography.Algorithms (>= 4.3) - framework: >= net46
-      System.Security.Cryptography.Encoding (>= 4.3) - framework: >= net46
-    System.Threading.Timer (4.3) - framework: >= net463
     System.ValueTuple (4.3.1)
-    System.Xml.XDocument (4.3) - framework: >= net463
     Thespian (0.1.12-alpha)
       FsPickler (>= 3.0)
     Unquote (3.2)
@@ -97,7 +39,7 @@ NUGET
 
 GROUP Build
 REDIRECTS: ON
-FRAMEWORK: >= NET45
+FRAMEWORK: NET45
 NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.61.3)
