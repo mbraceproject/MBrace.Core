@@ -1,4 +1,5 @@
-﻿Nunit
-FsCheck
-FSharp.Core copy_local: false
-Streams.CSharp
+﻿FSharp.Core
+group Test
+  NUnit
+  FsCheck
+  Streams.CSharp

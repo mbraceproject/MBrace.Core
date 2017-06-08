@@ -107,9 +107,9 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                 "Thespian.dll"
                 "MBrace.Thespian.dll"
 
-                "../packages/System.Collections.Immutable/lib/portable-net45+win8+wp8+wpa81/System.Collections.Immutable.dll"
-                "../packages/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
-                "../packages/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
+                "../packages/test/System.Collections.Immutable/lib/portable-net45+win8+wp8+wpa81/System.Collections.Immutable.dll"
+                "../packages/test/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
+                "../packages/test/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
             ]
 
         fsi.EvalInteraction "open MBrace.Core"
@@ -298,7 +298,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
             // register native dll's
 
-            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../packages/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
+            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../packages/test/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
             let libiomp5md = nativeDir + "libiomp5md.dll"
             let mkl = nativeDir + "MathNet.Numerics.MKL.dll"
 

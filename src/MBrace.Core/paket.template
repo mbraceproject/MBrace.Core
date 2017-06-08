@@ -15,3 +15,5 @@ iconurl https://avatars2.githubusercontent.com/u/9674757
 include-pdbs true
 tags
     F#, cloud, mapreduce, distributed
+dependencies
+	FSharp.Core >= LOCKEDVERSION

@@ -1,5 +1,6 @@
 FSharp.Core
 FsPickler
 Vagabond
-Unquote
-NUnit
+group Test
+  Unquote
+  NUnit
