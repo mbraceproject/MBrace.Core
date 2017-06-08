@@ -8,7 +8,7 @@ nuget FsPickler.Json ~> 3.2
 nuget Vagabond ~> 0.14.0
 nuget Argu ~> 3.3.0
 nuget Thespian ~> 0.1.11-alpha
-nuget Streams ~> 0.4.0
+nuget Streams
 
 group Test
   framework: net45
@@ -20,7 +20,7 @@ group Test
   nuget NUnit.Runners ~> 2.6
   nuget FsCheck >= 2.0.1
   nuget Unquote ~> 3.0
-  nuget Streams.CSharp ~> 0.4.0
+  nuget Streams.CSharp
   nuget FSharp.Compiler.Service ~> 5.0
   nuget MathNet.Numerics ~> 3.7.0
   nuget MathNet.Numerics.FSharp
