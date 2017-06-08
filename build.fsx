@@ -22,6 +22,8 @@ let project = "MBrace.Core"
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
+let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
+let isTravisBuild = buildServer = BuildServer.Travis
 
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner

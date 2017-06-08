@@ -5,6 +5,8 @@ os:
   - osx
 
 mono:
+  - nightly
+  - weekly
   - latest
   - 4.8.0
 
