@@ -23,6 +23,8 @@ nuget System.Collections.Immutable ~> 1.2.0
 nuget System.Reflection.Metadata ~> 1.4.1 prerelease
 
 group Build
+  framework: >= net45
+  redirects: on
   source https://nuget.org/api/v2
 
   nuget FAKE
