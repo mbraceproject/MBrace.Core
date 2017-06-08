@@ -13,6 +13,7 @@ open Fake.AppVeyor
 open Fake.Git
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
+open Fake.SemVerHelper
 
 
 let project = "MBrace.Core"
@@ -31,6 +32,22 @@ let buildVersion =
     if hasRepoVersionTag then assemblyVersion
     else if isAppVeyorBuild then sprintf "%s-b%s" assemblyVersion AppVeyorEnvironment.BuildNumber
     else assemblyVersion
+let nugetDebugVersion =
+    let semVer = SemVerHelper.parse nugetVersion
+    let debugPatch, debugPreRelease =
+        match semVer.PreRelease with
+        | None -> semVer.Patch + 1, { Origin = "alpha001"; Name = "alpha"; Number = Some 1; Parts = [AlphaNumeric "alpha001"] }
+        | Some pre ->
+            let num = match pre.Number with Some i -> i + 1 | None -> 1
+            let name = pre.Name
+            let newOrigin = sprintf "%s%03d" name num
+            semVer.Patch, { Origin = newOrigin; Name = name; Number = Some num; Parts = [AlphaNumeric newOrigin] }
+    let debugVer =
+        { semVer with
+            Patch = debugPatch
+            PreRelease = Some debugPreRelease }
+    debugVer.ToString()
+
 
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
@@ -91,10 +108,9 @@ Target "Build" (fun _ ->
 
 
 let testAssemblies = 
-    [
-        yield "bin/MBrace.Core.Tests.dll"
-        yield "bin/MBrace.Runtime.Tests.dll"
-        yield "bin/MBrace.Thespian.Tests.dll"
+    [ "bin/MBrace.Core.Tests.dll"
+      "bin/MBrace.Runtime.Tests.dll"
+      "bin/MBrace.Thespian.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
@@ -123,7 +139,7 @@ Target "NuGet" (fun _ ->
         { p with 
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
-            Version = release.NugetVersion
+            Version = nugetDebugVersion
             SpecificVersions = ["MBrace.CSharp", release.NugetVersion + "-alpha"]
             ReleaseNotes = toLines release.Notes })
 )
