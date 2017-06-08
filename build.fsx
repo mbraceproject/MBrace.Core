@@ -214,6 +214,7 @@ Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
+  =?> ("BuildVersion", isAppVeyorBuild)
   ==> "AssemblyInfo"
   ==> "Build"
   ==> "RunTests"
