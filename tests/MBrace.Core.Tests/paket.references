@@ -1,3 +1,5 @@
-NUnit
-Unquote
-FsCheck
+FSharp.Core
+group Test
+  NUnit
+  Unquote
+  FsCheck

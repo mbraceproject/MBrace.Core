@@ -1,9 +1,11 @@
-NUnit
-FsCheck
+FSharp.Core
 Vagabond
 Thespian
-FSharp.Compiler.Service
-Unquote
-Streams
-System.Collections.Immutable
-System.Reflection.Metadata
+group Test
+  NUnit
+  FsCheck
+  FSharp.Compiler.Service
+  Unquote
+  Streams
+  System.Collections.Immutable
+  System.Reflection.Metadata

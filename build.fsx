@@ -20,7 +20,7 @@ let project = "MBrace.Core"
 // --------------------------------------------------------------------------------------
 // Read release notes & version info from RELEASE_NOTES.md
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
+let release = LoadReleaseNotes "RELEASE_NOTES.md"
 let nugetVersion = release.NugetVersion
 let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 let isVersionTag tag = Version.TryParse tag |> fst
@@ -49,8 +49,8 @@ Target "AssemblyInfo" (fun _ ->
             Attribute.Company "Nessos Information Technologies"
             Attribute.Copyright "\169 Nessos Information Technologies."
             Attribute.Trademark "MBrace"
-            Attribute.Version release.AssemblyVersion
-            Attribute.FileVersion release.AssemblyVersion
+            Attribute.Version assemblyVersion
+            Attribute.FileVersion assemblyVersion
         ]
 
     !! "./**/AssemblyInfo.fs"

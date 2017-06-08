@@ -2,25 +2,32 @@ framework: net45
 redirects: on
 source https://nuget.org/api/v2
 
-nuget FSharp.Core >= 3.0
+nuget FSharp.Core
 nuget FsPickler ~> 3.2
 nuget FsPickler.Json ~> 3.2
-nuget Argu ~> 3.3.0
 nuget Vagabond ~> 0.14.0
-nuget NUnit ~> 2.6
-nuget NUnit.Runners ~> 2.6
+nuget Argu ~> 3.3.0
 nuget Thespian ~> 0.1.11-alpha
-nuget FsCheck >= 2.0.1
-nuget Unquote ~> 3.0
 nuget Streams ~> 0.4.0
-nuget Streams.CSharp ~> 0.4.0
-nuget FSharp.Compiler.Service ~> 5.0
-nuget MathNet.Numerics ~> 3.7.0
-nuget MathNet.Numerics.FSharp
-nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
-nuget System.Runtime.Loader
-nuget System.Collections.Immutable ~> 1.2.0
-nuget System.Reflection.Metadata ~> 1.4.1 prerelease
+
+group Test
+  framework: net45
+  redirects: on
+  source https://nuget.org/api/v2
+
+  nuget FSharp.Core
+  nuget NUnit ~> 2.6
+  nuget NUnit.Runners ~> 2.6
+  nuget FsCheck >= 2.0.1
+  nuget Unquote ~> 3.0
+  nuget Streams.CSharp ~> 0.4.0
+  nuget FSharp.Compiler.Service ~> 5.0
+  nuget MathNet.Numerics ~> 3.7.0
+  nuget MathNet.Numerics.FSharp
+  nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
+  nuget System.Runtime.Loader
+  nuget System.Collections.Immutable ~> 1.2.0
+  nuget System.Reflection.Metadata ~> 1.4.1 prerelease
 
 group Build
   framework: net45

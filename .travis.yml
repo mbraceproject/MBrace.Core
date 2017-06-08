@@ -6,7 +6,6 @@ os:
 
 mono:
   - latest
-  - 4.8.0
 
 sudo: false
 
