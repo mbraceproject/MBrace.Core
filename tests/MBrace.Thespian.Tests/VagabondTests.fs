@@ -298,7 +298,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
             // register native dll's
 
-            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../test/packages/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
+            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../packages/test/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
             let libiomp5md = nativeDir + "libiomp5md.dll"
             let mkl = nativeDir + "MathNet.Numerics.MKL.dll"
 
