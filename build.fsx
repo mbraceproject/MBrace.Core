@@ -6,14 +6,17 @@
 #r "packages/build/FAKE/tools/FakeLib.dll"
 #load "packages/build/SourceLink.Fake/tools/SourceLink.fsx"
 
+open System
+open System.IO
+
 open Fake
+open Fake.AppVeyor
 open Fake.Git
-open SourceLink
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
 
-open System
-open System.IO
+open SourceLink
+
 
 let project = "MBrace.Core"
 
@@ -22,11 +25,24 @@ let project = "MBrace.Core"
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
+let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
+let isVersionTag tag = Version.TryParse tag |> fst
+let hasRepoVersionTag = isAppVeyorBuild && AppVeyorEnvironment.RepoTag && isVersionTag AppVeyorEnvironment.RepoTagName
+let assemblyVersion = if hasRepoVersionTag then AppVeyorEnvironment.RepoTagName else release.NugetVersion
+let buildDate = DateTime.UtcNow
+let buildVersion =
+    if hasRepoVersionTag then assemblyVersion
+    else if isAppVeyorBuild then sprintf "%s-b%s" assemblyVersion AppVeyorEnvironment.BuildNumber
+    else assemblyVersion
 
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Core"
 let gitRaw = "https://raw.github.com/" + gitOwner
+
+Target "BuildVersion" (fun _ ->
+    Shell.Exec("appveyor", sprintf "UpdateBuild -Version \"%s\"" buildVersion) |> ignore
+)
 
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->
@@ -86,7 +102,7 @@ let testAssemblies =
 
 Target "RunTests" (fun _ ->
     testAssemblies
-    |> NUnit (fun p -> 
+    |> NUnitSequential.NUnit (fun p -> 
         { p with
             ExcludeCategory = 
                 String.concat "," [ 
@@ -192,6 +208,7 @@ Target "ReleaseDocs" (fun _ ->
 // Run all targets by default. Invoke 'build <Target>' to override
 
 Target "Default" DoNothing
+Target "RunTestsAndBuildNuget" DoNothing
 Target "Release" DoNothing
 Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
@@ -201,6 +218,12 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "Build"
   ==> "RunTests"
   ==> "Default"
+
+"Build"
+  ==> "RunTestsAndBuildNuget"
+
+"RunTests"
+  ==> "RunTestsAndBuildNuget"
 
 "Build"
   ==> "PrepareRelease"
