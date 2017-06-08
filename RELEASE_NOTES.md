@@ -1,3 +1,6 @@
+### 1.5.0
+* Update to FSharp.Core 4.4.1.0 (F# 4.1/VS2017 fsi.exe
+
 ### 1.4.0
 * Update to latest FsPickler.
 * Implement ProcessMonitor.
