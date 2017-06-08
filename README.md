@@ -101,6 +101,14 @@ If you would like to get involved, here are a few places you could have a look a
 
 * Documentation & Code Samples: help improve MBrace documentation and coding samples. See the [MBrace.StarterKit](https://github.com/mbraceproject/MBrace.StarterKit) for current coding samples and the [mbrace-docs](https://github.com/mbraceproject/mbrace-docs) repo for documentation and the [mbrace.io](http://www.mbrace.io/) website.
 
+### CI NuGet feeds
+
+Vagabond: https://ci.appveyor.com/nuget/vagabond-6odcsr0usg1g
+MBrace.Core: https://ci.appveyor.com/nuget/mbrace-core-gjo4016ri68g
+MBrace.Azure: https://ci.appveyor.com/nuget/mbrace-azure-jglidppatqhw
+MBrace.AWS: https://ci.appveyor.com/nuget/mbrace-aws-drjomsmfdib7
+
+
 ## License
 
 This project is subject to the [Apache Licence, Version 2.0](License.md).
@@ -113,4 +121,8 @@ This project is subject to the [Apache Licence, Version 2.0](License.md).
 * [@nickpalladinos](https://twitter.com/nickpalladinos)
 
 * [@krontogiannis](https://twitter.com/krontogiannis)
+
+* [@dsyme](https://twitter.com/dsyme)
+
+* [@isaac_abraham](https://twitter.com/isaac_abraham)
 
