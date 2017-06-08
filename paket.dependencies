@@ -1,11 +1,11 @@
-framework: >= net45
+framework: net45
 redirects: on
 source https://nuget.org/api/v2
 
 nuget FSharp.Core >= 3.0
 nuget FsPickler ~> 3.2
 nuget FsPickler.Json ~> 3.2
-nuget Argu ~> 3.0
+nuget Argu ~> 3.3.0
 nuget Vagabond ~> 0.14.0
 nuget NUnit ~> 2.6
 nuget NUnit.Runners ~> 2.6
@@ -23,6 +23,8 @@ nuget System.Collections.Immutable ~> 1.2.0
 nuget System.Reflection.Metadata ~> 1.4.1 prerelease
 
 group Build
+  framework: net45
+  redirects: on
   source https://nuget.org/api/v2
 
   nuget FAKE

@@ -1,15 +1,16 @@
 REDIRECTS: ON
-FRAMEWORK: >= NET45
+FRAMEWORK: NET45
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.3)
-    FsCheck (2.6.2)
-      FSharp.Core (>= 3.1.2.5)
+    FsCheck (2.9)
+      FSharp.Core (>= 4.1)
     FSharp.Compiler.Service (5.0)
-    FSharp.Core (4.0.0.1)
-    FsPickler (3.2)
-    FsPickler.Json (3.2)
-      FsPickler (3.2)
+    FSharp.Core (4.1.17)
+      System.ValueTuple (>= 4.3)
+    FsPickler (3.3)
+    FsPickler.Json (3.3)
+      FsPickler (3.3)
       Newtonsoft.Json (>= 6.0.5)
     MathNet.Numerics (3.7.1)
     MathNet.Numerics.FSharp (3.7.1)
@@ -18,7 +19,7 @@ NUGET
     MathNet.Numerics.MKL.Win-x64 (1.8)
       MathNet.Numerics (>= 2.4)
     Mono.Cecil (0.9.6.4)
-    Newtonsoft.Json (9.0.1)
+    Newtonsoft.Json (10.0.2)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
     Streams (0.4.1)
@@ -27,29 +28,25 @@ NUGET
     System.Collections.Immutable (1.2)
     System.Reflection.Metadata (1.4.1-beta-24430-01)
       System.Collections.Immutable (>= 1.2)
-    System.Runtime.Loader (4.0)
+    System.Runtime.Loader (4.3)
+    System.ValueTuple (4.3.1)
     Thespian (0.1.12-alpha)
       FsPickler (>= 3.0)
-    Unquote (3.1.2)
+    Unquote (3.2)
     Vagabond (0.14)
       FsPickler (>= 3.0 < 4.0)
       Mono.Cecil (>= 0.9.6.3 < 0.9.7)
 
 GROUP Build
+REDIRECTS: ON
+FRAMEWORK: NET45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.45.1)
-    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
-      Microsoft.Bcl.Build (>= 1.0.14)
-    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
-    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40-full
-      Microsoft.Bcl (>= 1.1.10)
-      Microsoft.Bcl.Build (>= 1.0.14)
-    NuGet.CommandLine (3.4.3)
-    Octokit (0.23)
-      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
+    FAKE (4.61.3)
+    NuGet.CommandLine (4.1)
+    Octokit (0.24)
     SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (f367c3d28b1fc9a2a89636c2b870dea4b4559dca)
+    modules/Octokit/Octokit.fsx (ad65548e62c35ad64ad1f9db6f5768330bc06594)
       Octokit (>= 0.20)
