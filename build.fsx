@@ -4,7 +4,6 @@
 
 #I "packages/build/FAKE/tools"
 #r "packages/build/FAKE/tools/FakeLib.dll"
-#load "packages/build/SourceLink.Fake/tools/SourceLink.fsx"
 
 open System
 open System.IO
@@ -14,8 +13,6 @@ open Fake.AppVeyor
 open Fake.Git
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
-
-open SourceLink
 
 
 let project = "MBrace.Core"
@@ -140,15 +137,6 @@ Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" ;
 #load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
-Target "SourceLink" (fun _ ->
-    let baseUrl = sprintf "%s/%s/{0}/%%var2%%" gitRaw project
-    [ yield! !! "src/**/*.??proj" ; yield! !! "tests/MBrace.Core.Tests/*.??proj" ]
-    |> Seq.iter (fun projFile ->
-        let proj = VsProj.LoadRelease projFile
-        SourceLink.Index proj.CompilesNotLinked proj.OutputFilePdb __SOURCE_DIRECTORY__ baseUrl
-    )
-)
-
 Target "ReleaseGithub" (fun _ ->
     let remote =
         Git.CommandHelper.getGitResult "" "remote -v"
@@ -208,9 +196,7 @@ Target "ReleaseDocs" (fun _ ->
 // Run all targets by default. Invoke 'build <Target>' to override
 
 Target "Default" DoNothing
-Target "RunTestsAndBuildNuget" DoNothing
 Target "Release" DoNothing
-Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
@@ -221,14 +207,6 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "Default"
 
 "Build"
-  ==> "RunTestsAndBuildNuget"
-
-"RunTests"
-  ==> "RunTestsAndBuildNuget"
-
-"Build"
-  ==> "PrepareRelease"
-  ==> "SourceLink"
   ==> "NuGet"
   ==> "NuGetPush"
   ==> "ReleaseGithub"
