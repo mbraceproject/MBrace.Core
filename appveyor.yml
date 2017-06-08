@@ -2,6 +2,6 @@ init:
   - git config --global core.autocrlf input
 
 build_script:
-  - cmd: build.cmd -ef IgnoreClusterTests
+  - cmd: build.cmd
 
 test: off
