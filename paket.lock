@@ -1,53 +1,61 @@
 REDIRECTS: ON
-FRAMEWORK: NET45
+RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.3)
-    FSharp.Core (4.1.17)
-      System.ValueTuple (>= 4.3)
-    FsPickler (3.3)
-    FsPickler.Json (3.3)
-      FsPickler (3.3)
+    FSharp.Compiler.Tools (4.1.27)
+    FSharp.Core (4.0.0.1)
+    FsPickler (4.0.1)
+      FSharp.Compiler.Tools
+      FSharp.Core (>= 3.1)
+    FsPickler.Json (4.0.1)
+      FSharp.Compiler.Tools
+      FSharp.Core (>= 3.1)
+      FsPickler (4.0.1)
       Newtonsoft.Json (>= 6.0.5)
-    Mono.Cecil (0.9.6.4)
-    Newtonsoft.Json (10.0.2)
+    Mono.Cecil (0.10.0-beta6)
+    Newtonsoft.Json (10.0.3)
     Streams (0.4.1)
-    System.ValueTuple (4.3.1)
-    Thespian (0.1.12-alpha)
-      FsPickler (>= 3.0)
-    Vagabond (0.14)
-      FsPickler (>= 3.0 < 4.0)
-      Mono.Cecil (>= 0.9.6.3 < 0.9.7)
+    Thespian (0.1.16)
+      FSharp.Core (>= 3.1)
+      FsPickler (>= 4.0 < 5.0)
+    Vagabond (0.15)
+      FsPickler (>= 4.0 < 5.0)
+      Mono.Cecil (>= 0.10.0-beta6)
 
 GROUP Build
 REDIRECTS: ON
-FRAMEWORK: NET45
+RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.61.3)
-    NuGet.CommandLine (4.1)
-    Octokit (0.24)
+    FAKE (4.63.2)
+    NuGet.CommandLine (4.3)
+    Octokit (0.27)
     SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (ad65548e62c35ad64ad1f9db6f5768330bc06594)
+    modules/Octokit/Octokit.fsx (e672bab0bef3a196e1c72a832b26521cf9428116)
       Octokit (>= 0.20)
 GROUP Test
 REDIRECTS: ON
-FRAMEWORK: NET45
+RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FsCheck (2.9)
+    FsCheck (2.10.3)
       FSharp.Core (>= 4.1)
     FSharp.Compiler.Service (5.0)
-    FSharp.Core (4.1.17)
-      System.ValueTuple (>= 4.3)
+    FSharp.Compiler.Tools (4.1.27)
+    FSharp.Core (4.2.3)
+    FsPickler (4.0.1)
+      FSharp.Compiler.Tools
+      FSharp.Core (>= 3.1)
     MathNet.Numerics (3.7.1)
     MathNet.Numerics.FSharp (3.7.1)
       FSharp.Core (>= 3.1.2.1)
       MathNet.Numerics (3.7.1)
     MathNet.Numerics.MKL.Win-x64 (1.8)
       MathNet.Numerics (>= 2.4)
+    Mono.Cecil (0.10.0-beta6)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
     Streams (0.4.1)
@@ -57,5 +65,10 @@ NUGET
     System.Reflection.Metadata (1.4.1-beta-24430-01)
       System.Collections.Immutable (>= 1.2)
     System.Runtime.Loader (4.3)
-    System.ValueTuple (4.3.1)
+    Thespian (0.1.16)
+      FSharp.Core (>= 3.1)
+      FsPickler (>= 4.0 < 5.0)
     Unquote (3.2)
+    Vagabond (0.15)
+      FsPickler (>= 4.0 < 5.0)
+      Mono.Cecil (>= 0.10.0-beta6)

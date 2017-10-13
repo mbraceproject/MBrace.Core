@@ -2,12 +2,12 @@ framework: net45
 redirects: on
 source https://nuget.org/api/v2
 
-nuget FSharp.Core
-nuget FsPickler
+nuget FSharp.Core >= 4.0 lowest_matching: true
+nuget FsPickler ~> 4.0
 nuget FsPickler.Json
-nuget Vagabond
+nuget Vagabond ~> 0.15
 nuget Argu ~> 3.3.0
-nuget Thespian ~> 0.1.11-alpha
+nuget Thespian ~> 0.1.16-alpha
 nuget Streams
 
 group Test
@@ -15,7 +15,9 @@ group Test
   redirects: on
   source https://nuget.org/api/v2
 
-  nuget FSharp.Core
+  nuget FSharp.Core ~> 4.1
+  nuget Vagabond ~> 0.15
+  nuget Thespian ~> 0.1.16-alpha
   nuget NUnit ~> 2.6
   nuget NUnit.Runners ~> 2.6
   nuget FsCheck >= 2.0.1

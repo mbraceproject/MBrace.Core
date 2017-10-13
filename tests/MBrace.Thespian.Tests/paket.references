@@ -1,7 +1,7 @@
-FSharp.Core
-Vagabond
-Thespian
 group Test
+  FSharp.Core
+  Vagabond
+  Thespian
   NUnit
   FsCheck
   FSharp.Compiler.Service

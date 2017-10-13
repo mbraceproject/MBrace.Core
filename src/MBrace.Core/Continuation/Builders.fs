@@ -85,6 +85,7 @@ module internal BuilderImpl =
         else
             cont.ContinueWith2(ctx, ValueOrException.protect f ())
 
+#if EXPLICIT_DELAY
     // provides an explicit FSharpFunc implementation for delayed computation;
     // this is to deal with leaks of internal closure types in serialized cloud workflows.
     [<Sealed; DataContract>]
@@ -100,6 +101,10 @@ module internal BuilderImpl =
     let inline mkExplicitDelay (body : unit -> #Cloud<'T>) : Body<'T> =
         let edw = new ExplicitDelayWrapper<'T,_>(body)
         edw :> obj :?> Body<'T>
+#else
+    let inline mkExplicitDelay (body : unit -> #Cloud<'T>) : Body<'T> =
+        delay body
+#endif
 
     let inline bind (f : Body<'T>) (g : 'T -> #Cloud<'S>) : Body<'S> =
         fun ctx cont ->

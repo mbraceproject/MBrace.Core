@@ -1,5 +1,5 @@
-﻿FSharp.Core
-group Test
+﻿group Test
+  FSharp.Core
   NUnit
   FsCheck
   Streams.CSharp
