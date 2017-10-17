@@ -27,26 +27,10 @@ let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 let isVersionTag tag = Version.TryParse tag |> fst
 let hasRepoVersionTag = isAppVeyorBuild && AppVeyorEnvironment.RepoTag && isVersionTag AppVeyorEnvironment.RepoTagName
 let assemblyVersion = if hasRepoVersionTag then AppVeyorEnvironment.RepoTagName else release.NugetVersion
-let buildDate = DateTime.UtcNow
 let buildVersion =
     if hasRepoVersionTag then assemblyVersion
     else if isAppVeyorBuild then sprintf "%s-b%s" assemblyVersion AppVeyorEnvironment.BuildNumber
     else assemblyVersion
-let nugetDebugVersion =
-    let semVer = SemVerHelper.parse nugetVersion
-    let debugPatch, debugPreRelease =
-        match semVer.PreRelease with
-        | None -> semVer.Patch + 1, { Origin = "alpha001"; Name = "alpha"; Number = Some 1; Parts = [AlphaNumeric "alpha001"] }
-        | Some pre ->
-            let num = match pre.Number with Some i -> i + 1 | None -> 1
-            let name = pre.Name
-            let newOrigin = sprintf "%s%03d" name num
-            semVer.Patch, { Origin = newOrigin; Name = name; Number = Some num; Parts = [AlphaNumeric newOrigin] }
-    let debugVer =
-        { semVer with
-            Patch = debugPatch
-            PreRelease = Some debugPreRelease }
-    debugVer.ToString()
 
 
 let gitOwner = "mbraceproject"
@@ -139,7 +123,7 @@ Target "NuGet" (fun _ ->
         { p with 
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
-            Version = nugetDebugVersion
+            Version = nugetVersion
             SpecificVersions = ["MBrace.CSharp", release.NugetVersion + "-alpha"]
             ReleaseNotes = toLines release.Notes })
 )
@@ -212,7 +196,6 @@ Target "ReleaseDocs" (fun _ ->
 // Run all targets by default. Invoke 'build <Target>' to override
 
 Target "Default" DoNothing
-Target "RunTestsAndBuildNuget" DoNothing
 Target "Release" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
@@ -222,9 +205,6 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "Build"
   ==> "RunTests"
   ==> "Default"
-
-"NuGet" ==> "RunTestsAndBuildNuget"
-"RunTests" ==> "RunTestsAndBuildNuget"
 
 "Build"
   ==> "NuGet"
