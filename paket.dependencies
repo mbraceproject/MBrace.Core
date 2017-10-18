@@ -23,12 +23,12 @@ group Test
   nuget FsCheck >= 2.0.1
   nuget Unquote ~> 3.0
   nuget Streams.CSharp
-  nuget FSharp.Compiler.Service ~> 5.0
+  nuget FSharp.Compiler.Service ~> 16.0
   nuget MathNet.Numerics ~> 3.7.0
   nuget MathNet.Numerics.FSharp
   nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
   nuget System.Runtime.Loader
-  nuget System.Collections.Immutable ~> 1.2.0
+  nuget System.Collections.Immutable ~> 1.2
   nuget System.Reflection.Metadata ~> 1.4.1 prerelease
 
 group Build

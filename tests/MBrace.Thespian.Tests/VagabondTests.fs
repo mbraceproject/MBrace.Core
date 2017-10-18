@@ -6,7 +6,7 @@ open System.IO
 open NUnit.Framework
 
 open Microsoft.FSharp.Compiler.Interactive.Shell
-open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
+open Microsoft.FSharp.Compiler.SourceCodeServices
 
 open MBrace.Core.Tests
 
