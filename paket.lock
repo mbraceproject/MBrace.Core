@@ -2,7 +2,7 @@ REDIRECTS: ON
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    Argu (3.3)
+    Argu (3.7)
     FSharp.Compiler.Tools (4.1.27)
     FSharp.Core (4.0.0.1)
     FsPickler (4.0.1)
