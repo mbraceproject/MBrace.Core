@@ -6,7 +6,7 @@ nuget FSharp.Core >= 4.0 lowest_matching: true
 nuget FsPickler ~> 4.0
 nuget FsPickler.Json
 nuget Vagabond ~> 0.15
-nuget Argu ~> 3.7
+nuget Argu ~> 3.2
 nuget Thespian ~> 0.1.16-alpha
 nuget Streams
 

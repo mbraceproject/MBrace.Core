@@ -1,3 +1,6 @@
+### 1.5.2
+* Fix version constraint issue
+
 ### 1.5.1
 * Fix version constraint issue
 
