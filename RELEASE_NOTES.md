@@ -1,3 +1,6 @@
+### 1.5.4
+* Upgrade FsPickler.
+
 ### 1.5.3
 * Upgrade FsPickler.
 
