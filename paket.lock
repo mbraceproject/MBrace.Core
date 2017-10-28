@@ -5,13 +5,13 @@ NUGET
     Argu (3.7)
     FSharp.Compiler.Tools (4.1.27)
     FSharp.Core (4.0.0.1)
-    FsPickler (4.0.1)
+    FsPickler (4.4)
       FSharp.Compiler.Tools
       FSharp.Core (>= 3.1)
-    FsPickler.Json (4.0.1)
+    FsPickler.Json (4.4)
       FSharp.Compiler.Tools
       FSharp.Core (>= 3.1)
-      FsPickler (4.0.1)
+      FsPickler (4.4)
       Newtonsoft.Json (>= 6.0.5)
     Mono.Cecil (0.10.0-beta6)
     Newtonsoft.Json (10.0.3)
@@ -34,7 +34,7 @@ NUGET
     SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (ddf45441759a2a7bc528b3b4c6f9a1edc7bd9f55)
+    modules/Octokit/Octokit.fsx (838f43e1e6ac18014b2515799fe7fa0e23186fbc)
       Octokit (>= 0.20)
 GROUP Test
 REDIRECTS: ON
@@ -48,7 +48,7 @@ NUGET
       System.Reflection.Metadata (>= 1.4.2)
     FSharp.Compiler.Tools (4.1.27)
     FSharp.Core (4.2.3)
-    FsPickler (4.0.1)
+    FsPickler (4.4)
       FSharp.Compiler.Tools
       FSharp.Core (>= 3.1)
     MathNet.Numerics (3.7.1)

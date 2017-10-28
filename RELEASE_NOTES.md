@@ -1,3 +1,6 @@
+### 1.5.3
+* Upgrade FsPickler.
+
 ### 1.5.2
 * Fix version constraint issue
 
