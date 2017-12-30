@@ -63,6 +63,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.CSharp", "src\MBrace
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian.StandaloneClient", "samples\MBrace.Thespian.StandaloneClient\MBrace.Thespian.StandaloneClient.fsproj", "{36FB11EA-A176-42F0-8FAA-80BE07DD28BF}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Graph", "src\MBrace.Graph\MBrace.Graph.fsproj", "{0ADC59FC-6FE2-42FA-9E84-A334B7D2A38F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +115,10 @@ Global
 		{36FB11EA-A176-42F0-8FAA-80BE07DD28BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{36FB11EA-A176-42F0-8FAA-80BE07DD28BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{36FB11EA-A176-42F0-8FAA-80BE07DD28BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0ADC59FC-6FE2-42FA-9E84-A334B7D2A38F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0ADC59FC-6FE2-42FA-9E84-A334B7D2A38F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0ADC59FC-6FE2-42FA-9E84-A334B7D2A38F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0ADC59FC-6FE2-42FA-9E84-A334B7D2A38F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -131,5 +137,6 @@ Global
 		{4297EDC2-747E-42BB-8552-D8155AE3E8E5} = {9E6D05F7-4934-49C3-99E7-B935D40F7245}
 		{23D6FA43-9413-4605-A021-73B36F6626D4} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 		{36FB11EA-A176-42F0-8FAA-80BE07DD28BF} = {5D412C1B-BCEA-4DFA-A941-C27571F4D6A3}
+		{0ADC59FC-6FE2-42FA-9E84-A334B7D2A38F} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 	EndGlobalSection
 EndGlobal
