@@ -7,6 +7,12 @@
       "commands": [
         "paket"
       ]
+    },
+    "fake-cli": {
+      "version": "5.19.1",
+      "commands": [
+        "fake"
+      ]
     }
   }
 }

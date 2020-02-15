@@ -2,7 +2,7 @@ framework: net45
 redirects: on
 source https://nuget.org/api/v2
 
-nuget FSharp.Core >= 4.0 lowest_matching: true
+nuget FSharp.Core >= 4.3.2 lowest_matching: true
 nuget FsPickler ~> 4.5
 nuget FsPickler.Json
 nuget Vagabond ~> 0.15.0
@@ -36,7 +36,5 @@ group Build
   redirects: on
   source https://nuget.org/api/v2
 
-  nuget FAKE ~> 4.0
-  nuget SourceLink.Fake
-  nuget NuGet.CommandLine
+  nuget FAKE ~> 5.0
   github fsharp/FAKE modules/Octokit/Octokit.fsx

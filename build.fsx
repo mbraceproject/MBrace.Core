@@ -5,10 +5,13 @@
 #I "packages/build/FAKE/tools"
 #r "packages/build/FAKE/tools/FakeLib.dll"
 
+#nowarn "44"
+
 open System
 open System.IO
 
 open Fake
+open Fake.DotNet
 open Fake.AppVeyor
 open Fake.Git
 open Fake.AssemblyInfoFile
@@ -79,12 +82,7 @@ let ignoreVagabondTests = environVarOrDefault "IgnoreVagabondTests" "false" |> B
 let includeCSharpLib = environVarOrDefault "IncludeCSharpLib" "false" |> Boolean.Parse
 
 Target "Build" (fun _ ->
-    // Build the rest of the project
-    { BaseDirectory = __SOURCE_DIRECTORY__
-      Includes = [ project + ".sln" ]
-      Excludes = [] } 
-    |> MSBuild "" "Build" ["Configuration", configuration]
-    |> Log "AppBuild-Output: "
+    DotNet.build (fun opts -> { opts with Configuration = DotNet.BuildConfiguration.fromString configuration }) __SOURCE_DIRECTORY__
 )
 
 // --------------------------------------------------------------------------------------

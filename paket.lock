@@ -3,7 +3,7 @@ RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.7)
-    FSharp.Core (4.0.0.1)
+    FSharp.Core (4.3.2)
     FsPickler (4.6)
       FSharp.Core (>= 3.1)
     FsPickler.Json (5.2.2)
@@ -26,10 +26,8 @@ REDIRECTS: ON
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.64.18)
-    NuGet.CommandLine (5.4)
+    FAKE (5.16)
     Octokit (0.40)
-    SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
     modules/Octokit/Octokit.fsx (b8f82a3e2d1b3e834897bdb0e2b49f170f9be504)
