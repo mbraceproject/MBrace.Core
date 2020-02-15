@@ -107,7 +107,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
                 "Thespian.dll"
                 "MBrace.Thespian.dll"
 
-                "../packages/test/System.Collections.Immutable/lib/portable-net45+win8+wp8+wpa81/System.Collections.Immutable.dll"
+                "../packages/test/System.Collections.Immutable/lib/portable-net472+win8+wp8+wpa81/System.Collections.Immutable.dll"
                 "../packages/test/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
                 "../packages/test/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
             ]

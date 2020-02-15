@@ -22,9 +22,9 @@ dependencies
 	MBrace.Runtime CURRENTVERSION
 files
 	../../nuget/MBrace.Thespian.fsx ==>
-    ../../bin/MBrace.Thespian.dll ==> lib/net45
-	../../bin/MBrace.Thespian.pdb ==> lib/net45
-	../../bin/MBrace.Thespian.xml ==> lib/net45
+    ../../bin/MBrace.Thespian.dll ==> lib/net472
+	../../bin/MBrace.Thespian.pdb ==> lib/net472
+	../../bin/MBrace.Thespian.xml ==> lib/net472
 	../../bin/Newtonsoft.Json.dll ==> tools
 	../../packages/FSharp.Core/lib/net40/FSharp.Core.dll ==> tools
 	../../packages/FSharp.Core/lib/net40/FSharp.Core.xml ==> tools

@@ -20,7 +20,7 @@ type RuntimeSession(workerCount : int) =
     #if NETCOREAPP
         "netcoreapp3.1"
     #else
-        "net45"
+        "net472"
     #endif
     
     static do ThespianWorker.LocalExecutable <- (__SOURCE_DIRECTORY__ + "/../../src/MBrace.Thespian.Worker/bin/" + config + "/" + tfm + "/mbrace.thespian.worker.exe")

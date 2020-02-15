@@ -1,5 +1,5 @@
 source https://api.nuget.org/v3/index.json
-framework: net45
+framework: net472
 redirects: on
 
 nuget FSharp.Core >= 4.3.2 lowest_matching: true
@@ -12,7 +12,7 @@ nuget Streams
 
 group Test
   source https://api.nuget.org/v3/index.json
-  framework: net45
+  framework: net472
   redirects: on
 
   nuget FSharp.Core ~> 4.1
@@ -33,7 +33,7 @@ group Test
   nuget System.Reflection.Metadata ~> 1.4.1 prerelease
 
 group Build
-  framework: net45
+  framework: net472
   redirects: on
   source https://api.nuget.org/v3/index.json
 
