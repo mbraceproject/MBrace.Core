@@ -14,20 +14,3 @@ install:
 
 script:
   - ./build.sh -ef IgnoreClusterTests
-
-#  matrix:
-#  exclude:
-#    - os: osx
-#      mono: 4.4.2
-#    - os: osx
-#      mono: 4.8.0
-#
-#  allow_failures:
-#    - os: osx
-#      mono: latest
-#    - os: linux
-#      mono: latest
-#    - os: linux
-#      mono: 4.8.0
-#    - os: osx
-#      mono: latest
