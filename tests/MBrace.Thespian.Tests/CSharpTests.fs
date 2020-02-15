@@ -14,10 +14,10 @@ type ``MBrace Thespian Cloud CSharp Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
     
     override __.Run(expr : Cloud<'T>) : 'T = session.Cluster.Run(expr, faultPolicy = FaultPolicy.NoRetry)
@@ -34,10 +34,10 @@ type ``MBrace Thespian CloudFlow CSharp Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
       
     override __.FsCheckMaxNumberOfTests = 10  

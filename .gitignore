@@ -181,4 +181,5 @@ nuget/*.nupkg
 .fake/
 paket-files/
 
-/.vs/MBrace.Core/v15
+.vs/
+.ionide/

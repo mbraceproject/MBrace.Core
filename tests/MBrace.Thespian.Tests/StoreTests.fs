@@ -17,10 +17,10 @@ type ``MBrace Thespian FileStore Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
 
     override __.FileStore = session.Cluster.GetResource<ICloudFileStore>()
@@ -40,10 +40,10 @@ type ``MBrace Thespian CloudValue Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
@@ -57,10 +57,10 @@ type ``MBrace Thespian Atom Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.IsSupportedNamedLookup = false
@@ -79,10 +79,10 @@ type ``MBrace Thespian Queue Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
@@ -95,10 +95,10 @@ type ``MBrace Thespian Dictionary Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.IsInMemoryFixture = false

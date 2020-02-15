@@ -8,8 +8,22 @@ open MBrace.Runtime
 open MBrace.Thespian
 
 type RuntimeSession(workerCount : int) =
+
+    static let config = 
+    #if DEBUG
+        "Debug"
+    #else
+        "Release"
+    #endif
+
+    static let tfm =
+    #if NETCOREAPP
+        "netcoreapp3.1"
+    #else
+        "net45"
+    #endif
     
-    static do ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
+    static do ThespianWorker.LocalExecutable <- (__SOURCE_DIRECTORY__ + "/../../src/MBrace.Thespian.Worker/bin/" + config + "/" + tfm + "/mbrace.thespian.worker.exe")
     static let e = ThespianWorker.LocalExecutable
 
     let lockObj = obj ()

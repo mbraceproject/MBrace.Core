@@ -9,14 +9,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{6382DB
 		.paket\Paket.Restore.targets = .paket\Paket.Restore.targets
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Core", "src\MBrace.Core\MBrace.Core.fsproj", "{80182C04-6E3C-486A-B3BF-0E617A837105}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Core", "src\MBrace.Core\MBrace.Core.fsproj", "{80182C04-6E3C-486A-B3BF-0E617A837105}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3BA6F0DC-9759-458C-B50D-CF31BBE68B42}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Core.Tests", "tests\MBrace.Core.Tests\MBrace.Core.Tests.fsproj", "{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Core.Tests", "tests\MBrace.Core.Tests\MBrace.Core.Tests.fsproj", "{0C3966D4-2C78-4DCF-B84B-73809F3F51BC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D05F7-4934-49C3-99E7-B935D40F7245}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
 		.travis.yml = .travis.yml
 		appveyor.yml = appveyor.yml
 		build.cmd = build.cmd
@@ -28,9 +29,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian", "src\MBrace.Thespian\MBrace.Thespian.fsproj", "{F95EA755-FBE4-44FC-8945-313B46BF6920}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Thespian", "src\MBrace.Thespian\MBrace.Thespian.fsproj", "{F95EA755-FBE4-44FC-8945-313B46BF6920}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Runtime", "src\MBrace.Runtime\MBrace.Runtime.fsproj", "{BB4A3241-4D46-4888-861D-A34440ECFE8B}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Runtime", "src\MBrace.Runtime\MBrace.Runtime.fsproj", "{BB4A3241-4D46-4888-861D-A34440ECFE8B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3D64DA53-FC96-4E68-863C-777FE40F0065}"
 EndProject
@@ -40,15 +41,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5D41
 		samples\wordcount.fsx = samples\wordcount.fsx
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian.Tests", "tests\MBrace.Thespian.Tests\MBrace.Thespian.Tests.fsproj", "{77CDB612-B779-4643-A190-E715AD107617}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Thespian.Tests", "tests\MBrace.Thespian.Tests\MBrace.Thespian.Tests.fsproj", "{77CDB612-B779-4643-A190-E715AD107617}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Runtime.Tests", "tests\MBrace.Runtime.Tests\MBrace.Runtime.Tests.fsproj", "{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Runtime.Tests", "tests\MBrace.Runtime.Tests\MBrace.Runtime.Tests.fsproj", "{B04B2AB2-EB56-4236-AA8E-8A4F9A3AB488}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.CSharp.Tests", "tests\MBrace.CSharp.Tests\MBrace.CSharp.Tests.csproj", "{902BED62-CD5F-4E1D-BC70-B1D83722084B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MBrace.CSharp.Tests", "tests\MBrace.CSharp.Tests\MBrace.CSharp.Tests.csproj", "{902BED62-CD5F-4E1D-BC70-B1D83722084B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Flow", "src\MBrace.Flow\MBrace.Flow.fsproj", "{BD5A351C-E049-4365-8F6F-BB8B13886B96}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Flow", "src\MBrace.Flow\MBrace.Flow.fsproj", "{BD5A351C-E049-4365-8F6F-BB8B13886B96}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian.Worker", "src\MBrace.Thespian.Worker\MBrace.Thespian.Worker.fsproj", "{B46F7B4C-6317-46A5-BD74-331E0790BD72}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Thespian.Worker", "src\MBrace.Thespian.Worker\MBrace.Thespian.Worker.fsproj", "{B46F7B4C-6317-46A5-BD74-331E0790BD72}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MBrace.Thespian", "MBrace.Thespian", "{4CB16151-8953-44BD-84DF-9E080C930F38}"
 EndProject
@@ -58,9 +59,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{42
 		resource\Mgrey.res = resource\Mgrey.res
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.CSharp", "src\MBrace.CSharp\MBrace.CSharp.csproj", "{23D6FA43-9413-4605-A021-73B36F6626D4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MBrace.CSharp", "src\MBrace.CSharp\MBrace.CSharp.csproj", "{23D6FA43-9413-4605-A021-73B36F6626D4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Thespian.StandaloneClient", "samples\MBrace.Thespian.StandaloneClient\MBrace.Thespian.StandaloneClient.fsproj", "{36FB11EA-A176-42F0-8FAA-80BE07DD28BF}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Thespian.StandaloneClient", "samples\MBrace.Thespian.StandaloneClient\MBrace.Thespian.StandaloneClient.fsproj", "{36FB11EA-A176-42F0-8FAA-80BE07DD28BF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

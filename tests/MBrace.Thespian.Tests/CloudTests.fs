@@ -27,10 +27,10 @@ type ``MBrace Thespian Cloud Tests`` () as self =
     let runOnCloud (wf : Cloud<'T>) = self.Run wf
     let repeat f = repeat self.Repeats f
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.IsTargetWorkerSupported = true
@@ -73,10 +73,10 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     let runOnCloud (wf : Cloud<'T>) = session.Cluster.Run wf
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     [<Test>]

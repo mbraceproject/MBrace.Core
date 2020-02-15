@@ -88,29 +88,19 @@ Target "Build" (fun _ ->
 // --------------------------------------------------------------------------------------
 // Run the unit tests using test runner & kill test runner when complete
 
-
-let testAssemblies = 
-    [ "bin/MBrace.Core.Tests.dll"
-      "bin/MBrace.Runtime.Tests.dll"
-      "bin/MBrace.Thespian.Tests.dll"
-    ]
-
 Target "RunTests" (fun _ ->
-    testAssemblies
-    |> NUnitSequential.NUnit (fun p -> 
-        { p with
-            ExcludeCategory = 
-                String.concat "," [ 
-                    if ignoreClusterTests then yield "ThespianClusterTests"
-                    if ignoreVagabondTests then yield "ThespianClusterTestsVagabond" ]
+    let testFilter =
+        [ if ignoreClusterTests then yield "TestCategory!=ThespianClusterTests"
+          if ignoreVagabondTests then yield "TestCategory!=ThespianClusterTestsVagabond" ]
+        |> String.concat "&"
 
-            DisableShadowCopy = true
-            TimeOut = TimeSpan.FromMinutes 120.
-            OutputFile = "TestResults.xml" })
-)
 
-FinalTarget "CloseTestRunner" (fun _ ->  
-    ProcessHelper.killProcess "nunit-agent.exe"
+    DotNet.test (fun c ->
+        { c with
+            Configuration = DotNet.BuildConfiguration.fromString configuration
+            Filter = if testFilter = "" then None else Some testFilter
+            NoBuild = true
+            Blame = true }) __SOURCE_DIRECTORY__
 )
 
 //// --------------------------------------------------------------------------------------

@@ -15,10 +15,10 @@ type ``MBrace Thespian Flow Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
       
     override __.FsCheckMaxNumberOfTests = 10  

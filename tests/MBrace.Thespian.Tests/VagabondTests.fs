@@ -88,7 +88,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
             | Some fsi -> fsi
 
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     let initFsiSession () =
 
         let fsi = FsiSession.Start()
@@ -130,7 +130,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         """
 
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     let stopFsiSession () =
         FsiSession.Value.Interrupt()
         FsiSession.Value.EvalInteraction "cluster.KillAllWorkers()"

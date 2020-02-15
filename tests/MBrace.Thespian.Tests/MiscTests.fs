@@ -14,7 +14,7 @@ open MBrace.Thespian
 [<TestFixture; Category("ThespianClusterTests")>]
 module ``MBrace Thespian Misc Tests`` =
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     let init () =
         do RuntimeSession.Init()
 

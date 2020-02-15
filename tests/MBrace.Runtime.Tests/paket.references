@@ -3,4 +3,6 @@ FsPickler
 Vagabond
 group Test
   Unquote
+  Microsoft.Net.Test.SDK
   NUnit
+  NUnit3TestAdapter

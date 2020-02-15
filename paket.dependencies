@@ -1,6 +1,6 @@
+source https://api.nuget.org/v3/index.json
 framework: net45
 redirects: on
-source https://nuget.org/api/v2
 
 nuget FSharp.Core >= 4.3.2 lowest_matching: true
 nuget FsPickler ~> 4.5
@@ -11,15 +11,16 @@ nuget Thespian ~> 0.1.16-alpha
 nuget Streams
 
 group Test
+  source https://api.nuget.org/v3/index.json
   framework: net45
   redirects: on
-  source https://nuget.org/api/v2
 
   nuget FSharp.Core ~> 4.1
   nuget Vagabond ~> 0.15.0
   nuget Thespian ~> 0.1.16-alpha
-  nuget NUnit ~> 2.6
-  nuget NUnit.Runners ~> 2.6
+  nuget NUnit ~> 3.12
+  nuget NUnit3TestAdapter ~> 3.16
+  nuget Microsoft.Net.Test.SDK ~> 16.4.0
   nuget FsCheck >= 2.0.1
   nuget Unquote ~> 3.0
   nuget Streams.CSharp
@@ -34,7 +35,7 @@ group Test
 group Build
   framework: net45
   redirects: on
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
 
   nuget FAKE ~> 5.0
   github fsharp/FAKE modules/Octokit/Octokit.fsx
