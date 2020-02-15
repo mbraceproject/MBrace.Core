@@ -1,7 +1,7 @@
 ﻿group Test
   FSharp.Core
   Microsoft.Net.Test.SDK
+  Streams.CSharp
   NUnit
   NUnit3TestAdapter
   FsCheck
-  Streams.CSharp

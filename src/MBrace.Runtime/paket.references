@@ -1,3 +1,7 @@
+FSharp.Core
 FsPickler
 FsPickler.Json
 Vagabond
+System.Runtime.Caching
+System.Management
+System.Diagnostics.PerformanceCounter

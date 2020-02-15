@@ -143,7 +143,7 @@ type JsonDotNetSerializer() =
             use _d = if leaveOpen then null else source
             s.Serializer.Deserialize(source, typeof<'T>) :?> 'T
 
-
+#if !NETCOREAPP
 // MarshalledAction: used for sending cross-AppDomain events
 
 type private ActionProxy<'T>(action : 'T -> unit) =
@@ -188,3 +188,4 @@ and MarshaledAction =
     /// </summary>
     /// <param name="action">Action to be marshalled.</param>
     static member Create(action : 'T -> unit) = new MarshaledAction<_>(action)
+#endif

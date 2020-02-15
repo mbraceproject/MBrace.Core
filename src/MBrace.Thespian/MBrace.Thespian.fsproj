@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
@@ -11,6 +11,7 @@
     <Compile Include="Config.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="LocalState.fs" />
+    <Compile Include="MarshalledLogger.fs" />
     <Compile Include="Primitives\ResourceFactory.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
     <Compile Include="Primitives\ProcessEntry.fs" />

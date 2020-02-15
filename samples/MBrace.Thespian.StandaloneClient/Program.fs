@@ -5,9 +5,16 @@ open MBrace.Core
 open MBrace.Thespian
 
 [<EntryPoint>]
-let main argv = 
+let main argv =
+    
+    let config =
+    #if DEBUG
+        "Debug"
+    #else
+        "Release"
+    #endif
 
-    ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
+    ThespianWorker.LocalExecutable <- (__SOURCE_DIRECTORY__ + "/../../src/MBrace.Thespian.Worker/bin/" + config + "/netcoreapp3.1/mbrace.thespian.worker.exe")
 
     let cluster = ThespianCluster.InitOnCurrentMachine(workerCount = 2, logger = new ConsoleLogger())
 

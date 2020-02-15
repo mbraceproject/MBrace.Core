@@ -1,8 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
@@ -18,7 +17,6 @@
     <Compile Include="StoreTests\CloudDictionaryTests.fs" />
     <Compile Include="CloudTests.fs" />
     <Compile Include="CloudFlowTests.fs" />
-    <Content Include="App.config" />
     <Content Include="paket.references" />
     <None Include="paket.template" />
   </ItemGroup>
