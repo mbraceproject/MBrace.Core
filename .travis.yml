@@ -4,8 +4,8 @@ os:
   - linux
   - osx
 
-mono:
-  - latest
+mono: latest
+dotnet: latest
 
 sudo: false
 
