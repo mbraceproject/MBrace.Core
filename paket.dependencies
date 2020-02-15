@@ -39,9 +39,9 @@ group Fsi
   nuget MathNet.Numerics.MKL.Win-x64 ~> 2.3.0
 
 group Build
-  framework: net472
-  redirects: on
   source https://api.nuget.org/v3/index.json
+  redirects: on
+  framework: net472
 
   nuget FAKE ~> 5.0
   github fsharp/FAKE modules/Octokit/Octokit.fsx

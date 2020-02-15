@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\src\MBrace.Core\MBrace.Core.fsproj" />
     <ProjectReference Include="..\..\src\MBrace.Flow\MBrace.Flow.fsproj" />
     <ProjectReference Include="..\..\src\MBrace.Runtime\MBrace.Runtime.fsproj" />
+    <ProjectReference Include="..\..\src\MBrace.Thespian.Worker\MBrace.Thespian.Worker.fsproj" />
     <ProjectReference Include="..\..\src\MBrace.Thespian\MBrace.Thespian.fsproj" />
     <ProjectReference Include="..\MBrace.Core.Tests\MBrace.Core.Tests.fsproj" />
     <ProjectReference Include="..\MBrace.CSharp.Tests\MBrace.CSharp.Tests.csproj" />

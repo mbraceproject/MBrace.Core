@@ -13,7 +13,10 @@ open MBrace.Core.Tests
 [<TestFixture; Category("ThespianClusterTestsVagabond")>]
 module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
-    type private IC = System.Collections.Immutable.IImmutableDictionary<int,int>
+    let (@@) x y = Path.Combine(x,y)
+
+    /// root directory of current repository
+    let repoRoot = Path.GetFullPath (__SOURCE_DIRECTORY__ @@ "../..")
 
     let clusterSize = 2
 
@@ -21,28 +24,25 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
     let runsOnMono = lazy(Type.GetType("Mono.Runtime") <> null)
 
-    // by default, NUnit copies test assemblies to a temp directory
-    // use Directory.GetCurrentDirectory to gain access to the original build directory
-    let private buildDirectory = Directory.GetCurrentDirectory()
-    let getPathLiteral (path : string) =
-        let fullPath =
-            if Path.IsPathRooted path then path
-            else Path.Combine(buildDirectory, path)
-
-        sprintf "@\"%s\"" fullPath
+    module Path =
+        /// for use by fsi evaluators
+        let toEscapedString path = path |> Path.GetFullPath |> sprintf "@\"%s\""
 
     type FsiEvaluationSession with
+        
+        member fsi.AddFolderReference (path : string) =
+            fsi.EvalInteraction ("#I " + Path.toEscapedString path)
         
         member fsi.AddReferences (paths : string list) =
             let directives = 
                 paths 
-                |> Seq.map (fun p -> sprintf "#r %s" <| getPathLiteral p)
-                |> String.concat "\n"
+                |> Seq.map (fun p -> "#r " + Path.toEscapedString p)
+                |> String.concat Environment.NewLine
 
             fsi.EvalInteraction directives
 
         member fsi.LoadScript (path : string) =
-            let directive = sprintf "#load %s" <| getPathLiteral path
+            let directive = "#load " + Path.toEscapedString path
             fsi.EvalInteraction directive
 
         member fsi.TryEvalExpression(code : string) =
@@ -92,31 +92,42 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
     let initFsiSession () =
 
         let fsi = FsiSession.Start()
-        let thespianExe = __SOURCE_DIRECTORY__ + "../../../bin/mbrace.thespian.worker.exe"
+
+        let configuration =
+#if DEBUG
+            "Debug"
+#else
+            "Release"
+#endif
+        let framework = "netcoreapp3.1"
+
+        let thespianWorkerExe = repoRoot @@ sprintf "src/MBrace.Thespian.Worker/bin/%s/%s/mbrace.thespian.worker" configuration framework
+        let dependenciesFolder = __SOURCE_DIRECTORY__ @@ sprintf "bin/%s/%s" configuration framework
 
         // add dependencies
 
+        fsi.AddFolderReference dependenciesFolder
+
         fsi.AddReferences 
             [
-                "MBrace.Core.dll"
-                "MBrace.Flow.dll"
-                "MBrace.Runtime.dll"
-                "FsPickler.dll"
-                "Mono.Cecil.dll"
-                "Vagabond.dll"
-                "Thespian.dll"
-                "MBrace.Thespian.dll"
+                dependenciesFolder @@ "MBrace.Core.dll"
+                dependenciesFolder @@ "MBrace.Flow.dll"
+                dependenciesFolder @@ "FsPickler.dll"
+                dependenciesFolder @@ "Mono.Cecil.dll"
+                dependenciesFolder @@ "Vagabond.dll"
+                dependenciesFolder @@ "MBrace.Runtime.dll"
+                dependenciesFolder @@ "Thespian.dll"
+                dependenciesFolder @@ "MBrace.Thespian.dll"
 
-                "../packages/test/System.Collections.Immutable/lib/portable-net472+win8+wp8+wpa81/System.Collections.Immutable.dll"
-                "../packages/test/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
-                "../packages/test/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
+                repoRoot @@ "packages/fsi/MathNet.Numerics/lib/netstandard2.0/MathNet.Numerics.dll"
+                repoRoot @@ "packages/fsi/MathNet.Numerics.FSharp/lib/netstandard2.0/MathNet.Numerics.FSharp.dll"
             ]
 
         fsi.EvalInteraction "open MBrace.Core"
         fsi.EvalInteraction "open MBrace.Library"
         fsi.EvalInteraction "open MBrace.Flow"
         fsi.EvalInteraction "open MBrace.Thespian"
-        fsi.EvalInteraction <| "ThespianWorker.LocalExecutable <- @\"" + thespianExe + "\""
+        fsi.EvalInteraction <| "ThespianWorker.LocalExecutable <- @\"" + thespianWorkerExe + "\""
         fsi.EvalInteraction <| sprintf "let cluster = ThespianCluster.InitOnCurrentMachine %d" clusterSize
         fsi.EvalInteraction "cluster.AttachLogger(new ConsoleLogger())"
 
@@ -298,12 +309,12 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
             // register native dll's
 
-            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../packages/test/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
+            let nativeDir = repoRoot @@ "packages/fsi/MathNet.Numerics.MKL.Win-x64/build/x64/"
             let libiomp5md = nativeDir + "libiomp5md.dll"
             let mkl = nativeDir + "MathNet.Numerics.MKL.dll"
 
-            fsi.EvalInteraction <| "cluster.RegisterNativeDependency " + getPathLiteral libiomp5md
-            fsi.EvalInteraction <| "cluster.RegisterNativeDependency " + getPathLiteral mkl
+            fsi.EvalInteraction <| "client.RegisterNativeDependency " + Path.toEscapedString libiomp5md
+            fsi.EvalInteraction <| "client.RegisterNativeDependency " + Path.toEscapedString mkl
 
             let code' = """
                 let useNativeMKL () = Control.UseNativeMKL()
