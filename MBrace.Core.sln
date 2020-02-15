@@ -1,12 +1,13 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29813.275
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{6382DB39-BBF3-4137-8644-6C915F279363}"
 	ProjectSection(SolutionItems) = preProject
 		.paket\paket.bootstrapper.exe = .paket\paket.bootstrapper.exe
 		paket.dependencies = paket.dependencies
 		paket.lock = paket.lock
+		.paket\Paket.Restore.targets = .paket\Paket.Restore.targets
 		.paket\paket.targets = .paket\paket.targets
 	EndProjectSection
 EndProject
@@ -131,5 +132,8 @@ Global
 		{4297EDC2-747E-42BB-8552-D8155AE3E8E5} = {9E6D05F7-4934-49C3-99E7-B935D40F7245}
 		{23D6FA43-9413-4605-A021-73B36F6626D4} = {3D64DA53-FC96-4E68-863C-777FE40F0065}
 		{36FB11EA-A176-42F0-8FAA-80BE07DD28BF} = {5D412C1B-BCEA-4DFA-A941-C27571F4D6A3}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A6FC5B00-0090-43F1-AB90-7E9C6C66D5E9}
 	EndGlobalSection
 EndGlobal

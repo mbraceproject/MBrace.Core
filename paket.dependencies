@@ -5,7 +5,7 @@ source https://nuget.org/api/v2
 nuget FSharp.Core >= 4.0 lowest_matching: true
 nuget FsPickler ~> 4.5
 nuget FsPickler.Json
-nuget Vagabond ~> 0.15
+nuget Vagabond ~> 0.15.0
 nuget Argu ~> 3.2
 nuget Thespian ~> 0.1.16-alpha
 nuget Streams
@@ -16,7 +16,7 @@ group Test
   source https://nuget.org/api/v2
 
   nuget FSharp.Core ~> 4.1
-  nuget Vagabond ~> 0.15
+  nuget Vagabond ~> 0.15.0
   nuget Thespian ~> 0.1.16-alpha
   nuget NUnit ~> 2.6
   nuget NUnit.Runners ~> 2.6
@@ -36,7 +36,7 @@ group Build
   redirects: on
   source https://nuget.org/api/v2
 
-  nuget FAKE
+  nuget FAKE ~> 4.0
   nuget SourceLink.Fake
   nuget NuGet.CommandLine
   github fsharp/FAKE modules/Octokit/Octokit.fsx

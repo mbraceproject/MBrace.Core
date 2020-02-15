@@ -11,6 +11,7 @@
     <AssemblyName>MBrace.Thespian.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <Name>MBrace.Thespian.Tests</Name>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -109,7 +110,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
       <ItemGroup>
         <Reference Include="FsCheck">
-          <HintPath>..\..\packages\test\FsCheck\lib\portable-net45+netcore45\FsCheck.dll</HintPath>
+          <HintPath>..\..\packages\test\FsCheck\lib\netstandard1.0\FsCheck.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -228,17 +229,6 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
       <ItemGroup>
-        <Reference Include="System.Runtime.InteropServices.RuntimeInformation">
-          <HintPath>..\..\packages\test\System.Runtime.InteropServices.RuntimeInformation\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
-      <ItemGroup>
         <Reference Include="Thespian">
           <HintPath>..\..\packages\test\Thespian\lib\net45\Thespian.dll</HintPath>
           <Private>True</Private>
@@ -266,8 +256,12 @@
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
+        <Reference Include="Vagabond.AssemblyParser">
+          <HintPath>..\..\packages\test\Vagabond\lib\net45\Vagabond.AssemblyParser.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
       </ItemGroup>
     </When>
   </Choose>
-  <Import Project="..\..\packages\test\NETStandard.Library\build\NETStandard.Library.targets" Condition="Exists('..\..\packages\test\NETStandard.Library\build\NETStandard.Library.targets')" Label="Paket" />
 </Project>

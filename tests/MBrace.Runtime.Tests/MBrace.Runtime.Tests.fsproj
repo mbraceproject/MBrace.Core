@@ -11,6 +11,7 @@
     <AssemblyName>MBrace.Runtime.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <Name>MBrace.Runtime.Tests</Name>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -152,6 +153,11 @@
       <ItemGroup>
         <Reference Include="Vagabond">
           <HintPath>..\..\packages\Vagabond\lib\net45\Vagabond.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Vagabond.AssemblyParser">
+          <HintPath>..\..\packages\Vagabond\lib\net45\Vagabond.AssemblyParser.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

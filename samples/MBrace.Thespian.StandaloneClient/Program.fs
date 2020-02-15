@@ -1,4 +1,6 @@
-﻿open System
+﻿module MBrace.Thespian.StandaloneClient
+
+open System
 open MBrace.Core
 open MBrace.Thespian
 
