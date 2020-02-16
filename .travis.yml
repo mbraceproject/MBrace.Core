@@ -1,8 +1,9 @@
-language: bash
+language: csharp
 os:
   - linux
   - osx
 
+mono: none
 dotnet: latest
 sudo: false
 
