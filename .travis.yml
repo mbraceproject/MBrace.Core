@@ -1,5 +1,4 @@
-language: csharp
-
+language: bash
 os:
   - linux
   - osx
