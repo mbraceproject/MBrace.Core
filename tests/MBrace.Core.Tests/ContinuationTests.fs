@@ -669,49 +669,49 @@ module ``Continuation Tests`` =
     //
 
     [<Test>]
-    let ``Sequential.map`` () =
+    let ``Sequential::map`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.map (fun i -> local { return i + 1 }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential.filter`` () =
+    let ``Sequential::filter`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential.choose`` () =
+    let ``Sequential::choose`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 then Some i else None) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.choose (fun i -> local { return if i % 5 = 0 then Some i else None }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential.fold`` () =
+    let ``Sequential::fold`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.fold (fun s i -> i + s) 0
             let actual = ints |> dseq |> Local.Sequential.fold (fun s i -> local { return s + i }) 0 |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential.collect`` () =
+    let ``Sequential::collect`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential.tryFind`` () =
+    let ``Sequential::tryFind`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.tryFind (fun i -> i % 13 = 0 || i % 7 = 0)
             let actual = ints |> dseq |> Local.Sequential.tryFind (fun i -> local { return i % 13 = 0 || i % 7 = 0 }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential.tryPick`` () =
+    let ``Sequential::tryPick`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.tryPick (fun i -> if i % 13 = 0 || i % 7 = 0 then Some i else None)
             let actual = ints |> dseq |> Local.Sequential.tryPick (fun i -> local { return if i % 13 = 0 || i % 7 = 0 then Some i else None }) |> run
@@ -722,7 +722,7 @@ module ``Continuation Tests`` =
     //
 
     [<Test>]
-    let ``Array.splitByChunkSize`` () =
+    let ``Array::splitByChunkSize`` () =
         Check.QuickThrowOnFail<uint16 * uint16>(fun (chunkSize : uint16, arraySize : uint16) ->
             let chunkSize = 1 + int chunkSize // need size > 0
             let arraySize = int arraySize
@@ -733,7 +733,7 @@ module ``Continuation Tests`` =
             test <@ Array.concat tss = ts @>)
 
     [<Test>]
-    let ``Array.splitByPartitionCount`` () =
+    let ``Array::splitByPartitionCount`` () =
         Check.QuickThrowOnFail<uint16 * uint16>(fun (partitionCount : uint16, arraySize : uint16) ->
             let partitionCount = 1 + int partitionCount // need size > 0
             let arraySize = int arraySize
@@ -743,7 +743,7 @@ module ``Continuation Tests`` =
             test <@ Array.concat tss = ts @>)
 
     [<Test>]
-    let ``Array.splitWeighted`` () =
+    let ``Array::splitWeighted`` () =
         Check.QuickThrowOnFail<uint16 [] * uint16>(fun (weights : uint16 [], arraySize : uint16) ->
             if weights = null || weights.Length = 0 then () else // expected failure case
             let weights = weights |> Array.map (fun w -> 1 + int w) // need weights > 0

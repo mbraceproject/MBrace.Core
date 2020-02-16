@@ -148,13 +148,13 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         FsiSession.Stop()
 
     [<Test>]
-    let ``01. Simple cloud computation`` () =
+    let ``01: Simple cloud computation`` () =
         let fsi = FsiSession.Value
 
         "cloud { return 42 } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 42
 
     [<Test>]
-    let ``02. Simple data dependency`` () =
+    let ``02: Simple data dependency`` () =
         let fsi = FsiSession.Value
 
         "let x = cloud { return 17 + 25 } |> cluster.Run" |> fsi.EvalInteraction
@@ -162,7 +162,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         "cloud { return x } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 42
 
     [<Test>]
-    let ``03. Updating data dependency in single interaction`` () =
+    let ``03: Updating data dependency in single interaction`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction """
@@ -174,7 +174,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalExpression "!x" |> shouldEqual 10
 
     [<Test>]
-    let ``04. Updating data dependency across interactions`` () =
+    let ``04: Updating data dependency across interactions`` () =
         let fsi = FsiSession.Value
 
         "let mutable x = 0" |> fsi.EvalInteraction
@@ -185,7 +185,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
 
     [<Test>]
-    let ``05. Quotation literal`` () =
+    let ``05: Quotation literal`` () =
         let fsi = FsiSession.Value
 
         defineQuotationEvaluator fsi
@@ -193,7 +193,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         "cloud { return eval <@ if true then 1 else 0 @> } |> cluster.Run" |> fsi.EvalExpression |> shouldEqual 1
 
     [<Test>]
-    let ``06. Cross-slice Quotation literal`` () =
+    let ``06: Cross-slice Quotation literal`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction "let x = 41"
@@ -206,7 +206,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
 
     [<Test>]
-    let ``07. Custom type`` () =
+    let ``07: Custom type`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction """
@@ -233,7 +233,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         """ |> fsi.EvalExpression |> shouldEqual 63
 
     [<Test>]
-    let ``08. Persisting custom type to store`` () =
+    let ``08: Persisting custom type to store`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction """
@@ -247,7 +247,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalExpression "toInt cv.Value" |> shouldEqual 3
 
     [<Test>]
-    let ``09. Large static data dependency`` () =
+    let ``09: Large static data dependency`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction "let large = [|1L .. 1000000L|]"
@@ -255,7 +255,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalExpression "cloud { return large.Length } |> cluster.Run" |> shouldEqual 1000000
 
     [<Test>]
-    let ``10. Large static data dependency updated value`` () =
+    let ``10: Large static data dependency updated value`` () =
 
         let fsi = FsiSession.Value
 
@@ -266,7 +266,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
             fsi.EvalExpression "cloud { return large.[499999] } |> cluster.Run" |> shouldEqual i
 
     [<Test>]
-    let ``11. Sifting large static binding`` () =
+    let ``11: Sifting large static binding`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction "let large = [|1L .. 10000000L|]"
@@ -290,7 +290,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
         fsi.EvalExpression "test large" |> shouldEqual true
 
     [<Test>]
-    let ``12. Native Dependencies`` () =
+    let ``12: Native Dependencies`` () =
         if is64BitProcess && not runsOnMono.Value then
             let fsi = FsiSession.Value
 

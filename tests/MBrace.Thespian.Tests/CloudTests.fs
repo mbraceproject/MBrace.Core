@@ -80,23 +80,23 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
     member __.Fini () = session.Stop ()
 
     [<Test>]
-    member __.``1. Runtime : Get worker count`` () =
+    member __.``1: Runtime : Get worker count`` () =
         test <@ runOnCloud (Cloud.GetWorkerCount()) = session.Cluster.Workers.Length @>
 
     [<Test>]
-    member __.``1. Runtime : Get current worker`` () =
+    member __.``1: Runtime : Get current worker`` () =
         runOnCloud Cloud.CurrentWorker |> ignore
 
     [<Test>]
-    member __.``1. Runtime : Get process id`` () =
+    member __.``1: Runtime : Get process id`` () =
         runOnCloud (Cloud.GetCloudProcessId()) |> ignore
 
     [<Test>]
-    member __.``1. Runtime : Get work item id`` () =
+    member __.``1: Runtime : Get work item id`` () =
         runOnCloud (Cloud.GetWorkItemId()) |> ignore
 
     [<Test>]
-    member __.``1. Runtime : Worker Log Observable`` () =
+    member __.``1: Runtime : Worker Log Observable`` () =
         let cluster = session.Cluster
         let worker = cluster.Workers.[0]
         let ra = new ResizeArray<SystemLogEntry>()
@@ -106,7 +106,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         test <@ ra.Count > 0 @>
 
     [<Test>]
-    member __.``1. Runtime : Cluster Log Observable`` () =
+    member __.``1: Runtime : Cluster Log Observable`` () =
         let cluster = session.Cluster
         let ra = new ResizeArray<SystemLogEntry>()
         use d = cluster.SystemLogs.Subscribe ra.Add
@@ -115,7 +115,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         test <@ ra.Count >= cluster.Workers.Length @>
 
     [<Test>]
-    member __.``1. Runtime : CloudProcess Log Observable`` () =
+    member __.``1: Runtime : CloudProcess Log Observable`` () =
         let workflow = cloud {
             let workItem i = local {
                 for j in 1 .. 100 do
@@ -135,13 +135,13 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         test <@ length = 2000 @>
 
     [<Test>]
-    member __.``1. Runtime : Additional Resources`` () =
+    member __.``1: Runtime : Additional Resources`` () =
         let workflow = cloud { return! Cloud.GetResource<int> () }
         let result = session.Cluster.Run(workflow, additionalResources = resource { yield 42 }) 
         test <@ result = 42 @>
 
     [<Test>]
-    member __.``2. Fault Tolerance : map/reduce`` () =
+    member __.``2: Fault Tolerance : map/reduce`` () =
         repeat (fun () ->
             let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
@@ -155,7 +155,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             test <@ t.Result = 100 @>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : Custom fault policy 1`` () =
+    member __.``2: Fault Tolerance : Custom fault policy 1`` () =
         repeat(fun () ->
             let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
@@ -168,7 +168,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             raises<FaultException> <@ t.Result @>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : Custom fault policy 2`` () =
+    member __.``2: Fault Tolerance : Custom fault policy 2`` () =
         repeat(fun () ->
             let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
@@ -185,7 +185,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             raises<FaultException> <@ t.Result @>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : targeted workers`` () =
+    member __.``2: Fault Tolerance : targeted workers`` () =
         repeat(fun () ->
             let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
@@ -204,7 +204,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             raises<FaultException> <@ t.Result @>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : faulted process status`` () =
+    member __.``2: Fault Tolerance : faulted process status`` () =
         repeat (fun () ->
             let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
@@ -224,7 +224,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             test <@ t.Status = CloudProcessStatus.Faulted @>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : persistedCloudFlow`` () =
+    member __.``2: Fault Tolerance : persistedCloudFlow`` () =
         let runtime = session.Cluster
         let n = 1000000
         let wf () = cloud {
@@ -242,7 +242,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
         test <@ result = int64 n @>
 
     [<Test>]
-    member __.``2. Fault Tolerance : fault data`` () =
+    member __.``2: Fault Tolerance : fault data`` () =
         let faultData = session.Cluster.Run(Cloud.TryGetFaultData()) 
         test <@ Option.isNone faultData @>
 
@@ -262,7 +262,7 @@ type ``MBrace Thespian Specialized Cloud Tests`` () =
             test <@ match t.Result with Some { NumberOfFaults = 1 } -> true | _ -> false @>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : protected parallel workflows`` () =
+    member __.``2: Fault Tolerance : protected parallel workflows`` () =
         repeat(fun () ->
             let runtime = session.Cluster
             let f = runtime.Store.CloudAtom.Create(false)
