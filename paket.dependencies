@@ -40,8 +40,12 @@ group Fsi
 
 group Build
   source https://api.nuget.org/v3/index.json
-  redirects: on
-  framework: net472
+  storage: none
 
-  nuget FAKE ~> 5.0
-  github fsharp/FAKE modules/Octokit/Octokit.fsx
+  nuget Fake.Core.UserInput	    ~> 5.19.0
+  nuget Fake.Core.ReleaseNotes  ~> 5.19.0
+  nuget Fake.Core.Target        ~> 5.19.0
+  nuget Fake.IO.FileSystem      ~> 5.19.0
+  nuget Fake.DotNet.Cli         ~> 5.19.0
+  nuget Fake.Tools.Git          ~> 5.19.0
+  nuget Fake.Api.Github         ~> 5.19.0

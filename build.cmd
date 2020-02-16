@@ -1,6 +1,10 @@
 @echo off
 
 dotnet tool restore
-dotnet paket restore
 
-packages\build\FAKE\tools\FAKE.exe build.fsx %*
+REM Use paket and not fake for restoring packages
+REM c.f. https://github.com/fsharp/FAKE/issues/2181
+dotnet paket restore
+set PAKET_SKIP_RESTORE_TARGETS true
+
+dotnet fake run build.fsx %*

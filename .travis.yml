@@ -4,9 +4,7 @@ os:
   - linux
   - osx
 
-mono: latest
 dotnet: latest
-
 sudo: false
 
 install:
