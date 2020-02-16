@@ -313,8 +313,8 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
             let libiomp5md = nativeDir + "libiomp5md.dll"
             let mkl = nativeDir + "MathNet.Numerics.MKL.dll"
 
-            fsi.EvalInteraction <| "client.RegisterNativeDependency " + Path.toEscapedString libiomp5md
-            fsi.EvalInteraction <| "client.RegisterNativeDependency " + Path.toEscapedString mkl
+            fsi.EvalInteraction <| "cluster.RegisterNativeDependency " + Path.toEscapedString libiomp5md
+            fsi.EvalInteraction <| "cluster.RegisterNativeDependency " + Path.toEscapedString mkl
 
             let code' = """
                 let useNativeMKL () = Control.UseNativeMKL()

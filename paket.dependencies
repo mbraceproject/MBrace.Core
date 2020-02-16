@@ -6,7 +6,7 @@ storage: none
 nuget FSharp.Core >= 4.3.2
 nuget FsPickler >= 5.3.1
 nuget FsPickler.Json >= 5.3.1
-nuget Vagabond >= 0.16.0
+nuget Vagabond >= 0.16.2
 nuget Argu >= 6.0
 nuget Thespian >= 0.2.0
 nuget Streams >= 0.5.0
