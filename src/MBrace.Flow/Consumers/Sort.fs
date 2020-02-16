@@ -52,8 +52,7 @@ module Sort =
                                     keys.[counter] <- projection value
                                     values.[counter] <- value
 
-                            failwith "not implemented: work around F# bug"
-                            //Sort.parallelSortWithComparer Environment.ProcessorCount comparer keys values
+                            Sort.parallelSortWithComparer Environment.ProcessorCount comparer keys values
 
                             keys.Take(takeCount).ToArray(), values.Take(takeCount).ToArray()
                     }
@@ -68,8 +67,7 @@ module Sort =
             let! keys, values = source.WithEvaluators collectorF local.Return combine
 
             // finally, merge the sorted results
-            failwith "not implemented: work around F# bug"
-            //Sort.parallelSortWithComparer Environment.ProcessorCount comparer keys values
+            Sort.parallelSortWithComparer Environment.ProcessorCount comparer keys values
 
             let sortedValues = values.Take(takeCount).ToArray()
             return Array.ToCloudFlow(sortedValues, ?degreeOfParallelism = source.DegreeOfParallelism)
