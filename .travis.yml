@@ -1,11 +1,10 @@
 language: csharp
+mono: none
+dotnet: 3.1.101
+sudo: false
 os:
   - linux
   - osx
-
-mono: none
-dotnet: latest
-sudo: false
 
 install:
   - ulimit -n 4096
