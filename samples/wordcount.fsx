@@ -1,5 +1,5 @@
 ﻿(* FSI Initialization Code *)
-#I @"..\bin\"
+#I @"../tests/MBrace.Thespian.Tests/bin/Debug/netcoreapp3.1"
 
 #r "MBrace.Core.dll"
 #r "MBrace.Runtime.dll"
@@ -12,7 +12,7 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../bin/mbrace.thespian.worker.exe"
+ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../src/bin/mbrace.thespian.worker.exe"
 
 (* WordCount Example using CloudFlow *)
 
