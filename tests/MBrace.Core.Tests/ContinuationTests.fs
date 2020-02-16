@@ -669,49 +669,49 @@ module ``Continuation Tests`` =
     //
 
     [<Test>]
-    let ``Sequential::map`` () =
+    let ``Sequential-map`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.map (fun i -> local { return i + 1 }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential::filter`` () =
+    let ``Sequential-filter`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.filter (fun i -> local { return i % 5 = 0 || i % 7 = 0 }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential::choose`` () =
+    let ``Sequential-choose`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 then Some i else None) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.choose (fun i -> local { return if i % 5 = 0 then Some i else None }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential::fold`` () =
+    let ``Sequential-fold`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.fold (fun s i -> i + s) 0
             let actual = ints |> dseq |> Local.Sequential.fold (fun s i -> local { return s + i }) 0 |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential::collect`` () =
+    let ``Sequential-collect`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.collect (fun i -> [(i,1) ; (i,2) ; (i,3)]) |> List.toArray
             let actual = ints |> dseq |> Local.Sequential.collect (fun i -> local { return [(i,1) ; (i,2) ; (i,3)] }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential::tryFind`` () =
+    let ``Sequential-tryFind`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.tryFind (fun i -> i % 13 = 0 || i % 7 = 0)
             let actual = ints |> dseq |> Local.Sequential.tryFind (fun i -> local { return i % 13 = 0 || i % 7 = 0 }) |> run
             test <@ expected = actual @>)
 
     [<Test>]
-    let ``Sequential::tryPick`` () =
+    let ``Sequential-tryPick`` () =
         Check.QuickThrowOnFail<int list>(fun (ints : int list) ->
             let expected = ints |> List.tryPick (fun i -> if i % 13 = 0 || i % 7 = 0 then Some i else None)
             let actual = ints |> dseq |> Local.Sequential.tryPick (fun i -> local { return if i % 13 = 0 || i % 7 = 0 then Some i else None }) |> run

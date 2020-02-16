@@ -94,7 +94,7 @@ type ``CloudFlow tests`` () as self =
 
 
     [<Test>]
-    member __.``1: PersistedCloudFlow : Simple StorageLevel::Disk`` () =
+    member __.``1: PersistedCloudFlow : Simple StorageLevel-Disk`` () =
         if __.IsSupportedStorageLevel StorageLevel.Disk then
             let inputs = [|1L .. 1000000L|]
             let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
@@ -105,7 +105,7 @@ type ``CloudFlow tests`` () as self =
             test <@ persisted.ToEnumerable() |> Seq.toArray = inputs @>
 
     [<Test>]
-    member __.``1: PersistedCloudFlow : Randomized StorageLevel::Disk`` () =
+    member __.``1: PersistedCloudFlow : Randomized StorageLevel-Disk`` () =
         if __.IsSupportedStorageLevel StorageLevel.Disk then
             let f(xs : int[]) =            
                 let x = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.Disk |> runOnCloud
@@ -114,7 +114,7 @@ type ``CloudFlow tests`` () as self =
             Check.QuickThrowOnFail(f, maxRuns = __.FsCheckMaxNumberOfTests, shrink = false)
 
     [<Test>]
-    member __.``1: PersistedCloudFlow : StorageLevel::Memory`` () =
+    member __.``1: PersistedCloudFlow : StorageLevel-Memory`` () =
         if __.IsSupportedStorageLevel StorageLevel.Memory then
             let inputs = [|1L .. 1000000L|]
             let persisted = inputs |> CloudFlow.OfArray |> CloudFlow.cache |> runOnCloud
@@ -131,7 +131,7 @@ type ``CloudFlow tests`` () as self =
         raises <@ persisted |> CloudFlow.length |> runOnCloud @>
 
     [<Test>]
-    member __.``1: PersistedCloudFlow : StorageLevel::Memory caching`` () =
+    member __.``1: PersistedCloudFlow : StorageLevel-Memory caching`` () =
         if __.IsSupportedStorageLevel StorageLevel.Memory then
             // ensure that initial array is large enough for disk caching to kick in,
             // otherwise persisted fragments will be encapsulated in the reference as an optimization.
@@ -144,7 +144,7 @@ type ``CloudFlow tests`` () as self =
                 Assert.AreEqual(x, y)
 
     [<Test>]
-    member __.``1: PersistedCloudFlow : Simple StorageLevel::MemorySerialized`` () =
+    member __.``1: PersistedCloudFlow : Simple StorageLevel-MemorySerialized`` () =
         if __.IsSupportedStorageLevel StorageLevel.MemorySerialized then
             let f(xs : int[]) =            
                 let pf = xs |> CloudFlow.OfArray |> CloudFlow.map ((+)1) |> CloudFlow.persist StorageLevel.MemorySerialized |> runOnCloud
