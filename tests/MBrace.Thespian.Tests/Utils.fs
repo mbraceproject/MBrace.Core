@@ -23,7 +23,7 @@ type RuntimeSession(workerCount : int) =
         "net472"
     #endif
     
-    static do ThespianWorker.LocalExecutable <- (__SOURCE_DIRECTORY__ + "/../../src/MBrace.Thespian.Worker/bin/" + config + "/" + tfm + "/mbrace.thespian.worker.exe")
+    static do ThespianWorker.LocalExecutable <- (__SOURCE_DIRECTORY__ + "/../../src/MBrace.Thespian.Worker/bin/" + config + "/" + tfm + "/mbrace.thespian.worker")
     static let e = ThespianWorker.LocalExecutable
 
     let lockObj = obj ()

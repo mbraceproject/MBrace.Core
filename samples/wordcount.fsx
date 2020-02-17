@@ -12,7 +12,7 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../src/bin/mbrace.thespian.worker.exe"
+ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../src/bin/mbrace.thespian.worker"
 
 (* WordCount Example using CloudFlow *)
 
