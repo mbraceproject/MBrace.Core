@@ -173,10 +173,10 @@ docs/output/
 temp/
 
 # Test results produced by build
-TestResults.xml
+TestResults/
 
 # Nuget outputs
-nuget/*.nupkg
+artifacts/
 
 .fake/
 paket-files/

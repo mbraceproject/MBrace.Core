@@ -4,6 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Description>MBrace wrappers and utilities for C#</Description>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>

@@ -26,7 +26,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{9E6D
 		Directory.Build.props = Directory.Build.props
 		global.json = global.json
 		License.md = License.md
-		nuget\MBrace.Thespian.fsx = nuget\MBrace.Thespian.fsx
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection

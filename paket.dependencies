@@ -14,6 +14,8 @@ nuget System.Management >= 4.7.0
 nuget System.Runtime.Caching >= 4.7.0
 nuget System.Diagnostics.PerformanceCounter >= 4.7.0
 
+nuget Microsoft.SourceLink.GitHub copy_local:true
+
 group Test
   source https://api.nuget.org/v3/index.json
   framework: netcoreapp3.1, net472

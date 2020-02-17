@@ -1,13 +1,17 @@
 image: Visual Studio 2019
 init:
   - git config --global core.autocrlf input
-
 build_script:
-  - cmd: build.cmd -e IgnoreClusterTests=true
-
+  - cmd: build.cmd -e TestCoverage=unit,smoke
 test: off
-
 version: '{build}'
-
 artifacts:
-  - path: artifacts\*.nupkg
+  - path: artifacts
+    name: artifacts
+
+on_finish:
+  - ps: >-
+      $wc = New-Object 'System.Net.WebClient';
+      Foreach ($file in Get-ChildItem './TestResults/*.trx') {
+        $wc.UploadFile("https://ci.appveyor.com/api/testresults/mstest/$($env:APPVEYOR_JOB_ID)", $file.FullName)
+      }

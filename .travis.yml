@@ -10,4 +10,4 @@ install:
   - ulimit -n 4096
 
 script:
-  - ./build.sh -e IgnoreClusterTests=true
+  - ./build.sh -e TestCoverage=unit,smoke

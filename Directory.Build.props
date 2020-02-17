@@ -9,6 +9,7 @@
   <PropertyGroup>
     <Company>Nessos Information Technologies</Company>
     <Authors>Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis</Authors>
+    <PackageTags>F#, cloud, mapreduce, distributed</PackageTags>
     <Copyright>2019</Copyright>
     <RepositoryUrl>https://github.com/mbraceproject/MBrace.Core</RepositoryUrl>
     <PackageProjectUrl>http://mbrace.io</PackageProjectUrl>

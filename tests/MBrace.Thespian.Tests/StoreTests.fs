@@ -11,7 +11,7 @@ open MBrace.Runtime.Utils.XPlat
 
 open NUnit.Framework
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian FileStore Tests`` () =
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
 
@@ -34,7 +34,7 @@ type ``MBrace Thespian FileStore Tests`` () =
     override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
 
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian CloudValue Tests`` () =
     inherit ``CloudValue Tests``(parallelismFactor = 10)
 
@@ -51,7 +51,7 @@ type ``MBrace Thespian CloudValue Tests`` () =
     override __.IsSupportedLevel _ = true
 
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Atom Tests`` () =
     inherit ``CloudAtom Tests``(parallelismFactor = 10)
 
@@ -73,7 +73,7 @@ type ``MBrace Thespian Atom Tests`` () =
     override __.Repeats = 3
 #endif
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Queue Tests`` () =
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
 
@@ -89,7 +89,7 @@ type ``MBrace Thespian Queue Tests`` () =
     override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
     override __.IsSupportedNamedLookup = false
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)
 

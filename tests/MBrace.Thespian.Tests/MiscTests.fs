@@ -11,7 +11,7 @@ open MBrace.Core
 open MBrace.Core.Tests
 open MBrace.Thespian
 
-[<TestFixture; Category("ThespianClusterTests")>]
+[<TestFixture; Category("AcceptanceTests")>]
 module ``MBrace Thespian Misc Tests`` =
 
     [<OneTimeSetUp>]

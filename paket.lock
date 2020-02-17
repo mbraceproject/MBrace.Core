@@ -14,7 +14,12 @@ NUGET
       FSharp.Core (>= 4.3.2)
       FsPickler (>= 5.3.2)
       Newtonsoft.Json (>= 10.0.1)
+    Microsoft.Build.Tasks.Git (1.0) - copy_local: true
     Microsoft.NETCore.Platforms (3.1) - restriction: || (== netcoreapp3.0) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp2.0))
+    Microsoft.SourceLink.Common (1.0) - copy_local: true
+    Microsoft.SourceLink.GitHub (1.0) - copy_local: true
+      Microsoft.Build.Tasks.Git (>= 1.0)
+      Microsoft.SourceLink.Common (>= 1.0)
     Microsoft.Win32.Registry (4.7) - restriction: || (== netcoreapp3.0) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp2.0))
       System.Security.AccessControl (>= 4.7)
       System.Security.Principal.Windows (>= 4.7)

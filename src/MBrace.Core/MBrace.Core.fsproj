@@ -4,6 +4,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Description>The MBrace core library contains all cloud computation essentials,
+libraries and local execution tools for authoring distributed code.</Description>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>
@@ -42,7 +44,6 @@
     <Compile Include="Library\ProtectedParallel.fs" />
     <Compile Include="Library\DomainLocal.fs" />
     <Compile Include="Library\StoreClient.fs" />
-    <None Include="paket.template" />
     <None Include="paket.references" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

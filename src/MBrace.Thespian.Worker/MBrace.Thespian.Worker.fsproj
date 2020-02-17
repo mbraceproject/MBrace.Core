@@ -10,7 +10,6 @@
   <ItemGroup>
     <Compile Include="Main.fs" />
     <None Include="paket.references" />
-    <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MBrace.Thespian\MBrace.Thespian.fsproj" />

@@ -18,7 +18,7 @@ open MBrace.Thespian
 
 #nowarn "444"
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Cloud Tests`` () as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 3000)
 
@@ -64,12 +64,18 @@ type ``MBrace Thespian Cloud Tests`` () as self =
 #endif
 
 
-[<TestFixture; Category("ThespianClusterTests")>]
+[<TestFixture; Category("AcceptanceTests")>]
 type ``MBrace Thespian Specialized Cloud Tests`` () =
 
     let session = new RuntimeSession(workerCount = 4)
 
-    let repeat f = repeat 10 f
+#if DEBUG
+    let repeats = 10
+#else
+    let repeats = 3
+#endif
+
+    let repeat f = repeat repeats f
 
     let runOnCloud (wf : Cloud<'T>) = session.Cluster.Run wf
 

@@ -4,6 +4,12 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Description>
+      MBrace runtime core library containing the foundations
+      for implementing distributed runtimes that support cloud workflows.
+      The runtime core uses FsPickler and Vagabond as a foundation for communication
+      and upload of code.
+    </Description>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>
@@ -51,7 +57,6 @@
     <Compile Include="Components\StoreJsonLogger.fs" />
     <Compile Include="Components\ProcessMonitor.fs" />
     <None Include="paket.references" />
-    <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MBrace.Core\MBrace.Core.fsproj" />

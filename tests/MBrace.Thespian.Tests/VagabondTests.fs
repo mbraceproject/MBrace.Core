@@ -11,7 +11,7 @@ open FSharp.Compiler.SourceCodeServices
 
 open MBrace.Core.Tests
 
-[<TestFixture; Category("ThespianClusterTestsVagabond")>]
+[<TestFixture; Category("SmokeTests")>]
 module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
     let (@@) x y = Path.Combine(x,y)

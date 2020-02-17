@@ -15,6 +15,23 @@ open Fake.Tools
 open Fake.Api
 open System
 
+[<Flags>]
+type TestCoverage =
+    /// Unit tests only
+    | Unit = 1
+    /// Run a subset of acceptance tests for smoke testing
+    | Smoke = 2
+    /// Run the full acceptance test suite
+    | Acceptance = 4
+    /// Run everything
+    | All = 7
+
+module TestCoverage =
+    let parse(value : string) = 
+        let ok, tc = Enum.TryParse<TestCoverage>(value, ignoreCase = true)
+        if ok then tc else invalidArg value "invalid test coverage value"
+
+
 // --------------------------------------------------------------------------------------
 // Information about the project to be used at NuGet and in AssemblyInfo files
 // --------------------------------------------------------------------------------------
@@ -29,8 +46,7 @@ let artifactsDir = __SOURCE_DIRECTORY__ @@ "artifacts"
 
 // annoyingly, fake-cli will not load environment variables before module initialization; delay.
 let configuration () = Environment.environVarOrDefault "Configuration" "Release" |> DotNet.BuildConfiguration.fromString
-let ignoreClusterTests () = Environment.environVarOrDefault "IgnoreClusterTests" "false" |> Boolean.Parse
-let ignoreVagabondTests () = Environment.environVarOrDefault "IgnoreVagabondTests" "false" |> Boolean.Parse
+let getTestCoverage () = Environment.environVarOrDefault "TestCoverage" "all" |> TestCoverage.parse
 
 let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
@@ -60,16 +76,17 @@ Target.create "Build" (fun _ ->
 // Run the unit tests using test runner & kill test runner when complete
 
 Target.create "RunTests" (fun _ ->
+    let testCoverage = getTestCoverage()
     let testFilter =
-        [ if ignoreClusterTests() then yield "TestCategory!=ThespianClusterTests"
-          if ignoreVagabondTests() then yield "TestCategory!=ThespianClusterTestsVagabond" ]
+        [ if not <| testCoverage.HasFlag TestCoverage.Smoke then yield "TestCategory!=SmokeTests"
+          if not <| testCoverage.HasFlag TestCoverage.Acceptance then yield "TestCategory!=AcceptanceTests" ]
         |> String.concat "&"
-
 
     DotNet.test (fun c ->
         { c with
             Configuration = configuration()
             Filter = if testFilter = "" then None else Some testFilter
+            ResultsDirectory = Some "TestResults/"
             NoBuild = true
             Blame = true }) __SOURCE_DIRECTORY__
 )
@@ -77,18 +94,32 @@ Target.create "RunTests" (fun _ ->
 // --------------------------------------------------------------------------------------
 // Build a NuGet package
 
-Target.create "NuGet" (fun _ ->    ()
-    //Paket.Pack (fun p -> 
-    //    { p with 
-    //        ToolPath = ".paket/paket.exe" 
-    //        OutputPath = "bin/"
-    //        Version = nugetVersion
-    //        SpecificVersions = ["MBrace.CSharp", release.NugetVersion + "-alpha"]
-    //        ReleaseNotes = toLines release.Notes })
+Target.create "NuGet.Pack" (fun _ ->
+    let releaseNotes = String.toLines release.Notes |> System.Net.WebUtility.HtmlEncode
+    DotNet.pack (fun pack ->
+        { pack with
+            OutputPath = Some artifactsDir
+            Configuration = DotNet.BuildConfiguration.Release
+            MSBuildParams =
+                { pack.MSBuildParams with
+                    Properties = 
+                        [("Version", release.NugetVersion)
+                         ("PackageReleaseNotes", releaseNotes)] }
+        }) __SOURCE_DIRECTORY__
 )
 
-Target.create "NuGetPush" (fun _ -> ()
-    //Paket.Push (fun p -> { p with WorkingDir = "bin/" ; TimeOut = TimeSpan.FromMinutes 30. })
+Target.create "NuGet.ValidateSourceLink" (fun _ ->
+    for nupkg in !! (artifactsDir @@ "*.nupkg") do
+        let p = DotNet.exec id "sourcelink" (sprintf "test %s" nupkg)
+        if not p.OK then failwithf "failed to validate sourcelink for %s" nupkg
+)
+
+Target.create "NuGet.Push" (fun _ ->
+    for artifact in !! (artifactsDir + "/*nupkg") do
+        let source = "https://api.nuget.org/v3/index.json"
+        let key = Environment.GetEnvironmentVariable "NUGET_KEY"
+        let result = DotNet.exec id "nuget" (sprintf "push -s %s -k %s %s" source key artifact)
+        if not result.OK then failwith "failed to push packages"
 )
 
 
@@ -140,11 +171,12 @@ Target.create "Release" ignore
 "Clean"
   ==> "Build"
   ==> "RunTests"
+  ==> "NuGet.Pack"
+  //==> "NuGet.ValidateSourceLink"
   ==> "Default"
 
-"Build"
-  ==> "NuGet"
-  ==> "NuGetPush"
+"Default"
+  ==> "NuGet.Push"
   ==> "ReleaseGithub"
   ==> "Release"
 

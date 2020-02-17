@@ -1,3 +1,6 @@
+### 1.6.0-alpha
+* Migrate to dotnet core.
+
 ### 1.5.4
 * Upgrade FsPickler.
 
