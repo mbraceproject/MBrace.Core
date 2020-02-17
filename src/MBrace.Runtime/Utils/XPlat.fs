@@ -4,6 +4,7 @@ module MBrace.Runtime.Utils.XPlat
 open System
 open System.Diagnostics
 open System.Threading
+open System.Runtime.InteropServices
 
 type Platform =
     | Windows   = 1
@@ -59,9 +60,8 @@ let currentPlatform = lazy(
 /// gets the current .NET runtime implementation
 let currentRuntime = lazy(
     if System.Type.GetType("Mono.Runtime") <> null then Runtime.Mono
-    else
-        // TODO: CoreCLR support... 
-        Runtime.DesktopCLR)
+    elif RuntimeInformation.FrameworkDescription.StartsWith ".NET Core" then Runtime.CoreCLR
+    else Runtime.DesktopCLR)
 
 /// Gets the home path for the current user
 let getHomePath () =
