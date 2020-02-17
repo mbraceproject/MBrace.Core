@@ -10,4 +10,4 @@ test: off
 version: '{build}'
 
 artifacts:
-  - path: bin\*.nupkg
+  - path: artifacts\*.nupkg
