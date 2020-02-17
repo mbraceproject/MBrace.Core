@@ -31,7 +31,6 @@ let artifactsDir = __SOURCE_DIRECTORY__ @@ "artifacts"
 let configuration () = Environment.environVarOrDefault "Configuration" "Release" |> DotNet.BuildConfiguration.fromString
 let ignoreClusterTests () = Environment.environVarOrDefault "IgnoreClusterTests" "false" |> Boolean.Parse
 let ignoreVagabondTests () = Environment.environVarOrDefault "IgnoreVagabondTests" "false" |> Boolean.Parse
-let includeCSharpLib () = Environment.environVarOrDefault "IncludeCSharpLib" "false" |> Boolean.Parse
 
 let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
