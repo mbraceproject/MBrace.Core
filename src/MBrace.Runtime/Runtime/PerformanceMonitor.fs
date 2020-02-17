@@ -103,7 +103,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
         | Platform.OSX when currentRuntime.Value = Runtime.Mono ->
             // OSX/mono bug workaround https://bugzilla.xamarin.com/show_bug.cgi?id=41328
             let reader () =
-                let _,results = runCommand "ps" "-A -o %cpu"
+                let _,results = runCommand ["ps"; "-A"; "-o" ; "%cpu"]
                 let total =
                     results.Split([|Environment.NewLine|], StringSplitOptions.RemoveEmptyEntries) 
                     |> Array.sumBy (fun t -> let ok,d = Double.TryParse t in if ok then d else 0.)
@@ -151,7 +151,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
 
         | Platform.Linux ->
             try
-                let exitCode,results = runCommand "lscpu" ""
+                let exitCode,results = runCommand ["lscpu"]
                 if exitCode <> 0 then None else
                     let m = Regex.Match(results, "CPU max MHz:\s+([0-9\.]+)")
                     if m.Success then
@@ -172,7 +172,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
 
         | Platform.OSX ->
             try
-                let exitCode,results = runCommand "sysctl" "hw.cpufrequency"
+                let exitCode,results = runCommand ["sysctl"; "hw.cpufrequency"]
                 if exitCode <> 0 then None else
                     let m = Regex.Match(results, "hw.cpufrequency: ([0-9]+)")
                     if m.Success then
@@ -233,7 +233,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
             let pageR = new Regex("page size of ([0-9]+) bytes", RegexOptions.Compiled)
             let entryR = new Regex("([\w ]+):\s+([0-9]+)\.", RegexOptions.Compiled)
             let reader () =
-                let _,data = runCommand "vm_stat" ""
+                let _,data = runCommand ["vm_stat"]
                 let pageSize = pageR.Match(data).Groups.[1].Value |> uint64
                 let d = new Dictionary<string, uint64>()
                 for m in entryR.Matches(data) do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
