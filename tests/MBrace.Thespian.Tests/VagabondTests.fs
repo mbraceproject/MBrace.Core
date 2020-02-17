@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Runtime.InteropServices
 
 open NUnit.Framework
 
@@ -20,9 +21,8 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
     let clusterSize = 2
 
-    let is64BitProcess = IntPtr.Size = 8
-
-    let runsOnMono = lazy(Type.GetType("Mono.Runtime") <> null)
+    let isX64Process = RuntimeInformation.ProcessArchitecture = Architecture.X64
+    let isWindowsProcess = RuntimeInformation.IsOSPlatform OSPlatform.Windows
 
     module Path =
         /// for use by fsi evaluators
@@ -291,7 +291,7 @@ module ``MBrace Thespian Vagabond Tests (FSI)`` =
 
     [<Test>]
     let ``12: Native Dependencies`` () =
-        if is64BitProcess && not runsOnMono.Value then
+        if isWindowsProcess && isX64Process then
             let fsi = FsiSession.Value
 
             let code = """
