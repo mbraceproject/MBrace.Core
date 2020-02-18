@@ -43,6 +43,7 @@ let gitName = "MBrace.Core"
 let gitHome = "https://github.com/" + gitOwner
 
 let artifactsDir = __SOURCE_DIRECTORY__ @@ "artifacts"
+let testResults = __SOURCE_DIRECTORY__ @@ "testResults"
 
 // annoyingly, fake-cli will not load environment variables before module initialization; delay.
 let configuration () = Environment.environVarOrDefault "Configuration" "Release" |> DotNet.BuildConfiguration.fromString
@@ -54,7 +55,7 @@ let release = ReleaseNotes.load "RELEASE_NOTES.md"
 // Clean and restore packages
 
 Target.create "Clean" (fun _ ->
-    Shell.cleanDirs [ artifactsDir ]
+    Shell.cleanDirs [ artifactsDir; testResults ]
 )
 
 // --------------------------------------------------------------------------------------
@@ -84,11 +85,12 @@ Target.create "RunTests" (fun _ ->
 
     DotNet.test (fun c ->
         { c with
+            NoBuild = true
+            Blame = true
             Configuration = configuration()
             Filter = if testFilter = "" then None else Some testFilter
-            ResultsDirectory = Some "TestResults/"
-            NoBuild = true
-            Blame = true }) __SOURCE_DIRECTORY__
+            ResultsDirectory = Some testResults
+            Logger = Some "trx" }) __SOURCE_DIRECTORY__
 )
 
 // --------------------------------------------------------------------------------------
