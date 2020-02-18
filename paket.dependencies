@@ -1,42 +1,53 @@
-framework: net45
-redirects: on
-source https://nuget.org/api/v2
+source https://api.nuget.org/v3/index.json
+framework: auto-detect
+lowest_matching: true
+storage: none
 
-nuget FSharp.Core >= 4.0 lowest_matching: true
-nuget FsPickler ~> 4.5
-nuget FsPickler.Json
-nuget Vagabond ~> 0.15
-nuget Argu ~> 3.2
-nuget Thespian ~> 0.1.16-alpha
-nuget Streams
+nuget FSharp.Core >= 4.3.2
+nuget FsPickler >= 5.3.2
+nuget FsPickler.Json >= 5.3.2
+nuget Vagabond >= 0.16.2
+nuget Argu >= 6.0
+nuget Thespian >= 0.2.0
+nuget Streams >= 0.5.0
+nuget System.Management >= 4.7.0
+nuget System.Runtime.Caching >= 4.7.0
+nuget System.Diagnostics.PerformanceCounter >= 4.7.0
+
+nuget Microsoft.SourceLink.GitHub copy_local:true
 
 group Test
-  framework: net45
-  redirects: on
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
+  framework: netcoreapp3.1, net472
+  storage: none
 
-  nuget FSharp.Core ~> 4.1
-  nuget Vagabond ~> 0.15
-  nuget Thespian ~> 0.1.16-alpha
-  nuget NUnit ~> 2.6
-  nuget NUnit.Runners ~> 2.6
-  nuget FsCheck >= 2.0.1
-  nuget Unquote ~> 3.0
-  nuget Streams.CSharp
-  nuget FSharp.Compiler.Service ~> 16.0
-  nuget MathNet.Numerics ~> 3.7.0
-  nuget MathNet.Numerics.FSharp
-  nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
-  nuget System.Runtime.Loader
-  nuget System.Collections.Immutable ~> 1.2
-  nuget System.Reflection.Metadata ~> 1.4.1 prerelease
+  nuget FSharp.Core ~> 4.7
+  nuget NUnit ~> 3.12
+  nuget NUnit3TestAdapter ~> 3.16
+  nuget Microsoft.Net.Test.SDK ~> 16.4.0
+  nuget FSharp.Compiler.Service ~> 34.0
+  nuget FsCheck ~> 2.14
+  nuget Unquote ~> 5.0
+  nuget Streams.CSharp >= 0.5.0
+
+group Fsi
+  source https://api.nuget.org/v3/index.json
+  framework: netstandard2.0
+
+  nuget FSharp.Data ~> 3.1.1
+  nuget LinqOptimizer.FSharp ~> 0.7.0
+  nuget MathNet.Numerics ~> 4.9.0
+  nuget MathNet.Numerics.FSharp ~> 4.9.0
+  nuget MathNet.Numerics.MKL.Win-x64 ~> 2.3.0
 
 group Build
-  framework: net45
-  redirects: on
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
+  storage: none
 
-  nuget FAKE
-  nuget SourceLink.Fake
-  nuget NuGet.CommandLine
-  github fsharp/FAKE modules/Octokit/Octokit.fsx
+  nuget Fake.Core.UserInput	    ~> 5.19.0
+  nuget Fake.Core.ReleaseNotes  ~> 5.19.0
+  nuget Fake.Core.Target        ~> 5.19.0
+  nuget Fake.IO.FileSystem      ~> 5.19.0
+  nuget Fake.DotNet.Cli         ~> 5.19.0
+  nuget Fake.Tools.Git          ~> 5.19.0
+  nuget Fake.Api.Github         ~> 5.19.0

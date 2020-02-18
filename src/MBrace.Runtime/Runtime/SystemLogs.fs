@@ -325,6 +325,7 @@ type AttacheableLogger private (logLevel : LogLevel, useAsync : bool) =
     interface IDisposable with
         member __.Dispose() = if useAsync then cts.Cancel()
 
+#if !NETCOREAPP
 type private LoggerProxy(logger : ISystemLogger) =
     inherit MarshalByRefObject()
     override __.InitializeLifetimeService() = null
@@ -343,3 +344,4 @@ type MarshaledLogger(logger : ISystemLogger) =
 
     interface ISystemLogger with
         member __.LogEntry(entry : SystemLogEntry) = proxy.LogEntry entry
+#endif

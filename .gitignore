@@ -173,12 +173,13 @@ docs/output/
 temp/
 
 # Test results produced by build
-TestResults.xml
+testResults/
 
 # Nuget outputs
-nuget/*.nupkg
+artifacts/
 
 .fake/
 paket-files/
 
-/.vs/MBrace.Core/v15
+.vs/
+.ionide/

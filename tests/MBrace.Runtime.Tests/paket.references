@@ -1,6 +1,6 @@
-FSharp.Core
-FsPickler
-Vagabond
 group Test
+  FSharp.Core
   Unquote
+  Microsoft.Net.Test.SDK
   NUnit
+  NUnit3TestAdapter

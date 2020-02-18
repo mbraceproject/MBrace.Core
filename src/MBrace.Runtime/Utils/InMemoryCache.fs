@@ -38,7 +38,11 @@ type InMemoryCache private (name : string, config : NameValueCollection) =
             | _ -> invalidArg "physicalMemoryLimitPercentage" "must be between 1 and 100."
         let pollingInterval = defaultArg pollingInterval (TimeSpan.FromSeconds(10.0))
         let config = new NameValueCollection()
-        do config.Add("PhysicalMemoryLimitPercentage", percentage.ToString())
+
+        if XPlat.currentPlatform.Value = Platform.Windows then
+            // TODO: support non-windows platforms
+            do config.Add("PhysicalMemoryLimitPercentage", percentage.ToString())
+
         do config.Add("PollingInterval", pollingInterval.ToString())
         new InMemoryCache(name, config)
 

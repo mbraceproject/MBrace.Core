@@ -100,10 +100,20 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
     // Cpu Usage
     let getCpuUsage =
         match currentPlatform.Value with
-        | Platform.OSX when currentRuntime.Value = Runtime.Mono ->
-            // OSX/mono bug workaround https://bugzilla.xamarin.com/show_bug.cgi?id=41328
+        | Platform.Windows when categoryExistsSafe "Processor" ->
+            try
+                let pc = new PerformanceCounter("Processor", "% Processor Time", "_Total", true)
+                let reader = mkPerfReader pc
+                let _ = reader ()
+                perfCounters.Add pc
+                reader |> mkAveragePoller |> Some
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating CPU usage performance counter:%O" e
+                None
+
+        | Platform.Linux | Platform.OSX | Platform.Unix | Platform.BSD ->
             let reader () =
-                let _,results = runCommand "ps" "-A -o %cpu"
+                let _,results = runCommand ["ps"; "-A"; "-o" ; "%cpu"]
                 let total =
                     results.Split([|Environment.NewLine|], StringSplitOptions.RemoveEmptyEntries) 
                     |> Array.sumBy (fun t -> let ok,d = Double.TryParse t in if ok then d else 0.)
@@ -113,17 +123,6 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
             try
                 let _ = reader () in Some reader
             with e -> 
-                logger.Logf LogLevel.Warning "Error generating CPU usage performance counter:%O" e
-                None
-
-        | _ when categoryExistsSafe "Processor" ->
-            try
-                let pc = new PerformanceCounter("Processor", "% Processor Time", "_Total", true)
-                let reader = mkPerfReader pc
-                let _ = reader ()
-                perfCounters.Add pc
-                reader |> mkAveragePoller |> Some
-            with e ->
                 logger.Logf LogLevel.Warning "Error generating CPU usage performance counter:%O" e
                 None
 
@@ -151,7 +150,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
 
         | Platform.Linux ->
             try
-                let exitCode,results = runCommand "lscpu" ""
+                let exitCode,results = runCommand ["lscpu"]
                 if exitCode <> 0 then None else
                     let m = Regex.Match(results, "CPU max MHz:\s+([0-9\.]+)")
                     if m.Success then
@@ -172,7 +171,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
 
         | Platform.OSX ->
             try
-                let exitCode,results = runCommand "sysctl" "hw.cpufrequency"
+                let exitCode,results = runCommand ["sysctl"; "hw.cpufrequency"]
                 if exitCode <> 0 then None else
                     let m = Regex.Match(results, "hw.cpufrequency: ([0-9]+)")
                     if m.Success then
@@ -211,13 +210,26 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
                 logger.Logf LogLevel.Warning "Error generating total memory performance counter:%O" e
                 None
 
+        | Platform.Linux ->
+            try
+                let regex = new Regex("(\w+):\s+([0-9\.]+) kB")
+                let data = System.IO.File.ReadAllText("/proc/meminfo")
+                let d = new Dictionary<string, uint64>()
+                let matches = regex.Matches(data)
+                for m in matches do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
+                let used = d.["MemTotal"]
+                let mb = double (used / 1024uL)
+                Some(fun () -> mb)
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating total memory performance counter:%O" e
+                None          
+
+
         | _ -> None
     
     let getMemoryUsage =
         match currentPlatform.Value with
-        | Platform.Windows when currentRuntime.Value = Runtime.DesktopCLR && 
-                                categoryExistsSafe "Memory" && 
-                                getTotalMemory.IsSome ->
+        | Platform.Windows when categoryExistsSafe "Memory" && getTotalMemory.IsSome ->
             try
                 let pc = new PerformanceCounter("Memory", "Available Mbytes", true)
                 let reader () = getTotalMemory.Value() - double (pc.NextValue())
@@ -233,7 +245,7 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
             let pageR = new Regex("page size of ([0-9]+) bytes", RegexOptions.Compiled)
             let entryR = new Regex("([\w ]+):\s+([0-9]+)\.", RegexOptions.Compiled)
             let reader () =
-                let _,data = runCommand "vm_stat" ""
+                let _,data = runCommand ["vm_stat"]
                 let pageSize = pageR.Match(data).Groups.[1].Value |> uint64
                 let d = new Dictionary<string, uint64>()
                 for m in entryR.Matches(data) do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
@@ -306,12 +318,12 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
     // View information
 
     let monitored =
-        [   if getCpuUsage.IsSome then  yield "%Cpu"
-            if getCpuFrequency.IsSome then yield "Cpu Clock Speed"
-            if getTotalMemory.IsSome then yield "Total Memory"
-            if getMemoryUsage.IsSome then yield "Memory Used"
-            if getNetworkSentUsage.IsSome then yield "Network (sent)"
-            if getNetworkReceivedUsage.IsSome then yield "Network (received)" ]
+        [   if getCpuUsage.IsSome then "%Cpu"
+            if getCpuFrequency.IsSome then "Cpu Clock Speed"
+            if getTotalMemory.IsSome then "Total Memory"
+            if getMemoryUsage.IsSome then "Memory Used"
+            if getNetworkSentUsage.IsSome then "Network (sent)"
+            if getNetworkReceivedUsage.IsSome then "Network (received)" ]
     
     let getPerfValue (getterOpt : (unit -> double) option) : Nullable<double> =
         match getterOpt with

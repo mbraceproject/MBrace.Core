@@ -39,7 +39,7 @@ module internal WorkerSubscription =
     /// deserialized before initialization.
     type private AppDomainConfig =
         {
-            Logger : MarshaledLogger
+            Logger : Pickle<MarshalledLogger>
             RuntimeState : Pickle<ClusterState>
             WorkingDirectory : string
             Hostname : string
@@ -71,7 +71,7 @@ module internal WorkerSubscription =
                 logger.LogInfo "Initializing AppDomain pool evaluator."
                 let domainConfig =
                     {
-                        Logger = new MarshaledLogger(manager.SystemLogger)
+                        Logger = MarshalledLogger.Create(manager.SystemLogger) |> Config.Serializer.PickleTyped
                         RuntimeState = Config.Serializer.PickleTyped state
                         WorkingDirectory = Config.WorkingDirectory
                         Hostname = Config.HostName
@@ -79,20 +79,21 @@ module internal WorkerSubscription =
 
                 let initializer () =
                     Config.Initialize(populateDirs = false, isClient = false, hostname = domainConfig.Hostname, workingDirectory = domainConfig.WorkingDirectory)
-                    Actor.Logger <- domainConfig.Logger
-                    let domainName = System.AppDomain.CurrentDomain.FriendlyName
-                    domainConfig.Logger.Logf LogLevel.Info "Initializing Application Domain '%s'." domainName
-                    domainConfig.Logger.Logf LogLevel.Info "Thespian listening to %s on AppDomain '%s'." Config.LocalAddress domainName
+                    let logger = Config.Serializer.UnPickleTyped domainConfig.Logger
+                    Actor.Logger <- logger
+                    let currentLoadContext = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(System.Reflection.Assembly.GetExecutingAssembly())
+                    logger.Logf LogLevel.Info "Initializing Load Context '%s'." currentLoadContext.Name
+                    logger.Logf LogLevel.Info "Thespian listening to %s on AppDomain '%s'." Config.LocalAddress currentLoadContext.Name
 
                 let managerF () =
                     // initializer has been run, safe to unpickle overall
                     let state = Config.Serializer.UnPickleTyped domainConfig.RuntimeState
                     let logger = domainConfig.Logger
                     let manager = state.GetLocalRuntimeManager()
-                    let _ = manager.LocalSystemLogManager.AttachLogger(logger)
+                    let _ = manager.LocalSystemLogManager.AttachLogger(Actor.Logger)
                     manager, currentWorker
 
-                AppDomainWorkItemEvaluator.Create(managerF, initializer) :> ICloudWorkItemEvaluator
+                LoadContextWorkItemEvaluator.Create(managerF, initializer) :> ICloudWorkItemEvaluator
             else
                 LocalWorkItemEvaluator.Create(manager, currentWorker) :> ICloudWorkItemEvaluator
 

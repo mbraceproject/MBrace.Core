@@ -1,5 +1,7 @@
 ﻿group Test
   FSharp.Core
-  NUnit
-  FsCheck
+  Microsoft.Net.Test.SDK
   Streams.CSharp
+  NUnit
+  NUnit3TestAdapter
+  FsCheck

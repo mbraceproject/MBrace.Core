@@ -1,10 +1,9 @@
-﻿#I "../../bin/"
-
+﻿#I "../../tests/MBrace.Thespian.Tests/bin/Debug/netcoreapp3.1"
 #r "MBrace.Core.dll"
 #r "MBrace.Runtime.dll"
 #r "MBrace.Thespian.dll"
-#r "MBrace.Flow.dll"
 #r "Streams.dll"
+#r "MBrace.Flow.dll"
 
 open System
 open MBrace.Core
@@ -12,7 +11,7 @@ open MBrace.Library
 open MBrace.Thespian
 open MBrace.Flow
 
-ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.thespian.worker.exe"
+ThespianWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../MBrace.Thespian.Worker/bin/Debug/netcoreapp3.1/mbrace.thespian.worker"
 
 #time "on"
 
@@ -71,3 +70,10 @@ cloud {
     let! p2 = Cloud.CreateProcess(cloud { let! _ = Cloud.Sleep 20000 in return 2 })
     return! Cloud.WhenAny(p1, p2)
 } |> cluster.Run
+
+
+let mutable x = 0
+for i in 1 .. 10 do
+    x <- x + 1
+    let y = cluster.Run( cloud { return x })
+    printfn "%d" y

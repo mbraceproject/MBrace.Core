@@ -61,11 +61,11 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     //
 
     [<Test>]
-    member __.``1. Parallel : empty input`` () =
+    member __.``1: Parallel : empty input`` () =
         test <@ Array.empty<Cloud<int>> |> Cloud.Parallel |> runOnCloud = [||] @>
 
     [<Test>]
-    member __.``1. Parallel : simple inputs`` () =
+    member __.``1: Parallel : simple inputs`` () =
         let parallelismFactor = parallelismFactor
         cloud {
             let f i = cloud { return i + 1 }
@@ -74,7 +74,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``1. Parallel : items should preserve order`` () =
+    member __.``1: Parallel : items should preserve order`` () =
         let inputs = [|1 .. 10|]
         let result =
             inputs
@@ -85,7 +85,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ inputs = result @>
         
     [<Test>]
-    member __.``1. Parallel : random inputs`` () =
+    member __.``1: Parallel : random inputs`` () =
         let checker (ints:int[]) =
             if ints = null then () else
             let maxSize = 5 * parallelismFactor
@@ -99,7 +99,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : use binding`` () =
+    member __.``1: Parallel : use binding`` () =
         let parallelismFactor = parallelismFactor
         let c = CloudAtom.New 0 |> runOnCurrentProcess
         let comp = cloud {
@@ -112,7 +112,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ c.Value = parallelismFactor + 1 @>
 
     [<Test>]
-    member  __.``1. Parallel : exception handler`` () =
+    member  __.``1: Parallel : exception handler`` () =
         let comp = cloud {
             try
                 let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
@@ -125,7 +125,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ runOnCloud comp = 3 @>
 
     [<Test>]
-    member  __.``1. Parallel : finally`` () =
+    member  __.``1: Parallel : finally`` () =
         let trigger = runOnCurrentProcess <| CloudAtom.New 0
         let comp = Cloud.TryFinally( cloud {
             let! _,_ = cloud { return 1 } <||> cloud { return invalidOp "failure" }
@@ -135,7 +135,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ trigger.Value = 1 @>
 
     [<Test>]
-    member __.``1. Parallel : simple nested`` () =
+    member __.``1: Parallel : simple nested`` () =
         let nNested = nNested
         let comp = cloud {
             let f i j = cloud { return i + j + 1 }
@@ -152,7 +152,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ runOnCloud comp = expected @>
             
     [<Test>]
-    member __.``1. Parallel : simple exception`` () =
+    member __.``1: Parallel : simple exception`` () =
         let parallelismFactor = parallelismFactor
         let comp = cloud {
             let f i = cloud { return if i = parallelismFactor / 2 then invalidOp "failure" else i + 1 }
@@ -163,7 +163,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         raises<InvalidOperationException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``1. Parallel : exception contention`` () =
+    member __.``1: Parallel : exception contention`` () =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             // test that exception continuation was fired precisely once
@@ -183,7 +183,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ runOnCloud comp = 1 @>)
 
     [<Test>]
-    member __.``1. Parallel : exception cancellation`` () =
+    member __.``1: Parallel : exception cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let comp = cloud {
@@ -206,7 +206,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ runOnCloud comp = 0 @>)
 
     [<Test>]
-    member __.``1. Parallel : nested exception cancellation`` () =
+    member __.``1: Parallel : nested exception cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let comp = cloud {
@@ -233,7 +233,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             
 
     [<Test>]
-    member __.``1. Parallel : simple cancellation`` () =
+    member __.``1: Parallel : simple cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let counter = CloudAtom.New 0 |> runOnCurrentProcess
@@ -253,7 +253,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ counter.Value = 0 @>)
 
     [<Test>]
-    member __.``1. Parallel : as local`` () =
+    member __.``1: Parallel : as local`` () =
         repeat(fun () ->
             // check local semantics are forced by using ref cells.
             local {
@@ -268,7 +268,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             } |> runOnCloud)
 
     [<Test>]
-    member __.``1. Parallel : local`` () =
+    member __.``1: Parallel : local`` () =
         repeat(fun () ->
             // check local semantics are forced by using ref cells.
             local {
@@ -283,21 +283,21 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             } |> runOnCloud)
 
     [<Test>]
-    member __.``1. Parallel : MapReduce recursive`` () =
+    member __.``1: Parallel : MapReduce recursive`` () =
         // naive, binary recursive mapreduce implementation
         repeat(fun () -> 
             let result = WordCount.run 20 WordCount.mapReduceRec |> runOnCloud
             test <@ result = 100 @>)
 
     [<Test>]
-    member __.``1. Parallel : MapReduce balanced`` () =
+    member __.``1: Parallel : MapReduce balanced`` () =
         // balanced, core implemented MapReduce algorithm
         repeat(fun () -> 
             let result = WordCount.run 1000 Cloud.Balanced.mapReduceLocal |> runOnCloud
             test <@ result = 5000 @>)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.map`` () =
+    member __.``1: Parallel : Cloud-Balanced-map`` () =
         let checker (ints : int list) =
             let expected = ints |> List.map (fun i -> i + 1) |> List.toArray
             let actual =
@@ -310,7 +310,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.filter`` () =
+    member __.``1: Parallel : Cloud-Balanced-filter`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 5 = 0 || i % 7 = 0) |> List.toArray
             let actual =
@@ -323,7 +323,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.choose`` () =
+    member __.``1: Parallel : Cloud-Balanced-choose`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 5 = 0 || i % 7 = 0 then Some i else None) |> List.toArray
             let actual =
@@ -336,7 +336,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.fold`` () =
+    member __.``1: Parallel : Cloud-Balanced-fold`` () =
         let checker (ints : int list) =
             let expected = ints |> List.fold (fun s i -> s + i) 0
             let actual =
@@ -349,7 +349,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.collect`` () =
+    member __.``1: Parallel : Cloud-Balanced-collect`` () =
         let checker (ints : int []) =
             let expected = ints |> Array.collect (fun i -> [|(i,1) ; (i,2) ; (i,3)|])
             let actual =
@@ -362,7 +362,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.groupBy`` () =
+    member __.``1: Parallel : Cloud-Balanced-groupBy`` () =
         let checker (ints : int []) =
             let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.toArray v) |> Seq.toArray
             let actual =
@@ -375,7 +375,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.foldBy`` () =
+    member __.``1: Parallel : Cloud-Balanced-foldBy`` () =
         let checker (ints : int []) =
             let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
             let actual =
@@ -388,7 +388,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : Cloud.Balanced.foldByLocal`` () =
+    member __.``1: Parallel : Cloud-Balanced-foldByLocal`` () =
         let checker (ints : int []) =
             let expected = ints |> Seq.groupBy id |> Seq.map (fun (k,v) -> k, Seq.sum v) |> Seq.toArray
             let actual =
@@ -401,7 +401,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``1. Parallel : to all workers`` () =
+    member __.``1: Parallel : to all workers`` () =
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
                 cloud {
@@ -411,7 +411,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 } |> runOnCloud)
 
     [<Test>]
-    member __.``1. Parallel : to current worker`` () =
+    member __.``1: Parallel : to current worker`` () =
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
                 cloud {
@@ -421,7 +421,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 } |> runOnCloud)
 
     [<Test>]
-    member __.``1. Parallel : nonserializable type`` () =
+    member __.``1: Parallel : nonserializable type`` () =
         if __.UsesSerialization then
             let comp = cloud { 
                 let! _ = Cloud.Parallel [ for _ in 1 .. 5 -> cloud { return new System.Net.WebClient() } ]
@@ -431,7 +431,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             raises<SerializationException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``1. Parallel : nonserializable object`` () =
+    member __.``1: Parallel : nonserializable object`` () =
         if __.UsesSerialization then
             let comp = cloud { 
                 let! _ = Cloud.Parallel [ for _ in 1 .. 5 -> cloud { return box (new System.Net.WebClient()) } ]
@@ -441,7 +441,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             raises<SerializationException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``1. Parallel : nonserializable closure`` () =
+    member __.``1: Parallel : nonserializable closure`` () =
         if __.UsesSerialization then
             let comp = cloud { 
                 let client = new System.Net.WebClient()
@@ -456,11 +456,11 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     //
 
     [<Test>]
-    member __.``2. Choice : empty input`` () =
+    member __.``2: Choice : empty input`` () =
         test <@ Cloud.Choice List.empty<Cloud<int option>> |> runOnCloud = None @>
 
     [<Test>]
-    member __.``2. Choice : random inputs`` () =
+    member __.``2: Choice : random inputs`` () =
         let checker (size : bool list) =
             let expected = size |> Seq.mapi (fun i b -> (i,b)) |> Seq.filter snd |> Seq.map fst |> set
             let worker i b = cloud { return if b then Some i else None }
@@ -475,7 +475,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``2. Choice : all inputs 'None'`` () =
+    member __.``2: Choice : all inputs 'None'`` () =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             let count = CloudAtom.New 0 |> runOnCurrentProcess
@@ -492,7 +492,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ count.Value = parallelismFactor @>)
 
     [<Test>]
-    member __.``2. Choice : one input 'Some'`` () =
+    member __.``2: Choice : one input 'Some'`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
@@ -514,7 +514,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ count.Value = 0 @>)
 
     [<Test>]
-    member __.``2. Choice : all inputs 'Some'`` () =
+    member __.``2: Choice : all inputs 'Some'`` () =
         repeat(fun () ->
             let successcounter = CloudAtom.New 0 |> runOnCurrentProcess
             let comp = cloud {
@@ -529,7 +529,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ successcounter.Value = 1 @>)
 
     [<Test>]
-    member __.``2. Choice : simple nested`` () =
+    member __.``2: Choice : simple nested`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
@@ -553,7 +553,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ counter.Value < parallelismFactor / 2 @>)
 
     [<Test>]
-    member __.``2. Choice : nested exception cancellation`` () =
+    member __.``2: Choice : nested exception cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let nNested = nNested
@@ -576,7 +576,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ counter.Value = 0 @>)
 
     [<Test>]
-    member __.``2. Choice : simple cancellation`` () =
+    member __.``2: Choice : simple cancellation`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
@@ -596,7 +596,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ counter.Value = 0 @>)
 
     [<Test>]
-    member __.``2. Choice : as local`` () =
+    member __.``2: Choice : as local`` () =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             // check local semantics are forced by using ref cells.
@@ -619,7 +619,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ runOnCloud comp = Some (parallelismFactor / 2) @>)
 
     [<Test>]
-    member __.``2. Choice : local`` () =
+    member __.``2: Choice : local`` () =
         repeat(fun () ->
             let parallelismFactor = parallelismFactor
             // check local semantics are forced by using ref cells.
@@ -642,7 +642,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ runOnCloud comp = Some (parallelismFactor / 2) @>)
 
     [<Test>]
-    member __.``2. Choice : Cloud.Balanced.tryFind`` () =
+    member __.``2: Choice : Cloud-Balanced-tryFind`` () =
         let checker (ints : int list) =
             let expected = ints |> List.filter (fun i -> i % 7 = 0 && i % 5 = 0) |> set
             let actual =
@@ -655,7 +655,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``2. Choice : Cloud.Balanced.tryPick`` () =
+    member __.``2: Choice : Cloud-Balanced-tryPick`` () =
         let checker (ints : int list) =
             let expected = ints |> List.choose (fun i -> if i % 7 = 0 && i % 5 = 0 then Some i else None) |> set
             let actual =
@@ -668,7 +668,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``2. Choice : Cloud.Balanced.exists`` () =
+    member __.``2: Choice : Cloud-Balanced-exists`` () =
         let checker (bools : bool []) =
             let expected = Array.exists id bools
             let actual =
@@ -681,7 +681,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``2. Choice : Cloud.Balanced.forall`` () =
+    member __.``2: Choice : Cloud-Balanced-forall`` () =
         let checker (bools : bool []) =
             let expected = Array.forall id bools
             let actual =
@@ -694,7 +694,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         Check.QuickThrowOnFail(checker, maxRuns = __.FsCheckMaxTests, shrink = false)
 
     [<Test>]
-    member __.``2. Choice : to all workers`` () =
+    member __.``2: Choice : to all workers`` () =
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
                 cloud {
@@ -706,7 +706,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 } |> runOnCloud)
 
     [<Test>]
-    member __.``2. Choice : to current worker`` () =
+    member __.``2: Choice : to current worker`` () =
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
                 cloud {
@@ -716,7 +716,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 } |> runOnCloud)
 
     [<Test>]
-    member __.``2. Choice : nonserializable closure`` () =
+    member __.``2: Choice : nonserializable closure`` () =
         if __.UsesSerialization then
             let comp = cloud { 
                 let client = new System.Net.WebClient()
@@ -733,7 +733,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
     //
 
     [<Test>]
-    member __.``3. CloudProcess: with success`` () =
+    member __.``3: CloudProcess: with success`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let comp = cloud {
@@ -753,7 +753,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ runOnCloud comp = 1 @>)
 
     [<Test>]
-    member __.``3. CloudProcess: with exception`` () =
+    member __.``3: CloudProcess: with exception`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let count = CloudAtom.New 0 |> runOnCurrentProcess
@@ -778,7 +778,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ count.Value = 2 @>)
 
     [<Test>]
-    member __.``3. CloudProcess: with cancellation token`` () =
+    member __.``3: CloudProcess: with cancellation token`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let count = CloudAtom.New 0 |> runOnCurrentProcess
@@ -802,7 +802,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             test <@ count.Value = 1 @>)
 
     [<Test>]
-    member __.``3. CloudProcess: to current worker`` () =
+    member __.``3: CloudProcess: to current worker`` () =
         if __.IsTargetWorkerSupported then
             repeat(fun () ->
                 cloud {
@@ -813,7 +813,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
                 } |> runOnCloud)
 
     [<Test>]
-    member __.``3. CloudProcess: await with timeout`` () =
+    member __.``3: CloudProcess: await with timeout`` () =
         let delayFactor = delayFactor
         repeat(fun () ->
             let comp = cloud {
@@ -824,7 +824,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             raises<TimeoutException> <@ runOnCloud comp @>)
 
     [<Test>]
-    member __.``3. CloudProcess: await cancelled process`` () =
+    member __.``3: CloudProcess: await cancelled process`` () =
         let comp = cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
             cts.Cancel()
@@ -840,19 +840,19 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ runOnCloud comp = true @>
 
     [<Test>]
-    member __.``1. CloudProcess : nonserializable type`` () =
+    member __.``1: CloudProcess : nonserializable type`` () =
         if __.UsesSerialization then
             let comp = cloud { return new System.Net.WebClient() }
             raises<SerializationException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``1. CloudProcess : nonserializable object`` () =
+    member __.``1: CloudProcess : nonserializable object`` () =
         if __.UsesSerialization then
             let comp = cloud { return box (new System.Net.WebClient()) }
             raises<SerializationException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``1. CloudProcess : nonserializable closure`` () =
+    member __.``1: CloudProcess : nonserializable closure`` () =
         if __.UsesSerialization then
             let comp = cloud { 
                 let client = new System.Net.WebClient()
@@ -862,7 +862,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             raises<SerializationException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``3. CloudProcess: WhenAny`` () =
+    member __.``3: CloudProcess: WhenAny`` () =
         let delayFactor = delayFactor
         let comp = cloud {
             let! ct = Cloud.CancellationToken
@@ -877,7 +877,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ runOnCloud comp = (1, true, false, false) @>
 
     [<Test>]
-    member __.``3. CloudProcess: WhenAll`` () =
+    member __.``3: CloudProcess: WhenAll`` () =
         let delayFactor = delayFactor
         let comp = cloud {
             let! ct = Cloud.CancellationToken
@@ -897,7 +897,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         
 
     [<Test>]
-    member t.``4. Logging`` () =
+    member t.``4: Logging`` () =
         let delayFactor = delayFactor
 
         let comp = cloud {
@@ -919,7 +919,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         test <@ logSize = 2000 @>
 
     [<Test>]
-    member t.``4. Clone Object`` () =
+    member t.``4: Clone Object`` () =
         cloud {
             let a = [1 .. 100]
             let! b = Serializer.Clone a
@@ -927,7 +927,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member t.``4. Binary Serialize Object`` () =
+    member t.``4: Binary Serialize Object`` () =
         cloud {
             let a = [1 .. 100]
             let! bytes = Serializer.Pickle a
@@ -936,7 +936,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member t.``4. Text Serialize Object`` () =
+    member t.``4: Text Serialize Object`` () =
         cloud {
             let a = [1 .. 100]
             let! text = Serializer.PickleToString a
@@ -945,11 +945,11 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. IsTargetWorkerSupported`` () =
+    member __.``4: IsTargetWorkerSupported`` () =
         test <@ Cloud.IsTargetedWorkerSupported |> runOnCloud = __.IsTargetWorkerSupported @>
 
     [<Test>]
-    member __.``4. Cancellation token: simple cancellation`` () =
+    member __.``4: Cancellation token: simple cancellation`` () =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
@@ -959,7 +959,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Cancellation token: distributed cancellation`` () =
+    member __.``4: Cancellation token: distributed cancellation`` () =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
@@ -969,7 +969,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Cancellation token: simple parent cancellation`` () =
+    member __.``4: Cancellation token: simple parent cancellation`` () =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
@@ -983,7 +983,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Cancellation token: simple child cancellation`` () =
+    member __.``4: Cancellation token: simple child cancellation`` () =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
@@ -997,7 +997,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Cancellation token: distributed child cancellation`` () =
+    member __.``4: Cancellation token: distributed child cancellation`` () =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
@@ -1009,7 +1009,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Cancellation token: nested distributed child cancellation`` () =
+    member __.``4: Cancellation token: nested distributed child cancellation`` () =
         let delayFactor = delayFactor
         cloud {
             let! cts = Cloud.CreateCancellationTokenSource()
@@ -1022,7 +1022,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Cancellation token: local semantics`` () =
+    member __.``4: Cancellation token: local semantics`` () =
         local {
             let! cts = 
                 let cp = Local.Parallel [ Cloud.CancellationToken ; Cloud.CancellationToken ]
@@ -1037,7 +1037,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Cancellation token: disposal`` () =
+    member __.``4: Cancellation token: disposal`` () =
         let delayFactor = delayFactor
         cloud {
             let! cts = cloud {
@@ -1053,7 +1053,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. Fault Policy: update over parallelism`` () =
+    member __.``4: Fault Policy: update over parallelism`` () =
         // checks that non-serializable entities do not get accidentally captured in closures.
         cloud {
             let workflow = Cloud.Parallel[Cloud.FaultPolicy ; Cloud.FaultPolicy]
@@ -1062,7 +1062,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``4. DomainLocal`` () =
+    member __.``4: DomainLocal`` () =
         let domainLocal = DomainLocal.Create(local { let! w = Cloud.CurrentWorker in return Guid.NewGuid(), w })
         cloud {
             let! results = Cloud.ParallelEverywhere domainLocal.Value 
@@ -1072,7 +1072,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
 
     [<Test>]
-    member __.``5. Simple sifting of large value`` () =
+    member __.``5: Simple sifting of large value`` () =
         if __.IsSiftedWorkflowSupported then
             let large = [|1L .. 10000000L|]
             cloud {
@@ -1090,7 +1090,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             } |> runOnCloud
 
     [<Test>]
-    member __.``5. Simple sifting of nested large value`` () =
+    member __.``5: Simple sifting of nested large value`` () =
         if __.IsSiftedWorkflowSupported then
             let large = [|1L .. 10000001L|]
             let smallContainer = [| large ; [||] ; large ; [||] ; large |]
@@ -1118,7 +1118,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
 
 
     [<Test>]
-    member __.``5. Sifting of variably sized large value`` () =
+    member __.``5: Sifting of variably sized large value`` () =
         if __.IsSiftedWorkflowSupported then
             let large = [for i in 1 .. 1000000 -> seq { for _ in 0 .. i % 7 -> "lorem ipsum"} |> String.concat "-"]
             cloud {
@@ -1137,7 +1137,7 @@ type ``Cloud Tests`` (parallelismFactor : int, delayFactor : int) as self =
             } |> runOnCloud
 
     [<Test>]
-    member __.``5. Sifting array of intermediately sized elements`` () =
+    member __.``5: Sifting array of intermediately sized elements`` () =
         if __.IsSiftedWorkflowSupported then
             // assumes sift threshold between ~ 500K and 20MB
             let mkSmall() = [|1 .. 100000|]

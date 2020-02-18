@@ -1,11 +1,8 @@
 group Test
   FSharp.Core
-  Vagabond
-  Thespian
+  Microsoft.Net.Test.SDK
   NUnit
+  NUnit3TestAdapter
   FsCheck
   FSharp.Compiler.Service
   Unquote
-  Streams
-  System.Collections.Immutable
-  System.Reflection.Metadata

@@ -2,9 +2,7 @@
 
 open System
 open System.IO
-open System.Collections.Concurrent
-open System.Diagnostics
-open System.Threading
+open System.Runtime.InteropServices
 
 open Nessos.Thespian
 
@@ -13,10 +11,8 @@ open MBrace.Core.Internals
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Store
 
 open MBrace.Thespian.Runtime
-open MBrace.Thespian.Runtime.WorkerConfiguration
 
 /// A system logger that writes entries to stdout.
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
@@ -68,6 +64,7 @@ type ThespianWorker private (uri : string) =
     let state = CacheAtom.Create(protectAsync(async { return! aref <!- GetState }))
     do ignore state.Value
 
+    static let isWindowsPlatform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
     static let mutable executable = None
 
     /// Gets or sets a local path to the MBrace.Thespian worker executable.
@@ -77,6 +74,7 @@ type ThespianWorker private (uri : string) =
         and set path = 
             let path = Path.GetFullPath path
             if File.Exists path then executable <- Some path
+            elif isWindowsPlatform && File.Exists (path + ".exe") then executable <- Some (path + ".exe")
             else raise <| FileNotFoundException(path)
 
     /// MBrace uri identifier for worker instance.

@@ -8,16 +8,16 @@ open MBrace.Core.Tests
 open MBrace.Thespian
 open MBrace.CSharp.Tests
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Cloud CSharp Tests`` () =
     inherit CloudTests()
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
     
     override __.Run(expr : Cloud<'T>) : 'T = session.Cluster.Run(expr, faultPolicy = FaultPolicy.NoRetry)
@@ -28,16 +28,16 @@ type ``MBrace Thespian Cloud CSharp Tests`` () =
         System.Threading.Thread.Sleep 1000
         job.GetLogs () |> Array.map CloudLogEntry.Format
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian CloudFlow CSharp Tests`` () =
     inherit CloudFlowTests()
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
       
     override __.FsCheckMaxNumberOfTests = 10  

@@ -9,16 +9,16 @@ open MBrace.Core.Internals
 open MBrace.Core.Tests
 open MBrace.Thespian
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Flow Tests`` () =
     inherit ``CloudFlow tests`` ()
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
       
     override __.FsCheckMaxNumberOfTests = 10  

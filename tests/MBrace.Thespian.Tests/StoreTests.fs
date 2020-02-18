@@ -11,16 +11,16 @@ open MBrace.Runtime.Utils.XPlat
 
 open NUnit.Framework
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian FileStore Tests`` () =
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
 
     override __.FileStore = session.Cluster.GetResource<ICloudFileStore>()
@@ -34,16 +34,16 @@ type ``MBrace Thespian FileStore Tests`` () =
     override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
 
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian CloudValue Tests`` () =
     inherit ``CloudValue Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
@@ -51,16 +51,16 @@ type ``MBrace Thespian CloudValue Tests`` () =
     override __.IsSupportedLevel _ = true
 
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Atom Tests`` () =
     inherit ``CloudAtom Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.IsSupportedNamedLookup = false
@@ -73,32 +73,32 @@ type ``MBrace Thespian Atom Tests`` () =
     override __.Repeats = 3
 #endif
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Queue Tests`` () =
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.Run (workflow : Cloud<'T>) = session.Cluster.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
     override __.IsSupportedNamedLookup = false
 
-[<Category("ThespianClusterTests")>]
+[<Category("AcceptanceTests")>]
 type ``MBrace Thespian Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(parallelismFactor = 10)
 
     let session = new RuntimeSession(workerCount = 4)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop ()
 
     override __.IsInMemoryFixture = false

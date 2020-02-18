@@ -1,13 +1,10 @@
 @echo off
 
-.paket\paket.bootstrapper.exe
-if errorlevel 1 (
-  exit /b %errorlevel%
-)
+dotnet tool restore
 
-.paket\paket.exe restore -v
-if errorlevel 1 (
-  exit /b %errorlevel%
-)
+REM Use paket and not fake for restoring packages
+REM c.f. https://github.com/fsharp/FAKE/issues/2181
+dotnet paket restore
+set PAKET_SKIP_RESTORE_TARGETS true
 
-packages\build\FAKE\tools\FAKE.exe build.fsx %*
+dotnet fake run build.fsx %*

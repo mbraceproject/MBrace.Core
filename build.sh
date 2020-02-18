@@ -1,33 +1,10 @@
-#!/bin/bash
-if [ "X$OS" = "XWindows_NT" ] ; then
-  # use .Net
+#!/usr/bin/env bash
 
-  .paket/paket.bootstrapper.exe
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
+dotnet tool restore
 
-  .paket/paket.exe restore -v
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
+#Use paket and not fake for restoring packages
+#c.f. https://github.com/fsharp/FAKE/issues/2181                                                                                                                                                                dotnet paket restore                                                                                                                                                                                               export PAKET_SKIP_RESTORE_TARGETS=true 
+dotnet paket restore
+export PAKET_SKIP_RESTORE_TARGETS=true
 
-  packages/build/FAKE/tools/FAKE.exe $@ --fsiargs build.fsx 
-else
-
-  # use mono
-  mono .paket/paket.bootstrapper.exe
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-
-  mono .paket/paket.exe restore -v
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-  mono packages/build/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
-fi
+dotnet fake run build.fsx "$@"

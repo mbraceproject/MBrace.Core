@@ -8,7 +8,7 @@ open MBrace.Core.Internals
 open MBrace.Library
 
 open MBrace.Vagabond
-open MBrace.Vagabond.AppDomainPool
+open MBrace.Vagabond.LoadContextPool
 
 open MBrace.Runtime.Utils
 
@@ -195,7 +195,7 @@ type LocalWorkItemEvaluator private (manager : IRuntimeManager, currentWorker : 
 /// Loading of assembly dependencies is performed by Vagabond, in a way where conflicting
 /// dependencies will never be collocated in the same AppDomain.
 [<AutoSerializable(false)>]
-type AppDomainWorkItemEvaluator private (configInitializer : DomainLocal<IRuntimeManager * IWorkerId>, pool : AppDomainEvaluatorPool) =
+type LoadContextWorkItemEvaluator private (configInitializer : DomainLocal<IRuntimeManager * IWorkerId>, pool : AssemblyLoadContextEvaluatorPool) =
 
     /// <summary>
     ///     Creates a new AppDomain evaluator instance with provided parameters.
@@ -203,18 +203,18 @@ type AppDomainWorkItemEvaluator private (configInitializer : DomainLocal<IRuntim
     /// <param name="initRuntimeConfig">AppDomain runtime configuration factory. Must be serializable lambda.</param>
     /// <param name="initializer">Optional domain initialization code. Is run before the configuration factory upon domain creation.</param>
     /// <param name="threshold">Timespan after which unused domain will be discarded.</param>
-    /// <param name="minConcurrentDomains">Minimum permitted number of concurrent AppDomains.</param>
-    /// <param name="maxConcurrentDomains">Maximum permitted number of concurrent AppDomains.</param>
+    /// <param name="minConcurrentContexts">Minimum permitted number of concurrent LoadContexts.</param>
+    /// <param name="maxConcurrentContexts">Maximum permitted number of concurrent LoadContexts.</param>
     static member Create(initRuntimeConfig : unit -> IRuntimeManager * IWorkerId,
                                 ?initializer : unit -> unit, ?threshold : TimeSpan, 
-                                ?minConcurrentDomains : int, ?maxConcurrentDomains : int) =
+                                ?minConcurrentContexts : int, ?maxConcurrentContexts : int) =
 
         let domainInitializer () = initializer |> Option.iter (fun f -> f ())
-        let pool = AppDomainEvaluatorPool.Create(domainInitializer, ?threshold = threshold, 
-                                                    ?minimumConcurrentDomains = minConcurrentDomains,
-                                                    ?maximumConcurrentDomains = maxConcurrentDomains)
+        let pool = AssemblyLoadContextEvaluatorPool.Create(domainInitializer, ?threshold = threshold, 
+                                                    ?minimumConcurrentContexts = minConcurrentContexts,
+                                                    ?maximumConcurrentContexts = maxConcurrentContexts)
 
-        new AppDomainWorkItemEvaluator(DomainLocal.Create initRuntimeConfig, pool)
+        new LoadContextWorkItemEvaluator(DomainLocal.Create initRuntimeConfig, pool)
 
     interface ICloudWorkItemEvaluator with
         member __.Evaluate (assemblies : VagabondAssembly[], workItemToken:ICloudWorkItemLeaseToken) = async {

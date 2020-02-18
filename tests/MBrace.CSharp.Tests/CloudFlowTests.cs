@@ -21,7 +21,7 @@ namespace MBrace.CSharp.Tests
     }
 
     [TestFixture]
-    abstract public class CloudFlowTests
+    public abstract class CloudFlowTests
     {
         abstract public T Run<T>(Cloud<T> c);
         abstract public T RunLocally<T>(Cloud<T> c);
@@ -226,6 +226,5 @@ namespace MBrace.CSharp.Tests
                 return x.SequenceEqual(y);
             }).QuickThrowOnFail(this.FsCheckMaxNumberOfTests, shrink: false);
         }
-
     }
 }

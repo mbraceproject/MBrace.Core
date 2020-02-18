@@ -1,33 +1,13 @@
 language: csharp
-
+dotnet: 3.1.101
+mono: none
+sudo: false
 os:
   - linux
   - osx
-
-mono:
-  - latest
-
-sudo: false
 
 install:
   - ulimit -n 4096
 
 script:
-  - ./build.sh -ef IgnoreClusterTests
-
-#  matrix:
-#  exclude:
-#    - os: osx
-#      mono: 4.4.2
-#    - os: osx
-#      mono: 4.8.0
-#
-#  allow_failures:
-#    - os: osx
-#      mono: latest
-#    - os: linux
-#      mono: latest
-#    - os: linux
-#      mono: 4.8.0
-#    - os: osx
-#      mono: latest
+  - ./build.sh -e TestCoverage=unit,smoke

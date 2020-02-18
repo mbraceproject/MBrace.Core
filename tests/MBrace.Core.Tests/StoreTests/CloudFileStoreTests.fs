@@ -41,15 +41,15 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
     //
 
     [<Test>]
-    member self.``1. FileStore : UUID is not null or empty.`` () = 
+    member self.``1: FileStore : UUID is not null or empty`` () = 
         test <@ String.IsNullOrEmpty self.FileStore.Id = false @>
 
     [<Test>]
-    member self.``1. FileStore : check case sensitivity.`` () = 
+    member self.``1: FileStore : check case sensitivity`` () = 
         test <@ self.FileStore.IsCaseSensitiveFileSystem = self.IsCaseSensitive @>
 
     [<Test>]
-    member self.``1. FileStore : Store instance should be serializable`` () =
+    member self.``1: FileStore : Store instance should be serializable`` () =
         let fileStore2 = self.Serializer.Clone self.FileStore
         test <@ fileStore2.Id = self.FileStore.Id @>
         test <@ fileStore2.Name = self.FileStore.Name @>
@@ -66,7 +66,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ self.FileStore.FileExists file |> runSync = false @>
 
     [<Test>]
-    member self.``1. FileStore : Create and delete directory.`` () =
+    member self.``1: FileStore : Create and delete directory`` () =
         let dir = self.FileStore.GetRandomDirectoryName()
         test <@ self.FileStore.DirectoryExists dir |> runSync = false @>
         self.FileStore.CreateDirectory dir |> runSync
@@ -75,19 +75,19 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ self.FileStore.DirectoryExists dir |> runSync = false @>
 
     [<Test>]
-    member self.``1. FileStore : Get directory`` () =
+    member self.``1: FileStore : Get directory`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         test <@ file |> self.FileStore.GetDirectoryName = testDirectory.Value @>
 
     [<Test>]
-    member self.``1. FileStore : Get file name`` () =
+    member self.``1: FileStore : Get file name`` () =
         let name = "test.txt"
         let file = self.FileStore.Combine [|testDirectory.Value ; name |]
         test <@ file |> self.FileStore.GetDirectoryName = testDirectory.Value @>
         test <@ file |> self.FileStore.GetFileName = name @>
 
     [<Test>]
-    member __.``1. FileStore : Enumerate root directories`` () =
+    member __.``1: FileStore : Enumerate root directories`` () =
         let directory = self.FileStore.GetRandomDirectoryName()
         self.FileStore.CreateDirectory directory |> runSync
         let directories = self.FileStore.EnumerateRootDirectories() |> runSync
@@ -95,7 +95,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteDirectory(directory, recursiveDelete = false) |> runSync
 
     [<Test>]
-    member self.``1. FileStore : Create, read and delete a file.`` () = 
+    member self.``1: FileStore : Create, read and delete a file`` () = 
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
 
         test <@ self.FileStore.FileExists file |> runSync = false @>
@@ -119,7 +119,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ self.FileStore.FileExists file |> runSync = false @>
 
     [<Test>]
-    member self.``1. FileStore : simple etag verification`` () =
+    member self.``1: FileStore : simple etag verification`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
 
         test <@ self.FileStore.TryGetETag file |> runSync = None @>
@@ -135,7 +135,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ self.FileStore.TryGetETag file |> runSync = None @>
 
     [<Test>]
-    member self.``1. FileStore : etag should change after file overwritten`` () =
+    member self.``1: FileStore : etag should change after file overwritten`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
 
         test <@ self.FileStore.TryGetETag file |> runSync = None @>
@@ -153,7 +153,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member self.``1. FileStore : Get byte count`` () =
+    member self.``1: FileStore : Get byte count`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         // write to file
         let _ = self.FileStore.WriteETag(file, fun stream -> async { do for i = 1 to 100 do stream.WriteByte(byte i) }) |> runSync
@@ -163,7 +163,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member self.``1. FileStore : upload local file to the cloud.`` () =
+    member self.``1: FileStore : upload local file to the cloud`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         let localFile = Path.GetTempFileName()
         File.WriteAllBytes(localFile, [|1uy .. 100uy|])
@@ -173,7 +173,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member self.``1. FileStore : download local file from the cloud.`` () =
+    member self.``1: FileStore : download local file from the cloud`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         let localFile = Path.GetTempFileName()
 
@@ -190,7 +190,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member self.``1. FileStore : Create and Read a large file.`` () =
+    member self.``1: FileStore : Create and Read a large file`` () =
         let data = Array.init (1024 * 1024 * 4) byte
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         
@@ -208,7 +208,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member self.``1. FileStore : from stream to file and back to stream.`` () =
+    member self.``1: FileStore : from stream to file and back to stream`` () =
         let data = Array.init (1024 * 1024) byte
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         do
@@ -224,7 +224,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file |> runSync
 
     [<Test>]
-    member self.``1. FileStore : Concurrent writes to single path`` () =
+    member self.``1: FileStore : Concurrent writes to single path`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         let data = Array.init (1024 * 1024) byte
         let writeData _ = async {
@@ -237,7 +237,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ self.FileStore.GetFileSize file |> Async.RunSync = (1024L * 1024L) @>
 
     [<Test>]
-    member self.``1. FileStore : Concurrent reads to single path`` () =
+    member self.``1: FileStore : Concurrent reads to single path`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         let data = Array.init (1024 * 1024) byte
         do
@@ -260,7 +260,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
             @>
 
     [<Test>]
-    member self.``1. FileStore : Deleting non-existent path`` () =
+    member self.``1: FileStore : Deleting non-existent path`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         self.FileStore.DeleteFile file |> Async.RunSync
 
@@ -270,12 +270,12 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         self.FileStore.DeleteFile file' |> Async.RunSync
 
     [<Test>]
-    member self.``1. FileStore : Deleting non-existent directory`` () =
+    member self.``1: FileStore : Deleting non-existent directory`` () =
         let dir = self.FileStore.GetRandomDirectoryName()
         self.FileStore.DeleteDirectory(dir, false) |> Async.RunSync
 
     [<Test>]
-    member self.``1. FileStore : Reading non-existent file should raise FileNotFoundException.`` () =
+    member self.``1: FileStore : Reading non-existent file should raise FileNotFoundException`` () =
         let file = self.FileStore.GetRandomFilePath testDirectory.Value
         raises<FileNotFoundException> <@ self.FileStore.BeginRead file |> Async.RunSync @>
 
@@ -297,7 +297,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         raises<FileNotFoundException> <@ self.FileStore.GetLastModifiedTime (file', isDirectory = false) |> Async.RunSync @>
 
     [<Test>]
-    member self.``1. FileStore : Reading non-existent directory should raise DirectoryNotFoundException.`` () =
+    member self.``1: FileStore : Reading non-existent directory should raise DirectoryNotFoundException`` () =
         let dir = self.FileStore.GetRandomDirectoryName()
         raises<DirectoryNotFoundException> <@ self.FileStore.EnumerateFiles dir |> Async.RunSync @>
 
@@ -306,7 +306,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         raises<DirectoryNotFoundException> <@ self.FileStore.GetLastModifiedTime(dir, isDirectory = true) |> Async.RunSync @>
 
     [<Test>]
-    member self.``1. FileStore : should support unicode file names.`` () = 
+    member self.``1: FileStore : should support unicode file names`` () = 
         let fs = self.FileStore
         let dir = fs.GetRandomDirectoryName()
         let path = fs.Combine(dir, "ἱστοχῶρος.txt")
@@ -327,7 +327,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
 
     [<Test>]
-    member __.``2. MBrace : relative file paths should always give same absolute`` () = 
+    member __.``2: MBrace : relative file paths should always give same absolute`` () = 
         cloud {
             let path = Path.GetRandomFileName()
             let! cf = CloudFile.WriteAllText(path, "text")
@@ -336,12 +336,12 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``2. MBrace : PersistedValue - simple`` () = 
+    member __.``2: MBrace : PersistedValue - simple`` () = 
         let ref = runOnCloud <| PersistedValue.New 42
         test <@ ref.Value = 42 @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedValue - should error if reading from changed persist file`` () =
+    member __.``2: MBrace : PersistedValue - should error if reading from changed persist file`` () =
         let comp = cloud {
             let! c = PersistedValue.New [1..10000]
             do! CloudFile.Delete c.Path
@@ -358,7 +358,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         raises<InvalidDataException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedValue - Parallel`` () =
+    member __.``2: MBrace : PersistedValue - Parallel`` () =
         let comp = cloud {
             let! ref = PersistedValue.New [1 .. 100]
             let! (x, y) = cloud { return ref.Value.Length } <||> cloud { return ref.Value.Length }
@@ -368,20 +368,20 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = 200 @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedValue - Distributed tree`` () =
+    member __.``2: MBrace : PersistedValue - Distributed tree`` () =
         let tree = CloudTree.createTree 5 |> runOnCloud
         test <@ CloudTree.getBranchCount tree |> runOnCloud = 31 @>
 
 
     [<Test>]
-    member __.``2. MBrace : PersistedSequence - simple`` () = 
+    member __.``2: MBrace : PersistedSequence - simple`` () = 
         let b = runOnCloud <| PersistedSequence.New [1..10000]
         test <@ b.Count = 10000L @>
         test <@ b |> Seq.sum = List.sum [1..10000] @>
         test <@ b.ToArray() |> Array.sum = List.sum [1..10000] @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedSequence - should error if reading from changed persist file`` () =
+    member __.``2: MBrace : PersistedSequence - should error if reading from changed persist file`` () =
         let comp = cloud {
             let! c = PersistedSequence.New [1..10000]
             do! CloudFile.Delete c.Path
@@ -399,7 +399,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         raises<InvalidDataException> <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedSequence - parallel`` () =
+    member __.``2: MBrace : PersistedSequence - parallel`` () =
         let ref = runOnCloud <| PersistedSequence.New [1..10000]
         test <@ Seq.length ref = 10000 @>
         let comp = cloud {
@@ -415,7 +415,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = 20000 @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedSequence - partitioned`` () =
+    member __.``2: MBrace : PersistedSequence - partitioned`` () =
         let comp = cloud {
             let! seqs = PersistedSequence.NewPartitioned([|1L .. 1000000L|], 1024L * 1024L)
             test <@ seqs.Length >= 8 && seqs.Length < 10 @>
@@ -426,7 +426,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = Array.sum [|1L .. 1000000L|] @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedSequence - of deserializer`` () =
+    member __.``2: MBrace : PersistedSequence - of deserializer`` () =
         let comp = cloud {
             let! path = CloudPath.GetRandomFileName()
             use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
@@ -445,7 +445,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = 100 @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedSequence - read lines`` () =
+    member __.``2: MBrace : PersistedSequence - read lines`` () =
         let comp = cloud {
             let! path = CloudPath.GetRandomFileName()
             use! file = CloudFile.WriteAllLines(path, [1..100] |> List.map (fun i -> string i))
@@ -456,7 +456,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = 100 @>
 
     [<Test>]
-    member __.``2. MBrace : PersistedSequence - read lines partitioned`` () =
+    member __.``2: MBrace : PersistedSequence - read lines partitioned`` () =
         let text = "lorem ipsum dolor sit amet consectetur adipiscing elit"
         let lines = Seq.init 1000 (fun i -> text.Substring(0, i % 41))
         let check i (line:string) = 
@@ -490,7 +490,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
 
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - simple`` () =
+    member __.``2: MBrace : CloudFile - simple`` () =
         let path = CloudPath.GetRandomFileName() |> runOnCurrentProcess
         let file = CloudFile.WriteAllBytes(path, [|1uy .. 100uy|]) |> runOnCloud
         test <@ file.Size = 100L @>
@@ -502,7 +502,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = 100 @>
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - large`` () =
+    member __.``2: MBrace : CloudFile - large`` () =
         let file =
             cloud {
                 let text = Seq.init 1000 (fun _ -> "lorem ipsum dolor sit amet")
@@ -518,7 +518,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = 1000 @>
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - read from stream`` () =
+    member __.``2: MBrace : CloudFile - read from stream`` () =
         let mk a = Array.init (a * 1024) byte
         let n = 512
         let comp = cloud {
@@ -537,7 +537,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = (mk n) @>
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - get by name`` () =
+    member __.``2: MBrace : CloudFile - get by name`` () =
         let comp = cloud {
             let! path = CloudPath.GetRandomFileName()
             use! f = CloudFile.WriteAllBytes(path, [|1uy..100uy|])
@@ -549,7 +549,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = [|1uy .. 100uy|] @>
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - disposable`` () =
+    member __.``2: MBrace : CloudFile - disposable`` () =
         let comp = cloud {
             let! path = CloudPath.GetRandomFileName()
             let! file = CloudFile.WriteAllText(path, "lorem ipsum dolor")
@@ -560,7 +560,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         raises <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - get files in container`` () =
+    member __.``2: MBrace : CloudFile - get files in container`` () =
         let comp = cloud {
             let! fs = CloudStore.FileSystem
             let container = fs.Path.GetRandomDirectoryName()
@@ -577,7 +577,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         test <@ runOnCloud comp = true @>
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - attempt to write on stream`` () =
+    member __.``2: MBrace : CloudFile - attempt to write on stream`` () =
         let comp = local {
             let! path = CloudPath.GetRandomFileName()
             do! local {
@@ -593,7 +593,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         raises <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``2. MBrace : CloudFile - attempt to read nonexistent file`` () =
+    member __.``2: MBrace : CloudFile - attempt to read nonexistent file`` () =
         let comp = local {
             let! cf = CloudFile.GetInfo (Guid.NewGuid().ToString())
             use! stream = CloudFile.BeginRead cf.Path
@@ -603,7 +603,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         raises <@ runOnCloud comp @>
 
     [<Test>]
-    member __.``2. MBrace : CloudDirectory - Create; populate; delete`` () =
+    member __.``2: MBrace : CloudDirectory - Create; populate; delete`` () =
         cloud {
             let! dirPath = CloudPath.GetRandomDirectoryName()
             let! dir = CloudDirectory.Create dirPath
@@ -625,7 +625,7 @@ type ``CloudFileStore Tests`` (parallelismFactor : int) as self =
         } |> runOnCloud
 
     [<Test>]
-    member __.``2. MBrace : CloudDirectory - dispose`` () =
+    member __.``2: MBrace : CloudDirectory - dispose`` () =
         let dir, file =
             cloud {
                 let! dirPath = CloudPath.GetRandomDirectoryName()
