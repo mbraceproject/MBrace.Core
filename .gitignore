@@ -173,7 +173,7 @@ docs/output/
 temp/
 
 # Test results produced by build
-TestResults/
+testResults/
 
 # Nuget outputs
 artifacts/
