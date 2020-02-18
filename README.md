@@ -1,7 +1,11 @@
-[![Join the chat at https://gitter.im/mbraceproject/MBrace.Core](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/mbraceproject/MBrace.Core?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/)
-
 # MBrace Core Libraries
+
+[![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/)
+[![Windows](https://ci.appveyor.com/api/projects/status/36o1p0fiaucy6d2l/branch/master?svg=true)](https://ci.appveyor.com/project/dsyme/mbrace-core/branch/master) 
+[![Linux/OSX](https://travis-ci.org/mbraceproject/MBrace.Core.svg?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![GitHub language count](https://img.shields.io/github/languages/count/mbraceproject/MBrace.Core)
+![GitHub top language](https://img.shields.io/github/languages/top/mbraceproject/MBrace.Core)
 
 This repository contains core libraries and runtime foundation components 
 for the MBrace cloud programming model and frameworks.
@@ -10,7 +14,7 @@ For a first introduction to MBrace please refer to the main website at [mbrace.i
 If you have any questions regarding MBrace don't hesitate to create an issue or ask one of the [maintainers](#maintainers). 
 You can also follow the official MBrace twitter account [@mbracethecloud](https://twitter.com/mbracethecloud).
 
-### MBrace.Core [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/) [![AppVeyor/Windows](https://ci.appveyor.com/api/projects/status/36o1p0fiaucy6d2l/branch/master?svg=true)](https://ci.appveyor.com/project/dsyme/mbrace-core/branch/master) [![Travis/Linux](https://travis-ci.org/mbraceproject/MBrace.Core.png?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core/branches)
+### MBrace.Core [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/)
 
 [MBrace.Core](https://github.com/mbraceproject/MBrace.Core/tree/master/src/MBrace.Core) is a standalone class library that contains the core MBrace programming model, used to author general-purpose, runtime-agnostic distributed computation. It is centered on the concept of *cloud workflows*, a composable, language-integrated API based on F# computation expressions. It can be used to author specialized cloud libraries like MBrace.Flow.
 
