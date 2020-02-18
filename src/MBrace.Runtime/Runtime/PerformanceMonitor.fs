@@ -210,6 +210,21 @@ type PerformanceMonitor private (?updateInterval : int, ?maxSamplesCount : int,
                 logger.Logf LogLevel.Warning "Error generating total memory performance counter:%O" e
                 None
 
+        | Platform.Linux ->
+            try
+                let regex = new Regex("(\w+):\s+([0-9\.]+) kB")
+                let data = System.IO.File.ReadAllText("/proc/meminfo")
+                let d = new Dictionary<string, uint64>()
+                let matches = regex.Matches(data)
+                for m in matches do d.Add(m.Groups.[1].Value, uint64 m.Groups.[2].Value)
+                let used = d.["MemTotal"]
+                let mb = double (used / 1024uL)
+                Some(fun () -> mb)
+            with e ->
+                logger.Logf LogLevel.Warning "Error generating total memory performance counter:%O" e
+                None          
+
+
         | _ -> None
     
     let getMemoryUsage =
