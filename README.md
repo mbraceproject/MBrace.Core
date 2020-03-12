@@ -1,8 +1,8 @@
 # MBrace Core Libraries
 
 [![NuGet Status](http://img.shields.io/nuget/vpre/MBrace.Core.svg?style=flat)](https://www.nuget.org/packages/MBrace.Core/)
-[![Windows](https://ci.appveyor.com/api/projects/status/36o1p0fiaucy6d2l/branch/master?svg=true)](https://ci.appveyor.com/project/dsyme/mbrace-core/branch/master) 
-[![Linux/OSX](https://travis-ci.org/mbraceproject/MBrace.Core.svg?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core)
+[![Windows Build & Tests](https://ci.appveyor.com/api/projects/status/36o1p0fiaucy6d2l/branch/master?svg=true)](https://ci.appveyor.com/project/dsyme/mbrace-core/branch/master) 
+[![Linux/OSX Build & Tests](https://travis-ci.org/mbraceproject/MBrace.Core.svg?branch=master)](https://travis-ci.org/mbraceproject/MBrace.Core)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![GitHub language count](https://img.shields.io/github/languages/count/mbraceproject/MBrace.Core)
 ![GitHub top language](https://img.shields.io/github/languages/top/mbraceproject/MBrace.Core)
